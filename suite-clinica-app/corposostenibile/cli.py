@@ -78,20 +78,12 @@ def _register_basic_commands(app: Flask) -> None:  # pragma: no cover
 # ═══════════════════ 2. Comandi caricati dinamicamente ═════════════════
 # Ogni modulo indicato deve esporre una funzione  register(app)
 
+
 _SCRIPT_MAP: Dict[str, str] = {
     # alias               : modulo che contiene  register(app)
     # --------------------------------------------------------------
-    "seed":               "scripts.seed_db",
-    "seed-dummy":         "scripts.seed_dummy",
-    "seed-admin":         "scripts.seed_admin",         # Crea utente admin
-    "import-xlsx":        "scripts.import_xlsx",        # legacy → solo clienti
-    "import-xlsx-all":    "scripts.import_xlsx_all",    # nuovo → clienti + contabilità
-    "import-contabilita": "scripts.import_xlsx_all",    # alias del precedente
-    "import-clienti":     "scripts.import_clienti",     # ← NUOVO COMANDO AGGIUNTO
-    "export-csv":         "scripts.export_db",
-    "create-admin":       "scripts.create_admin",
-    "clean-clienti":      "scripts.clean_clienti",      # Pulisce solo tabella clienti
-    "clean-clienti-simple": "scripts.clean_clienti_simple", # Versione semplificata
+    # Nessuno script esterno configurato al momento
+    # Aggiungi qui eventuali script futuri se necessario
 }
 
 
