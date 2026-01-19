@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}429 - Troppe Richieste – Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card text-center py-5">
+                <div class="card-body">
+                    <i class="ri-timer-line ri-4x text-warning mb-3"></i>
+                    <h1 class="mb-3">429</h1>
+                    <h4>Troppe Richieste</h4>
+                    <p class="text-muted mb-4">{{ message|default('Hai effettuato troppe richieste. Attendi qualche minuto prima di riprovare.') }}</p>
+                    <div class="mt-4">
+                        <p class="text-muted">Riprova tra <span id="countdown">60</span> secondi...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let seconds = 60;
+const countdown = setInterval(() => {
+    seconds--;
+    document.getElementById('countdown').textContent = seconds;
+    if (seconds <= 0) {
+        clearInterval(countdown);
+        location.reload();
+    }
+}, 1000);
+</script>
+{% endblock %}

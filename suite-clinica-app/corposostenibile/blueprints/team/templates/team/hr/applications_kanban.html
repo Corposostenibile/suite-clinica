@@ -1,0 +1,218 @@
+{# ====================================================================== #}
+{#  templates/team/hr/applications_kanban.html                            #}
+{#  Kanban – Processo di Selezione (14 stage)                             #}
+{# ====================================================================== #}
+{% extends "base.html" %}
+
+{% block title %}{{ opening.title }} • Kanban candidature{% endblock %}
+
+{# ---------------------------------------------------------------------- #
+   Extra CSS + meta CSRF                                                  #
+# ---------------------------------------------------------------------- #}
+{% block extra_css %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+  /* Kanban cards ---------------------------------------------------- */
+  .kanban-card           {min-width:320px;border:1px solid var(--bs-border-color-translucent);border-radius:8px;transition:box-shadow .2s;cursor:grab}
+  .kanban-card:hover     {box-shadow:0 8px 22px rgba(0,0,0,.08)}
+  .kanban-card.dragging  {opacity:.4}
+
+  /* Icon button ----------------------------------------------------- */
+  .icon-btn       {width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .15s,color .15s}
+  .icon-btn:hover {background:var(--bs-secondary-bg);color:var(--bs-primary)}
+
+  /* Meta rows ------------------------------------------------------- */
+  .kanban-meta-row{margin-bottom:.75rem}
+
+  /* Wrapper colonne ------------------------------------------------- */
+  .kanban-wrapper {display:flex;align-items:flex-start;gap:24px;min-width:1400px}
+  .kanban-column  {min-width:280px;flex:1}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+{% endblock %}
+
+{% block content %}
+{# Dizionario etichette colonne (chiave = AppStageEnum.value) ----------- #}
+{% set labels = {
+  'cv_received'          : 'CV ricevuti',
+  'cv_approved'          : 'CV approvati',
+  'cv_rejected'          : 'CV scartati',
+  'video_requested'      : 'Video richiesto',
+  'video_received'       : 'Video ricevuto',
+  'video_approved'       : 'Video approvato',
+  'video_rejected'       : 'Video scartato',
+  'call1_proposed'       : 'Call 1 proposta',
+  'call1_done'           : 'Call 1 eseguita',
+  'contract_presented'   : 'Contratto presentato',
+  'contract_refused'     : 'Contratto rifiutato',
+  'call2_responsible'    : 'Call 2 responsabile',
+  'hired_signed'         : 'Assunzione',
+  'rejected_after_call2' : 'Esclusi Call 2'
+} %}
+<section class="p-24">
+
+  {# ▸ HEADER ----------------------------------------------------------- #}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">
+      {{ opening.title }}
+      <small class="fw-normal text-muted">
+        ({{ opening.department.name if opening.department else '—' }})
+      </small>
+    </h6>
+    <a href="{{ url_for('hr.openings_list') }}" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+      <iconify-icon icon="ri:arrow-left-line"></iconify-icon> Indietro
+    </a>
+  </div>
+
+  {# ▸ FLASH ------------------------------------------------------------ #}
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      <div class="mb-24">
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='warning' else 'success' if cat=='success' else cat }} alert-dismissible fade show">
+            {{ msg }} <button class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {# ▸ KANBAN ----------------------------------------------------------- #}
+  <div class="overflow-x-auto scroll-sm pb-8">
+    <div class="kanban-wrapper">
+      <div class="d-flex align-items-start gap-24">
+        {% for st in stages %}
+          {# Badge colore dinamico ------------------------------------ #}
+          {% set badge_cls =
+            'bg-success' if st.value == 'hired_signed' else
+            'bg-danger'  if st.value in ['cv_rejected','video_rejected','contract_refused','rejected_after_call2'] else
+            'bg-warning' if st.value in ['video_requested','call1_proposed','call2_responsible'] else
+            'bg-secondary' %}
+          <div class="kanban-column">
+            <div class="card radius-12 shadow-none">
+              <div class="card-body p-0 pb-24">
+
+                {# Header colonna -------------------------------------- #}
+                <div class="d-flex align-items-center justify-content-between gap-2 ps-24 pt-24 pe-24">
+                  <h6 class="fw-semibold mb-0" title="{{ labels[st.value] }}">
+                    {{ labels[st.value] }}
+                  </h6>
+                  <span class="badge {{ badge_cls }}">{{ board[st] | length }}</span>
+                </div>
+
+                {# Drop-zone carte ------------------------------------ #}
+                <div class="connectedSortable ps-24 pt-24 pe-24"
+                     id="col-{{ st.value }}" data-stage="{{ st.value }}">
+                  {% for app in board[st] %}
+                    <div class="kanban-card bg-neutral-50 p-16 mb-24" data-id="{{ app.id }}">
+
+                      <h6 class="fw-semibold mb-1">{{ app.candidate.full_name }}</h6>
+                      <p class="text-secondary-light mb-3" title="{{ app.candidate.email }}">{{ app.candidate.email }}</p>
+
+                      <hr class="my-12">
+
+                      {# Meta rows ---------------------------------- #}
+                      <div class="kanban-meta-row d-flex align-items-center gap-2">
+                        <iconify-icon icon="solar:calendar-outline" class="text-success"></iconify-icon>
+                        <span class="text-secondary-light">
+                          {{ app.applied_at.strftime('%d %b %Y') if app.applied_at else '—' }}
+                        </span>
+                      </div>
+
+                      {% if app.candidate.phone %}
+                        <div class="kanban-meta-row d-flex align-items-center gap-2">
+                          <iconify-icon icon="solar:phone-outline" class="text-success"></iconify-icon>
+                          <span class="text-secondary-light">{{ app.candidate.phone }}</span>
+                        </div>
+                      {% endif %}
+
+                      {% if app.source %}
+                        <div class="kanban-meta-row d-flex align-items-center gap-2">
+                          <iconify-icon icon="ph:share-network" class="text-success"></iconify-icon>
+                          <span class="text-secondary-light">{{ app.source|capitalize }}</span>
+                        </div>
+                      {% endif %}
+
+                      {% if app.candidate.cv_file %}
+                        <div class="kanban-meta-row d-flex align-items-center gap-2">
+                          <iconify-icon icon="solar:document-outline" class="text-success"></iconify-icon>
+                          <span class="text-secondary-light">CV disponibile</span>
+                        </div>
+                      {% endif %}
+
+                      <hr class="my-12">
+
+                      {# Action buttons ----------------------------- #}
+                      <div class="d-flex gap-2">
+                        <a href="{{ url_for('hr.candidate_detail', cand_id=app.candidate.id) }}"
+                           class="icon-btn text-success-600" title="Dettaglio candidato">
+                          <iconify-icon icon="ri:eye-line"></iconify-icon>
+                        </a>
+                        <a href="{{ url_for('hr.interview_create', app_id=app.id) }}"
+                           class="icon-btn text-success-600" title="Pianifica colloquio">
+                          <iconify-icon icon="solar:calendar-add-outline"></iconify-icon>
+                        </a>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div><!-- /.connectedSortable -->
+              </div><!-- /.card-body -->
+            </div><!-- /.card -->
+          </div><!-- /.column -->
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{# ---------------------------------------------------------------------- #
+   Inline JS – PATCH stage + badge refresh                               #
+# ---------------------------------------------------------------------- #}
+{% block inline_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+  /* Inizializza SortableJS su ogni colonna -------------------------- */
+  document.querySelectorAll('.connectedSortable').forEach(col => {
+    new Sortable(col, {
+      group: 'applications',
+      animation: 150,
+      ghostClass: 'dragging',
+      onEnd(evt) {
+        const id   = evt.item.dataset.id;
+        const step = evt.to.dataset.stage;
+
+        fetch(`/team/hr/applications/${id}/stage`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken' : csrf,
+          },
+          body: JSON.stringify({ stage: step }),
+        })
+        .then(r => { if (!r.ok) throw new Error('Salvataggio fallito'); })
+        .then(updateBadges)
+        .catch(err => {
+          alert(err.message || err);
+          evt.from.appendChild(evt.item);           /* rollback spostamento */
+          updateBadges();
+        });
+      },
+    });
+  });
+
+  /* Aggiorna i badge conteggio carte -------------------------------- */
+  function updateBadges() {
+    document.querySelectorAll('.connectedSortable').forEach(col => {
+      const badge = col.closest('.card-body').querySelector('.badge');
+      if (badge) badge.textContent = col.children.length;
+    });
+  }
+});
+</script>
+{% endblock %}

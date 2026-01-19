@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipe.name }} - Ricetta{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h1 class="h3 mb-0">{{ recipe.name }}</h1>
+    <ul class="d-flex align-items-center gap-2 list-unstyled mb-0">
+        <li>
+            <a href="{{ url_for('welcome.index') }}" class="text-decoration-none text-secondary-light">
+                <iconify-icon icon="solar:home-smile-outline" class="icon text-lg"></iconify-icon>
+                Dashboard
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li>
+            <a href="{{ url_for('nutrition.dashboard') }}" class="text-decoration-none text-secondary-light">
+                Nutrition
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li>
+            <a href="{{ url_for('nutrition.recipe_list') }}" class="text-decoration-none text-secondary-light">
+                Ricette
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li><span class="text-primary-light">{{ recipe.name }}</span></li>
+    </ul>
+</div>
+
+<!-- Action Buttons -->
+<div class="d-flex gap-2 mb-24">
+    {% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+        <a href="{{ url_for('nutrition.recipe_edit', recipe_id=recipe.id) }}" class="btn btn-primary">
+            <iconify-icon icon="solar:pen-linear" class="me-1"></iconify-icon>
+            Modifica Ricetta
+        </a>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addIngredientModal">
+            <iconify-icon icon="solar:add-circle-linear" class="me-1"></iconify-icon>
+            Aggiungi Ingrediente
+        </button>
+    {% endif %}
+    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+        <iconify-icon icon="solar:printer-linear" class="me-1"></iconify-icon>
+        Stampa
+    </button>
+</div>
+
+<div class="row g-3">
+    <!-- Recipe Details -->
+    <div class="col-xxl-8">
+        <div class="card radius-8 border-0 mb-24">
+            <div class="card-body p-24">
+                <div class="d-flex justify-content-between align-items-start mb-16">
+                    <div>
+                        <h4 class="mb-2">{{ recipe.name }}</h4>
+                        {% if recipe.description %}
+                            <p class="text-secondary-light mb-0">{{ recipe.description }}</p>
+                        {% endif %}
+                    </div>
+                    {% if recipe.is_public %}
+                        <span class="badge bg-success-50 text-success-600 radius-4 px-12 py-6">
+                            Ricetta Pubblica
+                        </span>
+                    {% else %}
+                        <span class="badge bg-neutral-100 text-secondary-light radius-4 px-12 py-6">
+                            Ricetta Privata
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="row g-3 mb-24">
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <iconify-icon icon="solar:clock-circle-linear" class="text-secondary-light text-xl"></iconify-icon>
+                            <div>
+                                <p class="text-xs text-secondary-light mb-0">Tempo totale</p>
+                                <p class="fw-medium mb-0">
+                                    {% set total_time = (recipe.preparation_time or 0) + (recipe.cooking_time or 0) %}
+                                    {% if total_time %}
+                                        {{ total_time }} min
+                                    {% else %}
+                                        N/D
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <iconify-icon icon="solar:users-group-rounded-linear" class="text-secondary-light text-xl"></iconify-icon>
+                            <div>
+                                <p class="text-xs text-secondary-light mb-0">Porzioni</p>
+                                <p class="fw-medium mb-0">{{ recipe.servings }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <iconify-icon icon="solar:star-linear" class="text-secondary-light text-xl"></iconify-icon>
+                            <div>
+                                <p class="text-xs text-secondary-light mb-0">Difficoltà</p>
+                                <p class="fw-medium mb-0">
+                                    {{ recipe.difficulty|capitalize if recipe.difficulty else 'N/D' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <iconify-icon icon="solar:fire-linear" class="text-secondary-light text-xl"></iconify-icon>
+                            <div>
+                                <p class="text-xs text-secondary-light mb-0">Calorie/porzione</p>
+                                <p class="fw-medium mb-0">{{ per_serving.calories|int }} kcal</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ingredients -->
+                <h5 class="mb-16">Ingredienti</h5>
+                {% if ingredients %}
+                    <div class="table-responsive mb-24">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Ingrediente</th>
+                                    <th class="text-center">Quantità</th>
+                                    <th class="text-center">Calorie</th>
+                                    <th class="text-center">Proteine</th>
+                                    <th class="text-center">Carboidrati</th>
+                                    <th class="text-center">Grassi</th>
+                                    {% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+                                        <th class="text-center">Azioni</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ingredient in ingredients %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <h6 class="text-sm mb-0">{{ ingredient.food.name }}</h6>
+                                            {% if ingredient.food.brand %}
+                                                <p class="text-xs text-secondary-light mb-0">{{ ingredient.food.brand }}</p>
+                                            {% endif %}
+                                            {% if ingredient.notes %}
+                                                <p class="text-xs text-info-600 mb-0">{{ ingredient.notes }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="fw-medium">{{ ingredient.quantity }}</span> {{ ingredient.unit }}
+                                    </td>
+                                    <td class="text-center">{{ ingredient.calories|int }}</td>
+                                    <td class="text-center">{{ ingredient.proteins|format_macros }}g</td>
+                                    <td class="text-center">{{ ingredient.carbohydrates|format_macros }}g</td>
+                                    <td class="text-center">{{ ingredient.fats|format_macros }}g</td>
+                                    {% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+                                    <td class="text-center">
+                                        <div class="d-flex align-items-center gap-1 justify-content-center">
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-link text-warning p-0"
+                                                    onclick="editIngredient({{ ingredient.id }})"
+                                                    title="Modifica">
+                                                <iconify-icon icon="solar:pen-linear"></iconify-icon>
+                                            </button>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-link text-danger p-0"
+                                                    onclick="deleteIngredient({{ ingredient.id }})"
+                                                    title="Elimina">
+                                                <iconify-icon icon="solar:trash-bin-trash-linear"></iconify-icon>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-semibold bg-light">
+                                    <td>Totale ricetta</td>
+                                    <td></td>
+                                    <td class="text-center">{{ totals.calories|int }}</td>
+                                    <td class="text-center">{{ totals.proteins|format_macros }}g</td>
+                                    <td class="text-center">{{ totals.carbohydrates|format_macros }}g</td>
+                                    <td class="text-center">{{ totals.fats|format_macros }}g</td>
+                                    {% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+                                        <td></td>
+                                    {% endif %}
+                                </tr>
+                                <tr class="fw-semibold">
+                                    <td>Per porzione ({{ recipe.servings }} porzioni)</td>
+                                    <td></td>
+                                    <td class="text-center text-primary-600">{{ per_serving.calories|int }}</td>
+                                    <td class="text-center text-info-600">{{ per_serving.proteins|format_macros }}g</td>
+                                    <td class="text-center text-warning-600">{{ per_serving.carbohydrates|format_macros }}g</td>
+                                    <td class="text-center text-success-600">{{ per_serving.fats|format_macros }}g</td>
+                                    {% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+                                        <td></td>
+                                    {% endif %}
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info radius-8">
+                        <div class="d-flex align-items-center gap-2">
+                            <iconify-icon icon="solar:info-circle-linear" class="text-info-600 text-xl"></iconify-icon>
+                            <p class="mb-0">Nessun ingrediente aggiunto. Aggiungi gli ingredienti per calcolare i valori nutrizionali.</p>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Instructions -->
+                {% if recipe.instructions %}
+                <h5 class="mb-16">Istruzioni</h5>
+                <div class="bg-light radius-8 p-16">
+                    {{ recipe.instructions|nl2br|safe }}
+                </div>
+                {% endif %}
+
+                <!-- Notes -->
+                {% if recipe.notes %}
+                <h5 class="mb-16 mt-24">Note</h5>
+                <div class="bg-warning-50 radius-8 p-16">
+                    <p class="mb-0">{{ recipe.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-xxl-4">
+        <!-- Nutritional Summary -->
+        <div class="card radius-8 border-0 mb-24">
+            <div class="card-header border-bottom bg-base py-16 px-24">
+                <h6 class="text-lg fw-semibold mb-0">Valori Nutrizionali per Porzione</h6>
+            </div>
+            <div class="card-body p-24">
+                <div class="text-center mb-24">
+                    <div class="w-80-px h-80-px bg-primary-50 radius-circle mx-auto d-flex justify-content-center align-items-center mb-12">
+                        <h4 class="mb-0 text-primary-600">{{ per_serving.calories|int }}</h4>
+                    </div>
+                    <p class="text-secondary-light">Calorie</p>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div class="w-48-px h-48-px bg-info-50 radius-8 mx-auto d-flex justify-content-center align-items-center mb-8">
+                                <h6 class="mb-0 text-info-600">{{ per_serving.proteins|format_macros }}</h6>
+                            </div>
+                            <p class="text-xs text-secondary-light mb-0">Proteine (g)</p>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div class="w-48-px h-48-px bg-warning-50 radius-8 mx-auto d-flex justify-content-center align-items-center mb-8">
+                                <h6 class="mb-0 text-warning-600">{{ per_serving.carbohydrates|format_macros }}</h6>
+                            </div>
+                            <p class="text-xs text-secondary-light mb-0">Carboidrati (g)</p>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div class="w-48-px h-48-px bg-success-50 radius-8 mx-auto d-flex justify-content-center align-items-center mb-8">
+                                <h6 class="mb-0 text-success-600">{{ per_serving.fats|format_macros }}</h6>
+                            </div>
+                            <p class="text-xs text-secondary-light mb-0">Grassi (g)</p>
+                        </div>
+                    </div>
+                </div>
+
+                {% if per_serving.fibers %}
+                <div class="mt-16 pt-16 border-top">
+                    <p class="text-sm mb-2">
+                        <span class="text-secondary-light">Fibre:</span>
+                        <strong>{{ per_serving.fibers|format_macros }}g</strong>
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recipe Info -->
+        <div class="card radius-8 border-0">
+            <div class="card-header border-bottom bg-base py-16 px-24">
+                <h6 class="text-lg fw-semibold mb-0">Informazioni</h6>
+            </div>
+            <div class="card-body p-24">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-12 pb-12 border-bottom">
+                        <span class="text-secondary-light text-sm">Creata da:</span>
+                        <p class="fw-medium mb-0">{{ recipe.created_by.full_name }}</p>
+                    </li>
+                    <li class="mb-12 pb-12 border-bottom">
+                        <span class="text-secondary-light text-sm">Data creazione:</span>
+                        <p class="fw-medium mb-0">{{ recipe.created_at.strftime('%d/%m/%Y') }}</p>
+                    </li>
+                    {% if recipe.tags %}
+                    <li>
+                        <span class="text-secondary-light text-sm d-block mb-2">Tags:</span>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for tag in recipe.tags %}
+                                <span class="badge bg-primary-50 text-primary-600 radius-4 px-8 py-4 text-sm">
+                                    {{ tag }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Ingredient Modal -->
+{% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+<div class="modal fade" id="addIngredientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="addIngredientForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Aggiungi Ingrediente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Alimento</label>
+                        <input type="text" 
+                               id="foodSearch" 
+                               class="form-control" 
+                               placeholder="Cerca alimento..."
+                               autocomplete="off">
+                        <input type="hidden" id="food_id" name="food_id" required>
+                        <div id="searchResults" class="list-group mt-2" style="display: none;"></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label">Quantità</label>
+                            <input type="number" 
+                                   name="quantity" 
+                                   class="form-control" 
+                                   step="0.1" 
+                                   min="0.1" 
+                                   value="100" 
+                                   required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Unità</label>
+                            <select name="unit" class="form-select">
+                                <option value="g">g</option>
+                                <option value="ml">ml</option>
+                                <option value="porzione">porzione</option>
+                                <option value="cucchiaio">cucchiaio</option>
+                                <option value="tazza">tazza</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">Note (opzionale)</label>
+                        <input type="text" name="notes" class="form-control" placeholder="es. tritato finemente">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Aggiungi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% if recipe.created_by_id == current_user.id or current_user.is_admin %}
+// Food search for ingredients
+const foodSearchInput = document.getElementById('foodSearch');
+const searchResults = document.getElementById('searchResults');
+const foodIdInput = document.getElementById('food_id');
+
+let searchTimeout;
+foodSearchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+    
+    if (query.length < 2) {
+        searchResults.style.display = 'none';
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        fetch(`{{ url_for('nutrition.api_food_search') }}?q=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                searchResults.innerHTML = '';
+                
+                if (data.results.length === 0) {
+                    searchResults.innerHTML = '<div class="list-group-item">Nessun alimento trovato</div>';
+                } else {
+                    data.results.forEach(food => {
+                        const item = document.createElement('a');
+                        item.href = '#';
+                        item.className = 'list-group-item list-group-item-action';
+                        item.innerHTML = `
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="mb-0">${food.name}</h6>
+                                    ${food.brand ? `<small class="text-secondary">${food.brand}</small>` : ''}
+                                </div>
+                                <small class="text-secondary">${food.calories} kcal/100g</small>
+                            </div>
+                        `;
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            foodSearchInput.value = food.name;
+                            foodIdInput.value = food.id;
+                            searchResults.style.display = 'none';
+                        });
+                        searchResults.appendChild(item);
+                    });
+                }
+                
+                searchResults.style.display = 'block';
+            });
+    }, 300);
+});
+
+// Hide search results when clicking outside
+document.addEventListener('click', function(e) {
+    if (!foodSearchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        searchResults.style.display = 'none';
+    }
+});
+
+// Add ingredient form
+document.getElementById('addIngredientForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    fetch(`{{ url_for('nutrition.api_add_recipe_ingredient', recipe_id=recipe.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': data.csrf_token
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            location.reload();
+        }
+    });
+});
+
+// Delete ingredient
+function deleteIngredient(ingredientId) {
+    if (!confirm('Eliminare questo ingrediente?')) return;
+    
+    fetch(`{{ url_for('nutrition.api_delete_recipe_ingredient', ingredient_id=0) }}`.replace('0', ingredientId), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+// Edit ingredient (simplified - you might want to add a proper modal)
+function editIngredient(ingredientId) {
+    const quantity = prompt('Nuova quantità:');
+    if (!quantity) return;
+    
+    fetch(`{{ url_for('nutrition.api_update_recipe_ingredient', ingredient_id=0) }}`.replace('0', ingredientId), {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ quantity: parseFloat(quantity) })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,1007 @@
+{% extends "kb/base.html" %}
+
+{% block title %}Gestione Categorie - {{ department.name }} - Knowledge Base{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Verde principale della suite */
+    :root {
+        --primary-green: #28a745;
+        --primary-green-dark: #218838;
+        --primary-green-light: #e6f7e9;
+        --primary-green-lighter: #f4fbf5;
+    }
+    
+    /* Video Background Styles */
+    .breadcrumb_area {
+        min-height: 350px;
+        display: flex;
+        align-items: center;
+        padding: 120px 0 80px;
+    }
+    
+    .breadcrumb_area video {
+        object-fit: cover;
+    }
+    
+    /* Override colori principali */
+    .btn-primary {
+        background-color: var(--primary-green) !important;
+        border-color: var(--primary-green) !important;
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-green-dark) !important;
+        border-color: var(--primary-green-dark) !important;
+    }
+    
+    .btn-outline-primary {
+        color: var(--primary-green) !important;
+        border-color: var(--primary-green) !important;
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: var(--primary-green) !important;
+        border-color: var(--primary-green) !important;
+        color: white !important;
+    }
+    
+    .badge-primary {
+        background-color: var(--primary-green) !important;
+    }
+    
+    /* Breadcrumb links */
+    .breadcrumb-item a {
+        color: var(--primary-green) !important;
+    }
+    
+    .breadcrumb-item a:hover {
+        color: var(--primary-green-dark) !important;
+    }
+    
+    /* Reduce excessive spacing */
+    .doc_documentation_area {
+        padding: 60px 0 40px !important;
+        min-height: auto !important;
+    }
+    /* Custom form overlay */
+    .form-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9998;
+    }
+    
+    .form-overlay.active {
+        display: block;
+    }
+    
+    .form-popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 9999;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .form-popup.active {
+        display: block;
+    }
+    
+    .form-popup-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .form-popup-header h3 {
+        margin: 0;
+        color: #1e293b;
+    }
+    
+    .form-popup-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #64748b;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .form-popup-close:hover {
+        color: #1e293b;
+    }
+    
+    .form-popup-body {
+        margin-bottom: 20px;
+    }
+    
+    .form-popup-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding-top: 15px;
+        border-top: 1px solid #e5e7eb;
+    }
+    
+    .category-tree {
+        list-style: none;
+        padding-left: 0;
+    }
+    
+    .category-tree ul {
+        list-style: none;
+        padding-left: 30px;
+    }
+    
+    .category-item {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.3s ease;
+    }
+    
+    .category-item:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .category-info {
+        flex-grow: 1;
+    }
+    
+    .category-name {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 5px;
+    }
+    
+    .category-meta {
+        font-size: 0.875rem;
+        color: #64748b;
+    }
+    
+    .category-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .sortable-ghost {
+        opacity: 0.4;
+        background: #f8f9fa;
+    }
+    
+    .sortable-drag {
+        opacity: 0.9;
+    }
+    
+    /* Icon selector styles for emoji */
+    .icon-selector {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px;
+        background: #f9f9f9;
+    }
+    
+    .selected-icon {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        padding: 10px;
+        background: white;
+        border-radius: 6px;
+        transition: all 0.3s;
+    }
+    
+    .selected-icon:hover {
+        background: #f0f0f0;
+    }
+    
+    .selected-icon .emoji-display {
+        font-size: 24px;
+    }
+    
+    .emoji-picker {
+        margin-top: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 10px;
+    }
+    
+    .emoji-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 5px;
+    }
+    
+    .emoji-option {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    
+    .emoji-option:hover {
+        background: var(--primary-green-light);
+        border-color: var(--primary-green);
+        transform: scale(1.2);
+    }
+    
+    .emoji-option.selected {
+        background: var(--primary-green);
+        border-color: var(--primary-green-dark);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- CSRF Token per JavaScript -->
+<meta name="csrf-token" content="{{ csrf_token() }}"
+<!-- Banner Area with Video Background -->
+<section class="breadcrumb_area" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <!-- Video Background -->
+    <video id="hero-video" autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+        <source src="/static/assets/video/knowledge_base.mp4" type="video/mp4">
+        <!-- Fallback per browser che non supportano video -->
+    </video>
+    
+    <!-- Dark Overlay -->
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1;"></div>
+    
+    <div class="container custom_container" style="position: relative; z-index: 2;">
+        <div class="doc_banner_content text-center">
+            <h1 class="wow fadeInUp" data-wow-delay="0.2s" style="color: white; font-size: 48px; font-weight: 700;">
+                Gestione Categorie: <span style="color: #28a745;">{{ department.name }}</span>
+            </h1>
+            <p class="wow fadeInUp" data-wow-delay="0.3s" style="color: rgba(255,255,255,0.9); font-size: 18px; margin-top: 20px;">
+                Organizza la struttura della documentazione del dipartimento
+            </p>
+            {% if stats %}
+            <div class="banner_stats wow fadeInUp" data-wow-delay="0.4s" style="margin-top: 30px;">
+                <span style="color: rgba(255,255,255,0.8); margin: 0 15px;">
+                    <i class="icon_folder-alt"></i> {{ categories|selectattr('parent_id', 'none')|list|length }} categorie
+                </span>
+                <span style="color: rgba(255,255,255,0.8); margin: 0 15px;">
+                    <i class="icon_folder-open_alt"></i> {{ categories|rejectattr('parent_id', 'none')|list|length }} sottocategorie
+                </span>
+                <span style="color: rgba(255,255,255,0.8); margin: 0 15px;">
+                    <i class="icon_documents_alt"></i> {{ stats.total_articles|default(0) }} documenti totali
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Breadcrumb Section -->
+<section class="page_breadcrumb">
+    <div class="container custom_container">
+        <div class="row align-items-center">
+            <div class="col-lg-8 col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('kb.index') }}">Knowledge Base</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('kb.department_view', department_id=department.id) }}">{{ department.name }}</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Gestione Categorie</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="col-lg-4 col-md-4">
+                <div class="breadcrumb-btns">
+                    <a href="{{ url_for('kb.department_view', department_id=department.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fa fa-arrow-left"></i> Torna al Dipartimento
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Storage Quota for Admins/HEADs -->
+{% if quota and (current_user.is_admin or current_user.is_head(department.id)) %}
+<section class="storage_quota_section" style="padding: 20px 0; background: #f8f9fa;">
+    <div class="container custom_container">
+        <div class="row">
+            <div class="col-12">
+                <div class="storage_quota_info">
+                    <h5 style="margin-bottom: 15px;">
+                        <i class="icon_cloud-upload_alt" style="color: var(--primary-green);"></i> 
+                        Spazio di Storage del Dipartimento
+                    </h5>
+                    <div class="progress" style="height: 30px; background: #e9ecef; border-radius: 15px; overflow: visible; position: relative;">
+                        {% set usage_percentage = (quota.used_bytes / quota.quota_bytes * 100) if quota.quota_bytes > 0 else 0 %}
+                        {% set usage_gb = quota.used_bytes / (1024 * 1024 * 1024) %}
+                        {% set quota_gb = quota.quota_bytes / (1024 * 1024 * 1024) %}
+                        <div class="progress-bar" 
+                             role="progressbar" 
+                             style="width: {{ usage_percentage if usage_percentage > 0 else 1 }}%; 
+                                    background: {% if usage_percentage > 90 %}#dc3545{% elif usage_percentage > 75 %}#ffc107{% else %}var(--primary-green){% endif %};
+                                    border-radius: 15px 0 0 15px;"
+                             aria-valuenow="{{ usage_percentage }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                        <span style="position: absolute; 
+                                     left: 50%; 
+                                     top: 50%; 
+                                     transform: translate(-50%, -50%);
+                                     color: #212529;
+                                     font-size: 14px; 
+                                     font-weight: 600;
+                                     text-shadow: 0px 0px 2px rgba(255,255,255,0.8);
+                                     z-index: 10;">
+                            {{ "%.1f"|format(usage_gb) }} GB / {{ "%.1f"|format(quota_gb) }} GB ({{ "%.1f"|format(usage_percentage) }}%)
+                        </span>
+                    </div>
+                    {% if usage_percentage > 90 %}
+                    <div class="alert alert-danger mt-3" role="alert">
+                        <i class="icon_error-triangle_alt"></i> <strong>Attenzione!</strong> Lo spazio di storage è quasi esaurito. Contatta l'amministratore per aumentare la quota.
+                    </div>
+                    {% elif usage_percentage > 75 %}
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <i class="icon_info_alt"></i> <strong>Avviso:</strong> Hai utilizzato più del 75% dello spazio disponibile.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Main Content -->
+<section class="doc_documentation_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-3">
+                <!-- Actions Sidebar -->
+                <div class="doc_left_sidebarlist">
+                    <button class="btn btn-primary btn-block mb-3" onclick="showAddCategoryForm()">
+                        <i class="fa fa-plus"></i> Nuova Categoria
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary btn-block mb-3" onclick="saveOrder()">
+                        <i class="fa fa-save"></i> Salva Ordinamento
+                    </button>
+                    
+                    <a href="{{ url_for('kb.department_view', department_id=department.id) }}" class="btn btn-outline-dark btn-block">
+                        <i class="fa fa-arrow-left"></i> Torna al Dipartimento
+                    </a>
+                    
+                    <hr>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fa fa-info-circle"></i> Suggerimenti</h6>
+                        <ul class="small mb-0">
+                            <li>Trascina le categorie per riordinarle</li>
+                            <li>Usa sottocategorie per organizzare meglio</li>
+                            <li>Le categorie vuote possono essere eliminate</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-9">
+                <!-- Categories List -->
+                <div class="doc_content">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3>Categorie del Dipartimento</h3>
+                        <span class="badge badge-primary">{{ categories|length }} categorie totali</span>
+                    </div>
+                    
+                    {% if categories %}
+                        <div id="categories-tree" class="category-tree">
+                            {% for category in categories %}
+                                {% if not category.parent_id %}
+                                    <div class="category-node" data-id="{{ category.id }}">
+                                        <div class="category-item">
+                                            <div class="category-info">
+                                                <div class="category-name">
+                                                    {% if category.icon %}
+                                                        <span style="font-size: 20px; margin-right: 8px;">{{ category.icon }}</span>
+                                                    {% else %}
+                                                        <span style="font-size: 20px; margin-right: 8px;">📁</span>
+                                                    {% endif %}
+                                                    {{ category.name }}
+                                                </div>
+                                                <div class="category-meta">
+                                                    {{ category.articles_count }} articoli
+                                                    {% if category.description %}
+                                                        • {{ category.description[:50] }}...
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="category-actions">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="editCategory({{ category.id }})" title="Modifica categoria">
+                                                    <i class="fa fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="addSubcategory({{ category.id }})" title="Aggiungi sottocategoria">
+                                                    <i class="fa fa-plus"></i>
+                                                </button>
+                                                {% if category.articles_count == 0 %}
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory({{ category.id }})" title="Elimina categoria">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Subcategories -->
+                                        {% set subcategories = categories|selectattr('parent_id', 'equalto', category.id)|list %}
+                                        {% if subcategories %}
+                                            <ul class="subcategories mt-2">
+                                                {% for subcat in subcategories %}
+                                                    <div class="category-node" data-id="{{ subcat.id }}">
+                                                        <div class="category-item">
+                                                            <div class="category-info">
+                                                                <div class="category-name">
+                                                                    <i class="fa fa-chevron-right text-muted" style="margin-right: 5px;"></i>
+                                                                    {% if subcat.icon %}
+                                                                        <span style="font-size: 18px; margin-right: 6px;">{{ subcat.icon }}</span>
+                                                                    {% else %}
+                                                                        <span style="font-size: 18px; margin-right: 6px;">📂</span>
+                                                                    {% endif %}
+                                                                    {{ subcat.name }}
+                                                                </div>
+                                                                <div class="category-meta">
+                                                                    {{ subcat.articles_count }} articoli
+                                                                </div>
+                                                            </div>
+                                                            <div class="category-actions">
+                                                                <button class="btn btn-sm btn-outline-primary" onclick="editCategory({{ subcat.id }})" title="Modifica sottocategoria">
+                                                                    <i class="fa fa-edit"></i>
+                                                                </button>
+                                                                {% if subcat.articles_count == 0 %}
+                                                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory({{ subcat.id }})" title="Elimina sottocategoria">
+                                                                        <i class="fa fa-trash"></i>
+                                                                    </button>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <img src="{{ url_for('static', filename='docy/img/new/doc2.png') }}" alt="No categories" style="max-width: 200px;" class="mb-4">
+                            <h4>Nessuna categoria presente</h4>
+                            <p class="text-muted">Inizia creando la prima categoria per organizzare la documentazione</p>
+                            <button class="btn btn-primary" onclick="showAddCategoryForm()">
+                                <i class="fa fa-plus"></i> Crea Prima Categoria
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Category Form Popup -->
+<div class="form-overlay" id="addCategoryOverlay" onclick="hideAddCategoryForm()"></div>
+<div class="form-popup" id="addCategoryPopup">
+    <div class="form-popup-header">
+        <h3>Nuova Categoria</h3>
+        <button class="form-popup-close" onclick="hideAddCategoryForm()">&times;</button>
+    </div>
+    <form id="addCategoryForm" onsubmit="createCategory(event)">
+        <div class="form-popup-body">
+            <div class="form-group">
+                <label>Nome Categoria *</label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Descrizione</label>
+                <textarea name="description" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Categoria Padre</label>
+                <select name="parent_id" class="form-control">
+                    <option value="">-- Categoria principale --</option>
+                    {% for cat in categories %}
+                        {% if not cat.parent_id %}
+                            <option value="{{ cat.id }}">{{ cat.name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Icona</label>
+                <input type="hidden" name="icon" id="add-icon" value="📁">
+                <div class="icon-selector">
+                    <div class="selected-icon" onclick="toggleEmojiPicker('add')">
+                        <span class="emoji-display" id="add-icon-preview">📁</span>
+                        <span>Clicca per scegliere un'emoji</span>
+                    </div>
+                    <div class="emoji-picker" id="add-emoji-picker" style="display: none;">
+                        <div class="emoji-grid">
+                            <div class="emoji-option" onclick="selectEmoji('add', '📁')">📁</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📂')">📂</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📄')">📄</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📋')">📋</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📊')">📊</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📈')">📈</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📉')">📉</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '💼')">💼</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '💡')">💡</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🔧')">🔧</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '⚙️')">⚙️</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🎯')">🎯</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🎓')">🎓</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📚')">📚</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '📖')">📖</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '✅')">✅</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '❌')">❌</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '⚠️')">⚠️</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', 'ℹ️')">ℹ️</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🔒')">🔒</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🔓')">🔓</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🔐')">🔐</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🌟')">🌟</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '⭐')">⭐</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🏆')">🏆</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🏅')">🏅</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '👥')">👥</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '👤')">👤</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🌍')">🌍</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🌱')">🌱</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🌳')">🌳</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '💚')">💚</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🔄')">🔄</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '♻️')">♻️</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🏭')">🏭</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🏢')">🏢</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🏠')">🏠</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '🚀')">🚀</div>
+                            <div class="emoji-option" onclick="selectEmoji('add', '✈️')">✈️</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="form-popup-footer">
+            <button type="button" class="btn btn-secondary" onclick="hideAddCategoryForm()">Annulla</button>
+            <button type="submit" class="btn btn-primary">Crea Categoria</button>
+        </div>
+    </form>
+</div>
+
+<!-- Edit Category Form Popup -->
+<div class="form-overlay" id="editCategoryOverlay" onclick="hideEditCategoryForm()"></div>
+<div class="form-popup" id="editCategoryPopup">
+    <div class="form-popup-header">
+        <h3>Modifica Categoria</h3>
+        <button class="form-popup-close" onclick="hideEditCategoryForm()">&times;</button>
+    </div>
+    <form id="editCategoryForm" onsubmit="updateCategory(event)">
+        <div class="form-popup-body">
+            <input type="hidden" id="edit-id" name="id">
+            <div class="form-group">
+                <label>Nome Categoria *</label>
+                <input type="text" id="edit-name" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Descrizione</label>
+                <textarea id="edit-description" name="description" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Icona</label>
+                <input type="hidden" name="icon" id="edit-icon" value="📁">
+                <div class="icon-selector">
+                    <div class="selected-icon" onclick="toggleEmojiPicker('edit')">
+                        <span class="emoji-display" id="edit-icon-preview">📁</span>
+                        <span>Clicca per scegliere un'emoji</span>
+                    </div>
+                    <div class="emoji-picker" id="edit-emoji-picker" style="display: none;">
+                        <div class="emoji-grid">
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📁')">📁</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📂')">📂</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📄')">📄</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📋')">📋</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📊')">📊</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📈')">📈</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📉')">📉</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '💼')">💼</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '💡')">💡</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🔧')">🔧</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '⚙️')">⚙️</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🎯')">🎯</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🎓')">🎓</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📚')">📚</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '📖')">📖</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '✅')">✅</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '❌')">❌</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '⚠️')">⚠️</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', 'ℹ️')">ℹ️</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🔒')">🔒</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🔓')">🔓</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🔐')">🔐</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🌟')">🌟</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '⭐')">⭐</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🏆')">🏆</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🏅')">🏅</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '👥')">👥</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '👤')">👤</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🌍')">🌍</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🌱')">🌱</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🌳')">🌳</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '💚')">💚</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🔄')">🔄</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '♻️')">♻️</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🏭')">🏭</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🏢')">🏢</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🏠')">🏠</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '🚀')">🚀</div>
+                            <div class="emoji-option" onclick="selectEmoji('edit', '✈️')">✈️</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="form-popup-footer">
+            <button type="button" class="btn btn-secondary" onclick="hideEditCategoryForm()">Annulla</button>
+            <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+// Emoji picker functions
+function toggleEmojiPicker(formType) {
+    const pickerId = formType + '-emoji-picker';
+    const picker = document.getElementById(pickerId);
+    
+    if (picker.style.display === 'none' || picker.style.display === '') {
+        picker.style.display = 'block';
+    } else {
+        picker.style.display = 'none';
+    }
+}
+
+function selectEmoji(formType, emoji) {
+    // Update hidden input
+    document.getElementById(formType + '-icon').value = emoji;
+    
+    // Update preview
+    document.getElementById(formType + '-icon-preview').textContent = emoji;
+    
+    // Hide picker
+    document.getElementById(formType + '-emoji-picker').style.display = 'none';
+}
+
+// Initialize sortable
+if (document.getElementById('categories-tree')) {
+    new Sortable(document.getElementById('categories-tree'), {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        dragClass: 'sortable-drag',
+        handle: '.category-item',
+        onEnd: function(evt) {
+            // Save order will be called manually
+        }
+    });
+}
+
+// Show/Hide Add Category Form
+function showAddCategoryForm(skipReset = false) {
+    // Reset form solo se non viene da addSubcategory
+    if (!skipReset) {
+        const form = document.getElementById('addCategoryForm');
+        form.reset();
+    }
+    
+    document.getElementById('addCategoryOverlay').classList.add('active');
+    document.getElementById('addCategoryPopup').classList.add('active');
+    // Focus first input
+    setTimeout(() => {
+        document.querySelector('#addCategoryPopup input[name="name"]').focus();
+    }, 100);
+}
+
+function hideAddCategoryForm() {
+    document.getElementById('addCategoryOverlay').classList.remove('active');
+    document.getElementById('addCategoryPopup').classList.remove('active');
+    // Reset form when closing
+    document.getElementById('addCategoryForm').reset();
+}
+
+// Show/Hide Edit Category Form
+function showEditCategoryForm() {
+    document.getElementById('editCategoryOverlay').classList.add('active');
+    document.getElementById('editCategoryPopup').classList.add('active');
+}
+
+function hideEditCategoryForm() {
+    document.getElementById('editCategoryOverlay').classList.remove('active');
+    document.getElementById('editCategoryPopup').classList.remove('active');
+}
+
+// Create category
+function createCategory(event) {
+    event.preventDefault();
+    const form = document.getElementById('addCategoryForm');
+    const formData = new FormData(form);
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        parent_id: formData.get('parent_id') || null,
+        icon: formData.get('icon'),
+        department_id: {{ department.id }}
+    };
+    
+    console.log('Dati da inviare:', data);
+    
+    // Ottieni CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    // Chiama direttamente l'API per creare la categoria
+    fetch('/kb/api/categories', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
+    .then(result => {
+        console.log('Result:', result);
+        if (result.success) {
+            alert(result.message || 'Categoria creata con successo');
+            hideAddCategoryForm();
+            window.location.reload();
+        } else {
+            alert(result.error || 'Errore nella creazione della categoria');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Errore nella creazione della categoria');
+    });
+    
+    return false;
+}
+
+// Update category
+function updateCategory(event) {
+    event.preventDefault();
+    const form = document.getElementById('editCategoryForm');
+    const formData = new FormData(form);
+    const categoryId = formData.get('id');
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        icon: formData.get('icon')
+    };
+    
+    // Ottieni CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    fetch(`/kb/api/categories/${categoryId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message);
+            hideEditCategoryForm();
+            window.location.reload();
+        } else {
+            alert(result.error || 'Errore nella modifica della categoria');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Errore nella modifica della categoria');
+    });
+    
+    return false;
+}
+
+// Edit category - load category data
+function editCategory(id) {
+    // Ottieni CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    // Carica i dati della categoria
+    fetch(`/kb/api/categories/${id}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Data received:', data);
+        if (data.success) {
+            // Popola il form con i dati esistenti
+            document.getElementById('edit-id').value = data.category.id;
+            document.getElementById('edit-name').value = data.category.name || '';
+            document.getElementById('edit-description').value = data.category.description || '';
+            
+            // Set emoji icon
+            const iconValue = data.category.icon || '📁';
+            document.getElementById('edit-icon').value = iconValue;
+            document.getElementById('edit-icon-preview').textContent = iconValue;
+            
+            // Mostra il form
+            showEditCategoryForm();
+        } else {
+            console.error('Error from API:', data.error);
+            alert('Errore nel caricamento dei dati della categoria: ' + (data.error || 'Errore sconosciuto'));
+        }
+    })
+    .catch(error => {
+        console.error('Fetch error:', error);
+        alert('Errore nel caricamento dei dati della categoria: ' + error.message);
+    });
+}
+
+// Delete category
+function deleteCategory(id) {
+    if (confirm('Sei sicuro di voler eliminare questa categoria?')) {
+        // Ottieni CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        fetch(`/kb/api/categories/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert(result.message);
+                window.location.reload();
+            } else {
+                alert(result.error || 'Impossibile eliminare la categoria');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Errore nell\'eliminazione della categoria');
+        });
+    }
+}
+
+// Add subcategory
+function addSubcategory(parentId) {
+    console.log('Adding subcategory for parent ID:', parentId);
+    
+    // Prima mostra il form (senza reset)
+    showAddCategoryForm(true);
+    
+    // Poi imposta il valore dopo un breve delay per assicurarsi che il DOM sia pronto
+    setTimeout(() => {
+        const selectElement = document.querySelector('#addCategoryForm select[name="parent_id"]');
+        if (selectElement) {
+            // Debug: mostra tutte le opzioni disponibili
+            console.log('Available options:', Array.from(selectElement.options).map(o => ({value: o.value, text: o.text})));
+            
+            // Imposta il valore
+            selectElement.value = String(parentId);
+            console.log('Parent select value set to:', selectElement.value);
+            
+            // Se non ha funzionato, prova a trovare l'opzione e selezionarla
+            if (selectElement.value !== String(parentId)) {
+                for (let option of selectElement.options) {
+                    if (option.value === String(parentId)) {
+                        option.selected = true;
+                        console.log('Manually selected option:', option.text);
+                        break;
+                    }
+                }
+            }
+            
+            // Evidenzia il campo per mostrare che è stato pre-compilato
+            selectElement.style.backgroundColor = '#e8f5e9';
+            setTimeout(() => {
+                selectElement.style.backgroundColor = '';
+            }, 2000);
+        } else {
+            console.error('Select element not found!');
+        }
+    }, 200);
+}
+
+// Save order
+function saveOrder() {
+    const tree = document.getElementById('categories-tree');
+    const categories = tree.querySelectorAll('.category-node');
+    const order = [];
+    
+    // L'API si aspetta un array semplice di ID nell'ordine desiderato
+    categories.forEach((node) => {
+        const id = parseInt(node.dataset.id);
+        order.push(id);
+    });
+    
+    // Ottieni CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    fetch('/kb/api/categories/{{ department.id }}/reorder', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            order: order
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message || 'Ordinamento salvato con successo');
+        } else {
+            alert(result.error || 'Errore nel salvataggio dell\'ordinamento');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Errore nel salvataggio dell\'ordinamento');
+    });
+}
+</script>
+{% endblock %}

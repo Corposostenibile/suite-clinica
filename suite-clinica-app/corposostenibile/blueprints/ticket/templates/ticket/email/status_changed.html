@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggiornamento Stato Ticket - Corposostenibile</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; }
+            .content { padding: 20px !important; }
+            .button { width: 100% !important; text-align: center !important; }
+            .status-badge { font-size: 14px !important; padding: 6px 15px !important; }
+            .arrow { font-size: 18px !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f7f5;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f7f5;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table class="container" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 40px 0; background-color: #25B36A; border-radius: 10px 10px 0 0;">
+                            <img src="cid:logo" alt="Corposostenibile Suite" style="max-width: 250px; height: auto; margin-bottom: 20px;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">Aggiornamento Stato Ticket</h1>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td class="content" style="padding: 40px 30px;">
+                            <p style="margin: 0 0 20px 0; color: #666666; font-size: 16px; line-height: 1.6;">
+                                Ciao {{ recipient.first_name }},
+                            </p>
+
+                            <p style="margin: 0 0 30px 0; color: #666666; font-size: 16px; line-height: 1.6;">
+                                Lo stato del ticket <strong>#{{ ticket.ticket_number }}</strong> è stato aggiornato da <strong>{{ changed_by.full_name }}</strong>.
+                            </p>
+
+                            <!-- Status Change Visual -->
+                            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                                <span class="status-badge" style="display: inline-block; padding: 8px 20px; border-radius: 20px; font-weight: 600; font-size: 16px; margin: 10px 5px;
+                                    {% if old_status.value == 'nuovo' %}background-color: #dc3545; color: white;
+                                    {% elif old_status.value == 'in_lavorazione' %}background-color: #ffc107; color: #333;
+                                    {% elif old_status.value == 'in_attesa' %}background-color: #17a2b8; color: white;
+                                    {% else %}background-color: #28a745; color: white;{% endif %}">
+                                    {{ old_status.value|replace('_', ' ')|title }}
+                                </span>
+                                <span class="arrow" style="display: inline-block; margin: 0 15px; font-size: 24px; color: #666;">→</span>
+                                <span class="status-badge" style="display: inline-block; padding: 8px 20px; border-radius: 20px; font-weight: 600; font-size: 16px; margin: 10px 5px;
+                                    {% if new_status.value == 'nuovo' %}background-color: #dc3545; color: white;
+                                    {% elif new_status.value == 'in_lavorazione' %}background-color: #ffc107; color: #333;
+                                    {% elif new_status.value == 'in_attesa' %}background-color: #17a2b8; color: white;
+                                    {% else %}background-color: #28a745; color: white;{% endif %}">
+                                    {{ new_status.value|replace('_', ' ')|title }}
+                                </span>
+                            </div>
+
+                            <!-- Ticket Info -->
+                            <div style="background-color: #e8f5ec; border-left: 4px solid #25B36A; padding: 20px; margin: 20px 0; border-radius: 8px;">
+                                <h3 style="margin-top: 0; color: #25B36A;">{{ ticket.title }}</h3>
+                                <p style="margin-bottom: 0; font-size: 14px; color: #666666;">
+                                    <strong>Dipartimento:</strong> {{ ticket.department.name }}<br>
+                                    <strong>Creato da:</strong> {{ ticket.requester_first_name }} {{ ticket.requester_last_name }}<br>
+                                    <strong>Data aggiornamento:</strong> {{ datetime.now().strftime('%d/%m/%Y %H:%M') }}
+                                </p>
+                            </div>
+
+                            <!-- Message if provided -->
+                            {% if message %}
+                            <div style="background-color: #f0f0f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 0; font-style: italic; color: #666666;">
+                                    <strong>Messaggio:</strong><br>
+                                    {{ message }}
+                                </p>
+                            </div>
+                            {% endif %}
+
+                            <!-- Action Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding: 30px 0;">
+                                        <a href="{{ url }}" style="display: inline-block; background-color: #25B36A; color: #ffffff; text-decoration: none; padding: 14px 30px; border-radius: 5px; font-weight: bold; font-size: 16px;" class="button">
+                                            Visualizza Ticket
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% if new_status.value == 'chiuso' %}
+                            <p style="color: #28a745; text-align: center; font-weight: 600; margin: 20px 0;">
+                                ✅ Questo ticket è stato risolto e chiuso.
+                            </p>
+                            {% elif new_status.value == 'in_attesa' %}
+                            <p style="color: #17a2b8; text-align: center; margin: 20px 0;">
+                                ⏸️ Questo ticket è in attesa di ulteriori informazioni o azioni.
+                            </p>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 10px 10px;">
+                            <p style="margin: 0 0 15px 0; color: #666666; font-size: 14px;">
+                                <strong>Facciamo ogni giorno la differenza insieme.</strong><br>
+                                Grazie di far parte del team Corposostenibile 💚
+                            </p>
+                            <p style="margin: 0; color: #999999; font-size: 12px;">
+                                © 2025 Corposostenibile. Tutti i diritti riservati.<br>
+                                Questa è una notifica automatica dal sistema ticket.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

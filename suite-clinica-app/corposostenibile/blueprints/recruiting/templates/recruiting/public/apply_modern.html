@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ offer.title }} - Candidatura | Corposostenibile</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/immagini/favicon.png') }}" sizes="16x16">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Remix Icon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        /* IDENTICO a sales_form */
+        :root {
+            --primary-color: #28a745;
+            --secondary-color: #1e7e34;
+            --dark-color: #212529;
+        }
+
+        body {
+            background: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .logo-container {
+            text-align: center;
+            padding: 40px 20px 30px;
+            background: white;
+        }
+
+        .logo-container img {
+            max-width: 250px;
+            height: auto;
+        }
+
+        .form-body {
+            padding: 40px;
+            background: white;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: var(--dark-color);
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        .btn-submit {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .required-field::after {
+            content: " *";
+            color: #dc3545;
+        }
+
+        .field-help {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .form-check-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        /* Stile per campi invalidi */
+        .is-invalid, .is-invalid:focus {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+        }
+
+        .is-invalid + .field-help,
+        .is-invalid ~ .field-help {
+            color: #dc3545;
+        }
+
+        @media (max-width: 768px) {
+            .form-body {
+                padding: 20px;
+            }
+        }
+
+        /* Custom styles for application form */
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: #e5e7eb;
+        }
+
+        .step.active:not(:last-child)::after,
+        .step.completed:not(:last-child)::after {
+            background: var(--primary-color);
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #6c757d;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.5rem;
+            position: relative;
+            z-index: 1;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .step.active .step-number {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .step-label {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+
+        .step.active .step-label,
+        .step.completed .step-label {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+
+        .file-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f8f9fa;
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--primary-color);
+            background: rgba(40, 167, 69, 0.05);
+        }
+
+        .file-upload-area.dragover {
+            border-color: var(--primary-color);
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        .uploaded-file {
+            background: white;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid #e5e7eb;
+        }
+
+
+        .success-container {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            color: white;
+            font-size: 2.5rem;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .loading-spinner.active {
+            display: block;
+        }
+
+        @media (max-width: 991px) {
+            .auth-left {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            {# Logo #}
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='assets/immagini/corposostenibile.jpg') }}" alt="Corposostenibile Logo">
+            </div>
+
+            {# Body #}
+            <div class="form-body">
+                <div id="formContainer">
+                <!-- Step Indicator -->
+                <div class="step-indicator mb-32">
+                    <div class="step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-label">Dati</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-label">Domande</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-label">CV</div>
+                    </div>
+                    <div class="step" data-step="4">
+                        <div class="step-number">4</div>
+                        <div class="step-label">Invio</div>
+                    </div>
+                </div>
+
+                <form id="applicationForm" method="POST" enctype="multipart/form-data" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="form_started_at" id="formStartedAt" value="">
+                    <!-- Step 1: Personal Info -->
+                    <div class="form-section active" data-step="1">
+                        <h3 class="section-title">Informazioni Personali</h3>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-16">
+                                    <label class="form-label">Nome <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control h-56-px bg-neutral-50 radius-12" name="first_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-16">
+                                    <label class="form-label">Cognome <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control h-56-px bg-neutral-50 radius-12" name="last_name" required>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-16">
+                                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control h-56-px bg-neutral-50 radius-12" name="email" required>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-16">
+                                    <label class="form-label">Telefono <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control h-56-px bg-neutral-50 radius-12" name="phone" required>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-16">
+                                    <label class="form-label">LinkedIn</label>
+                                    <input type="url" class="form-control h-56-px bg-neutral-50 radius-12" name="linkedin_url" placeholder="https://linkedin.com/in/...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Questions -->
+                    <div class="form-section" data-step="2">
+                        <h3 class="section-title">Domande</h3>
+
+                        {% if questions %}
+                            {% for question in questions %}
+                            <div class="mb-20">
+                                <label class="form-label fw-semibold d-block mb-2">
+                                    {{ loop.index }}. {{ question.question_text }}
+                                    {% if question.is_required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                {% if question.help_text %}
+                                <small class="text-secondary-light d-block mb-2">{{ question.help_text }}</small>
+                                {% endif %}
+
+                                {% set q_type = question.question_type.value if question.question_type.value is defined else question.question_type %}
+
+                                {% if q_type in ['text', 'short_text'] %}
+                                <input type="text"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       placeholder="Inserisci la tua risposta"
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type in ['textarea', 'long_text'] %}
+                                <textarea class="form-control bg-neutral-50 radius-12"
+                                          name="question_{{ question.id }}"
+                                          rows="4"
+                                          placeholder="Inserisci la tua risposta"
+                                          {% if question.is_required %}required{% endif %}></textarea>
+
+                                {% elif q_type in ['single_choice', 'select'] %}
+                                <select class="form-select h-56-px bg-neutral-50 radius-12"
+                                        name="question_{{ question.id }}"
+                                        {% if question.is_required %}required{% endif %}>
+                                    <option value="">Seleziona una risposta...</option>
+                                    {% for option in question.options %}
+                                    <option value="{{ option }}">{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                {% elif q_type in ['multiple_choice', 'multiselect'] %}
+                                <div class="bg-neutral-50 radius-12 p-3">
+                                    {% for option in question.options %}
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="question_{{ question.id }}[]"
+                                               value="{{ option }}"
+                                               id="q{{ question.id }}_{{ loop.index }}">
+                                        <label class="form-check-label" for="q{{ question.id }}_{{ loop.index }}">
+                                            {{ option }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                {% elif q_type in ['yes_no', 'yesno'] %}
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="question_{{ question.id }}" value="Sì"
+                                               id="q{{ question.id }}_yes"
+                                               {% if question.is_required %}required{% endif %}>
+                                        <label class="form-check-label" for="q{{ question.id }}_yes">Sì</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="question_{{ question.id }}" value="No"
+                                               id="q{{ question.id }}_no">
+                                        <label class="form-check-label" for="q{{ question.id }}_no">No</label>
+                                    </div>
+                                </div>
+
+                                {% elif q_type == 'number' %}
+                                <input type="number"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       placeholder="Inserisci un numero"
+                                       {% if question.expected_min %}min="{{ question.expected_min }}"{% endif %}
+                                       {% if question.expected_max %}max="{{ question.expected_max }}"{% endif %}
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type == 'date' %}
+                                <input type="date"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type == 'email' %}
+                                <input type="email"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       placeholder="esempio@email.com"
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type == 'url' %}
+                                <input type="url"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       placeholder="https://..."
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type == 'phone' %}
+                                <input type="tel"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       placeholder="+39 123 456 7890"
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type == 'file' %}
+                                <input type="file"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       {% if question.is_required %}required{% endif %}>
+
+                                {% elif q_type == 'rating' %}
+                                <div class="d-flex gap-2">
+                                    {% for i in range(1, 6) %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="question_{{ question.id }}" value="{{ i }}"
+                                               id="q{{ question.id }}_rating_{{ i }}"
+                                               {% if question.is_required %}required{% endif %}>
+                                        <label class="form-check-label" for="q{{ question.id }}_rating_{{ i }}">
+                                            {{ i }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                {% else %}
+                                <!-- Fallback for any other type -->
+                                <input type="text"
+                                       class="form-control h-56-px bg-neutral-50 radius-12"
+                                       name="question_{{ question.id }}"
+                                       placeholder="Inserisci la tua risposta"
+                                       {% if question.is_required %}required{% endif %}>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="ri-information-line me-2"></i>
+                                Non ci sono domande aggiuntive per questa posizione.
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step 3: Documents -->
+                    <div class="form-section" data-step="3">
+                        <h3 class="section-title">Documenti</h3>
+
+                        <div class="mb-24">
+                            <label class="form-label">Curriculum Vitae <span class="text-danger">*</span></label>
+                            <div class="file-upload-area" id="cvUploadArea">
+                                <i class="ri-file-text-line fs-1 text-primary-600 mb-2"></i>
+                                <p class="mb-1">Clicca o trascina qui il file</p>
+                                <small class="text-secondary-light">PDF, DOC, DOCX (max 5MB)</small>
+                                <input type="file" name="cv" id="cvFile" accept=".pdf,.doc,.docx" required style="display: none;">
+                            </div>
+                            <div id="cvUploadedFile"></div>
+                        </div>
+
+                        <div class="mb-24">
+                            <label class="form-label">Lettera di Presentazione</label>
+                            <div class="file-upload-area" id="coverUploadArea">
+                                <i class="ri-mail-line fs-1 text-primary-600 mb-2"></i>
+                                <p class="mb-1">Opzionale</p>
+                                <small class="text-secondary-light">PDF, DOC, DOCX (max 5MB)</small>
+                                <input type="file" name="cover_letter" id="coverFile" accept=".pdf,.doc,.docx" style="display: none;">
+                            </div>
+                            <div id="coverUploadedFile"></div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Review -->
+                    <div class="form-section" data-step="4">
+                        <h3 class="section-title">Conferma e Invia</h3>
+
+                        <div class="bg-neutral-50 radius-12 p-20 mb-24">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="privacyConsent" required>
+                                <label class="form-check-label" for="privacyConsent">
+                                    Ho letto e accetto l'<a href="/privacy" target="_blank" class="text-primary-600">informativa sulla privacy</a> *
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="marketingConsent">
+                                <label class="form-check-label" for="marketingConsent">
+                                    Acconsento a ricevere comunicazioni su future opportunità
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <button type="button" class="btn btn-outline-secondary"
+                                id="prevBtn" onclick="changeStep(-1)" style="display: none;">
+                            <i class="ri-arrow-left-line me-1"></i> Indietro
+                        </button>
+                        <button type="button" class="btn btn-submit ms-auto"
+                                id="nextBtn" onclick="changeStep(1)">
+                            Avanti <i class="ri-arrow-right-line ms-1"></i>
+                        </button>
+                        <button type="submit" class="btn btn-submit w-100"
+                                id="submitBtn" style="display: none;">
+                            <i class="ri-send-plane-line me-2"></i>Invia Candidatura
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Invio in corso...</h5>
+                <p class="text-secondary-light">Non chiudere questa pagina</p>
+            </div>
+
+            <!-- Success Message -->
+            <div class="success-container" id="successMessage" style="display: none;">
+                <div class="success-icon">
+                    <i class="ri-check-line"></i>
+                </div>
+                <h3 class="mb-3">Candidatura Inviata!</h3>
+                <p class="text-secondary-light mb-4">
+                    Ti ringraziamo per l'interesse dimostrato.<br>
+                    Ti contatteremo presto.
+                </p>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <p class="mb-0" style="color: #212529;">© 2025 Corposostenibile. Tutti i diritti riservati.</p>
+        </div>
+    </div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    let currentStep = 1;
+    const totalSteps = 4;
+
+    function changeStep(direction) {
+        if (direction > 0 && !validateStep(currentStep)) {
+            return;
+        }
+
+        currentStep += direction;
+        if (currentStep < 1) currentStep = 1;
+        if (currentStep > totalSteps) currentStep = totalSteps;
+
+        updateUI();
+    }
+
+    function validateStep(step) {
+        const section = document.querySelector(`.form-section[data-step="${step}"]`);
+        const requiredFields = section.querySelectorAll('[required]');
+        let isValid = true;
+
+        requiredFields.forEach(field => {
+            let fieldValid = false;
+
+            // File input
+            if (field.type === 'file') {
+                fieldValid = field.files && field.files.length > 0;
+            }
+            // Checkbox
+            else if (field.type === 'checkbox') {
+                fieldValid = field.checked;
+            }
+            // Radio button
+            else if (field.type === 'radio') {
+                const name = field.name;
+                fieldValid = document.querySelector(`input[name="${name}"]:checked`) !== null;
+            }
+            // Altri campi
+            else {
+                fieldValid = field.value && field.value.trim() !== '';
+            }
+
+            if (!fieldValid) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        return isValid;
+    }
+
+    function updateUI() {
+        // Update sections
+        document.querySelectorAll('.form-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        document.querySelector(`.form-section[data-step="${currentStep}"]`).classList.add('active');
+
+        // Update steps
+        document.querySelectorAll('.step').forEach((step, index) => {
+            step.classList.remove('active', 'completed');
+            if (index + 1 < currentStep) {
+                step.classList.add('completed');
+            } else if (index + 1 === currentStep) {
+                step.classList.add('active');
+            }
+        });
+
+        // Update buttons
+        document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'block';
+        document.getElementById('nextBtn').style.display = currentStep === totalSteps ? 'none' : 'block';
+        document.getElementById('submitBtn').style.display = currentStep === totalSteps ? 'block' : 'none';
+    }
+
+    // File upload handlers
+    function setupFileUpload(areaId, inputId, displayId) {
+        const area = document.getElementById(areaId);
+        const input = document.getElementById(inputId);
+        const display = document.getElementById(displayId);
+
+        area.addEventListener('click', () => input.click());
+
+        area.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            area.classList.add('dragover');
+        });
+
+        area.addEventListener('dragleave', () => {
+            area.classList.remove('dragover');
+        });
+
+        area.addEventListener('drop', (e) => {
+            e.preventDefault();
+            area.classList.remove('dragover');
+            handleFiles(input, e.dataTransfer.files, display, area);
+        });
+
+        input.addEventListener('change', (e) => {
+            handleFiles(input, e.target.files, display, area);
+        });
+    }
+
+    function handleFiles(input, files, display, area) {
+        if (files.length > 0) {
+            const file = files[0];
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            display.innerHTML = `
+                <div class="uploaded-file">
+                    <span><i class="ri-file-line me-2"></i>${file.name} (${fileSize} MB)</span>
+                    <button type="button" class="btn btn-sm text-danger" onclick="removeFile('${input.id}')">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                </div>
+            `;
+            area.style.display = 'none';
+        }
+    }
+
+    function removeFile(inputId) {
+        const input = document.getElementById(inputId);
+        const areaId = inputId.replace('File', 'UploadArea');
+        const displayId = inputId.replace('File', 'UploadedFile');
+
+        input.value = '';
+        document.getElementById(displayId).innerHTML = '';
+        document.getElementById(areaId).style.display = 'block';
+    }
+
+    // Initialize
+    setupFileUpload('cvUploadArea', 'cvFile', 'cvUploadedFile');
+    setupFileUpload('coverUploadArea', 'coverFile', 'coverUploadedFile');
+
+    // Form submission
+    document.getElementById('applicationForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!validateStep(currentStep)) {
+            alert('Compila tutti i campi obbligatori prima di inviare la candidatura.');
+            return;
+        }
+
+        document.getElementById('formContainer').style.display = 'none';
+        document.getElementById('loadingSpinner').classList.add('active');
+
+        const formData = new FormData(e.target);
+        formData.append('source', '{{ source }}');
+
+        try {
+            console.log('Invio candidatura...', formData);
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData
+            });
+
+            console.log('Response status:', response.status);
+
+            const responseData = await response.json();
+            console.log('Response data:', responseData);
+            console.log('Response data stringified:', JSON.stringify(responseData, null, 2));
+
+            if (response.ok) {
+                console.log('Candidatura inviata con successo!');
+                document.getElementById('loadingSpinner').classList.remove('active');
+                document.getElementById('successMessage').style.display = 'block';
+            } else {
+                console.error('Errore dal server:', responseData);
+                console.error('Messaggio errore:', responseData.message);
+                console.error('Success flag:', responseData.success);
+                throw new Error(responseData.message || 'Errore sconosciuto');
+            }
+        } catch (error) {
+            console.error('Errore invio candidatura:', error);
+            alert('Si è verificato un errore: ' + error.message);
+            document.getElementById('loadingSpinner').classList.remove('active');
+            document.getElementById('formContainer').style.display = 'block';
+        }
+    });
+
+    updateUI();
+
+    // ===== FUNNEL TRACKING: Cattura primo momento di interazione col form =====
+    let formStartCaptured = false;
+
+    function captureFormStart() {
+        if (!formStartCaptured) {
+            formStartCaptured = true;
+            const now = new Date().toISOString();
+            document.getElementById('formStartedAt').value = now;
+            console.log('Form started at:', now);
+        }
+    }
+
+    // Ascolta QUALSIASI interazione dell'utente col form
+    document.querySelectorAll('#applicationForm input, #applicationForm textarea, #applicationForm select').forEach(field => {
+        // Prima volta che l'utente fa focus su un campo
+        field.addEventListener('focus', captureFormStart, { once: true });
+        // O inizia a digitare
+        field.addEventListener('input', captureFormStart, { once: true });
+        // O cambia un valore
+        field.addEventListener('change', captureFormStart, { once: true });
+    });
+
+    // Cattura anche click su file upload areas
+    document.querySelectorAll('.file-upload-area').forEach(area => {
+        area.addEventListener('click', captureFormStart, { once: true });
+    });
+</script>
+
+</body>
+</html>

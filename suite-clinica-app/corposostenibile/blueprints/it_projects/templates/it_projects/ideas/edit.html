@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Modifica Idea - Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.ideas_detail', idea_id=idea.id) }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <div>
+      <h6 class="fw-semibold mb-0">Modifica Idea</h6>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.ideas_list') }}">Idee</a></li>
+          <li class="breadcrumb-item active">Modifica</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('it_projects.ideas_edit', idea_id=idea.id) }}">
+  <div class="row gy-4">
+    <div class="col-lg-8">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">
+            <i class="ri-edit-line text-primary-600 me-2"></i>Dettagli Idea
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Titolo <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control" value="{{ idea.title }}" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-medium">Descrizione <span class="text-danger">*</span></label>
+            <textarea name="description" class="form-control" rows="5" required>{{ idea.description }}</textarea>
+          </div>
+
+          <div class="mb-0">
+            <label class="form-label fw-medium">Note Admin</label>
+            <textarea name="admin_notes" class="form-control" rows="3" placeholder="Note interne visibili solo agli admin...">{{ idea.admin_notes or '' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">
+            <i class="ri-settings-line text-secondary me-2"></i>Stato
+          </h6>
+        </div>
+        <div class="card-body">
+          <select name="status" class="form-select">
+            {% for value, label in status_choices %}
+            {% if value != 'converted' or idea.status == 'converted' %}
+            <option value="{{ value }}" {% if idea.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <button type="submit" class="btn btn-primary-600 w-100 mb-2">
+            <i class="ri-save-line me-1"></i>Salva Modifiche
+          </button>
+          <a href="{{ url_for('it_projects.ideas_detail', idea_id=idea.id) }}" class="btn btn-outline-secondary w-100">
+            <i class="ri-close-line me-1"></i>Annulla
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.name }} - Piano Alimentare{% endblock %}
+
+{% block extra_css %}
+<style>
+.meal-type-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+.macro-progress {
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.print-button {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+}
+.compliance-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+.meal-row:hover {
+    background-color: #f8f9fa;
+}
+.accordion-button:not(.collapsed) {
+    background-color: var(--brand-green-50);
+    color: var(--brand-green);
+}
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    .card {
+        border: 1px solid #dee2e6 !important;
+        page-break-inside: avoid;
+    }
+    .accordion-collapse {
+        display: block !important;
+    }
+    .accordion-button::after {
+        display: none !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24 no-print">
+    <h1 class="h3 mb-0">{{ plan.name }}</h1>
+    <ul class="d-flex align-items-center gap-2 list-unstyled mb-0">
+        <li>
+            <a href="{{ url_for('welcome.index') }}" class="text-decoration-none text-secondary-light">
+                <iconify-icon icon="solar:home-smile-outline" class="icon text-lg"></iconify-icon>
+                Dashboard
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li>
+            <a href="{{ url_for('nutrition.dashboard') }}" class="text-decoration-none text-secondary-light">
+                Nutrition
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li>
+            <a href="{{ url_for('nutrition.client_profile', cliente_id=plan.cliente_id) }}" class="text-decoration-none text-secondary-light">
+                {{ plan.cliente.nome_cognome }}
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li><span class="text-primary-light">{{ plan.name }}</span></li>
+    </ul>
+</div>
+
+<!-- Action Buttons -->
+<div class="d-flex flex-wrap gap-2 mb-24 no-print">
+    {% if current_user.id == plan.created_by_id or current_user.is_admin %}
+        <a href="{{ url_for('nutrition.meal_plan_editor', plan_id=plan.id) }}" class="btn btn-primary">
+            <iconify-icon icon="solar:pen-linear" class="me-1"></iconify-icon>
+            Modifica Piano
+        </a>
+    {% endif %}
+    <a href="{{ url_for('nutrition.meal_plan_pdf', plan_id=plan.id) }}" class="btn btn-outline-primary">
+        <iconify-icon icon="solar:download-linear" class="me-1"></iconify-icon>
+        Scarica PDF
+    </a>
+    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+        <iconify-icon icon="solar:printer-linear" class="me-1"></iconify-icon>
+        Stampa
+    </button>
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#shoppingListModal">
+        <iconify-icon icon="solar:cart-linear" class="me-1"></iconify-icon>
+        Lista Spesa
+    </button>
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#shareModal">
+        <iconify-icon icon="solar:share-linear" class="me-1"></iconify-icon>
+        Condividi
+    </button>
+</div>
+
+<!-- Plan Header -->
+<div class="card radius-8 border-0 mb-24">
+    <div class="card-body p-24">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <h5 class="mb-3">Informazioni Piano</h5>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <span class="text-secondary-light">Cliente:</span>
+                        <strong>{{ plan.cliente.nome_cognome }}</strong>
+                    </li>
+                    <li class="mb-2">
+                        <span class="text-secondary-light">Periodo:</span>
+                        <strong>{{ plan.start_date.strftime('%d/%m/%Y') }} - {{ plan.end_date.strftime('%d/%m/%Y') }}</strong>
+                        <span class="badge bg-primary-50 text-primary-600 ms-2">{{ days|length }} giorni</span>
+                    </li>
+                    <li class="mb-2">
+                        <span class="text-secondary-light">Creato da:</span>
+                        <strong>{{ plan.created_by.full_name }}</strong>
+                    </li>
+                    <li class="mb-2">
+                        <span class="text-secondary-light">Data creazione:</span>
+                        <strong>{{ plan.created_at.strftime('%d/%m/%Y') }}</strong>
+                    </li>
+                    <li>
+                        <span class="text-secondary-light">Stato:</span>
+                        {% if plan.is_active %}
+                            <span class="badge bg-success-50 text-success-600">Attivo</span>
+                        {% else %}
+                            <span class="badge bg-neutral-100 text-secondary-light">Concluso</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5 class="mb-3">Target Nutrizionali</h5>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <div class="w-40-px h-40-px bg-primary-50 radius-8 d-flex justify-content-center align-items-center">
+                                <iconify-icon icon="solar:fire-linear" class="text-primary-600"></iconify-icon>
+                            </div>
+                            <div>
+                                <p class="mb-0 text-sm text-secondary-light">Calorie</p>
+                                <h6 class="mb-0">{{ plan.target_calories|int }} kcal</h6>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <div class="w-40-px h-40-px bg-info-50 radius-8 d-flex justify-content-center align-items-center">
+                                <iconify-icon icon="solar:dumbbell-linear" class="text-info-600"></iconify-icon>
+                            </div>
+                            <div>
+                                <p class="mb-0 text-sm text-secondary-light">Proteine</p>
+                                <h6 class="mb-0">{{ plan.target_proteins|format_macros }} g</h6>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="w-40-px h-40-px bg-warning-50 radius-8 d-flex justify-content-center align-items-center">
+                                <iconify-icon icon="solar:wheat-linear" class="text-warning-600"></iconify-icon>
+                            </div>
+                            <div>
+                                <p class="mb-0 text-sm text-secondary-light">Carboidrati</p>
+                                <h6 class="mb-0">{{ plan.target_carbohydrates|format_macros }} g</h6>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="w-40-px h-40-px bg-success-50 radius-8 d-flex justify-content-center align-items-center">
+                                <iconify-icon icon="solar:drop-linear" class="text-success-600"></iconify-icon>
+                            </div>
+                            <div>
+                                <p class="mb-0 text-sm text-secondary-light">Grassi</p>
+                                <h6 class="mb-0">{{ plan.target_fats|format_macros }} g</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Average Compliance -->
+<div class="card radius-8 border-0 mb-24">
+    <div class="card-body p-24">
+        <h5 class="mb-3">Media Giornaliera vs Target</h5>
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    {% set calories_percentage = (totals.calories / plan.target_calories * 100)|int if plan.target_calories else 0 %}
+                    {% set calories_status = 'success' if 90 <= calories_percentage <= 110 else ('warning' if 80 <= calories_percentage <= 120 else 'danger') %}
+                    <h4 class="mb-1 text-{{ calories_status }}-600">
+                        {{ totals.calories|int }}
+                    </h4>
+                    <p class="text-sm text-secondary-light mb-2">kcal / giorno</p>
+                    <div class="macro-progress bg-neutral-100">
+                        <div class="bg-{{ calories_status }}-600" style="width: {{ [calories_percentage, 100]|min }}%; height: 100%;"></div>
+                    </div>
+                    <p class="text-xs text-secondary-light mt-1">
+                        {{ calories_percentage }}% del target
+                    </p>
+                    <span class="compliance-badge bg-{{ calories_status }}-50 text-{{ calories_status }}-600">
+                        {% if 90 <= calories_percentage <= 110 %}
+                            Ottimale
+                        {% elif 80 <= calories_percentage <= 120 %}
+                            Accettabile
+                        {% else %}
+                            Da rivedere
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    {% set proteins_percentage = (totals.proteins / plan.target_proteins * 100)|int if plan.target_proteins else 0 %}
+                    <h4 class="mb-1">{{ totals.proteins|format_macros }}</h4>
+                    <p class="text-sm text-secondary-light mb-2">g proteine / giorno</p>
+                    <div class="macro-progress bg-neutral-100">
+                        <div class="bg-info-600" style="width: {{ [proteins_percentage, 100]|min }}%; height: 100%;"></div>
+                    </div>
+                    <p class="text-xs text-secondary-light mt-1">
+                        {{ proteins_percentage }}% del target
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    {% set carbs_percentage = (totals.carbohydrates / plan.target_carbohydrates * 100)|int if plan.target_carbohydrates else 0 %}
+                    <h4 class="mb-1">{{ totals.carbohydrates|format_macros }}</h4>
+                    <p class="text-sm text-secondary-light mb-2">g carboidrati / giorno</p>
+                    <div class="macro-progress bg-neutral-100">
+                        <div class="bg-warning-600" style="width: {{ [carbs_percentage, 100]|min }}%; height: 100%;"></div>
+                    </div>
+                    <p class="text-xs text-secondary-light mt-1">
+                        {{ carbs_percentage }}% del target
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    {% set fats_percentage = (totals.fats / plan.target_fats * 100)|int if plan.target_fats else 0 %}
+                    <h4 class="mb-1">{{ totals.fats|format_macros }}</h4>
+                    <p class="text-sm text-secondary-light mb-2">g grassi / giorno</p>
+                    <div class="macro-progress bg-neutral-100">
+                        <div class="bg-success-600" style="width: {{ [fats_percentage, 100]|min }}%; height: 100%;"></div>
+                    </div>
+                    <p class="text-xs text-secondary-light mt-1">
+                        {{ fats_percentage }}% del target
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Days Accordion -->
+<div class="accordion" id="daysAccordion">
+    {% for day in days %}
+    <div class="accordion-item border-0 mb-3 radius-8 overflow-hidden">
+        <h2 class="accordion-header">
+            <button class="accordion-button {{ 'collapsed' if not loop.first }}" 
+                    type="button" 
+                    data-bs-toggle="collapse" 
+                    data-bs-target="#day-{{ day.id }}" 
+                    aria-expanded="{{ 'true' if loop.first else 'false' }}">
+                <div class="d-flex align-items-center justify-content-between w-100 me-3">
+                    <div>
+                        <h6 class="mb-0">Giorno {{ day.day_number }} - {{ day.day_date.strftime('%A %d %B %Y')|capitalize }}</h6>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        {% set day_calories = day.meals|sum(attribute='total_calories') %}
+                        {% set day_proteins = day.meals|sum(attribute='total_proteins') %}
+                        {% set day_carbs = day.meals|sum(attribute='total_carbohydrates') %}
+                        {% set day_fats = day.meals|sum(attribute='total_fats') %}
+                        
+                        <div class="d-flex gap-2 d-none d-md-flex">
+                            <span class="badge bg-primary-50 text-primary-600">
+                                {{ day_calories|int }} kcal
+                            </span>
+                            <span class="badge bg-info-50 text-info-600">
+                                P: {{ day_proteins|format_macros }}g
+                            </span>
+                            <span class="badge bg-warning-50 text-warning-600">
+                                C: {{ day_carbs|format_macros }}g
+                            </span>
+                            <span class="badge bg-success-50 text-success-600">
+                                G: {{ day_fats|format_macros }}g
+                            </span>
+                        </div>
+                        
+                        {% set day_cal_percentage = (day_calories / plan.target_calories * 100)|int if plan.target_calories else 0 %}
+                        {% if 90 <= day_cal_percentage <= 110 %}
+                            <iconify-icon icon="solar:check-circle-bold" class="text-success-600 text-xl"></iconify-icon>
+                        {% elif 80 <= day_cal_percentage <= 120 %}
+                            <iconify-icon icon="solar:danger-triangle-linear" class="text-warning-600 text-xl"></iconify-icon>
+                        {% else %}
+                            <iconify-icon icon="solar:close-circle-linear" class="text-danger-600 text-xl"></iconify-icon>
+                        {% endif %}
+                    </div>
+                </div>
+            </button>
+        </h2>
+        <div id="day-{{ day.id }}" 
+             class="accordion-collapse collapse {{ 'show' if loop.first }}" 
+             data-bs-parent="#daysAccordion">
+            <div class="accordion-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-24" style="width: 25%">Pasto</th>
+                                <th style="width: 35%">Alimenti</th>
+                                <th class="text-center" style="width: 10%">Quantità</th>
+                                <th class="text-center" style="width: 8%">Calorie</th>
+                                <th class="text-center" style="width: 8%">Proteine</th>
+                                <th class="text-center" style="width: 8%">Carboidrati</th>
+                                <th class="text-center" style="width: 6%">Grassi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set meal_types = [
+                                ('colazione', 'Colazione', 'solar:sunrise-linear', 'warning'),
+                                ('spuntino_mattina', 'Spuntino Mattina', 'solar:cup-linear', 'info'),
+                                ('pranzo', 'Pranzo', 'solar:dish-linear', 'primary'),
+                                ('spuntino_pomeriggio', 'Spuntino Pomeriggio', 'solar:donut-linear', 'warning'),
+                                ('cena', 'Cena', 'solar:moon-linear', 'primary'),
+                                ('spuntino_sera', 'Spuntino Sera', 'solar:star-linear', 'info')
+                            ] %}
+                            
+                            {% for meal_type, meal_name, meal_icon, color in meal_types %}
+                                {% set meal = day.meals|selectattr('meal_type', 'equalto', meal_type)|first %}
+                                {% if meal and meal.foods %}
+                                    <!-- Meal Header Row -->
+                                    <tr class="table-light">
+                                        <td class="ps-24" colspan="7">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="meal-type-icon bg-{{ color }}-50">
+                                                    <iconify-icon icon="{{ meal_icon }}" class="text-{{ color }}-600"></iconify-icon>
+                                                </div>
+                                                <h6 class="mb-0">{{ meal_name }}</h6>
+                                                {% if meal.name %}
+                                                    <span class="text-secondary-light">- {{ meal.name }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Food Items -->
+                                    {% for food in meal.foods %}
+                                    <tr class="meal-row">
+                                        <td class="ps-48"></td>
+                                        <td>
+                                            {% if food.food %}
+                                                <span class="fw-medium">{{ food.food.name }}</span>
+                                                {% if food.food.brand %}
+                                                    <small class="text-secondary-light d-block">({{ food.food.brand }})</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="fw-medium text-primary-600">
+                                                    <iconify-icon icon="solar:chef-hat-linear" class="me-1"></iconify-icon>
+                                                    {{ food.recipe.name }}
+                                                </span>
+                                                <small class="text-secondary-light d-block">(Ricetta)</small>
+                                            {% endif %}
+                                            {% if food.notes %}
+                                                <small class="text-info-600 d-block mt-1">
+                                                    <iconify-icon icon="solar:notes-linear"></iconify-icon>
+                                                    {{ food.notes }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fw-medium">{{ food.quantity }}</span> {{ food.unit }}
+                                        </td>
+                                        <td class="text-center">{{ food.calories|int }}</td>
+                                        <td class="text-center">{{ food.proteins|format_macros }}</td>
+                                        <td class="text-center">{{ food.carbohydrates|format_macros }}</td>
+                                        <td class="text-center">{{ food.fats|format_macros }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    
+                                    <!-- Meal Totals -->
+                                    <tr class="fw-semibold bg-light">
+                                        <td class="ps-48"></td>
+                                        <td class="text-end">Totale {{ meal_name }}:</td>
+                                        <td></td>
+                                        <td class="text-center">{{ meal.total_calories|int }}</td>
+                                        <td class="text-center">{{ meal.total_proteins|format_macros }}</td>
+                                        <td class="text-center">{{ meal.total_carbohydrates|format_macros }}</td>
+                                        <td class="text-center">{{ meal.total_fats|format_macros }}</td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- Day Totals -->
+                            <tr class="fw-bold table-primary">
+                                <td colspan="3" class="text-end pe-3">TOTALE GIORNO:</td>
+                                <td class="text-center">{{ day_calories|int }}</td>
+                                <td class="text-center">{{ day_proteins|format_macros }}</td>
+                                <td class="text-center">{{ day_carbs|format_macros }}</td>
+                                <td class="text-center">{{ day_fats|format_macros }}</td>
+                            </tr>
+                            
+                            <!-- Compliance Row -->
+                            <tr class="table-light">
+                                <td colspan="3" class="text-end pe-3 text-secondary-light">% del target:</td>
+                                <td class="text-center">
+                                    <span class="badge bg-{{ 'success' if 90 <= day_cal_percentage <= 110 else ('warning' if 80 <= day_cal_percentage <= 120 else 'danger') }}-50 
+                                                 text-{{ 'success' if 90 <= day_cal_percentage <= 110 else ('warning' if 80 <= day_cal_percentage <= 120 else 'danger') }}-600">
+                                        {{ day_cal_percentage }}%
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% set prot_percentage = (day_proteins / plan.target_proteins * 100)|int if plan.target_proteins else 0 %}
+                                    <span class="text-{{ 'success' if 90 <= prot_percentage <= 110 else 'secondary' }}-light">
+                                        {{ prot_percentage }}%
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% set carb_percentage = (day_carbs / plan.target_carbohydrates * 100)|int if plan.target_carbohydrates else 0 %}
+                                    <span class="text-{{ 'success' if 90 <= carb_percentage <= 110 else 'secondary' }}-light">
+                                        {{ carb_percentage }}%
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% set fat_percentage = (day_fats / plan.target_fats * 100)|int if plan.target_fats else 0 %}
+                                    <span class="text-{{ 'success' if 90 <= fat_percentage <= 110 else 'secondary' }}-light">
+                                        {{ fat_percentage }}%
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if day.notes %}
+                <div class="p-24 border-top bg-light">
+                    <p class="mb-0 text-sm">
+                        <iconify-icon icon="solar:notes-linear" class="text-primary-600 me-1"></iconify-icon>
+                        <strong>Note del giorno:</strong> {{ day.notes }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if plan.notes %}
+<div class="card radius-8 border-0 mt-24">
+    <div class="card-header border-bottom bg-base py-16 px-24">
+        <h6 class="text-lg fw-semibold mb-0">Note del Piano</h6>
+    </div>
+    <div class="card-body p-24">
+        <p class="mb-0">{{ plan.notes|nl2br }}</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Shopping List Modal -->
+<div class="modal fade" id="shoppingListModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Lista della Spesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-24" id="shoppingLoading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Caricamento...</span>
+                    </div>
+                    <p class="mt-3 text-secondary-light">Generazione lista in corso...</p>
+                </div>
+                <div id="shoppingContent" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                <button type="button" class="btn btn-primary" id="downloadShoppingList" style="display: none;">
+                    <iconify-icon icon="solar:download-linear" class="me-1"></iconify-icon>
+                    Scarica PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Condividi Piano</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Link condivisibile (valido 7 giorni)</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" readonly 
+                               value="{{ url_for('nutrition.meal_plan_view', plan_id=plan.id, _external=True) }}">
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+                            <iconify-icon icon="solar:copy-linear"></iconify-icon>
+                        </button>
+                    </div>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary" onclick="shareViaEmail()">
+                        <iconify-icon icon="solar:letter-linear" class="me-1"></iconify-icon>
+                        Invia via Email
+                    </button>
+                    <button type="button" class="btn btn-outline-success" onclick="shareViaWhatsApp()">
+                        <iconify-icon icon="akar-icons:whatsapp-fill" class="me-1"></iconify-icon>
+                        Condividi su WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Shopping List Modal
+document.getElementById('shoppingListModal').addEventListener('show.bs.modal', function() {
+    const loading = document.getElementById('shoppingLoading');
+    const content = document.getElementById('shoppingContent');
+    const downloadBtn = document.getElementById('downloadShoppingList');
+    
+    // Reset state
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    downloadBtn.style.display = 'none';
+    
+    // Generate shopping list
+    fetch(`{{ url_for('nutrition.api_shopping_list', plan_id=plan.id) }}`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '<div class="row g-3">';
+            
+            // Group by category
+            const categories = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+            
+            categories.forEach(([category, items]) => {
+                html += `
+                    <div class="col-md-6">
+                        <div class="card h-100 radius-8">
+                            <div class="card-header bg-light py-12 px-16">
+                                <h6 class="mb-0">
+                                    <iconify-icon icon="solar:cart-check-linear" class="me-1"></iconify-icon>
+                                    ${category}
+                                </h6>
+                            </div>
+                            <div class="card-body p-16">
+                                <ul class="list-unstyled mb-0">
+                `;
+                
+                const sortedItems = Object.entries(items).sort((a, b) => a[0].localeCompare(b[0]));
+                
+                sortedItems.forEach(([itemName, itemData]) => {
+                    let quantity = itemData.quantity;
+                    let unit = itemData.unit;
+                    
+                    // Convert to kg if > 1000g
+                    if (unit === 'g' && quantity >= 1000) {
+                        quantity = (quantity / 1000).toFixed(1);
+                        unit = 'kg';
+                    }
+                    
+                    html += `
+                        <li class="mb-2 d-flex justify-content-between align-items-center">
+                            <span class="text-sm">${itemName}</span>
+                            <strong class="text-primary-600">${quantity} ${unit}</strong>
+                        </li>
+                    `;
+                });
+                
+                html += `
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Show content
+            loading.style.display = 'none';
+            content.innerHTML = html;
+            content.style.display = 'block';
+            downloadBtn.style.display = 'inline-block';
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <iconify-icon icon="solar:danger-triangle-linear" class="me-1"></iconify-icon>
+                    Errore nel caricamento della lista della spesa
+                </div>
+            `;
+            content.style.display = 'block';
+        });
+});
+
+// Download shopping list
+document.getElementById('downloadShoppingList').addEventListener('click', function() {
+    window.location.href = `{{ url_for('nutrition.shopping_list_pdf', plan_id=plan.id) }}`;
+});
+
+// Share functions
+function copyShareLink() {
+    const input = document.getElementById('shareLink');
+    input.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const btn = event.target.closest('button');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<iconify-icon icon="solar:check-circle-linear"></iconify-icon>';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-secondary');
+    
+    setTimeout(() => {
+        btn.innerHTML = originalContent;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+
+function shareViaEmail() {
+    const subject = encodeURIComponent(`Piano Alimentare: {{ plan.name }}`);
+    const body = encodeURIComponent(`Ecco il tuo piano alimentare personalizzato:\n\n{{ url_for('nutrition.meal_plan_view', plan_id=plan.id, _external=True) }}\n\nBuona giornata!`);
+    window.location.href = `mailto:{{ plan.cliente.email }}?subject=${subject}&body=${body}`;
+}
+
+function shareViaWhatsApp() {
+    const text = encodeURIComponent(`Ecco il tuo piano alimentare *{{ plan.name }}*:\n{{ url_for('nutrition.meal_plan_view', plan_id=plan.id, _external=True) }}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+// Print friendly
+window.addEventListener('beforeprint', function() {
+    // Expand all accordions for printing
+    document.querySelectorAll('.accordion-collapse').forEach(collapse => {
+        collapse.classList.add('show');
+    });
+    document.querySelectorAll('.accordion-button').forEach(button => {
+        button.classList.remove('collapsed');
+    });
+});
+
+// Tooltip initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Smooth scroll to accordion items
+    document.querySelectorAll('.accordion-button').forEach(button => {
+        button.addEventListener('click', function() {
+            setTimeout(() => {
+                const target = document.querySelector(this.dataset.bsTarget);
+                if (target && target.classList.contains('show')) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 350);
+        });
+    });
+});
+</script>
+{% endblock %}

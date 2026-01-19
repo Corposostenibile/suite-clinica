@@ -1,0 +1,782 @@
+{% extends "base.html" %}
+
+{% block title %}Codice di Condotta – Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables - Platform Green */
+    :root {
+        --primary-green: #28a745;
+        --primary-green-dark: #218838;
+        --primary-green-light: #e6f7e9;
+        --primary-green-lighter: #f4fbf5;
+    }
+
+    /* Global Reading Progress Bar */
+    .global-reading-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 9999;
+    }
+
+    .global-reading-progress-fill {
+        height: 100%;
+        background: var(--primary-green);
+        width: 0%;
+        transition: width 0.1s ease-out;
+    }
+
+    /* Floating TOC Styles */
+    #tocFloatingPanel .toc-link:hover {
+        background: var(--primary-green-lighter) !important;
+        color: var(--primary-green-dark) !important;
+        border-left-color: var(--primary-green) !important;
+    }
+
+    #tocFloatingPanel .toc-link:hover .toc-bullet {
+        background: var(--primary-green) !important;
+        transform: scale(1.2);
+    }
+
+    #tocFloatingPanel .toc-link.active {
+        background: var(--primary-green-light) !important;
+        color: var(--primary-green-dark) !important;
+        font-weight: 600;
+        border-left-color: var(--primary-green) !important;
+    }
+
+    #tocFloatingPanel .toc-link.active .toc-bullet {
+        background: var(--primary-green) !important;
+        transform: scale(1.3);
+    }
+
+    #tocFloatingBtn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(40, 167, 69, 0.5);
+    }
+
+    /* Manual Container */
+    .manual-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 60px 20px 100px;
+    }
+
+    /* Manual Header */
+    .manual-header {
+        position: relative;
+        overflow: hidden;
+        color: white;
+        padding: 48px 20px;
+        margin-bottom: 40px;
+        border-radius: 0;
+        text-align: center;
+        background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-dark) 100%);
+    }
+
+    .manual-header-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 0;
+    }
+
+    .manual-header-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(40, 167, 69, 0.75);
+        z-index: 1;
+    }
+
+    .manual-header-content {
+        position: relative;
+        z-index: 2;
+    }
+
+    .manual-header h1 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: white !important;
+    }
+
+    .manual-header p {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin: 0;
+        color: white !important;
+    }
+
+    /* Sections */
+    .manual-section {
+        background: white;
+        border-radius: 16px;
+        padding: 40px 50px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .manual-section:hover {
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+    }
+
+    .manual-section h2 {
+        font-size: 28px !important;
+        font-weight: 700 !important;
+        color: #1a202c !important;
+        margin-top: 0 !important;
+        margin-bottom: 32px !important;
+        padding-bottom: 16px !important;
+        border-bottom: 3px solid var(--primary-green) !important;
+        letter-spacing: -0.025em !important;
+    }
+
+    .manual-section h3 {
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        color: var(--primary-green-dark) !important;
+        margin-top: 40px !important;
+        margin-bottom: 24px !important;
+        letter-spacing: -0.025em !important;
+        position: relative;
+        padding-left: 20px !important;
+    }
+
+    .manual-section h3::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 24px;
+        background: var(--primary-green);
+        border-radius: 2px;
+    }
+
+    .manual-section h4 {
+        font-size: 19px !important;
+        font-weight: 600 !important;
+        color: #2d3748 !important;
+        margin-top: 32px !important;
+        margin-bottom: 16px !important;
+        letter-spacing: -0.025em !important;
+    }
+
+    .manual-section h5 {
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        color: #4a5568 !important;
+        margin-top: 24px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .manual-section p {
+        font-size: 17px;
+        line-height: 1.75;
+        color: #2d3748;
+        margin-bottom: 24px;
+        text-align: justify;
+        hyphens: auto;
+    }
+
+    .manual-section ul,
+    .manual-section ol {
+        font-size: 17px;
+        line-height: 1.75;
+        margin: 24px 0;
+        padding-left: 32px;
+        color: #2d3748;
+    }
+
+    .manual-section li {
+        margin-bottom: 12px;
+        line-height: 1.7;
+    }
+
+    .manual-section ul li::marker {
+        color: var(--primary-green);
+        font-weight: bold;
+    }
+
+    .manual-section ol li::marker {
+        color: var(--primary-green);
+        font-weight: bold;
+    }
+
+    /* Alert Boxes */
+    .alert-tip {
+        background: linear-gradient(135deg, var(--primary-green-lighter) 0%, var(--primary-green-light) 100%);
+        border-left: 4px solid var(--primary-green);
+        padding: 24px 28px;
+        margin: 32px 0;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(40, 167, 69, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .alert-tip:hover {
+        box-shadow: 0 4px 20px rgba(40, 167, 69, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .alert-tip h5 {
+        color: var(--primary-green-dark);
+        font-weight: 600;
+        margin-bottom: 12px;
+        font-size: 15px;
+    }
+
+    .alert-tip p,
+    .alert-tip ul {
+        color: #2d3748;
+        font-size: 16px;
+    }
+
+    /* Back to Top Button */
+    .back-to-top {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        background: var(--primary-green);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        z-index: 999;
+        transition: all 0.3s ease;
+        font-size: 20px;
+    }
+
+    .back-to-top.visible {
+        display: flex;
+    }
+
+    .back-to-top:hover {
+        background: var(--primary-green-dark);
+        transform: translateY(-5px);
+        box-shadow: 0 6px 25px rgba(40, 167, 69, 0.4);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .manual-container {
+            padding: 40px 15px 80px;
+        }
+
+        .manual-section {
+            padding: 30px 25px;
+        }
+
+        .manual-section h2 {
+            font-size: 24px !important;
+        }
+
+        .manual-section h3 {
+            font-size: 20px !important;
+        }
+
+        .manual-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .manual-header p {
+            font-size: 0.95rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Global Reading Progress Bar -->
+<div class="global-reading-progress">
+    <div class="global-reading-progress-fill" id="globalProgressBar"></div>
+</div>
+
+<!-- Floating TOC Button -->
+<button id="tocFloatingBtn" style="position: fixed; bottom: 110px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-green); color: white; border: none; box-shadow: 0 4px 20px rgba(40, 167, 69, 0.4); cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.3s ease;">
+    <i class="ri-list-unordered"></i>
+</button>
+
+<!-- Floating TOC Panel -->
+<div id="tocFloatingPanel" style="position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 10002; transition: right 0.3s ease; overflow-y: auto;">
+    <div style="position: sticky; top: 0; background: var(--primary-green); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+        <h5 style="margin: 0; font-size: 18px; font-weight: 600;">
+            <i class="ri-list-unordered"></i> Indice
+        </h5>
+        <button id="tocCloseBtn" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+            <i class="ri-close-line"></i>
+        </button>
+    </div>
+
+    <!-- Reading Progress -->
+    <div style="padding: 20px; border-bottom: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase;">Progresso</span>
+            <span id="progressPercent" style="font-size: 12px; font-weight: 600; color: var(--primary-green);">0%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
+            <div class="progress-bar" id="readingProgressBar" style="width: 0%; background: var(--primary-green); border-radius: 10px; transition: width 0.3s ease;"></div>
+        </div>
+    </div>
+
+    <!-- TOC Navigation -->
+    <div style="padding: 20px;">
+        <nav class="toc-nav" id="tocNav"></nav>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="tocOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; opacity: 0; visibility: hidden; transition: all 0.3s ease;"></div>
+
+<!-- Back to Top Button -->
+<button class="back-to-top" id="backToTop">
+    <i class="ri-arrow-up-line"></i>
+</button>
+
+<!-- Manual Header -->
+<div class="manual-header">
+    <!-- Video Background -->
+    <video autoplay muted loop playsinline class="manual-header-video">
+        <source src="{{ url_for('static', filename='assets/video/knowledge_base.mp4') }}" type="video/mp4">
+    </video>
+
+    <!-- Green Overlay -->
+    <div class="manual-header-overlay"></div>
+
+    <!-- Content -->
+    <div class="manual-header-content">
+        <h1>Codice di Condotta di Corposostenibile</h1>
+        <p>Principi etici e linee guida per un ambiente di lavoro sostenibile e rispettoso</p>
+    </div>
+</div>
+
+<div class="manual-container" id="articleContent">
+
+    <!-- Introduzione -->
+    <section id="introduzione" class="manual-section">
+        <h2>Introduzione:</h2>
+
+        <p>Corposostenibile si impegna a promuovere un ambiente di lavoro etico, rispettoso e professionale, anche in un contesto di collaborazione con professionisti in partita IVA e lavoratori da remoto. Questo Codice di Condotta stabilisce i principi fondamentali e le linee guida che tutti i professionisti devono rispettare per garantire un'azienda sostenibile, trasparente e orientata al benessere delle persone.</p>
+    </section>
+
+    <!-- Rispetto e Professionalità -->
+    <section id="rispetto" class="manual-section">
+        <h2>1. Rispetto e Professionalità</h2>
+
+        <ul>
+            <li><strong>Rispetto reciproco:</strong> Tutti i professionisti devono trattare colleghi, clienti e partner con rispetto, cortesia e dignità, promuovendo un ambiente inclusivo e privo di discriminazioni.</li>
+            <li><strong>Comunicazione trasparente:</strong> Favorire un dialogo aperto, onesto e costruttivo, evitando incomprensioni e malintesi.</li>
+            <li><strong>Responsabilità:</strong> Assumersi la responsabilità delle proprie attività e delle proprie parole, rispettando gli impegni presi.</li>
+        </ul>
+    </section>
+
+    <!-- Etica e Integrità -->
+    <section id="etica" class="manual-section">
+        <h2>2. Etica e Integrità</h2>
+
+        <ul>
+            <li><strong>Conformità alle leggi:</strong> Rispettare tutte le normative vigenti relative alla propria attività professionale, fiscale e normativa.</li>
+            <li><strong>Onestà:</strong> Presentare sempre informazioni veritiere e accurate, evitando pratiche ingannevoli o fraudolente.</li>
+            <li><strong>Confidenzialità:</strong> Garantire la riservatezza delle informazioni sensibili di clienti, colleghi e dell'azienda.</li>
+        </ul>
+    </section>
+
+    <!-- Lavoro da Remoto e Partita IVA -->
+    <section id="remoto" class="manual-section">
+        <h2>3. Lavoro da Remoto e Partita IVA</h2>
+
+        <ul>
+            <li><strong>Autonomia e disciplina:</strong> Gestire il proprio lavoro in modo autonomo, rispettando le scadenze e gli standard qualitativi richiesti.</li>
+            <li><strong>Organizzazione:</strong> Mantenere un ambiente di lavoro adeguato, con strumenti e procedure che favoriscano efficienza e benessere.</li>
+            <li><strong>Comunicazione:</strong> Mantenere regolari contatti con il team e i clienti attraverso strumenti digitali, garantendo disponibilità e reattività.</li>
+        </ul>
+    </section>
+
+    <!-- Benessere e Sostenibilità -->
+    <section id="benessere" class="manual-section">
+        <h2>4. Benessere e Sostenibilità</h2>
+
+        <ul>
+            <li><strong>Salute e benessere:</strong> Promuovere pratiche di lavoro che favoriscano il benessere fisico e mentale, cercando di ridurre sovraccarichi e situazioni di stress eccessivo quando possibile.do possibile.</li>
+            <li><strong>Equilibrio vita-lavoro del singolo:</strong> cercando di creare condizioni che facilitano questa integrazione attraverso queste pratiche
+                <ol type="a">
+                    <li>Implementazione di politiche di lavoro flessibile: orari di lavoro adattabili, pause regolari e flessibili.</li>
+                    <li>Promuovendo una cultura aziendale orientata al benessere: formazione dei manager su come riconoscere e gestire stress e sovraccarico, incentivando pratiche di supporto reciproco.</li>
+                    <li>Monitorando e valutando il benessere dei dipendenti: questionari periodici, feedback e ascolto attivo per adattare le politiche alle reali esigenze.</li>
+                    <li>Favorendo l'equilibrio tra vita privata e lavoro: incentivare i dipendenti a rispettare i propri orari, evitare di inviare email o messaggi fuori orario e riconoscere l'importanza del tempo libero.</li>
+                    <li>Coinvolgendo i dipendenti: creare forum di discussione e coinvolgere attivamente i lavoratori nelle decisioni relative a pratiche di benessere.</li>
+                </ol>
+            </li>
+        </ul>
+    </section>
+
+    <!-- Collaborazione e Crescita -->
+    <section id="collaborazione" class="manual-section">
+        <h2>5. Collaborazione e Crescita</h2>
+
+        <ul>
+            <li><strong>Lavoro di squadra:</strong> Collaborare con spirito di cooperazione, condividendo competenze e rispettando le opinioni degli altri.</li>
+            <li><strong>Formazione continua:</strong> Impegnarsi nel miglioramento professionale e personale, partecipando a corsi e aggiornamenti.</li>
+            <li><strong>Feedback:</strong> Accettare e fornire feedback costruttivi per migliorare continuamente le proprie prestazioni e l'ambiente di lavoro.</li>
+        </ul>
+    </section>
+
+    <!-- Risoluzione dei Conflitti -->
+    <section id="conflitti" class="manual-section">
+        <h2>6. Risoluzione dei Conflitti</h2>
+
+        <ul>
+            <li><strong>Dialogo:</strong> Affrontare eventuali divergenze con rispetto e apertura, cercando soluzioni condivise.</li>
+            <li><strong>Mediazione:</strong> Coinvolgere i responsabili o figure di riferimento aziendali in caso di problematiche non risolvibili autonomamente.</li>
+        </ul>
+    </section>
+
+    <!-- Conclusione -->
+    <section id="conclusione" class="manual-section">
+        <h2>Conclusione</h2>
+
+        <p>Il rispetto di questo Codice di Condotta è fondamentale per mantenere l'etica, la professionalità e il benessere di tutti i membri di Corposostenibile. Ogni professionista si impegna a rispettare questi principi, contribuendo a costruire un ambiente di lavoro sostenibile, inclusivo e orientato alle persone.</p>
+    </section>
+
+    <!-- Conferma di Lettura -->
+    <section class="manual-section" style="background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white;">
+        <div class="text-center">
+            {% if has_acknowledged %}
+            <!-- Già confermato -->
+            <div class="mb-3">
+                <i class="ri-checkbox-circle-fill" style="font-size: 64px; color: white;"></i>
+            </div>
+            <h3 style="color: white !important;">Conferma di Lettura Registrata</h3>
+            <p style="color: rgba(255,255,255,0.9) !important;">
+                Hai confermato la lettura di questo documento il
+                <strong>{{ acknowledgment.acknowledged_at.strftime('%d/%m/%Y') }}</strong>
+            </p>
+            {% else %}
+            <!-- Non ancora confermato -->
+            <div class="mb-3">
+                <i class="ri-file-check-line" style="font-size: 64px; color: white;"></i>
+            </div>
+            <h3 style="color: white !important;">Conferma di Lettura</h3>
+            <p style="color: rgba(255,255,255,0.9) !important; max-width: 600px; margin: 0 auto 2rem;">
+                Confermo di aver letto e compreso il Codice di Condotta di Corposostenibile
+                e mi impegno a rispettare i principi e le linee guida in esso contenuti.
+            </p>
+            <button id="acknowledgeBtn" class="btn btn-light btn-lg px-5 py-3" style="border-radius: 50px; font-weight: 600;">
+                <i class="ri-checkbox-circle-line me-2"></i>
+                Confermo di aver letto
+            </button>
+            <div id="acknowledgeMessage" class="mt-3" style="display: none;"></div>
+            {% endif %}
+        </div>
+    </section>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class ManualTOC {
+    constructor() {
+        this.headings = Array.from(document.querySelectorAll('#articleContent h2, #articleContent h3'));
+        this.tocNav = document.getElementById('tocNav');
+        this.tocLinks = [];
+        this.init();
+    }
+
+    init() {
+        this.setupHeadingIds();
+        this.generateTOC();
+        this.setupFloatingTOC();
+        this.setupBackToTop();
+        this.setupScrollSpy();
+        this.setupEventListeners();
+    }
+
+    setupHeadingIds() {
+        this.headings.forEach((heading, index) => {
+            if (!heading.id) {
+                heading.id = `heading-${index}`;
+            }
+        });
+    }
+
+    generateTOC() {
+        if (!this.tocNav) return;
+
+        this.headings.forEach((heading) => {
+            const level = heading.tagName.toLowerCase();
+            const text = heading.textContent;
+            const id = heading.id;
+
+            const tocItem = document.createElement('div');
+            tocItem.style.marginBottom = '8px';
+
+            const link = document.createElement('a');
+            link.href = `#${id}`;
+            link.className = 'toc-link';
+            link.style.display = 'flex';
+            link.style.alignItems = 'center';
+            link.style.padding = level === 'h3' ? '10px 12px 10px 24px' : '12px 12px';
+            link.style.textDecoration = 'none';
+            link.style.color = '#2d3748';
+            link.style.borderRadius = '8px';
+            link.style.transition = 'all 0.2s';
+            link.style.borderLeft = '3px solid transparent';
+            link.style.fontSize = level === 'h3' ? '13px' : '14px';
+            link.style.fontWeight = level === 'h3' ? '500' : '600';
+
+            const bullet = document.createElement('span');
+            bullet.className = 'toc-bullet';
+            bullet.style.display = 'inline-block';
+            bullet.style.width = '8px';
+            bullet.style.height = '8px';
+            bullet.style.background = '#cbd5e0';
+            bullet.style.borderRadius = '50%';
+            bullet.style.marginRight = '12px';
+            bullet.style.transition = 'all 0.2s';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'toc-text';
+            textSpan.textContent = text;
+
+            link.appendChild(bullet);
+            link.appendChild(textSpan);
+            tocItem.appendChild(link);
+            this.tocNav.appendChild(tocItem);
+
+            this.tocLinks.push(link);
+
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.scrollToHeading(id);
+            });
+        });
+    }
+
+    scrollToHeading(id) {
+        const element = document.getElementById(id);
+        if (element) {
+            const targetTop = element.getBoundingClientRect().top + window.pageYOffset - 100;
+            window.scrollTo({
+                top: targetTop,
+                behavior: 'smooth'
+            });
+            if (window.innerWidth < 768) {
+                this.closePanel();
+            }
+        }
+    }
+
+    setupFloatingTOC() {
+        const floatingBtn = document.getElementById('tocFloatingBtn');
+        const floatingPanel = document.getElementById('tocFloatingPanel');
+        const closeBtn = document.getElementById('tocCloseBtn');
+        const overlay = document.getElementById('tocOverlay');
+
+        if (!floatingBtn || !floatingPanel || !closeBtn || !overlay) return;
+
+        floatingBtn.addEventListener('click', () => {
+            floatingPanel.style.right = '0';
+            overlay.style.opacity = '1';
+            overlay.style.visibility = 'visible';
+            document.body.style.overflow = 'hidden';
+        });
+
+        const closePanel = () => {
+            floatingPanel.style.right = '-400px';
+            overlay.style.opacity = '0';
+            overlay.style.visibility = 'hidden';
+            document.body.style.overflow = 'auto';
+        };
+        this.closePanel = closePanel;
+
+        closeBtn.addEventListener('click', closePanel);
+        overlay.addEventListener('click', closePanel);
+    }
+
+    setupScrollSpy() {
+        this.updateScrollSpy();
+    }
+
+    updateScrollSpy() {
+        if (this.headings.length === 0) return;
+
+        const scrollPosition = window.scrollY + 150;
+        let activeHeading = null;
+
+        for (let i = this.headings.length - 1; i >= 0; i--) {
+            const heading = this.headings[i];
+            if (heading.offsetTop <= scrollPosition) {
+                activeHeading = heading;
+                break;
+            }
+        }
+
+        this.tocLinks.forEach(link => {
+            link.classList.remove('active');
+            link.style.background = '';
+            link.style.borderLeftColor = 'transparent';
+            link.style.color = '#2d3748';
+
+            const bullet = link.querySelector('.toc-bullet');
+            if (bullet) {
+                bullet.style.background = '#cbd5e0';
+                bullet.style.transform = 'scale(1)';
+            }
+
+            if (activeHeading && link.getAttribute('href') === `#${activeHeading.id}`) {
+                link.classList.add('active');
+                link.style.background = 'var(--primary-green-light)';
+                link.style.borderLeftColor = 'var(--primary-green)';
+                link.style.color = 'var(--primary-green-dark)';
+                link.style.fontWeight = '600';
+
+                if (bullet) {
+                    bullet.style.background = 'var(--primary-green)';
+                    bullet.style.transform = 'scale(1.3)';
+                }
+            }
+        });
+    }
+
+    setupBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (!backToTopBtn) return;
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    updateReadingProgress() {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+
+        const progressBar = document.getElementById('readingProgressBar');
+        const globalProgressBar = document.getElementById('globalProgressBar');
+        const progressPercent = document.getElementById('progressPercent');
+
+        if (progressBar) progressBar.style.width = scrolled + '%';
+        if (globalProgressBar) globalProgressBar.style.width = scrolled + '%';
+        if (progressPercent) progressPercent.textContent = Math.round(scrolled) + '%';
+    }
+
+    setupEventListeners() {
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    this.updateScrollSpy();
+                    this.updateReadingProgress();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new ManualTOC();
+
+    // Gestione conferma lettura
+    const acknowledgeBtn = document.getElementById('acknowledgeBtn');
+    if (acknowledgeBtn) {
+        acknowledgeBtn.addEventListener('click', async function() {
+            // Disabilita il pulsante
+            acknowledgeBtn.disabled = true;
+            acknowledgeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registrazione...';
+
+            try {
+                // Ottieni CSRF token
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+                const response = await fetch('/team/acknowledge-document', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        document_type: 'codice_condotta'
+                    })
+                });
+
+                const data = await response.json();
+                const messageDiv = document.getElementById('acknowledgeMessage');
+
+                if (data.success) {
+                    messageDiv.className = 'alert alert-light mt-3';
+                    messageDiv.innerHTML = `
+                        <i class="ri-checkbox-circle-line me-2"></i>
+                        <strong>Conferma registrata con successo!</strong><br>
+                        <small>La pagina si ricaricherà tra pochi secondi...</small>
+                    `;
+                    messageDiv.style.display = 'block';
+
+                    // Ricarica la pagina dopo 2 secondi
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    messageDiv.className = 'alert alert-warning mt-3';
+                    messageDiv.innerHTML = `
+                        <i class="ri-error-warning-line me-2"></i>
+                        ${data.message}
+                    `;
+                    messageDiv.style.display = 'block';
+
+                    // Riabilita il pulsante
+                    acknowledgeBtn.disabled = false;
+                    acknowledgeBtn.innerHTML = '<i class="ri-checkbox-circle-line me-2"></i>Confermo di aver letto';
+                }
+            } catch (error) {
+                const messageDiv = document.getElementById('acknowledgeMessage');
+                messageDiv.className = 'alert alert-danger mt-3';
+                messageDiv.innerHTML = `
+                    <i class="ri-error-warning-line me-2"></i>
+                    Errore durante la registrazione. Riprova.
+                `;
+                messageDiv.style.display = 'block';
+
+                // Riabilita il pulsante
+                acknowledgeBtn.disabled = false;
+                acknowledgeBtn.innerHTML = '<i class="ri-checkbox-circle-line me-2"></i>Confermo di aver letto';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

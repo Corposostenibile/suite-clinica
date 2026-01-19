@@ -1,0 +1,125 @@
+<!-- Modal per Voto Coordinatore -->
+<div class="modal fade" id="coordinatorRatingModal" tabindex="-1" aria-labelledby="coordinatorRatingModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="coordinatorRatingModalLabel">
+          <i class="ri-star-line"></i> Valutazione Coordinatore
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="coordinatorRatingForm">
+          <input type="hidden" id="coordinatorResponseId" value="">
+
+          <!-- Rating Selection -->
+          <div class="mb-3">
+            <label for="coordinatorRating" class="form-label">Voto (1-10) <span class="text-danger">*</span></label>
+            <select class="form-select" id="coordinatorRating" required>
+              <option value="">Seleziona un voto...</option>
+              <option value="1">1 - Molto Insoddisfacente</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5 - Sufficiente</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10 - Eccellente</option>
+            </select>
+          </div>
+
+          <!-- Notes Textarea -->
+          <div class="mb-3">
+            <label for="coordinatorNotes" class="form-label">Note <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="coordinatorNotes" rows="4" required placeholder="Inserisci le note obbligatorie per questa valutazione..."></textarea>
+            <div class="form-text">Le note sono obbligatorie e devono spiegare il motivo della valutazione.</div>
+          </div>
+
+          <!-- Error/Success Messages -->
+          <div id="coordinatorMessageArea"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" id="saveCoordinatorRating">
+          <i class="ri-save-line"></i> Salva Valutazione
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let coordinatorModal = null;
+
+  // Initialize modal when DOM is ready
+  document.addEventListener('DOMContentLoaded', function() {
+    coordinatorModal = new bootstrap.Modal(document.getElementById('coordinatorRatingModal'));
+  });
+
+  // Open modal function
+  function openCoordinatorModal(responseId) {
+    document.getElementById('coordinatorResponseId').value = responseId;
+    document.getElementById('coordinatorRating').value = '';
+    document.getElementById('coordinatorNotes').value = '';
+    document.getElementById('coordinatorMessageArea').innerHTML = '';
+    coordinatorModal.show();
+  }
+
+  // Save coordinator rating
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.id === 'saveCoordinatorRating') {
+      const responseId = document.getElementById('coordinatorResponseId').value;
+      const rating = parseInt(document.getElementById('coordinatorRating').value);
+      const notes = document.getElementById('coordinatorNotes').value.trim();
+      const messageArea = document.getElementById('coordinatorMessageArea');
+
+      // Validate
+      if (!rating || rating < 1 || rating > 10) {
+        messageArea.innerHTML = '<div class="alert alert-danger">Seleziona un voto valido (1-10)</div>';
+        return;
+      }
+
+      if (!notes) {
+        messageArea.innerHTML = '<div class="alert alert-danger">Le note sono obbligatorie</div>';
+        return;
+      }
+
+      // Show loading
+      messageArea.innerHTML = '<div class="alert alert-info">Salvataggio in corso...</div>';
+
+      // Send to API
+      fetch(`/feedback/api/response/${responseId}/coordinator-rating`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating: rating,
+          notes: notes
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          messageArea.innerHTML = '<div class="alert alert-success">Valutazione salvata con successo!</div>';
+
+          // Update the page after a short delay
+          setTimeout(() => {
+            coordinatorModal.hide();
+            // Reload page to show updated data
+            window.location.reload();
+          }, 1000);
+        } else {
+          messageArea.innerHTML = `<div class="alert alert-danger">${data.error || 'Errore durante il salvataggio'}</div>`;
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        messageArea.innerHTML = '<div class="alert alert-danger">Errore di connessione. Riprova.</div>';
+      });
+    }
+  });
+</script>

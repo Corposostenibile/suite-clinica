@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}I Miei Contributi - Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    .stat-card {
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .contribution-item {
+        border-left: 4px solid #E2E8F0;
+        padding: 16px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        background: #F8FAFC;
+        transition: all 0.3s ease;
+    }
+    .contribution-item:hover {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .status-proposed { border-left-color: #5BC0DE; }
+    .status-approved { border-left-color: #45CB85; }
+    .status-rejected { border-left-color: #DC3545; }
+    .status-implemented { border-left-color: #F0AD4E; }
+    .status-open { border-left-color: #DC3545; }
+    .status-in_progress { border-left-color: #F0AD4E; }
+    .status-resolved { border-left-color: #45CB85; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    {# Header #}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h6 class="fw-semibold mb-0">I Miei Contributi</h6>
+            <p class="text-muted mb-0">
+                Tutte le tue idee e segnalazioni in un unico posto
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('feedback_global.suggest_idea') }}" class="btn btn-warning">
+                <i class="ri-lightbulb-line me-2"></i>💡 Nuova Idea
+            </a>
+            <a href="{{ url_for('feedback_global.report_issue') }}" class="btn btn-danger">
+                <i class="ri-bug-line me-2"></i>🐛 Segnala Bug
+            </a>
+        </div>
+    </div>
+
+    {# Stats Row #}
+    <div class="row gy-3 mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card bg-gradient-end-1">
+                <div class="stat-number text-warning">{{ stats.total_ideas }}</div>
+                <div class="text-muted">Idee Proposte</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card bg-gradient-end-2">
+                <div class="stat-number text-success">{{ stats.ideas_implemented }}</div>
+                <div class="text-muted">Implementate</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card bg-gradient-end-3">
+                <div class="stat-number text-danger">{{ stats.total_issues }}</div>
+                <div class="text-muted">Issue Segnalati</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card bg-gradient-end-4">
+                <div class="stat-number text-primary">{{ stats.issues_resolved }}</div>
+                <div class="text-muted">Risolti</div>
+            </div>
+        </div>
+    </div>
+
+    {# Idee #}
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">
+                <i class="ri-lightbulb-line me-2"></i>💡 Le Mie Idee ({{ stats.total_ideas }})
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if my_ideas %}
+                {% for idea in my_ideas %}
+                <div class="contribution-item status-{{ idea.status.value }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1 fw-semibold">{{ idea.title }}</h6>
+                            <small class="text-muted">
+                                <i class="ri-apps-line"></i> {{ idea.blueprint.name }} •
+                                <i class="ri-calendar-line"></i> {{ idea.created_at|datetime }}
+                            </small>
+                        </div>
+                        <span class="badge
+                            {% if idea.status.value == 'approved' %}bg-success
+                            {% elif idea.status.value == 'rejected' %}bg-danger
+                            {% elif idea.status.value == 'completed' %}bg-warning text-dark
+                            {% else %}bg-info
+                            {% endif %}">
+                            {{ idea.status.value|title }}
+                        </span>
+                    </div>
+
+                    {% if idea.description %}
+                    <p class="mb-2 text-muted small">{{ idea.description[:150] }}...</p>
+                    {% endif %}
+
+                    {# Motivazioni Admin #}
+                    {% if idea.approval_motivation %}
+                    <div class="alert alert-success py-2 mb-0 mt-2">
+                        <strong>✅ Motivazione approvazione:</strong><br>
+                        {{ idea.approval_motivation }}
+                    </div>
+                    {% elif idea.rejection_motivation %}
+                    <div class="alert alert-danger py-2 mb-0 mt-2">
+                        <strong>❌ Motivazione rigetto:</strong><br>
+                        {{ idea.rejection_motivation }}
+                    </div>
+                    {% elif idea.pending_motivation %}
+                    <div class="alert alert-warning py-2 mb-0 mt-2">
+                        <strong>⏸️ Richiesta dettagli:</strong><br>
+                        {{ idea.pending_motivation }}
+                    </div>
+                    {% elif idea.completion_notes %}
+                    <div class="alert alert-info py-2 mb-0 mt-2">
+                        <strong>🎉 Implementata!</strong><br>
+                        {{ idea.completion_notes }}
+                    </div>
+                    {% endif %}
+
+                    {% if idea.intervention %}
+                    <div class="mt-2">
+                        <span class="badge bg-primary-subtle text-primary-main">
+                            <i class="ri-tools-line"></i> Collegata a Intervention #{{ idea.intervention.id }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-center text-muted py-4">
+                    Nessuna idea proposta ancora.<br>
+                    <a href="{{ url_for('feedback_global.suggest_idea') }}" class="btn btn-sm btn-warning mt-2">
+                        💡 Suggerisci la tua prima idea!
+                    </a>
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Issues #}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">
+                <i class="ri-bug-line me-2"></i>🐛 I Miei Issue ({{ stats.total_issues }})
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if my_issues %}
+                {% for issue in my_issues %}
+                <div class="contribution-item status-{{ issue.status.value }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1 fw-semibold">{{ issue.title }}</h6>
+                            <small class="text-muted">
+                                <i class="ri-apps-line"></i> {{ issue.blueprint.name }} •
+                                <i class="ri-calendar-line"></i> {{ issue.created_at|datetime }} •
+                                <span class="badge
+                                    {% if issue.severity.value == 'blocker' %}bg-dark
+                                    {% elif issue.severity.value == 'critical' %}bg-danger
+                                    {% elif issue.severity.value == 'major' %}bg-warning text-dark
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ issue.severity.value|title }}
+                                </span>
+                            </small>
+                        </div>
+                        <span class="badge
+                            {% if issue.status.value == 'resolved' %}bg-success
+                            {% elif issue.status.value == 'in_progress' %}bg-warning text-dark
+                            {% elif issue.status.value == 'wontfix' %}bg-secondary
+                            {% else %}bg-danger
+                            {% endif %}">
+                            {{ issue.status.value|replace('_', ' ')|title }}
+                        </span>
+                    </div>
+
+                    {% if issue.description %}
+                    <p class="mb-2 text-muted small">{{ issue.description[:150] }}...</p>
+                    {% endif %}
+
+                    {# Messaggi Admin #}
+                    {% if issue.acknowledgment_message %}
+                    <div class="alert alert-info py-2 mb-0 mt-2">
+                        <strong>👀 Preso in carico:</strong><br>
+                        {{ issue.acknowledgment_message }}
+                    </div>
+                    {% endif %}
+
+                    {% if issue.resolution_motivation %}
+                    <div class="alert alert-success py-2 mb-0 mt-2">
+                        <strong>✅ Risolto:</strong><br>
+                        {{ issue.resolution_motivation }}
+                    </div>
+                    {% elif issue.wontfix_motivation %}
+                    <div class="alert alert-secondary py-2 mb-0 mt-2">
+                        <strong>🚫 Won't Fix:</strong><br>
+                        {{ issue.wontfix_motivation }}
+                    </div>
+                    {% endif %}
+
+                    {% if issue.intervention %}
+                    <div class="mt-2">
+                        <span class="badge bg-primary-subtle text-primary-main">
+                            <i class="ri-tools-line"></i> Intervention #{{ issue.intervention.id }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-center text-muted py-4">
+                    Nessun issue segnalato ancora.<br>
+                    <a href="{{ url_for('feedback_global.report_issue') }}" class="btn btn-sm btn-danger mt-2">
+                        🐛 Segnala il tuo primo problema!
+                    </a>
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

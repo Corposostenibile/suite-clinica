@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Clienti Nutrition - Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h1 class="h3 mb-0">Clienti Nutrition</h1>
+    <ul class="d-flex align-items-center gap-2 list-unstyled mb-0">
+        <li>
+            <a href="{{ url_for('welcome.index') }}" class="text-decoration-none text-secondary-light">
+                <iconify-icon icon="solar:home-smile-outline" class="icon text-lg"></iconify-icon>
+                Dashboard
+            </a>
+        </li>
+        <li>
+            <span class="text-secondary-light">/</span>
+        </li>
+        <li>
+            <a href="{{ url_for('nutrition.dashboard') }}" class="text-decoration-none text-secondary-light">
+                Nutrition
+            </a>
+        </li>
+        <li>
+            <span class="text-secondary-light">/</span>
+        </li>
+        <li>
+            <span class="text-primary-light">Clienti</span>
+        </li>
+    </ul>
+</div>
+
+<div class="card radius-8 border-0">
+    <div class="card-header border-bottom bg-base py-16 px-24">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <form method="get" class="search-form d-flex align-items-center gap-2">
+                <iconify-icon icon="solar:magnifer-linear" class="text-xl text-secondary-light"></iconify-icon>
+                <input type="text" 
+                       name="search" 
+                       class="form-control border-0 bg-transparent px-0" 
+                       placeholder="Cerca per nome o consulente..."
+                       value="{{ request.args.get('search', '') }}"
+                       style="width: 300px;">
+            </form>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-secondary-light text-sm">
+                    Totale: <strong>{{ clients.total }}</strong> clienti
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body p-0">
+        {% if clients.items %}
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th class="h6 text-sm fw-medium">Cliente</th>
+                            <th class="h6 text-sm fw-medium">Età</th>
+                            <th class="h6 text-sm fw-medium">Obiettivo</th>
+                            <th class="h6 text-sm fw-medium">Piano Attivo</th>
+                            <th class="h6 text-sm fw-medium">Ultimo Aggiornamento</th>
+                            <th class="h6 text-sm fw-medium text-center">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clients.items %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="w-40-px h-40-px bg-primary-50 radius-8 d-flex justify-content-center align-items-center">
+                                        <span class="text-primary-600 fw-semibold">
+                                            {{ cliente.nome_cognome[:2].upper() }}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h6 class="text-sm mb-0">
+                                            <a href="{{ url_for('nutrition.client_profile', cliente_id=cliente.cliente_id) }}" 
+                                               class="text-primary-600">
+                                                {{ cliente.nome_cognome }}
+                                            </a>
+                                        </h6>
+                                        <p class="text-xs text-secondary-light mb-0">
+                                            {{ cliente.email or 'Email non disponibile' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if cliente.date_of_birth %}
+                                    {{ cliente.age }} anni
+                                {% else %}
+                                    <span class="text-secondary-light">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cliente.nutritional_profile %}
+                                    <span class="badge bg-primary-50 text-primary-600 radius-4 px-8 py-4 text-sm">
+                                        {{ cliente.nutritional_profile.nutritional_goal.value.replace('_', ' ').title() }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-secondary-light">Non definito</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cliente.active_meal_plan %}
+                                    <span class="badge bg-success-50 text-success-600 radius-4 px-8 py-4 text-sm">
+                                        Sì
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-neutral-100 text-secondary-light radius-4 px-8 py-4 text-sm">
+                                        No
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cliente.latest_biometric %}
+                                    {{ cliente.latest_biometric.measurement_date.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    <span class="text-secondary-light">Mai</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2 justify-content-center">
+                                    <a href="{{ url_for('nutrition.client_profile', cliente_id=cliente.cliente_id) }}" 
+                                       class="w-32-px h-32-px bg-primary-50 text-primary-600 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                       data-bs-toggle="tooltip" 
+                                       title="Visualizza profilo">
+                                        <iconify-icon icon="solar:eye-linear"></iconify-icon>
+                                    </a>
+                                    {% if not cliente.nutritional_profile %}
+                                        <a href="{{ url_for('nutrition.client_assessment', cliente_id=cliente.cliente_id) }}" 
+                                           class="w-32-px h-32-px bg-info-50 text-info-600 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                           data-bs-toggle="tooltip" 
+                                           title="Crea anamnesi">
+                                            <iconify-icon icon="solar:clipboard-text-linear"></iconify-icon>
+                                        </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('nutrition.meal_plan_create', cliente_id=cliente.cliente_id) }}" 
+                                       class="w-32-px h-32-px bg-success-50 text-success-600 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                       data-bs-toggle="tooltip" 
+                                       title="Nuovo piano">
+                                        <iconify-icon icon="solar:add-circle-linear"></iconify-icon>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if clients.pages > 1 %}
+            <div class="card-footer border-top bg-base py-16 px-24">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination mb-0">
+                        <li class="page-item {{ 'disabled' if not clients.has_prev }}">
+                            <a class="page-link" href="{{ url_for('nutrition.client_list', page=clients.prev_num, search=request.args.get('search')) }}">
+                                <iconify-icon icon="solar:alt-arrow-left-linear"></iconify-icon>
+                            </a>
+                        </li>
+                        
+                        {% for page_num in clients.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+                            {% if page_num %}
+                                <li class="page-item {{ 'active' if page_num == clients.page }}">
+                                    <a class="page-link" href="{{ url_for('nutrition.client_list', page=page_num, search=request.args.get('search')) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <li class="page-item {{ 'disabled' if not clients.has_next }}">
+                            <a class="page-link" href="{{ url_for('nutrition.client_list', page=clients.next_num, search=request.args.get('search')) }}">
+                                <iconify-icon icon="solar:alt-arrow-right-linear"></iconify-icon>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="py-48 text-center">
+                <iconify-icon icon="solar:users-group-rounded-linear" class="text-secondary-light text-3xl mb-8"></iconify-icon>
+                <p class="text-secondary-light">Nessun cliente trovato</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

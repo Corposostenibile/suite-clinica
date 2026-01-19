@@ -1,0 +1,665 @@
+{% extends "base.html" %}
+
+{% block title %}Gestisci Richiesta Training - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<style>
+    /* CSS Variables - Coerente con dashboard */
+    :root {
+        --review-primary: #22c55e;
+        --review-primary-dark: #16a34a;
+        --review-primary-light: #86efac;
+        --review-danger: #ef4444;
+        --review-warning: #f59e0b;
+        --review-info: #3b82f6;
+        --review-success: #10b981;
+    }
+
+    /* Background */
+    body {
+        background: #f8fafb;
+    }
+    
+    /* Container */
+    .respond-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    /* Form Card - Stile dashboard */
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+        margin-bottom: 2rem;
+    }
+    
+    .form-card-header {
+        background: linear-gradient(to bottom, #ffffff, #fafbfc);
+        padding: 24px 32px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .form-card-header.warning {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        border-bottom-color: var(--review-primary-dark);
+        color: white;
+    }
+    
+    .form-card-header.warning h5,
+    .form-card-header.warning i {
+        color: white !important;
+    }
+    
+    .form-card-header.primary {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        border-bottom-color: var(--review-primary-dark);
+        color: white;
+    }
+    
+    .form-card-header.primary h5,
+    .form-card-header.primary i {
+        color: white !important;
+    }
+    
+    .form-card-body {
+        padding: 32px;
+    }
+    
+    /* Request Details Card */
+    .request-details {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #d1d5db;
+    }
+    
+    .request-details-row {
+        display: flex;
+        margin-bottom: 16px;
+        align-items: flex-start;
+    }
+    
+    .request-details-row:last-child {
+        margin-bottom: 0;
+    }
+    
+    .request-details-label {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #374151;
+        min-width: 140px;
+        margin-top: 4px;
+    }
+    
+    .request-details-value {
+        flex: 1;
+        color: #1f2937;
+    }
+    
+    /* Member info badge */
+    .member-info-badge {
+        background: linear-gradient(135deg, var(--review-primary), var(--review-primary-dark));
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        border: none;
+        color: white;
+    }
+    
+    .member-info-badge .d-flex {
+        gap: 20px;
+    }
+    
+    .member-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid rgba(255, 255, 255, 0.9);
+    }
+    
+    .member-avatar-placeholder {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    
+    .member-info-text h6 {
+        margin: 0 0 4px 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: white;
+    }
+    
+    .member-info-text p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    /* Priority Badge */
+    .priority-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .priority-urgent {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+    }
+    
+    .priority-high {
+        background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+        color: #ea580c;
+    }
+    
+    .priority-normal {
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        color: #4f46e5;
+    }
+    
+    .priority-low {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        color: #0369a1;
+    }
+    
+    /* Description Alert */
+    .description-box {
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 8px;
+        color: #374151;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    
+    /* Form elements */
+    .form-label {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #4b5563;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        background: #fafbfc;
+        width: 100%;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--review-primary);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        outline: none;
+    }
+    
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 20px;
+        padding-right: 40px;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 120px;
+        line-height: 1.5;
+    }
+    
+    /* Buttons - Stile dashboard */
+    .btn-modern {
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    
+    .btn-modern-primary {
+        background: var(--review-primary);
+        color: white;
+    }
+    
+    .btn-modern-primary:hover {
+        background: var(--review-primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(34, 197, 94, 0.25);
+        color: white;
+    }
+    
+    .btn-modern-secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    
+    .btn-modern-secondary:hover {
+        background: #e5e7eb;
+        color: #1f2937;
+    }
+    
+    /* Footer buttons */
+    .form-footer {
+        background: #fafbfc;
+        padding: 24px 32px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    
+    /* Info Cards */
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 20px;
+    }
+    
+    .info-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .info-card-header h6 {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .info-card-header .icon {
+        font-size: 20px;
+    }
+    
+    .info-card-header.success {
+        color: var(--review-success);
+    }
+    
+    .info-card-header.danger {
+        color: var(--review-danger);
+    }
+    
+    .info-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .info-list li {
+        padding: 8px 0;
+        padding-left: 24px;
+        position: relative;
+        font-size: 0.85rem;
+        color: #4b5563;
+        line-height: 1.5;
+    }
+    
+    .info-list li:before {
+        content: "•";
+        position: absolute;
+        left: 8px;
+        color: #9ca3af;
+    }
+    
+    /* Help text */
+    .form-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    
+    /* Validation feedback */
+    .invalid-feedback {
+        font-size: 0.75rem;
+        color: var(--review-danger);
+        margin-top: 4px;
+        display: block;
+    }
+    
+    .is-invalid {
+        border-color: var(--review-danger) !important;
+    }
+    
+    /* Mobile */
+    @media (max-width: 768px) {
+        .form-card-header,
+        .form-card-body,
+        .form-footer {
+            padding: 20px;
+        }
+        
+        .form-footer {
+            flex-direction: column-reverse;
+        }
+        
+        .form-footer .btn-modern {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .request-details-row {
+            flex-direction: column;
+        }
+        
+        .request-details-label {
+            margin-bottom: 4px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-5">
+        <h1 class="h3 mb-1 fw-bold text-dark">Gestisci Richiesta Training</h1>
+        <p class="text-muted mb-0">Rispondi alla richiesta di formazione di {{ request.requester.first_name }} {{ request.requester.last_name }}</p>
+    </div>
+
+    <div class="respond-container">
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Dettagli Richiesta Card -->
+                <div class="form-card mb-4">
+                    <div class="form-card-header warning">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="ri-file-text-line me-2"></i>
+                            Dettagli Richiesta
+                        </h5>
+                    </div>
+                    
+                    <div class="form-card-body">
+                        <!-- Member Info Badge -->
+                        <div class="member-info-badge">
+                            <div class="d-flex align-items-center">
+                                {% if request.requester.avatar_path %}
+                                <img src="{{ url_for('uploaded_file', filename=request.requester.avatar_path) }}" 
+                                     alt="{{ request.requester.first_name }}" 
+                                     class="member-avatar">
+                                {% else %}
+                                <div class="member-avatar-placeholder">
+                                    {{ request.requester.first_name[0] }}{{ request.requester.last_name[0] }}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="member-info-text">
+                                    <h6>{{ request.requester.first_name }} {{ request.requester.last_name }}</h6>
+                                    <p>{{ request.requester.job_title or 'Membro del team' }}</p>
+                                    {% if request.requester.department %}
+                                    <p><i class="ri-building-line me-1"></i>{{ request.requester.department.name }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Request Details -->
+                        <div class="request-details">
+                            <div class="request-details-row">
+                                <div class="request-details-label">Argomento:</div>
+                                <div class="request-details-value">
+                                    <h5 class="mb-0 text-dark fw-semibold">{{ request.subject }}</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="request-details-row">
+                                <div class="request-details-label">Priorità:</div>
+                                <div class="request-details-value">
+                                    {% if request.priority == 'urgent' %}
+                                    <span class="priority-badge priority-urgent">
+                                        <i class="ri-error-warning-line"></i> Urgente
+                                    </span>
+                                    {% elif request.priority == 'high' %}
+                                    <span class="priority-badge priority-high">
+                                        <i class="ri-arrow-up-circle-line"></i> Alta
+                                    </span>
+                                    {% elif request.priority == 'normal' %}
+                                    <span class="priority-badge priority-normal">
+                                        <i class="ri-checkbox-circle-line"></i> Normale
+                                    </span>
+                                    {% else %}
+                                    <span class="priority-badge priority-low">
+                                        <i class="ri-arrow-down-circle-line"></i> Bassa
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="request-details-row">
+                                <div class="request-details-label">Data Richiesta:</div>
+                                <div class="request-details-value">
+                                    <i class="ri-calendar-line me-1"></i>
+                                    {{ (request.created_at + timedelta(hours=2)).strftime('%d/%m/%Y alle %H:%M') }}
+                                </div>
+                            </div>
+                            
+                            {% if request.description %}
+                            <div class="request-details-row">
+                                <div class="request-details-label">Descrizione:</div>
+                                <div class="request-details-value">
+                                    <div class="description-box">
+                                        {{ request.description }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Risposta Card -->
+                <div class="form-card">
+                    <div class="form-card-header primary">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="ri-reply-line me-2"></i>
+                            La Tua Risposta
+                        </h5>
+                    </div>
+                    
+                    <div class="form-card-body">
+                        <form method="post" id="response-form" action="{{ url_for('review.respond_request', request_id=request.id) }}" novalidate>
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Azione *</label>
+                                {{ form.action(class="form-select" + (" is-invalid" if form.action.errors else "")) }}
+                                {% if form.action.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.action.errors[0] }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Note di Risposta</label>
+                                {{ form.response_notes(class="form-control" + (" is-invalid" if form.response_notes.errors else ""), rows="5", placeholder="Aggiungi note sulla tua decisione...") }}
+                                {% if form.response_notes.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.response_notes.errors[0] }}
+                                </div>
+                                {% endif %}
+                                <small class="form-text">
+                                    <i class="ri-information-line me-1"></i>
+                                    Se rifiuti, è importante fornire una motivazione chiara e costruttiva
+                                </small>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Footer buttons -->
+                    <div class="form-footer">
+                        <a href="{{ url_for('review.received_requests') }}" 
+                           class="btn-modern btn-modern-secondary">
+                            <i class="ri-arrow-left-line"></i>
+                            Annulla
+                        </a>
+                        <button type="submit" form="response-form" class="btn-modern btn-modern-primary">
+                            <i class="ri-send-plane-line"></i>
+                            {{ form.submit.label.text }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <!-- Info Card Accettazione -->
+                <div class="info-card">
+                    <div class="info-card-header success">
+                        <i class="ri-check-line icon"></i>
+                        <h6>Se Accetti</h6>
+                    </div>
+                    <ul class="info-list">
+                        <li>Verrai reindirizzato alla creazione del training</li>
+                        <li>L'argomento sarà pre-compilato con i dettagli della richiesta</li>
+                        <li>Il richiedente riceverà una notifica email dell'accettazione</li>
+                        <li>Potrai completare il training quando preferisci</li>
+                        <li>Il training apparirà nella lista del richiedente</li>
+                    </ul>
+                </div>
+                
+                <!-- Info Card Rifiuto -->
+                <div class="info-card">
+                    <div class="info-card-header danger">
+                        <i class="ri-close-line icon"></i>
+                        <h6>Se Rifiuti</h6>
+                    </div>
+                    <ul class="info-list">
+                        <li>Fornisci sempre una motivazione chiara e costruttiva</li>
+                        <li>Il richiedente riceverà una notifica con la tua risposta</li>
+                        <li>Suggerisci alternative se possibile nelle note</li>
+                        <li>La richiesta non potrà essere riaperta</li>
+                        <li>Il richiedente potrà inviare una nuova richiesta diversa</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textarea
+    const textarea = document.querySelector('textarea');
+    if (textarea) {
+        function autoResize() {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+        }
+        
+        autoResize();
+        textarea.addEventListener('input', autoResize);
+        textarea.addEventListener('focus', autoResize);
+    }
+    
+    // Form validation feedback
+    const form = document.getElementById('response-form');
+    const actionSelect = form.querySelector('select[name="action"]');
+    const notesTextarea = form.querySelector('textarea[name="response_notes"]');
+    
+    form.addEventListener('submit', function(e) {
+        // Se l'azione è "reject", le note sono obbligatorie
+        if (actionSelect.value === 'reject' && !notesTextarea.value.trim()) {
+            e.preventDefault();
+            notesTextarea.classList.add('is-invalid');
+            
+            // Aggiungi messaggio di errore se non esiste
+            if (!notesTextarea.nextElementSibling || !notesTextarea.nextElementSibling.classList.contains('invalid-feedback')) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'invalid-feedback';
+                errorDiv.textContent = 'Le note sono obbligatorie quando rifiuti una richiesta';
+                notesTextarea.parentNode.insertBefore(errorDiv, notesTextarea.nextSibling);
+            }
+            
+            notesTextarea.focus();
+            notesTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+    
+    // Rimuovi errore quando l'utente digita
+    notesTextarea.addEventListener('input', function() {
+        if (this.value.trim()) {
+            this.classList.remove('is-invalid');
+            const errorDiv = this.nextElementSibling;
+            if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
+                errorDiv.remove();
+            }
+        }
+    });
+    
+    // Cambia testo del bottone in base all'azione
+    actionSelect.addEventListener('change', function() {
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const btnIcon = submitBtn.querySelector('i');
+        
+        if (this.value === 'accept') {
+            submitBtn.innerHTML = '<i class="ri-check-line"></i> Accetta e Procedi';
+            submitBtn.classList.remove('btn-modern-danger');
+            submitBtn.classList.add('btn-modern-primary');
+        } else if (this.value === 'reject') {
+            submitBtn.innerHTML = '<i class="ri-close-line"></i> Rifiuta Richiesta';
+            submitBtn.classList.remove('btn-modern-primary');
+            submitBtn.classList.add('btn-modern-danger');
+        }
+    });
+});
+</script>
+
+<style>
+.btn-modern-danger {
+    background: var(--review-danger);
+    color: white;
+}
+
+.btn-modern-danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.25);
+    color: white;
+}
+</style>
+{% endblock %}

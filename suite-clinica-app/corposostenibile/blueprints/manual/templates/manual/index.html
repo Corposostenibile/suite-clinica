@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Manuale Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .card-footer {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-top: 1px solid #E2E8F0;
+        border-radius: 0 0 16px 16px !important;
+        padding: 12px 24px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+        color: white;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    /* Module Icon Styles */
+    .module-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .module-icon.recruiting {
+        background: linear-gradient(135deg, #E5F3FF 0%, #CCE7FF 100%);
+        color: #487FFF;
+    }
+
+    .module-icon.projects {
+        background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+        color: #F0AD4E;
+    }
+
+    .module-icon.knowledge {
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        color: #45CB85;
+    }
+
+    .module-icon.leads {
+        background: linear-gradient(135deg, #FFF3E5 0%, #FFE5CC 100%);
+        color: #F0AD4E;
+    }
+
+    .module-icon.checks {
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        color: #28a745;
+    }
+
+    /* Module Card */
+    .module-card {
+        border-left: 4px solid transparent;
+    }
+
+    .module-card.recruiting {
+        border-left-color: #487FFF;
+    }
+
+    .module-card.leads {
+        border-left-color: #F0AD4E;
+    }
+
+    .module-card.checks {
+        border-left-color: #28a745;
+    }
+
+    .module-card.projects {
+        border-left-color: #4ECAC2;
+    }
+
+    .module-card.knowledge {
+        border-left-color: #45CB85;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    .badge-roles {
+        background: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+        color: #64748B;
+        margin-right: 6px;
+    }
+
+    /* Disabled State */
+    .module-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .module-disabled:hover {
+        transform: none;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Manuale Corposostenibile Suite</h6>
+            <p class="text-muted mb-0">Documentazione completa della piattaforma</p>
+        </div>
+    </div>
+
+    <!-- Modules Grid -->
+    <div class="row g-4">
+        <!-- Recruiting Module -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card module-card recruiting">
+                <div class="card-body">
+                    <div class="module-icon recruiting">
+                        <i class="ri-user-search-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-2">Recruiting</h5>
+                    <p class="text-muted mb-3">
+                        Gestione completa del processo di recruiting: offerte di lavoro, ATS con AI,
+                        pipeline Kanban, onboarding e analytics avanzate.
+                    </p>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-2">Ruoli disponibili:</small>
+                        <span class="badge badge-roles">
+                            <i class="ri-user-tie-line me-1"></i>HR
+                        </span>
+                        <span class="badge badge-roles">
+                            <i class="ri-bar-chart-line me-1"></i>Finance
+                        </span>
+                    </div>
+
+                    <a href="{{ url_for('manual.recruiting_index') }}" class="btn btn-primary w-100">
+                        <i class="ri-book-open-line me-2"></i>Apri Manuale
+                    </a>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span><i class="ri-file-text-line me-1"></i>2 Guide</span>
+                        <span><i class="ri-time-line me-1"></i>Ultimo aggiornamento: Oggi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lead Management Module -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card module-card leads">
+                <div class="card-body">
+                    <div class="module-icon leads">
+                        <i class="ri-user-star-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-2">Lead Management</h5>
+                    <p class="text-muted mb-3">
+                        Sistema completo di gestione lead: acquisizione, qualificazione,
+                        pagamenti, approvazioni e conversione clienti.
+                    </p>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-2">Ruoli disponibili:</small>
+                        <span class="badge badge-roles">
+                            <i class="ri-briefcase-line me-1"></i>Sales
+                        </span>
+                        <span class="badge badge-roles">
+                            <i class="ri-shield-check-line me-1"></i>Finance
+                        </span>
+                        <span class="badge badge-roles">
+                            <i class="ri-stethoscope-line me-1"></i>Health Manager
+                        </span>
+                    </div>
+
+                    <a href="{{ url_for('manual.leads_index') }}" class="btn btn-primary w-100">
+                        <i class="ri-book-open-line me-2"></i>Apri Manuale
+                    </a>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span><i class="ri-file-text-line me-1"></i>3 Guide</span>
+                        <span><i class="ri-time-line me-1"></i>Ultimo aggiornamento: Oggi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Check Module -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card module-card checks">
+                <div class="card-body">
+                    <div class="module-icon checks">
+                        <i class="ri-checkbox-circle-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-2">Check Clienti</h5>
+                    <p class="text-muted mb-3">
+                        Sistema di monitoraggio progressi clienti: gestione check settimanali,
+                        DCA, conferma lettura e generazione link.
+                    </p>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-2">Ruoli disponibili:</small>
+                        <span class="badge badge-roles">
+                            <i class="ri-heart-pulse-line me-1"></i>Nutrizionisti
+                        </span>
+                        <span class="badge badge-roles">
+                            <i class="ri-mental-health-line me-1"></i>Psicologi
+                        </span>
+                        <span class="badge badge-roles">
+                            <i class="ri-run-line me-1"></i>Coach
+                        </span>
+                    </div>
+
+                    <a href="{{ url_for('manual.checks_professionals') }}" class="btn btn-success w-100">
+                        <i class="ri-book-open-line me-2"></i>Apri Manuale
+                    </a>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span><i class="ri-file-text-line me-1"></i>1 Guida</span>
+                        <span><i class="ri-time-line me-1"></i>Ultimo aggiornamento: Oggi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects Module (Coming Soon) -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card module-card projects module-disabled">
+                <div class="card-body">
+                    <div class="module-icon projects">
+                        <i class="ri-briefcase-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-2">Progetti</h5>
+                    <p class="text-muted mb-3">
+                        Documentazione per la gestione progetti, task tracking,
+                        collaborazione team e reporting.
+                    </p>
+
+                    <div class="mb-3">
+                        <span class="badge bg-warning text-white">
+                            <i class="ri-time-line me-1"></i>Prossimamente
+                        </span>
+                    </div>
+
+                    <button class="btn btn-secondary w-100" disabled>
+                        <i class="ri-lock-line me-2"></i>In Preparazione
+                    </button>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span><i class="ri-file-text-line me-1"></i>In sviluppo</span>
+                        <span><i class="ri-calendar-line me-1"></i>Disponibile a breve</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Knowledge Base Module (Coming Soon) -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card module-card knowledge module-disabled">
+                <div class="card-body">
+                    <div class="module-icon knowledge">
+                        <i class="ri-graduation-cap-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-2">Knowledge Base</h5>
+                    <p class="text-muted mb-3">
+                        Base di conoscenza aziendale, documentazione tecnica,
+                        procedure operative e best practices.
+                    </p>
+
+                    <div class="mb-3">
+                        <span class="badge bg-warning text-white">
+                            <i class="ri-time-line me-1"></i>Prossimamente
+                        </span>
+                    </div>
+
+                    <button class="btn btn-secondary w-100" disabled>
+                        <i class="ri-lock-line me-2"></i>In Preparazione
+                    </button>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span><i class="ri-file-text-line me-1"></i>In sviluppo</span>
+                        <span><i class="ri-calendar-line me-1"></i>Disponibile a breve</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Alert -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="flex-shrink-0">
+                            <div class="w-48-px h-48-px bg-info-subtle rounded-circle d-flex justify-content-center align-items-center">
+                                <i class="ri-information-line text-info fs-5"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="fw-semibold mb-2">Come utilizzare il manuale</h6>
+                            <p class="text-muted mb-3">
+                                Ogni modulo della suite ha una documentazione dedicata suddivisa per ruolo.
+                                Seleziona il modulo che ti interessa per accedere alle guide specifiche per il tuo ruolo.
+                            </p>
+                            <div class="d-flex gap-2">
+                                <a href="/recruiting" class="btn btn-sm btn-outline-primary">
+                                    <i class="ri-external-link-line me-1"></i>Vai al Recruiting
+                                </a>
+                                <a href="/ticket" class="btn btn-sm btn-outline-info">
+                                    <i class="ri-customer-service-line me-1"></i>Hai bisogno di aiuto?
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

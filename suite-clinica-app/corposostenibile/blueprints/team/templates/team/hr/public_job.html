@@ -1,0 +1,288 @@
+{# templates/team/hr/public_job.html #}
+<!DOCTYPE html>
+<html lang="it" data-theme="light" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ opening.title }} • Lavora con noi</title>
+
+  <!-- Remix-icon – Bootstrap – Wowdash -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}">
+
+  <style>
+    :root{ --brand:#25B36A; --brand-rgb:37,179,106; }
+    .btn-primary{background:var(--brand)!important;border-color:var(--brand)!important}
+    .btn-primary:hover,.btn-primary:focus{background:#1e9a5b!important;border-color:#1e9a5b!important}
+    .icon-field>span.icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--brand)}
+    .icon-field .form-control,
+    .icon-field .form-select{padding-left:48px;height:56px}
+  </style>
+</head>
+<body>
+
+<section class="auth d-flex flex-wrap bg-base">
+  <!-- ■ colonna immagine --------------------------------------------- -->
+  <div class="flex-grow-1 text-center bg-dark-subtle">
+    <div class="d-flex h-100 align-items-center justify-content-center p-32">
+      <img src="{{ url_for('static', filename='assets/immagini/careers/job_side.png') }}"
+           class="img-fluid" alt="Lavora con noi">
+    </div>
+  </div>
+
+  <!-- ■ colonna wizard ----------------------------------------------- -->
+  <div class="auth-right py-32 px-24 d-flex flex-column justify-content-center">
+    <div class="max-w-464-px mx-auto w-100">
+
+      <div class="text-center text-lg-start mb-40">
+        <a href="{{ url_for('team.team_dashboard') }}" class="d-inline-block max-w-290-px">
+          <img src="{{ url_for('static', filename='assets/immagini/Suite.png') }}" class="img-fluid" alt="logo">
+        </a>
+      </div>
+
+      {# ───── lista campi extra definiti dall'HR ─────────────────────── #}
+      {% set std = ['full_name','last_name','email','phone','cv_file','source'] %}
+      {% set ns = namespace(extra=[]) %}
+      {% for f in form if f.type not in ['CSRFTokenField','HiddenField'] and f.name not in std %}
+        {% set _ = ns.extra.append(f) %}
+      {% endfor %}
+      {% set total_steps = 2 if ns.extra|length == 0 else (2 + ((ns.extra|length - 1) // 3) + 1) %}
+
+      <h4 class="mb-12">Passo <span id="step-indicator">1</span>/<span id="step-total">{{ total_steps }}</span></h4>
+      <p class="mb-32 text-secondary-light text-lg">Completa i campi e procedi.</p>
+
+      <!-- ──────────────── Wizard form ─────────────────────────────── -->
+      <form id="wizard-form" method="post" enctype="multipart/form-data" novalidate>
+        {{ form.hidden_tag() }}
+
+        <!-- ─── STEP 1 – info offerta + campi base ─────────────────── -->
+        <div class="wizard-step" data-step="1">
+          <h5 class="fw-semibold mb-8">{{ opening.title }}</h5>
+          {% if opening.description %}
+            <div class="mb-24 small text-secondary-light">{{ opening.description|safe }}</div>
+          {% endif %}
+
+          {% for fld in form if fld.name in std and fld.type not in ['CSRFTokenField','HiddenField'] %}
+            {% set icon =
+              'mage:email' if 'email' in fld.name else
+              'solar:phone-outline' if 'phone' in fld.name else
+              'ri-file-2-line' if fld.type == 'FileField' else
+              'ri-links-line' if fld.name == 'source' else
+              'ri-user-line' %}
+            {% set base_cls = 'form-select' if fld.type == 'SelectField' else 'form-control' %}
+            <div class="mb-20">
+              <label class="form-label fw-medium mb-8" for="{{ fld.id }}">{{ fld.label.text }}</label>
+              <div class="position-relative icon-field">
+                <span class="icon"><iconify-icon icon="{{ icon }}"></iconify-icon></span>
+                {{ fld(class=base_cls + ' bg-neutral-50 radius-12' + (' is-invalid' if fld.errors else '')) }}
+              </div>
+              {% for err in fld.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- ─── STEP 2..N – gruppi di campi extra (3 per step) ──────── -->
+        {% if ns.extra %}
+          {% for chunk in ns.extra|batch(3) %}
+            {% set s = loop.index + 1 %}
+            <div class="wizard-step d-none" data-step="{{ s }}">
+              {% for fld in chunk %}
+                <div class="mb-20">
+                  <label class="form-label fw-medium mb-8" for="{{ fld.id }}">{{ fld.label.text }}</label>
+                  
+                  {% if fld.description %}
+                    <small class="text-muted d-block mb-2">{{ fld.description }}</small>
+                  {% endif %}
+
+                  {% if fld.type == 'BooleanField' %}
+                    <div class="form-check">
+                      {{ fld(class="form-check-input" + (' is-invalid' if fld.errors else '')) }}
+                      <label class="form-check-label ms-1" for="{{ fld.id }}">Sì</label>
+                    </div>
+                  {% elif fld.type == 'RadioField' %}
+                    <div class="radio-group">
+                      {% for subfield in fld %}
+                        <div class="form-check mb-2">
+                          {{ subfield(class="form-check-input") }}
+                          {{ subfield.label(class="form-check-label ms-1") }}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% elif fld.type == 'SelectMultipleField' %}
+                    <div class="checkbox-group">
+                      {% for subfield in fld %}
+                        <div class="form-check mb-2">
+                          {{ subfield(class="form-check-input") }}
+                          {{ subfield.label(class="form-check-label ms-1") }}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% elif fld.type == 'TextAreaField' %}
+                    {{ fld(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if fld.errors else ''), rows="4") }}
+                  {% elif fld.type == 'SelectField' %}
+                    {{ fld(class="form-select bg-neutral-50 radius-12" + (' is-invalid' if fld.errors else '')) }}
+                  {% elif fld.type == 'IntegerField' %}
+                    {{ fld(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if fld.errors else ''), type="number") }}
+                  {% else %}
+                    {{ fld(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if fld.errors else '')) }}
+                  {% endif %}
+
+                  {% for err in fld.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        <!-- ─── STEP finale – review / submit ─────────────────────── -->
+        <div class="wizard-step d-none" data-step="{{ total_steps }}" id="review-step">
+          <h5 class="fw-semibold mb-16">Riepilogo</h5>
+          <ul class="list-group mb-24" id="review-list"></ul>
+          <div class="alert alert-info small">Controlla i dati quindi invia.</div>
+        </div>
+
+        <!-- ─── bottoni navigazione ───────────────────────────────── -->
+        <div class="d-flex gap-3 mt-32">
+          <button type="button" class="btn btn-outline-secondary w-50 d-none" id="prev-btn">Indietro</button>
+          <button type="button" class="btn btn-primary w-50" id="next-btn">Avanti</button>
+          <button type="submit" class="btn btn-primary w-50 d-none" id="submit-btn">
+            <i class="ri-send-plane-2-fill me-1"></i> Invia candidatura
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- JS -------------------------------------------------------------- -->
+<script src="{{ url_for('static', filename='assets/js/lib/jquery-3.7.1.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/iconify-icon.min.js') }}"></script>
+
+<script>
+(function(){
+  const $steps  = $('.wizard-step'),
+        $prev   = $('#prev-btn'),
+        $next   = $('#next-btn'),
+        $submit = $('#submit-btn'),
+        total   = {{ total_steps }};
+  let cur = 1;
+  
+  // Schema dei campi condizionali
+  {% if form_schema %}
+    const formSchema = {{ form_schema | tojson | safe }};
+  {% else %}
+    const formSchema = {};
+  {% endif %}
+  const conditionalFields = {};
+  
+  // Identifica i campi condizionali
+  if (formSchema && formSchema.fields) {
+    formSchema.fields.forEach(field => {
+      if (field.showIf) {
+        conditionalFields[field.id] = field.showIf;
+        // Nascondi inizialmente i campi condizionali
+        const $fieldContainer = $('[name="' + field.id + '"]').closest('.mb-20');
+        $fieldContainer.hide();
+        $fieldContainer.addClass('conditional-field');
+        $fieldContainer.attr('data-depends-on', field.showIf.field);
+        $fieldContainer.attr('data-depends-value', field.showIf.value);
+      }
+    });
+  }
+
+  $('#step-total').text(total);
+  update();
+  
+  // Gestione campi condizionali
+  function handleConditionalFields() {
+    $('.conditional-field').each(function() {
+      const $container = $(this);
+      const dependsOn = $container.attr('data-depends-on');
+      const dependsValue = $container.attr('data-depends-value');
+      
+      if (dependsOn && dependsValue) {
+        // Trova il campo da cui dipende
+        const $dependField = $('[name="' + dependsOn + '"]');
+        let shouldShow = false;
+        
+        if ($dependField.is(':radio')) {
+          // Per radio button
+          shouldShow = $('[name="' + dependsOn + '"]:checked').val() === dependsValue;
+        } else if ($dependField.is('select')) {
+          // Per select
+          shouldShow = $dependField.val() === dependsValue;
+        } else if ($dependField.is(':checkbox')) {
+          // Per checkbox singola
+          shouldShow = $dependField.is(':checked') && dependsValue === 'true';
+        } else {
+          // Per text/textarea
+          shouldShow = $dependField.val() && $dependField.val().includes(dependsValue);
+        }
+        
+        if (shouldShow) {
+          $container.slideDown();
+        } else {
+          $container.slideUp();
+          // Clear the value when hidden
+          $container.find('input, textarea, select').val('');
+          $container.find('input[type="checkbox"], input[type="radio"]').prop('checked', false);
+        }
+      }
+    });
+  }
+  
+  // Ascolta i cambiamenti sui campi
+  $('#wizard-form').on('change', 'input, select, textarea', function() {
+    handleConditionalFields();
+  });
+  
+  // Inizializza al caricamento
+  handleConditionalFields();
+
+  $next.on('click', () => {
+    if (cur < total) {
+      if (cur === total - 1) buildReview();
+      cur++; update();
+      handleConditionalFields(); // Ricontrolla dopo cambio step
+    }
+  });
+  $prev.on('click', () => { 
+    if (cur > 1) { 
+      cur--; 
+      update(); 
+      handleConditionalFields(); // Ricontrolla dopo cambio step
+    }
+  });
+
+  function update(){
+    $steps.addClass('d-none').filter('[data-step="'+cur+'"]').removeClass('d-none');
+    $('#step-indicator').text(cur);
+    $prev.toggleClass('d-none', cur === 1);
+    $next.toggleClass('d-none', cur >= total);
+    $submit.toggleClass('d-none', cur < total);
+  }
+
+  function buildReview(){
+    const $list = $('#review-list').empty();
+    $('#wizard-form').find('input,textarea,select').each(function(){
+      const $el = $(this);
+      if (!$el.attr('name') || $el.attr('type')==='hidden' || $el.attr('type')==='file') return;
+      
+      // Salta i campi condizionali nascosti
+      if ($el.closest('.conditional-field').is(':hidden')) return;
+      
+      const lbl = $('label[for="'+$el.attr('id')+'"]').first().text() || $el.attr('name');
+      const val = $el.is(':checkbox') ? ($el.is(':checked') ? '✓' : '—')
+                                      : ($el.val() || '(vuoto)');
+      $list.append(
+        '<li class="list-group-item d-flex justify-content-between">' +
+        '<span>'+lbl+'</span><span class="fw-semibold">'+$('<div>').text(val).html()+'</span></li>'
+      );
+    });
+  }
+})();
+</script>
+</body>
+</html>

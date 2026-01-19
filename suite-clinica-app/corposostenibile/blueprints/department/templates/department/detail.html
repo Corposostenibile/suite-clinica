@@ -1,0 +1,442 @@
+{# ==========================================================
+  department_detail.html
+  ========================================================== #}
+{% extends "base.html" %}
+
+{# ────────────────────────────
+  TITLE
+  ──────────────────────────── #}
+{% block title %}Dipartimento • {{ dept.name }}{% endblock %}
+
+{# ────────────────────────────
+  EXTRA CSS
+  ──────────────────────────── #}
+{% block extra_css %}
+ {{ super() }}
+ <style>
+   /* helpers ---------------------------------------------------- */
+   .radius-12        { border-radius:12px; }
+   .w-64-px, .h-64-px{ width:64px;height:64px; }
+
+   /* gradients (come Wowdash) ----------------------------------- */
+   .bg-gradient-primary  { background:linear-gradient(135deg,#e3f2fd 0%,#e0f7fa 100%); }
+   .bg-gradient-info     { background:linear-gradient(135deg,#d6f4ff 0%,#e0f2ff 100%); }
+   .bg-gradient-warning  { background:linear-gradient(135deg,#fff3cd 0%,#fff8e1 100%); }
+
+   /* kanban cards ------------------------------------------------ */
+   .kanban-card           { min-width:320px;border:1px solid var(--bs-border-color-translucent);border-radius:8px;transition:box-shadow .2s }
+   .kanban-card:hover     { box-shadow:0 8px 22px rgba(0,0,0,.08) }
+   .kanban-card img       { transition:transform .25s }
+   .kanban-card:hover img { transform:scale(1.04) }
+
+   /* avatar ------------------------------------------------------ */
+   .avatar-md,.avatar-sm { width:48px;height:48px;object-fit:cover;border-radius:50% }
+
+   /* priority badge --------------------------------------------- */
+   .badge-priority { font-size:.75rem;font-weight:600;padding:.35em .55em;border-radius:.35rem }
+   .badge-low      { color:#198754;background:#d1e7dd }
+   .badge-medium   { color:#664d03;background:#fff3cd }
+   .badge-high     { color:#b02a37;background:#f8d7da }
+
+   /* due-date ---------------------------------------------------- */
+   .due-date-info  { font-size:.85rem;font-weight:500 }
+
+   /* icon button ------------------------------------------------- */
+   .icon-btn       { width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .15s,color .15s }
+   .icon-btn:hover { background:var(--bs-secondary-bg);color:var(--bs-primary) }
+
+   /* client label ----------------------------------------------- */
+   .client-info { font-size:.85rem;color:#6c757d }
+
+   /* OKR stat card ---------------------------------------------- */
+   .okr-stat-card{
+     background:linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);
+     border:none;border-radius:12px;
+     transition:transform .2s ease;
+   }
+   .okr-stat-card:hover{ transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,.1) }
+   .okr-progress-ring{ width:60px;height:60px }
+   .okr-progress-ring-circle{
+     stroke-dasharray:188.5;stroke-dashoffset:188.5;
+     transform:rotate(-90deg);transform-origin:center;
+     transition:stroke-dashoffset 1s ease;
+   }
+
+   /* document cards (stile Business Strategy) -------------------- */
+   .doc-card{
+     border:none;border-radius:12px;
+     box-shadow:0 4px 12px rgba(0,0,0,.06);
+     transition:transform .2s,box-shadow .2s;
+   }
+   .doc-card:hover{ transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1) }
+   .doc-icon-box{
+     width:64px;height:64px;border-radius:12px;
+     display:inline-flex;align-items:center;justify-content:center;
+     font-size:2rem;margin-bottom:16px;
+   }
+   .doc-meta{ font-size:.75rem;color:#6c757d }
+   
+   /* centramento testi e icone per documenti -------------------- */
+   .doc-card .card-body { text-align: center; }
+   .doc-card iconify-icon { color: #28c76f; }
+   .doc-card a { color: #28c76f !important; }
+   .doc-icon-box { 
+     background: rgba(40, 199, 111, 0.1) !important; 
+     margin-left: auto;
+     margin-right: auto;
+   }
+   .doc-icon-box iconify-icon { color: #28c76f !important; }
+   
+   /* pulsante gestisci documenti verde -------------------------- */
+   .btn-success-custom {
+     background-color: #28c76f !important;
+     border-color: #28c76f !important;
+     color: white !important;
+   }
+   .btn-success-custom:hover {
+     background-color: #24b662 !important;
+     border-color: #24b662 !important;
+   }
+   
+   /* obiettivi styling moderno e minimalista --------------------- */
+   .objectives-list {
+     position: relative;
+   }
+   
+   .objective-item {
+     padding: 1.75rem 0;
+     position: relative;
+     transition: all 0.3s ease;
+   }
+   
+   .objective-item:not(:last-child) {
+     border-bottom: 1px solid #e9ecef;
+   }
+   
+   .objective-item:hover {
+     background: linear-gradient(to right, rgba(40,199,111,0.02) 0%, transparent 100%);
+     margin: 0 -1.5rem;
+     padding-left: 1.5rem;
+     padding-right: 1.5rem;
+   }
+   
+   .objective-number {
+     width: 40px;
+     height: 40px;
+     background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+     color: white;
+     border-radius: 50%;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     font-weight: 700;
+     font-size: 1rem;
+     flex-shrink: 0;
+     box-shadow: 0 2px 4px rgba(40,199,111,0.2);
+   }
+   
+   .objective-title {
+     font-size: 1.125rem;
+     font-weight: 500;
+     color: #212529;
+     line-height: 1.5;
+     margin: 0;
+     letter-spacing: -0.01em;
+     word-wrap: break-word;
+     overflow-wrap: break-word;
+   }
+   
+   .objective-type-pill {
+     font-size: 0.75rem;
+     font-weight: 600;
+     padding: 0.375rem 0.875rem;
+     border-radius: 24px;
+     white-space: nowrap;
+     text-transform: uppercase;
+     letter-spacing: 0.5px;
+     transition: all 0.2s ease;
+   }
+   
+   .objective-type-pill.concreto {
+     background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+     color: white;
+     box-shadow: 0 2px 4px rgba(40,199,111,0.2);
+   }
+   
+   .objective-type-pill.aspirazionale {
+     background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+     color: white;
+     box-shadow: 0 2px 4px rgba(40,199,111,0.2);
+   }
+   
+   .kr-preview {
+     font-size: 0.875rem;
+     color: #6c757d;
+     margin: 0;
+     padding-left: 52px;
+     font-weight: 400;
+   }
+   
+   /* animazione hover per tipo OKR */
+   .objective-item:hover .objective-type-pill {
+     transform: translateY(-1px);
+     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+   }
+   
+   /* linea di connessione tra obiettivi */
+   .objectives-list::before {
+     content: '';
+     position: absolute;
+     left: 19px;
+     top: 60px;
+     bottom: 60px;
+     width: 2px;
+     background: linear-gradient(to bottom, #e9ecef 0%, transparent 100%);
+   }
+ </style>
+{% endblock %}
+
+{# ────────────────────────────
+  MAIN CONTENT
+  ──────────────────────────── #}
+{% block content %}
+<section class="p-24">
+
+ {# ▸ Header --------------------------------------------------- #}
+ <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+   <h6 class="fw-semibold mb-0">Dipartimento – {{ dept.name }}</h6>
+   <div class="d-flex gap-2">
+     <a href="{{ url_for('department.department_list') }}" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+       <iconify-icon icon="ri:arrow-left-line"></iconify-icon> Indietro
+     </a>
+     {% if current_user.is_admin %}
+     <a href="{{ url_for('department.teams_list', dept_id=dept.id) }}" class="btn btn-info d-flex align-items-center gap-2">
+       <iconify-icon icon="mdi:account-group"></iconify-icon> Gestisci Team
+     </a>
+     <a href="{{ url_for('department.department_edit', dept_id=dept.id) }}" class="btn btn-primary d-flex align-items-center gap-2">
+       <iconify-icon icon="lucide:edit"></iconify-icon> Modifica
+     </a>
+     {% endif %}
+   </div>
+ </div>
+
+ {# ▸ Flash messages ------------------------------------------- #}
+ {% with msgs = get_flashed_messages(with_categories=true) %}
+   {% if msgs %}
+     <div class="mb-24">
+       {% for cat,msg in msgs %}
+         <div class="alert alert-{{ 'warning' if cat=='warning' else 'success' if cat=='success' else 'danger' if cat=='error' else cat }} alert-dismissible fade show">
+           {{ msg }} <button class="btn-close" data-bs-dismiss="alert"></button>
+         </div>
+       {% endfor %}
+     </div>
+   {% endif %}
+ {% endwith %}
+
+ {# ▸ OKR section — Stile minimalista migliorato #}
+ <div class="card mb-24 radius-12">
+   <div class="card-header">
+     <h5 class="card-title mb-0">Obiettivi {{ current_quarter.upper() }} 2025</h5>
+   </div>
+ 
+   <div class="card-body">
+     {% if current_quarter_objectives %}
+       <div class="objectives-list">
+         {% for obj in current_quarter_objectives %}
+           <div class="objective-item">
+             <div class="d-flex align-items-start gap-3">
+               <div class="objective-number">{{ loop.index }}</div>
+               <div class="flex-grow-1">
+                 <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
+                   <h6 class="objective-title">{{ obj.title }}</h6>
+                   <span class="objective-type-pill {{ obj.okr_type }}">
+                     {{ obj.okr_type|capitalize }}
+                   </span>
+                 </div>
+                 {% if obj.key_results %}
+                   <div class="kr-preview">
+                     <small class="text-muted">
+                       {{ obj.key_results|length }} key result{% if obj.key_results|length > 1 %}s{% endif %}
+                     </small>
+                   </div>
+                 {% endif %}
+               </div>
+             </div>
+           </div>
+         {% endfor %}
+       </div>
+       
+       <div class="mt-4 pt-3 border-top text-center">
+         <a href="{{ url_for('department.okr_dashboard', dept_id=dept.id) }}"
+            class="btn btn-success btn-sm d-inline-flex align-items-center gap-1">
+           <iconify-icon icon="solar:target-bold"></iconify-icon>
+           Visualizza OKR
+         </a>
+       </div>
+     {% else %}
+       <div class="text-center py-5">
+         <iconify-icon icon="ri:target-line" class="text-muted" style="font-size: 3rem;"></iconify-icon>
+         <p class="text-muted mt-3 mb-4">Nessun obiettivo attivo per il {{ current_quarter.upper() }}.</p>
+         <a href="{{ url_for('department.okr_dashboard', dept_id=dept.id) }}"
+            class="btn btn-success btn-sm d-inline-flex align-items-center gap-1">
+           <iconify-icon icon="solar:target-bold"></iconify-icon>
+           Visualizza OKR
+         </a>
+       </div>
+     {% endif %}
+   </div>
+ </div>
+
+ {# ▸ Head of department --------------------------------------- #}
+ <div class="card mb-24 radius-12">
+   <div class="card-body">
+     <h5 class="card-title mb-3">Manager Dipartimento</h5>
+     {% if dept.head %}
+       <div class="d-flex align-items-center gap-3">
+         <img src="{{ dept.head.avatar_url }}" class="avatar-md flex-shrink-0" alt="">
+         <span class="fw-semibold text-primary-600">{{ dept.head.full_name }}</span>
+       </div>
+     {% else %}
+       <em class="text-muted">— non assegnato —</em>
+     {% endif %}
+   </div>
+ </div>
+
+ {# ▸ Teams (SOLO se ci sono team) ----------------------------- #}
+ {% if dept.teams|length > 0 %}
+ <div class="card mb-24 radius-12">
+   <div class="card-header {% if current_user.is_admin %}d-flex justify-content-between align-items-center{% endif %}">
+     <div>
+       <h5 class="card-title mb-0">Team ({{ dept.teams|length }})</h5>
+       <small class="text-muted">Clicca sul team per vederne i membri</small>
+     </div>
+     {% if current_user.is_admin %}
+     <a href="{{ url_for('department.teams_list', dept_id=dept.id) }}" class="btn btn-sm btn-primary d-flex align-items-center gap-1">
+       <iconify-icon icon="lucide:settings"></iconify-icon> Gestisci Team
+     </a>
+     {% endif %}
+   </div>
+   <div class="card-body">
+     <ul class="list-unstyled mb-0">
+       {% for team in dept.teams %}
+       <li class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+         <div class="d-flex align-items-center gap-3" role="button" data-bs-toggle="modal" data-bs-target="#teamModal{{ team.id }}" style="cursor: pointer;">
+           <div class="flex-shrink-0">
+             {% if team.head %}
+             <img src="{{ team.head.avatar_url }}" class="avatar-md" alt="{{ team.head.full_name }}" title="Team Leader: {{ team.head.full_name }}">
+             {% else %}
+             <div class="avatar-md bg-light rounded-circle d-flex align-items-center justify-content-center">
+               <iconify-icon icon="mdi:account-group" class="text-muted" style="font-size: 24px;"></iconify-icon>
+             </div>
+             {% endif %}
+           </div>
+           <div class="flex-grow-1">
+             <h6 class="mb-1 fw-semibold text-primary-600">{{ team.name }}</h6>
+             <div class="d-flex align-items-center gap-3 text-muted small">
+               <span><iconify-icon icon="mdi:account-multiple"></iconify-icon> {{ team.member_count }} membri</span>
+               {% if team.head %}
+               <span><iconify-icon icon="mdi:crown" class="text-warning"></iconify-icon> {{ team.head.full_name }}</span>
+               {% else %}
+               <span class="text-muted"><i>Nessun team leader</i></span>
+               {% endif %}
+             </div>
+           </div>
+           <div class="flex-shrink-0">
+             <iconify-icon icon="ri:arrow-right-s-line" class="text-muted" style="font-size: 20px;"></iconify-icon>
+           </div>
+         </div>
+       </li>
+       {% endfor %}
+     </ul>
+   </div>
+ </div>
+
+ {# Modal per ogni team #}
+ {% for team in dept.teams %}
+ <div class="modal fade" id="teamModal{{ team.id }}" tabindex="-1" aria-labelledby="teamModalLabel{{ team.id }}" aria-hidden="true">
+   <div class="modal-dialog modal-dialog-centered modal-lg">
+     <div class="modal-content">
+       <div class="modal-header">
+         <h5 class="modal-title" id="teamModalLabel{{ team.id }}">
+           <iconify-icon icon="mdi:account-group"></iconify-icon> {{ team.name }}
+         </h5>
+         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+       </div>
+       <div class="modal-body">
+         {% if team.head %}
+         <div class="mb-4 pb-3 border-bottom">
+           <h6 class="text-muted mb-2 small">TEAM LEADER</h6>
+           <div class="d-flex align-items-center gap-3">
+             <img src="{{ team.head.avatar_url }}" class="avatar-md" alt="{{ team.head.full_name }}">
+             <div class="fw-semibold text-primary-600">{{ team.head.full_name }}</div>
+           </div>
+         </div>
+         {% endif %}
+
+         <h6 class="text-muted mb-3 small">MEMBRI DEL TEAM ({{ team.member_count }})</h6>
+         {% if team.members %}
+         <ul class="list-unstyled mb-0">
+           {% for member in team.members %}
+           <li class="mb-3 pb-3 d-flex align-items-center gap-2 {% if not loop.last %}border-bottom{% endif %}">
+             <img src="{{ member.avatar_url }}" class="avatar-sm" alt="">
+             <span class="text-primary-600 fw-semibold">{{ member.full_name }}</span>
+             {% if member.id == team.head_id %}
+             <span class="badge bg-warning text-dark ms-auto" style="font-size: 0.7rem;">
+               <iconify-icon icon="mdi:crown"></iconify-icon> Leader
+             </span>
+             {% endif %}
+           </li>
+           {% endfor %}
+         </ul>
+         {% else %}
+         <p class="text-muted mb-0"><i>Nessun membro assegnato</i></p>
+         {% endif %}
+       </div>
+       <div class="modal-footer">
+         {% if current_user.is_admin %}
+         <a href="{{ url_for('department.team_detail', team_id=team.id) }}" class="btn btn-primary btn-sm">
+           <iconify-icon icon="lucide:edit"></iconify-icon> Gestisci Team
+         </a>
+         {% endif %}
+         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Chiudi</button>
+       </div>
+     </div>
+   </div>
+ </div>
+ {% endfor %}
+ {% endif %}
+
+
+ {# ▸ Members -------------------------------------------------- #}
+ {% set members = dept.members %}
+ <div class="card mb-40 radius-12">
+   <div class="card-header">
+     <h5 class="card-title mb-0">Membri ({{ members|length }})</h5>
+   </div>
+
+   {% if members %}
+     <div class="card-body">
+       <ul class="list-unstyled mb-0">
+         {% for m in members|sort(attribute='first_name') %}
+           <li class="mb-3 pb-3 d-flex align-items-center gap-2 {% if not loop.last %}border-bottom{% endif %}">
+             <img src="{{ m.avatar_url }}" class="avatar-sm" alt="">
+             <span class="text-primary-600 fw-semibold">{{ m.full_name }}</span>
+           </li>
+         {% endfor %}
+       </ul>
+     </div>
+   {% else %}
+     <div class="card-body"><em class="text-muted">Nessun membro.</em></div>
+   {% endif %}
+ </div>
+
+ 
+</section>
+{% endblock %}
+
+{# ────────────────────────────
+  INLINE SCRIPTS
+  ──────────────────────────── #}
+{% block inline_scripts %}
+<!-- Script OKR rimossi - non più necessari -->
+{% endblock %}

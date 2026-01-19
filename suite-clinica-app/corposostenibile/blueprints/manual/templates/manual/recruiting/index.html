@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Manuale Recruiting{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Role Card Styles */
+    .role-card {
+        border-left: 4px solid transparent;
+    }
+
+    .role-card.hr {
+        border-left-color: #487FFF;
+    }
+
+    .role-card.finance {
+        border-left-color: #45CB85;
+    }
+
+    /* Role Icon */
+    .role-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin: 0 auto 20px;
+    }
+
+    .role-icon.hr {
+        background: linear-gradient(135deg, #E5F3FF 0%, #CCE7FF 100%);
+        color: #487FFF;
+    }
+
+    .role-icon.finance {
+        background: linear-gradient(135deg, #E5F9F5 0%, #CCF3EC 100%);
+        color: #45CB85;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 12px 24px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+        color: white;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    /* Feature List */
+    .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0;
+    }
+
+    .feature-list li {
+        padding: 12px 0;
+        border-bottom: 1px solid #F1F5F9;
+        display: flex;
+        align-items: center;
+    }
+
+    .feature-list li:last-child {
+        border-bottom: none;
+    }
+
+    .feature-list li i {
+        color: #45CB85;
+        margin-right: 12px;
+        font-size: 1.2rem;
+    }
+
+    /* Breadcrumb */
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+        margin-bottom: 24px;
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: "›";
+        color: #94A3B8;
+    }
+
+    .breadcrumb-item a {
+        color: #487FFF;
+        text-decoration: none;
+    }
+
+    .breadcrumb-item a:hover {
+        color: #3867E5;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .text-center { text-align: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-24">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('manual.index') }}">Manuale Suite</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Recruiting</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="text-center mb-24">
+        <div class="d-inline-flex align-items-center justify-content-center w-64-px h-64-px bg-primary-50 rounded-circle mb-3">
+            <i class="ri-user-search-line text-primary-600" style="font-size: 2rem;"></i>
+        </div>
+        <h4 class="fw-semibold mb-2">Manuale Recruiting</h4>
+        <p class="text-muted mb-0">Seleziona il ruolo per cui hai bisogno di documentazione</p>
+    </div>
+
+    <!-- Role Selection -->
+    <div class="row g-4 justify-content-center">
+        <!-- HR Role -->
+        <div class="col-lg-5 col-md-6">
+            <div class="card role-card hr">
+                <div class="card-header text-center">
+                    <div class="role-icon hr">
+                        <i class="ri-user-tie-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-0">Human Resources</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center mb-3">
+                        Documentazione completa per gestire il processo di recruiting dall'inizio alla fine
+                    </p>
+
+                    <ul class="feature-list">
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Creazione offerte di lavoro</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Form builder questionari</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Sistema ATS con AI</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Pipeline Kanban configurabile</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Gestione candidature</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Workflow onboarding</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Metriche e analytics HR</span>
+                        </li>
+                    </ul>
+
+                    <a href="{{ url_for('manual.recruiting_hr') }}" class="btn btn-primary w-100">
+                        <i class="ri-book-open-line me-2"></i>Vai al Manuale HR
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finance Role -->
+        <div class="col-lg-5 col-md-6">
+            <div class="card role-card finance">
+                <div class="card-header text-center">
+                    <div class="role-icon finance">
+                        <i class="ri-bar-chart-line"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-0">Finance</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center mb-3">
+                        Documentazione per gestione costi e analytics del recruiting
+                    </p>
+
+                    <ul class="feature-list">
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Inserimento costi advertising</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Tracking spese per fonte</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Calcolo Cost per Hire</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>ROI per fonte (LinkedIn/Facebook/Instagram)</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Dashboard analytics finanziarie</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Report e metriche economiche</span>
+                        </li>
+                        <li>
+                            <i class="ri-checkbox-circle-fill"></i>
+                            <span>Budget forecast recruiting</span>
+                        </li>
+                    </ul>
+
+                    <a href="{{ url_for('manual.recruiting_finance') }}" class="btn btn-success w-100">
+                        <i class="ri-book-open-line me-2"></i>Vai al Manuale Finance
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        <div class="flex-shrink-0">
+                            <div class="w-48-px h-48-px bg-info-subtle rounded-circle d-flex justify-content-center align-items-center">
+                                <i class="ri-information-line text-info fs-5"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="fw-semibold mb-2">Link Rapidi</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="text-muted mb-2">
+                                        <strong>Accesso al modulo:</strong>
+                                    </p>
+                                    <a href="/recruiting" class="btn btn-sm btn-outline-primary">
+                                        <i class="ri-external-link-line me-1"></i>Vai al Recruiting
+                                    </a>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="text-muted mb-2">
+                                        <strong>Hai bisogno di aiuto?</strong>
+                                    </p>
+                                    <a href="/ticket" class="btn btn-sm btn-outline-info">
+                                        <i class="ri-customer-service-line me-1"></i>Apri un Ticket
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

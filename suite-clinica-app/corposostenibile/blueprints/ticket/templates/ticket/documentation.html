@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guida Completa Sistema Ticket - Corposostenibile</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 4px solid #3498db;
+        }
+        
+        h3 {
+            color: #7f8c8d;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .toc {
+            background: #ecf0f1;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .toc h2 {
+            margin-top: 0;
+            border: none;
+            padding: 0;
+        }
+        
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .toc ul ul {
+            padding-left: 25px;
+        }
+        
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+            display: block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .toc a:hover {
+            background: #d4d8db;
+            padding-left: 15px;
+        }
+        
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            padding-left: 60px;
+        }
+        
+        .step-number {
+            position: absolute;
+            left: 15px;
+            top: 20px;
+            background: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .urgency-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .urgency-table th,
+        .urgency-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        
+        .urgency-table th {
+            background: #3498db;
+            color: white;
+        }
+        
+        .urgency-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        
+        .status-nuovo { background: #e3f2fd; color: #1976d2; }
+        .status-lavorazione { background: #fff3e0; color: #f57c00; }
+        .status-attesa { background: #fce4ec; color: #c2185b; }
+        .status-chiuso { background: #e8f5e9; color: #388e3c; }
+        
+        .urgency-alta { color: #d32f2f; font-weight: bold; }
+        .urgency-media { color: #f57c00; font-weight: bold; }
+        .urgency-bassa { color: #388e3c; font-weight: bold; }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 50%;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        
+        .back-to-top:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Guida Completa al Sistema Ticket</h1>
+        
+        <!-- INDICE -->
+        <nav class="toc">
+            <h2>📚 Indice dei Contenuti</h2>
+            <ul>
+                <li><a href="#introduzione">1. Introduzione al Sistema Ticket</a></li>
+                <li><a href="#come-funziona">2. Come Funziona il Sistema</a></li>
+                <li>
+                    <a href="#creare-ticket">3. Creare un Nuovo Ticket</a>
+                    <ul>
+                        <li><a href="#creare-passo-passo">3.1 Guida Passo per Passo</a></li>
+                        <li><a href="#scegliere-urgenza">3.2 Scegliere il Livello di Urgenza</a></li>
+                        <li><a href="#selezionare-dipartimento">3.3 Selezionare il Dipartimento Giusto</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#gestire-ticket">4. Gestire i Tuoi Ticket</a>
+                    <ul>
+                        <li><a href="#visualizzare-ticket">4.1 Visualizzare i Ticket</a></li>
+                        <li><a href="#stati-ticket">4.2 Gli Stati del Ticket</a></li>
+                        <li><a href="#aggiungere-note">4.3 Aggiungere Note e Commenti</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#dashboard">5. La Dashboard dei Ticket</a>
+                    <ul>
+                        <li><a href="#filtri-ricerca">5.1 Filtri e Ricerca</a></li>
+                        <li><a href="#ticket-assegnati">5.2 Ticket Assegnati a Te</a></li>
+                        <li><a href="#ticket-creati">5.3 I Tuoi Ticket Creati</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#notifiche">6. Sistema di Notifiche</a>
+                    <ul>
+                        <li><a href="#notifiche-email">6.1 Notifiche Email</a></li>
+                        <li><a href="#quando-notifiche">6.2 Quando Ricevi Notifiche</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#lavorare-ticket">7. Lavorare su un Ticket Assegnato</a>
+                    <ul>
+                        <li><a href="#prendere-carico">7.1 Prendere in Carico</a></li>
+                        <li><a href="#cambiare-stato">7.2 Cambiare lo Stato</a></li>
+                        <li><a href="#condividere">7.3 Condividere con Altri Dipartimenti</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#best-practices">8. Migliori Pratiche</a>
+                    <ul>
+                        <li><a href="#scrivere-descrizione">8.1 Come Scrivere una Buona Descrizione</a></li>
+                        <li><a href="#rispondere-velocemente">8.2 Rispondere Velocemente</a></li>
+                        <li><a href="#collaborazione">8.3 Collaborazione tra Team</a></li>
+                    </ul>
+                </li>
+                <li><a href="#faq">9. Domande Frequenti (FAQ)</a></li>
+                <li><a href="#glossario">10. Glossario dei Termini</a></li>
+            </ul>
+        </nav>
+
+        <!-- CONTENUTO -->
+        
+        <!-- 1. INTRODUZIONE -->
+        <section id="introduzione">
+            <h2>1. Introduzione al Sistema Ticket</h2>
+            
+            <p>Il <strong>Sistema Ticket</strong> è lo strumento principale per gestire le richieste e le comunicazioni tra i diversi dipartimenti dell'azienda. Ogni volta che hai bisogno di aiuto, supporto o devi segnalare un problema, puoi creare un ticket che verrà automaticamente inviato al team giusto.</p>
+            
+            <div class="info-box">
+                <strong>💡 Cosa puoi fare con il sistema ticket:</strong>
+                <ul>
+                    <li>Richiedere assistenza tecnica al team IT</li>
+                    <li>Segnalare problemi o malfunzionamenti</li>
+                    <li>Richiedere informazioni o chiarimenti</li>
+                    <li>Coordinare attività tra dipartimenti</li>
+                    <li>Tracciare lo stato delle tue richieste</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 2. COME FUNZIONA -->
+        <section id="come-funziona">
+            <h2>2. Come Funziona il Sistema</h2>
+            
+            <p>Il sistema ticket funziona come una <strong>casella postale intelligente</strong>. Quando crei un ticket:</p>
+            
+            <ol>
+                <li><strong>Viene assegnato un numero univoco</strong> (es: 20250106-0001) che ti permette di tracciarlo</li>
+                <li><strong>Viene inviato al dipartimento scelto</strong> e assegnato a una persona specifica</li>
+                <li><strong>Ricevi una notifica email</strong> di conferma</li>
+                <li><strong>Il team riceve una notifica</strong> e inizia a lavorare sulla tua richiesta</li>
+                <li><strong>Puoi seguire gli aggiornamenti</strong> in tempo reale dalla dashboard</li>
+            </ol>
+            
+            <div class="success-box">
+                <strong>✅ Vantaggi del sistema:</strong>
+                <ul>
+                    <li>Nessuna richiesta viene persa o dimenticata</li>
+                    <li>Tutto è tracciato e documentato</li>
+                    <li>Sai sempre a che punto è la tua richiesta</li>
+                    <li>Comunicazione centralizzata e organizzata</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 3. CREARE UN TICKET -->
+        <section id="creare-ticket">
+            <h2>3. Creare un Nuovo Ticket</h2>
+            
+            <p>Creare un ticket è semplice e richiede solo pochi minuti. Vediamo come fare passo per passo.</p>
+            
+            <!-- 3.1 Guida Passo Passo -->
+            <h3 id="creare-passo-passo">3.1 Guida Passo per Passo</h3>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Accedi al sistema ticket</strong>
+                <p>Vai su <code>/tickets/create</code> oppure clicca sul pulsante "Nuovo Ticket" nella dashboard</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Seleziona il dipartimento destinatario</strong>
+                <p>Scegli il team che può aiutarti con la tua richiesta (vedi sezione 3.3 per dettagli)</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Seleziona il membro del dipartimento</strong>
+                <p>Dopo aver scelto il dipartimento, apparirà la lista dei membri. Seleziona la persona più adatta o chi preferisci</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Inserisci l'oggetto della richiesta</strong>
+                <p>Scrivi un titolo breve ma descrittivo (max 255 caratteri). Esempio: "Problema accesso email aziendale"</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">5</span>
+                <strong>Descrivi in dettaglio il problema</strong>
+                <p>Fornisci tutte le informazioni necessarie. Più sei preciso, più veloce sarà la soluzione</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">6</span>
+                <strong>Seleziona il livello di urgenza</strong>
+                <p>Scegli tra Alta, Media o Bassa in base all'importanza (vedi sezione 3.2)</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">7</span>
+                <strong>Cliente/Lead correlato (opzionale)</strong>
+                <p>Se la richiesta riguarda un cliente specifico, inserisci il suo nome</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">8</span>
+                <strong>Clicca su "Invia Richiesta"</strong>
+                <p>Il ticket verrà creato e riceverai una conferma immediata</p>
+            </div>
+            
+            <!-- 3.2 Scegliere l'Urgenza -->
+            <h3 id="scegliere-urgenza">3.2 Scegliere il Livello di Urgenza</h3>
+            
+            <p>Il livello di urgenza determina <strong>entro quanto tempo</strong> il tuo ticket deve essere risolto:</p>
+            
+            <table class="urgency-table">
+                <thead>
+                    <tr>
+                        <th>Livello</th>
+                        <th>Simbolo</th>
+                        <th>Tempo di Risoluzione</th>
+                        <th>Quando Usarlo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="urgency-alta">Alta</td>
+                        <td>🔴</td>
+                        <td>Entro la giornata</td>
+                        <td>Problemi bloccanti, emergenze, situazioni critiche che impediscono il lavoro</td>
+                    </tr>
+                    <tr>
+                        <td class="urgency-media">Media</td>
+                        <td>🟡</td>
+                        <td>Entro 2 giorni</td>
+                        <td>Problemi importanti ma non bloccanti, richieste con scadenza vicina</td>
+                    </tr>
+                    <tr>
+                        <td class="urgency-bassa">Bassa</td>
+                        <td>🟢</td>
+                        <td>Entro la settimana</td>
+                        <td>Richieste di informazioni, miglioramenti, problemi minori</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="warning-box">
+                <strong>⚠️ Importante:</strong> Usa l'urgenza Alta solo per vere emergenze. Un uso eccessivo potrebbe ridurre l'efficacia del sistema.
+            </div>
+            
+            <!-- 3.3 Selezionare il Dipartimento -->
+            <h3 id="selezionare-dipartimento">3.3 Selezionare il Dipartimento Giusto</h3>
+            
+            <p>Scegliere il dipartimento corretto è fondamentale per una risoluzione rapida. Ecco una guida:</p>
+            
+            <ul>
+                <li><strong>IT:</strong> Problemi tecnici, computer, software, accessi, password</li>
+                <li><strong>Coach:</strong> Questioni relative all'allenamento e coaching dei clienti</li>
+                <li><strong>Nutrizione:</strong> Piani alimentari, diete, consulenze nutrizionali</li>
+                <li><strong>Psicologia:</strong> Supporto psicologico, gestione casi sensibili</li>
+                <li><strong>Sales:</strong> Vendite, contratti, questioni commerciali</li>
+                <li><strong>HR:</strong> Risorse umane, permessi, questioni del personale</li>
+                <li><strong>Amministrazione:</strong> Fatture, pagamenti, documenti amministrativi</li>
+            </ul>
+        </section>
+
+        <!-- 4. GESTIRE I TICKET -->
+        <section id="gestire-ticket">
+            <h2>4. Gestire i Tuoi Ticket</h2>
+            
+            <!-- 4.1 Visualizzare i Ticket -->
+            <h3 id="visualizzare-ticket">4.1 Visualizzare i Ticket</h3>
+            
+            <p>Puoi visualizzare i ticket in due modi principali:</p>
+            
+            <ol>
+                <li>
+                    <strong>Dashboard principale</strong> (<code>/tickets/dashboard</code>)
+                    <ul>
+                        <li>Mostra i ticket assegnati a te</li>
+                        <li>Se sei capo dipartimento, vedi tutti i ticket del tuo team</li>
+                        <li>Se sei admin, vedi tutti i ticket del sistema</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>I miei ticket</strong> (<code>/tickets/my-tickets</code>)
+                    <ul>
+                        <li>Mostra solo i ticket che hai creato tu</li>
+                        <li>Utile per tracciare le tue richieste personali</li>
+                    </ul>
+                </li>
+            </ol>
+            
+            <!-- 4.2 Gli Stati del Ticket -->
+            <h3 id="stati-ticket">4.2 Gli Stati del Ticket</h3>
+            
+            <p>Ogni ticket passa attraverso diversi stati durante il suo ciclo di vita:</p>
+            
+            <div style="margin: 20px 0;">
+                <span class="status-badge status-nuovo">Nuovo</span>
+                <p>Il ticket è appena stato creato e attende di essere preso in carico</p>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <span class="status-badge status-lavorazione">In Lavorazione</span>
+                <p>Qualcuno sta attivamente lavorando sulla richiesta</p>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <span class="status-badge status-attesa">In Attesa</span>
+                <p>Il ticket è in pausa, in attesa di informazioni o azioni esterne</p>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <span class="status-badge status-chiuso">Chiuso</span>
+                <p>La richiesta è stata completata e il ticket è chiuso</p>
+            </div>
+            
+            <!-- 4.3 Aggiungere Note -->
+            <h3 id="aggiungere-note">4.3 Aggiungere Note e Commenti</h3>
+            
+            <p>Puoi aggiungere note interne ai ticket per:</p>
+            <ul>
+                <li>Fornire informazioni aggiuntive</li>
+                <li>Rispondere a domande</li>
+                <li>Documentare i progressi</li>
+                <li>Comunicare con il team</li>
+            </ul>
+            
+            <div class="info-box">
+                <strong>💡 Suggerimento:</strong> Le note sono visibili solo internamente e non vengono inviate via email al richiedente esterno.
+            </div>
+        </section>
+
+        <!-- 5. DASHBOARD -->
+        <section id="dashboard">
+            <h2>5. La Dashboard dei Ticket</h2>
+            
+            <p>La dashboard è il tuo centro di controllo per gestire tutti i ticket. È divisa in diverse sezioni per facilitare la navigazione.</p>
+            
+            <!-- 5.1 Filtri e Ricerca -->
+            <h3 id="filtri-ricerca">5.1 Filtri e Ricerca</h3>
+            
+            <p>Puoi filtrare i ticket usando diversi criteri:</p>
+            
+            <ul>
+                <li><strong>Stato:</strong> Mostra solo ticket in uno stato specifico</li>
+                <li><strong>Urgenza:</strong> Filtra per livello di priorità</li>
+                <li><strong>Dipartimento:</strong> Vedi ticket di un dipartimento specifico (se hai i permessi)</li>
+                <li><strong>Periodo:</strong> Seleziona un intervallo di date</li>
+                <li><strong>Ricerca testuale:</strong> Cerca per numero ticket, titolo, email o contenuto</li>
+                <li><strong>Includi chiusi:</strong> Mostra anche i ticket già risolti</li>
+            </ul>
+            
+            <div class="step">
+                <strong>Come usare i filtri:</strong>
+                <ol>
+                    <li>Apri la dashboard</li>
+                    <li>Usa i menu a tendina per selezionare i filtri</li>
+                    <li>Clicca su "Applica Filtri"</li>
+                    <li>Per rimuovere i filtri, clicca su "Resetta"</li>
+                </ol>
+            </div>
+            
+            <!-- 5.2 Ticket Assegnati -->
+            <h3 id="ticket-assegnati">5.2 Ticket Assegnati a Te</h3>
+            
+            <p>Nella dashboard principale vedi automaticamente i ticket che ti sono stati assegnati. Questi sono i ticket su cui devi lavorare.</p>
+            
+            <div class="success-box">
+                <strong>✅ Cosa fare con i ticket assegnati:</strong>
+                <ol>
+                    <li>Controlla regolarmente la dashboard (almeno 2 volte al giorno)</li>
+                    <li>Dai priorità ai ticket urgenti (bollino rosso)</li>
+                    <li>Aggiorna lo stato quando inizi a lavorare</li>
+                    <li>Aggiungi note per documentare i progressi</li>
+                    <li>Chiudi il ticket quando risolto</li>
+                </ol>
+            </div>
+            
+            <!-- 5.3 Ticket Creati -->
+            <h3 id="ticket-creati">5.3 I Tuoi Ticket Creati</h3>
+            
+            <p>La sezione "I Miei Ticket" mostra tutte le richieste che hai creato, indipendentemente da chi le sta gestendo.</p>
+            
+            <p>Da qui puoi:</p>
+            <ul>
+                <li>Vedere lo stato delle tue richieste</li>
+                <li>Leggere gli aggiornamenti</li>
+                <li>Aggiungere informazioni se necessario</li>
+                <li>Vedere chi sta lavorando sul tuo ticket</li>
+            </ul>
+        </section>
+
+        <!-- 6. NOTIFICHE -->
+        <section id="notifiche">
+            <h2>6. Sistema di Notifiche</h2>
+            
+            <!-- 6.1 Notifiche Email -->
+            <h3 id="notifiche-email">6.1 Notifiche Email</h3>
+            
+            <p>Il sistema invia automaticamente notifiche email per tenerti aggiornato. Le email arrivano dal mittente configurato dal sistema (solitamente <code>noreply@corposostenibile.com</code>).</p>
+            
+            <!-- 6.2 Quando Ricevi Notifiche -->
+            <h3 id="quando-notifiche">6.2 Quando Ricevi Notifiche</h3>
+            
+            <p>Ricevi una notifica email quando:</p>
+            
+            <ul>
+                <li><strong>Crei un ticket:</strong> Conferma di creazione con numero ticket</li>
+                <li><strong>Ti viene assegnato un ticket:</strong> Notifica di nuova assegnazione</li>
+                <li><strong>Cambia lo stato:</strong> Aggiornamento sullo stato del tuo ticket</li>
+                <li><strong>Viene aggiunto un commento importante:</strong> Se richiede la tua attenzione</li>
+                <li><strong>Il ticket viene chiuso:</strong> Conferma di risoluzione</li>
+                <li><strong>Un ticket viene condiviso con il tuo dipartimento:</strong> Notifica di condivisione</li>
+            </ul>
+            
+            <div class="info-box">
+                <strong>💡 Suggerimento:</strong> Controlla che le email non finiscano nello spam. Aggiungi l'indirizzo del sistema ai contatti sicuri.
+            </div>
+        </section>
+
+        <!-- 7. LAVORARE SU UN TICKET -->
+        <section id="lavorare-ticket">
+            <h2>7. Lavorare su un Ticket Assegnato</h2>
+            
+            <!-- 7.1 Prendere in Carico -->
+            <h3 id="prendere-carico">7.1 Prendere in Carico</h3>
+            
+            <p>Quando ti viene assegnato un nuovo ticket:</p>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Leggi attentamente la richiesta</strong>
+                <p>Comprendi bene cosa viene richiesto prima di iniziare</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Cambia lo stato in "In Lavorazione"</strong>
+                <p>Questo informa il richiedente che stai lavorando sulla sua richiesta</p>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Aggiungi una nota iniziale</strong>
+                <p>Indica cosa farai e quando prevedi di completare il lavoro</p>
+            </div>
+            
+            <!-- 7.2 Cambiare lo Stato -->
+            <h3 id="cambiare-stato">7.2 Cambiare lo Stato</h3>
+            
+            <p>Per cambiare lo stato di un ticket:</p>
+            
+            <ol>
+                <li>Apri il dettaglio del ticket</li>
+                <li>Clicca su "Cambia Stato"</li>
+                <li>Seleziona il nuovo stato dal menu</li>
+                <li><strong>Scrivi un messaggio</strong> che spiega il motivo del cambio (obbligatorio)</li>
+                <li>Decidi se inviare notifica email al richiedente</li>
+                <li>Clicca su "Conferma"</li>
+            </ol>
+            
+            <div class="warning-box">
+                <strong>⚠️ Importante:</strong> Il messaggio è obbligatorio perché viene inviato via email al richiedente. Sii professionale e chiaro.
+            </div>
+            
+            <!-- 7.3 Condividere -->
+            <h3 id="condividere">7.3 Condividere con Altri Dipartimenti</h3>
+            
+            <p>A volte un ticket richiede l'intervento di più dipartimenti. Puoi condividerlo:</p>
+            
+            <ol>
+                <li>Apri il ticket</li>
+                <li>Clicca su "Condividi con altri dipartimenti"</li>
+                <li>Seleziona i dipartimenti da coinvolgere</li>
+                <li>Aggiungi un messaggio per spiegare cosa serve</li>
+                <li>Conferma la condivisione</li>
+            </ol>
+            
+            <p>I dipartimenti condivisi potranno:</p>
+            <ul>
+                <li>Vedere il ticket nella loro dashboard</li>
+                <li>Aggiungere note e commenti</li>
+                <li>Collaborare alla risoluzione</li>
+            </ul>
+        </section>
+
+        <!-- 8. BEST PRACTICES -->
+        <section id="best-practices">
+            <h2>8. Migliori Pratiche</h2>
+            
+            <!-- 8.1 Scrivere una Buona Descrizione -->
+            <h3 id="scrivere-descrizione">8.1 Come Scrivere una Buona Descrizione</h3>
+            
+            <p>Una descrizione ben scritta accelera la risoluzione. Includi sempre:</p>
+            
+            <ul>
+                <li><strong>Cosa sta succedendo:</strong> Descrivi il problema o la richiesta</li>
+                <li><strong>Quando è iniziato:</strong> Data e ora del problema</li>
+                <li><strong>Cosa hai già provato:</strong> Soluzioni tentate</li>
+                <li><strong>Impatto:</strong> Chi o cosa è influenzato</li>
+                <li><strong>Risultato desiderato:</strong> Cosa ti aspetti come soluzione</li>
+            </ul>
+            
+            <div class="success-box">
+                <strong>✅ Esempio di buona descrizione:</strong>
+                <p>"Da stamattina alle 9:00 non riesco ad accedere alla mia email aziendale. Ho provato a resettare la password ma ricevo l'errore 'Account bloccato'. Questo mi impedisce di rispondere ai clienti. Avrei bisogno di sbloccare l'account il prima possibile."</p>
+            </div>
+            
+            <div class="warning-box">
+                <strong>❌ Esempio di descrizione da evitare:</strong>
+                <p>"Email non funziona. Aiuto!"</p>
+            </div>
+            
+            <!-- 8.2 Rispondere Velocemente -->
+            <h3 id="rispondere-velocemente">8.2 Rispondere Velocemente</h3>
+            
+            <p>Anche se non puoi risolvere subito, è importante dare un riscontro rapido:</p>
+            
+            <ul>
+                <li>Conferma di aver ricevuto e letto il ticket</li>
+                <li>Indica quando potrai occupartene</li>
+                <li>Se serve più tempo, metti lo stato "In Attesa" e spiega perché</li>
+                <li>Aggiorna regolarmente anche se il lavoro è in corso</li>
+            </ul>
+            
+            <!-- 8.3 Collaborazione -->
+            <h3 id="collaborazione">8.3 Collaborazione tra Team</h3>
+            
+            <p>Per una collaborazione efficace:</p>
+            
+            <ul>
+                <li><strong>Comunica chiaramente:</strong> Usa note dettagliate</li>
+                <li><strong>Tagga i colleghi:</strong> Menziona chi deve intervenire</li>
+                <li><strong>Condividi le informazioni:</strong> Non tenere dettagli importanti per te</li>
+                <li><strong>Coordina le azioni:</strong> Evita duplicazioni di lavoro</li>
+                <li><strong>Documenta tutto:</strong> Le note aiutano in futuro</li>
+            </ul>
+        </section>
+
+        <!-- 9. FAQ -->
+        <section id="faq">
+            <h2>9. Domande Frequenti (FAQ)</h2>
+            
+            <h3>D: Posso modificare un ticket dopo averlo creato?</h3>
+            <p><strong>R:</strong> Puoi aggiungere note e commenti, ma non puoi modificare il titolo o la descrizione originale. Se hai fatto un errore importante, contatta il team assegnato.</p>
+            
+            <h3>D: Quanto tempo ho per rispondere a un ticket?</h3>
+            <p><strong>R:</strong> Dipende dall'urgenza: Alta (entro oggi), Media (2 giorni), Bassa (1 settimana). Il sistema calcola automaticamente la scadenza.</p>
+            
+            <h3>D: Posso cancellare un ticket?</h3>
+            <p><strong>R:</strong> No, i ticket non possono essere cancellati per mantenere la tracciabilità. Puoi chiuderlo se non è più necessario.</p>
+            
+            <h3>D: Cosa succede se il ticket scade?</h3>
+            <p><strong>R:</strong> Il ticket viene evidenziato come "in ritardo" nella dashboard. Il responsabile riceve un promemoria.</p>
+            
+            <h3>D: Posso riaprire un ticket chiuso?</h3>
+            <p><strong>R:</strong> Sì, se il problema si ripresenta entro 7 giorni. Altrimenti è meglio creare un nuovo ticket.</p>
+            
+            <h3>D: Come faccio a sapere chi sta lavorando sul mio ticket?</h3>
+            <p><strong>R:</strong> Nel dettaglio del ticket vedi la persona assegnata e puoi leggere tutti gli aggiornamenti.</p>
+            
+            <h3>D: Posso assegnare un ticket a più persone?</h3>
+            <p><strong>R:</strong> Sì, i capi dipartimento e gli admin possono assegnare il ticket a più membri del team.</p>
+            
+            <h3>D: Le note sono visibili a tutti?</h3>
+            <p><strong>R:</strong> Le note interne sono visibili solo al team che gestisce il ticket, non al richiedente esterno.</p>
+        </section>
+
+        <!-- 10. GLOSSARIO -->
+        <section id="glossario">
+            <h2>10. Glossario dei Termini</h2>
+            
+            <dl>
+                <dt><strong>Ticket</strong></dt>
+                <dd>Una richiesta o segnalazione nel sistema. Ogni ticket ha un numero univoco.</dd>
+                
+                <dt><strong>Ticket Number</strong></dt>
+                <dd>Codice univoco nel formato YYYYMMDD-XXXX (es: 20250106-0001)</dd>
+                
+                <dt><strong>Dashboard</strong></dt>
+                <dd>Pannello di controllo principale dove visualizzi e gestisci i ticket</dd>
+                
+                <dt><strong>Stato</strong></dt>
+                <dd>Fase attuale del ticket (Nuovo, In Lavorazione, In Attesa, Chiuso)</dd>
+                
+                <dt><strong>Urgenza</strong></dt>
+                <dd>Livello di priorità del ticket (Alta, Media, Bassa)</dd>
+                
+                <dt><strong>Assegnato a</strong></dt>
+                <dd>Persona responsabile di lavorare sul ticket</dd>
+                
+                <dt><strong>Richiedente</strong></dt>
+                <dd>Chi ha creato il ticket</dd>
+                
+                <dt><strong>Due Date</strong></dt>
+                <dd>Scadenza entro cui il ticket deve essere risolto</dd>
+                
+                <dt><strong>Note Interne</strong></dt>
+                <dd>Commenti visibili solo al team, non al richiedente esterno</dd>
+                
+                <dt><strong>Condivisione</strong></dt>
+                <dd>Quando un ticket viene reso visibile a più dipartimenti</dd>
+                
+                <dt><strong>Head (Capo Dipartimento)</strong></dt>
+                <dd>Responsabile di un dipartimento con permessi aggiuntivi</dd>
+                
+                <dt><strong>SLA</strong></dt>
+                <dd>Service Level Agreement - tempo massimo di risoluzione in base all'urgenza</dd>
+            </dl>
+        </section>
+
+        <!-- CONCLUSIONE -->
+        <div class="info-box" style="margin-top: 50px;">
+            <h3>📚 Hai ancora domande?</h3>
+            <p>Se hai bisogno di ulteriore assistenza o chiarimenti sul sistema ticket:</p>
+            <ul>
+                <li>Crea un ticket al dipartimento IT per problemi tecnici</li>
+                <li>Contatta il tuo responsabile per questioni procedurali</li>
+                <li>Consulta questa guida per riferimenti rapidi</li>
+            </ul>
+            <p><strong>Ricorda:</strong> Il sistema ticket è qui per aiutarti a lavorare meglio. Usalo ogni volta che hai bisogno!</p>
+        </div>
+    </div>
+    
+    <!-- Pulsante Torna Su -->
+    <a href="#" class="back-to-top" title="Torna su">↑</a>
+    
+    <script>
+        // Smooth scroll per i link dell'indice
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Mostra/nascondi pulsante "Torna su"
+        window.addEventListener('scroll', function() {
+            const backToTop = document.querySelector('.back-to-top');
+            if (window.pageYOffset > 300) {
+                backToTop.style.display = 'block';
+            } else {
+                backToTop.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

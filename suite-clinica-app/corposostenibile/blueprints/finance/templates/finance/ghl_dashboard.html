@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Finance Dashboard - Verifiche GHL{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>🏦 Finance Dashboard - Verifiche Pagamenti GHL</h1>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">In Attesa</h5>
+                    <h2>{{ stats.pending }}</h2>
+                    <small>Verifiche pendenti</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Approvati Oggi</h5>
+                    <h2>{{ stats.approved_today }}</h2>
+                    <small>Pagamenti verificati</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Importo Pendente</h5>
+                    <h2>€{{ "%.2f"|format(stats.total_pending_amount) }}</h2>
+                    <small>Da verificare</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Rigettati</h5>
+                    <h2>{{ stats.rejected_this_week }}</h2>
+                    <small>Ultima settimana</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-control">
+                        <option value="">Tutti</option>
+                        <option value="pending_finance" {% if status_filter == 'pending_finance' %}selected{% endif %}>
+                            In Attesa Verifica
+                        </option>
+                        <option value="finance_approved" {% if status_filter == 'finance_approved' %}selected{% endif %}>
+                            Approvati
+                        </option>
+                        <option value="finance_rejected" {% if status_filter == 'finance_rejected' %}selected{% endif %}>
+                            Rigettati
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data Da</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data A</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Filtra</button>
+                        <a href="{{ url_for('finance.ghl_dashboard') }}" class="btn btn-secondary">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabella Assignments -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>Clienti da Verificare</h3>
+            <div>
+                <button class="btn btn-sm btn-success" onclick="bulkApprove()">
+                    Approva Selezionati
+                </button>
+                <button class="btn btn-sm btn-info" onclick="exportSelected()">
+                    Esporta Excel
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAll" onchange="toggleAll(this)">
+                            </th>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Email</th>
+                            <th>Pacchetto</th>
+                            <th>Acconto</th>
+                            <th>Totale</th>
+                            <th>Status</th>
+                            <th>Data Creazione</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr class="{% if assignment.status == 'pending_finance' %}table-warning{% elif assignment.finance_approved %}table-success{% elif assignment.status == 'finance_rejected' %}table-danger{% endif %}">
+                            <td>
+                                <input type="checkbox" class="assignment-check" value="{{ assignment.id }}">
+                            </td>
+                            <td>{{ assignment.id }}</td>
+                            <td>
+                                <strong>{{ assignment.cliente.nome_cognome }}</strong>
+                                {% if assignment.urgent_flag %}
+                                    <span class="badge bg-danger">URGENTE</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ assignment.cliente.mail }}</td>
+                            <td>
+                                {% if assignment.ghl_opportunity %}
+                                    {{ assignment.ghl_opportunity.pacchetto_comprato or 'N/D' }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if assignment.ghl_opportunity and assignment.ghl_opportunity.acconto_pagato %}
+                                    €{{ "%.2f"|format(assignment.ghl_opportunity.acconto_pagato) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if assignment.ghl_opportunity and assignment.ghl_opportunity.importo_totale %}
+                                    €{{ "%.2f"|format(assignment.ghl_opportunity.importo_totale) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if assignment.status == 'pending_finance' %}
+                                    <span class="badge bg-warning">Acconto da Verificare</span>
+                                {% elif assignment.status == 'pending_finance_full' %}
+                                    <span class="badge bg-danger">⚠️ SALDO (Acconto non verificato)</span>
+                                {% elif assignment.finance_approved %}
+                                    <span class="badge bg-success">Approvato</span>
+                                {% elif assignment.status == 'finance_rejected' %}
+                                    <span class="badge bg-danger">Rigettato</span>
+                                {% elif assignment.status == 'assigning' %}
+                                    <span class="badge bg-info">Pronto per Assegnazione</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ assignment.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ assignment.created_at.strftime('%d/%m/%Y %H:%M') if assignment.created_at else '-' }}</small>
+                            </td>
+                            <td>
+                                {% if assignment.status == 'pending_finance' %}
+                                    <a href="{{ url_for('finance.verify_payment', assignment_id=assignment.id) }}"
+                                       class="btn btn-sm btn-primary">
+                                        Verifica
+                                    </a>
+                                {% elif assignment.finance_approved %}
+                                    <span class="text-success">
+                                        ✓ {{ assignment.finance_approved_at.strftime('%d/%m') if assignment.finance_approved_at else '' }}
+                                    </span>
+                                {% else %}
+                                    <button class="btn btn-sm btn-secondary"
+                                            onclick="showNotes({{ assignment.id }})">
+                                        Note
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center">Nessun cliente da verificare</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Note -->
+<div class="modal fade" id="notesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Note Assignment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="notesContent">
+                Caricamento...
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAll(checkbox) {
+    document.querySelectorAll('.assignment-check').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+}
+
+function getSelectedIds() {
+    const ids = [];
+    document.querySelectorAll('.assignment-check:checked').forEach(cb => {
+        ids.push(cb.value);
+    });
+    return ids;
+}
+
+function bulkApprove() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) {
+        alert('Seleziona almeno un elemento');
+        return;
+    }
+
+    if (!confirm(`Approvare ${ids.length} pagamenti?`)) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'approve_all');
+    ids.forEach(id => formData.append('assignment_ids[]', id));
+
+    fetch('{{ url_for("finance.bulk_actions") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Errore: ' + (data.error || 'Sconosciuto'));
+        }
+    });
+}
+
+function exportSelected() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) {
+        alert('Seleziona almeno un elemento da esportare');
+        return;
+    }
+
+    // TODO: Implementare export
+    alert('Export in sviluppo...');
+}
+
+function showNotes(assignmentId) {
+    // TODO: Caricare note via AJAX
+    const modal = new bootstrap.Modal(document.getElementById('notesModal'));
+    document.getElementById('notesContent').innerHTML = 'Note per assignment ' + assignmentId;
+    modal.show();
+}
+
+// Auto-refresh ogni 60 secondi se ci sono pending
+{% if stats.pending > 0 %}
+setTimeout(() => location.reload(), 60000);
+{% endif %}
+</script>
+{% endblock %}

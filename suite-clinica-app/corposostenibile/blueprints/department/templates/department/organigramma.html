@@ -1,0 +1,1336 @@
+{# ==========================================================
+  organigramma.html - Organigramma aziendale
+  Design moderno con struttura gerarchica a 3 macro-sezioni:
+  Co-Founders -> Team Interno | Operations | Marketing e Vendita
+  ========================================================== #}
+{% extends "base.html" %}
+
+{% block title %}Organigramma Aziendale{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --org-purple: #8b5cf6;
+    --org-purple-dark: #7c3aed;
+    --org-blue: #3b82f6;
+    --org-blue-dark: #2563eb;
+    --org-green: #10b981;
+    --org-green-dark: #059669;
+    --org-orange: #f59e0b;
+    --org-orange-dark: #d97706;
+    --org-gray: #64748b;
+    --org-light: #f8fafc;
+    --org-border: #e2e8f0;
+    --connector-color: #cbd5e1;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LAYOUT PRINCIPALE
+     ═══════════════════════════════════════════════════════════ */
+  .organigramma-page {
+    padding: 24px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    min-height: calc(100vh - 200px);
+  }
+
+  .organigramma-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .organigramma-header h4 {
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    font-size: 1.5rem;
+  }
+
+  .organigramma-header p {
+    color: var(--org-gray);
+    margin: 4px 0 0 0;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .stats-badges {
+    display: flex;
+    gap: 12px;
+  }
+
+  .stat-badge {
+    background: white;
+    border-radius: 12px;
+    padding: 10px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    text-align: center;
+    border: 1px solid var(--org-border);
+  }
+
+  .stat-badge .number {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--brand-green);
+  }
+
+  .stat-badge .label {
+    font-size: 11px;
+    color: var(--org-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CONTROLLI ZOOM
+     ═══════════════════════════════════════════════════════════ */
+  .zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 8px 14px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid var(--org-border);
+  }
+
+  .zoom-btn {
+    width: 34px;
+    height: 34px;
+    border: none;
+    background: #f1f5f9;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: #475569;
+  }
+
+  .zoom-btn:hover {
+    background: var(--brand-green);
+    color: white;
+    transform: scale(1.05);
+  }
+
+  .zoom-level {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    min-width: 50px;
+    text-align: center;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CONTAINER ORGANIGRAMMA
+     ═══════════════════════════════════════════════════════════ */
+  .organigramma-wrapper {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    border: 1px solid var(--org-border);
+  }
+
+  .organigramma-scroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+    padding: 50px 40px;
+    cursor: grab;
+    background:
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.02) 0%, transparent 70%);
+  }
+
+  .organigramma-scroll:active {
+    cursor: grabbing;
+  }
+
+  .organigramma-scroll::-webkit-scrollbar {
+    height: 12px;
+    width: 12px;
+  }
+
+  .organigramma-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+  }
+
+  .organigramma-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    border-radius: 6px;
+    border: 2px solid #f1f5f9;
+  }
+
+  .organigramma-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  }
+
+  .organigramma-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: max-content;
+    transform-origin: top center;
+    transition: transform 0.3s ease;
+    padding-bottom: 40px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LIVELLO CO-FOUNDERS
+     ═══════════════════════════════════════════════════════════ */
+  .founders-level {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .vertical-connector {
+    width: 3px;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--brand-green), var(--connector-color));
+    margin: 0 auto;
+    border-radius: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     MACRO SEZIONI CONTAINER
+     ═══════════════════════════════════════════════════════════ */
+  .macro-sections-container {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    position: relative;
+    padding-top: 40px;
+  }
+
+  .macro-sections-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50px;
+    right: 50px;
+    height: 3px;
+    background: linear-gradient(90deg,
+      var(--org-purple) 0%,
+      var(--org-purple) 33%,
+      var(--org-blue) 33%,
+      var(--org-blue) 66%,
+      var(--org-green) 66%,
+      var(--org-green) 100%
+    );
+    border-radius: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     MACRO SEZIONE SINGOLA
+     ═══════════════════════════════════════════════════════════ */
+  .macro-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    min-width: 280px;
+  }
+
+  .macro-section::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 40px;
+    background: var(--connector-color);
+    border-radius: 2px;
+  }
+
+  .macro-section.team-interno::before {
+    background: var(--org-purple);
+  }
+
+  .macro-section.operations::before {
+    background: var(--org-blue);
+  }
+
+  .macro-section.marketing-vendita::before {
+    background: var(--org-green);
+  }
+
+  .macro-section-header {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+    color: white;
+    padding: 14px 32px;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 24px;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    position: relative;
+  }
+
+  .macro-section-header.team-interno {
+    background: linear-gradient(135deg, var(--org-purple) 0%, var(--org-purple-dark) 100%);
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
+  }
+
+  .macro-section-header.operations {
+    background: linear-gradient(135deg, var(--org-blue) 0%, var(--org-blue-dark) 100%);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+  }
+
+  .macro-section-header.marketing-vendita {
+    background: linear-gradient(135deg, var(--org-green) 0%, var(--org-green-dark) 100%);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CCO WRAPPER (dentro Team Interno)
+     ═══════════════════════════════════════════════════════════ */
+  .cco-wrapper {
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .cco-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 24px;
+    background: var(--org-purple);
+    border-radius: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SOTTO-DIPARTIMENTI ROW
+     ═══════════════════════════════════════════════════════════ */
+  .subdepartments-row {
+    display: flex;
+    gap: 20px;
+    position: relative;
+    padding-top: 35px;
+  }
+
+  .subdepartments-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: var(--connector-color);
+    border-radius: 1px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     DEPARTMENT COLUMN
+     ═══════════════════════════════════════════════════════════ */
+  .department-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 180px;
+    position: relative;
+  }
+
+  .department-column::before {
+    content: '';
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 35px;
+    background: var(--connector-color);
+    border-radius: 1px;
+  }
+
+  .department-header {
+    background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-green-dark) 100%);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  }
+
+  /* Colori specifici per macro-sezione */
+  .macro-section.team-interno .department-header {
+    background: linear-gradient(135deg, #a78bfa 0%, var(--org-purple) 100%);
+  }
+
+  .macro-section.operations .department-header {
+    background: linear-gradient(135deg, #60a5fa 0%, var(--org-blue) 100%);
+  }
+
+  .macro-section.marketing-vendita .department-header {
+    background: linear-gradient(135deg, #34d399 0%, var(--org-green) 100%);
+  }
+
+  .department-header.nutrizione {
+    background: linear-gradient(135deg, var(--org-orange) 0%, var(--org-orange-dark) 100%);
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+  }
+
+  .department-header.psicologia {
+    background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+    box-shadow: 0 3px 10px rgba(236, 72, 153, 0.3);
+  }
+
+  .department-header.sales {
+    background: linear-gradient(135deg, #34d399 0%, var(--org-green) 100%);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     NUTRIZIONE CON TEAM
+     ═══════════════════════════════════════════════════════════ */
+  .nutrizione-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .nutrizione-container::before {
+    content: '';
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 35px;
+    background: var(--connector-color);
+    border-radius: 1px;
+  }
+
+  .nutrizione-teams-row {
+    display: flex;
+    gap: 16px;
+    position: relative;
+    padding-top: 30px;
+  }
+
+  .nutrizione-teams-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15px;
+    right: 15px;
+    height: 2px;
+    background: var(--org-orange);
+    border-radius: 1px;
+  }
+
+  .team-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 160px;
+    position: relative;
+  }
+
+  .team-column::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 30px;
+    background: var(--org-orange);
+    border-radius: 1px;
+  }
+
+  .team-header {
+    background: linear-gradient(135deg, #fcd34d 0%, var(--org-orange) 100%);
+    color: #78350f;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+  }
+
+  .team-header.sales-team {
+    background: linear-gradient(135deg, #6ee7b7 0%, var(--org-green) 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SALES SECTION
+     ═══════════════════════════════════════════════════════════ */
+  .sales-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .sales-section::before {
+    content: '';
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 35px;
+    background: var(--connector-color);
+    border-radius: 1px;
+  }
+
+  .sales-teams-row {
+    display: flex;
+    gap: 16px;
+    position: relative;
+    padding-top: 30px;
+    margin-top: 16px;
+  }
+
+  .sales-teams-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15px;
+    right: 15px;
+    height: 2px;
+    background: var(--org-green);
+    border-radius: 1px;
+  }
+
+  .sales-teams-row .team-column::before {
+    background: var(--org-green);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     DEPARTMENT MEMBERS
+     ═══════════════════════════════════════════════════════════ */
+  .department-members {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+
+  .department-members::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    background: var(--org-border);
+    z-index: 0;
+    border-radius: 1px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CARD PERSONA
+     ═══════════════════════════════════════════════════════════ */
+  .person-card {
+    background: white;
+    border: 2px solid var(--org-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 170px;
+    max-width: 190px;
+    text-align: center;
+    transition: all 0.25s ease;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .person-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border-color: var(--brand-green);
+  }
+
+  .person-card.founder {
+    border-color: var(--brand-green);
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    min-width: 200px;
+    max-width: 220px;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+  }
+
+  .person-card.founder:hover {
+    box-shadow: 0 8px 28px rgba(16, 185, 129, 0.25);
+  }
+
+  .person-card.cco-head {
+    border-color: var(--org-purple);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
+  }
+
+  .person-card.cco-head:hover {
+    border-color: var(--org-purple-dark);
+    box-shadow: 0 8px 28px rgba(139, 92, 246, 0.25);
+  }
+
+  .person-card.head {
+    border-color: var(--org-blue);
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    box-shadow: 0 3px 12px rgba(59, 130, 246, 0.1);
+  }
+
+  .person-card.head:hover {
+    border-color: var(--org-blue-dark);
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+  }
+
+  .person-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 3px solid var(--org-border);
+    margin: 0 auto 10px;
+    object-fit: cover;
+    background: #f1f5f9;
+  }
+
+  .person-card.founder .person-avatar {
+    width: 64px;
+    height: 64px;
+    border-color: var(--brand-green);
+  }
+
+  .person-card.cco-head .person-avatar {
+    border-color: var(--org-purple);
+  }
+
+  .person-card.head .person-avatar {
+    border-color: var(--org-blue);
+  }
+
+  .person-avatar-placeholder {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-green-dark) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .person-card.founder .person-avatar-placeholder {
+    width: 64px;
+    height: 64px;
+    font-size: 22px;
+  }
+
+  .person-card.cco-head .person-avatar-placeholder {
+    background: linear-gradient(135deg, var(--org-purple) 0%, var(--org-purple-dark) 100%);
+  }
+
+  .person-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #1e293b;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+
+  .person-title {
+    font-size: 11px;
+    color: var(--org-gray);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .person-role-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .person-role-badge.cofounder {
+    background: linear-gradient(135deg, var(--org-green) 0%, var(--org-green-dark) 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  }
+
+  .person-role-badge.cco {
+    background: linear-gradient(135deg, var(--org-purple) 0%, var(--org-purple-dark) 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+  }
+
+  .person-role-badge.responsabile {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+  }
+
+  .person-role-badge.cto {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+  }
+
+  .person-role-badge.team-leader {
+    background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+    color: #5b21b6;
+    font-weight: 700;
+  }
+
+  .person-role-badge.membro {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     LOADING
+     ═══════════════════════════════════════════════════════════ */
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 100px;
+  }
+
+  .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--org-border);
+    border-top-color: var(--brand-green);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    margin-top: 16px;
+    color: var(--org-gray);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .organigramma-page {
+      padding: 16px;
+    }
+
+    .organigramma-scroll {
+      padding: 30px 20px;
+    }
+
+    .zoom-controls {
+      display: none;
+    }
+
+    .stats-badges {
+      flex-wrap: wrap;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="organigramma-page">
+
+  <!-- Header -->
+  <div class="organigramma-header">
+    <div>
+      <h4>Organigramma Aziendale</h4>
+      <p>Struttura organizzativa del team</p>
+    </div>
+    <div class="header-right">
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomOut()" title="Riduci">
+          <i class="ri-subtract-line"></i>
+        </button>
+        <span class="zoom-level" id="zoom-level">100%</span>
+        <button class="zoom-btn" onclick="zoomIn()" title="Ingrandisci">
+          <i class="ri-add-line"></i>
+        </button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset">
+          <i class="ri-refresh-line"></i>
+        </button>
+      </div>
+      <div class="stats-badges">
+        <div class="stat-badge">
+          <div class="number" id="stat-departments">-</div>
+          <div class="label">Dipartimenti</div>
+        </div>
+        <div class="stat-badge">
+          <div class="number" id="stat-employees">-</div>
+          <div class="label">Membri</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Organigramma Container -->
+  <div class="organigramma-wrapper">
+    <div class="organigramma-scroll" id="organigramma-scroll">
+
+      <!-- Loading -->
+      <div class="loading-container" id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Caricamento organigramma...</div>
+      </div>
+
+      <!-- Organigramma Tree -->
+      <div class="organigramma-tree" id="organigramma-tree" style="display: none;">
+        <!-- Populated by JavaScript -->
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block inline_scripts %}
+<script>
+let currentZoom = 1;
+const minZoom = 0.4;
+const maxZoom = 1.5;
+const zoomStep = 0.1;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadOrganigramma();
+  setupScrollDrag();
+  setupWheelZoom();
+});
+
+async function loadOrganigramma() {
+  try {
+    const response = await fetch('{{ url_for("department.api_organigramma_data") }}');
+    const data = await response.json();
+
+    // Aggiorna statistiche
+    document.getElementById('stat-departments').textContent = data.departments_count;
+    document.getElementById('stat-employees').textContent = data.total_employees;
+
+    // Costruisci organigramma
+    buildOrganigramma(data.hierarchy);
+
+    // Nascondi loading, mostra organigramma
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('organigramma-tree').style.display = 'flex';
+
+  } catch (error) {
+    console.error('Errore caricamento:', error);
+    document.getElementById('loading').innerHTML = `
+      <div class="alert alert-danger">Errore nel caricamento dell'organigramma</div>
+    `;
+  }
+}
+
+function buildOrganigramma(hierarchy) {
+  const tree = document.getElementById('organigramma-tree');
+
+  // LIVELLO 1: Co-Founders
+  const foundersLevel = document.createElement('div');
+  foundersLevel.className = 'founders-level';
+
+  if (hierarchy.ceo && hierarchy.ceo.head) {
+    foundersLevel.appendChild(createPersonCard(hierarchy.ceo.head, 'Co-Founder', 'cofounder', 'founder'));
+  }
+
+  if (hierarchy.cofounder && hierarchy.cofounder.head) {
+    foundersLevel.appendChild(createPersonCard(hierarchy.cofounder.head, 'Co-Founder', 'cofounder', 'founder'));
+  }
+
+  tree.appendChild(foundersLevel);
+
+  // Connettore verticale dai Co-Founders
+  const connector1 = document.createElement('div');
+  connector1.className = 'vertical-connector';
+  tree.appendChild(connector1);
+
+  // LIVELLO 2: Container delle tre macro-sezioni
+  const macroSectionsContainer = document.createElement('div');
+  macroSectionsContainer.className = 'macro-sections-container';
+
+  // TEAM INTERNO (CCO + dipartimenti clinici) - Viola
+  if (hierarchy.team_interno) {
+    const teamInternoSection = createTeamInternoSection(hierarchy.team_interno);
+    macroSectionsContainer.appendChild(teamInternoSection);
+  }
+
+  // OPERATIONS (IT, HR, Finance) - Blu
+  if (hierarchy.operations) {
+    const operationsSection = createMacroSection(hierarchy.operations, 'operations');
+    macroSectionsContainer.appendChild(operationsSection);
+  }
+
+  // MARKETING E VENDITA (Marketing, Appointment Setter, Sales) - Verde
+  if (hierarchy.marketing_vendita) {
+    const marketingSection = createMarketingVenditaSection(hierarchy.marketing_vendita);
+    macroSectionsContainer.appendChild(marketingSection);
+  }
+
+  tree.appendChild(macroSectionsContainer);
+}
+
+function createTeamInternoSection(section) {
+  const container = document.createElement('div');
+  container.className = 'macro-section team-interno';
+
+  // Header macro-sezione
+  const header = document.createElement('div');
+  header.className = 'macro-section-header team-interno';
+  header.textContent = section.name;
+  container.appendChild(header);
+
+  // CCO Card - solo badge
+  if (section.cco && section.cco.head) {
+    const ccoWrapper = document.createElement('div');
+    ccoWrapper.className = 'cco-wrapper';
+    ccoWrapper.appendChild(createPersonCard(section.cco.head, 'CCO', 'cco', 'cco-head', true));
+    container.appendChild(ccoWrapper);
+  }
+
+  // Sotto-dipartimenti
+  if (section.departments && section.departments.length > 0) {
+    const subdeptsRow = document.createElement('div');
+    subdeptsRow.className = 'subdepartments-row';
+
+    section.departments.forEach(dept => {
+      // Se il dipartimento ha team (es. Nutrizione), crea struttura con team
+      if (dept.teams && dept.teams.length > 0) {
+        const nutrizioneContainer = createNutrizioneSection(dept);
+        subdeptsRow.appendChild(nutrizioneContainer);
+      } else {
+        // Per i dipartimenti del Team Interno, usa Team Leader con badge only
+        const deptCol = createTeamInternoDepartment(dept);
+        subdeptsRow.appendChild(deptCol);
+      }
+    });
+
+    container.appendChild(subdeptsRow);
+  }
+
+  return container;
+}
+
+// Dipartimento del Team Interno: responsabili hanno solo badge "Team Leader"
+function createTeamInternoDepartment(dept) {
+  const column = document.createElement('div');
+  column.className = 'department-column';
+
+  // Header dipartimento
+  const header = document.createElement('div');
+  header.className = 'department-header';
+  header.textContent = dept.name;
+  column.appendChild(header);
+
+  // Container membri
+  const members = document.createElement('div');
+  members.className = 'department-members';
+
+  // Responsabile - SOLO badge "Team Leader"
+  if (dept.head) {
+    members.appendChild(createPersonCard(dept.head, 'Team Leader', 'team-leader', 'head', true));
+  }
+
+  // Membri normali - solo nome
+  if (dept.members && dept.members.length > 0) {
+    const sortedMembers = [...dept.members].sort((a, b) => a.full_name.localeCompare(b.full_name));
+    sortedMembers.forEach(member => {
+      members.appendChild(createPersonCard(member, 'Membro', 'membro', '', false, true));
+    });
+  }
+
+  column.appendChild(members);
+  return column;
+}
+
+function createNutrizioneSection(dept) {
+  const container = document.createElement('div');
+  container.className = 'nutrizione-container';
+
+  // Header dipartimento (con classe specifica per colore)
+  const header = document.createElement('div');
+  const deptClass = dept.original_name || dept.name.toLowerCase().replace(/\s+/g, '-');
+  header.className = 'department-header ' + deptClass;
+  header.textContent = dept.name;
+  container.appendChild(header);
+
+  // Riga dei team
+  const teamsRow = document.createElement('div');
+  teamsRow.className = 'nutrizione-teams-row';
+
+  dept.teams.forEach(team => {
+    const teamCol = document.createElement('div');
+    teamCol.className = 'team-column';
+
+    // Header team
+    const teamHeader = document.createElement('div');
+    teamHeader.className = 'team-header';
+    teamHeader.textContent = team.name;
+    teamCol.appendChild(teamHeader);
+
+    // Membri del team
+    const teamMembers = document.createElement('div');
+    teamMembers.className = 'department-members';
+
+    // Responsabile team - SOLO badge "Team Leader"
+    if (team.head) {
+      teamMembers.appendChild(createPersonCard(team.head, 'Team Leader', 'team-leader', 'head', true));
+    }
+
+    // Membri - solo nome
+    if (team.members && team.members.length > 0) {
+      team.members.forEach(member => {
+        teamMembers.appendChild(createPersonCard(member, 'Membro', 'membro', '', false, true));
+      });
+    }
+
+    teamCol.appendChild(teamMembers);
+    teamsRow.appendChild(teamCol);
+  });
+
+  container.appendChild(teamsRow);
+  return container;
+}
+
+function createMacroSection(section, sectionType) {
+  const container = document.createElement('div');
+  container.className = `macro-section ${sectionType}`;
+
+  // Header macro-sezione
+  const header = document.createElement('div');
+  header.className = `macro-section-header ${sectionType}`;
+  header.textContent = section.name;
+  container.appendChild(header);
+
+  // Dipartimenti
+  if (section.departments && section.departments.length > 0) {
+    const deptsRow = document.createElement('div');
+    deptsRow.className = 'subdepartments-row';
+
+    section.departments.forEach(dept => {
+      const deptCol = createDepartmentColumn(dept);
+      deptsRow.appendChild(deptCol);
+    });
+
+    container.appendChild(deptsRow);
+  }
+
+  return container;
+}
+
+function createMarketingVenditaSection(section) {
+  const container = document.createElement('div');
+  container.className = 'macro-section marketing-vendita';
+
+  // Header macro-sezione
+  const header = document.createElement('div');
+  header.className = 'macro-section-header marketing-vendita';
+  header.textContent = section.name;
+  container.appendChild(header);
+
+  // Container per dipartimenti e sales
+  const contentRow = document.createElement('div');
+  contentRow.className = 'subdepartments-row';
+
+  // Dipartimenti (Marketing, Appointment Setter) - usa Team Leader
+  if (section.departments && section.departments.length > 0) {
+    section.departments.forEach(dept => {
+      const deptCol = createMarketingDepartment(dept);
+      contentRow.appendChild(deptCol);
+    });
+  }
+
+  // Sales (con team)
+  if (section.sales) {
+    const salesSection = createSalesSection(section.sales);
+    contentRow.appendChild(salesSection);
+  }
+
+  container.appendChild(contentRow);
+  return container;
+}
+
+// Dipartimento Marketing e Vendita: responsabili hanno badge "Team Leader"
+function createMarketingDepartment(dept) {
+  const column = document.createElement('div');
+  column.className = 'department-column';
+
+  // Header dipartimento
+  const header = document.createElement('div');
+  header.className = 'department-header';
+  header.textContent = dept.name;
+  column.appendChild(header);
+
+  // Container membri
+  const members = document.createElement('div');
+  members.className = 'department-members';
+
+  // Responsabile - badge "Team Leader"
+  if (dept.head) {
+    members.appendChild(createPersonCard(dept.head, 'Team Leader', 'team-leader', 'head', true));
+  }
+
+  // Membri - solo nome
+  if (dept.members && dept.members.length > 0) {
+    const sortedMembers = [...dept.members].sort((a, b) => a.full_name.localeCompare(b.full_name));
+    sortedMembers.forEach(member => {
+      members.appendChild(createPersonCard(member, 'Membro', 'membro', '', false, true));
+    });
+  }
+
+  column.appendChild(members);
+  return column;
+}
+
+function createSalesSection(sales) {
+  const section = document.createElement('div');
+  section.className = 'section-container sales-section';
+
+  // Header Sales
+  const header = document.createElement('div');
+  header.className = 'department-header sales';
+  header.textContent = sales.name;
+  section.appendChild(header);
+
+  // Teams row
+  if (sales.teams && sales.teams.length > 0) {
+    const teamsRow = document.createElement('div');
+    teamsRow.className = 'sales-teams-row';
+
+    sales.teams.forEach(team => {
+      const teamCol = document.createElement('div');
+      teamCol.className = 'team-column';
+
+      // Header team
+      const teamHeader = document.createElement('div');
+      teamHeader.className = 'team-header sales-team';
+      teamHeader.textContent = team.name;
+      teamCol.appendChild(teamHeader);
+
+      // Membri del team
+      const teamMembers = document.createElement('div');
+      teamMembers.className = 'department-members';
+
+      // Responsabile - badge "Team Leader"
+      if (team.head) {
+        teamMembers.appendChild(createPersonCard(team.head, 'Team Leader', 'team-leader', 'head', true));
+      }
+
+      // Membri - solo nome
+      if (team.members && team.members.length > 0) {
+        team.members.forEach(member => {
+          teamMembers.appendChild(createPersonCard(member, 'Membro', 'membro', '', false, true));
+        });
+      }
+
+      teamCol.appendChild(teamMembers);
+      teamsRow.appendChild(teamCol);
+    });
+
+    section.appendChild(teamsRow);
+  }
+
+  return section;
+}
+
+function createDepartmentColumn(dept) {
+  const column = document.createElement('div');
+  column.className = 'department-column';
+
+  // Header dipartimento
+  const header = document.createElement('div');
+  header.className = 'department-header';
+  header.textContent = dept.name;
+  column.appendChild(header);
+
+  // Container membri
+  const members = document.createElement('div');
+  members.className = 'department-members';
+
+  // Responsabile - solo badge (CTO per IT, Responsabile per altri)
+  if (dept.head) {
+    const isIT = dept.name.toLowerCase() === 'it' || dept.original_name === 'it';
+    const badgeLabel = isIT ? 'CTO' : 'Responsabile';
+    const badgeClass = isIT ? 'cto' : 'responsabile';
+    members.appendChild(createPersonCard(dept.head, badgeLabel, badgeClass, 'head', true));
+  }
+
+  // Membri - solo nome
+  if (dept.members && dept.members.length > 0) {
+    const sortedMembers = [...dept.members].sort((a, b) => a.full_name.localeCompare(b.full_name));
+    sortedMembers.forEach(member => {
+      members.appendChild(createPersonCard(member, 'Membro', 'membro', '', false, true));
+    });
+  }
+
+  column.appendChild(members);
+  return column;
+}
+
+function createPersonCard(person, role, badgeClass, cardClass, badgeOnly = false, nameOnly = false) {
+  const card = document.createElement('div');
+  card.className = `person-card ${cardClass}`;
+
+  const initials = person.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const hasAvatar = person.avatar_url && !person.avatar_url.includes('logo_user.png');
+
+  const avatarHtml = hasAvatar
+    ? `<img src="${person.avatar_url}" alt="${person.full_name}" class="person-avatar" onerror="this.outerHTML='<div class=\\'person-avatar-placeholder\\'>${initials}</div>'">`
+    : `<div class="person-avatar-placeholder">${initials}</div>`;
+
+  // nameOnly: solo avatar e nome (per membri)
+  if (nameOnly) {
+    card.innerHTML = `
+      ${avatarHtml}
+      <div class="person-name">${person.full_name}</div>
+    `;
+  // badgeOnly: avatar, nome e badge (per responsabili/team leader)
+  } else if (badgeOnly) {
+    card.innerHTML = `
+      ${avatarHtml}
+      <div class="person-name">${person.full_name}</div>
+      <span class="person-role-badge ${badgeClass}">${role}</span>
+    `;
+  } else {
+    card.innerHTML = `
+      ${avatarHtml}
+      <div class="person-name">${person.full_name}</div>
+      <div class="person-title">${person.job_title || role}</div>
+      <span class="person-role-badge ${badgeClass}">${role}</span>
+    `;
+  }
+
+  return card;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZOOM FUNCTIONS
+// ═══════════════════════════════════════════════════════════
+function updateZoom() {
+  const tree = document.getElementById('organigramma-tree');
+  tree.style.transform = `scale(${currentZoom})`;
+  document.getElementById('zoom-level').textContent = Math.round(currentZoom * 100) + '%';
+}
+
+function zoomIn() {
+  if (currentZoom < maxZoom) {
+    currentZoom = Math.min(maxZoom, currentZoom + zoomStep);
+    updateZoom();
+  }
+}
+
+function zoomOut() {
+  if (currentZoom > minZoom) {
+    currentZoom = Math.max(minZoom, currentZoom - zoomStep);
+    updateZoom();
+  }
+}
+
+function resetZoom() {
+  currentZoom = 1;
+  updateZoom();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SCROLL DRAG
+// ═══════════════════════════════════════════════════════════
+function setupScrollDrag() {
+  const container = document.getElementById('organigramma-scroll');
+  let isDown = false;
+  let startX, startY;
+  let scrollLeft, scrollTop;
+
+  container.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.person-card')) return;
+    isDown = true;
+    container.style.cursor = 'grabbing';
+    startX = e.pageX - container.offsetLeft;
+    startY = e.pageY - container.offsetTop;
+    scrollLeft = container.scrollLeft;
+    scrollTop = container.scrollTop;
+  });
+
+  container.addEventListener('mouseleave', () => {
+    isDown = false;
+    container.style.cursor = 'grab';
+  });
+
+  container.addEventListener('mouseup', () => {
+    isDown = false;
+    container.style.cursor = 'grab';
+  });
+
+  container.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - container.offsetLeft;
+    const y = e.pageY - container.offsetTop;
+    const walkX = (x - startX) * 1.5;
+    const walkY = (y - startY) * 1.5;
+    container.scrollLeft = scrollLeft - walkX;
+    container.scrollTop = scrollTop - walkY;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// WHEEL ZOOM
+// ═══════════════════════════════════════════════════════════
+function setupWheelZoom() {
+  const container = document.getElementById('organigramma-scroll');
+
+  container.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        zoomIn();
+      } else {
+        zoomOut();
+      }
+    }
+  }, { passive: false });
+}
+</script>
+{% endblock %}

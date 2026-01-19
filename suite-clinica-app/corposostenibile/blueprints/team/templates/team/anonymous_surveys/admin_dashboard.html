@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Questionari Anonimi – Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Root Variables */
+  :root {
+    --primary-color: #45CB85;
+    --primary-dark: #239957;
+    --secondary-color: #4ECAC2;
+    --success-color: #45CB85;
+    --danger-color: #DC3545;
+    --warning-color: #F0AD4E;
+    --info-color: #5BC0DE;
+    --light-color: #F8FAFC;
+    --dark-color: #1A3366;
+  }
+
+  /* Page Header */
+  .page-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 24px rgba(72, 127, 255, 0.15);
+  }
+
+  .page-header h3 {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .page-header p {
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 0;
+  }
+
+  /* Card Styles */
+  .card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: white;
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, var(--light-color) 0%, white 100%);
+    border-bottom: 1px solid #E2E8F0;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 20px 24px;
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  /* Badge Styles */
+  .badge {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.85rem;
+  }
+
+  .badge-success-gradient {
+    background: linear-gradient(135deg, var(--success-color) 0%, #239957 100%);
+    color: white;
+  }
+
+  .badge-secondary-gradient {
+    background: linear-gradient(135deg, #6C757D 0%, #545B62 100%);
+    color: white;
+  }
+
+  .badge-info-gradient {
+    background: linear-gradient(135deg, var(--info-color) 0%, #31B0D5 100%);
+    color: white;
+  }
+
+  /* Button Styles */
+  .btn {
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    border: none;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #2856D4 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    color: white;
+  }
+
+  /* Table Styles */
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table thead th {
+    border-bottom: 2px solid var(--primary-color);
+    color: var(--dark-color);
+    font-weight: 600;
+    padding: 16px;
+  }
+
+  .table tbody tr {
+    transition: all 0.2s ease;
+  }
+
+  .table tbody tr:hover {
+    background-color: var(--light-color);
+    transform: scale(1.01);
+  }
+
+  .table tbody td {
+    padding: 16px;
+    vertical-align: middle;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .empty-state i {
+    font-size: 4rem;
+    color: var(--info-color);
+    margin-bottom: 20px;
+  }
+
+  .empty-state h5 {
+    color: #64748B;
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    color: #94A3B8;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="page-header">
+    <h3><i class="ri-shield-user-line me-2"></i>Gestione Questionari Anonimi (Admin)</h3>
+    <p>Gestisci i questionari e visualizza le risposte aggregate</p>
+  </div>
+
+  <!-- Main Card -->
+  <div class="card">
+    <div class="card-body">
+      {% if surveys %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Titolo</th>
+                <th>Stato</th>
+                <th>Risposte</th>
+                <th>Creato da</th>
+                <th>Data creazione</th>
+                <th>Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for survey in surveys %}
+              <tr>
+                <td><strong>{{ survey.title }}</strong></td>
+                <td>
+                  {% if survey.is_active %}
+                  <span class="badge badge-success-gradient">
+                    <i class="ri-checkbox-circle-line me-1"></i>Attivo
+                  </span>
+                  {% else %}
+                  <span class="badge badge-secondary-gradient">Non attivo</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-info-gradient">
+                    <i class="ri-user-line me-1"></i>{{ survey.total_responses }}
+                  </span>
+                </td>
+                <td>{{ survey.creator.full_name if survey.creator else '-' }}</td>
+                <td>{{ survey.created_at.strftime('%d/%m/%Y') if survey.created_at }}</td>
+                <td>
+                  <a href="{{ url_for('team.admin_view_responses', survey_id=survey.id) }}"
+                     class="btn btn-sm btn-primary">
+                    <i class="ri-bar-chart-line me-1"></i>Vedi Risposte
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <i class="ri-survey-line"></i>
+          <h5>Nessun questionario creato</h5>
+          <p>Non ci sono questionari disponibili al momento</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

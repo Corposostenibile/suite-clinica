@@ -1,0 +1,575 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Form - Check Clienti{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .card-footer {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-top: 1px solid #E2E8F0;
+        border-radius: 0 0 16px 16px !important;
+        padding: 12px 24px;
+    }
+
+    /* Filter Card */
+    .filter-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 24px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-outline-success {
+        color: #45CB85;
+        border: 1px solid #45CB85;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    .badge-active {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+    }
+
+    .badge-draft {
+        background: linear-gradient(135deg, #6C757D 0%, #495057 100%);
+        color: white;
+    }
+
+    .badge-inactive {
+        background: linear-gradient(135deg, #F0AD4E 0%, #EC971F 100%);
+        color: white;
+    }
+
+    .badge-archived {
+        background: linear-gradient(135deg, #DC3545 0%, #C82333 100%);
+        color: white;
+    }
+
+    .badge-type {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        color: white;
+    }
+
+    /* Stats Card */
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
+    .stat-icon.fields {
+        background: linear-gradient(135deg, #E5F3FF 0%, #CCE7FF 100%);
+        color: #487FFF;
+    }
+
+    .stat-icon.assignments {
+        background: linear-gradient(135deg, #E5F9F5 0%, #CCF3EC 100%);
+        color: #45CB85;
+    }
+
+    .stat-icon.responses {
+        background: linear-gradient(135deg, #E6D6FF 0%, #F3EBFF 100%);
+        color: #6842BA;
+    }
+
+    /* Form Card Content */
+    .form-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--dark-color);
+        margin-bottom: 8px;
+    }
+
+    .form-description {
+        color: #6C757D;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-bottom: 16px;
+    }
+
+    /* Quick Actions */
+    .quick-action-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        border: 1px solid #E2E8F0;
+        background: white;
+        color: #6C757D;
+        margin: 0 4px;
+    }
+
+    .quick-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .quick-action-btn.edit {
+        color: #487FFF;
+        border-color: #487FFF;
+    }
+
+    .quick-action-btn.edit:hover {
+        background: #487FFF;
+        color: white;
+    }
+
+    .quick-action-btn.preview {
+        color: #45CB85;
+        border-color: #45CB85;
+    }
+
+    .quick-action-btn.preview:hover {
+        background: #45CB85;
+        color: white;
+    }
+
+    .quick-action-btn.delete {
+        color: #DC3545;
+        border-color: #DC3545;
+    }
+
+    .quick-action-btn.delete:hover {
+        background: #DC3545;
+        color: white;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 5rem;
+        color: #E2E8F0;
+        margin-bottom: 20px;
+    }
+
+    .empty-state-title {
+        font-size: 1.5rem;
+        color: var(--dark-color);
+        margin-bottom: 10px;
+    }
+
+    .empty-state-text {
+        color: #6C757D;
+        margin-bottom: 20px;
+    }
+
+    /* Dropdown */
+    .dropdown-menu {
+        border: none;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        padding: 8px;
+    }
+
+    .dropdown-item {
+        border-radius: 8px;
+        padding: 10px 16px;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+        background: #F8FAFC;
+    }
+
+    /* Utilities */
+    .mb-8 { margin-bottom: 8px !important; }
+    .mb-12 { margin-bottom: 12px !important; }
+    .mb-16 { margin-bottom: 16px !important; }
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h4 class="fw-semibold mb-0">Gestione Form</h4>
+            <p class="text-muted mb-0">Crea e gestisci i form di controllo per i clienti</p>
+        </div>
+        <div>
+            <a href="{{ url_for('client_checks.create_form') }}" class="btn btn-success">
+                <i class="ri-add-line me-1"></i>
+                Nuovo Form
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-card">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Tipo Form</label>
+                <select class="form-select" id="filterType" onchange="filterForms()">
+                    <option value="all">Tutti i tipi</option>
+                    {% for form_type in form_types %}
+                    <option value="{{ form_type.value }}" {% if current_type == form_type.value %}selected{% endif %}>
+                        {{ form_type.value|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Cerca</label>
+                <input type="text" class="form-control" placeholder="Cerca form..." id="searchInput"
+                       value="{{ current_search }}" onkeyup="searchForms()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">&nbsp;</label>
+                <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+                    <i class="ri-refresh-line me-1"></i>Reset Filtri
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forms Grid -->
+    <div id="gridView" class="row g-4">
+        {% for form in forms.items %}
+        <div class="col-lg-4 col-md-6 form-item" data-type="{{ form.form_type.value }}" data-name="{{ form.name|lower }}">
+            <div class="card">
+                <div class="card-body">
+                    <!-- Status Badge & Actions -->
+                    <div class="d-flex justify-content-between align-items-start mb-16">
+                        <div>
+                            {% if form.is_active %}
+                                <span class="badge badge-active">
+                                    <i class="ri-checkbox-circle-line me-1"></i>Attivo
+                                </span>
+                            {% else %}
+                                <span class="badge badge-inactive">
+                                    <i class="ri-pause-circle-line me-1"></i>Inattivo
+                                </span>
+                            {% endif %}
+                            <span class="badge badge-type ms-1">
+                                {{ form.form_type.value|title }}
+                            </span>
+                        </div>
+
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light" data-bs-toggle="dropdown">
+                                <i class="ri-more-2-fill"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('client_checks.preview_form', id=form.id) }}">
+                                        <i class="ri-eye-line me-2"></i>Anteprima
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('client_checks.edit_form', id=form.id) }}">
+                                        <i class="ri-edit-line me-2"></i>Modifica
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('client_checks.assign_form') }}?form_id={{ form.id }}">
+                                        <i class="ri-user-add-line me-2"></i>Assegna
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form action="{{ url_for('client_checks.delete_form', id=form.id) }}" method="POST">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="dropdown-item text-danger"
+                                                onclick="return confirm('Eliminare questo form?')">
+                                            <i class="ri-delete-bin-line me-2"></i>Elimina
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Title & Description -->
+                    <h5 class="form-title mb-2">{{ form.name }}</h5>
+                    <p class="form-description">
+                        {{ form.description[:100] }}{% if form.description|length > 100 %}...{% endif %}
+                    </p>
+
+                    <!-- Stats -->
+                    <div class="row g-3 mb-16">
+                        <div class="col-4">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon fields me-2">
+                                    <i class="ri-file-list-3-line"></i>
+                                </div>
+                                <div>
+                                    <div class="text-muted small">Campi</div>
+                                    <div class="fw-semibold">{{ form.fields|length }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon assignments me-2">
+                                    <i class="ri-user-line"></i>
+                                </div>
+                                <div>
+                                    <div class="text-muted small">Assegnati</div>
+                                    <div class="fw-semibold">{{ form.assignments|length }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon responses me-2">
+                                    <i class="ri-message-3-line"></i>
+                                </div>
+                                <div>
+                                    <div class="text-muted small">Risposte</div>
+                                    <div class="fw-semibold">{{ form.total_responses }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="d-flex justify-content-center gap-2 mb-16">
+                        <a href="{{ url_for('client_checks.edit_form', id=form.id) }}"
+                           class="quick-action-btn edit" title="Modifica">
+                            <i class="ri-edit-line"></i>
+                        </a>
+                        <a href="{{ url_for('client_checks.preview_form', id=form.id) }}"
+                           class="quick-action-btn preview" title="Anteprima">
+                            <i class="ri-eye-line"></i>
+                        </a>
+                        <button onclick="duplicateForm({{ form.id }})"
+                                class="quick-action-btn duplicate" title="Duplica">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('client_checks.assign_form') }}?form_id={{ form.id }}"
+                           class="btn btn-primary flex-grow-1">
+                            <i class="ri-send-plane-line me-1"></i>Assegna
+                        </a>
+                        {% if form.assignments|length > 0 %}
+                        <a href="{{ url_for('client_checks.responses_list') }}?form_id={{ form.id }}"
+                           class="btn btn-outline-success">
+                            <i class="ri-bar-chart-line"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>Creato: {{ form.created_at.strftime('%d/%m/%Y') }}</span>
+                        <span>Aggiornato: {{ form.updated_at.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if forms.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not forms.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ forms.prev_num }}&type={{ current_type }}&search={{ current_search }}">
+                    Precedente
+                </a>
+            </li>
+            {% for page in forms.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page %}
+                    <li class="page-item {% if page == forms.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ page }}&type={{ current_type }}&search={{ current_search }}">
+                            {{ page }}
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not forms.has_next %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ forms.next_num }}&type={{ current_type }}&search={{ current_search }}">
+                    Successivo
+                </a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+
+    <!-- Empty State -->
+    {% if not forms.items %}
+    <div class="empty-state">
+        <i class="ri-file-list-3-line empty-state-icon"></i>
+        <h5 class="empty-state-title">Nessun form trovato</h5>
+        <p class="empty-state-text">Inizia creando il tuo primo form di controllo</p>
+        <a href="{{ url_for('client_checks.create_form') }}" class="btn btn-success">
+            <i class="ri-add-line me-1"></i>Crea Primo Form
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Filter by type
+function filterForms() {
+    const type = document.getElementById('filterType').value;
+    const forms = document.querySelectorAll('.form-item');
+
+    forms.forEach(form => {
+        if (type === 'all' || form.dataset.type === type) {
+            form.style.display = '';
+        } else {
+            form.style.display = 'none';
+        }
+    });
+}
+
+// Search forms
+function searchForms() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const forms = document.querySelectorAll('.form-item');
+
+    forms.forEach(form => {
+        const name = form.dataset.name;
+        if (name.includes(searchTerm)) {
+            form.style.display = '';
+        } else {
+            form.style.display = 'none';
+        }
+    });
+}
+
+// Reset filters
+function resetFilters() {
+    document.getElementById('filterType').value = 'all';
+    document.getElementById('searchInput').value = '';
+    const forms = document.querySelectorAll('.form-item');
+    forms.forEach(form => {
+        form.style.display = '';
+    });
+}
+
+// Duplicate form
+function duplicateForm(formId) {
+    if (confirm('Vuoi duplicare questo form?')) {
+        // Implementa la logica di duplicazione
+        console.log('Duplicating form:', formId);
+    }
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

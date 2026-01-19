@@ -1,0 +1,673 @@
+{% extends "base.html" %}
+
+{% block title %}Training di {{ member.first_name }} {{ member.last_name }} - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .review-accordion {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .review-accordion:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .review-header {
+        padding: 15px 20px;
+        cursor: pointer;
+        background: #f8f9fa;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .review-header:hover {
+        background: #e9ecef;
+    }
+    
+    .review-header.active {
+        background: #22c55e;
+        color: white;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .review-header.active h6 {
+        color: white !important;
+    }
+    
+    .review-header.active .text-muted,
+    .review-header.active .badge {
+        color: white !important;
+        opacity: 0.9;
+    }
+    
+    .review-header.active .badge.bg-light {
+        background: rgba(255,255,255,0.2) !important;
+    }
+    
+    .review-header.active .badge.bg-info {
+        background: rgba(255,255,255,0.3) !important;
+        color: white !important;
+    }
+    
+    .review-header.active .badge.bg-success {
+        background: rgba(255,255,255,0.25) !important;
+        color: white !important;
+    }
+    
+    .review-header.active .badge.bg-danger {
+        background: rgba(255,0,0,0.3) !important;
+        color: white !important;
+    }
+    
+    .review-header.active .badge.bg-warning {
+        background: rgba(255,193,7,0.3) !important;
+        color: white !important;
+    }
+    
+    .review-content {
+        display: none;
+        padding: 20px;
+        border-top: 1px solid #e0e0e0;
+        animation: slideDown 0.3s ease;
+    }
+    
+    .review-content.show {
+        display: block;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .accordion-toggle {
+        float: right;
+        font-size: 1.2rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .review-header.active .accordion-toggle {
+        transform: rotate(180deg);
+    }
+    
+    .badge-group {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+    
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .review-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    @media (max-width: 768px) {
+        .review-meta {
+            flex-direction: column;
+        }
+        
+        .badge-group {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Training di {{ member.first_name }} {{ member.last_name }}</h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('welcome.index') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <i class="ri-home-4-line"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">
+                <a href="{{ url_for('review.index') }}" class="hover-text-primary">Training</a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">{{ member.first_name }} {{ member.last_name }}</li>
+        </ul>
+    </div>
+
+    <!-- Profilo Membro -->
+    <div class="card mb-24">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    {% if member.avatar_path %}
+                    <img src="{{ url_for('uploaded_file', filename=member.avatar_path) }}" 
+                         alt="{{ member.first_name }}" 
+                         class="rounded-circle"
+                         style="width: 80px; height: 80px; object-fit: cover;">
+                    {% else %}
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                         style="width: 80px; height: 80px;">
+                        <span class="fs-3">{{ member.first_name[0] }}{{ member.last_name[0] }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <h5 class="mb-1">{{ member.first_name }} {{ member.last_name }}</h5>
+                    <p class="mb-1 text-muted">{{ member.job_title or 'Membro del team' }}</p>
+                    {% if member.department %}
+                    <span class="badge bg-light text-dark">{{ member.department.name }}</span>
+                    {% endif %}
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex gap-3 align-items-center">
+                        <!-- Contatore training totali -->
+                        <div class="text-center">
+                            <h4 class="mb-0 text-primary">{{ pagination.total }}</h4>
+                            <small class="text-muted">Training Totali</small>
+                        </div>
+                        
+                        {% if can_write %}
+                        <a href="{{ url_for('review.create', user_id=member.id) }}" class="btn btn-primary">
+                            <i class="ri-add-line me-1"></i>
+                            Scrivi Training
+                        </a>
+                        {% elif is_own_profile %}
+                        {# Se è il proprio profilo, mostra il pulsante per richiedere training #}
+                        <a href="{{ url_for('review.request_training') }}" class="btn btn-success">
+                            <i class="ri-add-circle-line me-1"></i>
+                            Richiedi Training
+                        </a>
+                        {% endif %}
+                        
+                        {# Pulsante speciale per User #79 e #64 per vedere training dell'altro #}
+                        {% if (current_user.id == 79 and member.id == 79) or (current_user.id == 64 and member.id == 64) %}
+                            {% if current_user.id == 79 %}
+                                <a href="{{ url_for('review.detail', user_id=64) }}" class="btn btn-outline-info">
+                                    <i class="ri-group-line me-1"></i>
+                                    Vedi Training di Daniela
+                                </a>
+                            {% elif current_user.id == 64 %}
+                                <a href="{{ url_for('review.detail', user_id=79) }}" class="btn btn-outline-info">
+                                    <i class="ri-group-line me-1"></i>
+                                    Vedi Training di Marianna
+                                </a>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Sezione Richieste Training - Solo per il proprio profilo #}
+    {% if is_own_profile %}
+    <div class="review-accordion mb-24" data-request-section="true">
+        <div class="review-header" onclick="toggleRequestsSection()" style="cursor: pointer;">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="ri-file-list-3-line me-2"></i>
+                    Le Tue Richieste di Training
+                    <i class="ri-arrow-down-s-line accordion-toggle" id="requests-toggle"></i>
+                </h6>
+                <div>
+                    {% set pending_count = current_user.review_requests_sent.filter_by(status='pending').count() %}
+                    {% set accepted_count = current_user.review_requests_sent.filter_by(status='accepted').count() %}
+                    {% set active_count = pending_count + accepted_count %}
+                    {% if active_count > 0 %}
+                    <span class="badge bg-warning text-dark">
+                        {{ active_count }} attive
+                    </span>
+                    {% endif %}
+                    <a href="{{ url_for('review.my_requests') }}" class="btn btn-sm btn-outline-primary ms-2">
+                        Vedi Tutte
+                        <i class="ri-arrow-right-line ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="review-content" id="requests-content">
+            {% if active_requests %}
+            <div class="list-group list-group-flush">
+                {% for req in active_requests %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ req.subject }}</h6>
+                            <small class="text-muted">
+                                <i class="ri-user-line"></i> Richiesta a {{ req.requested_to.first_name }} {{ req.requested_to.last_name }}
+                                • <i class="ri-calendar-line"></i> {{ (req.created_at + timedelta(hours=2)).strftime('%d/%m/%Y') }}
+                            </small>
+                            {% if req.description %}
+                            <p class="mb-0 mt-2 small">{{ req.description[:100] }}{% if req.description|length > 100 %}...{% endif %}</p>
+                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            {% if req.priority == 'urgent' %}
+                            <span class="badge bg-danger">🔴 Urgente</span>
+                            {% elif req.priority == 'high' %}
+                            <span class="badge bg-warning">🟠 Alta</span>
+                            {% elif req.priority == 'normal' %}
+                            <span class="badge bg-secondary">🟡 Normale</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark">🟢 Bassa</span>
+                            {% endif %}
+                            <br>
+                            {% if req.status == 'pending' %}
+                            <span class="badge bg-warning text-dark mt-1">In Attesa</span>
+                            {% elif req.status == 'accepted' %}
+                            <span class="badge bg-success mt-1">In Preparazione</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="text-center mt-3">
+                <a href="{{ url_for('review.request_training') }}" class="btn btn-success">
+                    <i class="ri-add-circle-line me-1"></i>
+                    Nuova Richiesta
+                </a>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="ri-checkbox-circle-line text-success" style="font-size: 3rem;"></i>
+                <p class="mb-3 mt-3">Nessuna richiesta attiva</p>
+                <a href="{{ url_for('review.request_training') }}" class="btn btn-success">
+                    <i class="ri-add-circle-line me-1"></i>
+                    Richiedi un Training
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtri -->
+    <div class="card mb-24">
+        <div class="card-body">
+            <form method="get" action="{{ url_for('review.detail', user_id=member.id) }}" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo Training</label>
+                    {{ filter_form.review_type(class="form-select form-select-sm") }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Stato</label>
+                    {{ filter_form.status(class="form-select form-select-sm") }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Periodo</label>
+                    {{ filter_form.period(class="form-select form-select-sm") }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="btn-group w-100">
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="ri-filter-line me-1"></i>
+                            Filtra
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="expandAllBtn">
+                            <i class="ri-arrow-down-s-line"></i>
+                            Espandi Tutti
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Info Paginazione -->
+    {% if pagination.total > 0 %}
+    <div class="alert alert-info mb-3">
+        <i class="ri-information-line"></i>
+        Visualizzazione training <strong>{{ (pagination.page - 1) * pagination.per_page + 1 }}</strong> - 
+        <strong>{% if pagination.page * pagination.per_page < pagination.total %}{{ pagination.page * pagination.per_page }}{% else %}{{ pagination.total }}{% endif %}</strong> di 
+        <strong>{{ pagination.total }}</strong> totali
+    </div>
+    {% endif %}
+
+    <!-- Lista Training con Accordion -->
+    {% if reviews %}
+        {% for review in reviews %}
+        <div class="review-accordion" data-review-id="{{ review.id }}">
+            <div class="review-header" onclick="toggleReview({{ review.id }})">
+                <div class="review-meta">
+                    <div>
+                        <h6 class="mb-1">
+                            {{ review.title }}
+                            <i class="ri-arrow-down-s-line accordion-toggle"></i>
+                        </h6>
+                        <small class="text-muted">
+                            <i class="ri-user-line"></i> {{ review.reviewer.first_name }} {{ review.reviewer.last_name }} 
+                            • <i class="ri-calendar-line"></i> {{ (review.created_at + timedelta(hours=2)).strftime('%d/%m/%Y') }}
+                        </small>
+                    </div>
+                    
+                    <div class="badge-group">
+                        <span class="badge bg-info">{{ review.review_type }}</span>
+                        {% if review.is_draft %}
+                        <span class="badge bg-secondary">Bozza</span>
+                        {% endif %}
+                        {% if review.is_private %}
+                        <span class="badge bg-warning">Privata</span>
+                        {% endif %}
+                        {% if review.is_acknowledged %}
+                        <span class="badge bg-success">
+                            <i class="ri-check-line"></i> Confermata
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger">Da Confermare</span>
+                        {% endif %}
+                        
+                        {% if review.id in unread_counts and unread_counts[review.id] > 0 %}
+                        <span class="badge bg-warning">
+                            <i class="ri-message-3-line"></i> {{ unread_counts[review.id] }} nuovi messaggi
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="review-content" id="review-content-{{ review.id }}">
+                <!-- Periodo di riferimento -->
+                {% if review.period_start or review.period_end %}
+                <p class="text-muted mb-3">
+                    <i class="ri-calendar-line"></i>
+                    Periodo: 
+                    {% if review.period_start %}{{ review.period_start.strftime('%d/%m/%Y') }}{% endif %}
+                    {% if review.period_start and review.period_end %} - {% endif %}
+                    {% if review.period_end %}{{ review.period_end.strftime('%d/%m/%Y') }}{% endif %}
+                </p>
+                {% endif %}
+
+                <!-- Contenuto principale -->
+                <div class="mb-3">
+                    <p>{{ review.content|nl2br }}</p>
+                </div>
+
+                <!-- Punti di forza -->
+                {% if review.strengths and review.strengths.strip() %}
+                <div class="mb-3 p-3" style="background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 8px;">
+                    <h6 class="text-success mb-2">
+                        <i class="ri-thumb-up-line"></i> Punti di Forza
+                    </h6>
+                    <p class="mb-0">{{ review.strengths|nl2br }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Aree di miglioramento -->
+                {% if review.improvements and review.improvements.strip() %}
+                <div class="mb-3 p-3" style="background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px;">
+                    <h6 class="text-warning mb-2">
+                        <i class="ri-lightbulb-line"></i> Aree di Miglioramento
+                    </h6>
+                    <p class="mb-0">{{ review.improvements|nl2br }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Obiettivi -->
+                {% if review.goals and review.goals.strip() %}
+                <div class="mb-3 p-3" style="background: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 8px;">
+                    <h6 class="text-info mb-2">
+                        <i class="ri-target-line"></i> Obiettivi
+                    </h6>
+                    <p class="mb-0">{{ review.goals|nl2br }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Conferma di lettura -->
+                {% if review.is_acknowledged %}
+                <div class="alert alert-success">
+                    <i class="ri-check-double-line"></i>
+                    Confermata il {{ (review.acknowledgment.acknowledged_at + timedelta(hours=2)).strftime('%d/%m/%Y alle %H:%M') }}
+                    {% if review.acknowledgment.notes %}
+                    <div class="mt-2">
+                        <strong>Note:</strong> {{ review.acknowledgment.notes }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% elif is_own_profile and not review.is_draft and not review.is_private and review.id in ack_forms %}
+                <div class="alert alert-warning">
+                    <form method="post" action="{{ url_for('review.acknowledge', review_id=review.id) }}">
+                        {{ ack_forms[review.id].hidden_tag() }}
+                        <div class="mb-3">
+                            {{ ack_forms[review.id].notes.label(class="form-label") }}
+                            {{ ack_forms[review.id].notes(class="form-control") }}
+                        </div>
+                        <div class="form-check mb-3">
+                            {{ ack_forms[review.id].confirm(class="form-check-input") }}
+                            {{ ack_forms[review.id].confirm.label(class="form-check-label") }}
+                        </div>
+                        {{ ack_forms[review.id].submit(class="btn btn-success") }}
+                    </form>
+                </div>
+                {% endif %}
+
+                <!-- Azioni -->
+                {% if current_user.is_admin or (review.reviewer_id == current_user.id and not review.is_acknowledged) %}
+                <div class="d-flex gap-2 mb-3">
+                    <a href="{{ url_for('review.edit', review_id=review.id) }}" class="btn btn-sm btn-warning">
+                        <i class="ri-edit-line"></i> Modifica
+                    </a>
+                    <form method="post" action="{{ url_for('review.delete', review_id=review.id) }}" 
+                          onsubmit="return confirm('Sei sicuro di voler eliminare questa review?');" 
+                          style="display: inline;">
+                        {{ filter_form.hidden_tag() }}
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="ri-delete-bin-line"></i> Elimina
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                
+                {# Area Chat/Discussione #}
+                {% if review.id in message_forms %}
+                    {% set message_form = message_forms[review.id] %}
+                    {% set messages = messages_by_review.get(review.id, []) %}
+                    {% set unread_count = unread_counts.get(review.id, 0) %}
+                    {% include 'review/_chat.html' %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Paginazione -->
+        {% if pagination.pages > 1 %}
+        <div class="pagination-wrapper">
+            <nav aria-label="Navigazione pagine training">
+                <ul class="pagination">
+                    <!-- Prima pagina -->
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('review.detail', user_id=member.id) }}?{{ request.args | update_query_params(page=1) }}">
+                            <i class="ri-arrow-left-double-line"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Pagina precedente -->
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{% if pagination.has_prev %}{{ url_for('review.detail', user_id=member.id) }}?{{ request.args | update_query_params(page=pagination.prev_num) }}{% else %}#{% endif %}">
+                            <i class="ri-arrow-left-s-line"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Numeri pagine -->
+                    {% for page_num in pagination.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('review.detail', user_id=member.id) }}?{{ request.args | update_query_params(page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- Pagina successiva -->
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{% if pagination.has_next %}{{ url_for('review.detail', user_id=member.id) }}?{{ request.args | update_query_params(page=pagination.next_num) }}{% else %}#{% endif %}">
+                            <i class="ri-arrow-right-s-line"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Ultima pagina -->
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('review.detail', user_id=member.id) }}?{{ request.args | update_query_params(page=pagination.pages) }}">
+                            <i class="ri-arrow-right-double-line"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        
+    {% else %}
+        <div class="alert alert-info">
+            <i class="ri-information-line"></i>
+            Nessun training trovato con i filtri selezionati.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('review.static', filename='js/review-chat.js') }}"></script>
+<script>
+// Stato espansione accordion
+let allExpanded = false;
+let requestsSectionExpanded = false;
+
+// Toggle sezione richieste
+function toggleRequestsSection() {
+    const header = document.querySelector('.review-accordion[data-request-section="true"] .review-header');
+    const content = document.getElementById('requests-content');
+    const toggle = document.getElementById('requests-toggle');
+    
+    requestsSectionExpanded = !requestsSectionExpanded;
+    
+    if (requestsSectionExpanded) {
+        header.classList.add('active');
+        content.classList.add('show');
+        toggle.style.transform = 'rotate(180deg)';
+    } else {
+        header.classList.remove('active');
+        content.classList.remove('show');
+        toggle.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Toggle singola review
+function toggleReview(reviewId) {
+    const header = document.querySelector(`.review-accordion[data-review-id="${reviewId}"] .review-header`);
+    const content = document.getElementById(`review-content-${reviewId}`);
+    
+    header.classList.toggle('active');
+    content.classList.toggle('show');
+    
+    // Se c'è una chat e ci sono messaggi non letti, scorri alla chat quando si apre
+    if (content.classList.contains('show')) {
+        const chatElement = content.querySelector('.chat-messages');
+        if (chatElement) {
+            setTimeout(() => {
+                chatElement.scrollTop = chatElement.scrollHeight;
+            }, 100);
+        }
+    }
+}
+
+// Espandi/Collassa tutti (solo training, non richieste)
+document.getElementById('expandAllBtn').addEventListener('click', function() {
+    const headers = document.querySelectorAll('.review-accordion[data-review-id] .review-header');
+    const contents = document.querySelectorAll('.review-accordion[data-review-id] .review-content');
+    const btn = this;
+    
+    if (!allExpanded) {
+        // Espandi tutti i training
+        headers.forEach(header => header.classList.add('active'));
+        contents.forEach(content => content.classList.add('show'));
+        btn.innerHTML = '<i class="ri-arrow-up-s-line"></i> Comprimi Tutti';
+        allExpanded = true;
+    } else {
+        // Comprimi tutti i training
+        headers.forEach(header => header.classList.remove('active'));
+        contents.forEach(content => content.classList.remove('show'));
+        btn.innerHTML = '<i class="ri-arrow-down-s-line"></i> Espandi Tutti';
+        allExpanded = false;
+    }
+});
+
+// Auto-apri il primo training con messaggi non letti
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-apri sezione richieste se ci sono richieste pending
+    {% if is_own_profile %}
+    const requestsSection = document.querySelector('.review-accordion[data-request-section="true"]');
+    if (requestsSection) {
+        const pendingBadge = requestsSection.querySelector('.badge.bg-warning');
+        if (pendingBadge && pendingBadge.textContent.includes('in attesa')) {
+            // Apri automaticamente la sezione richieste se ci sono richieste pending
+            toggleRequestsSection();
+        }
+    }
+    {% endif %}
+    
+    // Cerca badge con messaggi non letti nei training
+    const unreadBadges = document.querySelectorAll('.review-accordion[data-review-id] .badge-group .badge.bg-warning');
+    for (let badge of unreadBadges) {
+        if (badge.textContent.includes('nuovi messaggi')) {
+            const accordion = badge.closest('.review-accordion');
+            if (accordion) {
+                const reviewId = accordion.dataset.reviewId;
+                toggleReview(reviewId);
+                break; // Apri solo il primo
+            }
+        }
+    }
+    
+    // Gestione filtri automatici
+    const filterSelects = document.querySelectorAll('.form-select');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+});
+
+// Mantieni i parametri di filtro quando si cambia pagina
+function preserveFilters(url) {
+    const currentParams = new URLSearchParams(window.location.search);
+    const newUrl = new URL(url, window.location.origin);
+    
+    // Preserva tutti i parametri eccetto 'page'
+    currentParams.forEach((value, key) => {
+        if (key !== 'page') {
+            newUrl.searchParams.set(key, value);
+        }
+    });
+    
+    return newUrl.toString();
+}
+</script>
+{% endblock %}

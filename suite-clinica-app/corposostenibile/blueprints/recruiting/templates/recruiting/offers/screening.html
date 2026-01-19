@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}Screening ATS - {{ offer.title }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.offers_list') }}">Offerte</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}">{{ offer.title }}</a></li>
+        <li class="breadcrumb-item active">Screening ATS</li>
+      </ol>
+    </nav>
+    <h2>
+      <i class="ri-robot-line me-2"></i>Screening ATS Automatico
+    </h2>
+    <p class="text-muted">Analizza automaticamente le candidature per {{ offer.title }}</p>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    {# Form configurazione screening #}
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="ri-settings-3-line me-2"></i>Configurazione Screening
+        </h5>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('recruiting.offer_screening', offer_id=offer.id) }}">
+          {{ form.hidden_tag() }}
+          
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            <strong>Come funziona:</strong>
+            <ul class="mb-0 mt-2">
+              <li>Il sistema analizza automaticamente le risposte dei candidati</li>
+              <li>Calcola un punteggio basato sulle risposte attese configurate</li>
+              <li>Ordina i candidati per punteggio e li sposta nel kanban</li>
+              <li>Genera note automatiche con punti di forza e debolezza</li>
+            </ul>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Candidature da analizzare</label>
+            <div class="form-check">
+              {{ form.screen_all(class="form-check-input") }}
+              <label class="form-check-label" for="{{ form.screen_all.id }}">
+                Tutte le candidature non screenate ({{ stats.total - stats.screened if stats.screened else stats.total }})
+              </label>
+            </div>
+            <div class="form-check">
+              {{ form.only_new(class="form-check-input") }}
+              <label class="form-check-label" for="{{ form.only_new.id }}">
+                Solo nuove candidature ({{ stats.new }})
+              </label>
+            </div>
+
+            {% if stats.screened > 0 %}
+            <small class="text-muted">
+              {{ stats.screened }} candidature già analizzate
+            </small>
+            {% endif %}
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.min_score.id }}">
+              {{ form.min_score.label.text }}
+            </label>
+            <div class="input-group">
+              {{ form.min_score(class="form-control", placeholder="60") }}
+              <span class="input-group-text">%</span>
+            </div>
+            <small class="text-muted">
+              Candidature con punteggio inferiore verranno automaticamente rifiutate
+            </small>
+            {% if form.min_score.errors %}
+            <div class="invalid-feedback d-block">
+              {{ form.min_score.errors[0] }}
+            </div>
+            {% endif %}
+          </div>
+          
+          
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary" id="startScreeningBtn" onclick="startScreening()">
+              <i class="ri-play-line me-1"></i>Avvia Screening
+            </button>
+            <a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}" class="btn btn-outline-secondary">
+              <i class="ri-close-line me-1"></i>Annulla
+            </a>
+          </div>
+          
+          {# Progress Section #}
+          <div id="screeningProgress" class="mt-4" style="display: none;">
+            <div class="alert alert-info">
+              <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-3" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <div>
+                  <strong>Screening in corso...</strong>
+                  <div class="small text-muted" id="progressText">Inizializzazione...</div>
+                </div>
+              </div>
+              <div class="progress mt-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     id="progressBar" role="progressbar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          
+          {# Results Section #}
+          <div id="screeningResults" class="mt-4" style="display: none;">
+            <div class="alert alert-success">
+              <h6><i class="ri-check-circle-line me-2"></i>Screening Completato!</h6>
+              <div id="resultsContent"></div>
+              <div class="mt-3">
+                <a href="{{ url_for('recruiting.offer_applications', offer_id=offer.id) }}" class="btn btn-sm btn-outline-primary">
+                  <i class="ri-list-check me-1"></i>Vedi Candidature
+                </a>
+                {% if offer.kanban %}
+                <a href="{{ url_for('recruiting.kanban_view', kanban_id=offer.kanban.id) }}" class="btn btn-sm btn-outline-success ms-2">
+                  <i class="ri-kanban-view me-1"></i>Vai al Kanban
+                </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    {# Preview domande e pesi #}
+    <div class="card mt-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="ri-questionnaire-line me-2"></i>Domande e Punteggi
+        </h5>
+      </div>
+      <div class="card-body">
+        {% if offer.questions %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Domanda</th>
+                <th>Tipo</th>
+                <th>Peso</th>
+                <th>Risposta Attesa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for question in offer.questions %}
+              <tr>
+                <td>{{ question.question_text }}</td>
+                <td>
+                  <span class="badge bg-secondary">
+                    {{ question.question_type.value|replace('_', ' ')|title }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-primary">{{ question.weight }}%</span>
+                </td>
+                <td>
+                  {% if question.expected_answer %}
+                    <small>{{ question.expected_answer[:50] }}{% if question.expected_answer|length > 50 %}...{% endif %}</small>
+                  {% elif question.expected_options %}
+                    {% set options_text = question.expected_options|join(', ') %}
+                    <small>{{ options_text[:50] }}{% if options_text|length > 50 %}...{% endif %}</small>
+                  {% else %}
+                    <small class="text-muted">Non specificata</small>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="alert alert-warning mt-3">
+          <i class="ri-alert-line me-2"></i>
+          <strong>Peso totale:</strong> {{ offer.total_questions_weight }}%
+          {% if offer.total_questions_weight != 100 %}
+          <span class="text-danger">(Dovrebbe essere 100%)</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+          <i class="ri-alert-line me-2"></i>
+          Nessuna domanda configurata. Configura le domande prima di avviare lo screening.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-lg-4">
+    {# Statistiche #}
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="ri-bar-chart-line me-2"></i>Statistiche Candidature
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">Totale candidature:</span>
+            <strong class="fs-4">{{ stats.total }}</strong>
+          </div>
+          <div class="progress" style="height: 20px;">
+            <div class="progress-bar bg-primary" style="width: 100%">100%</div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">Nuove:</span>
+            <strong>{{ stats.new }}</strong>
+          </div>
+          <div class="progress">
+            <div class="progress-bar bg-info" 
+                 style="width: {% if stats.total > 0 %}{{ (stats.new / stats.total * 100)|round }}{% else %}0{% endif %}%">
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">Già analizzate:</span>
+            <strong>{{ stats.screened }}</strong>
+          </div>
+          <div class="progress">
+            <div class="progress-bar bg-success" 
+                 style="width: {% if stats.total > 0 %}{{ (stats.screened / stats.total * 100)|round }}{% else %}0{% endif %}%">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    {# Info ATS #}
+    <div class="card mt-3">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="ri-robot-line me-2"></i>Sistema ATS
+        </h5>
+      </div>
+      <div class="card-body">
+        <h6>Vantaggi dello Screening Automatico:</h6>
+        <ul class="small">
+          <li>Risparmia tempo nell'analisi dei CV</li>
+          <li>Valutazione oggettiva e uniforme</li>
+          <li>Identifica i migliori candidati</li>
+          <li>Processo scalabile per volumi alti</li>
+          <li>Riduce bias nella selezione</li>
+        </ul>
+        
+        <hr>
+        
+        <h6>Azioni Automatiche:</h6>
+        <ul class="small">
+          <li>Calcolo punteggio candidati</li>
+          <li>Ordinamento per compatibilità</li>
+          <li>Spostamento nel kanban</li>
+          <li>Invio notifiche</li>
+          <li>Generazione report</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestione checkbox esclusivi
+document.addEventListener('DOMContentLoaded', function() {
+  const screenAllCheckbox = document.getElementById('{{ form.screen_all.id }}');
+  const onlyNewCheckbox = document.getElementById('{{ form.only_new.id }}');
+  
+  if (screenAllCheckbox && onlyNewCheckbox) {
+    screenAllCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        onlyNewCheckbox.checked = false;
+      }
+    });
+    
+    onlyNewCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        screenAllCheckbox.checked = false;
+      }
+    });
+  }
+});
+
+// Funzione per avviare lo screening
+async function startScreening() {
+  const form = document.querySelector('form');
+  
+  // Validazione form - controlla direttamente i checkbox
+  const screenAllCheckbox = document.getElementById('{{ form.screen_all.id }}');
+  const onlyNewCheckbox = document.getElementById('{{ form.only_new.id }}');
+  
+  if (!screenAllCheckbox.checked && !onlyNewCheckbox.checked) {
+    alert('Seleziona almeno un tipo di candidature da analizzare');
+    return;
+  }
+  
+  const formData = new FormData(form);
+  
+  // Disabilita il pulsante
+  const btn = document.getElementById('startScreeningBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ri-loader-4-line me-1 spin"></i>Avvio...';
+  
+  // Mostra progress
+  document.getElementById('screeningProgress').style.display = 'block';
+  document.getElementById('screeningResults').style.display = 'none';
+  
+  try {
+    // Prepara i dati per l'API
+    let screeningType = 'new';
+    if (screenAllCheckbox.checked) {
+      screeningType = 'all';
+    } else if (rescreenAllRadio.checked) {
+      screeningType = 'rescreen_all';
+    }
+    
+    const screeningData = {
+      screening_type: screeningType,
+      min_score: parseInt(formData.get('min_score') || '60'),
+      auto_reject: formData.get('auto_reject') === 'on',
+      send_notifications: formData.get('send_notifications') === 'on'
+    };
+    
+    // Simula progresso
+    simulateProgress();
+    
+    // Ottieni il token CSRF dal form
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    
+    // Chiama l'API
+    const response = await fetch(`/recruiting/api/offers/{{ offer.id }}/screen-all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify(screeningData)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showResults(result);
+    } else {
+      throw new Error(result.message || 'Errore durante lo screening');
+    }
+    
+  } catch (error) {
+    console.error('Errore:', error);
+    document.getElementById('screeningProgress').style.display = 'none';
+    alert('Errore durante lo screening: ' + error.message);
+  } finally {
+    // Riabilita il pulsante
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ri-play-line me-1"></i>Avvia Screening';
+  }
+}
+
+// Simula il progresso dello screening
+function simulateProgress() {
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  
+  let progress = 0;
+  const steps = [
+    'Caricamento candidature...',
+    'Analisi CV e documenti...',
+    'Calcolo punteggi...',
+    'Aggiornamento stati...',
+    'Finalizzazione...'
+  ];
+  
+  const interval = setInterval(() => {
+    progress += Math.random() * 20;
+    if (progress > 90) progress = 90;
+    
+    progressBar.style.width = progress + '%';
+    
+    const stepIndex = Math.floor(progress / 20);
+    if (stepIndex < steps.length) {
+      progressText.textContent = steps[stepIndex];
+    }
+  }, 500);
+  
+  // Ferma la simulazione dopo 10 secondi
+  setTimeout(() => {
+    clearInterval(interval);
+    progressBar.style.width = '100%';
+    progressText.textContent = 'Completamento...';
+  }, 10000);
+}
+
+// Mostra i risultati dello screening
+function showResults(result) {
+  document.getElementById('screeningProgress').style.display = 'none';
+  document.getElementById('screeningResults').style.display = 'block';
+  
+  const resultsContent = document.getElementById('resultsContent');
+  resultsContent.innerHTML = `
+    <div class="row text-center">
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <div class="h4 text-primary mb-0">${result.processed || 0}</div>
+          <small class="text-muted">Analizzate</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <div class="h4 text-success mb-0">${result.success || 0}</div>
+          <small class="text-muted">Approvate</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <div class="h4 text-warning mb-0">${result.rejected || 0}</div>
+          <small class="text-muted">Rifiutate</small>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="border rounded p-2">
+          <div class="h4 text-danger mb-0">${result.errors || 0}</div>
+          <small class="text-muted">Errori</small>
+        </div>
+      </div>
+    </div>
+  `;
+}
+</script>
+
+<style>
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}

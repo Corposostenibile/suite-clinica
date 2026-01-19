@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Follow-up Respond.io{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="ri-message-3-line me-2"></i>Sistema Follow-up Automatico
+        </h1>
+        <div class="btn-group">
+            <a href="{{ url_for('respond_io.dashboard') }}" class="btn btn-outline-primary">
+                <i class="ri-bar-chart-line me-1"></i>Dashboard Funnel
+            </a>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#testModal">
+                <i class="ri-send-plane-line me-1"></i>Test Follow-up
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert Duplicati -->
+    <div id="duplicateAlert" class="alert alert-danger d-none mb-4" role="alert">
+        <h5 class="alert-heading">
+            <i class="ri-alert-line me-2"></i>Attenzione: Rilevati Messaggi Duplicati!
+        </h5>
+        <div id="duplicateDetails"></div>
+        <hr>
+        <button class="btn btn-sm btn-danger" onclick="cleanupDuplicates()">
+            <i class="ri-delete-bin-line me-1"></i>Pulisci Duplicati
+        </button>
+        <button class="btn btn-sm btn-secondary ms-2" onclick="refreshDuplicateCheck()">
+            <i class="ri-refresh-line me-1"></i>Ricontrolla
+        </button>
+    </div>
+
+    <!-- Statistiche Generali -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="text-white-50">In Attesa</h6>
+                    <h2 class="mb-0">{{ stats.pending }}</h2>
+                    <small>Follow-up schedulati</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="text-white-50">Inviati Oggi</h6>
+                    <h2 class="mb-0">{{ stats.sent_today }}</h2>
+                    <small>Follow-up completati</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="text-white-50">Cancellati Oggi</h6>
+                    <h2 class="mb-0">{{ stats.cancelled_today }}</h2>
+                    <small>Cliente ha risposto</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h6 class="text-white-50">Falliti Oggi</h6>
+                    <h2 class="mb-0">{{ stats.failed_today }}</h2>
+                    <small>Errori di invio</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configurazioni per Lifecycle -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="ri-settings-3-line me-2"></i>Configurazioni Follow-up
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Lifecycle</th>
+                            <th>Stato</th>
+                            <th>Ritardo (ore)</th>
+                            <th>Messaggio</th>
+                            <th>Template</th>
+                            <th>Tag Attesa</th>
+                            <th>Statistiche</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lifecycle in lifecycles %}
+                        {% set config = configs | selectattr('lifecycle', 'equalto', lifecycle) | first %}
+                        <tr>
+                            <td><strong>{{ lifecycle }}</strong></td>
+                            <td>
+                                {% if config and config.enabled %}
+                                    <span class="badge bg-success">Attivo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Disattivo</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ config.delay_hours if config else 12 }}</td>
+                            <td>
+                                <small class="text-muted">{{ (config.message_text if config else "Ciao 💪 Stai bene?") | truncate(30) }}</small>
+                            </td>
+                            <td>
+                                <code>{{ config.template_name if config else "followup_generico1" }}</code>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ config.tag_waiting if config else "in_attesa_followup_1" }}</span>
+                            </td>
+                            <td>
+                                {% if config %}
+                                    <small>
+                                        📅 {{ config.total_scheduled or 0 }}<br>
+                                        ✅ {{ config.total_sent or 0 }}<br>
+                                        ❌ {{ config.total_cancelled or 0 }}
+                                    </small>
+                                {% else %}
+                                    <small class="text-muted">N/A</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editConfig('{{ lifecycle }}')">
+                                    <i class="ri-edit-line"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Follow-up in Coda -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="ri-time-line me-2"></i>Follow-up in Attesa
+            </h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="refreshQueue()">
+                <i class="ri-refresh-line"></i> Aggiorna
+            </button>
+        </div>
+        <div class="card-body">
+            {% if pending_followups %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Contact ID</th>
+                            <th>Lifecycle</th>
+                            <th>Canale</th>
+                            <th>Schedulato per</th>
+                            <th>Tempo Rimanente</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for followup in pending_followups %}
+                        <tr>
+                            <td><code>{{ followup.contact_id }}</code></td>
+                            <td>
+                                {% if followup.current_lifecycle in ['Contrassegnato', 'In Target', 'Link Da Inviare', 'Link Inviato'] %}
+                                    <span class="badge bg-primary">{{ followup.current_lifecycle }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ followup.current_lifecycle }}</span>
+                                    <small class="text-danger d-block">⚠️ Non valido</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ followup.channel_name }}</td>
+                            <td>
+                                {% if followup.original_scheduled_at %}
+                                    <span class="text-muted" style="text-decoration: line-through;">
+                                        {{ followup.original_scheduled_at_rome.strftime('%d/%m %H:%M') }}
+                                    </span>
+                                    <br>
+                                    <span class="text-success">
+                                        <i class="ri-time-line"></i> {{ followup.scheduled_at_rome.strftime('%d/%m %H:%M') }}
+                                    </span>
+                                    <small class="text-warning d-block">(Quiet hours)</small>
+                                {% else %}
+                                    {{ followup.scheduled_at_rome.strftime('%d/%m %H:%M') }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="countdown" data-target="{{ followup.scheduled_at_rome.isoformat() }}">
+                                    Calcolo...
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="cancelFollowup({{ followup.id }})">
+                                    <i class="ri-close-line"></i> Cancella
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="ri-inbox-line text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-2">Nessun follow-up in attesa</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Statistiche per Lifecycle -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="ri-bar-chart-grouped-line me-2"></i>Statistiche per Lifecycle
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="statsChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Test Follow-up -->
+<div class="modal fade" id="testModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Test Follow-up Manuale</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="testForm">
+                    <div class="mb-3">
+                        <label class="form-label">Contact ID</label>
+                        <input type="text" class="form-control" name="contact_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lifecycle</label>
+                        <select class="form-select" name="lifecycle">
+                            {% for lifecycle in lifecycles %}
+                            <option value="{{ lifecycle }}">{{ lifecycle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="use_template" id="useTemplate">
+                            <label class="form-check-label" for="useTemplate">
+                                Usa Template (simula fuori 24h)
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn btn-primary" onclick="sendTestFollowup()">
+                    <i class="ri-send-plane-line me-1"></i>Invia Test
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Countdown timer
+function updateCountdowns() {
+    document.querySelectorAll('.countdown').forEach(el => {
+        const target = new Date(el.dataset.target);
+        const now = new Date();
+        const diff = target - now;
+        
+        if (diff > 0) {
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            el.textContent = `${hours}h ${minutes}m`;
+        } else {
+            el.textContent = 'In elaborazione...';
+        }
+    });
+}
+setInterval(updateCountdowns, 60000);
+updateCountdowns();
+
+// Grafico statistiche
+const statsData = {{ stats_by_lifecycle | tojson }};
+const labels = Object.keys(statsData);
+const datasets = [
+    {
+        label: 'Pending',
+        data: labels.map(l => statsData[l].pending || 0),
+        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+    },
+    {
+        label: 'Inviati',
+        data: labels.map(l => statsData[l].sent || 0),
+        backgroundColor: 'rgba(75, 192, 192, 0.6)'
+    },
+    {
+        label: 'Cancellati',
+        data: labels.map(l => statsData[l].cancelled || 0),
+        backgroundColor: 'rgba(255, 206, 86, 0.6)'
+    },
+    {
+        label: 'Falliti',
+        data: labels.map(l => statsData[l].failed || 0),
+        backgroundColor: 'rgba(255, 99, 132, 0.6)'
+    }
+];
+
+new Chart(document.getElementById('statsChart'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: datasets
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                }
+            }
+        }
+    }
+});
+
+// Funzioni per azioni
+function cancelFollowup(id) {
+    if (!confirm('Sicuro di voler cancellare questo follow-up?')) return;
+    
+    fetch(`/respond-io/api/followup/queue/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        }
+    });
+}
+
+function sendTestFollowup() {
+    const form = document.getElementById('testForm');
+    const formData = new FormData(form);
+    
+    fetch('/respond-io/api/followup/test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            contact_id: formData.get('contact_id'),
+            lifecycle: formData.get('lifecycle'),
+            use_template: formData.get('use_template') === 'on'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.status === 'success' ? 
+              `Test inviato! Tipo: ${data.message_type}` : 
+              `Errore: ${data.error}`);
+        bootstrap.Modal.getInstance(document.getElementById('testModal')).hide();
+    });
+}
+
+function editConfig(lifecycle) {
+    // TODO: Implementare modal di modifica configurazione
+    alert('Funzione in sviluppo per: ' + lifecycle);
+}
+
+function refreshQueue() {
+    location.reload();
+}
+
+// Check duplicati
+function checkDuplicates() {
+    fetch('/respond-io/api/followup/duplicates')
+        .then(response => response.json())
+        .then(data => {
+            const alertDiv = document.getElementById('duplicateAlert');
+            const detailsDiv = document.getElementById('duplicateDetails');
+            
+            if (data.has_duplicates) {
+                let html = '';
+                
+                if (data.sent_duplicates.length > 0) {
+                    html += '<p class="mb-2"><strong>🔴 Messaggi già inviati duplicati:</strong></p>';
+                    html += '<ul class="mb-3">';
+                    data.sent_duplicates.forEach(dup => {
+                        html += `<li>Contact ${dup.contact_id} - ${dup.count} messaggi inviati il ${dup.date}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                if (data.pending_duplicates.length > 0) {
+                    html += '<p class="mb-2"><strong>⚠️ Follow-up duplicati in coda:</strong></p>';
+                    html += '<ul>';
+                    data.pending_duplicates.forEach(dup => {
+                        html += `<li>Contact ${dup.contact_id} (${dup.lifecycle}) - ${dup.count} follow-up in attesa</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                detailsDiv.innerHTML = html;
+                alertDiv.classList.remove('d-none');
+            } else {
+                alertDiv.classList.add('d-none');
+            }
+        })
+        .catch(error => {
+            console.error('Errore check duplicati:', error);
+        });
+}
+
+// Pulisci duplicati
+function cleanupDuplicates() {
+    if (!confirm('Vuoi rimuovere tutti i follow-up duplicati? Verrà mantenuto solo il primo di ogni gruppo.')) {
+        return;
+    }
+    
+    fetch('/respond-io/api/followup/cleanup-duplicates', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(`Rimossi ${data.removed} follow-up duplicati`);
+        location.reload();
+    })
+    .catch(error => {
+        alert('Errore durante la pulizia: ' + error);
+    });
+}
+
+// Refresh duplicate check
+function refreshDuplicateCheck() {
+    checkDuplicates();
+}
+
+// Check duplicati all'avvio
+document.addEventListener('DOMContentLoaded', function() {
+    checkDuplicates();
+    // Ricontrolla ogni 30 secondi
+    setInterval(checkDuplicates, 30000);
+});
+</script>
+{% endblock %}

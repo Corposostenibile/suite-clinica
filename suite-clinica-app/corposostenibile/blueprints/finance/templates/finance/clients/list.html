@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Clienti Finance - Gestione Finanziaria{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header con statistiche -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-users-cog"></i> Gestione Finanziaria Clienti
+                </h1>
+                <div>
+                    {% if unmatched_count > 0 %}
+                    <a href="{{ url_for('finance.unmatched_clients') }}" class="btn btn-warning">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        {{ unmatched_count }} Clienti da Associare
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('finance.packages_list') }}" class="btn btn-secondary">
+                        <i class="fas fa-box"></i> Pacchetti
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards statistiche -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Totale Clienti
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_clients }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Abbonamenti Attivi
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_subs }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Fatturato Totale
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">€ {{ "%.2f"|format(total_revenue) }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-euro-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Da Associare
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ unmatched_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-link fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella clienti -->
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Lista Clienti con Dati Finanziari</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="clientsTable">
+                    <thead>
+                        <tr>
+                            <th>Nome Cliente</th>
+                            <th>Email</th>
+                            <th>Origine</th>
+                            <th>Abbonamenti</th>
+                            <th>LTV Totale</th>
+                            <th>Ultimo Rinnovo</th>
+                            <th>Stato</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente, sub_count, total_ltv, last_end_date in clients %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('finance.client_detail', cliente_id=cliente.cliente_id) }}">
+                                    <strong>{{ cliente.nome_cognome }}</strong>
+                                </a>
+                            </td>
+                            <td>{{ cliente.mail or '-' }}</td>
+                            <td>{{ cliente.origine or '-' }}</td>
+                            <td class="text-center">
+                                <span class="badge badge-info">{{ sub_count or 0 }}</span>
+                            </td>
+                            <td class="text-right">
+                                {% if total_ltv %}
+                                    <strong>€ {{ "%.2f"|format(total_ltv) }}</strong>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if last_end_date %}
+                                    {{ last_end_date.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if last_end_date and last_end_date > now %}
+                                    <span class="badge badge-success">Attivo</span>
+                                {% elif sub_count > 0 %}
+                                    <span class="badge badge-secondary">Scaduto</span>
+                                {% else %}
+                                    <span class="badge badge-warning">No Dati</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('finance.client_detail', cliente_id=cliente.cliente_id) }}" 
+                                       class="btn btn-primary" title="Dettagli Finance">
+                                        <i class="fas fa-chart-line"></i>
+                                    </a>
+                                    <a href="{{ url_for('finance.client_subscription_create', cliente_id=cliente.cliente_id) }}" 
+                                       class="btn btn-success" title="Nuovo Abbonamento">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                    <a href="{{ url_for('customers.detail_test_view', cliente_id=cliente.cliente_id) }}" 
+                                       class="btn btn-info" title="Scheda Cliente">
+                                        <i class="fas fa-user"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#clientsTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json"
+        },
+        "order": [[4, "desc"]], // Ordina per LTV
+        "pageLength": 25,
+        "columnDefs": [
+            { "orderable": false, "targets": 7 }
+        ]
+    });
+});
+</script>
+{% endblock %}

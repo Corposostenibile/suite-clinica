@@ -1,0 +1,382 @@
+/* ============================================
+   FORCE LIGHT MODE - CORPOSOSTENIBILE SUITE
+   This CSS file forces light mode across all Docy templates
+   and prevents any dark mode from being applied
+   ============================================ */
+
+/* 1. Override root variables - Light mode colors */
+:root {
+    --bg-color: #ffffff !important;
+    --text-color: #5f6c7b !important;
+    --heading-color: #2c3e50 !important;
+    --border-color: #e2e5f1 !important;
+    --card-bg: #ffffff !important;
+    --sidebar-bg: #f8f9fa !important;
+    --hover-bg: #f0f3f6 !important;
+    --primary-color: #25B36A !important;
+    --secondary-color: #7a57d1 !important;
+}
+
+/* 2. Force light mode on all body variations */
+body,
+body.light,
+body.light-mode,
+body[data-theme="light"],
+body.dark,
+body.dark-mode,
+body[data-theme="dark"],
+html[data-theme="dark"] body,
+html.dark body {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+/* 3. Override dark mode media query */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #ffffff !important;
+        --text-color: #333333 !important;
+    }
+    
+    body, * {
+        background-color: inherit !important;
+        color: inherit !important;
+    }
+    
+    body {
+        background-color: #ffffff !important;
+        color: #333333 !important;
+    }
+}
+
+/* 4. Force override ALL Docy dark mode classes */
+.dark,
+.dark-mode,
+.theme-dark,
+[data-theme="dark"],
+.doc.dark,
+.doc-dark-mode {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+/* 5. Docy specific components - Force light mode */
+.doc_leftsidebar,
+.doc_leftsidebar.dark,
+.doc_rightsidebar,
+.doc_rightsidebar.dark,
+.documentation_area,
+.documentation_area.dark,
+.doc_banner_area,
+.doc_banner_area.dark,
+.navbar,
+.navbar.dark {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+/* 6. Sidebar navigation */
+.doc_leftsidebar {
+    background: #f8f9fa !important;
+    border-right: 1px solid #e2e5f1 !important;
+}
+
+.doc_leftsidebar .nav-sidebar .nav-link,
+.doc_rightsidebar .nav-sidebar .nav-link {
+    color: #666666 !important;
+}
+
+.doc_leftsidebar .nav-sidebar .nav-link:hover,
+.doc_rightsidebar .nav-sidebar .nav-link:hover {
+    color: #25B36A !important;
+    background-color: rgba(37, 179, 106, 0.1) !important;
+}
+
+.doc_leftsidebar .nav-sidebar .nav-link.active,
+.doc_rightsidebar .nav-sidebar .nav-link.active {
+    color: #25B36A !important;
+    background-color: rgba(37, 179, 106, 0.15) !important;
+}
+
+/* 7. Content area */
+.documentation_area {
+    background-color: #ffffff !important;
+}
+
+.documentation_area .shortcode_info {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+/* 8. Code blocks */
+pre, code {
+    background-color: #f4f4f4 !important;
+    color: #333333 !important;
+    border: 1px solid #ddd !important;
+}
+
+.hljs {
+    background-color: #f4f4f4 !important;
+    color: #333333 !important;
+}
+
+/* 9. Cards and panels */
+.card,
+.panel,
+.section-card,
+.feature-card,
+.dept-card {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+    border: 1px solid #e2e5f1 !important;
+}
+
+/* 10. Buttons */
+.btn {
+    background-color: #f8f9fa !important;
+    color: #333333 !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+.btn-primary,
+.btn-gradient {
+    background: linear-gradient(135deg, #25B36A 0%, #1a8a4f 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+/* 11. Forms */
+.form-control,
+.form-select,
+input,
+textarea,
+select {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+    border: 1px solid #ced4da !important;
+}
+
+.form-control:focus,
+input:focus,
+textarea:focus {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+    border-color: #25B36A !important;
+}
+
+/* 12. Tables */
+table {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+th {
+    background-color: #f8f9fa !important;
+    color: #333333 !important;
+}
+
+td {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+tr:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* 13. Modals and dropdowns */
+.modal-content,
+.dropdown-menu {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+.dropdown-item {
+    color: #333333 !important;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa !important;
+    color: #25B36A !important;
+}
+
+/* 14. Navigation */
+.navbar {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e5f1 !important;
+}
+
+.navbar-nav .nav-link {
+    color: #666666 !important;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link.active {
+    color: #25B36A !important;
+}
+
+/* 15. Footer */
+.doc_footer_area,
+.doc_footer_top,
+footer {
+    background-color: #f8f9fa !important;
+    color: #666666 !important;
+}
+
+/* 16. Alerts and notifications */
+.alert {
+    background-color: #ffffff !important;
+    border: 1px solid #dee2e6 !important;
+    color: #333333 !important;
+}
+
+/* 17. Badges */
+.badge {
+    background-color: #f8f9fa !important;
+    color: #333333 !important;
+}
+
+/* 18. Progress bars */
+.progress {
+    background-color: #e9ecef !important;
+}
+
+.progress-bar {
+    background-color: #25B36A !important;
+}
+
+/* 19. Breadcrumbs */
+.breadcrumb {
+    background-color: #f8f9fa !important;
+}
+
+.breadcrumb-item {
+    color: #666666 !important;
+}
+
+.breadcrumb-item.active {
+    color: #333333 !important;
+}
+
+/* 20. Pagination */
+.pagination .page-link {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+.pagination .page-link:hover {
+    background-color: #f8f9fa !important;
+    color: #25B36A !important;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #25B36A !important;
+    color: #ffffff !important;
+    border-color: #25B36A !important;
+}
+
+/* 21. Override any inline styles with !important */
+[style*="background-color: #1a1a1a"],
+[style*="background-color: #2d2d2d"],
+[style*="background-color: #000"],
+[style*="background-color: black"],
+[style*="background: #1a1a1a"],
+[style*="background: #2d2d2d"],
+[style*="background: #000"],
+[style*="background: black"] {
+    background-color: #ffffff !important;
+}
+
+[style*="color: #fff"],
+[style*="color: white"],
+[style*="color: #e0e0e0"] {
+    color: #333333 !important;
+}
+
+/* 22. Summernote editor specific */
+.note-editor.note-frame {
+    background-color: #ffffff !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+.note-toolbar {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+.note-editable {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+/* 23. Custom scrollbar */
+::-webkit-scrollbar {
+    background-color: #f1f1f1 !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #888 !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #555 !important;
+}
+
+/* 24. Selection */
+::selection {
+    background-color: rgba(37, 179, 106, 0.2) !important;
+    color: #333333 !important;
+}
+
+::-moz-selection {
+    background-color: rgba(37, 179, 106, 0.2) !important;
+    color: #333333 !important;
+}
+
+/* 25. Preserve normal backgrounds but force light mode */
+html {
+    background-color: #ffffff !important;
+}
+
+body {
+    background-color: #ffffff !important;
+}
+
+/* 26. Remove any dark mode toggle buttons */
+[class*="theme-toggle"],
+[class*="dark-mode-toggle"],
+[id*="theme-toggle"],
+[id*="dark-mode-toggle"],
+.theme-switcher,
+.mode-switcher,
+.js-darkmode-btn,
+.dark_mode_switcher,
+label[for="something"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* 27. Preserve Docy gradient backgrounds */
+.menu_purple,
+.doc_banner_area_one,
+.banner_creative1 {
+    /* Allow gradient backgrounds */
+}
+
+/* 28. Doc features section */
+.doc_features_area {
+    background-color: #f9f9fc !important;
+}
+
+.doc_features_item {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e5f1 !important;
+}
+
+.doc_features_item:hover {
+    border-color: #25B36A !important;
+    box-shadow: 0 10px 30px rgba(37, 179, 106, 0.1) !important;
+}

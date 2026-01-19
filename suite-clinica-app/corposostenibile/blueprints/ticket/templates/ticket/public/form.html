@@ -1,0 +1,183 @@
+{# templates/ticket/public/form.html #}
+<!DOCTYPE html>
+<html lang="it" data-theme="light" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apri un Ticket • Supporto</title>
+
+  <!-- Remix-icon – Bootstrap – Wowdash -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}">
+
+  <style>
+    :root{ --brand:#25B36A; --brand-rgb:37,179,106; }
+    .btn-primary{background:var(--brand)!important;border-color:var(--brand)!important}
+    .btn-primary:hover,.btn-primary:focus{background:#1e9a5b!important;border-color:#1e9a5b!important}
+    .icon-field>span.icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--brand)}
+    .icon-field .form-control,
+    .icon-field .form-select{padding-left:48px;height:56px}
+    .urgency-label{display:flex;align-items:center;padding:12px 16px;border:2px solid transparent;border-radius:8px;cursor:pointer;transition:all 0.2s}
+    .urgency-label:hover{background:#f8f9fa}
+    input[type="radio"]:checked + .urgency-label{border-color:var(--brand);background:#f0faf5}
+  </style>
+</head>
+<body>
+
+<section class="auth min-vh-100 d-flex align-items-center justify-content-center bg-base">
+  <!-- ■ colonna form centrata ---------------------------------------- -->
+  <div class="auth-center py-32 px-24">
+    <div class="max-w-464-px mx-auto w-100">
+
+      <div class="text-center mb-40">
+        <a href="" class="d-inline-block max-w-290-px">
+          <img src="{{ url_for('static', filename='assets/immagini/Suite.png') }}" class="img-fluid" alt="logo">
+        </a>
+      </div>
+
+      <h4 class="mb-12 text-center">Apri un nuovo ticket</h4>
+      <p class="mb-32 text-secondary-light text-lg text-center">
+        Compila il modulo per inviare la tua richiesta al dipartimento competente.
+      </p>
+
+      <!-- ──────────────── Form ─────────────────────────────────────── -->
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {{ form.hidden_tag() }}
+
+        <!-- Dati richiedente -->
+        <div class="row">
+          <div class="col-md-6 mb-20">
+            <label class="form-label fw-medium mb-8" for="{{ form.first_name.id }}">
+              {{ form.first_name.label.text }}
+            </label>
+            <div class="position-relative icon-field">
+              <span class="icon"><iconify-icon icon="ri-user-line"></iconify-icon></span>
+              {{ form.first_name(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if form.first_name.errors else '')) }}
+            </div>
+            {% for err in form.first_name.errors %}
+              <div class="invalid-feedback d-block">{{ err }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-20">
+            <label class="form-label fw-medium mb-8" for="{{ form.last_name.id }}">
+              {{ form.last_name.label.text }}
+            </label>
+            <div class="position-relative icon-field">
+              <span class="icon"><iconify-icon icon="ri-user-line"></iconify-icon></span>
+              {{ form.last_name(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if form.last_name.errors else '')) }}
+            </div>
+            {% for err in form.last_name.errors %}
+              <div class="invalid-feedback d-block">{{ err }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div class="mb-20">
+          <label class="form-label fw-medium mb-8" for="{{ form.email.id }}">
+            {{ form.email.label.text }}
+          </label>
+          <div class="position-relative icon-field">
+            <span class="icon"><iconify-icon icon="mage:email"></iconify-icon></span>
+            {{ form.email(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if form.email.errors else '')) }}
+          </div>
+          {% for err in form.email.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        </div>
+
+        <!-- Dipartimento destinatario -->
+        <div class="mb-20">
+          <label class="form-label fw-medium mb-8" for="{{ form.department_id.id }}">
+            {{ form.department_id.label.text }}
+          </label>
+          <small class="d-block text-secondary-light mb-8">
+            Scegli il tuo dipartimento, sarà il tuo responsabile a inoltrare la richiesta ad altri dipartimenti se necessario
+          </small>
+          <div class="position-relative icon-field">
+            <span class="icon"><iconify-icon icon="ri-send-plane-line"></iconify-icon></span>
+            {{ form.department_id(class="form-select bg-neutral-50 radius-12" + (' is-invalid' if form.department_id.errors else '')) }}
+          </div>
+          {% for err in form.department_id.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        </div>
+
+        <!-- Cliente correlato (opzionale) -->
+        <div class="mb-20">
+          <label class="form-label fw-medium mb-8" for="{{ form.related_client_name.id }}">
+            {{ form.related_client_name.label.text }}
+          </label>
+          <div class="position-relative icon-field">
+            <span class="icon"><iconify-icon icon="ri-user-star-line"></iconify-icon></span>
+            {{ form.related_client_name(class="form-control bg-neutral-50 radius-12") }}
+          </div>
+        </div>
+
+        <!-- Oggetto -->
+        <div class="mb-20">
+          <label class="form-label fw-medium mb-8" for="{{ form.title.id }}">
+            {{ form.title.label.text }}
+          </label>
+          <div class="position-relative icon-field">
+            <span class="icon"><iconify-icon icon="ri-file-text-line"></iconify-icon></span>
+            {{ form.title(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if form.title.errors else '')) }}
+          </div>
+          {% for err in form.title.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        </div>
+
+        <!-- Descrizione -->
+        <div class="mb-20">
+          <label class="form-label fw-medium mb-8" for="{{ form.description.id }}">
+            {{ form.description.label.text }}
+          </label>
+          {{ form.description(class="form-control bg-neutral-50 radius-12" + (' is-invalid' if form.description.errors else '')) }}
+          {% for err in form.description.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        </div>
+
+        <!-- Urgenza -->
+        <div class="mb-32">
+          <label class="form-label fw-medium mb-8">{{ form.urgency.label.text }}</label>
+          <div class="d-flex flex-column gap-2">
+            {% for subfield in form.urgency %}
+              <div class="position-relative">
+                {{ subfield(class="position-absolute opacity-0", style="pointer-events:none") }}
+                <label for="{{ subfield.id }}" class="urgency-label">
+                  <span class="me-2">{{ subfield.label.text }}</span>
+                </label>
+              </div>
+            {% endfor %}
+          </div>
+          {% for err in form.urgency.errors %}
+            <div class="invalid-feedback d-block">{{ err }}</div>
+          {% endfor %}
+        </div>
+
+        <!-- Submit -->
+        {{ form.submit(class="btn btn-primary w-100") }}
+
+        <!-- Link utili -->
+        <div class="mt-24 text-center">
+          <p class="text-secondary-light">
+            <a href="{{ url_for('public_ticket.info') }}" class="text-primary-600 fw-medium">
+              <i class="ri-information-line"></i> Informazioni sul servizio
+            </a>
+          </p>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- JS -------------------------------------------------------------- -->
+<script src="{{ url_for('static', filename='assets/js/lib/jquery-3.7.1.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/iconify-icon.min.js') }}"></script>
+</body>
+</html>

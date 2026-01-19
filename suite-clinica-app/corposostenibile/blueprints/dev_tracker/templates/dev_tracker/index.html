@@ -1,0 +1,464 @@
+{% extends "base.html" %}
+
+{% block title %}Dev Tracker - {{ department.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+        color: white;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    /* Alert Styles */
+    .alert {
+        border-radius: 12px;
+        border: none;
+    }
+
+    .alert-info {
+        background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%);
+        color: #0369A1;
+    }
+
+    /* Progress Bar */
+    .progress {
+        border-radius: 10px;
+        height: 30px;
+        background: #E2E8F0;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        font-weight: 600;
+    }
+
+    /* Table Styles */
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background: var(--light-color);
+        border-bottom: 2px solid #E2E8F0;
+        font-weight: 600;
+        color: var(--dark-color);
+        padding: 16px;
+    }
+
+    .table tbody td {
+        padding: 14px 16px;
+        vertical-align: middle;
+    }
+
+    /* Sprint Card Special */
+    .sprint-card .card-header {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        color: white;
+    }
+
+    /* Critical Card */
+    .critical-card .card-header {
+        background: linear-gradient(135deg, #DC3545 0%, #B02A37 100%);
+        color: white;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .mb-32 { margin-bottom: 32px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {# ─────────────────────── HEADER ─────────────────────── #}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Dev Tracker - {{ department.name }}</h6>
+            <p class="text-muted mb-0">Team Development Management & Sprint Tracking</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('dev_tracker.create_sprint') }}" class="btn btn-success">
+                <i class="ri-add-line me-2"></i> Nuovo Sprint
+            </a>
+            {% endif %}
+            <a href="{{ url_for('dev_tracker.add_worklog') }}" class="btn btn-primary">
+                <i class="ri-time-line me-2"></i> Aggiungi Ore
+            </a>
+            <a href="{{ url_for('dev_tracker.add_commit') }}" class="btn btn-info">
+                <i class="ri-git-commit-line me-2"></i> Aggiungi Commit
+            </a>
+        </div>
+    </div>
+
+    {# ─────────────────────── HERO KPI CARDS ─────────────────────── #}
+    <div class="row gy-4 mb-32">
+        <!-- Team Members -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-1">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:account-group" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Team Members</span>
+                        <h4 class="fw-semibold mb-0">{{ team_stats.total_members }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Hours (30d) -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:clock-time-eight" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Total Hours (30d)</span>
+                        <h4 class="fw-semibold mb-0">{{ "%.1f"|format(team_stats.total_hours) }}h</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Commits -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-3">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:source-commit" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Total Commits</span>
+                        <h4 class="fw-semibold mb-0">{{ team_stats.total_commits }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Interventions -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-4">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:briefcase-edit" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Active Interventions</span>
+                        <h4 class="fw-semibold mb-0">{{ team_stats.active_interventions }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Completed (30d) -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-secondary text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:check-circle" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Completed (30d)</span>
+                        <h4 class="fw-semibold mb-0">{{ team_stats.completed_interventions }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Reviews -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-danger text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:eye-check" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Pending Reviews</span>
+                        <h4 class="fw-semibold mb-0">{{ team_stats.pending_reviews }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── ACTIVE SPRINT ─────────────────────── #}
+    {% if active_sprint %}
+    <div class="card mb-32 sprint-card">
+        <div class="card-header">
+            <h6 class="mb-0 text-white">
+                <i class="ri-run-line me-2"></i> Active Sprint: {{ active_sprint.name }}
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <p><strong>Goal:</strong> {{ active_sprint.goal or 'N/A' }}</p>
+                    <p><strong>Period:</strong> {{ active_sprint.start_date|datetime }} → {{ active_sprint.end_date|datetime }}</p>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ active_sprint.progress_percentage }}%"
+                             aria-valuenow="{{ active_sprint.progress_percentage }}"
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ active_sprint.progress_percentage }}%
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <h3 class="mb-3">{{ active_sprint.completed_story_points }} / {{ active_sprint.total_story_points }} SP</h3>
+                    <a href="{{ url_for('dev_tracker.sprint_detail', sprint_id=active_sprint.id) }}"
+                       class="btn btn-primary">
+                        <i class="ri-layout-grid-line me-2"></i> Open Sprint Board
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info mb-32">
+        <i class="ri-information-line me-2"></i> Nessuno sprint attivo al momento.
+    </div>
+    {% endif %}
+
+    {# ─────────────────────── WORKLOAD & VELOCITY ─────────────────────── #}
+    <div class="row gy-4 mb-32">
+        <!-- Workload Distribution -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-team-line me-2"></i> Team Workload
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Developer</th>
+                                    <th class="text-end">Active</th>
+                                    <th class="text-end">SP</th>
+                                    <th class="text-end">Hours (week)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dev in workload %}
+                                <tr>
+                                    <td>
+                                        {% if dev.avatar_path %}
+                                        <img src="{{ dev.avatar_path }}" class="rounded-circle me-2" style="width: 24px; height: 24px;">
+                                        {% endif %}
+                                        <a href="{{ url_for('dev_tracker.developer_dashboard', user_id=dev.user_id) }}">
+                                            {{ dev.user_name }}
+                                        </a>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge bg-warning-subtle text-warning-main">{{ dev.active_interventions }}</span>
+                                    </td>
+                                    <td class="text-end">{{ dev.total_story_points }}</td>
+                                    <td class="text-end">{{ "%.1f"|format(dev.hours_this_week) }}h</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Velocity Chart -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-line-chart-line me-2"></i> Sprint Velocity
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="velocityChart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── BLOCKERS & REVIEWS ─────────────────────── #}
+    <div class="row gy-4">
+        <!-- Critical Interventions -->
+        <div class="col-md-6">
+            <div class="card critical-card">
+                <div class="card-header">
+                    <h6 class="mb-0 text-white">
+                        <i class="ri-alert-line me-2"></i> Blockers & Critical
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if critical_interventions %}
+                    <ul class="list-unstyled mb-0">
+                        {% for intervention in critical_interventions %}
+                        <li class="mb-3 pb-3 border-bottom">
+                            <a href="{{ url_for('dev_tracker.intervention_detail', intervention_id=intervention.id) }}" class="fw-semibold">
+                                {{ intervention.title }}
+                            </a>
+                            <br>
+                            <small class="text-muted">
+                                <strong>Blocker:</strong> {{ intervention.blockers|truncate(50) }}
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0">Nessun blocker attivo 🎉</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Code Reviews -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-eye-line me-2"></i> Pending Code Reviews
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if pending_reviews %}
+                    <ul class="list-unstyled mb-0">
+                        {% for review in pending_reviews %}
+                        <li class="mb-3 pb-3 border-bottom">
+                            <strong>Review #{{ review.id }}</strong>
+                            - Intervention #{{ review.intervention_id }}
+                            <br>
+                            <small class="text-muted">
+                                Reviewer: {{ review.reviewer.first_name if review.reviewer else 'Unassigned' }}
+                                | {{ review.created_at|timeago }}
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0">Nessuna review pendente</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script>
+// Velocity Chart
+const velocityData = {{ velocity_data|tojson }};
+const ctx = document.getElementById('velocityChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: velocityData.map(d => d.sprint_name),
+        datasets: [{
+            label: 'Completed SP',
+            data: velocityData.map(d => d.completed_points),
+            backgroundColor: 'rgba(69, 203, 133, 0.6)',
+            borderColor: 'rgba(69, 203, 133, 1)',
+            borderWidth: 2,
+            borderRadius: 8
+        }, {
+            label: 'Total SP',
+            data: velocityData.map(d => d.story_points),
+            backgroundColor: 'rgba(108, 117, 125, 0.3)',
+            borderColor: 'rgba(108, 117, 125, 1)',
+            borderWidth: 2,
+            borderRadius: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: '#E2E8F0'
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

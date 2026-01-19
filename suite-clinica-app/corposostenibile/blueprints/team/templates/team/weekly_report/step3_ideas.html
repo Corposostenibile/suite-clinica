@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_sales %}Report Mensile - Idee{% else %}Report Settimanale - Idee{% endif %}{% endblock %}
+
+{% block extra_css %}
+{% include 'team/weekly_report/_step_base_css.html' %}
+<style>
+    /* Ideas section styling */
+    .ideas-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .ideas-icon {
+        font-size: 4rem;
+        color: #28c76f;
+        margin-bottom: 1rem;
+    }
+    
+    .ideas-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    
+    .ideas-subtitle {
+        color: #6c757d;
+        font-size: 1.1rem;
+    }
+    
+    /* Form styling */
+    .form-control {
+        border-radius: 12px;
+        border: 2px solid #e0e6ed;
+        padding: 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #fafafa;
+    }
+    
+    .form-control:focus {
+        border-color: #28c76f;
+        box-shadow: 0 0 0 0.2rem rgba(40, 199, 111, 0.15);
+        background: white;
+    }
+    
+    /* Optional badge */
+    .optional-badge {
+        display: inline-block;
+        background: #ffc107;
+        color: #000;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include 'team/weekly_report/_step_base_html.html' %}
+
+<div class="container px-24">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-lg">
+                <div class="card-body p-5">
+                    <div class="ideas-header">
+                        <div class="ideas-icon">💡</div>
+                        <h3 class="ideas-title">Le Tue Idee</h3>
+                        <p class="ideas-subtitle">
+                            {% if is_sales %}
+                                Condividi le tue idee per migliorare l'azienda
+                            {% else %}
+                                Condividi le tue idee per migliorare i processi e l'ambiente di lavoro
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <span class="optional-badge">
+                            <i class="ri-star-line me-1"></i>Facoltativo
+                        </span>
+                    </div>
+                    
+                    <form method="POST" id="step-form">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="form-group">
+                            <label class="form-label" for="{{ form.ideas.id }}">
+                                {{ form.ideas.label.text }}
+                            </label>
+                            {{ form.ideas(class="form-control", rows="6") }}
+                            <small class="form-text text-muted mt-2">
+                                Questo campo è facoltativo. Se hai idee o suggerimenti, questo è il momento perfetto per condividerli!
+                            </small>
+                        </div>
+                        
+                        <!-- Navigation buttons -->
+                        <div class="d-flex justify-content-between mt-5">
+                            <button type="submit" name="action" value="back" class="btn btn-secondary">
+                                <i class="ri-arrow-left-line me-2"></i>Indietro
+                            </button>
+                            <button type="submit" name="action" value="next" class="btn btn-success btn-lg">
+                                <i class="ri-check-line me-2"></i>
+                                {% if is_sales %}
+                                    Completa Report Mensile
+                                {% else %}
+                                    Completa Report Settimanale
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textarea
+    const textarea = document.querySelector('textarea');
+    if (textarea) {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 400) + 'px';
+        });
+    }
+});
+</script>
+{% endblock %}

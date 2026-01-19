@@ -1,0 +1,45 @@
+{#
+    TAB COACHING - Partial Template
+    
+    Contenuto interno della tab Coaching (da includere dentro pills-coaching)
+#}
+
+<!-- Sub-tabs per Coaching -->
+<ul class="nav nav-pills mb-4" id="coachingTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="coach-overview-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-overview" type="button" role="tab">
+            <i class="ri-dashboard-line me-2"></i>Panoramica
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-setup-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-setup" type="button" role="tab">
+            <i class="ri-settings-3-line me-2"></i>Setup
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-training-plans-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-training-plans" type="button" role="tab">
+            <i class="ri-run-line me-2"></i>Piani Allenamento
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-training-locations-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-training-locations" type="button" role="tab">
+            <i class="ri-map-pin-line me-2"></i>Luoghi Allenamento
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-notes-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-notes" type="button" role="tab">
+            <i class="ri-file-text-line me-2"></i>Note
+        </button>
+    </li>
+</ul>
+
+<form id="form-coaching" data-cliente-id="{{ cliente.cliente_id }}">
+<div class="tab-content" id="coachingTabsContent">
+
+<script>
+</script>

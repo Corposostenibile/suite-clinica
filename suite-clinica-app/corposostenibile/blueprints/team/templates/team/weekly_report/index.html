@@ -1,0 +1,730 @@
+{% extends "base.html" %}
+
+{% block title %}Report Settimanali{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reset and base styles */
+    .px-24 {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+    
+    /* Header white background */
+    .reports-header {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .reports-header h4 {
+        color: #000;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .reports-header p {
+        color: #000;
+        margin-bottom: 0;
+        font-size: 1rem;
+    }
+    
+    /* Week navigation card */
+    .week-navigation {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .week-nav-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+    }
+    
+    .week-nav-button {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 2px solid #28c76f;
+        background: white;
+        color: #28c76f;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        flex-shrink: 0;
+    }
+    
+    .week-nav-button:hover:not(.disabled) {
+        background: #28c76f;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(40, 199, 111, 0.3);
+    }
+    
+    .week-nav-button.disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .week-info {
+        text-align: center;
+        flex: 1;
+    }
+    
+    .week-info h3 {
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+    }
+    
+    .week-info small {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    /* Filter section */
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        margin-bottom: 2rem;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .filter-form {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-form label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .filter-form .form-select {
+        min-width: 200px;
+        border-radius: 8px;
+        border: 1px solid #e0e6ed;
+    }
+    
+    /* Reports grid */
+    .reports-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    /* Report cards */
+    .report-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .report-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+    }
+    
+    /* Card header */
+    .card-header-custom {
+        background: linear-gradient(135deg, #28c76f 0%, #20bf6b 100%);
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .card-header-custom::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    
+    .user-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .user-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid rgba(255,255,255,0.3);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        flex-shrink: 0;
+    }
+    
+    .user-details h5 {
+        color: white;
+        font-weight: 600;
+        margin: 0 0 0.25rem 0;
+        font-size: 1.1rem;
+        line-height: 1.2;
+    }
+    
+    .user-details .department {
+        color: rgba(255,255,255,0.9);
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .submission-time {
+        color: rgba(255,255,255,0.8);
+        font-size: 0.8rem;
+        text-align: right;
+        line-height: 1.3;
+        flex-shrink: 0;
+    }
+    
+    /* Card footer */
+    .card-footer-custom {
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .badge-container {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .ideas-badge {
+        background: rgba(40, 199, 111, 0.1);
+        color: #28c76f;
+        border: 1px solid rgba(40, 199, 111, 0.2);
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .actions-container {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+    
+    /* Action buttons */
+    .btn-action {
+        padding: 0.6rem 1rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-read {
+        background: linear-gradient(135deg, #28c76f 0%, #20bf6b 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(40, 199, 111, 0.2);
+    }
+    
+    .btn-read:hover {
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(40, 199, 111, 0.3);
+    }
+    
+    .btn-delete {
+        background: white;
+        color: #dc3545;
+        border: 1px solid #dc3545;
+    }
+    
+    .btn-delete:hover {
+        background: #dc3545;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    /* Status badge in header */
+    .status-badge {
+        background: #28c76f;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        box-shadow: 0 2px 8px rgba(40, 199, 111, 0.2);
+    }
+    
+    /* Empty state */
+    .empty-state {
+        background: white;
+        border-radius: 20px;
+        padding: 4rem 2rem;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1.5rem;
+    }
+    
+    .empty-state h5 {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state p {
+        color: #6c757d;
+        margin: 0;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .px-24 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        .reports-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .reports-header .row > div:last-child {
+            margin-top: 1rem;
+        }
+        
+        .week-navigation {
+            padding: 1.5rem;
+        }
+        
+        .week-nav-content {
+            gap: 1rem;
+        }
+        
+        .week-nav-button {
+            width: 48px;
+            height: 48px;
+        }
+        
+        .week-info h3 {
+            font-size: 1.2rem;
+        }
+        
+        .reports-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+        }
+        
+        .user-details h5 {
+            font-size: 1rem;
+        }
+        
+        .card-header-custom {
+            padding: 1.25rem;
+        }
+        
+        .card-footer-custom {
+            padding: 1.25rem;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+        
+        .badge-container {
+            justify-content: center;
+        }
+        
+        .actions-container {
+            justify-content: center;
+        }
+        
+        .filter-form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .filter-form .form-select {
+            min-width: auto;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .reports-header {
+            padding: 1rem;
+        }
+        
+        .week-navigation {
+            padding: 1rem;
+        }
+        
+        .week-nav-button {
+            width: 40px;
+            height: 40px;
+        }
+        
+        .week-info h3 {
+            font-size: 1.1rem;
+        }
+        
+        .card-header-custom,
+        .filter-section {
+            padding: 1rem;
+        }
+        
+        .card-footer-custom {
+            padding: 1rem;
+        }
+    }
+    
+    /* Animation improvements */
+    .report-card {
+        animation: fadeInUp 0.6s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    
+    .report-card:nth-child(1) { animation-delay: 0.1s; }
+    .report-card:nth-child(2) { animation-delay: 0.2s; }
+    .report-card:nth-child(3) { animation-delay: 0.3s; }
+    .report-card:nth-child(4) { animation-delay: 0.4s; }
+    .report-card:nth-child(5) { animation-delay: 0.5s; }
+    .report-card:nth-child(6) { animation-delay: 0.6s; }
+    
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-24">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Header Section -->
+    <div class="reports-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                {% if is_sales %}
+                <h4>Report Mensili del Team Sales</h4>
+                    {% if current_user.is_admin or (current_user.department and current_user.department.head_id == current_user.id) %}
+                    <p>Monitora i progressi e le sfide del team Sales mese per mese</p>
+                    {% elif can_submit %}
+                    <p>È l'ultimo sabato del mese! Compila il tuo report mensile</p>
+                    {% else %}
+                    <p>Prossima compilazione: <strong>{{ next_compilation_date.strftime('%d %B %Y') }}</strong></p>
+                    {% endif %}
+                {% else %}
+                <h4>Report Settimanali del Team</h4>
+                    {% if current_user.is_admin or (current_user.department and current_user.department.head_id == current_user.id) %}
+                    <p>Monitora i progressi e le sfide del tuo team settimana per settimana</p>
+                    {% elif can_submit and week_offset == compilable_week_offset %}
+                    <p>Compila il tuo report per la settimana {{ week_start.strftime('%d/%m') }} - {{ week_end.strftime('%d/%m') }}</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <div class="col-md-4 text-md-end">
+                {% if can_submit and not has_submitted and week_offset == compilable_week_offset %}
+                <a href="{{ url_for('weekly_report.new_report') }}" class="btn btn-success btn-lg">
+                    <iconify-icon icon="ri:add-line" class="me-2"></iconify-icon>
+                    {% if is_sales %}
+                        Compila Report Mensile
+                    {% else %}
+                        Compila Report
+                    {% endif %}
+                </a>
+                {% elif has_submitted and week_offset == compilable_week_offset %}
+                <span class="status-badge">
+                    <iconify-icon icon="ri:check-line"></iconify-icon>
+                    {% if is_sales %}
+                        Report mensile compilato
+                    {% else %}
+                        Report compilato
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Week Navigation -->
+    <div class="week-navigation">
+        <div class="week-nav-content">
+            {% set prev_url_params = {'week': week_offset-1} %}
+            {% if selected_department %}
+                {% set _ = prev_url_params.update({'department_id': selected_department}) %}
+            {% endif %}
+            <a href="{{ url_for('weekly_report.index', **prev_url_params) }}" class="week-nav-button">
+                <iconify-icon icon="ri:arrow-left-line" style="font-size: 1.5rem;"></iconify-icon>
+            </a>
+            
+            <div class="week-info">
+                <h3>Settimana {{ week_start.strftime('%d/%m') }} - {{ week_end.strftime('%d/%m/%Y') }}</h3>
+                <small>{{ total_reports }} report compilati</small>
+            </div>
+            
+            {% set next_url_params = {'week': week_offset+1} %}
+            {% if selected_department %}
+                {% set _ = next_url_params.update({'department_id': selected_department}) %}
+            {% endif %}
+            <a href="{{ url_for('weekly_report.index', **next_url_params) }}" 
+               class="week-nav-button {% if week_offset >= 0 %}disabled{% endif %}">
+                <iconify-icon icon="ri:arrow-right-line" style="font-size: 1.5rem;"></iconify-icon>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Section (Admin only) -->
+    {% if current_user.is_admin and departments %}
+    <div class="filter-section">
+        <form method="get" class="filter-form">
+            <input type="hidden" name="week" value="{{ week_offset }}">
+            <label>Filtra dipartimento:</label>
+            <select name="department_id" class="form-select" onchange="this.form.submit()">
+                <option value="">Tutti i dipartimenti</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}" {% if selected_department == dept.id|string %}selected{% endif %}>
+                    {{ dept.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Info message for non-submission days or Sales monthly reports -->
+    {% if is_sales and has_submitted and week_offset == 0 %}
+    <div class="alert alert-success d-flex align-items-center mb-4">
+        <iconify-icon icon="ri:check-line" class="me-2" style="font-size: 1.5rem;"></iconify-icon>
+        <div>
+            <strong>Report Mensile Completato!</strong> Hai già compilato il report per questo mese.<br>
+            <strong>Prossima compilazione:</strong> {{ next_compilation_date.strftime('%d %B %Y') }}<br>
+            <small class="text-muted">Puoi consultare i report del CEO nelle altre settimane.</small>
+        </div>
+    </div>
+    {% elif not can_submit and week_offset == 0 and not has_submitted %}
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <iconify-icon icon="ri:information-line" class="me-2" style="font-size: 1.5rem;"></iconify-icon>
+        <div>
+            {% if is_sales %}
+                <strong>Report Mensile:</strong> Il report può essere compilato solo l'ultimo sabato del mese.<br>
+                <strong>Prossima compilazione:</strong> {{ next_compilation_date.strftime('%d %B %Y') }}<br>
+                <small class="text-muted">Durante le altre settimane puoi consultare il report del CEO.</small>
+            {% else %}
+                <strong>Informazione:</strong> I report settimanali possono essere compilati venerdì, sabato, domenica o lunedì (per la settimana precedente).
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Reports Grid -->
+    {% if reports %}
+        <div class="reports-grid">
+            {% for report in reports %}
+            <div class="report-card">
+                <!-- Card Header -->
+                <div class="card-header-custom">
+                    <div class="user-header">
+                        <div class="user-info">
+                            <img src="{{ report.user.avatar_url }}" 
+                                 alt="{{ report.user.full_name }}" 
+                                 class="user-avatar">
+                            <div class="user-details">
+                                <h5>{{ report.user.full_name }}</h5>
+                                <div class="department">
+                                    <iconify-icon icon="ri:building-line"></iconify-icon>
+                                    {{ report.department.name if report.department else 'N/A' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="submission-time">
+                            {{ report.submission_date.strftime('%d/%m') }}<br>
+                            {{ report.submission_date.strftime('%H:%M') }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card Footer -->
+                <div class="card-footer-custom">
+                    <div class="badge-container">
+                        {% if report.ideas %}
+                        <span class="ideas-badge">
+                            <iconify-icon icon="ri:lightbulb-line"></iconify-icon>
+                            Con idee
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="actions-container">
+                        {% set view_url_params = {'report_id': report.id} %}
+                        {% if selected_department %}
+                            {% set view_url = url_for('weekly_report.view_report', report_id=report.id) + '?from_filter=' + selected_department + '&week=' + week_offset|string %}
+                        {% else %}
+                            {% set view_url = url_for('weekly_report.view_report', report_id=report.id) + '?week=' + week_offset|string %}
+                        {% endif %}
+                        <a href="{{ view_url }}" 
+                           class="btn-action btn-read">
+                            <iconify-icon icon="ri:eye-line"></iconify-icon>
+                            Leggi
+                        </a>
+                        {% if current_user.is_admin %}
+                        <button type="button" class="btn-action btn-delete" 
+                                onclick="confirmDelete({{ report.id }}, '{{ report.user.full_name }}')">
+                            <iconify-icon icon="ri:delete-bin-line"></iconify-icon>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <iconify-icon icon="ri:file-list-3-line" class="empty-state-icon"></iconify-icon>
+            <h5>Nessun report per questa settimana</h5>
+            <p>
+                {% if week_offset == 0 and can_submit and not has_submitted %}
+                    Sii il primo a compilare il tuo report settimanale!
+                {% else %}
+                    Non ci sono report disponibili per il periodo selezionato.
+                {% endif %}
+            </p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowLeft' && !e.target.matches('input, textarea, select')) {
+        const prevWeek = document.querySelector('a[href*="week={{ week_offset-1 }}"]');
+        if (prevWeek && !prevWeek.classList.contains('disabled')) {
+            prevWeek.click();
+        }
+    } else if (e.key === 'ArrowRight' && !e.target.matches('input, textarea, select')) {
+        const nextWeek = document.querySelector('a[href*="week={{ week_offset+1 }}"]');
+        if (nextWeek && !nextWeek.classList.contains('disabled')) {
+            nextWeek.click();
+        }
+    }
+});
+
+{% if current_user.is_admin %}
+// Conferma eliminazione
+function confirmDelete(reportId, userName) {
+    if (confirm(`Sei sicuro di voler eliminare il report di ${userName}?\n\nL'utente potrà compilare nuovamente il report per questa settimana.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/team/weekly-report/${reportId}/delete`;
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = 'csrf_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+{% endif %}
+
+// Enhanced mobile touch feedback
+if ('ontouchstart' in window) {
+    document.querySelectorAll('.btn-action, .week-nav-button').forEach(btn => {
+        btn.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.95)';
+        });
+        btn.addEventListener('touchend', function() {
+            this.style.transform = '';
+        });
+    });
+}
+
+// Smooth scroll to top when navigating weeks
+const weekButtons = document.querySelectorAll('.week-nav-button:not(.disabled)');
+weekButtons.forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        // Small delay to allow navigation, then scroll
+        setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
+    });
+});
+</script>
+{% endblock %}

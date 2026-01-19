@@ -1,0 +1,539 @@
+{# blueprints/team/templates/team/assignments_coach.html #}
+{% extends "base.html" %}
+
+{% block title %}Assegnazioni AI Coach • Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Avatar Team */
+.avatar-team {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.avatar-team .avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.avatar-team .avatar-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* Header arancione per coach */
+.coach-header {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+/* Stato badge styling */
+.stato-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.stato-attivo { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534; }
+.stato-pausa { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+.stato-ghost { background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #3730a3; }
+.stato-stop { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; }
+
+/* Bottoni campo */
+.btn-campo {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+  border: none;
+  transition: all 0.2s ease;
+  min-width: 36px;
+}
+.btn-campo:hover {
+  transform: translateY(-1px);
+}
+.btn-campo.presente {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+}
+.btn-campo.presente:hover {
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  color: white;
+}
+.btn-campo.assente {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  color: white;
+}
+.btn-campo.assente:hover {
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+  color: white;
+}
+
+/* Row non disponibile */
+.row-non-disponibile {
+  background-color: rgba(254, 226, 226, 0.3) !important;
+}
+
+/* Tabella */
+.table-assegnazioni {
+  width: 100%;
+}
+.table-assegnazioni td {
+  vertical-align: middle;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- Header Coach -->
+  <div class="coach-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div>
+      <h5 class="fw-semibold mb-1 text-white">
+        <i class="ri-magic-line me-2"></i>Assegnazioni AI - Coach
+      </h5>
+      <small class="opacity-75">Gestione note e disponibilità per assegnazione automatica</small>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="row g-3 mb-24">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="ri-run-line" style="font-size: 18px; color: #f97316;"></i>
+            <span class="fw-semibold text-dark">Riepilogo Coach</span>
+          </div>
+          <div class="d-flex flex-wrap gap-4">
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge" style="background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%); color: #c2410c;">
+                <i class="ri-user-line" style="font-size: 10px;"></i> Totale
+              </span>
+              <span class="fw-bold text-dark">{{ stats.total }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge" style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534;">
+                <i class="ri-checkbox-circle-line" style="font-size: 10px;"></i> Disponibili
+              </span>
+              <span class="fw-bold text-dark">{{ stats.available }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af;">
+                <i class="ri-settings-3-line" style="font-size: 10px;"></i> Configurati
+              </span>
+              <span class="fw-bold text-dark">{{ stats.configured }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legenda KPI Clienti -->
+  <div class="row g-3 mb-24">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="ri-information-line text-primary" style="font-size: 18px;"></i>
+            <span class="fw-semibold text-dark">Legenda Clienti per Stato Coach</span>
+          </div>
+          <div class="d-flex flex-wrap gap-4">
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-attivo"><i class="ri-circle-fill" style="font-size: 6px;"></i> Attivo</span>
+              <span class="text-muted" style="font-size: 12px;">Clienti Attivi</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-ghost"><i class="ri-circle-fill" style="font-size: 6px;"></i> Ghost</span>
+              <span class="text-muted" style="font-size: 12px;">Clienti in Ghost</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-pausa"><i class="ri-circle-fill" style="font-size: 6px;"></i> Pausa</span>
+              <span class="text-muted" style="font-size: 12px;">Clienti in Pausa</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-stop"><i class="ri-circle-fill" style="font-size: 6px;"></i> Stop</span>
+              <span class="text-muted" style="font-size: 12px;">Clienti in Stop</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabella Coach -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">
+        <i class="ri-run-line me-2" style="color: #f97316;"></i>
+        Coach ({{ coaches|length }})
+      </h5>
+    </div>
+
+    <div class="card-body p-0">
+      {% if coaches %}
+      <div class="table-responsive">
+        <table class="table basic-border-table table-assegnazioni mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 20%;">Professionista</th>
+              <th class="text-center" style="width: 8%;">Disponibile</th>
+              <th class="text-center" style="width: 12%;">Specializzazione</th>
+              <th class="text-center" style="width: 12%;">Target Ideale</th>
+              <th class="text-center" style="width: 12%;">Problematiche</th>
+              <th class="text-center" style="width: 12%;">Target NO</th>
+              <th class="text-center" style="width: 12%;">Calendario</th>
+              <th class="text-center" style="width: 12%;">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in coaches %}
+              {% set ai_notes = user.assignment_ai_notes if user.assignment_ai_notes and user.assignment_ai_notes is mapping else {} %}
+              {% set is_available = ai_notes.get('disponibile_assegnazioni', true) if ai_notes else true %}
+              <tr id="row-{{ user.id }}" class="{{ 'row-non-disponibile' if not is_available else '' }}">
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="avatar-team">
+                      {% if user.avatar_path %}
+                        <img src="{{ url_for('team.serve_avatar', user_id=user.id) }}" alt="{{ user.full_name }}" class="avatar-img">
+                      {% else %}
+                        <span class="avatar-initials" style="background: #ffedd5; color: #c2410c;">{{ user.first_name[:1] if user.first_name else '' }}{{ user.last_name[:1] if user.last_name else '' }}</span>
+                      {% endif %}
+                    </span>
+                    <div>
+                      <a href="{{ url_for('team.user_detail', user_id=user.id) }}" class="fw-semibold text-dark">{{ user.full_name }}</a>
+                      <!-- KPI Clienti per stato_coach -->
+                      <div class="d-flex align-items-center gap-1 mt-1" style="font-size: 10px;">
+                        <span class="stato-badge stato-attivo" style="padding: 2px 6px; font-size: 9px;" title="Clienti Attivi">
+                          <i class="ri-circle-fill" style="font-size: 5px;"></i> {{ user.cliente_kpi.attivo }}
+                        </span>
+                        <span class="stato-badge stato-ghost" style="padding: 2px 6px; font-size: 9px;" title="Clienti Ghost">
+                          <i class="ri-circle-fill" style="font-size: 5px;"></i> {{ user.cliente_kpi.ghost }}
+                        </span>
+                        <span class="stato-badge stato-pausa" style="padding: 2px 6px; font-size: 9px;" title="Clienti in Pausa">
+                          <i class="ri-circle-fill" style="font-size: 5px;"></i> {{ user.cliente_kpi.pausa }}
+                        </span>
+                        <span class="stato-badge stato-stop" style="padding: 2px 6px; font-size: 9px;" title="Clienti Stop">
+                          <i class="ri-circle-fill" style="font-size: 5px;"></i> {{ user.cliente_kpi.stop }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-center">
+                  <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input toggle-disponibile" type="checkbox" role="switch"
+                           data-user-id="{{ user.id }}" {{ 'checked' if is_available else '' }}>
+                  </div>
+                </td>
+                <td class="text-center">
+                  <button class="btn btn-campo {{ 'presente' if ai_notes.get('specializzazione') else 'assente' }} btn-edit-field"
+                          data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="specializzazione"
+                          data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                    <i class="ri-{{ 'check-line' if ai_notes.get('specializzazione') else 'add-line' }}"></i>
+                  </button>
+                </td>
+                <td class="text-center">
+                  <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_ideale') else 'assente' }} btn-edit-field"
+                          data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_ideale"
+                          data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                    <i class="ri-{{ 'check-line' if ai_notes.get('target_ideale') else 'add-line' }}"></i>
+                  </button>
+                </td>
+                <td class="text-center">
+                  <button class="btn btn-campo {{ 'presente' if ai_notes.get('problematiche_efficaci') else 'assente' }} btn-edit-field"
+                          data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="problematiche_efficaci"
+                          data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                    <i class="ri-{{ 'check-line' if ai_notes.get('problematiche_efficaci') else 'add-line' }}"></i>
+                  </button>
+                </td>
+                <td class="text-center">
+                  <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_non_ideale') else 'assente' }} btn-edit-field"
+                          data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_non_ideale"
+                          data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                    <i class="ri-{{ 'check-line' if ai_notes.get('target_non_ideale') else 'add-line' }}"></i>
+                  </button>
+                </td>
+                <td class="text-center">
+                  <button class="btn btn-campo {{ 'presente' if ai_notes.get('link_calendario') else 'assente' }} btn-edit-field"
+                          data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="link_calendario"
+                          data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                    <i class="ri-{{ 'check-line' if ai_notes.get('link_calendario') else 'add-line' }}"></i>
+                  </button>
+                </td>
+                <td class="text-center">
+                  <button class="btn btn-campo {{ 'presente' if ai_notes.get('note_aggiuntive') else 'assente' }} btn-edit-field"
+                          data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="note_aggiuntive"
+                          data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                    <i class="ri-{{ 'check-line' if ai_notes.get('note_aggiuntive') else 'add-line' }}"></i>
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5">
+        <i class="ri-user-line text-muted" style="font-size: 3rem;"></i>
+        <p class="text-muted mt-2">Nessun coach attivo trovato</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</section>
+
+<!-- Modal Modifica Campo -->
+<div class="modal fade" id="editFieldModal" tabindex="-1" aria-labelledby="editFieldModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+        <h5 class="modal-title text-white" id="editFieldModalLabel">
+          <i class="ri-edit-line me-2"></i>
+          <span id="modal-field-title"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modal-user-id">
+        <input type="hidden" id="modal-field-name">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            <i class="ri-user-line me-1"></i>
+            Professionista
+          </label>
+          <p class="form-control-plaintext fw-semibold" id="modal-user-name-display"></p>
+        </div>
+
+        <div class="mb-0">
+          <label for="modal-field-value" class="form-label fw-semibold" id="modal-field-label"></label>
+          <textarea class="form-control" id="modal-field-value" rows="5"
+                    style="border: 2px solid rgba(249, 115, 22, 0.2); border-radius: 12px;"></textarea>
+          <small class="text-muted" id="modal-field-help"></small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn text-white" id="btnSaveField" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+          <i class="ri-save-line me-1"></i> Salva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Configurazione campi
+    const fieldConfig = {
+        'specializzazione': {
+            title: 'Specializzazione',
+            label: 'Specializzazione',
+            help: 'Descrivi le competenze e specialità del coach',
+            placeholder: 'Es: Coach fitness con focus su forza, preparazione atletica...'
+        },
+        'target_ideale': {
+            title: 'Target Ideale',
+            label: 'Target Ideale di Cliente',
+            help: 'Descrivi il tipo di cliente ideale per questo coach',
+            placeholder: 'Es: Adulti 25-45 anni, sportivi amatoriali, persone motivate...'
+        },
+        'problematiche_efficaci': {
+            title: 'Problematiche Gestite',
+            label: 'Problematiche Gestite con Efficacia',
+            help: 'Obiettivi o problematiche che il coach gestisce con maggiore efficacia',
+            placeholder: 'Es: Perdita peso, tonificazione, preparazione gare...'
+        },
+        'target_non_ideale': {
+            title: 'Target NON Ideale',
+            label: 'Target NON Ideale (Esclusioni)',
+            help: 'Tipologie di clienti che NON dovrebbero essere assegnati a questo coach',
+            placeholder: 'Es: Minori di 18 anni, persone con limitazioni motorie severe...'
+        },
+        'link_calendario': {
+            title: 'Link Calendario',
+            label: 'Link Calendario Prenotazioni',
+            help: 'Link per la prenotazione appuntamenti (Calendly, Cal.com, ecc.)',
+            placeholder: 'https://calendly.com/...'
+        },
+        'note_aggiuntive': {
+            title: 'Note Aggiuntive',
+            label: 'Note Aggiuntive',
+            help: 'Altre note utili per l\'assegnazione AI',
+            placeholder: 'Altre informazioni utili...'
+        }
+    };
+
+    // Toggle disponibilità rapido
+    document.querySelectorAll('.toggle-disponibile').forEach(function(toggle) {
+        toggle.addEventListener('change', function() {
+            const userId = this.dataset.userId;
+            const isChecked = this.checked;
+            const row = document.getElementById('row-' + userId);
+
+            fetch(`/team/api/assegnazioni/${userId}/toggle-disponibile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.disponibile) {
+                        row.classList.remove('row-non-disponibile');
+                    } else {
+                        row.classList.add('row-non-disponibile');
+                    }
+                    showToast(data.message, 'success');
+                } else {
+                    toggle.checked = !isChecked;
+                    showToast(data.message || 'Errore', 'danger');
+                }
+            })
+            .catch(error => {
+                toggle.checked = !isChecked;
+                showToast('Errore di connessione', 'danger');
+            });
+        });
+    });
+
+    // Apertura modal per campo singolo
+    document.querySelectorAll('.btn-edit-field').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const fieldName = this.dataset.field;
+            const config = fieldConfig[fieldName];
+
+            document.getElementById('modal-user-id').value = userId;
+            document.getElementById('modal-field-name').value = fieldName;
+            document.getElementById('modal-user-name-display').textContent = userName;
+            document.getElementById('modal-field-title').textContent = config.title + ' - ' + userName;
+            document.getElementById('modal-field-label').innerHTML = '<i class="ri-file-text-line me-1"></i>' + config.label;
+            document.getElementById('modal-field-help').textContent = config.help;
+            document.getElementById('modal-field-value').placeholder = config.placeholder;
+            document.getElementById('modal-field-value').value = '';
+
+            // Carica valore esistente
+            fetch(`/team/api/assegnazioni/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('modal-field-value').value = data.assignment_ai_notes[fieldName] || '';
+                    }
+                })
+                .catch(error => console.error('Errore caricamento:', error));
+        });
+    });
+
+    // Salva campo singolo
+    document.getElementById('btnSaveField').addEventListener('click', function() {
+        const userId = document.getElementById('modal-user-id').value;
+        const fieldName = document.getElementById('modal-field-name').value;
+        const fieldValue = document.getElementById('modal-field-value').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        const data = {};
+        data[fieldName] = fieldValue;
+
+        fetch(`/team/api/assegnazioni/${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+
+            if (result.success) {
+                showToast('Campo salvato con successo!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editFieldModal')).hide();
+
+                // Aggiorna il bottone nella tabella
+                const tableBtn = document.querySelector(`button[data-user-id="${userId}"][data-field="${fieldName}"]`);
+                if (tableBtn) {
+                    if (fieldValue && fieldValue.trim()) {
+                        tableBtn.classList.remove('assente');
+                        tableBtn.classList.add('presente');
+                        tableBtn.innerHTML = '<i class="ri-check-line"></i>';
+                    } else {
+                        tableBtn.classList.remove('presente');
+                        tableBtn.classList.add('assente');
+                        tableBtn.innerHTML = '<i class="ri-add-line"></i>';
+                    }
+                }
+            } else {
+                showToast(result.message || 'Errore nel salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+            showToast('Errore di connessione', 'danger');
+        });
+    });
+
+    // Toast helper
+    function showToast(message, type) {
+        const toastContainer = document.getElementById('toast-container') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        toastContainer.appendChild(toast);
+        new bootstrap.Toast(toast, { delay: 3000 }).show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+        return container;
+    }
+});
+</script>
+{% endblock %}

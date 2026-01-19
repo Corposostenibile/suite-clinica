@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Dettagli Trial User - {{ user.full_name }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h3 class="fw-semibold">Dettagli Trial User: {{ user.full_name }}</h3>
+        <div>
+            <a href="{{ url_for('team.trial_users_list') }}" class="btn btn-secondary">
+                <i class="ri-arrow-left-line"></i> Torna alla lista
+            </a>
+            <a href="{{ url_for('team.trial_user_edit', user_id=user.id) }}" class="btn btn-primary">
+                <i class="ri-edit-line"></i> Modifica
+            </a>
+            {# Pulsante elimina temporaneamente nascosto
+            <a href="#" onclick="deleteTrialUser({{ user.id }}); return false;" class="btn btn-danger">
+                <i class="ri-delete-bin-line"></i> Elimina
+            </a>
+            #}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Info User -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="ri-user-star-line" style="font-size: 4rem; color: #ffc107;"></i>
+                    </div>
+                    <h4>{{ user.full_name }}</h4>
+                    <p class="text-muted">{{ user.email }}</p>
+
+                    <div class="mb-3">
+                        {% if user.trial_stage == 1 %}
+                            <span class="badge bg-info fs-6">Stage 1: Dashboard + Training</span>
+                        {% elif user.trial_stage == 2 %}
+                            <span class="badge bg-warning fs-6">Stage 2: Clienti Selezionati</span>
+                        {% else %}
+                            <span class="badge bg-success fs-6">Stage 3: Pronto per Promozione</span>
+                        {% endif %}
+                    </div>
+
+                    {% if user.trial_stage < 3 %}
+                    <a href="{{ url_for('team.trial_user_promote', user_id=user.id) }}"
+                       class="btn btn-success btn-sm w-100 mb-2">
+                        <i class="ri-arrow-up-line"></i> Promuovi a Stage {{ user.trial_stage + 1 }}
+                    </a>
+                    {% endif %}
+
+                    {% if user.trial_stage >= 2 %}
+                    <a href="{{ url_for('team.trial_user_assign_clients', user_id=user.id) }}"
+                       class="btn btn-warning btn-sm w-100">
+                        <i class="ri-user-add-line"></i> Assegna Clienti
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Dettagli -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Informazioni</h5>
+
+                    <div class="mb-2">
+                        <small class="text-muted">Dipartimento:</small><br>
+                        <strong>{{ user.department.name if user.department else "Non assegnato" }}</strong>
+                    </div>
+
+                    <div class="mb-2">
+                        <small class="text-muted">Ruolo:</small><br>
+                        <strong>{{ user.job_title or "Non specificato" }}</strong>
+                    </div>
+
+                    <div class="mb-2">
+                        <small class="text-muted">Supervisor:</small><br>
+                        <strong>{{ user.trial_supervisor.full_name if user.trial_supervisor else "Nessuno" }}</strong>
+                    </div>
+
+                    <div class="mb-2">
+                        <small class="text-muted">Data Inizio Trial:</small><br>
+                        <strong>{{ user.trial_started_at.strftime('%d/%m/%Y %H:%M') if user.trial_started_at else "N/D" }}</strong>
+                    </div>
+
+                    {% if user.trial_promoted_at %}
+                    <div class="mb-2">
+                        <small class="text-muted">Data Promozione:</small><br>
+                        <strong>{{ user.trial_promoted_at.strftime('%d/%m/%Y %H:%M') }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Clienti Assegnati -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Clienti Assegnati ({{ assigned_clients|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if user.trial_stage < 2 %}
+                        <div class="alert alert-info">
+                            <i class="ri-information-line"></i>
+                            L'utente è in Stage 1 e non può ancora avere clienti assegnati.
+                            Promuovi l'utente a Stage 2 per abilitare l'assegnazione clienti.
+                        </div>
+                    {% elif assigned_clients %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Programma</th>
+                                        <th>Assegnato il</th>
+                                        <th>Assegnato da</th>
+                                        <th>Note</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cliente, assigned_at, notes, assigned_by_name in assigned_clients %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('customers.detail_view', cliente_id=cliente.cliente_id) }}" target="_blank">
+                                                {{ cliente.nome_cognome }}
+                                            </a>
+                                        </td>
+                                        <td>{{ cliente.programma_attuale or "N/D" }}</td>
+                                        <td>{{ assigned_at.strftime('%d/%m/%Y') }}</td>
+                                        <td>{{ assigned_by_name or "Sistema" }}</td>
+                                        <td>
+                                            {% if notes %}
+                                                <span title="{{ notes }}">{{ notes[:30] }}{% if notes|length > 30 %}...{% endif %}</span>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <form method="POST" action="{{ url_for('team.trial_user_remove_client', user_id=user.id, cliente_id=cliente.cliente_id) }}"
+                                                  style="display: inline;"
+                                                  onsubmit="return confirm('Rimuovere questo cliente?');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Rimuovi">
+                                                    <i class="ri-delete-bin-line"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="ri-user-line" style="font-size: 3rem; color: #ccc;"></i>
+                            <p class="text-muted mt-2">Nessun cliente assegnato</p>
+                            {% if user.trial_stage >= 2 %}
+                            <a href="{{ url_for('team.trial_user_assign_clients', user_id=user.id) }}"
+                               class="btn btn-warning btn-sm">
+                                <i class="ri-user-add-line"></i> Assegna Clienti
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Timeline Attività -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Timeline Attività</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% if user.trial_promoted_at %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Promosso a User Ufficiale</h6>
+                                <small class="text-muted">{{ user.trial_promoted_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% for cliente, assigned_at, notes, assigned_by_name in assigned_clients[:5] %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Cliente assegnato: {{ cliente.nome_cognome }}</h6>
+                                <small class="text-muted">{{ assigned_at.strftime('%d/%m/%Y %H:%M') }} da {{ assigned_by_name or "Sistema" }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% if user.trial_started_at %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Iniziato periodo di prova</h6>
+                                <small class="text-muted">{{ user.trial_started_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item:before {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 20px;
+    height: calc(100% - 10px);
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item:last-child:before {
+    display: none;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -25px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+</style>
+
+<script>
+function deleteTrialUser(userId) {
+    if (confirm('Sei sicuro di voler eliminare questo trial user? Verranno rimosse anche tutte le assegnazioni dei clienti. Questa azione non può essere annullata.')) {
+        $.ajax({
+            url: '/team/trial-users/' + userId + '/delete',
+            type: 'POST',
+            success: function(response) {
+                // Redirect to the list page
+                window.location.href = '/team/trial-users';
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', xhr.status, error);
+                alert('Errore durante l\'eliminazione. Status: ' + xhr.status);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

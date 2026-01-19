@@ -1,0 +1,738 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Sales Form – Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<!-- SweetAlert2 CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+<style>
+  /* Root Variables */
+  :root {
+    --primary-color: #487FFF;
+    --success-color: #45CB85;
+    --danger-color: #DC3545;
+    --warning-color: #F0AD4E;
+    --info-color: #5BC0DE;
+    --light-color: #F8FAFC;
+    --dark-color: #1A3366;
+  }
+
+  /* Card Styles */
+  .card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: white;
+    transition: all 0.3s ease;
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+    border-bottom: 1px solid #E2E8F0;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 20px 24px;
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  /* Page Header */
+  .page-header {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .page-header h4 {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .page-header p {
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 0;
+  }
+
+  /* Stats Badges */
+  .stat-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Table Styles */
+  .table-modern {
+    margin-bottom: 0;
+  }
+
+  .table-modern thead th {
+    background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+    color: var(--dark-color);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px;
+    border-bottom: 2px solid #E2E8F0;
+  }
+
+  .table-modern tbody tr {
+    border-bottom: 1px solid #F1F5F9;
+    transition: all 0.2s;
+  }
+
+  .table-modern tbody tr:hover {
+    background-color: #F8FAFC;
+  }
+
+  .table-modern tbody td {
+    padding: 16px;
+    vertical-align: middle;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .empty-state i {
+    font-size: 4rem;
+    color: #45CB85;
+    margin-bottom: 20px;
+  }
+
+  .empty-state h5 {
+    color: #64748B;
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    color: #94A3B8;
+  }
+
+  /* Buttons */
+  .btn-success {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    border: none;
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-success:hover {
+    background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+    color: white;
+  }
+
+  /* Modal Headers */
+  .modal-header-gradient {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-content {
+    border-radius: 16px;
+    border: none;
+  }
+
+  /* Pagination */
+  .pagination {
+    gap: 8px;
+  }
+
+  .pagination .page-link {
+    border-radius: 8px;
+    border: 1px solid #E2E8F0;
+    color: #475569;
+    font-weight: 500;
+    padding: 8px 16px;
+    transition: all 0.2s;
+  }
+
+  .pagination .page-link:hover {
+    background: #F8FAFC;
+    border-color: #45CB85;
+    color: #45CB85;
+  }
+
+  .pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    border-color: #45CB85;
+    color: white;
+  }
+
+  .pagination .page-item.disabled .page-link {
+    background: #F8FAFC;
+    border-color: #E2E8F0;
+    color: #94A3B8;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h4><i class="ri-trophy-line me-2"></i>Dashboard Sales</h4>
+        <p>Gestione lead e performance vendite</p>
+      </div>
+      <div class="col-md-4 text-end">
+        <div class="d-flex gap-2 justify-content-end align-items-center flex-wrap">
+          <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#createLeadModal">
+            <i class="ri-user-add-line me-1"></i> Nuova Lead
+          </button>
+          <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#linkModal">
+            <i class="ri-link me-1"></i> Il mio Link
+          </button>
+          <div class="stat-badge">
+            <i class="ri-group-line me-1"></i>
+            {{ stats.total_leads }} lead totali
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{# ─────────────────────── FILTRI ─────────────────────── #}
+<div class="card mb-24">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('sales_form.dashboard') }}" id="filterForm">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Da Data</label>
+          <input type="date" class="form-control" name="date_from" value="{{ request.args.get('date_from', '') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">A Data</label>
+          <input type="date" class="form-control" name="date_to" value="{{ request.args.get('date_to', '') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Ricerca</label>
+          <input type="text" class="form-control" name="search" placeholder="Nome, email, telefono..."
+                 value="{{ request.args.get('search', '') }}">
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">
+            <i class="ri-search-line me-1"></i> Filtra
+          </button>
+          <a href="{{ url_for('sales_form.dashboard') }}" class="btn btn-outline-secondary" title="Reset filtri">
+            <i class="ri-refresh-line"></i>
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ─────────────────────── KPI FILTRATE ─────────────────────── #}
+<div class="row gy-4 mb-32">
+  <!-- Lead Totali -->
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-1">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:account-multiple" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Lead Totali</span>
+          <h4 class="fw-semibold mb-0">{{ stats.total_leads }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- € Previsto Pacchetti -->
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:package-variant" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">€ Previsto Pacchetti</span>
+          <h4 class="fw-semibold mb-0">€{{ "{:,.0f}".format(stats.expected_revenue) }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- € Pagamenti Inseriti -->
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-3">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:cash-multiple" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">€ Pagamenti Inseriti</span>
+          <h4 class="fw-semibold mb-0">€{{ "{:,.0f}".format(stats.paid_amount) }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- € Pagamenti Approvati -->
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-4">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:check-circle" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">€ Pagamenti Approvati</span>
+          <h4 class="fw-semibold mb-0">€{{ "{:,.0f}".format(stats.approved_amount) }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── LEAD TABLE ─────────────────────── #}
+<div class="card mb-5">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-3">
+      <h6 class="card-title mb-0">Le Mie Lead</h6>
+      <a href="{{ url_for('sales_form.archived_leads') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="ri-archive-line me-1"></i> Archivio
+      </a>
+    </div>
+    <div class="d-flex gap-2">
+      {% for status, count in status_counts.items() %}
+      <span class="badge
+        {% if status == 'NEW' %}bg-secondary
+        {% elif status == 'CONTACTED' %}bg-info
+        {% elif status == 'QUALIFIED' %}bg-primary
+        {% elif status == 'CONVERTED' %}bg-success
+        {% elif status == 'LOST' %}bg-danger
+        {% else %}bg-warning{% endif %}">
+        {{ status|replace('_', ' ')|title }}: {{ count }}
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card-body">
+    {% if leads.items %}
+    <div class="table-responsive">
+      <table class="table table-modern">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Contatto</th>
+            <th>Stato</th>
+            <th>Pacchetto</th>
+            <th>Pagamento</th>
+            <th>Data</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads.items %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center">
+                <div>
+                  <h6 class="mb-0 fw-medium">{{ lead.full_name }}</h6>
+                  {% if lead.company %}
+                  <span class="text-muted text-sm">{{ lead.company }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              <div>
+                <span class="d-block text-sm">{{ lead.email }}</span>
+                <span class="text-muted text-sm">{{ lead.phone }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge
+                {% if lead.status.value == 'NEW' %}bg-secondary-subtle text-secondary-main
+                {% elif lead.status.value == 'CONTACTED' %}bg-info-subtle text-info-main
+                {% elif lead.status.value == 'QUALIFIED' %}bg-primary-subtle text-primary-main
+                {% elif lead.status.value == 'CONVERTED' %}bg-success-subtle text-success-main
+                {% elif lead.status.value == 'LOST' %}bg-danger-subtle text-danger-main
+                {% else %}bg-warning-subtle text-warning-main{% endif %}">
+                <i class="ri-checkbox-blank-circle-fill me-1"></i>
+                {{ lead.status.value|replace('_', ' ')|title }}
+              </span>
+            </td>
+            <td>
+              {% if lead.package %}
+                <span class="fw-medium">{{ lead.package.name }}</span>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if lead.final_amount %}
+                <div>
+                  <span class="fw-semibold">€{{ "{:,.0f}".format(lead.final_amount) }}</span>
+                  {% if lead.payment_status == 'PAID' %}
+                    <span class="badge bg-success ms-1">Pagato</span>
+                  {% elif lead.payment_status == 'PARTIAL' %}
+                    <span class="badge bg-warning ms-1">Parziale</span>
+                  {% elif lead.payment_status == 'PENDING' %}
+                    <span class="badge bg-secondary ms-1">In attesa</span>
+                  {% endif %}
+                </div>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="text-sm">{{ lead.created_at.strftime('%d/%m/%Y') }}</span>
+            </td>
+            <td>
+              <a href="{{ url_for('sales_form.lead_detail', lead_id=lead.id) }}"
+                 class="btn btn-sm btn-outline-primary" title="Visualizza">
+                <i class="ri-eye-line"></i> Visualizza
+              </a>
+              {% if lead.status.value != 'CONVERTED' %}
+              <form method="POST" action="{{ url_for('sales_form.archive_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Archiviare questa lead?\n\nLa lead manterrà il suo stato attuale e sarà spostata nell\'archivio.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archivia lead">
+                  <i class="ri-archive-line"></i>
+                </button>
+              </form>
+              {% endif %}
+              {% if current_user.is_admin %}
+              <form method="POST" action="{{ url_for('sales_form.delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('⚠️ ATTENZIONE: Eliminare DEFINITIVAMENTE questa lead?\n\nLead: {{ lead.full_name }}\n\nQuesta operazione è IRREVERSIBILE!');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina definitivamente (SOLO ADMIN)">
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="ri-inbox-line"></i>
+      <h5>Nessuna lead trovata</h5>
+      <p>Non ci sono lead che corrispondono ai filtri selezionati.</p>
+      <button class="btn btn-success mt-3" data-bs-toggle="modal" data-bs-target="#createLeadModal">
+        <i class="ri-user-add-line me-1"></i> Crea la tua prima lead
+      </button>
+    </div>
+    {% endif %}
+
+    {# Paginazione #}
+    {% if leads.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-3">
+      <ul class="pagination justify-content-center">
+        {% if leads.has_prev %}
+        <li class="page-item">
+          <a class="page-link" href="{{ url_for('sales_form.dashboard', page=leads.prev_num, **request.args) }}">
+            <i class="ri-arrow-left-s-line"></i>
+          </a>
+        </li>
+        {% endif %}
+
+        {% for page_num in leads.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+          {% if page_num %}
+            <li class="page-item {% if page_num == leads.page %}active{% endif %}">
+              <a class="page-link" href="{{ url_for('sales_form.dashboard', page=page_num, **request.args) }}">
+                {{ page_num }}
+              </a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if leads.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="{{ url_for('sales_form.dashboard', page=leads.next_num, **request.args) }}">
+            <i class="ri-arrow-right-s-line"></i>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+
+{# ─────────────────────── MODAL CONDIVIDI LINK ─────────────────────── #}
+<div class="modal fade" id="linkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header modal-header-gradient">
+        <h5 class="modal-title"><i class="ri-link me-2"></i>Il Mio Link Sales Form</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Il tuo link personale:</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="linkInput"
+                   value="{{ request.url_root }}welcome-form/{{ my_link.unique_code }}" readonly>
+            <button class="btn btn-outline-secondary" onclick="toggleLinkVisibility()" id="toggleLinkBtn" title="Mostra/Nascondi link">
+              <i class="ri-eye-line"></i>
+            </button>
+            <button class="btn btn-primary" onclick="copyLinkToClipboard()">
+              <i class="ri-clipboard-line"></i> Copia
+            </button>
+          </div>
+          <small class="text-muted">
+            <i class="ri-information-line me-1"></i>Il link contiene un codice univoco. Clicca sull'occhio per mostrarlo.
+          </small>
+        </div>
+
+        {% if my_link.custom_message %}
+        <div class="alert alert-info">
+          <strong>Messaggio personalizzato:</strong><br>
+          {{ my_link.custom_message }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL SELEZIONA PACCHETTO ─────────────────────── #}
+<div class="modal fade" id="packageModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header modal-header-gradient">
+        <h5 class="modal-title"><i class="ri-package-line me-2"></i>Seleziona Pacchetto</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="packageForm">
+          <!-- Contenuto dinamico -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL CREA LEAD MANUALMENTE ─────────────────────── #}
+<div class="modal fade" id="createLeadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header modal-header-gradient">
+        <h5 class="modal-title">
+          <i class="ri-user-add-line me-2"></i>Crea Nuova Lead
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="createLeadForm">
+          <div class="mb-3">
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="leadFirstName" name="first_name" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Cognome <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="leadLastName" name="last_name" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Email <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" id="leadEmail" name="email" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Telefono</label>
+            <input type="tel" class="form-control" id="leadPhone" name="phone" placeholder="+39 ...">
+          </div>
+
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            <small>La lead sarà automaticamente assegnata a te e inizierà con stato <strong>CONTACTED</strong>.</small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-success-600" onclick="createLeadManually()">
+          <i class="ri-save-line me-1"></i> Crea Lead
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div> <!-- Close container-fluid -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ========== CREA LEAD MANUALMENTE ==========
+function createLeadManually() {
+  const form = document.getElementById('createLeadForm');
+
+  // Validazione
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const formData = {
+    first_name: document.getElementById('leadFirstName').value.trim(),
+    last_name: document.getElementById('leadLastName').value.trim(),
+    email: document.getElementById('leadEmail').value.trim(),
+    phone: document.getElementById('leadPhone').value.trim()
+  };
+
+  // Validazione email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    Swal.fire('Errore', 'Inserisci un indirizzo email valido', 'error');
+    return;
+  }
+
+  // Disabilita pulsante
+  const submitBtn = event.target;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Creazione...';
+
+  // Chiamata API
+  fetch('/sales-form/api/leads/create-manual', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken()
+    },
+    body: JSON.stringify(formData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Chiudi modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('createLeadModal'));
+      modal.hide();
+
+      // Reset form
+      form.reset();
+
+      // Success notification
+      Swal.fire({
+        icon: 'success',
+        title: 'Lead Creata!',
+        text: data.message,
+        showConfirmButton: true,
+        confirmButtonText: 'Visualizza Lead'
+      }).then((result) => {
+        if (result.isConfirmed && data.lead?.id) {
+          // Vai al dettaglio lead
+          window.location.href = `/sales-form/lead/${data.lead.id}`;
+        } else {
+          // Ricarica la pagina
+          location.reload();
+        }
+      });
+    } else {
+      Swal.fire('Errore', data.error || 'Si è verificato un errore', 'error');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="ri-save-line me-1"></i> Crea Lead';
+    }
+  })
+  .catch(error => {
+    console.error('Errore:', error);
+    Swal.fire('Errore', 'Errore di connessione. Riprova.', 'error');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="ri-save-line me-1"></i> Crea Lead';
+  });
+}
+
+// ========== LINK MANAGEMENT ==========
+function copyLinkToClipboard() {
+  const linkInput = document.getElementById('linkInput') ||
+                   document.createElement('input');
+  linkInput.value = "{{ request.url_root }}welcome-form/{{ my_link.unique_code }}";
+  linkInput.select();
+  linkInput.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(linkInput.value);
+
+  // Toast notification
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon: 'success',
+    title: 'Link copiato!',
+    showConfirmButton: false,
+    timer: 2000
+  });
+}
+
+// Removed shareWhatsApp and shareEmail functions
+
+function updateLeadStatus(leadId, status) {
+  fetch(`/sales-form/api/lead/${leadId}/status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken()
+    },
+    body: JSON.stringify({ status: status })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      location.reload();
+    } else {
+      Swal.fire('Errore', data.message, 'error');
+    }
+  });
+}
+
+function selectPackage(leadId) {
+  // Carica pacchetti disponibili
+  fetch(`/sales-form/api/packages`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showPackageModal(leadId, data.packages);
+      }
+    });
+}
+
+function showPackageModal(leadId, packages) {
+  // Implementazione modal selezione pacchetto
+  const modal = new bootstrap.Modal(document.getElementById('packageModal'));
+  modal.show();
+}
+
+function toggleLinkVisibility() {
+  const linkInput = document.getElementById('linkInput');
+  const toggleBtn = document.getElementById('toggleLinkBtn');
+  const icon = toggleBtn.querySelector('i');
+
+  if (linkInput.type === 'password') {
+    linkInput.type = 'text';
+    icon.classList.remove('ri-eye-line');
+    icon.classList.add('ri-eye-off-line');
+  } else {
+    linkInput.type = 'password';
+    icon.classList.remove('ri-eye-off-line');
+    icon.classList.add('ri-eye-line');
+  }
+}
+
+function getCsrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content ||
+         document.querySelector('input[name="csrf_token"]')?.value || '';
+}
+</script>
+{% endblock %}

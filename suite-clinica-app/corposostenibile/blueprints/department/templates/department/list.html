@@ -1,0 +1,347 @@
+{# blueprints/department/templates/department/list.html #}
+{% extends "base.html" %}
+
+{% block title %}Dipartimenti • Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Mobile optimization for department table */
+  @media (max-width: 768px) {
+    /* Hide table wrapper borders on mobile */
+    .card {
+      border: none;
+      box-shadow: none;
+    }
+    
+    .card-header {
+      display: none;
+    }
+    
+    .card-body {
+      padding: 0 !important;
+    }
+    
+    /* Hide table headers on mobile */
+    .departments-table thead {
+      display: none;
+    }
+    
+    /* Make each row a beautiful card */
+    .departments-table tbody tr {
+      display: block;
+      margin-bottom: 1rem;
+      border: none;
+      border-radius: 16px;
+      padding: 0;
+      background: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .departments-table tbody tr:active {
+      transform: scale(0.98);
+    }
+    
+    /* Make cells block level */
+    .departments-table tbody td {
+      display: block;
+      text-align: left !important;
+      padding: 0;
+      border: none;
+    }
+    
+    /* Department name as card header */
+    .departments-table tbody td:nth-child(1) {
+      background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+      padding: 1.25rem;
+      margin-bottom: 0;
+    }
+    
+    .departments-table tbody td:nth-child(1) a {
+      color: white !important;
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    
+    .departments-table tbody td:nth-child(1) a:after {
+      content: '\2192';
+      font-size: 1.5rem;
+      opacity: 0.8;
+    }
+    
+    /* Manager info */
+    .departments-table tbody td:nth-child(2) {
+      padding: 1rem 1.25rem;
+      background: #f8f9fa;
+    }
+    
+    .departments-table tbody td:nth-child(2):before {
+      content: attr(data-label);
+      font-weight: 500;
+      color: #6c757d;
+      display: block;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+    }
+    
+    .departments-table tbody td:nth-child(2) span,
+    .departments-table tbody td:nth-child(2) em {
+      font-size: 1rem;
+    }
+    
+    /* Actions section */
+    .departments-table tbody td:last-child {
+      padding: 1rem;
+      background: white;
+      margin-top: 0;
+      border-top: none;
+    }
+    
+    /* Button group on mobile */
+    .btn-group-mobile {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    
+    .btn-group-mobile form {
+      grid-column: span 2;
+    }
+    
+    .btn-group-mobile .btn {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 0.875rem;
+      border-radius: 8px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-group-mobile .btn-outline-success {
+      background: #e8f5e9;
+      border-color: #28c76f;
+      color: #28c76f;
+    }
+    
+    .btn-group-mobile .btn-outline-danger {
+      background: #ffeef0;
+      border-color: #dc3545;
+      color: #dc3545;
+    }
+    
+    /* Department logo */
+    .dept-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: white;
+      flex-shrink: 0;
+      margin-right: 0.75rem;
+    }
+  }
+  
+  /* Desktop view improvements */
+  @media (min-width: 769px) {
+    .departments-table th {
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.875rem;
+      letter-spacing: 0.025em;
+      color: #6c757d;
+    }
+    
+    .btn-group-mobile {
+      display: inline-flex;
+      gap: 0.25rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- ▸ TITOLO + CTA ==================================================== -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Dipartimenti</h6>
+
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('department.department_create') }}"
+       class="btn btn-primary d-flex align-items-center gap-2">
+      <iconify-icon icon="ri:add-line" class="icon text-lg"></iconify-icon>
+      Nuovo Dipartimento
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- ▸ FLASH MESSAGES ================================================== -->
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      <div class="mb-24">
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='warning'
+                                     else 'success' if cat=='success'
+                                     else cat }} alert-dismissible fade show">
+            {{ msg }}
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ▸ TABELLA REPARTI ================================================ -->
+  {% if pagination.items %}
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Lista Dipartimenti</h5>
+      </div>
+      <div class="card-body p-0">
+
+        <!--  NOTA  ────────────────────────────────────────────────────
+              .table-responsive è fuori dalla card-body per evitare
+              “salti” / scatti dello scroll orizzontale sui device
+              touch.  L’overflow è gestito direttamente da Bootstrap.
+        ----------------------------------------------------------------- -->
+        <div class="table-responsive">
+          <table class="table basic-border-table mb-0 align-middle departments-table">
+            <thead class="table-light">
+              <tr>
+                <th>Nome</th>
+                <th>Manager Dipartimento</th>
+                <th class="text-end">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dept in pagination.items %}
+                <tr>
+                  <!-- Nome reparto -->
+                  <td data-label="">
+                    <a href="{{ url_for('department.department_detail', dept_id=dept.id) }}"
+                       class="text-primary-600 fw-semibold">
+                      <img src="{{ url_for('static', filename='assets/immagini/logo_mini.png') }}" 
+                           alt="Logo" 
+                           class="d-md-none dept-logo">
+                      <span>{{ dept.name }}</span>
+                    </a>
+                  </td>
+
+                  <!-- Capo reparto -->
+                  <td data-label="Manager:">
+                    {% if dept.head %}
+                      <span class="fw-semibold">{{ dept.head.full_name }}</span>
+                    {% else %}
+                      <em class="text-muted">Non assegnato</em>
+                    {% endif %}
+                  </td>
+
+                  <!-- Azioni -->
+                  <td class="text-end" data-label="">
+
+                    <div class="btn-group-mobile">
+                      <!-- Dettaglio (Visualizza) - visibile a tutti -->
+                      <a href="{{ url_for('department.department_detail', dept_id=dept.id) }}"
+                         class="btn btn-sm btn-outline-success"
+                         title="Dettaglio">
+                        <iconify-icon icon="mdi:eye-outline" class="icon text-md"></iconify-icon>
+                        <span class="d-md-none ms-1">Dettagli</span>
+                      </a>
+
+                      {% if current_user.is_admin %}
+                      <!-- Modifica - solo admin -->
+                      <a href="{{ url_for('department.department_edit', dept_id=dept.id) }}"
+                         class="btn btn-sm btn-outline-success"
+                         title="Modifica">
+                        <iconify-icon icon="lucide:edit" class="icon text-md"></iconify-icon>
+                        <span class="d-md-none ms-1">Modifica</span>
+                      </a>
+
+                      <!-- Elimina - solo admin -->
+                      <form method="post"
+                            action="{{ url_for('department.department_delete', dept_id=dept.id) }}"
+                            class="d-inline"
+                            onsubmit="return confirm('Eliminare definitivamente il dipartimento?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit"
+                                class="btn btn-sm btn-outline-danger"
+                                title="Elimina">
+                          <iconify-icon icon="fluent:delete-24-regular" class="icon text-md"></iconify-icon>
+                          <span class="d-md-none ms-1">Elimina</span>
+                        </button>
+                      </form>
+                      {% endif %}
+                    </div>
+
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div><!-- /.table-responsive -->
+      </div><!-- /.card-body -->
+    </div><!-- /.card -->
+  {% else %}
+    <p class="text-muted">Nessun dipartimento trovato.</p>
+  {% endif %}
+
+  <!-- ▸ PAGINAZIONE ===================================================== -->
+  {% if pagination.pages > 1 %}
+    <nav aria-label="Paginazione reparti" class="mt-24">
+      <ul class="pagination justify-content-center mb-0">
+
+        <!-- « Prev -->
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link"
+             aria-label="Precedente"
+             href="{{ url_for('department.department_list',
+                              page=pagination.prev_num,
+                              q=q) if pagination.has_prev else '#' }}">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+
+        {% for p in pagination.iter_pages(left_edge=1,
+                                          right_edge=1,
+                                          left_current=2,
+                                          right_current=2) %}
+          {% if p %}
+            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+              <a class="page-link"
+                 href="{{ url_for('department.department_list',
+                                  page=p,
+                                  q=q) }}">{{ p }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Next » -->
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link"
+             aria-label="Successivo"
+             href="{{ url_for('department.department_list',
+                              page=pagination.next_num,
+                              q=q) if pagination.has_next else '#' }}">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  {% endif %}
+
+</section>
+{% endblock %}

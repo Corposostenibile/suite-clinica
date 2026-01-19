@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Dettagli Meeting - {{ meeting.title }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Dettagli Meeting</h6>
+    <ul class="d-flex align-items-center gap-2">
+      <li class="fw-medium">
+        <a href="{{ url_for('calendar.dashboard') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+          <iconify-icon icon="solar:calendar-mark-outline" class="text-lg"></iconify-icon>
+          Calendario
+        </a>
+      </li>
+      <li>-</li>
+      <li class="fw-medium">Dettagli Meeting</li>
+    </ul>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <!-- Meeting Info Card -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0">{{ meeting.title }}</h5>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Data/Ora Inizio</label>
+              <p class="mb-0">{{ meeting.start_time.strftime('%d/%m/%Y %H:%M') }}</p>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Data/Ora Fine</label>
+              <p class="mb-0">{{ meeting.end_time.strftime('%d/%m/%Y %H:%M') if meeting.end_time else '-' }}</p>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Durata</label>
+              <p class="mb-0">{{ meeting.duration_minutes }} minuti</p>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Stato</label>
+              <p class="mb-0">
+                {% if meeting.status == 'scheduled' %}
+                  <span class="badge bg-primary">Programmato</span>
+                {% elif meeting.status == 'completed' %}
+                  <span class="badge bg-success">Completato</span>
+                {% elif meeting.status == 'cancelled' %}
+                  <span class="badge bg-secondary">Cancellato</span>
+                {% elif meeting.status == 'no_show' %}
+                  <span class="badge bg-danger">No Show</span>
+                {% else %}
+                  <span class="badge bg-info">{{ meeting.status or 'N/D' }}</span>
+                {% endif %}
+              </p>
+            </div>
+          </div>
+
+          {% if meeting.description %}
+          <div class="mb-3">
+            <label class="form-label text-muted">Descrizione</label>
+            <p class="mb-0">{{ meeting.description }}</p>
+          </div>
+          {% endif %}
+
+          {% if meeting.meeting_type %}
+          <div class="mb-3">
+            <label class="form-label text-muted">Tipo Meeting</label>
+            <p class="mb-0">
+              {% if meeting.meeting_type == 'video_call' %}
+                <i class="ri-vidicon-line"></i> Video Call
+              {% elif meeting.meeting_type == 'call' %}
+                <i class="ri-phone-line"></i> Chiamata
+              {% elif meeting.meeting_type == 'in_person' %}
+                <i class="ri-user-location-line"></i> Di Persona
+              {% else %}
+                {{ meeting.meeting_type }}
+              {% endif %}
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Meeting Details Form -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Dettagli e Note</h5>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('calendar.meeting_details', meeting_id=meeting.id) }}">
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">
+              {{ form.status.label(class="form-label") }}
+              {{ form.status(class="form-select") }}
+              {% if form.status.errors %}
+                <div class="text-danger">
+                  {% for error in form.status.errors %}
+                    <small>{{ error }}</small>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              {{ form.meeting_outcome.label(class="form-label") }}
+              {{ form.meeting_outcome(class="form-control", rows=4, placeholder="Descrivi l'esito della call/meeting...") }}
+              <small class="text-muted">Documenta cosa è emerso dal meeting</small>
+            </div>
+
+            <div class="mb-3">
+              {{ form.meeting_notes.label(class="form-label") }}
+              {{ form.meeting_notes(class="form-control", rows=5, placeholder="Aggiungi note importanti...") }}
+              <small class="text-muted">Note interne, action items, follow-up necessari</small>
+            </div>
+
+            <div class="mb-3">
+              {{ form.loom_link.label(class="form-label") }}
+              <div class="input-group">
+                <span class="input-group-text">
+                  <i class="ri-video-line"></i>
+                </span>
+                {{ form.loom_link(class="form-control", placeholder="https://www.loom.com/share/...") }}
+              </div>
+              <small class="text-muted">Link alla registrazione Loom del meeting</small>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="ri-save-line"></i> Salva Modifiche
+              </button>
+              <a href="{{ url_for('calendar.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="ri-arrow-left-line"></i> Torna al Calendario
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <!-- Cliente Info -->
+      {% if meeting.cliente %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Cliente Associato</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <div class="avatar-sm me-3">
+              <span class="avatar-title bg-primary-subtle text-primary rounded-circle">
+                {{ meeting.cliente.nome_cognome[0] if meeting.cliente.nome_cognome else 'C' }}
+              </span>
+            </div>
+            <div>
+              <h6 class="mb-0">{{ meeting.cliente.nome_cognome }}</h6>
+              <small class="text-muted">ID: {{ meeting.cliente.cliente_id }}</small>
+            </div>
+          </div>
+
+          {% if meeting.cliente.email %}
+          <div class="mb-2">
+            <small class="text-muted d-block">Email</small>
+            <a href="mailto:{{ meeting.cliente.email }}">{{ meeting.cliente.email }}</a>
+          </div>
+          {% endif %}
+
+          {% if meeting.cliente.cellulare %}
+          <div class="mb-2">
+            <small class="text-muted d-block">Telefono</small>
+            <a href="tel:{{ meeting.cliente.cellulare }}">{{ meeting.cliente.cellulare }}</a>
+          </div>
+          {% endif %}
+
+          <hr>
+
+          <a href="{{ url_for('customers.customer_detail', customer_id=meeting.cliente.cliente_id) }}"
+             class="btn btn-sm btn-outline-primary w-100">
+            <i class="ri-user-line"></i> Vai alla Scheda Cliente
+          </a>
+        </div>
+      </div>
+      {% else %}
+      <div class="card mb-4">
+        <div class="card-body text-center py-4">
+          <i class="ri-user-unfollow-line text-muted" style="font-size: 3rem;"></i>
+          <p class="text-muted mt-3">Nessun cliente associato</p>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Azioni Rapide</h5>
+        </div>
+        <div class="card-body">
+          {% if meeting.loom_link %}
+          <a href="{{ meeting.loom_link }}" target="_blank"
+             class="btn btn-outline-primary w-100 mb-2">
+            <i class="ri-video-line"></i> Guarda Registrazione
+          </a>
+          {% endif %}
+
+          {% if meeting.google_event_id %}
+          <button class="btn btn-outline-info w-100 mb-2" onclick="openInGoogleCalendar()">
+            <i class="ri-google-fill"></i> Apri in Google Calendar
+          </button>
+          {% endif %}
+
+          {% if meeting.status != 'completed' %}
+          <button class="btn btn-outline-success w-100 mb-2" onclick="markAsCompleted()">
+            <i class="ri-check-line"></i> Segna come Completato
+          </button>
+          {% endif %}
+
+          {% if meeting.status != 'cancelled' %}
+          <button class="btn btn-outline-danger w-100" onclick="cancelMeeting()">
+            <i class="ri-close-line"></i> Cancella Meeting
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openInGoogleCalendar() {
+  // Costruisci URL per aprire l'evento in Google Calendar
+  const eventId = '{{ meeting.google_event_id }}';
+  // Questo richiede implementazione lato backend per costruire il link corretto
+  alert('Funzione in sviluppo');
+}
+
+function markAsCompleted() {
+  if (!confirm('Vuoi segnare questo meeting come completato?')) return;
+
+  // Update status via API
+  updateMeetingStatus('completed');
+}
+
+function cancelMeeting() {
+  if (!confirm('Sei sicuro di voler cancellare questo meeting?')) return;
+
+  // Update status via API
+  updateMeetingStatus('cancelled');
+}
+
+function updateMeetingStatus(status) {
+  fetch('{{ url_for("calendar.api_update_meeting", meeting_id=meeting.id) }}', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({ status: status })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      alert('Errore: ' + data.error);
+    } else {
+      location.reload();
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Errore nell\'aggiornamento dello stato');
+  });
+}
+</script>
+{% endblock %}

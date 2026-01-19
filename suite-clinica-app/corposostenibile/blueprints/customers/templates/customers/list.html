@@ -1,0 +1,1731 @@
+{# blueprints/customers/templates/customers/list.html #}
+{% extends "base.html" %}
+
+{% block title %}Clienti • Suite{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- ▸ TITOLO + CTA ==================================================== -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Clienti</h6>
+    <div class="d-flex gap-2">
+      {# Visuale Nutrizionista - visibile solo a admin, CCO e nutrizionisti #}
+      {% set is_nutri = current_user.department and current_user.department.name in ['Nutrizione', 'Nutrizione 2'] %}
+      {% set is_cco = current_user.department and current_user.department.name == 'CCO' %}
+      {% set is_coach = current_user.department and current_user.department.name == 'Coach' %}
+      {% set is_psico = current_user.department and current_user.department.name == 'Psicologia' %}
+      {% if current_user.is_admin or is_cco or is_nutri %}
+      <a href="{{ url_for('customers.list_nutrizionista') }}" class="btn btn-success">
+        <iconify-icon icon="ri:restaurant-line" class="icon me-1"></iconify-icon>
+        Visuale Nutrizione
+      </a>
+      {% endif %}
+      {# Visuale Coach - visibile solo a admin, CCO e coach #}
+      {% if current_user.is_admin or is_cco or is_coach %}
+      <a href="{{ url_for('customers.list_coach') }}" class="btn" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white;">
+        <iconify-icon icon="ri:run-line" class="icon me-1"></iconify-icon>
+        Visuale Coach
+      </a>
+      {% endif %}
+      {# Visuale Psicologia - visibile solo a admin, CCO e psicologi #}
+      {% if current_user.is_admin or is_cco or is_psico %}
+      <a href="{{ url_for('customers.list_psicologo') }}" class="btn" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white;">
+        <iconify-icon icon="ri:mental-health-line" class="icon me-1"></iconify-icon>
+        Visuale Psicologia
+      </a>
+      {% endif %}
+      <a href="{{ url_for('customers.create_view') }}" class="btn btn-primary">
+        <iconify-icon icon="ri:add-line" class="icon me-1"></iconify-icon>
+        Aggiungi Cliente
+      </a>
+    </div>
+  </div>
+
+  <!-- ▸ FILTRI ========================================================== -->
+  <div class="card mb-3">
+    <div class="card-header filter-card-header-enhanced">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="filter-header-title">Filtra Clienti</h5>
+          <p class="filter-header-subtitle">
+            <span id="totalResultsCount">{{ pagination.total if pagination else 0 }}</span> clienti trovati
+            <span id="activeFiltersText" class="ms-2" style="display:none;">
+              • <strong id="activeFiltersCount">0</strong> filtri attivi
+            </span>
+          </p>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-light btn-sm btn-filters-toggle" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false">
+            <iconify-icon icon="ri:equalizer-line"></iconify-icon>
+            Filtri Avanzati
+            <span id="advancedFiltersCount" class="badge bg-primary" style="display: none;">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <form method="get" class="row gy-3 gx-4">
+
+        <!-- FILTRI PRINCIPALI -->
+        <!-- Prima riga -->
+        <!-- Ricerca -->
+        <div class="col-lg-4 col-md-6">
+          <label for="{{ form.q.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">
+            Ricerca <span class="text-secondary-light">(nome cliente)</span>
+          </label>
+          {{ form.q(class="form-control", placeholder="Nome cliente…") }}
+        </div>
+
+        <!-- Tipologia -->
+        <div class="col-lg-2 col-md-3">
+          <label for="{{ form.tipologia_cliente.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Tipologia</label>
+          {{ form.tipologia_cliente(class="form-select") }}
+        </div>
+
+        <!-- Nutrizionista -->
+        <div class="col-lg-3 col-md-3">
+          <label for="{{ form.nutrizionista_id.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Nutrizionista</label>
+          {{ form.nutrizionista_id(class="form-select") }}
+        </div>
+        
+        <!-- Coach -->
+        <div class="col-lg-3 col-md-3">
+          <label for="{{ form.coach_id.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Coach</label>
+          {{ form.coach_id(class="form-select") }}
+        </div>
+        
+        <!-- Seconda riga -->
+        <!-- Psicologa -->
+        <div class="col-lg-3 col-md-3">
+          <label for="{{ form.psicologa_id.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Psicologa</label>
+          {{ form.psicologa_id(class="form-select") }}
+        </div>
+
+        <!-- Health Manager -->
+        <div class="col-lg-3 col-md-3">
+          <label for="{{ form.health_manager_id.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Health Manager</label>
+          {{ form.health_manager_id(class="form-select") }}
+        </div>
+
+        <!-- Filtro Scadenze -->
+        <div class="col-lg-3 col-md-3">
+          <label for="{{ form.expiring_days.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Scadenze</label>
+          {{ form.expiring_days(class="form-select") }}
+        </div>
+
+        <!-- FILTRI ORGANIZZATI PER TAB (COLLASSABILI) -->
+        <div class="collapse col-12 filters-advanced-section" id="advancedFilters">
+          <hr class="my-3">
+
+          <!-- TAB 1: ANAGRAFICA E OBIETTIVI -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="anagrafica" role="button" data-bs-toggle="collapse" data-bs-target="#tab1Filters" aria-expanded="false" aria-controls="tab1Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:user-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Anagrafica e Obiettivi</h6>
+                  <span class="filter-tab-subtitle">Età, genere, origine, professione, paese</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-soft" id="tab1Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab1Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <!-- Anagrafica -->
+                  <div class="col-12 mb-3">
+                    <h6 class="text-primary mb-3">Anagrafica</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.eta_min.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Età Minima</label>
+                    {{ form.eta_min(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.eta_max.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Età Massima</label>
+                    {{ form.eta_max(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.genere.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Genere</label>
+                    {{ form.genere(class="form-select advanced-filter", multiple=True, size="3", style="min-height: 80px;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.origine.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Origine</label>
+                    {{ form.origine(class="form-control advanced-filter", placeholder="Origine...") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.professione.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Professione</label>
+                    {{ form.professione(class="form-control advanced-filter", placeholder="Professione...") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.paese.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Paese</label>
+                    {{ form.paese(class="form-control advanced-filter", placeholder="Paese...") }}
+                  </div>
+
+                  <!-- Missing Anagrafica -->
+                </div>
+                <div class="filter-section-danger">
+                  <div class="filter-section-header">
+                    <iconify-icon icon="ri:error-warning-line" class="text-danger"></iconify-icon>
+                    <h6>Dati Mancanti</h6>
+                  </div>
+                  <div class="row gy-3 gx-4">
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_email(class="form-check-input advanced-filter", id="missing_email", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_email">Senza Email</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_telefono(class="form-check-input advanced-filter", id="missing_telefono", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_telefono">Senza Telefono</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_storia_cliente(class="form-check-input advanced-filter", id="missing_storia_cliente", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_storia_cliente">Senza Storia Cliente</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_problema(class="form-check-input advanced-filter", id="missing_problema", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_problema">Senza Problema</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_paure(class="form-check-input advanced-filter", id="missing_paure", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_paure">Senza Paure</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_conseguenze(class="form-check-input advanced-filter", id="missing_conseguenze", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_conseguenze">Senza Conseguenze</label>
+                    </div>
+                  </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: PROGRAMMA E STATO -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="programma" role="button" data-bs-toggle="collapse" data-bs-target="#tab2Filters" aria-expanded="false" aria-controls="tab2Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:file-list-3-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Programma e Stato</h6>
+                  <span class="filter-tab-subtitle">Check, rinnovi, durata programma, date allenamento</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-success-soft" id="tab2Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab2Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.stato_cliente.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Cliente</label>
+                    {{ form.stato_cliente(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.check_day.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Giorno Check</label>
+                    {{ form.check_day(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.check_saltati.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Check Saltati</label>
+                    {{ form.check_saltati(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.programma_attuale_dettaglio.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Programma Dettaglio</label>
+                    {{ form.programma_attuale_dettaglio(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_inizio_abbonamento_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Inizio Abbonamento - Da</label>
+                    {{ form.data_inizio_abbonamento_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_inizio_abbonamento_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Inizio Abbonamento - A</label>
+                    {{ form.data_inizio_abbonamento_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.durata_programma_min.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Durata Programma Min (giorni)</label>
+                    {{ form.durata_programma_min(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.durata_programma_max.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Durata Programma Max (giorni)</label>
+                    {{ form.durata_programma_max(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_rinnovo_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Rinnovo - Da</label>
+                    {{ form.data_rinnovo_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_rinnovo_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Rinnovo - A</label>
+                    {{ form.data_rinnovo_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.in_scadenza.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">In Scadenza</label>
+                    {{ form.in_scadenza(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.goals_evaluation_date_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Valutazione Obiettivi - Da</label>
+                    {{ form.goals_evaluation_date_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.goals_evaluation_date_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Valutazione Obiettivi - A</label>
+                    {{ form.goals_evaluation_date_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.trasformazione_fisica.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Trasformazione Fisica</label>
+                    {{ form.trasformazione_fisica(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.trasformazione_fisica_condivisa.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Trasformazione Condivisa</label>
+                    {{ form.trasformazione_fisica_condivisa(class="form-select advanced-filter") }}
+                  </div>
+                  
+                  <!-- Missing Programma -->
+                  <div class="col-12 mt-3">
+                    <h6 class="text-danger mb-3">Dati Mancanti</h6>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_check_day(class="form-check-input advanced-filter", id="missing_check_day", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_check_day">Senza Giorno Check</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_check_saltati(class="form-check-input advanced-filter", id="missing_check_saltati", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_check_saltati">Senza Check Saltati</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_reach_out(class="form-check-input advanced-filter", id="missing_reach_out", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_reach_out">Senza Reach Out</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Filtri Date Allenamento -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Date Allenamento</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.allenamento_dal_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Allenamento Dal - Da</label>
+                    {{ form.allenamento_dal_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.allenamento_dal_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Allenamento Dal - A</label>
+                    {{ form.allenamento_dal_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.nuovo_allenamento_il_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Nuovo Allenamento Il - Da</label>
+                    {{ form.nuovo_allenamento_il_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.nuovo_allenamento_il_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Nuovo Allenamento Il - A</label>
+                    {{ form.nuovo_allenamento_il_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: TEAM -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="team" role="button" data-bs-toggle="collapse" data-bs-target="#tab3Filters" aria-expanded="false" aria-controls="tab3Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:team-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Team</h6>
+                  <span class="filter-tab-subtitle">Professionisti mancanti nel team</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-soft" id="tab3Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab3Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <div class="col-12">
+                    <h6 class="text-danger mb-3">Professionisti Mancanti</h6>
+                  </div>
+                  <div class="col-lg-4 col-md-6">
+                    <div class="form-check form-switch">
+                      {{ form.missing_nutrizionista(class="form-check-input advanced-filter", id="missing_nutrizionista", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_nutrizionista">Senza Nutrizionista</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6">
+                    <div class="form-check form-switch">
+                      {{ form.missing_coach(class="form-check-input advanced-filter", id="missing_coach", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_coach">Senza Coach</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6">
+                    <div class="form-check form-switch">
+                      {{ form.missing_psicologa(class="form-check-input advanced-filter", id="missing_psicologa", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_psicologa">Senza Psicologa</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6">
+                    <div class="form-check form-switch">
+                      {{ form.missing_health_manager(class="form-check-input advanced-filter", id="missing_health_manager", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_health_manager">Senza Health Manager</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6">
+                    <div class="form-check form-switch">
+                      {{ form.missing_consulente_alimentare(class="form-check-input advanced-filter", id="missing_consulente_alimentare", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_consulente_alimentare">Senza Consulente Alimentare</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 7: HEALTH MANAGER -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="health" role="button" data-bs-toggle="collapse" data-bs-target="#tab7Filters" aria-expanded="false" aria-controls="tab7Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:health-book-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Health Manager</h6>
+                  <span class="filter-tab-subtitle">Consensi, recensioni, videofeedback, sedute psicologia</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-soft" id="tab7Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab7Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <!-- Consenso Social -->
+                  <div class="col-12">
+                    <h6 class="text-primary mb-3">Consenso Social</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.consenso_social_richiesto.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Consenso Social Richiesto</label>
+                    {{ form.consenso_social_richiesto(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.consenso_social_accettato.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Consenso Social Accettato</label>
+                    {{ form.consenso_social_accettato(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.consenso_social_con_documento(class="form-check-input advanced-filter", id="consenso_social_con_documento", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="consenso_social_con_documento">Con Documento</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.missing_consenso_social_richiesto(class="form-check-input advanced-filter", id="missing_consenso_social_richiesto", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_consenso_social_richiesto">Senza Consenso Richiesto</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Recensioni -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Recensioni</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensione_richiesta.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Recensione Richiesta</label>
+                    {{ form.recensione_richiesta(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensione_accettata.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Recensione Accettata</label>
+                    {{ form.recensione_accettata(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensione_risposta.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Recensione con Risposta</label>
+                    {{ form.recensione_risposta(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensione_stelle_min.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Rating Min (1-5)</label>
+                    {{ form.recensione_stelle_min(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensione_stelle_max.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Rating Max (1-5)</label>
+                    {{ form.recensione_stelle_max(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensioni_lifetime_count_min.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Recensioni Lifetime Min</label>
+                    {{ form.recensioni_lifetime_count_min(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.recensioni_lifetime_count_max.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Recensioni Lifetime Max</label>
+                    {{ form.recensioni_lifetime_count_max(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.ultima_recensione_trustpilot_data_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Ultima Recensione Trustpilot - Da</label>
+                    {{ form.ultima_recensione_trustpilot_data_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.ultima_recensione_trustpilot_data_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Ultima Recensione Trustpilot - A</label>
+                    {{ form.ultima_recensione_trustpilot_data_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.missing_recensione_richiesta(class="form-check-input advanced-filter", id="missing_recensione_richiesta", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_recensione_richiesta">Senza Recensione Richiesta</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Videofeedback -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Videofeedback</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.video_feedback_richiesto.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Videofeedback Richiesto</label>
+                    {{ form.video_feedback_richiesto(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.video_feedback_svolto.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Videofeedback Svolto</label>
+                    {{ form.video_feedback_svolto(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.video_feedback_condiviso.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Videofeedback Condiviso</label>
+                    {{ form.video_feedback_condiviso(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.video_feedback_con_file(class="form-check-input advanced-filter", id="video_feedback_con_file", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="video_feedback_con_file">Con File</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.missing_video_feedback_richiesto(class="form-check-input advanced-filter", id="missing_video_feedback_richiesto", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_video_feedback_richiesto">Senza Videofeedback Richiesto</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Sedute Psicologia -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Sedute Psicologia</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.sedute_psicologia_comprate_min.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Sedute Comprate Min</label>
+                    {{ form.sedute_psicologia_comprate_min(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.sedute_psicologia_comprate_max.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Sedute Comprate Max</label>
+                    {{ form.sedute_psicologia_comprate_max(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.sedute_psicologia_svolte_min.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Sedute Svolte Min</label>
+                    {{ form.sedute_psicologia_svolte_min(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.sedute_psicologia_svolte_max.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Sedute Svolte Max</label>
+                    {{ form.sedute_psicologia_svolte_max(class="form-control advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.sedute_psicologia_rimanenti(class="form-check-input advanced-filter", id="sedute_psicologia_rimanenti", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="sedute_psicologia_rimanenti">Con Sedute Rimanenti</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.missing_sedute_psicologia(class="form-check-input advanced-filter", id="missing_sedute_psicologia", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_sedute_psicologia">Senza Sedute Registrate</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Freeze -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Freeze Management</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.is_frozen.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Cliente in Freeze</label>
+                    {{ form.is_frozen(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.freeze_date_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Freeze - Da</label>
+                    {{ form.freeze_date_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.freeze_date_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Freeze - A</label>
+                    {{ form.freeze_date_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  
+                  <!-- Onboarding -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Onboarding</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.onboarding_date_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Onboarding - Da</label>
+                    {{ form.onboarding_date_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.onboarding_date_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Onboarding - A</label>
+                    {{ form.onboarding_date_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.missing_onboarding_date(class="form-check-input advanced-filter", id="missing_onboarding_date", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_onboarding_date">Senza Data Onboarding</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Exit Call -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Exit Call</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.exit_call_richiesta.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Exit Call Richiesta</label>
+                    {{ form.exit_call_richiesta(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.exit_call_svolta.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Exit Call Svolta</label>
+                    {{ form.exit_call_svolta(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.exit_call_condivisa.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Exit Call Condivisa</label>
+                    {{ form.exit_call_condivisa(class="form-select advanced-filter") }}
+                  </div>
+                  
+                  <!-- Social & Trasformazione -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Social & Trasformazione</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.no_social.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">No Social</label>
+                    {{ form.no_social(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.social_oscurato.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Social Oscurato</label>
+                    {{ form.social_oscurato(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.trasformazione.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Trasformazione</label>
+                    {{ form.trasformazione(class="form-select advanced-filter", multiple=True, size="3", style="min-height: 80px;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.proposta_live_training.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Live Training Proposta</label>
+                    {{ form.proposta_live_training(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.live_training_bonus_prenotata.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Live Training Bonus Prenotata</label>
+                    {{ form.live_training_bonus_prenotata(class="form-select advanced-filter") }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 8: NUTRIZIONE -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="nutrizione" role="button" data-bs-toggle="collapse" data-bs-target="#tab8Filters" aria-expanded="false" aria-controls="tab8Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:restaurant-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Nutrizione</h6>
+                  <span class="filter-tab-subtitle">Stati, call iniziali, reach out, diete, patologie</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-soft" id="tab8Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab8Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.stato_nutrizione.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Nutrizione</label>
+                    {{ form.stato_nutrizione(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.stato_chat_nutrizione.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Chat Nutrizione</label>
+                    {{ form.stato_chat_nutrizione(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.call_iniziale_nutrizionista.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Call Iniziale Nutrizionista</label>
+                    {{ form.call_iniziale_nutrizionista(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_call_iniziale_nutrizionista_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Call Iniziale - Da</label>
+                    {{ form.data_call_iniziale_nutrizionista_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_call_iniziale_nutrizionista_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Call Iniziale - A</label>
+                    {{ form.data_call_iniziale_nutrizionista_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.reach_out_nutrizione.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Reach Out Nutrizione</label>
+                    {{ form.reach_out_nutrizione(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.dieta_dal_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Dieta Dal - Da</label>
+                    {{ form.dieta_dal_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.dieta_dal_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Dieta Dal - A</label>
+                    {{ form.dieta_dal_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.nuova_dieta_dal_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Nuova Dieta Dal - Da</label>
+                    {{ form.nuova_dieta_dal_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.nuova_dieta_dal_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Nuova Dieta Dal - A</label>
+                    {{ form.nuova_dieta_dal_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  
+                  <!-- Missing Nutrizione -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-danger mb-3">Dati Mancanti</h6>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_stato_nutrizione(class="form-check-input advanced-filter", id="missing_stato_nutrizione", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_stato_nutrizione">Senza Stato Nutrizione</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_stato_chat_nutrizione(class="form-check-input advanced-filter", id="missing_stato_chat_nutrizione", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_stato_chat_nutrizione">Senza Stato Chat Nutrizione</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_call_iniziale_nutrizionista(class="form-check-input advanced-filter", id="missing_call_iniziale_nutrizionista", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_call_iniziale_nutrizionista">Senza Call Iniziale Nutrizionista</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_reach_out_nutrizione(class="form-check-input advanced-filter", id="missing_reach_out_nutrizione", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_reach_out_nutrizione">Senza Reach Out Nutrizione</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_piano_dieta(class="form-check-input advanced-filter", id="missing_piano_dieta", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_piano_dieta">Senza Piano Dieta Attivo</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Patologie Nutrizionali -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Patologie Nutrizionali</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_ibs.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">IBS</label>
+                    {{ form.patologia_ibs(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_reflusso.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Reflusso</label>
+                    {{ form.patologia_reflusso(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_gastrite.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Gastrite</label>
+                    {{ form.patologia_gastrite(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_dca.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">DCA</label>
+                    {{ form.patologia_dca(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_insulino_resistenza.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Insulino-Resistenza</label>
+                    {{ form.patologia_insulino_resistenza(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_diabete.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Diabete</label>
+                    {{ form.patologia_diabete(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_dislipidemie.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Dislipidemie</label>
+                    {{ form.patologia_dislipidemie(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_steatosi_epatica.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Steatosi Epatica</label>
+                    {{ form.patologia_steatosi_epatica(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_ipertensione.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Ipertensione</label>
+                    {{ form.patologia_ipertensione(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_pcos.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">PCOS</label>
+                    {{ form.patologia_pcos(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_endometriosi.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Endometriosi</label>
+                    {{ form.patologia_endometriosi(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_obesita_sindrome.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Obesità Sindrome</label>
+                    {{ form.patologia_obesita_sindrome(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_osteoporosi.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Osteoporosi</label>
+                    {{ form.patologia_osteoporosi(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_diverticolite.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Diverticolite</label>
+                    {{ form.patologia_diverticolite(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_crohn.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Crohn</label>
+                    {{ form.patologia_crohn(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_stitichezza.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stitichezza</label>
+                    {{ form.patologia_stitichezza(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_tiroidee.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Tiroidee</label>
+                    {{ form.patologia_tiroidee(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.con_almeno_una_patologia_nutrizionale(class="form-check-input advanced-filter", id="con_almeno_una_patologia_nutrizionale", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="con_almeno_una_patologia_nutrizionale">Con almeno una patologia</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.senza_patologie_nutrizionali(class="form-check-input advanced-filter", id="senza_patologie_nutrizionali", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="senza_patologie_nutrizionali">Senza patologie</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 9: COACHING -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="coaching" role="button" data-bs-toggle="collapse" data-bs-target="#tab9Filters" aria-expanded="false" aria-controls="tab9Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:run-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Coaching</h6>
+                  <span class="filter-tab-subtitle">Stati, call iniziali, reach out, luogo allenamento</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-soft" id="tab9Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab9Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.stato_coach.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Coach</label>
+                    {{ form.stato_coach(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.stato_chat_coaching.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Chat Coaching</label>
+                    {{ form.stato_chat_coaching(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.call_iniziale_coach.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Call Iniziale Coach</label>
+                    {{ form.call_iniziale_coach(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_call_iniziale_coach_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Call Iniziale - Da</label>
+                    {{ form.data_call_iniziale_coach_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_call_iniziale_coach_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Call Iniziale - A</label>
+                    {{ form.data_call_iniziale_coach_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.reach_out_coaching.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Reach Out Coaching</label>
+                    {{ form.reach_out_coaching(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.luogo_di_allenamento.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Luogo di Allenamento</label>
+                    {{ form.luogo_di_allenamento(class="form-select advanced-filter", multiple=True, size="3", style="min-height: 80px;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  
+                  <!-- Missing Coaching -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-danger mb-3">Dati Mancanti</h6>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_stato_coach(class="form-check-input advanced-filter", id="missing_stato_coach", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_stato_coach">Senza Stato Coach</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_stato_chat_coaching(class="form-check-input advanced-filter", id="missing_stato_chat_coaching", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_stato_chat_coaching">Senza Stato Chat Coaching</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_call_iniziale_coach(class="form-check-input advanced-filter", id="missing_call_iniziale_coach", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_call_iniziale_coach">Senza Call Iniziale Coach</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_reach_out_coaching(class="form-check-input advanced-filter", id="missing_reach_out_coaching", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_reach_out_coaching">Senza Reach Out Coaching</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_luogo_allenamento(class="form-check-input advanced-filter", id="missing_luogo_allenamento", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_luogo_allenamento">Senza Luogo Allenamento</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_piano_allenamento(class="form-check-input advanced-filter", id="missing_piano_allenamento", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_piano_allenamento">Senza Piano Allenamento Attivo</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 10: PSICOLOGIA -->
+          <div class="filter-tab-wrapper">
+            <div class="filter-tab-header" data-category="psicologia" role="button" data-bs-toggle="collapse" data-bs-target="#tab10Filters" aria-expanded="false" aria-controls="tab10Filters">
+              <div class="filter-tab-content">
+                <div class="filter-tab-icon">
+                  <iconify-icon icon="ri:mental-health-line"></iconify-icon>
+                </div>
+                <div class="filter-tab-info">
+                  <h6 class="filter-tab-title">Psicologia</h6>
+                  <span class="filter-tab-subtitle">Stati, call iniziali, reach out, patologie psicologiche</span>
+                </div>
+              </div>
+              <div class="filter-tab-actions">
+                <span class="badge badge-soft" id="tab10Count" style="display:none;">0</span>
+                <iconify-icon icon="ri:arrow-down-s-line" class="filter-tab-chevron"></iconify-icon>
+              </div>
+            </div>
+            <div class="collapse filter-tab-body" id="tab10Filters">
+              <div class="card card-body">
+                <div class="row gy-3 gx-4">
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.stato_psicologia.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Psicologia</label>
+                    {{ form.stato_psicologia(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.stato_chat_psicologia.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Stato Chat Psicologia</label>
+                    {{ form.stato_chat_psicologia(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.call_iniziale_psicologa.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Call Iniziale Psicologa</label>
+                    {{ form.call_iniziale_psicologa(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_call_iniziale_psicologia_from.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Call Iniziale - Da</label>
+                    {{ form.data_call_iniziale_psicologia_from(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.data_call_iniziale_psicologia_to.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Data Call Iniziale - A</label>
+                    {{ form.data_call_iniziale_psicologia_to(class="form-control advanced-filter", type="date") }}
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <label for="{{ form.reach_out_psicologia.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Reach Out Psicologia</label>
+                    {{ form.reach_out_psicologia(class="form-select advanced-filter", multiple=True, size="4", style="min-height: 100px; max-height: 150px; overflow-y: auto;") }}
+                    <small class="text-muted">Tieni premuto Ctrl/Cmd per selezioni multiple</small>
+                  </div>
+                  
+                  <!-- Missing Psicologia -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-danger mb-3">Dati Mancanti</h6>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_stato_psicologia(class="form-check-input advanced-filter", id="missing_stato_psicologia", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_stato_psicologia">Senza Stato Psicologia</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_stato_chat_psicologia(class="form-check-input advanced-filter", id="missing_stato_chat_psicologia", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_stato_chat_psicologia">Senza Stato Chat Psicologia</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_call_iniziale_psicologa(class="form-check-input advanced-filter", id="missing_call_iniziale_psicologa", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_call_iniziale_psicologa">Senza Call Iniziale Psicologa</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                      {{ form.missing_reach_out_psicologia(class="form-check-input advanced-filter", id="missing_reach_out_psicologia", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="missing_reach_out_psicologia">Senza Reach Out Psicologia</label>
+                    </div>
+                  </div>
+                  
+                  <!-- Patologie Psicologiche -->
+                  <div class="col-12 mt-4 mb-3">
+                    <h6 class="text-primary mb-3">Patologie Psicologiche</h6>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_dca.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">DCA</label>
+                    {{ form.patologia_psico_dca(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_obesita_psicoemotiva.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Obesità Psicoemotiva</label>
+                    {{ form.patologia_psico_obesita_psicoemotiva(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_ansia_umore_cibo.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Ansia/Umore/Cibo</label>
+                    {{ form.patologia_psico_ansia_umore_cibo(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_comportamenti_disfunzionali.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Comportamenti Disfunzionali</label>
+                    {{ form.patologia_psico_comportamenti_disfunzionali(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_immagine_corporea.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Immagine Corporea</label>
+                    {{ form.patologia_psico_immagine_corporea(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_psicosomatiche.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Psicosomatiche</label>
+                    {{ form.patologia_psico_psicosomatiche(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <label for="{{ form.patologia_psico_relazionali_altro.id }}" class="form-label fw-semibold text-primary-light text-sm mb-2">Relazionali/Altro</label>
+                    {{ form.patologia_psico_relazionali_altro(class="form-select advanced-filter") }}
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.con_almeno_una_patologia_psicologica(class="form-check-input advanced-filter", id="con_almeno_una_patologia_psicologica", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="con_almeno_una_patologia_psicologica">Con almeno una patologia</label>
+                    </div>
+                  </div>
+                  <div class="col-lg-3 col-md-4 mb-3">
+                    <div class="form-check form-switch mt-4">
+                      {{ form.senza_patologie_psicologiche(class="form-check-input advanced-filter", id="senza_patologie_psicologiche", value="1") }}
+                      <label class="form-check-label fw-semibold text-primary-light" for="senza_patologie_psicologiche">Senza patologie</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pulsanti -->
+        <div class="col-12">
+          <div class="filter-actions-bar">
+            <div class="filter-actions-info">
+              <iconify-icon icon="ri:information-line" class="text-primary"></iconify-icon>
+              <span class="text-sm text-muted">
+                Clicca "Applica Filtri" per aggiornare i risultati
+              </span>
+            </div>
+            <div class="filter-actions-buttons">
+              <a href="{{ url_for('customers.list_view') }}" class="btn btn-secondary">
+                <iconify-icon icon="ri:refresh-line"></iconify-icon>
+                Reset
+              </a>
+              <button type="submit" class="btn btn-primary px-4">
+                <iconify-icon icon="ri:filter-3-line"></iconify-icon>
+                Applica Filtri
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {{ form.csrf_token }}
+      </form>
+    </div>
+  </div>
+
+  <!-- ▸ FLASH MESSAGES ================================================== -->
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      <div class="mb-24">
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='warning'
+                                     else 'success' if cat=='success'
+                                     else cat }} alert-dismissible fade show">
+            {{ msg }}
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ▸ STATISTICHE PROFESSIONISTA ====================================== -->
+  {% if professional_stats %}
+  <div class="card border-0 mb-24" style="background-color: #28a745; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <!-- Sezione Professionista con Avatar -->
+        <div class="col-lg-3">
+          <div class="d-flex align-items-center text-white">
+            <img src="{{ professional_stats.avatar or '/static/assets/images/user.png' }}" 
+                 alt="{{ professional_stats.name }}"
+                 class="rounded-circle me-3"
+                 style="width: 60px; height: 60px; object-fit: cover; border: 3px solid rgba(255,255,255,0.3);">
+            <div>
+              <h5 class="mb-1 text-white">{{ professional_stats.name }}</h5>
+              <div class="fs-4 fw-bold">{{ professional_stats.total }} clienti</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Sezione Statistiche -->
+        <div class="col-lg-9">
+          <div class="d-flex flex-wrap gap-3 justify-content-end">
+            <!-- Prima mostra A, B, C in ordine -->
+            {% for tipo in ['A', 'B', 'C'] %}
+              {% if tipo in professional_stats.by_tipologia %}
+                {% set count = professional_stats.by_tipologia[tipo] %}
+                {% set percentage = (count / professional_stats.total * 100) if professional_stats.total > 0 else 0 %}
+                <div class="text-center text-white px-3">
+                  <div class="fs-2 fw-bold mb-0">{{ count }}</div>
+                  <small class="d-block opacity-90">Tipo {{ tipo }}</small>
+                  <small class="opacity-75" style="font-size: 11px;">{{ "%.0f"|format(percentage) }}%</small>
+                </div>
+              {% endif %}
+            {% endfor %}
+            
+            <!-- Poi mostra gli stati speciali -->
+            {% for tipo, count in professional_stats.by_tipologia.items() %}
+              {% if tipo not in ['A', 'B', 'C'] %}
+                {% set percentage = (count / professional_stats.total * 100) if professional_stats.total > 0 else 0 %}
+                <div class="text-center text-white px-3">
+                  <div class="fs-2 fw-bold mb-0">{{ count }}</div>
+                  <small class="d-block opacity-90">{{ tipo }}</small>
+                  <small class="opacity-75" style="font-size: 11px;">{{ "%.0f"|format(percentage) }}%</small>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ▸ TABELLA CLIENTI ================================================ -->
+  {% if pagination.items %}
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">Lista Clienti</h5>
+      </div>
+      <div class="card-body p-0">
+
+        <!--  NOTA  ────────────────────────────────────────────────────
+              .table-responsive è fuori dalla card-body per evitare
+              "salti" / scatti dello scroll orizzontale sui device
+              touch.  L'overflow è gestito direttamente da Bootstrap.
+        ----------------------------------------------------------------- -->
+        <div class="table-responsive">
+          <table class="table basic-border-table mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Nome Cognome</th>
+                <th>Team</th>
+                <th>Data Inizio</th>
+                <th>Data Rinnovo</th>
+                <th>Programma</th>
+                <th>Stato Cliente</th>
+                <th class="text-end">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cl in pagination.items %}
+                <tr>
+                  <!-- Nome Cliente -->
+                  <td>
+                    <a href="{{ url_for('customers.detail_view', cliente_id=cl.cliente_id) }}">
+                      {{ cl.nome_cognome }}
+                    </a>
+                  </td>
+
+                  <!-- Team Professionisti -->
+                  <td>
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                      {# Health Manager #}
+                      {% if cl.health_manager_user %}
+                        <span class="avatar-team" title="HM: {{ cl.health_manager_user.full_name }}" data-bs-toggle="tooltip">
+                          {% if cl.health_manager_user.avatar_url %}
+                            <img src="{{ cl.health_manager_user.avatar_url }}" alt="{{ cl.health_manager_user.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-purple-subtle text-purple">{{ cl.health_manager_user.first_name[:1] }}{{ cl.health_manager_user.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-purple">HM</span>
+                        </span>
+                      {% endif %}
+                      {# Nutrizionisti #}
+                      {% for n in cl.nutrizionisti_multipli %}
+                        <span class="avatar-team" title="Nutri: {{ n.full_name }}" data-bs-toggle="tooltip">
+                          {% if n.avatar_url %}
+                            <img src="{{ n.avatar_url }}" alt="{{ n.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-success-subtle text-success">{{ n.first_name[:1] }}{{ n.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-success">N</span>
+                        </span>
+                      {% endfor %}
+                      {# Coach #}
+                      {% for c in cl.coaches_multipli %}
+                        <span class="avatar-team" title="Coach: {{ c.full_name }}" data-bs-toggle="tooltip">
+                          {% if c.avatar_url %}
+                            <img src="{{ c.avatar_url }}" alt="{{ c.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-primary-subtle text-primary">{{ c.first_name[:1] }}{{ c.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-primary">C</span>
+                        </span>
+                      {% endfor %}
+                      {# Psicologi #}
+                      {% for p in cl.psicologi_multipli %}
+                        <span class="avatar-team" title="Psico: {{ p.full_name }}" data-bs-toggle="tooltip">
+                          {% if p.avatar_url %}
+                            <img src="{{ p.avatar_url }}" alt="{{ p.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-info-subtle text-info">{{ p.first_name[:1] }}{{ p.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-info">P</span>
+                        </span>
+                      {% endfor %}
+                      {# Consulenti Alimentari #}
+                      {% for ca in cl.consulenti_multipli %}
+                        <span class="avatar-team" title="Cons: {{ ca.full_name }}" data-bs-toggle="tooltip">
+                          {% if ca.avatar_url %}
+                            <img src="{{ ca.avatar_url }}" alt="{{ ca.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-warning-subtle text-warning">{{ ca.first_name[:1] }}{{ ca.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-warning">CA</span>
+                        </span>
+                      {% endfor %}
+                      {# Nessun professionista assegnato #}
+                      {% if not cl.health_manager_user and not cl.nutrizionisti_multipli and not cl.coaches_multipli and not cl.psicologi_multipli and not cl.consulenti_multipli %}
+                        <em class="text-muted">—</em>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                  <!-- Data Inizio Abbonamento -->
+                  <td>
+                    {% if cl.data_inizio_abbonamento %}
+                      {{ cl.data_inizio_abbonamento.strftime('%d/%m/%Y') }}
+                    {% else %}
+                      <em class="text-muted">—</em>
+                    {% endif %}
+                  </td>
+
+                  <!-- Data Rinnovo -->
+                  <td>
+                    {% if cl.data_rinnovo %}
+                      {{ cl.data_rinnovo.strftime('%d/%m/%Y') }}
+                    {% elif cl.data_inizio_abbonamento and cl.durata_programma_giorni %}
+                      {# Calcolo dinamico: data_inizio + durata_giorni #}
+                      {% set data_rinnovo_calc = cl.data_inizio_abbonamento + timedelta(days=cl.durata_programma_giorni) %}
+                      <span class="text-muted" title="Calcolata automaticamente">{{ data_rinnovo_calc.strftime('%d/%m/%Y') }}</span>
+                    {% else %}
+                      <em class="text-muted">—</em>
+                    {% endif %}
+                  </td>
+
+                  <!-- Programma -->
+                  <td>
+                    {% if cl.programma_attuale %}
+                      <span class="badge bg-info">{{ cl.programma_attuale }}</span>
+                    {% elif cl.storico_programma %}
+                      <span class="badge bg-secondary">{{ cl.storico_programma }}</span>
+                    {% else %}
+                      <em class="text-muted">—</em>
+                    {% endif %}
+                  </td>
+
+                  <!-- Stato Cliente -->
+                  <td>
+                    {% if cl.stato_cliente %}
+                      {% set stato_val = cl.stato_cliente.value if cl.stato_cliente else '' %}
+                      {% if stato_val == 'attivo' %}
+                        <span class="badge bg-success">Attivo</span>
+                      {% elif stato_val == 'pausa' %}
+                        <span class="badge bg-warning">Pausa</span>
+                      {% elif stato_val == 'ghost' %}
+                        <span class="badge bg-secondary">Ghost</span>
+                      {% elif stato_val == 'stop' %}
+                        <span class="badge bg-danger">Stop</span>
+                      {% else %}
+                        <span class="badge bg-secondary">{{ stato_val }}</span>
+                      {% endif %}
+                    {% else %}
+                      <em class="text-muted">—</em>
+                    {% endif %}
+                  </td>
+
+                  <!-- Azioni -->
+                  <td class="text-end">
+
+                    <!-- Dettaglio (Visualizza) -->
+                    <a href="{{ url_for('customers.detail_view', cliente_id=cl.cliente_id) }}"
+                       class="btn btn-sm btn-outline-success me-1"
+                       title="Dettaglio">
+                      <iconify-icon icon="mdi:eye-outline" class="icon text-md"></iconify-icon>
+                    </a>
+
+                    <!-- Elimina (Cestina) - Solo per admin -->
+                    {% if current_user.is_admin %}
+                    <form method="post"
+                          action="{{ url_for('customers.delete_view', cliente_id=cl.cliente_id) }}"
+                          class="d-inline"
+                          onsubmit="return confirm('ATTENZIONE: Questa azione eliminerà DEFINITIVAMENTE il cliente {{ cl.nome_cognome }} e tutti i suoi dati associati. Sei sicuro di voler procedere?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit"
+                              class="btn btn-sm btn-outline-danger"
+                              title="Elimina definitivamente">
+                        <iconify-icon icon="fluent:delete-24-regular" class="icon text-md"></iconify-icon>
+                      </button>
+                    </form>
+                    {% endif %}
+
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div><!-- /.table-responsive -->
+      </div><!-- /.card-body -->
+    </div><!-- /.card -->
+  {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <iconify-icon icon="ri:user-line" class="icon text-6xl text-secondary-light mb-3"></iconify-icon>
+        <h5 class="text-secondary-light">Nessun cliente trovato</h5>
+        <p class="text-muted mb-4">Non ci sono clienti che corrispondono ai criteri di ricerca.</p>
+        <a href="{{ url_for('customers.create_view') }}" class="btn btn-primary">
+          <iconify-icon icon="ri:add-line" class="icon me-1"></iconify-icon>
+          Aggiungi il primo cliente
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- ▸ PAGINAZIONE ===================================================== -->
+  {% if pagination.pages > 1 %}
+    <nav aria-label="Paginazione clienti" class="mt-24">
+      <ul class="pagination justify-content-center mb-0">
+        {% set args = request.args.to_dict(flat=True) %}
+        {% set _ = args.pop('page', None) %}
+
+        <!-- « Prev -->
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link"
+             aria-label="Precedente"
+             href="{{ url_for('customers.list_view',
+                              page=pagination.prev_num,
+                              **args) if pagination.has_prev else '#' }}">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+
+        {% for p in pagination.iter_pages(left_edge=1,
+                                          right_edge=1,
+                                          left_current=2,
+                                          right_current=2) %}
+          {% if p %}
+            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+              <a class="page-link"
+                 href="{{ url_for('customers.list_view',
+                                  page=p,
+                                  **args) }}">{{ p }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Next » -->
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link"
+             aria-label="Successivo"
+             href="{{ url_for('customers.list_view',
+                              page=pagination.next_num,
+                              **args) if pagination.has_next else '#' }}">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  {% endif %}
+
+</section>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   Avatar Team - Lista Clienti
+   ═══════════════════════════════════════════════════════════════ */
+.avatar-team {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.avatar-team .avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.avatar-team .avatar-initials {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.avatar-team .avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 7px;
+  font-weight: 700;
+  color: #fff;
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.bg-purple-subtle { background-color: #f3e8ff !important; }
+.text-purple { color: #9333ea !important; }
+.bg-purple { background-color: #9333ea !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Enhanced Filters UI - Customers Page
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── CUSTOM COLOR PALETTE ─── */
+:root {
+  --purple-50: #F5F3FF; --purple-600: #7C3AED; --purple-500: #8B5CF6;
+  --info-50: #E0F2FE; --info-600: #0284C7; --info-500: #0EA5E9;
+  --warning-50: #FFF7ED; --warning-600: #EA580C; --warning-500: #F97316;
+  --pink-50: #FDF2F8; --pink-600: #DB2777; --pink-500: #EC4899;
+  --teal-50: #F0FDFA; --teal-600: #0D9488; --teal-500: #14B8A6;
+}
+
+/* ─── FILTER TAB HEADERS ─── */
+.filter-tab-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; background: #F5F6FA; border: 1px solid #EBECEF;
+  border-radius: 10px; cursor: pointer; margin-bottom: 10px; user-select: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.filter-tab-header:hover {
+  background: white; border-color: #95C7FF;
+  box-shadow: 0 2px 12px rgba(72, 111, 234, 0.1); transform: translateY(-1px);
+}
+.filter-tab-header[aria-expanded="true"] {
+  background: white; border-color: #458EFF; margin-bottom: 14px;
+  box-shadow: 0 4px 16px rgba(72, 111, 234, 0.12);
+}
+
+.filter-tab-content { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+
+.filter-tab-icon {
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; font-size: 22px; flex-shrink: 0; transition: all 0.25s ease;
+}
+.filter-tab-header:hover .filter-tab-icon { transform: scale(1.08); }
+
+.filter-tab-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.filter-tab-title { font-size: 15px; font-weight: 600; color: #111827; margin: 0; line-height: 1.4; }
+.filter-tab-subtitle {
+  font-size: 12px; color: #6B7280; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.filter-tab-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.filter-tab-actions .badge {
+  font-size: 11px; font-weight: 600; padding: 4px 8px;
+  border-radius: 6px; min-width: 22px; text-align: center;
+}
+
+.filter-tab-chevron {
+  font-size: 22px; color: #9CA3AF; display: flex; align-items: center;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease;
+}
+.filter-tab-header:hover .filter-tab-chevron { color: #487FFF; }
+.filter-tab-header[aria-expanded="true"] .filter-tab-chevron { transform: rotate(180deg); color: #487FFF; }
+
+/* ─── THEMED COLORS ─── */
+.filter-tab-header[data-category="anagrafica"] .filter-tab-icon { background: #E4F1FF; }
+.filter-tab-header[data-category="anagrafica"] .filter-tab-icon iconify-icon { color: #487FFF; }
+
+.filter-tab-header[data-category="programma"] .filter-tab-icon { background: #F0FDF4; }
+.filter-tab-header[data-category="programma"] .filter-tab-icon iconify-icon { color: #16A34A; }
+
+.filter-tab-header[data-category="team"] .filter-tab-icon { background: var(--purple-50); }
+.filter-tab-header[data-category="team"] .filter-tab-icon iconify-icon { color: var(--purple-600); }
+
+.filter-tab-header[data-category="health"] .filter-tab-icon { background: var(--info-50); }
+.filter-tab-header[data-category="health"] .filter-tab-icon iconify-icon { color: var(--info-600); }
+
+.filter-tab-header[data-category="nutrizione"] .filter-tab-icon { background: var(--warning-50); }
+.filter-tab-header[data-category="nutrizione"] .filter-tab-icon iconify-icon { color: var(--warning-600); }
+
+.filter-tab-header[data-category="coaching"] .filter-tab-icon { background: var(--pink-50); }
+.filter-tab-header[data-category="coaching"] .filter-tab-icon iconify-icon { color: var(--pink-600); }
+
+.filter-tab-header[data-category="psicologia"] .filter-tab-icon { background: var(--teal-50); }
+.filter-tab-header[data-category="psicologia"] .filter-tab-icon iconify-icon { color: var(--teal-600); }
+
+/* ─── FILTER SECTIONS ─── */
+.filter-section-danger {
+  background: #FEF2F2; border-left: 4px solid #EF4444;
+  padding: 16px 18px; border-radius: 8px; margin-top: 24px;
+}
+.filter-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.filter-section-header iconify-icon { font-size: 20px; flex-shrink: 0; }
+.filter-section-header h6 {
+  font-size: 13px; font-weight: 700; color: #B91C1C;
+  text-transform: uppercase; letter-spacing: 0.6px; margin: 0;
+}
+
+/* ─── FILTER CARD HEADER ─── */
+.filter-card-header-enhanced {
+  border: 0; background: white; padding: 20px 24px;
+  border-bottom: 1px solid #EBECEF;
+}
+.filter-header-title { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+.filter-header-subtitle { font-size: 14px; color: #4B5563; margin: 0; }
+.filter-header-subtitle strong { color: #487FFF; font-weight: 700; }
+
+.btn-filters-toggle {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+  font-size: 14px; font-weight: 600; border-radius: 8px; transition: all 0.2s ease;
+}
+.btn-filters-toggle iconify-icon { font-size: 18px; }
+.btn-filters-toggle .badge {
+  font-size: 11px; font-weight: 700; padding: 3px 7px;
+  border-radius: 5px; animation: badgePulse 0.3s ease-out;
+}
+
+/* ─── FILTER ACTIONS BAR ─── */
+.filter-actions-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; background: #F5F6FA; border-radius: 10px;
+  margin-top: 20px; border: 1px solid #EBECEF;
+}
+.filter-actions-info { display: flex; align-items: center; gap: 10px; }
+.filter-actions-info iconify-icon { font-size: 20px; flex-shrink: 0; }
+.filter-actions-info .text-sm { font-size: 13px; line-height: 1.4; }
+
+.filter-actions-buttons { display: flex; gap: 10px; }
+.filter-actions-bar .btn {
+  box-shadow: none; font-weight: 600; padding: 10px 20px;
+  font-size: 14px; border-radius: 8px; display: inline-flex;
+  align-items: center; gap: 6px; transition: all 0.2s ease;
+}
+.filter-actions-bar .btn iconify-icon { font-size: 18px; }
+.filter-actions-bar .btn-primary { box-shadow: 0 4px 12px rgba(72, 111, 234, 0.25); }
+.filter-actions-bar .btn-primary:hover {
+  box-shadow: 0 6px 16px rgba(72, 111, 234, 0.35); transform: translateY(-1px);
+}
+.filter-actions-bar .btn-secondary {
+  background: white; border-color: #D1D5DB; color: #374151;
+}
+.filter-actions-bar .btn-secondary:hover { background: #F5F6FA; border-color: #9CA3AF; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes badgePulse {
+  0% { transform: scale(0.85); opacity: 0; }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.collapse.show { animation: fadeIn 0.3s ease-out; }
+
+/* ─── SPACING ─── */
+.filters-advanced-section { margin-top: 20px; }
+.filter-tab-wrapper { margin-bottom: 12px; }
+.filter-tab-body { padding-top: 4px; }
+.filter-tab-body .card-body { padding: 20px 18px; background: white; }
+
+/* ─── FORM ENHANCEMENTS ─── */
+.form-control:focus, .form-select:focus {
+  border-color: #458EFF; box-shadow: 0 0 0 3px #BFDCFF; outline: none;
+}
+.form-check-input:checked {
+  background-color: #487FFF; border-color: #487FFF; box-shadow: 0 2px 6px rgba(72, 111, 234, 0.35);
+}
+.form-check-input:focus { border-color: #519FFF; box-shadow: 0 0 0 3px #BFDCFF; }
+.form-check .form-switch .form-check-input { width: 42px; height: 22px; cursor: pointer; }
+.form-check-label { cursor: pointer; user-select: none; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 991px) {
+  .filter-tab-subtitle { font-size: 11px; }
+  .filter-tab-icon { width: 40px; height: 40px; font-size: 20px; }
+}
+@media (max-width: 767px) {
+  .filter-tab-header { padding: 12px 14px; }
+  .filter-tab-icon { width: 38px; height: 38px; font-size: 18px; }
+  .filter-tab-title { font-size: 14px; }
+  .filter-tab-subtitle { display: none; }
+  .filter-tab-content { gap: 10px; }
+  .filter-actions-bar { flex-direction: column; gap: 14px; padding: 16px; }
+  .filter-actions-info { display: none; }
+  .filter-actions-buttons { width: 100%; flex-direction: column; }
+  .filter-actions-buttons .btn { width: 100%; justify-content: center; }
+  .filter-card-header-enhanced { padding: 16px 18px; }
+  .filter-header-title { font-size: 16px; }
+  .filter-header-subtitle { font-size: 13px; }
+  .filter-section-danger { padding: 14px 16px; }
+}
+
+/* ─── UTILITIES ─── */
+.badge-soft { background-color: #E4F1FF !important; color: #486CEA !important; border: 1px solid #95C7FF; }
+.badge-success-soft { background-color: #F0FDF4 !important; color: #15803D !important; border: 1px solid #BBF7D0; }
+
+/* ─── ORIGINAL STYLES (mantenuti per compatibilità) ─── */
+.advanced-filter { margin-bottom: 0.5rem; }
+select[multiple].advanced-filter {
+    min-height: 100px; max-height: 150px; overflow-y: auto; padding: 0.5rem;
+}
+select[multiple].advanced-filter[size="3"] { min-height: 80px; max-height: 100px; }
+select[multiple].advanced-filter[size="4"] { min-height: 100px; max-height: 150px; }
+.card-body .row > div { margin-bottom: 1rem; }
+.form-select[multiple] { width: 100%; border: 1px solid #dee2e6; border-radius: 0.375rem; }
+.form-label { display: block; margin-bottom: 0.5rem; }
+.form-check { padding: 0.5rem 0; }
+.card-body .card { border: 1px solid #e9ecef; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Conta i filtri avanzati attivi
+function countAdvancedFilters() {
+    let count = 0;
+    const advancedFilters = document.querySelectorAll('.advanced-filter');
+
+    advancedFilters.forEach(filter => {
+        if (filter.tagName === 'SELECT') {
+            // Gestisce SelectField normale e SelectMultipleField
+            if (filter.multiple) {
+                // SelectMultipleField: conta selezioni multiple
+                const selectedOptions = Array.from(filter.selectedOptions).filter(opt => opt.value !== '');
+                if (selectedOptions.length > 0) {
+                    count++;
+                }
+            } else if (filter.value !== '' && filter.value !== null) {
+                // SelectField normale
+                count++;
+            }
+        } else if (filter.type === 'checkbox' && filter.checked) {
+            count++;
+        } else if (filter.tagName === 'INPUT' && filter.type !== 'checkbox' && filter.value.trim() !== '') {
+            count++;
+        }
+    });
+
+    const badge = document.getElementById('advancedFiltersCount');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+
+    return count;
+}
+
+// Inizializza al caricamento della pagina
+document.addEventListener('DOMContentLoaded', function() {
+    countAdvancedFilters();
+    
+    // Inizializza i tooltip di Bootstrap per mostrare info scadenze
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Monitora i cambiamenti nei filtri avanzati
+    document.querySelectorAll('.advanced-filter').forEach(filter => {
+        filter.addEventListener('change', countAdvancedFilters);
+        filter.addEventListener('input', countAdvancedFilters);
+    });
+    
+    // Se ci sono filtri avanzati attivi, espandi automaticamente la sezione
+    if (countAdvancedFilters() > 0) {
+        const advancedFiltersCollapse = document.getElementById('advancedFilters');
+        if (advancedFiltersCollapse) {
+            advancedFiltersCollapse.classList.add('show');
+        }
+    }
+});
+</script>
+{% endblock %}

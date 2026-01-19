@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Archivio Lead - Sales Form{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Root Variables */
+  :root {
+    --primary-color: #487FFF;
+    --success-color: #45CB85;
+    --danger-color: #DC3545;
+    --warning-color: #F0AD4E;
+    --info-color: #5BC0DE;
+    --light-color: #F8FAFC;
+    --dark-color: #1A3366;
+  }
+
+  /* Card Styles */
+  .card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: white;
+    transition: all 0.3s ease;
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+    border-bottom: 1px solid #E2E8F0;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 20px 24px;
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  /* Page Header */
+  .page-header {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .page-header h4 {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .page-header p {
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 0;
+  }
+
+  /* Table Styles */
+  .table-modern {
+    margin-bottom: 0;
+  }
+
+  .table-modern thead th {
+    background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+    color: var(--dark-color);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px;
+    border-bottom: 2px solid #E2E8F0;
+  }
+
+  .table-modern tbody tr {
+    border-bottom: 1px solid #F1F5F9;
+    transition: all 0.2s;
+  }
+
+  .table-modern tbody tr:hover {
+    background-color: #F8FAFC;
+  }
+
+  .table-modern tbody td {
+    padding: 16px;
+    vertical-align: middle;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .empty-state i {
+    font-size: 4rem;
+    color: #45CB85;
+    margin-bottom: 20px;
+  }
+
+  .empty-state h5 {
+    color: #64748B;
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    color: #94A3B8;
+  }
+
+  /* Buttons */
+  .btn-success {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    border: none;
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-success:hover {
+    background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+    color: white;
+  }
+
+  /* Pagination */
+  .pagination {
+    gap: 8px;
+  }
+
+  .pagination .page-link {
+    border-radius: 8px;
+    border: 1px solid #E2E8F0;
+    color: #475569;
+    font-weight: 500;
+    padding: 8px 16px;
+    transition: all 0.2s;
+  }
+
+  .pagination .page-link:hover {
+    background: #F8FAFC;
+    border-color: #45CB85;
+    color: #45CB85;
+  }
+
+  .pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    border-color: #45CB85;
+    color: white;
+  }
+
+  .pagination .page-item.disabled .page-link {
+    background: #F8FAFC;
+    border-color: #E2E8F0;
+    color: #94A3B8;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h4><i class="ri-archive-line me-2"></i>Archivio Lead</h4>
+        <p>Lead archiviate per pulizia dashboard</p>
+      </div>
+      <div class="col-md-4 text-end">
+        <a href="{{ url_for('sales_form.dashboard') }}" class="btn btn-light">
+          <i class="ri-arrow-left-line me-1"></i> Torna alle Lead Attive
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {# Filtro ricerca #}
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="GET" class="row g-3">
+        <div class="col-md-10">
+          <label class="form-label">Ricerca</label>
+          <input
+            type="text"
+            class="form-control"
+            name="search"
+            value="{{ current_search }}"
+            placeholder="Cerca per nome, email o telefono...">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="ri-search-line me-1"></i> Cerca
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# Tabella Lead #}
+  <div class="card">
+    <div class="card-header">
+      <h6 class="mb-0">
+        <i class="ri-inbox-archive-line me-2"></i>{{ leads.total }} Lead Archiviate
+      </h6>
+    </div>
+    <div class="card-body">
+      {% if leads.items %}
+      <div class="table-responsive">
+        <table class="table table-modern">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Contatto</th>
+              <th>Stato Attuale</th>
+              <th>Data Archiviazione</th>
+              {% if current_user.is_admin %}
+              <th>Sales</th>
+              {% endif %}
+              <th class="text-end">Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lead in leads.items %}
+            <tr>
+              <td>
+                <div>
+                  <h6 class="mb-0 fw-medium">{{ lead.full_name }}</h6>
+                  <small class="text-muted">{{ lead.unique_code }}</small>
+                </div>
+              </td>
+              <td>
+                <div>
+                  <span class="d-block text-sm">{{ lead.email }}</span>
+                  <span class="text-muted text-sm">{{ lead.phone or '-' }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="badge
+                  {% if lead.status.value == 'NEW' %}bg-secondary-subtle text-secondary-main
+                  {% elif lead.status.value == 'CONTACTED' %}bg-info-subtle text-info-main
+                  {% elif lead.status.value == 'QUALIFIED' %}bg-primary-subtle text-primary-main
+                  {% elif lead.status.value == 'CONVERTED' %}bg-success-subtle text-success-main
+                  {% elif lead.status.value == 'LOST' %}bg-danger-subtle text-danger-main
+                  {% elif lead.status.value == 'FULL_PAYMENT' %}bg-warning-subtle text-warning-main
+                  {% elif lead.status.value == 'FINANCE_APPROVED' %}bg-success-subtle text-success-main
+                  {% else %}bg-secondary{% endif %}">
+                  <i class="ri-checkbox-blank-circle-fill me-1"></i>
+                  {{ lead.status.value|replace('_', ' ')|title }}
+                </span>
+              </td>
+              <td>
+                <div>
+                  <span class="d-block">{{ lead.archived_at.strftime('%d/%m/%Y %H:%M') if lead.archived_at }}</span>
+                  <small class="text-muted">
+                    da {{ lead.archived_by_user.full_name if lead.archived_by_user else 'N/A' }}
+                  </small>
+                </div>
+              </td>
+              {% if current_user.is_admin %}
+              <td>{{ lead.sales_user.full_name if lead.sales_user else '-' }}</td>
+              {% endif %}
+              <td class="text-end">
+                <a href="{{ url_for('sales_form.lead_detail', lead_id=lead.id) }}"
+                   class="btn btn-sm btn-outline-primary"
+                   title="Visualizza Dettagli">
+                  <i class="ri-eye-line"></i> Visualizza
+                </a>
+                <form method="POST"
+                      action="{{ url_for('sales_form.restore_lead', lead_id=lead.id) }}"
+                      class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-success" title="Ripristina">
+                    <i class="ri-refresh-line"></i>
+                  </button>
+                </form>
+                {% if current_user.is_admin %}
+                <form method="POST"
+                      action="{{ url_for('sales_form.delete_lead', lead_id=lead.id) }}"
+                      class="d-inline"
+                      onsubmit="return confirm('⚠️ ATTENZIONE: Eliminare DEFINITIVAMENTE questa lead?\n\nLead: {{ lead.full_name }}\n\nQuesta operazione è IRREVERSIBILE!');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Elimina definitivamente (SOLO ADMIN)">
+                    <i class="ri-delete-bin-line"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Paginazione #}
+      {% if leads.pages > 1 %}
+      <div class="mt-4">
+        <nav>
+          <ul class="pagination justify-content-center mb-0">
+            {% if leads.has_prev %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('sales_form.archived_leads', page=leads.prev_num, search=current_search) }}">
+                <i class="ri-arrow-left-s-line"></i> Precedente
+              </a>
+            </li>
+            {% endif %}
+
+            {% for page_num in leads.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+              {% if page_num %}
+              <li class="page-item {% if page_num == leads.page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('sales_form.archived_leads', page=page_num, search=current_search) }}">
+                  {{ page_num }}
+                </a>
+              </li>
+              {% else %}
+              <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if leads.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('sales_form.archived_leads', page=leads.next_num, search=current_search) }}">
+                Successiva <i class="ri-arrow-right-s-line"></i>
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="empty-state">
+        <i class="ri-archive-line"></i>
+        <h5>Nessuna Lead Archiviata</h5>
+        {% if current_search %}
+        <p>Prova a modificare i filtri di ricerca</p>
+        {% else %}
+        <p>Non hai ancora archiviato nessuna lead</p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

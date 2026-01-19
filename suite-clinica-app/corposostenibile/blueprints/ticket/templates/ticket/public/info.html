@@ -1,0 +1,578 @@
+{# templates/ticket/public/info.html #}
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guida Sistema Ticket • Corpo Sostenibile</title>
+  
+  <!-- Bootstrap • Remix-Icon -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+  
+  <style>
+    :root{
+      --bs-primary:#25B36A;
+      --bs-primary-rgb:37,179,106;
+      --gradient-primary: linear-gradient(135deg, #25B36A 0%, #1e9a5b 100%);
+      --gradient-hero: linear-gradient(135deg, #f6f9fc 0%, #e9f7ef 100%);
+    }
+    
+    /* Override primario */
+    .btn-primary{background:var(--bs-primary);border-color:var(--bs-primary)}
+    .btn-primary:hover{background:#1e9a5b;border-color:#1e9a5b;transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,179,106,0.25)}
+    .text-primary{color:var(--bs-primary)!important}
+    
+    /* Hero Section migliorata */
+    .hero-section{
+      background:var(--gradient-hero);
+      padding:100px 0;
+      position:relative;
+      overflow:hidden;
+    }
+    .hero-section::before{
+      content:'';
+      position:absolute;
+      top:-50%;
+      right:-10%;
+      width:600px;
+      height:600px;
+      background:radial-gradient(circle, rgba(37,179,106,0.1) 0%, transparent 70%);
+      border-radius:50%;
+    }
+    .hero-content{position:relative;z-index:1}
+    
+    /* Cards professionali */
+    .info-card{
+      background:white;
+      border-radius:20px;
+      padding:40px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.08);
+      margin-bottom:32px;
+      transition:all 0.3s ease;
+      border:1px solid rgba(0,0,0,0.05);
+    }
+    .info-card:hover{
+      transform:translateY(-5px);
+      box-shadow:0 15px 40px rgba(0,0,0,0.12);
+    }
+    .info-card h2{
+      color:#2c3e50;
+      font-weight:700;
+      margin-bottom:24px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .info-card h2 i{
+      width:40px;
+      height:40px;
+      background:var(--gradient-primary);
+      color:white;
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:20px;
+    }
+    
+    /* Urgency cards migliorate */
+    .urgency-card{
+      border:2px solid;
+      border-radius:16px;
+      padding:28px;
+      margin-bottom:20px;
+      transition:all 0.3s ease;
+      position:relative;
+      overflow:hidden;
+    }
+    .urgency-card::before{
+      content:'';
+      position:absolute;
+      top:0;
+      left:0;
+      width:6px;
+      height:100%;
+      background:currentColor;
+    }
+    .urgency-card:hover{
+      transform:translateX(8px);
+      box-shadow:0 8px 20px rgba(0,0,0,0.1);
+    }
+    .urgency-alta{border-color:#dc3545;background:#fff5f5;color:#dc3545}
+    .urgency-alta::before{background:#dc3545}
+    .urgency-media{border-color:#ffc107;background:#fffbf0;color:#856404}
+    .urgency-media::before{background:#ffc107}
+    .urgency-bassa{border-color:#28a745;background:#f0fff4;color:#155724}
+    .urgency-bassa::before{background:#28a745}
+    .urgency-emoji{font-size:32px;margin-bottom:8px;display:block}
+    
+    /* Department cards professionali */
+    .dept-card{
+      background:linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border-radius:16px;
+      padding:28px;
+      margin-bottom:20px;
+      border-left:5px solid var(--bs-primary);
+      transition:all 0.3s ease;
+      position:relative;
+      overflow:hidden;
+    }
+    .dept-card::after{
+      content:'';
+      position:absolute;
+      top:-50%;
+      right:-50%;
+      width:200%;
+      height:200%;
+      background:radial-gradient(circle, rgba(37,179,106,0.05) 0%, transparent 50%);
+      transform:rotate(45deg);
+    }
+    .dept-card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 10px 25px rgba(0,0,0,0.1);
+    }
+    .dept-icon{
+      width:50px;
+      height:50px;
+      background:var(--gradient-primary);
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:white;
+      font-size:24px;
+      margin-bottom:16px;
+    }
+    
+    /* Process steps eleganti */
+    .process-step{
+      text-align:center;
+      padding:32px 20px;
+      position:relative;
+    }
+    .process-icon{
+      width:90px;
+      height:90px;
+      background:var(--gradient-primary);
+      color:white;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin:0 auto 20px;
+      font-size:36px;
+      box-shadow:0 8px 20px rgba(37,179,106,0.25);
+      position:relative;
+      z-index:2;
+    }
+    .process-step h5{font-weight:700;color:#2c3e50;margin-bottom:12px}
+    .process-step p{color:#6c757d;margin:0}
+    .process-arrow{
+      position:absolute;
+      top:45px;
+      right:-40px;
+      font-size:40px;
+      color:#dee2e6;
+      z-index:1;
+    }
+    
+    /* FAQ professionale */
+    .faq-item{
+      margin-bottom:16px;
+      border-radius:12px;
+      overflow:hidden;
+      border:1px solid #e9ecef;
+      transition:all 0.3s ease;
+    }
+    .faq-item:hover{
+      border-color:var(--bs-primary);
+      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    }
+    .faq-question{
+      background:#f8f9fa;
+      padding:20px 24px;
+      cursor:pointer;
+      transition:all 0.3s ease;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .faq-question:hover{background:#e9ecef}
+    .faq-question strong{color:#2c3e50;flex:1}
+    .faq-question i{
+      color:var(--bs-primary);
+      transition:transform 0.3s ease;
+      font-size:20px;
+    }
+    .faq-item.active .faq-question i{transform:rotate(180deg)}
+    .faq-answer{
+      padding:24px;
+      display:none;
+      background:white;
+      line-height:1.8;
+      color:#495057;
+    }
+    
+    /* Best practices section */
+    .best-practice{
+      background:#f8f9fa;
+      border-radius:12px;
+      padding:24px;
+      margin-bottom:16px;
+      border-left:4px solid var(--bs-primary);
+      display:flex;
+      gap:16px;
+      align-items:start;
+    }
+    .best-practice i{
+      color:var(--bs-primary);
+      font-size:24px;
+      flex-shrink:0;
+      margin-top:4px;
+    }
+    
+    /* Stats banner */
+    .stats-banner{
+      background:var(--gradient-primary);
+      color:white;
+      padding:60px 0;
+      margin:60px 0;
+      border-radius:24px;
+      position:relative;
+      overflow:hidden;
+    }
+    .stats-banner::before{
+      content:'';
+      position:absolute;
+      top:-50%;
+      right:-10%;
+      width:400px;
+      height:400px;
+      background:rgba(255,255,255,0.1);
+      border-radius:50%;
+    }
+    .stat-item{
+      text-align:center;
+      position:relative;
+      z-index:1;
+    }
+    .stat-number{
+      font-size:48px;
+      font-weight:800;
+      line-height:1;
+      margin-bottom:8px;
+    }
+    .stat-label{
+      font-size:18px;
+      opacity:0.9;
+    }
+    
+    /* CTA section */
+    .cta-section{
+      background:linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      padding:60px;
+      border-radius:24px;
+      text-align:center;
+      border:2px solid #e9ecef;
+      margin-top:60px;
+    }
+    
+    /* Footer migliorato */
+    footer{
+      background:#2c3e50;
+      color:white;
+      padding:40px 0;
+      margin-top:80px;
+    }
+    footer a{
+      color:white;
+      opacity:0.8;
+      transition:opacity 0.3s;
+    }
+    footer a:hover{
+      color:white;
+      opacity:1;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .hero-section{padding:60px 0}
+      .info-card{padding:28px}
+      .process-arrow{display:none}
+      .stat-number{font-size:36px}
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+      from{opacity:0;transform:translateY(20px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    .fade-in-up{animation:fadeInUp 0.6s ease-out}
+  </style>
+</head>
+<body>
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="container hero-content">
+      <div class="text-center">
+        <a href="/" class="d-inline-block mb-4">
+          <img src="{{ url_for('static', filename='assets/immagini/Suite.png') }}" 
+               class="img-fluid" style="max-width:250px" alt="Corpo Sostenibile">
+        </a>
+        <h1 class="display-4 mb-3 fw-bold">Sistema di Ticketing Aziendale</h1>
+        <p class="lead mb-5 mx-auto" style="max-width:700px">
+          Questo sistema centralizzato ci permetterà di gestire richieste e segnalazioni 
+          per i dipartimenti di Corpo Sostenibile in modo efficiente e tracciabile.
+        </p>
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+          <a href="{{ url_for('public_ticket.new_ticket') }}" class="btn btn-primary btn-lg px-5">
+            <i class="ri-add-circle-line me-2"></i>Apri un Nuovo Ticket
+          </a>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container py-5">
+    <!-- Come funziona -->
+    <div class="info-card mb-5 fade-in-up">
+      <h2>
+        <i class="ri-information-line"></i>
+        Come funziona il sistema
+      </h2>
+      <div class="row align-items-center">
+        <div class="col-md-3 process-step">
+          <div class="process-icon">
+            <i class="ri-edit-2-line"></i>
+          </div>
+          <h5>1. Crea Ticket</h5>
+          <p>Compila il form con tutti i dettagli della tua richiesta.</p>
+          <div class="process-arrow d-none d-md-block">
+            <i class="ri-arrow-right-line"></i>
+          </div>
+        </div>
+        
+        <div class="col-md-3 process-step">
+          <div class="process-icon">
+            <i class="ri-send-plane-2-line"></i>
+          </div>
+          <h5>2. Assegnazione</h5>
+          <p>Il ticket viene inviato automaticamente al dipartimento competente</p>
+          <div class="process-arrow d-none d-md-block">
+            <i class="ri-arrow-right-line"></i>
+          </div>
+        </div>
+        
+        <div class="col-md-3 process-step">
+          <div class="process-icon">
+            <i class="ri-user-follow-line"></i>
+          </div>
+          <h5>3. Presa in carico</h5>
+          <p>Il responsabile del dipartimento gestisce la tua richiesta</p>
+          <div class="process-arrow d-none d-md-block">
+            <i class="ri-arrow-right-line"></i>
+          </div>
+        </div>
+        
+        <div class="col-md-3 process-step">
+          <div class="process-icon">
+            <i class="ri-checkbox-circle-line"></i>
+          </div>
+          <h5>4. Risoluzione</h5>
+          <p>Ricevi notifiche email fino alla chiusura del ticket</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Best Practices per dipendenti -->
+    <div class="info-card mb-5">
+      <h2>
+        <i class="ri-lightbulb-line"></i>
+        Best Practices per l'apertura ticket
+      </h2>
+      
+      <div class="best-practice">
+        <i class="ri-file-text-line"></i>
+        <div>
+          <h5 class="mb-2">Oggetto chiaro e specifico</h5>
+          <p class="mb-0">Usa un titolo descrittivo che riassuma il problema. Evita oggetti generici come "Aiuto" o "Problema".</p>
+          <small class="text-muted">✓ "Errore login Go High Level" &nbsp; ✗ "Non funziona"</small>
+        </div>
+      </div>
+      
+      <div class="best-practice">
+        <i class="ri-list-check-2"></i>
+        <div>
+          <h5 class="mb-2">Descrizione completa</h5>
+          <p class="mb-0">Includi tutti i dettagli: cosa stava facendo, quando si è verificato il problema, messaggi di errore.</p>
+          <small class="text-muted">Più informazioni fornisci, più veloce sarà la risoluzione</small>
+        </div>
+      </div>
+      
+      <div class="best-practice">
+        <i class="ri-timer-line"></i>
+        <div>
+          <h5 class="mb-2">Urgenza appropriata</h5>
+          <p class="mb-0">Seleziona il livello di urgenza corretto per garantire la giusta priorità alla tua richiesta.</p>
+          <small class="text-muted">L'abuso dell'urgenza "Alta" rallenta le vere emergenze</small>
+        </div>
+      </div>
+      
+      <div class="best-practice">
+        <i class="ri-building-line"></i>
+        <div>
+          <h5 class="mb-2">Dipartimento corretto</h5>
+          <p class="mb-0">Assicurati di selezionare SEMPRE il tuo dipartimento di appartenenza.</p>
+          <small class="text-muted">Se c'è bisogno della collaborazione di altri dipartimenti, ci penserà il tuo responsabile a condividerglielo. <br> se non trovi il tuo dipartimento nell'elenco seleziona il dipartimento coerente con la tua richiesta!</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Livelli di urgenza -->
+    <div class="info-card mb-5">
+      <h2>
+        <i class="ri-time-line"></i>
+        Livelli di urgenza
+      </h2>
+      <p class="mb-4 text-muted">
+        I tempi di risposta sono calcolati in ore lavorative
+      </p>
+      <div class="row">
+        {% for urgency in urgency_info %}
+          <div class="col-md-4">
+            <div class="urgency-card urgency-{{ urgency.level.value }}">
+              <span class="urgency-emoji">{{ urgency.icon }}</span>
+              <h4 class="mb-3">Urgenza {{ urgency.label }}</h4>
+              <p class="mb-3">{{ urgency.description }}</p>
+              <div class="d-flex align-items-center justify-content-between">
+                <strong>Tempo di risoluzione:</strong>
+                <span class="badge bg-white text-dark px-3 py-2">{{ urgency.sla }}</span>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+
+    <!-- FAQ -->
+    <div class="info-card">
+      <h2>
+        <i class="ri-question-line"></i>
+        Domande frequenti
+      </h2>
+      
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <strong>Come posso tracciare il mio ticket?</strong>
+          <i class="ri-arrow-down-s-line"></i>
+        </div>
+        <div class="faq-answer">
+          Riceverai anche notifiche email automatiche ad ogni cambio di stato.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <strong>Cosa succede dopo l'invio del ticket?</strong>
+          <i class="ri-arrow-down-s-line"></i>
+        </div>
+        <div class="faq-answer">
+          Il processo post-invio è completamente automatizzato:
+          <ul class="mt-3">
+            <li><strong>Immediato:</strong> Ricevi email di conferma con numero ticket</li>
+            <li><strong>Presa in carico:</strong> Il ticket viene preso in carico dal responsabile del dipartimento</li>
+            <li><strong>Aggiornamenti:</strong> Email automatiche ad ogni cambio stato</li>
+            <li><strong>Risoluzione:</strong> Notifica finale con dettagli chiusura</li>
+          </ul>
+          Il dipartimento competente rispetterà i tempi in base all'urgenza selezionata.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <strong>Posso modificare un ticket dopo l'invio?</strong>
+          <i class="ri-arrow-down-s-line"></i>
+        </div>
+        <div class="faq-answer">
+          Non è possibile modificare direttamente un ticket già inviato per garantire la tracciabilità. 
+          Tuttavia hai queste opzioni:
+          <ul class="mt-3">
+            <li>Apri un nuovo ticket collegato citando il numero del ticket originale</li>
+            <li>Per urgenze, contatta il responsabile del dipartimento</li>
+          </ul>
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- CTA finale -->
+    <div class="cta-section">
+      <h3 class="mb-3">Hai bisogno di assistenza sui Ticket?</h3>
+      <p class="lead mb-4 mx-auto" style="max-width:600px">
+        Il sistema di ticketing è il modo più veloce ed efficiente per ottenere supporto. 
+        Se hai dei problematiche con il sistema contatta il dipartimento IT.
+      </p>
+      <div class="d-flex gap-3 justify-content-center flex-wrap">
+        <a href="https://wa.me/393343559845" class="btn btn-primary btn-lg px-5" target="_blank">
+  <i class="ri-whatsapp-line me-2"></i>Contatta IT su WhatsApp
+</a>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+  <script>
+    // Toggle FAQ con animazione fluida
+    function toggleFaq(element) {
+      const faqItem = element.parentElement;
+      const answer = element.nextElementSibling;
+      const icon = element.querySelector('i');
+      const allItems = document.querySelectorAll('.faq-item');
+      
+      // Chiudi tutti gli altri
+      allItems.forEach(item => {
+        if (item !== faqItem && item.classList.contains('active')) {
+          item.classList.remove('active');
+          item.querySelector('.faq-answer').style.display = 'none';
+          item.querySelector('.faq-question i').style.transform = 'rotate(0deg)';
+        }
+      });
+      
+      // Toggle current
+      if (faqItem.classList.contains('active')) {
+        faqItem.classList.remove('active');
+        answer.style.display = 'none';
+        icon.style.transform = 'rotate(0deg)';
+      } else {
+        faqItem.classList.add('active');
+        answer.style.display = 'block';
+        icon.style.transform = 'rotate(180deg)';
+      }
+    }
+    
+    // Animazioni scroll
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('fade-in-up');
+        }
+      });
+    }, observerOptions);
+    
+    // Osserva tutti gli elementi info-card
+    document.querySelectorAll('.info-card').forEach(card => {
+      observer.observe(card);
+    });
+  </script>
+</body>
+</html>

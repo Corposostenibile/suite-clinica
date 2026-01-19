@@ -1,0 +1,874 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} • Suite{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Dettaglio Progetto</h6>
+    <ul class="d-flex align-items-center gap-2 breadcrumb mb-0">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('projects.dashboard') }}" class="d-flex align-items-center gap-1 text-decoration-none">
+                <i class="ri-folder-3-line"></i>
+                Progetti
+            </a>
+        </li>
+        <li class="breadcrumb-item">{{ project.name }}</li>
+    </ul>
+</div>
+
+<div class="row gy-4">
+    <!-- LEFT COLUMN - PROJECT INFO -->
+    <div class="col-lg-4">
+        <div class="user-grid-card position-relative border radius-8 overflow-hidden">
+            <!-- Project Header -->
+            <div class="bg-primary-50 p-24 pb-0">
+                <div class="text-center position-relative">
+                    <!-- Project Icon/Image -->
+                    <div class="w-120-px h-120-px d-inline-flex align-items-center justify-content-center bg-white rounded-circle shadow-sm mx-auto">
+                        {% if project.project_type == 'new_development' %}
+                            <i class="ri-code-s-slash-line text-primary" style="font-size: 48px;"></i>
+                        {% elif project.project_type == 'enhancement' %}
+                            <i class="ri-tools-line text-primary" style="font-size: 48px;"></i>
+                        {% elif project.project_type == 'bugfix' %}
+                            <i class="ri-bug-line text-primary" style="font-size: 48px;"></i>
+                        {% elif project.project_type == 'maintenance' %}
+                            <i class="ri-settings-3-line text-primary" style="font-size: 48px;"></i>
+                        {% elif project.project_type == 'research' %}
+                            <i class="ri-microscope-line text-primary" style="font-size: 48px;"></i>
+                        {% else %}
+                            <i class="ri-folder-3-line text-primary" style="font-size: 48px;"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Edit/Delete buttons in corner -->
+                    <div class="position-absolute top-0 end-0 p-3">
+                        {% if can_edit %}
+                            <a href="{{ url_for('projects.edit', project_id=project.id) }}" class="btn btn-sm btn-light">
+                                <i class="ri-pencil-line"></i>
+                            </a>
+                        {% endif %}
+                        {% if can_delete %}
+                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                <i class="ri-delete-bin-line"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-24">
+                <!-- Project Name & Status -->
+                <div class="text-center mb-24">
+                    <h4 class="mb-8">{{ project.name }}</h4>
+                    {% set status_colors = {
+                        'planning': 'info',
+                        'in_progress': 'primary',
+                        'testing': 'warning',
+                        'review': 'secondary',
+                        'completed': 'success',
+                        'on_hold': 'dark',
+                        'cancelled': 'danger'
+                    } %}
+                    <span class="badge bg-{{ status_colors[project.status.value] }}-100 text-{{ status_colors[project.status.value] }}-600 px-20 py-6">
+                        {{ project.status.value|replace('_', ' ')|title }}
+                    </span>
+                    
+                    {% if project.priority.value == 'critical' %}
+                        <span class="badge bg-danger-100 text-danger-600 px-20 py-6 ms-2">
+                            <i class="ri-fire-line me-1"></i>Critica
+                        </span>
+                    {% elif project.priority.value == 'high' %}
+                        <span class="badge bg-warning-100 text-warning-600 px-20 py-6 ms-2">
+                            <i class="ri-arrow-up-line me-1"></i>Alta
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Progress -->
+                <div class="mb-24">
+                    <div class="d-flex justify-content-between mb-8">
+                        <span class="text-secondary-light">Progresso</span>
+                        <span class="fw-semibold">{{ project.progress_percentage }}%</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-primary-600" style="width: {{ project.progress_percentage }}%"></div>
+                    </div>
+                    <small class="text-secondary-light">
+                        {{ project.completed_milestones_count }}/{{ project.total_milestones_count }} milestone completate
+                    </small>
+                </div>
+                
+                <!-- Project Type -->
+                <div class="mb-24">
+                    <p class="text-secondary-light mb-4">Tipologia Progetto</p>
+                    <h6 class="mb-0">{{ project.project_type.value|replace('_', ' ')|title }}</h6>
+                </div>
+                
+                <!-- Project Manager -->
+                <div class="pb-20 mb-20 border-bottom">
+                    <h6 class="text-md mb-12">Project Manager</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if project.project_manager.avatar_path %}
+                            <img src="{{ url_for('team.serve_avatar', user_id=project.project_manager.id) }}" 
+                                 alt="{{ project.project_manager.full_name }}" 
+                                 class="w-40-px h-40-px rounded-circle object-fit-cover">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='assets/immagini/logo_user.png') }}" 
+                                 alt="{{ project.project_manager.full_name }}" 
+                                 class="w-40-px h-40-px rounded-circle">
+                        {% endif %}
+                        <div>
+                            <p class="text-sm mb-0 fw-semibold">{{ project.project_manager.full_name }}</p>
+                            <span class="text-xs text-secondary-light">{{ project.project_manager.job_title or 'Project Manager' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Team Section -->
+                <div class="pb-20 mb-20 border-bottom">
+                    <h6 class="text-md mb-12">Team</h6>
+                    
+                    <!-- Team Members (excluding PM as already shown above) -->
+                    {% if project.team_members %}
+                        {% for member in project.team_members[:4] %}
+                            {% if member.user.id != project.project_manager.id %}
+                            <div class="d-flex align-items-center gap-2 mb-8">
+                                {% if member.user.avatar_path %}
+                                    <img src="{{ url_for('team.serve_avatar', user_id=member.user.id) }}" 
+                                         alt="{{ member.user.full_name }}" 
+                                         class="w-32-px h-32-px rounded-circle object-fit-cover">
+                                {% else %}
+                                    <div class="w-32-px h-32-px rounded-circle bg-primary-100 text-primary-600 d-flex justify-content-center align-items-center text-xs fw-bold">
+                                        {{ member.user.first_name[0] }}{{ member.user.last_name[0] }}
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <p class="text-xs mb-0">{{ member.user.full_name }}</p>
+                                    <span class="text-xs text-secondary-light">{{ member.role }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                        {% if project.team_members|length > 4 %}
+                            <small class="text-secondary-light">+{{ project.team_members|length - 4 }} altri membri</small>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-sm text-secondary-light">Nessun membro del team aggiunto</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Descrizione -->
+                {% if project.description %}
+                <div class="pb-20 mb-20 border-bottom">
+                    <h6 class="text-md mb-12">Descrizione</h6>
+                    {% if project.description|length > 200 %}
+                        <div class="text-sm text-secondary-light">
+                            <p class="mb-0 description-text" style="white-space: pre-wrap;">
+                                <span class="description-short">{{ project.description[:200] }}...</span>
+                                <span class="description-full d-none">{{ project.description }}</span>
+                            </p>
+                            <a href="javascript:void(0)" class="text-primary-600 text-decoration-none small toggle-description">
+                                <span class="toggle-text">Mostra tutto</span>
+                                <i class="ri-arrow-down-s-line toggle-icon"></i>
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="text-sm text-secondary-light mb-0" style="white-space: pre-wrap;">{{ project.description }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Obiettivo -->
+                {% if project.objective %}
+                <div class="pb-20 mb-20 border-bottom">
+                    <h6 class="text-md mb-12">Obiettivo</h6>
+                    {% if project.objective|length > 200 %}
+                        <div class="text-sm text-secondary-light">
+                            <p class="mb-0 objective-text" style="white-space: pre-wrap;">
+                                <span class="objective-short">{{ project.objective[:200] }}...</span>
+                                <span class="objective-full d-none">{{ project.objective }}</span>
+                            </p>
+                            <a href="javascript:void(0)" class="text-primary-600 text-decoration-none small toggle-objective">
+                                <span class="toggle-text">Mostra tutto</span>
+                                <i class="ri-arrow-down-s-line toggle-icon"></i>
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="text-sm text-secondary-light mb-0" style="white-space: pre-wrap;">{{ project.objective }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Additional Info -->
+                <ul class="list-unstyled mb-0">
+                    <li class="d-flex align-items-center gap-2 mb-8">
+                        <i class="ri-building-line text-primary-600"></i>
+                        <span class="text-secondary-light text-sm">Dipartimento:</span>
+                        <span class="text-sm fw-medium">
+                            {% if project.is_company_wide %}
+                                Aziendale
+                            {% elif project.department %}
+                                {{ project.department.name }}
+                            {% else %}
+                                Non assegnato
+                            {% endif %}
+                        </span>
+                    </li>
+                    
+                    {% if project.repository_url %}
+                    <li class="d-flex align-items-center gap-2 mb-8">
+                        <i class="ri-github-line text-primary-600"></i>
+                        <span class="text-secondary-light text-sm">Repository:</span>
+                        <a href="{{ project.repository_url }}" target="_blank" class="text-sm fw-medium text-decoration-none">
+                            Apri <i class="ri-external-link-line"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RIGHT COLUMN - TABS -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-0">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs nav-tabs-primary" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#milestones" type="button">
+                            <i class="ri-flag-line me-8"></i>
+                            Milestone
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#updates" type="button">
+                            <i class="ri-history-line me-8"></i>
+                            Aggiornamenti
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#activity" type="button">
+                            <i class="ri-pulse-line me-8"></i>
+                            Attività
+                        </button>
+                    </li>
+                    {% if project.review_request or project.review_response or project.all_reviews %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#review" type="button">
+                            <i class="ri-check-double-line me-8"></i>
+                            Review
+                            {% if project.has_pending_review %}
+                                <span class="badge bg-warning ms-1">In attesa</span>
+                            {% elif project.last_review_approved == true %}
+                                <span class="badge bg-success ms-1">Approvata</span>
+                            {% elif project.last_review_approved == false %}
+                                <span class="badge bg-danger ms-1">Modifiche richieste</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content p-24">
+                    <!-- MILESTONE TAB -->
+                    <div class="tab-pane fade show active" id="milestones">
+                        <div class="d-flex justify-content-between align-items-center mb-20">
+                            <h6 class="text-lg mb-0">Milestone del Progetto</h6>
+                            <div>
+                                {% if project.all_milestones_completed and project.status.value != 'review' and project.status.value != 'completed' %}
+                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#requestReviewModal">
+                                        <i class="ri-eye-line me-1"></i> Chiedi Review
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if project.milestones %}
+                            <div class="timeline-vertical">
+                                {% for milestone in project.milestones %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker
+                                        {% if milestone.status.value == 'completed' %}bg-success-600
+                                        {% elif milestone.is_overdue %}bg-danger-600
+                                        {% else %}bg-warning-400{% endif %}">
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="card border">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start mb-12">
+                                                    <div>
+                                                        <h6 class="text-md mb-4">
+                                                            {{ milestone.name }}
+                                                            {% if milestone.is_overdue %}
+                                                                <span class="badge bg-danger-100 text-danger-600 ms-8">In ritardo</span>
+                                                            {% endif %}
+                                                        </h6>
+                                                        {% if milestone.description %}
+                                                            <p class="text-sm text-secondary-light mb-12">{{ milestone.description }}</p>
+                                                        {% endif %}
+                                                    </div>
+                                                    <select class="form-select form-select-sm milestone-status"
+                                                            data-milestone-id="{{ milestone.id }}" style="width: auto;">
+                                                        <option value="pending" {% if milestone.status.value == 'pending' %}selected{% endif %}>⏳ In Attesa</option>
+                                                        <option value="completed" {% if milestone.status.value == 'completed' %}selected{% endif %}>✅ Completata</option>
+                                                    </select>
+                                                </div>
+                                                
+                                                <div class="d-flex flex-wrap gap-3 text-sm text-secondary-light mb-12">
+                                                    <span>
+                                                        <i class="ri-calendar-line me-4"></i>
+                                                        Scadenza: {{ milestone.due_date.strftime('%d/%m/%Y') }}
+                                                    </span>
+                                                    {% if milestone.assignee %}
+                                                    <span>
+                                                        <i class="ri-user-line me-4"></i>
+                                                        {{ milestone.assignee.full_name }}
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+                                                
+                                                <div class="progress" style="height: 6px;">
+                                                    <div class="progress-bar bg-primary-600" 
+                                                         style="width: {{ milestone.progress_percentage }}%">
+                                                    </div>
+                                                </div>
+                                                <small class="text-secondary-light">Progresso: {{ milestone.progress_percentage }}%</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-40">
+                                <i class="ri-flag-line text-secondary-light" style="font-size: 48px;"></i>
+                                <p class="text-secondary-light mt-12">Nessuna milestone definita</p>
+                                <a href="{{ url_for('projects.add_milestone', project_id=project.id) }}" 
+                                   class="btn btn-sm btn-primary-600 mt-8">
+                                    <i class="ri-add-line me-1"></i> Aggiungi la prima milestone
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- UPDATES TAB -->
+                    <div class="tab-pane fade" id="updates">
+                        <div class="d-flex justify-content-between align-items-center mb-20">
+                            <h6 class="text-lg mb-0">Storico Aggiornamenti</h6>
+                        </div>
+                        
+                        {% if project.updates %}
+                            {% for update in project.updates %}
+                            <div class="card border mb-16">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="text-md mb-8">
+                                                {{ update.title }}
+                                                {% if update.is_important %}
+                                                    <span class="badge bg-warning-100 text-warning-600 ms-8">Importante</span>
+                                                {% endif %}
+                                            </h6>
+                                            <p class="text-sm text-secondary-light mb-12">{{ update.content }}</p>
+                                            <div class="d-flex align-items-center gap-3 text-xs text-secondary-light">
+                                                <span>
+                                                    <i class="ri-user-line me-4"></i>
+                                                    {{ update.author.full_name }}
+                                                </span>
+                                                <span>
+                                                    <i class="ri-time-line me-4"></i>
+                                                    {{ update.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-light text-dark">
+                                            {{ update.update_type|replace('_', ' ')|title }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-40">
+                                <i class="ri-history-line text-secondary-light" style="font-size: 48px;"></i>
+                                <p class="text-secondary-light mt-12">Nessun aggiornamento disponibile</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- ACTIVITY TAB -->
+                    <div class="tab-pane fade" id="activity">
+                        <h6 class="text-lg mb-20">Attività Recenti</h6>
+
+                        <div class="text-center py-40">
+                            <i class="ri-pulse-line text-secondary-light" style="font-size: 48px;"></i>
+                            <p class="text-secondary-light mt-12">Nessuna attività registrata</p>
+                        </div>
+                    </div>
+
+                    <!-- REVIEW TAB -->
+                    {% if project.all_reviews or project.review_request or project.review_response %}
+                    <div class="tab-pane fade" id="review">
+                        <h6 class="text-lg mb-20">Review del Progetto</h6>
+
+                        <!-- Storico completo delle review (se ci sono review multiple) -->
+                        {% if project.all_reviews and project.all_reviews|length > 0 %}
+                        <div class="timeline-vertical mb-4">
+                            {% for review in project.all_reviews %}
+                            <div class="timeline-item">
+                                <div class="timeline-marker
+                                    {% if review.type == 'request' %}bg-primary
+                                    {% elif review.approved %}bg-success
+                                    {% else %}bg-warning{% endif %}">
+                                </div>
+                                <div class="card mb-3">
+                                    <div class="card-header
+                                        {% if review.type == 'request' %}bg-light
+                                        {% elif review.approved %}bg-success text-white
+                                        {% else %}bg-warning{% endif %}">
+                                        <h6 class="mb-0 {% if review.type == 'response' and review.approved %}text-white{% endif %}">
+                                            {% if review.type == 'request' %}
+                                                <i class="ri-git-pull-request-line me-2"></i>
+                                                Richiesta Review #{{ review.iteration|default(1) }}
+                                            {% elif review.approved %}
+                                                <i class="ri-check-line me-2"></i>
+                                                Review Approvata
+                                            {% else %}
+                                                <i class="ri-edit-2-line me-2"></i>
+                                                Richieste Modifiche
+                                            {% endif %}
+                                            <small class="float-end">{{ review.requested_at or review.reviewed_at }}</small>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if review.type == 'request' %}
+                                            <p><strong>Branch:</strong> <code>{{ review.branch_name }}</code></p>
+                                            {% if review.developer_notes %}
+                                            <p><strong>Note:</strong> {{ review.developer_notes }}</p>
+                                            {% endif %}
+                                            <p class="mb-0"><small>Richiesto da: {{ review.requested_by }}</small></p>
+                                        {% else %}
+                                            <p><strong>Feedback:</strong></p>
+                                            <div class="alert alert-light">{{ review.feedback }}</div>
+                                            <p class="mb-0"><small>Recensito da: {{ review.reviewed_by }}</small></p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Se c'è una review in attesa e l'utente è il PM, mostra il form -->
+                        {% if project.has_pending_review and current_user.id == 1 %}
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0 text-white">
+                                    <i class="ri-edit-line me-2"></i>
+                                    Scrivi la tua Review
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('projects.submit_review', project_id=project.id) }}" method="POST">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Decisione</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="approved" id="approve" value="true" checked>
+                                            <label class="form-check-label" for="approve">
+                                                <i class="ri-check-line text-success"></i> Approva il progetto
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="approved" id="request_changes" value="false">
+                                            <label class="form-check-label" for="request_changes">
+                                                <i class="ri-edit-2-line text-warning"></i> Richiedi modifiche
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="feedback" class="form-label">Feedback</label>
+                                        <textarea class="form-control" id="feedback" name="feedback" rows="4" required
+                                                  placeholder="Inserisci il tuo feedback sul lavoro svolto..."></textarea>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="ri-send-plane-line me-2"></i> Invia Review
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- FALLBACK: Se non ci sono review multiple, usa la vecchia logica per compatibilità -->
+                        {% else %}
+                            {% if project.review_response %}
+                            <!-- Mostra review completata -->
+                            <div class="card mb-20">
+                                <div class="card-header {% if project.review_response.get('approved') %}bg-success text-white{% else %}bg-warning{% endif %}">
+                                    <h6 class="mb-0 {% if project.review_response.get('approved') %}text-white{% endif %}">
+                                        <i class="ri-check-line me-2"></i>
+                                        Review Completata
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <strong>Stato Review:</strong>
+                                        {% if project.review_response.get('approved') %}
+                                            <span class="badge bg-success ms-2">Approvata</span>
+                                        {% else %}
+                                            <span class="badge bg-warning ms-2">Richieste modifiche</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <strong>Feedback del Project Manager:</strong>
+                                        <div class="alert alert-light mt-2">
+                                            {{ project.review_response.get('feedback', 'Nessun feedback fornito') }}
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="mb-0">
+                                                <strong>Recensito da:</strong>
+                                                <span class="ms-2">{{ project.review_response.get('reviewed_by', 'N/A') }}</span>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-0">
+                                                <strong>Data review:</strong>
+                                                <span class="ms-2">{{ project.review_response.get('reviewed_at', 'N/A') }}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Se review con modifiche, mostra richiesta originale -->
+                            {% if not project.review_response.get('approved') and project.review_request %}
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Richiesta Review Originale</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Branch:</strong> <code>{{ project.review_request.get('branch_name', 'N/A') }}</code></p>
+                                    {% if project.review_request.get('developer_notes') %}
+                                    <p><strong>Note:</strong> {{ project.review_request.get('developer_notes') }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% elif project.review_request %}
+                            <!-- Mostra richiesta in attesa -->
+                            <div class="card mb-20">
+                                <div class="card-header bg-warning">
+                                    <h6 class="mb-0">
+                                        <i class="ri-git-pull-request-line me-2"></i>
+                                        Richiesta di Review in Attesa
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="mb-2">
+                                                <strong>Branch:</strong>
+                                                <code class="ms-2">{{ project.review_request.get('branch_name', 'N/A') }}</code>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-2">
+                                                <strong>Data richiesta:</strong>
+                                                <span class="ms-2">{{ project.review_request.get('requested_at', 'N/A') }}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {% if project.review_request.get('developer_notes') %}
+                                    <div class="mt-3">
+                                        <strong>Note dello sviluppatore:</strong>
+                                        <div class="alert alert-light mt-2">
+                                            {{ project.review_request.get('developer_notes') }}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="mt-3">
+                                        <strong>Richiedente:</strong>
+                                        <span class="ms-2">{{ project.review_request.get('requested_by', 'N/A') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% if current_user.id == 1 %}
+                            <!-- Form per PM per rispondere alla review -->
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0 text-white">
+                                        <i class="ri-edit-line me-2"></i>
+                                        Scrivi la tua Review
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <form action="{{ url_for('projects.submit_review', project_id=project.id) }}" method="POST">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Decisione</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="approved" id="approve" value="true" checked>
+                                                <label class="form-check-label" for="approve">
+                                                    <i class="ri-check-line text-success"></i> Approva il progetto
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="approved" id="request_changes" value="false">
+                                                <label class="form-check-label" for="request_changes">
+                                                    <i class="ri-edit-2-line text-warning"></i> Richiedi modifiche
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="feedback" class="form-label">Feedback</label>
+                                            <textarea class="form-control" id="feedback" name="feedback" rows="4" required
+                                                      placeholder="Inserisci il tuo feedback sul lavoro svolto..."></textarea>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="ri-send-plane-line me-2"></i> Invia Review
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline-vertical {
+    position: relative;
+    padding-left: 30px;
+}
+.timeline-vertical::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+.timeline-content {
+    padding-left: 10px;
+}
+
+.nav-tabs-primary .nav-link {
+    color: #6c757d;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 20px;
+    font-weight: 500;
+}
+.nav-tabs-primary .nav-link:hover {
+    color: var(--bs-primary);
+    border-bottom-color: rgba(var(--bs-primary-rgb), 0.2);
+}
+.nav-tabs-primary .nav-link.active {
+    color: var(--bs-primary);
+    background: none;
+    border-bottom-color: var(--bs-primary);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle for description
+document.querySelector('.toggle-description')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    const shortText = this.parentElement.querySelector('.description-short');
+    const fullText = this.parentElement.querySelector('.description-full');
+    const toggleText = this.querySelector('.toggle-text');
+    const toggleIcon = this.querySelector('.toggle-icon');
+    
+    if (shortText.classList.contains('d-none')) {
+        // Show short
+        shortText.classList.remove('d-none');
+        fullText.classList.add('d-none');
+        toggleText.textContent = 'Mostra tutto';
+        toggleIcon.classList.remove('ri-arrow-up-s-line');
+        toggleIcon.classList.add('ri-arrow-down-s-line');
+    } else {
+        // Show full
+        shortText.classList.add('d-none');
+        fullText.classList.remove('d-none');
+        toggleText.textContent = 'Mostra meno';
+        toggleIcon.classList.remove('ri-arrow-down-s-line');
+        toggleIcon.classList.add('ri-arrow-up-s-line');
+    }
+});
+
+// Toggle for objective
+document.querySelector('.toggle-objective')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    const shortText = this.parentElement.querySelector('.objective-short');
+    const fullText = this.parentElement.querySelector('.objective-full');
+    const toggleText = this.querySelector('.toggle-text');
+    const toggleIcon = this.querySelector('.toggle-icon');
+    
+    if (shortText.classList.contains('d-none')) {
+        // Show short
+        shortText.classList.remove('d-none');
+        fullText.classList.add('d-none');
+        toggleText.textContent = 'Mostra tutto';
+        toggleIcon.classList.remove('ri-arrow-up-s-line');
+        toggleIcon.classList.add('ri-arrow-down-s-line');
+    } else {
+        // Show full
+        shortText.classList.add('d-none');
+        fullText.classList.remove('d-none');
+        toggleText.textContent = 'Mostra meno';
+        toggleIcon.classList.remove('ri-arrow-down-s-line');
+        toggleIcon.classList.add('ri-arrow-up-s-line');
+    }
+});
+
+// Gestione cambio stato milestone
+document.querySelectorAll('.milestone-status').forEach(select => {
+    select.addEventListener('change', function() {
+        const milestoneId = this.dataset.milestoneId;
+        const newStatus = this.value;
+        const progress = newStatus === 'completed' ? 100 : 0;
+
+        console.log(`Updating milestone ${milestoneId} to status ${newStatus}`);
+
+        fetch(`/projects/milestone/${milestoneId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                status: newStatus,
+                progress: progress
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response:', data);
+            if (data.success) {
+                location.reload();
+            } else {
+                console.error('Update failed:', data.error);
+                alert('Errore nell\'aggiornamento della milestone: ' + (data.error || 'Errore sconosciuto'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Errore nella richiesta: ' + error.message);
+        });
+    });
+});
+</script>
+
+<!-- Request Review Modal -->
+<div class="modal fade" id="requestReviewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Richiedi Review del Progetto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('projects.request_review', project_id=project.id) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="alert alert-info">
+                        <i class="ri-information-line"></i>
+                        Tutte le milestone sono state completate! Puoi ora richiedere una review al Project Manager.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="branch_name" class="form-label">Nome del Branch</label>
+                        <input type="text" class="form-control" id="branch_name" name="branch_name" required
+                               placeholder="es: feature/project-name">
+                        <small class="text-muted">Inserisci il nome del branch Git dove si trova il codice</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="developer_notes" class="form-label">Note per il Reviewer</label>
+                        <textarea class="form-control" id="developer_notes" name="developer_notes" rows="4"
+                                  placeholder="Descrivi il lavoro svolto, eventuali problemi risolti, decisioni tecniche prese..."></textarea>
+                        <small class="text-muted">Queste note aiuteranno il reviewer a comprendere meglio il tuo lavoro</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="ri-send-plane-line me-1"></i> Invia Richiesta Review
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+{% if can_delete %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Conferma Eliminazione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Sei sicuro di voler eliminare il progetto "<strong>{{ project.name }}</strong>"?</p>
+                <p class="text-danger">Questa azione è irreversibile e eliminerà anche tutte le milestone, membri del team e aggiornamenti associati.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <form method="POST" action="{{ url_for('projects.delete', project_id=project.id) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Elimina Progetto</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

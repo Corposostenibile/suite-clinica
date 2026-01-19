@@ -1,0 +1,558 @@
+{# blueprints/team/templates/team/leaves/calendar.html #}
+{% extends "base.html" %}
+
+{% block title %}Calendario Ferie Team • Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Header verde per ferie */
+.leaves-header {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+/* Stats Cards */
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all 0.3s;
+  border: 1px solid rgba(34, 197, 94, 0.1);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.15);
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #6c757d;
+  margin-top: 5px;
+}
+
+/* Calendar Container */
+.calendar-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 20px;
+  border: 1px solid rgba(34, 197, 94, 0.1);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.calendar-title {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  margin: 0 !important;
+}
+
+.calendar-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.calendar-nav .btn-nav {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendar-nav .btn-nav:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.calendar-nav .btn-nav.btn-today {
+  background: white;
+  color: #16a34a;
+  border: 2px solid #22c55e;
+}
+
+.calendar-nav .btn-nav.btn-today:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+
+/* Calendar Grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: #e5e7eb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calendar-day-header {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.calendar-day {
+  background: white;
+  min-height: 90px;
+  padding: 8px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.calendar-day:hover {
+  background: #f8fafc;
+  z-index: 1;
+}
+
+.calendar-day.empty {
+  background: #fafafa;
+}
+
+.calendar-day.today {
+  background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%);
+  border: 2px solid #eab308;
+}
+
+.calendar-day.weekend {
+  background: #f8fafc;
+}
+
+.calendar-day-number {
+  font-weight: 600;
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.calendar-day.today .calendar-day-number {
+  color: #ca8a04;
+  font-weight: 700;
+}
+
+/* Leave Items in Calendar */
+.leave-item {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  margin: 2px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.leave-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+}
+
+.leave-item .leave-avatar-mini {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.5);
+}
+
+.leave-item .leave-initials-mini {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 600;
+}
+
+/* Upcoming Section */
+.upcoming-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 20px;
+  max-height: 600px;
+  overflow-y: auto;
+  border: 1px solid rgba(34, 197, 94, 0.1);
+}
+
+.upcoming-title {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  margin: 0 0 16px 0 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.upcoming-title i {
+  color: #22c55e;
+}
+
+.leave-card {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border-left: 3px solid #22c55e;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.leave-card:hover {
+  transform: translateX(3px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.leave-avatar {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 12px;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.leave-avatar-initials {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  margin-right: 12px;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.leave-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.leave-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1e293b;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leave-details {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.leave-period {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 11px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Role info badge */
+.role-info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.role-admin { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+.role-hr { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+.role-approver { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .calendar-grid {
+    font-size: 11px;
+  }
+
+  .calendar-day {
+    min-height: 60px;
+    padding: 4px;
+  }
+
+  .leave-item {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+
+  .calendar-nav .btn-nav {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- Header Ferie -->
+  <div class="leaves-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div>
+      <h5 class="fw-semibold mb-1 text-white">
+        <i class="ri-calendar-2-line me-2"></i>Calendario Ferie Team
+      </h5>
+      <small class="opacity-75">Visualizza le ferie approvate del team</small>
+    </div>
+    <a href="{{ url_for('team.leave_approvals') }}" class="btn btn-light btn-sm">
+      <i class="ri-checkbox-circle-line me-1"></i> Approvazioni
+    </a>
+  </div>
+
+  <!-- Info ruolo -->
+  {% if not is_admin and not is_hr %}
+  <div class="mb-24">
+    <div class="role-info-badge role-approver">
+      <i class="ri-information-line" style="font-size: 18px;"></i>
+      <span>Stai visualizzando le ferie del tuo dipartimento/team</span>
+    </div>
+  </div>
+  {% endif %}
+
+
+  <!-- Filtri -->
+  {% if is_admin or is_hr %}
+  <div class="card mb-24">
+    <div class="card-body">
+      <form method="GET" class="row gy-3 gx-4 align-items-end">
+        <div class="col-lg-4 col-md-6">
+          <label class="form-label fw-semibold text-primary-light text-sm mb-8">Filtra per dipartimento</label>
+          <select name="dept" class="form-select" onchange="this.form.submit()">
+            <option value="">Tutti i dipartimenti</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}" {% if dept.id == selected_dept %}selected{% endif %}>
+              {{ dept.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <input type="hidden" name="year" value="{{ year }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          {% if selected_dept %}
+          <a href="?month={{ month }}&year={{ year }}" class="btn btn-outline-secondary">
+            <i class="ri-refresh-line me-1"></i> Reset filtro
+          </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <!-- Calendar Section -->
+    <div class="col-lg-9">
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <span class="calendar-title">
+            <i class="ri-calendar-line me-2 text-success"></i>{{ month_name }} {{ year }}
+          </span>
+          <div class="calendar-nav">
+            <button class="btn-nav" onclick="window.location.href='?month={{ prev_month }}&year={{ prev_year }}{% if selected_dept %}&dept={{ selected_dept }}{% endif %}'">
+              <i class="ri-arrow-left-s-line"></i> Prec
+            </button>
+            <button class="btn-nav btn-today" onclick="window.location.href='?month={{ now.month }}&year={{ now.year }}{% if selected_dept %}&dept={{ selected_dept }}{% endif %}'">
+              Oggi
+            </button>
+            <button class="btn-nav" onclick="window.location.href='?month={{ next_month }}&year={{ next_year }}{% if selected_dept %}&dept={{ selected_dept }}{% endif %}'">
+              Succ <i class="ri-arrow-right-s-line"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="calendar-grid">
+          <!-- Day Headers -->
+          <div class="calendar-day-header">Lun</div>
+          <div class="calendar-day-header">Mar</div>
+          <div class="calendar-day-header">Mer</div>
+          <div class="calendar-day-header">Gio</div>
+          <div class="calendar-day-header">Ven</div>
+          <div class="calendar-day-header">Sab</div>
+          <div class="calendar-day-header">Dom</div>
+
+          <!-- Empty cells before first day -->
+          {% for i in range(first_weekday) %}
+          <div class="calendar-day empty"></div>
+          {% endfor %}
+
+          <!-- Days of the month -->
+          {% for day in range(1, days_in_month + 1) %}
+          {% set weekday = (first_weekday + day - 1) % 7 %}
+          <div class="calendar-day {% if day == current_day %}today{% endif %}{% if weekday >= 5 %} weekend{% endif %}">
+            <div class="calendar-day-number">{{ day }}</div>
+            {% if day in leaves_by_day %}
+              {% for leave in leaves_by_day[day][:3] %}
+              <div class="leave-item"
+                   data-bs-toggle="tooltip"
+                   data-bs-placement="top"
+                   data-bs-html="true"
+                   title="<strong>{{ leave.user.full_name }}</strong><br>{{ leave.start_date.strftime('%d/%m') }} - {{ leave.end_date.strftime('%d/%m') }}<br>{{ leave.working_days }} giorni">
+                {% if leave.user.avatar_path %}
+                <img src="{{ url_for('team.serve_avatar', user_id=leave.user.id) }}" alt="" class="leave-avatar-mini">
+                {% else %}
+                <span class="leave-initials-mini">{{ leave.user.first_name[:1] }}</span>
+                {% endif %}
+                {{ leave.user.first_name }}
+              </div>
+              {% endfor %}
+              {% if leaves_by_day[day]|length > 3 %}
+              <div class="leave-item" style="background: #64748b;">
+                +{{ leaves_by_day[day]|length - 3 }} altri
+              </div>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endfor %}
+
+          <!-- Empty cells after last day -->
+          {% set remaining = 7 - ((first_weekday + days_in_month) % 7) %}
+          {% if remaining < 7 %}
+            {% for i in range(remaining) %}
+            <div class="calendar-day empty"></div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming Leaves Section -->
+    <div class="col-lg-3">
+      <div class="upcoming-section">
+        <span class="upcoming-title">
+          <i class="ri-sun-line"></i>
+          Ferie {{ month_name }}
+        </span>
+
+        {% if leave_requests %}
+          {% for req in leave_requests|sort(attribute='start_date') %}
+          <div class="leave-card">
+            {% if req.user.avatar_path %}
+            <img src="{{ url_for('team.serve_avatar', user_id=req.user.id) }}" alt="{{ req.user.full_name }}" class="leave-avatar">
+            {% else %}
+            <div class="leave-avatar-initials">
+              {{ req.user.first_name[:1] }}{{ req.user.last_name[:1] }}
+            </div>
+            {% endif %}
+
+            <div class="leave-info">
+              <div class="leave-name">
+                {{ req.user.full_name }}
+              </div>
+              <div class="leave-details">
+                {{ req.start_date.strftime('%d/%m') }} → {{ req.end_date.strftime('%d/%m') }}
+                {% if req.user.department %}
+                <br><small class="text-muted">{{ req.user.department.name }}</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="leave-period">
+              <i class="ri-sun-line"></i>
+              {{ req.working_days|int }}gg
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-4">
+            <i class="ri-calendar-check-line" style="font-size: 3rem; opacity: 0.3; color: #22c55e;"></i>
+            <p class="text-muted mt-2 mb-0">Nessuna ferie programmata</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.map(function(tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+});
+</script>
+{% endblock %}

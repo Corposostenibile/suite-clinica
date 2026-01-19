@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}User in Prova - Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h3 class="fw-semibold">User in Prova</h3>
+        <div>
+            <a href="{{ url_for('team.trial_user_create') }}" class="btn btn-primary">
+                <i class="ri-add-line"></i> Nuovo User in Prova
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Totale Trial Users</h6>
+                    <h3>{{ trial_users|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Stage 1</h6>
+                    <h3>{{ trial_users|selectattr('trial_stage', 'equalto', 1)|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Stage 2</h6>
+                    <h3>{{ trial_users|selectattr('trial_stage', 'equalto', 2)|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Pronti per Promozione</h6>
+                    <h3>{{ trial_users|selectattr('trial_stage', 'equalto', 2)|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella Trial Users -->
+    <div class="card">
+        <div class="card-body">
+            {% if trial_users %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Email</th>
+                            <th>Dipartimento</th>
+                            <th>Stage</th>
+                            <th>Supervisor</th>
+                            <th>Clienti Assegnati</th>
+                            <th>Data Inizio</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in trial_users %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('team.trial_user_view', user_id=user.id) }}">
+                                    {{ user.full_name }}
+                                </a>
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if user.department %}
+                                    <span class="badge bg-light text-dark">{{ user.department.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.trial_stage == 1 %}
+                                    <span class="badge bg-info">Stage 1: Dashboard + Training</span>
+                                {% elif user.trial_stage == 2 %}
+                                    <span class="badge bg-warning">Stage 2: Clienti Selezionati</span>
+                                {% else %}
+                                    <span class="badge bg-success">Stage 3: Pronto per Promozione</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.trial_supervisor %}
+                                    {{ user.trial_supervisor.full_name }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.trial_stage >= 2 %}
+                                    <span class="badge bg-primary">{{ user.trial_assigned_clients|length }}</span>
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.trial_started_at %}
+                                    {{ user.trial_started_at.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('team.trial_user_view', user_id=user.id) }}"
+                                       class="btn btn-outline-primary" title="Visualizza">
+                                        <i class="ri-eye-line"></i>
+                                    </a>
+                                    <a href="{{ url_for('team.trial_user_edit', user_id=user.id) }}"
+                                       class="btn btn-outline-primary" title="Modifica">
+                                        <i class="ri-edit-line"></i>
+                                    </a>
+
+                                    {% if user.trial_stage < 3 %}
+                                    <a href="{{ url_for('team.trial_user_promote', user_id=user.id) }}"
+                                       class="btn btn-outline-success" title="Promuovi">
+                                        <i class="ri-arrow-up-line"></i>
+                                    </a>
+                                    {% endif %}
+
+                                    {% if user.trial_stage >= 2 %}
+                                    <a href="{{ url_for('team.trial_user_assign_clients', user_id=user.id) }}"
+                                       class="btn btn-outline-warning" title="Assegna Clienti">
+                                        <i class="ri-user-add-line"></i>
+                                    </a>
+                                    {% endif %}
+
+                                    {# Pulsante elimina temporaneamente nascosto
+                                    <a href="#" onclick="deleteTrialUser({{ user.id }}); return false;"
+                                       class="btn btn-outline-danger" title="Elimina">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </a>
+                                    #}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="ri-user-line" style="font-size: 3rem; color: #ccc;"></i>
+                <p class="text-muted mt-3">Nessun user in prova presente</p>
+                <a href="{{ url_for('team.trial_user_create') }}" class="btn btn-primary mt-2">
+                    <i class="ri-add-line"></i> Crea il primo User in Prova
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteTrialUser(userId) {
+    if (confirm('Sei sicuro di voler eliminare questo trial user? Questa azione non può essere annullata.')) {
+        $.ajax({
+            url: '/team/trial-users/' + userId + '/delete',
+            type: 'POST',
+            success: function(response) {
+                // Redirect to the list page
+                window.location.href = '/team/trial-users';
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', xhr.status, error);
+                alert('Errore durante l\'eliminazione. Status: ' + xhr.status);
+            }
+        });
+    }
+}
+
+$(document).ready(function() {
+    // Inizializza DataTable se ci sono dati
+    if ($('table').length && $('tbody tr').length > 0) {
+        $('table').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.25/i18n/Italian.json'
+            },
+            pageLength: 25,
+            order: [[3, 'asc']], // Ordina per Stage
+        });
+    }
+});
+</script>
+{% endblock %}

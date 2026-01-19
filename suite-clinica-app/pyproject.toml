@@ -1,0 +1,98 @@
+[tool.poetry]
+name = "corposostenibile-suite"
+version = "0.1.0"
+description = "Corposostenibile Suite – Virtual office"
+authors = ["Your Name <you@example.com>"]
+packages = [{ include = "corposostenibile" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Web & Flask stack
+Flask = "^3.0"
+Flask-SQLAlchemy = "^3.0"
+Flask-Migrate = "^4.0"
+flask-babel = "^4.0.0"
+flask-marshmallow = "^1.3.0"
+marshmallow-sqlalchemy = "^1.1.0"
+flask-sock = "^0.7.0"
+flask-login = "^0.6.3"
+flask-wtf = "^1.2.2"
+flask-mail = "^0.10.0"
+flask-limiter = "^3.12"
+flask-socketio = "^5.5.1"
+python-socketio = "^5.13.0"
+gunicorn = "^21.2.0"
+prometheus-flask-exporter = "0.23.0"
+prometheus-client = "0.19.0"
+
+# DB & ORM
+psycopg2-binary = "^2.9"
+sqlalchemy-continuum = "^1.4.2"
+sqlalchemy-utils = "^0.41.2"
+sqlalchemy-searchable = "^2.1.0"
+alembic = "^1.16.1"
+
+# Schedulazione / Tasking
+celery = {extras = ["redis"], version = "^5.5.2"}
+apscheduler = "^3.11.0"
+
+# Config & Utils
+python-dotenv = "^1.0"
+python-slugify = "^8.0.4"
+email-validator = "^2.2.0"
+tqdm = "^4.67.1"
+unidecode = "^1.4.0"
+faker = "^37.3.0"
+psutil = "^5.9.8"
+
+# AI / LLM / RAG
+tiktoken = "^0.7.0"
+ollama = "^0.6.0"
+# Stack LangChain 0.3.x (compatibile con Pydantic v2)
+langchain = ">=0.3.6,<0.4"
+langchain-community = ">=0.3.6,<0.4"
+langchain-core = ">=0.3.15,<0.4"
+langchain-text-splitters = ">=0.3.1,<0.4"
+langchain-ollama = "^0.3.8"
+langchain-google-genai = "2.1.12"
+# Pydantic v2 esplicito
+pydantic = ">=2.6,<3"
+
+# Google APIs
+google-api-python-client = "^2.170.0"
+google-auth = "^2.40.2"
+google-auth-oauthlib = "^1.2.2"
+google-auth-httplib2 = "^0.2.0"
+authlib = "^1.6.0"
+dance = "^0.0.1"
+flask-dance = "^7.1.0"
+
+# Data & file formats
+pandas = "^2.2.3"
+openpyxl = "^3.1.5"
+reportlab = "^4.4.2"
+pillow = "^10.3.0"
+pdfplumber = "^0.11.7"
+python-docx = "^1.2.0"
+pypdf2 = "^3.0.1"
+pdf2image = "^1.17.0"
+pytesseract = "^0.3.13"
+beautifulsoup4 = "^4.14.0"
+python-dateutil = "^2.9.0"
+
+# ML / Search
+scikit-learn = "^1.5.0"
+qdrant-client = {extras = ["fastembed"], version = "^1.7.0"}
+rapidfuzz = "^3.14.1"
+tabulate = "^0.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-flask = "^1.3"
+flake8 = "^7.0"
+coverage = "^7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

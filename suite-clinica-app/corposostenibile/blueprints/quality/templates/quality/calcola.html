@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Calcola Quality Score{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <h1 class="h2 mb-4">🔢 Calcola Quality Score</h1>
+
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <!-- Settimana -->
+                        <div class="mb-3">
+                            <label for="week_start" class="form-label">Settimana (Lunedì)</label>
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="week_start"
+                                name="week_start"
+                                value="{{ week_start.strftime('%Y-%m-%d') }}"
+                                required
+                            >
+                            <small class="form-text text-muted">
+                                Seleziona il lunedì della settimana da calcolare
+                            </small>
+                        </div>
+
+                        <!-- Professionista -->
+                        <div class="mb-3">
+                            <label for="professionista_id" class="form-label">Professionista</label>
+                            <select class="form-select" id="professionista_id" name="professionista_id">
+                                <option value="all">Tutti i professionisti</option>
+                                {% for prof in professionisti %}
+                                <option value="{{ prof.id }}">
+                                    {{ prof.first_name }} {{ prof.last_name }}
+                                    ({{ prof.department.name if prof.department else 'N/A' }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                Seleziona un professionista specifico o calcola per tutti
+                            </small>
+                        </div>
+
+                        <!-- Informazioni calcolo -->
+                        <div class="alert alert-info">
+                            <h6>📝 Il calcolo eseguirà:</h6>
+                            <ul class="mb-0">
+                                <li>Calcolo eleggibilità clienti (solo 'attivo')</li>
+                                <li>Aggregazione score clienti da check responses</li>
+                                <li>Calcolo Quality settimanale con penalty miss rate</li>
+                                <li>Calcolo rolling averages (mensile, trimestrale)</li>
+                                <li>Determinazione bonus band automatica</li>
+                                <li>Aggiornamento campi User</li>
+                            </ul>
+                        </div>
+
+                        <!-- Note -->
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Attenzione:</strong>
+                            <ul class="mb-0">
+                                <li>Il calcolo sovrascriverà dati esistenti per la settimana selezionata</li>
+                                <li>Assicurati che tutti i check responses siano stati inseriti</li>
+                                <li>Le recensioni devono essere confermate prima del calcolo</li>
+                            </ul>
+                        </div>
+
+                        <!-- Pulsanti -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('quality.dashboard') }}" class="btn btn-secondary">
+                                Annulla
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                🚀 Avvia Calcolo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Cronologia calcoli recenti -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📜 Cronologia Calcoli Recenti</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        <em>TODO: Mostrare ultimi 10 calcoli eseguiti con timestamp e user</em>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

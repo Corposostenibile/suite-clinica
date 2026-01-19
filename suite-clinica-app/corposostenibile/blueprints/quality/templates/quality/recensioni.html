@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Recensioni Trustpilot{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2">⭐ Gestione Recensioni Trustpilot</h1>
+                    <p class="text-muted">Trimestre: {{ quarter }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('quality.dashboard') }}" class="btn btn-secondary">
+                        ← Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informazioni distribuzione bonus -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6>📝 Formula Distribuzione Bonus BRec</h6>
+                <ul class="mb-0">
+                    <li><strong>Richiedente:</strong> +0.03</li>
+                    <li><strong>Altri membri team:</strong> +0.02 / (n-1) ciascuno</li>
+                    <li><strong>Applicazione:</strong> UNA SOLA VOLTA per cliente (lifetime)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella recensioni -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Recensioni</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Richiedente</th>
+                                <th>Stelle</th>
+                                <th>Data Richiesta</th>
+                                <th>Data Pubblicazione</th>
+                                <th>Settimana Applicazione</th>
+                                <th>Stato</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for review in reviews %}
+                            <tr>
+                                <td>
+                                    {{ review.cliente.nome_cognome if review.cliente else 'N/A' }}
+                                </td>
+                                <td>
+                                    {{ review.richiesta_da.first_name }} {{ review.richiesta_da.last_name }}
+                                </td>
+                                <td>
+                                    {% if review.stelle %}
+                                        {{ '⭐' * review.stelle }}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ review.data_richiesta.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    {% if review.data_pubblicazione %}
+                                        {{ review.data_pubblicazione.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if review.applied_to_week_start %}
+                                        {{ review.applied_to_week_start.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if review.pubblicata %}
+                                        <span class="badge bg-success">✓ Pubblicata</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">⏳ In attesa</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not review.pubblicata %}
+                                    <button
+                                        class="btn btn-sm btn-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#confermaModal{{ review.id }}"
+                                    >
+                                        Conferma
+                                    </button>
+                                    {% else %}
+                                    <button
+                                        class="btn btn-sm btn-info"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#detailModal{{ review.id }}"
+                                    >
+                                        Dettagli
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                            <!-- Modal conferma pubblicazione -->
+                            <div class="modal fade" id="confermaModal{{ review.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Conferma Pubblicazione Recensione</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="POST" action="{{ url_for('quality.conferma_recensione', review_id=review.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-body">
+                                                <p><strong>Cliente:</strong> {{ review.cliente.nome_cognome if review.cliente else 'N/A' }}</p>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Stelle</label>
+                                                    <select class="form-select" name="stelle" required>
+                                                        <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                                                        <option value="4">⭐⭐⭐⭐ (4)</option>
+                                                        <option value="3">⭐⭐⭐ (3)</option>
+                                                        <option value="2">⭐⭐ (2)</option>
+                                                        <option value="1">⭐ (1)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Testo Recensione</label>
+                                                    <textarea class="form-control" name="testo" rows="3" required></textarea>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Data Pubblicazione</label>
+                                                    <input type="date" class="form-control" name="data_pubblicazione" required>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Settimana Applicazione Bonus (Lunedì)</label>
+                                                    <input type="date" class="form-control" name="week_start" required>
+                                                </div>
+
+                                                <!-- Distribuzione bonus preview -->
+                                                {% if review.bonus_distribution %}
+                                                <div class="alert alert-info">
+                                                    <h6>Distribuzione Bonus:</h6>
+                                                    <ul class="mb-0">
+                                                        <li><strong>Richiedente:</strong> +{{ "%.3f"|format(review.bonus_distribution.richiedente_bonus) }}</li>
+                                                        {% if review.bonus_distribution.team_count > 0 %}
+                                                        <li><strong>Team ({{ review.bonus_distribution.team_count }} persone):</strong>
+                                                            +{{ "%.3f"|format(review.bonus_distribution.team_bonus_each) }} ciascuno
+                                                        </li>
+                                                        {% endif %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                                <button type="submit" class="btn btn-primary">Conferma Pubblicazione</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Modal dettagli -->
+                            <div class="modal fade" id="detailModal{{ review.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Dettagli Recensione</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p><strong>Cliente:</strong> {{ review.cliente.nome_cognome if review.cliente else 'N/A' }}</p>
+                                            <p><strong>Stelle:</strong> {{ '⭐' * review.stelle if review.stelle else 'N/A' }}</p>
+                                            <p><strong>Testo:</strong></p>
+                                            <p class="text-muted">{{ review.testo_recensione or 'N/A' }}</p>
+
+                                            <hr>
+
+                                            {% if review.bonus_distribution %}
+                                            <h6>Distribuzione Bonus:</h6>
+                                            <table class="table table-sm">
+                                                <tr>
+                                                    <td>Richiedente</td>
+                                                    <td>+{{ "%.3f"|format(review.bonus_distribution.richiedente_bonus) }}</td>
+                                                </tr>
+                                                {% if review.bonus_distribution.team_count > 0 %}
+                                                <tr>
+                                                    <td>Team ({{ review.bonus_distribution.team_count }})</td>
+                                                    <td>+{{ "%.3f"|format(review.bonus_distribution.team_bonus_each) }} ciascuno</td>
+                                                </tr>
+                                                {% endif %}
+                                            </table>
+                                            {% endif %}
+
+                                            <p class="text-muted small mt-3">
+                                                Confermata da: {{ review.confermata_da_hm.first_name }} {{ review.confermata_da_hm.last_name if review.confermata_da_hm else 'N/A' }}<br>
+                                                Data conferma: {{ review.data_conferma_hm.strftime('%d/%m/%Y %H:%M') if review.data_conferma_hm else 'N/A' }}
+                                            </p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if not reviews %}
+                    <div class="alert alert-info">
+                        Nessuna recensione trovata per questo trimestre.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

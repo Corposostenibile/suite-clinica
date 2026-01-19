@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}{{ idea.title }} - Idee IT{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.ideas_list') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <div>
+      <h6 class="fw-semibold mb-0">{{ idea.title }}</h6>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.index') }}">Progetti IT</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.ideas_list') }}">Idee</a></li>
+          <li class="breadcrumb-item active">Dettaglio</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if idea.is_convertible %}
+    <a href="{{ url_for('it_projects.ideas_convert', idea_id=idea.id) }}" class="btn btn-sm btn-success">
+      <i class="ri-folder-add-line me-1"></i> Converti in Progetto
+    </a>
+    {% endif %}
+    <a href="{{ url_for('it_projects.ideas_edit', idea_id=idea.id) }}" class="btn btn-sm btn-primary-600">
+      <i class="ri-edit-line me-1"></i> Modifica
+    </a>
+    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+      <i class="ri-delete-bin-line"></i>
+    </button>
+  </div>
+</div>
+
+{# ─────────────────────── HEADER INFO ─────────────────────── #}
+<div class="row gy-4 mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="w-64-px h-64-px bg-warning-100 text-warning-main d-flex justify-content-center align-items-center rounded-circle">
+              <iconify-icon icon="mdi:lightbulb" style="font-size: 2rem;"></iconify-icon>
+            </span>
+            <div>
+              <h4 class="fw-semibold mb-1">{{ idea.title }}</h4>
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="badge bg-{{ idea.status_color }}-subtle text-{{ idea.status_color }}-main">
+                  {{ idea.status_label }}
+                </span>
+                {% if idea.proposed_by %}
+                <span class="text-sm text-muted">
+                  Proposta da <strong>{{ idea.proposed_by.full_name }}</strong>
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            {# Dropdown cambio stato rapido #}
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="ri-refresh-line me-1"></i>Stato
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item {% if idea.status == 'pending' %}active{% endif %}" href="#" onclick="updateStatus('pending')">In Attesa</a></li>
+                <li><a class="dropdown-item {% if idea.status == 'approved' %}active{% endif %}" href="#" onclick="updateStatus('approved')">Approvata</a></li>
+                <li><a class="dropdown-item {% if idea.status == 'rejected' %}active{% endif %}" href="#" onclick="updateStatus('rejected')">Rifiutata</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row gy-4">
+  {# ─────────────────────── DESCRIZIONE ─────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-file-text-line text-primary-600 me-2"></i>Descrizione
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ idea.description }}</p>
+      </div>
+    </div>
+
+    {% if idea.admin_notes %}
+    <div class="card">
+      <div class="card-header bg-info-50">
+        <h6 class="card-title mb-0 text-info">
+          <i class="ri-sticky-note-line me-2"></i>Note Admin
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ idea.admin_notes }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if idea.converted_to_project %}
+    <div class="card mt-4">
+      <div class="card-header bg-success-50">
+        <h6 class="card-title mb-0 text-success">
+          <i class="ri-folder-line me-2"></i>Progetto Creato
+        </h6>
+      </div>
+      <div class="card-body">
+        <a href="{{ url_for('it_projects.detail', project_id=idea.converted_to_project.id) }}" class="btn btn-success">
+          <i class="ri-external-link-line me-1"></i>{{ idea.converted_to_project.title }}
+        </a>
+        <p class="text-muted text-sm mb-0 mt-2">
+          Convertito il {{ idea.converted_at.strftime('%d/%m/%Y alle %H:%M') }}
+          {% if idea.converted_by %}da {{ idea.converted_by.full_name }}{% endif %}
+        </p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─────────────────────── SIDEBAR INFO ─────────────────────── #}
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-information-line text-secondary me-2"></i>Informazioni
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">ID Idea</span>
+          <span class="fw-medium">#{{ idea.id }}</span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">Proposta da</span>
+          <span class="fw-medium">{{ idea.proposed_by.full_name if idea.proposed_by else 'N/D' }}</span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">Data Proposta</span>
+          <span class="fw-medium">{{ idea.created_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+
+        <div class="mb-0">
+          <span class="text-sm text-muted d-block">Ultimo Aggiornamento</span>
+          <span class="fw-medium">{{ idea.updated_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL ELIMINA ─────────────────────── #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Elimina Idea</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Sei sicuro di voler eliminare l'idea <strong>{{ idea.title }}</strong>?</p>
+        <p class="text-danger mb-0">Questa azione non puo essere annullata.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <form action="{{ url_for('it_projects.ideas_delete', idea_id=idea.id) }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-danger">Elimina</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateStatus(status) {
+    fetch('{{ url_for("it_projects.ideas_update_status", idea_id=idea.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Errore: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        alert('Errore nel salvataggio');
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if action == 'create' %}Nuovo Pacchetto{% else %}Modifica Pacchetto{% endif %} - Finance
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if action == 'create' %}
+                            <i class="fas fa-plus"></i> Nuovo Pacchetto
+                        {% else %}
+                            <i class="fas fa-edit"></i> Modifica Pacchetto
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="packageForm">
+                        <!-- Informazioni Base -->
+                        <div class="form-group row">
+                            <label for="listino_type" class="col-sm-3 col-form-label">Tipo Listino *</label>
+                            <div class="col-sm-9">
+                                <select class="form-control" id="listino_type" name="listino_type" required>
+                                    <option value="nuovo" {% if package and package.listino_type == 'nuovo' %}selected{% elif not package %}selected{% endif %}>
+                                        Nuovo Listino
+                                    </option>
+                                    <option value="vecchio" {% if package and package.listino_type == 'vecchio' %}selected{% endif %}>
+                                        Vecchio Listino
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="name" class="col-sm-3 col-form-label">Nome Pacchetto *</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control" id="name" name="name"
+                                       value="{{ package.name if package else '' }}" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="description" class="col-sm-3 col-form-label">Descrizione</label>
+                            <div class="col-sm-9">
+                                <textarea class="form-control" id="description" name="description" rows="3">{{ package.description if package else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="price" class="col-sm-3 col-form-label">Prezzo di Vendita (€) *</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control calc-input" id="price" name="price" 
+                                       value="{{ package.price if package else '0' }}" 
+                                       min="0" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="duration_months" class="col-sm-3 col-form-label">Durata (mesi) *</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control calc-input" id="duration_months" name="duration_months" 
+                                       value="{{ package.duration_months if package else '1' }}" 
+                                       min="1" required>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Costi Mensili -->
+                        <h5 class="mb-3">Costi Mensili per Professionista</h5>
+
+                        <div class="form-group row">
+                            <label for="nutritionist_cost_monthly" class="col-sm-3 col-form-label">Nutrizionista (€/mese)</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control calc-input" id="nutritionist_cost_monthly" name="nutritionist_cost_monthly" 
+                                       value="{{ package.nutritionist_cost_monthly if package else '0' }}" 
+                                       min="0" step="0.01">
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="coach_cost_monthly" class="col-sm-3 col-form-label">Coach (€/mese)</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control calc-input" id="coach_cost_monthly" name="coach_cost_monthly" 
+                                       value="{{ package.coach_cost_monthly if package else '0' }}" 
+                                       min="0" step="0.01">
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="psychologist_cost_monthly" class="col-sm-3 col-form-label">Psicologa (€/mese)</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control calc-input" id="psychologist_cost_monthly" name="psychologist_cost_monthly" 
+                                       value="{{ package.psychologist_cost_monthly if package else '0' }}" 
+                                       min="0" step="0.01">
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Commissioni -->
+                        <div class="form-group row">
+                            <label for="sales_commission_percent" class="col-sm-3 col-form-label">Commissione Sales (%)</label>
+                            <div class="col-sm-9">
+                                <input type="number" class="form-control calc-input" id="sales_commission_percent" name="sales_commission_percent" 
+                                       value="{{ package.sales_commission_percent if package else '10' }}" 
+                                       min="0" max="100" step="0.01">
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Calcoli Automatici (Read-only) -->
+                        <h5 class="mb-3">Calcoli Automatici</h5>
+
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">Totale Costi</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control-plaintext font-weight-bold" id="total_costs" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">Marginalità</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control-plaintext font-weight-bold" id="margin" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">Margine %</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control-plaintext font-weight-bold" id="margin_percent" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">Commissione Sales</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control-plaintext" id="sales_commission_amount" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">Margine Post Sales</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control-plaintext font-weight-bold" id="margin_post_sales" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label">Netto Post Sales</label>
+                            <div class="col-sm-9">
+                                <input type="text" class="form-control-plaintext font-weight-bold text-primary" id="net_post_sales" readonly>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Altri campi -->
+                        <div class="form-group row">
+                            <label for="notes" class="col-sm-3 col-form-label">Note</label>
+                            <div class="col-sm-9">
+                                <textarea class="form-control" id="notes" name="notes" rows="3">{{ package.notes if package else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Bottoni -->
+                        <div class="form-group row">
+                            <div class="col-sm-3"></div>
+                            <div class="col-sm-9">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> 
+                                    {% if action == 'create' %}Crea Pacchetto{% else %}Salva Modifiche{% endif %}
+                                </button>
+                                <a href="{{ url_for('finance.packages_list') }}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Annulla
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Calcolo automatico al caricamento
+    calculateMargins();
+    
+    // Ricalcola quando cambiano i valori
+    $('.calc-input').on('input change', function() {
+        calculateMargins();
+    });
+});
+
+function calculateMargins() {
+    const price = parseFloat($('#price').val()) || 0;
+    const duration = parseInt($('#duration_months').val()) || 1;
+    const nutritionistCost = parseFloat($('#nutritionist_cost_monthly').val()) || 0;
+    const coachCost = parseFloat($('#coach_cost_monthly').val()) || 0;
+    const psychologistCost = parseFloat($('#psychologist_cost_monthly').val()) || 0;
+    const salesCommissionPercent = parseFloat($('#sales_commission_percent').val()) || 0;
+    
+    // Calcoli
+    const totalMonthlyCosts = nutritionistCost + coachCost + psychologistCost;
+    const totalCosts = totalMonthlyCosts * duration;
+    const margin = price - totalCosts;
+    const marginPercent = price > 0 ? (margin / price) * 100 : 0;
+    const salesCommissionAmount = price * (salesCommissionPercent / 100);
+    const marginPostSales = margin - salesCommissionAmount;
+    const marginPostSalesPercent = price > 0 ? (marginPostSales / price) * 100 : 0;
+    const netPostSales = price - salesCommissionAmount;
+    
+    // Aggiorna i campi
+    $('#total_costs').val('€ ' + totalCosts.toFixed(2));
+    $('#margin').val('€ ' + margin.toFixed(2));
+    $('#margin_percent').val(marginPercent.toFixed(1) + '%');
+    $('#sales_commission_amount').val('€ ' + salesCommissionAmount.toFixed(2));
+    $('#margin_post_sales').val('€ ' + marginPostSales.toFixed(2));
+    $('#net_post_sales').val('€ ' + netPostSales.toFixed(2));
+    
+    // Colora in base ai valori
+    if (margin > 0) {
+        $('#margin').addClass('text-success').removeClass('text-danger');
+    } else {
+        $('#margin').addClass('text-danger').removeClass('text-success');
+    }
+    
+    if (marginPercent > 30) {
+        $('#margin_percent').addClass('text-success').removeClass('text-warning text-danger');
+    } else if (marginPercent > 0) {
+        $('#margin_percent').addClass('text-warning').removeClass('text-success text-danger');
+    } else {
+        $('#margin_percent').addClass('text-danger').removeClass('text-success text-warning');
+    }
+    
+    if (marginPostSales > 0) {
+        $('#margin_post_sales').addClass('text-success').removeClass('text-danger');
+    } else {
+        $('#margin_post_sales').addClass('text-danger').removeClass('text-success');
+    }
+}
+</script>
+{% endblock %}

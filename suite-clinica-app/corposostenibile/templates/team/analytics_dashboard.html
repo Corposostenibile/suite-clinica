@@ -1,0 +1,1303 @@
+{% extends "base.html" %}
+
+{% block title %}Team Analytics Dashboard{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<style>
+    /* WowDash Custom Classes */
+    .w-64-px { width: 64px !important; }
+    .h-64-px { height: 64px !important; }
+    .w-40-px { width: 40px !important; }
+    .h-40-px { height: 40px !important; }
+    .w-44-px { width: 44px !important; }
+    .h-44-px { height: 44px !important; }
+    .radius-8 { border-radius: 8px !important; }
+    .radius-12 { border-radius: 12px !important; }
+    .radius-16 { border-radius: 16px !important; }
+    .px-24 { padding-left: 24px !important; padding-right: 24px !important; }
+    .py-16 { padding-top: 16px !important; padding-bottom: 16px !important; }
+    .p-24 { padding: 24px !important; }
+    .mb-8 { margin-bottom: 8px !important; }
+    .mb-12 { margin-bottom: 12px !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .me-20 { margin-right: 20px !important; }
+    .text-md { font-size: 14px !important; }
+    .text-sm { font-size: 12px !important; }
+    .text-lg { font-size: 18px !important; }
+    .text-2xl { font-size: 24px !important; }
+    .bg-base-50 { background-color: #f8f9fa !important; }
+    .bg-primary-600 { background-color: #487FFF !important; }
+    .bg-primary-light { background-color: rgba(72, 127, 255, 0.1) !important; }
+    .bg-success-main { background-color: #45CB85 !important; }
+    .bg-success-light { background-color: rgba(69, 203, 133, 0.1) !important; }
+    .bg-info-600 { background-color: #00B8D4 !important; }
+    .bg-warning { background-color: #FF9F29 !important; }
+    .bg-purple { background-color: #8252e9 !important; }
+    .bg-red { background-color: #EF4A00 !important; }
+    .bg-success-focus { background-color: rgba(69, 203, 133, 0.1) !important; }
+    .bg-danger-focus { background-color: rgba(239, 74, 0, 0.1) !important; }
+    .bg-info-focus { background-color: rgba(0, 184, 212, 0.1) !important; }
+    .bg-warning-focus { background-color: rgba(255, 159, 41, 0.1) !important; }
+    .text-warning-main { color: #FF9F29 !important; }
+    .text-primary-600 { color: #487FFF !important; }
+    .text-success-main { color: #45CB85 !important; }
+    .text-danger-main { color: #EF4A00 !important; }
+    .text-info-main { color: #00B8D4 !important; }
+    .text-secondary-light { color: #6c757d !important; }
+    .fw-medium { font-weight: 500 !important; }
+    .fw-semibold { font-weight: 600 !important; }
+    .fw-bold { font-weight: 700 !important; }
+
+    /* Gradient backgrounds */
+    .bg-gradient-start-3 {
+        background: linear-gradient(135deg, rgba(72, 127, 255, 0.05) 0%, rgba(72, 127, 255, 0.02) 100%) !important;
+    }
+    .bg-gradient-start-2 {
+        background: linear-gradient(135deg, rgba(143, 82, 233, 0.05) 0%, rgba(143, 82, 233, 0.02) 100%) !important;
+    }
+    .bg-gradient-start-5 {
+        background: linear-gradient(135deg, rgba(255, 159, 41, 0.05) 0%, rgba(255, 159, 41, 0.02) 100%) !important;
+    }
+    .bg-gradient-start-4 {
+        background: linear-gradient(135deg, rgba(69, 203, 133, 0.05) 0%, rgba(69, 203, 133, 0.02) 100%) !important;
+    }
+
+    /* Badge colors */
+    .bg-primary-50 { background-color: rgba(72, 127, 255, 0.08) !important; }
+    .bg-success-50 { background-color: rgba(69, 203, 133, 0.08) !important; }
+    .bg-warning-50 { background-color: rgba(255, 159, 41, 0.08) !important; }
+    .bg-primary-100 { background-color: rgba(72, 127, 255, 0.12) !important; }
+    .text-success-600 { color: #28a745 !important; }
+    .text-warning-600 { color: #ffc107 !important; }
+
+    /* Department card styling */
+    .dept-card {
+        padding: 12px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+        border: 1px solid #e5e7eb !important;
+        border-left-width: 3px !important;
+        transition: all 0.2s !important;
+    }
+
+    .dept-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        transform: translateX(2px);
+    }
+
+    .dept-card-1 { border-left-color: #487FFF !important; }
+    .dept-card-2 { border-left-color: #45B369 !important; }
+    .dept-card-3 { border-left-color: #FF9F29 !important; }
+    .dept-card-4 { border-left-color: #EF4A00 !important; }
+    .dept-card-5 { border-left-color: #8252e9 !important; }
+    .dept-card-6 { border-left-color: #de3ace !important; }
+
+    /* Select2 customization */
+    .select2-container--bootstrap-5 .select2-selection {
+        border: 1px solid #e5e7eb !important;
+        background-color: white !important;
+        min-height: 36px !important;
+        font-size: 14px !important;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--multiple {
+        padding: 2px 8px !important;
+    }
+
+    /* Card styling enhancements */
+    .card {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        transition: box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important;
+    }
+
+    /* Filter card styling */
+    .card-header {
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+
+    /* Form controls styling */
+    .form-select {
+        border: 1px solid #e5e7eb !important;
+        background-color: white !important;
+        font-size: 14px !important;
+        padding: 0.5rem 0.75rem !important;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-select:focus {
+        border-color: #487FFF !important;
+        box-shadow: 0 0 0 0.2rem rgba(72, 127, 255, 0.25) !important;
+    }
+
+    .form-label {
+        margin-bottom: 0.5rem !important;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Top performer card */
+    .performer-item {
+        padding: 10px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+        transition: background 0.2s !important;
+    }
+
+    .performer-item:hover {
+        background: #f9fafb !important;
+    }
+
+    .performer-avatar {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .stat-card-custom {
+            padding: 16px !important;
+        }
+
+        .stat-content h3 {
+            font-size: 24px !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <!-- Breadcrumb -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Team Analytics Dashboard</h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('team.user_list') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <iconify-icon icon="solar:home-smile-angle-outline" class="text-lg"></iconify-icon>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">Team Analytics</li>
+        </ul>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card p-0 radius-12 border mb-24">
+        <div class="card-body py-16 px-24">
+            <form method="get" action="{{ url_for('team.team_analytics_dashboard') }}" id="filterForm">
+                <div class="d-flex align-items-center">
+                    <label class="form-label text-sm fw-medium text-secondary-light mb-0 me-3">
+                        <i class="ri-filter-line me-1"></i> Filtra per stato:
+                    </label>
+                    <select name="active" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                        <option value="1" {% if active_filter == '1' %}selected{% endif %}>Solo attivi</option>
+                        <option value="0" {% if active_filter == '0' %}selected{% endif %}>Solo inattivi</option>
+                        <option value="all" {% if active_filter == 'all' %}selected{% endif %}>Tutti</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistics Cards Row -->
+    <div class="row gy-4 mb-24">
+        <!-- Total Headcount Card -->
+        <div class="col-xxl-3 col-sm-6">
+            <div class="card px-24 py-16 shadow-none radius-8 border h-100 bg-gradient-start-3">
+                <div class="card-body p-0">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-8">
+                        <div class="d-flex align-items-center">
+                            <div class="w-64-px h-64-px radius-16 bg-base-50 d-flex justify-content-center align-items-center me-20">
+                                <span class="mb-0 w-40-px h-40-px bg-primary-600 flex-shrink-0 text-white d-flex justify-content-center align-items-center radius-8 h6 mb-0">
+                                    <i class="ri-team-line text-white text-2xl mb-0"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <span class="mb-2 fw-medium text-secondary-light text-md">Totale Collaboratori</span>
+                                <h6 class="fw-semibold my-1">{{ total_users }}</h6>
+                                <p class="text-sm mb-0">Aumento di
+                                    <span class="bg-success-focus px-1 rounded-2 fw-medium text-success-main text-sm">+{{ new_hires }}</span> questo periodo
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Average Tenure Card -->
+        <div class="col-xxl-3 col-sm-6">
+            <div class="card px-24 py-16 shadow-none radius-8 border h-100 bg-gradient-start-2">
+                <div class="card-body p-0">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-8">
+                        <div class="d-flex align-items-center">
+                            <div class="w-64-px h-64-px radius-16 bg-base-50 d-flex justify-content-center align-items-center me-20">
+                                <span class="mb-0 w-40-px h-40-px bg-purple flex-shrink-0 text-white d-flex justify-content-center align-items-center radius-8 h6 mb-0">
+                                    <i class="ri-calendar-check-line text-white text-2xl mb-0"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <span class="mb-2 fw-medium text-secondary-light text-md">Anzianità Media</span>
+                                <h6 class="fw-semibold my-1">{{ avg_tenure_years }} anni</h6>
+                                <p class="text-sm mb-0">Tempo medio in azienda</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Payroll Card -->
+        <div class="col-xxl-3 col-sm-6">
+            <div class="card px-24 py-16 shadow-none radius-8 border h-100 bg-gradient-start-5">
+                <div class="card-body p-0">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-8">
+                        <div class="d-flex align-items-center">
+                            <div class="w-64-px h-64-px radius-16 bg-base-50 d-flex justify-content-center align-items-center me-20">
+                                <span class="mb-0 w-40-px h-40-px bg-red flex-shrink-0 text-white d-flex justify-content-center align-items-center radius-8 h6 mb-0">
+                                    <i class="ri-wallet-3-line text-white text-2xl mb-0"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <span class="mb-2 fw-medium text-secondary-light text-md">Costo Totale</span>
+                                <h6 class="fw-semibold my-1">€{{ "{:,.0f}".format(total_cost) }}</h6>
+                                <p class="text-sm mb-0">Media:
+                                    <span class="bg-warning-focus px-1 rounded-2 fw-medium text-warning-main text-sm">€{{ "{:,.0f}".format(avg_salary) }}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OKR Achievement Card -->
+        <div class="col-xxl-3 col-sm-6">
+            <div class="card px-24 py-16 shadow-none radius-8 border h-100 bg-gradient-start-4">
+                <div class="card-body p-0">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-8">
+                        <div class="d-flex align-items-center">
+                            <div class="w-64-px h-64-px radius-16 bg-base-50 d-flex justify-content-center align-items-center me-20">
+                                <span class="mb-0 w-40-px h-40-px bg-success-main flex-shrink-0 text-white d-flex justify-content-center align-items-center radius-8 h6 mb-0">
+                                    <i class="ri-trophy-line text-white text-2xl mb-0"></i>
+                                </span>
+                            </div>
+                            <div>
+                                <span class="mb-2 fw-medium text-secondary-light text-md">Costo Mensile</span>
+                                <h6 class="fw-semibold my-1">€{{ "{:,.0f}".format(total_cost / 12) }}</h6>
+                                <p class="text-sm mb-0">Costo totale diviso 12 mesi</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Andamento Collaboratori - Full Width -->
+    <div class="row mb-24">
+        <div class="col-12">
+            <div class="card p-0 radius-12 border">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <h6 class="mb-2 fw-bold text-lg">Andamento Collaboratori</h6>
+                        <div>
+                            <select id="headcountPeriod" class="form-select form-select-sm w-auto bg-base border text-secondary-light radius-8" onchange="updateHeadcountChart(this.value)">
+                                <option value="monthly" selected>Mensile</option>
+                                <option value="quarterly">Trimestrale</option>
+                                <option value="yearly">Annuale</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="headcountChart" style="height: 300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Distribuzione Dipartimenti - Full Width Bar Chart -->
+    <div class="row mb-24">
+        <div class="col-12">
+            <div class="card p-0 radius-12 border">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <h6 class="mb-0 fw-bold text-lg">Distribuzione Dipartimenti</h6>
+                        <span class="text-xs fw-medium text-secondary-light">{{ dept_stats|length }} dipartimenti</span>
+                    </div>
+                    <div id="deptBarChart" style="height: 350px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Panoramica Costo Dipartimenti e Copertura Linguistica -->
+    <div class="row gy-4 mb-24">
+        <!-- Panoramica Costo Dipartimenti -->
+        <div class="col-xxl-4 col-lg-5">
+            <div class="card h-100 p-0 radius-12 border">
+                <div class="card-body p-24">
+                    <h6 class="mb-20 fw-bold text-lg">Panoramica Costo Dipartimenti</h6>
+                    <div style="max-height: 380px; overflow-y: auto;">
+                        {% for dept in dept_stats %}
+                        <div class="dept-card dept-card-{{ loop.index if loop.index <= 6 else ((loop.index - 1) % 6) + 1 }}"
+                             onclick="showDepartmentDetails({{ dept.id }}, '{{ dept.name|e }}')"
+                             style="cursor: pointer;">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="fw-semibold mb-0 text-sm">{{ dept.name }}</h6>
+                                <span class="badge bg-primary-50 text-primary-600 radius-4 px-6 py-2 text-xs">
+                                    {{ ((dept.headcount / total_users * 100) if total_users > 0 else 0)|round(1) }}%
+                                </span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="text-xs text-secondary-light">
+                                    <i class="ri-group-line text-primary-600" style="font-size: 12px;"></i>
+                                    <span class="fw-medium">{{ dept.headcount }}</span> persone
+                                </div>
+                                <div class="text-xs text-secondary-light">
+                                    <i class="ri-money-euro-circle-line text-success-600" style="font-size: 12px;"></i>
+                                    <span class="fw-medium">€{{ "{:,.0f}".format(dept.avg_salary or 0) }}</span> media
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copertura Linguistica - Occupa tutto lo spazio rimanente -->
+        <div class="col-xxl-8 col-lg-7">
+            <div class="card h-100 p-0 radius-12 border">
+                <div class="card-body p-24">
+                    <h6 class="mb-20 fw-bold text-lg">Copertura Linguistica</h6>
+                    <div id="languagesChart" style="height: 380px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Additional Charts -->
+    <div class="row gy-4">
+        <!-- Age Distribution - Expanded to 2 slots -->
+        <div class="col-xxl-8">
+            <div class="card h-100 p-0 radius-12 border">
+                <div class="card-body p-24">
+                    <h6 class="mb-20 fw-bold text-lg">Distribuzione Età</h6>
+                    <div id="ageChart" style="height: 280px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Reports Compliance -->
+        <div class="col-xxl-4">
+            <div class="card h-100 p-0 radius-12 border">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center justify-content-between mb-20">
+                        <h6 class="fw-bold text-lg mb-0">Conformità Report</h6>
+                        <h4 class="fw-bold text-primary-600 mb-0">{{ report_compliance_rate }}%</h4>
+                    </div>
+
+                    <div class="progress bg-primary-50 radius-8 mb-24" style="height: 30px;">
+                        <div class="progress-bar bg-primary-600" role="progressbar"
+                             style="width: {{ report_compliance_rate }}%">
+                            <span class="fw-medium">{{ report_compliance_rate }}% Conformità</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="fw-semibold text-secondary-light text-sm mb-12">Per Dipartimento</p>
+                        {% for dept in dept_compliance_stats[:5] %}
+                        <div class="mb-12">
+                            <div class="d-flex justify-content-between align-items-center mb-8">
+                                <span class="text-sm fw-medium" style="cursor: pointer;"
+                                      onclick="openComplianceModal({{ dept.id }}, '{{ dept.name }}')">
+                                    {{ dept.name }}
+                                    <i class="ri-external-link-line ms-1 text-xs"></i>
+                                </span>
+                                <span class="text-sm text-secondary-light">{{ dept.compliance_pct }}%</span>
+                            </div>
+                            <div class="progress bg-gray-100 radius-8" style="height: 6px;">
+                                <div class="progress-bar bg-primary-600" role="progressbar"
+                                     style="width: {{ dept.compliance_pct }}%"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dettagli Dipartimento -->
+<div class="modal fade" id="departmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="departmentModalTitle">Dettagli Dipartimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="departmentModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dettagli Istruzione -->
+<div class="modal fade" id="educationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="educationModalTitle">Dettagli Istruzione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="educationModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Conformità Report -->
+<div class="modal fade" id="complianceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="complianceModalTitle">Conformità Report Dipartimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="complianceModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+// Test immediato
+console.log('=== DASHBOARD ANALYTICS LOADED ===');
+console.log('1. jQuery status:', typeof jQuery !== 'undefined' ? 'LOADED' : 'NOT LOADED');
+console.log('2. ApexCharts status:', typeof ApexCharts !== 'undefined' ? 'LOADED' : 'NOT LOADED');
+console.log('3. Iconify status:', typeof iconifyIcon !== 'undefined' ? 'LOADED' : 'NOT LOADED');
+
+// Inizializzazione quando DOM è pronto
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== DOM READY ===');
+
+    // Controlla di nuovo le librerie
+    if (typeof ApexCharts === 'undefined') {
+        console.error('❌ ApexCharts NOT available! Charts will not render.');
+        // Proviamo a caricare ApexCharts manualmente se non è presente
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.min.js';
+        script.onload = function() {
+            console.log('✅ ApexCharts loaded manually');
+            initializeCharts();
+        };
+        document.head.appendChild(script);
+        return;
+    } else {
+        console.log('✅ ApexCharts is available');
+        initializeCharts();
+    }
+});
+
+function initializeCharts() {
+    console.log('=== INITIALIZING CHARTS ===');
+
+    // Initialize Select2
+    if (typeof jQuery !== 'undefined') {
+        jQuery('#deptSelect').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Select departments',
+            allowClear: true,
+            width: '100%'
+        }).on('change', function() {
+            jQuery('#filterForm').submit();
+        });
+        console.log('✅ Select2 initialized');
+    }
+
+    // =================== HEADCOUNT TREND CHART ===================
+    var headcountData = {{ headcount_trend_json|safe }};
+    window.headcountChart = null;  // Rendiamo globale
+    console.log('Headcount data:', headcountData);
+
+    // Funzione per aggregare dati per trimestre
+    function aggregateQuarterly(data) {
+        var quarterly = [];
+        for(var i = 0; i < data.length; i += 3) {
+            var avg = Math.round((data[i].count + (data[i+1]?.count || 0) + (data[i+2]?.count || 0)) / Math.min(3, data.length - i));
+            quarterly.push({
+                month: 'Q' + Math.floor(i/3 + 1),
+                count: avg
+            });
+        }
+        return quarterly;
+    }
+
+    // Funzione per aggregare dati per anno
+    function aggregateYearly(data) {
+        // Prendi solo l'ultimo valore come rappresentativo dell'anno
+        return [{
+            month: new Date().getFullYear().toString(),
+            count: data[data.length - 1].count
+        }];
+    }
+
+    // Funzione per aggiornare il grafico
+    window.updateHeadcountChart = function(period) {
+        console.log('Updating headcount chart with period:', period);
+
+        var newData;
+        var categories;
+
+        switch(period) {
+            case 'quarterly':
+                newData = aggregateQuarterly(headcountData);
+                categories = newData.map(d => d.month);
+                console.log('Quarterly data:', newData);
+                break;
+            case 'yearly':
+                newData = aggregateYearly(headcountData);
+                categories = newData.map(d => d.month);
+                console.log('Yearly data:', newData);
+                break;
+            default: // monthly
+                newData = headcountData;
+                categories = newData.map(d => d.month);
+                console.log('Monthly data:', newData);
+        }
+
+        if(window.headcountChart) {
+            console.log('Destroying old chart');
+            window.headcountChart.destroy();
+        }
+
+        // Ricrea il grafico con i nuovi dati
+        var newOptions = {
+            series: [{
+                name: 'Collaboratori',
+                data: newData.map(d => d.count)
+            }],
+            chart: {
+                type: 'area',
+                height: 290,
+                toolbar: {
+                    show: false
+                }
+            },
+            colors: ['#487FFF'],
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shade: 'light',
+                    type: 'vertical',
+                    opacityFrom: 0.6,
+                    opacityTo: 0.3
+                }
+            },
+            dataLabels: {
+                enabled: false
+            },
+            stroke: {
+                curve: 'smooth',
+                width: 2
+            },
+            xaxis: {
+                categories: categories,
+                labels: {
+                    style: {
+                        colors: '#8c9097'
+                    }
+                }
+            },
+            yaxis: {
+                labels: {
+                    style: {
+                        colors: '#8c9097'
+                    }
+                }
+            },
+            grid: {
+                borderColor: '#f1f1f1',
+                strokeDashArray: 3
+            }
+        };
+
+        window.headcountChart = new ApexCharts(document.querySelector("#headcountChart"), newOptions);
+        window.headcountChart.render();
+        console.log('Chart recreated with new data');
+    }
+    var headcountOptions = {
+        series: [{
+            name: 'Collaboratori',
+            data: headcountData.map(d => d.count)
+        }],
+        chart: {
+            type: 'area',
+            height: 290,
+            toolbar: {
+                show: false
+            },
+            sparkline: {
+                enabled: false
+            }
+        },
+        colors: ['#487FFF'],
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shade: 'light',
+                type: 'vertical',
+                opacityFrom: 0.6,
+                opacityTo: 0.3,
+                stops: [0, 100]
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 2
+        },
+        xaxis: {
+            categories: headcountData.map(d => d.month),
+            labels: {
+                style: {
+                    colors: '#8c9097'
+                }
+            }
+        },
+        yaxis: {
+            labels: {
+                style: {
+                    colors: '#8c9097'
+                }
+            }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            strokeDashArray: 3
+        }
+    };
+
+    if (document.querySelector("#headcountChart") && headcountData && headcountData.length > 0) {
+        try {
+            window.headcountChart = new ApexCharts(document.querySelector("#headcountChart"), headcountOptions);
+            window.headcountChart.render();
+            console.log('Headcount chart rendered successfully');
+        } catch (error) {
+            console.error('Error rendering headcount chart:', error);
+        }
+    } else {
+        console.log('No headcount data or chart element not found');
+    }
+
+    // =================== DEPARTMENT BAR CHART ===================
+    var deptData = [
+        {% for dept in dept_stats %}
+        {{ dept.headcount }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    var deptLabels = [
+        {% for dept in dept_stats %}
+        '{{ dept.name }}'{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    console.log('Department data:', deptData);
+    console.log('Department labels:', deptLabels);
+
+    var deptBarOptions = {
+        series: [{
+            name: 'Collaboratori',
+            data: deptData
+        }],
+        chart: {
+            type: 'bar',
+            height: 350,
+            toolbar: {
+                show: false
+            }
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 8,
+                horizontal: true,
+                distributed: true,
+                barHeight: '70%',
+                dataLabels: {
+                    position: 'right'
+                }
+            }
+        },
+        colors: ['#487FFF', '#45B369', '#FF9F29', '#EF4A00', '#8252e9', '#de3ace', '#00B8D4', '#FFC107'],
+        dataLabels: {
+            enabled: true,
+            textAnchor: 'start',
+            style: {
+                colors: ['#333'],
+                fontSize: '13px',
+                fontWeight: 600
+            },
+            formatter: function (val) {
+                return val + " persone";
+            },
+            offsetX: 5
+        },
+        stroke: {
+            width: 0,
+            colors: ['#fff']
+        },
+        xaxis: {
+            categories: deptLabels,
+            labels: {
+                style: {
+                    colors: '#8c9097',
+                    fontSize: '12px'
+                }
+            }
+        },
+        yaxis: {
+            labels: {
+                style: {
+                    colors: '#333',
+                    fontSize: '13px',
+                    fontWeight: 500
+                }
+            }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            xaxis: {
+                lines: {
+                    show: true
+                }
+            },
+            yaxis: {
+                lines: {
+                    show: false
+                }
+            }
+        },
+        tooltip: {
+            theme: 'light',
+            y: {
+                formatter: function (val) {
+                    return val + " collaboratori";
+                }
+            }
+        },
+        legend: {
+            show: false
+        }
+    };
+
+    if (document.querySelector("#deptBarChart") && deptData.length > 0) {
+        try {
+            var deptBarChart = new ApexCharts(document.querySelector("#deptBarChart"), deptBarOptions);
+            deptBarChart.render();
+            console.log('Department bar chart rendered successfully');
+        } catch (error) {
+            console.error('Error rendering department chart:', error);
+        }
+    } else {
+        console.log('No department data or chart element not found');
+    }
+
+    // =================== AGE DISTRIBUTION CHART ===================
+    var ageData = [
+        {{ (age_ranges.under_25 if age_ranges else 0) or 0 }},
+        {{ (age_ranges['25_34'] if age_ranges else 0) or 0 }},
+        {{ (age_ranges['35_44'] if age_ranges else 0) or 0 }},
+        {{ (age_ranges['45_54'] if age_ranges else 0) or 0 }},
+        {{ (age_ranges.over_55 if age_ranges else 0) or 0 }}
+    ];
+
+    console.log('Age data:', ageData);
+
+    var ageOptions = {
+        series: [{
+            name: 'Collaboratori',
+            data: ageData
+        }],
+        chart: {
+            type: 'bar',
+            height: 250,
+            toolbar: {
+                show: false
+            }
+        },
+        colors: ['#487FFF'],
+        plotOptions: {
+            bar: {
+                borderRadius: 4,
+                columnWidth: '60%',
+                distributed: false
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        xaxis: {
+            categories: ['< 25', '25-34', '35-44', '45-54', '55+'],
+            labels: {
+                style: {
+                    colors: '#8c9097'
+                }
+            }
+        },
+        yaxis: {
+            labels: {
+                style: {
+                    colors: '#8c9097'
+                }
+            }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            strokeDashArray: 3
+        }
+    };
+
+    if (document.querySelector("#ageChart")) {
+        try {
+            var ageChart = new ApexCharts(document.querySelector("#ageChart"), ageOptions);
+            ageChart.render();
+            console.log('Age chart rendered successfully');
+        } catch (error) {
+            console.error('Error rendering age chart:', error);
+        }
+    } else {
+        console.log('Age chart element not found');
+    }
+
+
+    // =================== LANGUAGES BAR CHART ===================
+    // Mappa codici lingua -> nome completo e bandiera
+    var languageMap = {
+        'it': { name: 'Italiano', flag: '🇮🇹' },
+        'en': { name: 'Inglese', flag: '🇬🇧' },
+        'es': { name: 'Spagnolo', flag: '🇪🇸' },
+        'fr': { name: 'Francese', flag: '🇫🇷' },
+        'de': { name: 'Tedesco', flag: '🇩🇪' },
+        'ar': { name: 'Arabo', flag: '🇸🇦' },
+        'pt': { name: 'Portoghese', flag: '🇵🇹' },
+        'zh': { name: 'Cinese', flag: '🇨🇳' },
+        'ru': { name: 'Russo', flag: '🇷🇺' },
+        'ja': { name: 'Giapponese', flag: '🇯🇵' }
+    };
+
+    var languageData = [];
+    var languageLabels = [];
+    var languageColors = ['#487FFF', '#45B369', '#FF9F29', '#EF4A00', '#8252e9', '#de3ace', '#00B8D4', '#FFC107'];
+
+    {% for lang, count in language_stats.items() %}
+    var langCode = '{{ lang }}';
+    var langInfo = languageMap[langCode] || { name: '{{ lang|upper }}', flag: '🏳️' };
+    languageLabels.push(langInfo.flag + ' ' + langInfo.name);
+    languageData.push({{ count }});
+    {% endfor %}
+
+    console.log('Language data:', languageData);
+    console.log('Language labels:', languageLabels);
+
+    var languageOptions = {
+        series: [{
+            name: 'Collaboratori',
+            data: languageData
+        }],
+        chart: {
+            type: 'bar',
+            height: 380,
+            toolbar: {
+                show: false
+            }
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 8,
+                horizontal: true,
+                distributed: true,
+                barHeight: '70%',
+                dataLabels: {
+                    position: 'right'
+                }
+            }
+        },
+        colors: languageColors,
+        dataLabels: {
+            enabled: true,
+            textAnchor: 'start',
+            style: {
+                colors: ['#333'],
+                fontSize: '14px',
+                fontWeight: 600
+            },
+            formatter: function (val) {
+                return val + " persone";
+            },
+            offsetX: 5
+        },
+        stroke: {
+            width: 0,
+            colors: ['#fff']
+        },
+        xaxis: {
+            categories: languageLabels,
+            labels: {
+                style: {
+                    colors: '#8c9097',
+                    fontSize: '12px'
+                }
+            }
+        },
+        yaxis: {
+            labels: {
+                style: {
+                    colors: '#333',
+                    fontSize: '14px',
+                    fontWeight: 500
+                }
+            }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            xaxis: {
+                lines: {
+                    show: true
+                }
+            },
+            yaxis: {
+                lines: {
+                    show: false
+                }
+            }
+        },
+        tooltip: {
+            theme: 'light',
+            y: {
+                formatter: function (val) {
+                    return val + " collaboratori che parlano questa lingua";
+                }
+            }
+        },
+        legend: {
+            show: false
+        }
+    };
+
+    if (document.querySelector("#languagesChart") && languageData.length > 0) {
+        try {
+            var languagesChart = new ApexCharts(document.querySelector("#languagesChart"), languageOptions);
+            languagesChart.render();
+            console.log('Languages chart rendered successfully');
+        } catch (error) {
+            console.error('Error rendering languages chart:', error);
+        }
+    } else {
+        console.log('No language data or chart element not found');
+    }
+
+} // End of initializeCharts function
+
+// Export function
+function exportData() {
+    const params = new URLSearchParams(window.location.search);
+    params.append('export', 'excel');
+    window.location.href = '{{ url_for("team.team_analytics_dashboard") }}?' + params.toString();
+}
+
+// Funzione per mostrare i dettagli del dipartimento
+function showDepartmentDetails(deptId, deptName) {
+    console.log('Showing department details for:', deptName, 'ID:', deptId);
+
+    // Aggiorna il titolo del modal
+    document.getElementById('departmentModalTitle').textContent = 'Membri di ' + deptName;
+
+    // Mostra loading
+    document.getElementById('departmentModalBody').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Caricamento...</span></div></div>';
+
+    // Mostra il modal
+    var modal = new bootstrap.Modal(document.getElementById('departmentModal'));
+    modal.show();
+
+    // Carica i dati via AJAX
+    fetch('/team/api/department/' + deptId + '/members')
+        .then(response => response.json())
+        .then(data => {
+            var html = '<div class="table-responsive">';
+            html += '<table class="table table-hover">';
+            html += '<thead>';
+            html += '<tr>';
+            html += '<th>Nome</th>';
+            html += '<th>Ruolo</th>';
+            html += '<th>RAL Annua</th>';
+            html += '<th>Stipendio Mensile</th>';
+            html += '<th>Stato</th>';
+            html += '</tr>';
+            html += '</thead>';
+            html += '<tbody>';
+
+            if (data.members && data.members.length > 0) {
+                data.members.forEach(function(member) {
+                    html += '<tr>';
+                    html += '<td><strong>' + member.first_name + ' ' + member.last_name + '</strong></td>';
+                    html += '<td>' + (member.job_title || 'N/A') + '</td>';
+                    html += '<td>€' + (member.ral_annua ? member.ral_annua.toLocaleString('it-IT') : '0') + '</td>';
+                    html += '<td>€' + (member.ral_annua ? Math.round(member.ral_annua / 12).toLocaleString('it-IT') : '0') + '</td>';
+                    html += '<td>';
+                    if (member.is_active) {
+                        html += '<span class="badge bg-success">Attivo</span>';
+                    } else {
+                        html += '<span class="badge bg-danger">Inattivo</span>';
+                    }
+                    html += '</td>';
+                    html += '</tr>';
+                });
+            } else {
+                html += '<tr><td colspan="5" class="text-center">Nessun membro trovato</td></tr>';
+            }
+
+            html += '</tbody>';
+            html += '</table>';
+            html += '</div>';
+
+            // Mostra statistiche del dipartimento
+            if (data.stats) {
+                html += '<div class="mt-4 p-3 bg-light rounded">';
+                html += '<h6 class="fw-bold mb-3">Statistiche Dipartimento</h6>';
+                html += '<div class="row">';
+                html += '<div class="col-md-4"><strong>Totale Membri:</strong> ' + data.stats.total + '</div>';
+                html += '<div class="col-md-4"><strong>RAL Media:</strong> €' + (data.stats.avg_salary ? Math.round(data.stats.avg_salary).toLocaleString('it-IT') : '0') + '</div>';
+                html += '<div class="col-md-4"><strong>Costo Totale:</strong> €' + (data.stats.total_cost ? Math.round(data.stats.total_cost).toLocaleString('it-IT') : '0') + '</div>';
+                html += '</div>';
+                html += '</div>';
+            }
+
+            document.getElementById('departmentModalBody').innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading department members:', error);
+            document.getElementById('departmentModalBody').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dei membri del dipartimento</div>';
+        });
+}
+
+// Funzione per mostrare i dettagli dell'istruzione per dipartimento
+function showEducationDetails(deptId, deptName) {
+    console.log('Showing education details for:', deptName, 'ID:', deptId);
+
+    // Aggiorna il titolo del modal
+    document.getElementById('educationModalTitle').textContent = 'Istruzione e Certificazioni - ' + deptName;
+
+    // Mostra loading
+    document.getElementById('educationModalBody').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Caricamento...</span></div></div>';
+
+    // Mostra il modal
+    var modal = new bootstrap.Modal(document.getElementById('educationModal'));
+    modal.show();
+
+    // Carica i dati via AJAX
+    fetch('/team/api/department/' + deptId + '/education')
+        .then(response => response.json())
+        .then(data => {
+            var html = '<div class="container-fluid">';
+
+            // Statistiche Generali
+            html += '<div class="row mb-4">';
+            html += '<div class="col-md-3">';
+            html += '<div class="card bg-primary-50 border-0">';
+            html += '<div class="card-body text-center">';
+            html += '<h4 class="text-primary-600">' + (data.stats.with_degree || 0) + '</h4>';
+            html += '<small>Lauree</small>';
+            html += '</div></div></div>';
+
+            html += '<div class="col-md-3">';
+            html += '<div class="card bg-success-50 border-0">';
+            html += '<div class="card-body text-center">';
+            html += '<h4 class="text-success-600">' + (data.stats.with_master || 0) + '</h4>';
+            html += '<small>Master</small>';
+            html += '</div></div></div>';
+
+            html += '<div class="col-md-3">';
+            html += '<div class="card bg-warning-50 border-0">';
+            html += '<div class="card-body text-center">';
+            html += '<h4 class="text-warning-600">' + (data.stats.with_phd || 0) + '</h4>';
+            html += '<small>Dottorati</small>';
+            html += '</div></div></div>';
+
+            html += '<div class="col-md-3">';
+            html += '<div class="card bg-info-50 border-0">';
+            html += '<div class="card-body text-center">';
+            html += '<h4 class="text-info-600">' + (data.stats.total_certifications || 0) + '</h4>';
+            html += '<small>Certificazioni</small>';
+            html += '</div></div></div>';
+            html += '</div>';
+
+            // Tabella Membri con Dettagli Istruzione
+            html += '<h6 class="fw-bold mb-3">Dettagli Membri</h6>';
+            html += '<div class="table-responsive">';
+            html += '<table class="table table-hover">';
+            html += '<thead>';
+            html += '<tr>';
+            html += '<th>Nome</th>';
+            html += '<th>Laurea</th>';
+            html += '<th>Master</th>';
+            html += '<th>Dottorato</th>';
+            html += '<th>Certificazioni</th>';
+            html += '</tr>';
+            html += '</thead>';
+            html += '<tbody>';
+
+            if (data.members && data.members.length > 0) {
+                data.members.forEach(function(member) {
+                    html += '<tr>';
+                    html += '<td><strong>' + member.first_name + ' ' + member.last_name + '</strong></td>';
+                    html += '<td>' + (member.education_degrees || '-') + '</td>';
+                    html += '<td>' + (member.education_masters || '-') + '</td>';
+                    html += '<td>' + (member.education_phd || '-') + '</td>';
+                    html += '<td>';
+                    if (member.certifications && member.certifications.length > 0) {
+                        member.certifications.forEach(function(cert) {
+                            html += '<span class="badge bg-info me-1">' + cert + '</span>';
+                        });
+                    } else {
+                        html += '-';
+                    }
+                    html += '</td>';
+                    html += '</tr>';
+                });
+            } else {
+                html += '<tr><td colspan="5" class="text-center">Nessun dato disponibile</td></tr>';
+            }
+
+            html += '</tbody>';
+            html += '</table>';
+            html += '</div>';
+            html += '</div>';
+
+            document.getElementById('educationModalBody').innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading education details:', error);
+            document.getElementById('educationModalBody').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dei dati di istruzione</div>';
+        });
+}
+
+// Function to open compliance modal
+function openComplianceModal(deptId, deptName) {
+    document.getElementById('complianceModalTitle').textContent = `Conformità Report - ${deptName}`;
+    document.getElementById('complianceModalBody').innerHTML = '<div class="text-center"><i class="ri-loader-2-line text-primary text-2xl"></i> Caricamento...</div>';
+
+    // Show modal
+    var modal = new bootstrap.Modal(document.getElementById('complianceModal'));
+    modal.show();
+
+    // Fetch compliance data
+    fetch(`/team/api/department/${deptId}/compliance`)
+        .then(response => response.json())
+        .then(data => {
+            const stats = data.stats;
+            const members = data.members;
+
+            let html = `
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center p-3 bg-light border-0">
+                        <h5 class="fw-bold text-primary mb-1">${stats.total_members}</h5>
+                        <small class="text-muted">Collaboratori</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center p-3 bg-light border-0">
+                        <h5 class="fw-bold text-success mb-1">${stats.total_reports}</h5>
+                        <small class="text-muted">Report Inviati</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center p-3 bg-light border-0">
+                        <h5 class="fw-bold text-warning mb-1">${stats.expected_reports}</h5>
+                        <small class="text-muted">Report Attesi</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center p-3 bg-light border-0">
+                        <h5 class="fw-bold text-primary mb-1">${stats.compliance_rate}%</h5>
+                        <small class="text-muted">Conformità</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <small class="text-muted">
+                    <i class="ri-information-line me-1"></i>
+                    Calcolo dalla prima registrazione report (${stats.first_report_date || 'N/A'}) - ${stats.weeks_since_start} settimane
+                </small>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Collaboratore</th>
+                            <th>Ruolo</th>
+                            <th>Report Inviati</th>
+                            <th>Report Attesi</th>
+                            <th class="text-center">Conformità</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            members.forEach(member => {
+                const complianceClass = member.compliance_pct >= 80 ? 'text-success' :
+                                       member.compliance_pct >= 60 ? 'text-warning' : 'text-danger';
+
+                html += `
+                    <tr>
+                        <td class="fw-medium">${member.first_name} ${member.last_name}</td>
+                        <td class="text-muted">${member.job_title || '-'}</td>
+                        <td class="text-center">${member.submitted_reports}</td>
+                        <td class="text-center">${member.expected_reports}</td>
+                        <td class="text-center">
+                            <span class="fw-medium ${complianceClass}">${member.compliance_pct}%</span>
+                        </td>
+                    </tr>`;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            </div>`;
+
+            document.getElementById('complianceModalBody').innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading compliance details:', error);
+            document.getElementById('complianceModalBody').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dei dati di conformità</div>';
+        });
+}
+</script>
+{% endblock %}

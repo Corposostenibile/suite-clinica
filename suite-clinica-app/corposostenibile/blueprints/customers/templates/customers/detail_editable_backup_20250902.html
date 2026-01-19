@@ -1,0 +1,3010 @@
+{# blueprints/customers/templates/customers/detail_editable.html #}
+{% extends "base.html" %}
+{% from "feedback/partials/_rating_badge.html" import rating_badge %}
+
+{# ------------------------------------------------------------------- #}
+{#  Macro helpers                                                      #}
+{# ------------------------------------------------------------------- #}
+{% macro format_date(dt) -%}
+  {{ dt.strftime('%d/%m/%Y') if dt else '—' }}
+{%- endmacro %}
+
+{% macro format_datetime(dt) -%}
+  {{ dt.strftime('%d/%m/%Y %H:%M') if dt else '—' }}
+{%- endmacro %}
+
+{% macro format_bool(val) -%}
+  {% if val is none %}<span class="bool-unknown">Non specificato</span>
+  {% elif val %}<span class="bool-yes">✓ Sì</span>
+  {% else %}<span class="bool-no">✗ No</span>{% endif %}
+{%- endmacro %}
+
+{% macro format_enum(val) -%}
+  {{ val.value if val else '—' }}
+{%- endmacro %}
+
+{% macro format_text(val, max_length=none) -%}
+  {% if not val %}
+    <span class="empty">Non compilato</span>
+  {% elif max_length and val|length > max_length %}
+    {{ val[:max_length] }}...
+  {% else %}
+    {{ val }}
+  {% endif %}
+{%- endmacro %}
+
+{% block title %}{{ cliente.nome_cognome }} • Profilo Cliente{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Section headers - per feedback e altre sezioni */
+.section-header{font-size:1.1rem;font-weight:700;color:#212529;margin:24px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--brand-green)}
+.section-header:first-child{margin-top:0}
+
+/* Chart containers */
+.chart-container {
+  position: relative;
+  height: 400px;
+  margin-bottom: 20px;
+}
+
+/* Chart toggle buttons */
+.btn-group[aria-label="Tipo di grafico"] .btn {
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+/* Metric toggle badges */
+.metric-toggle {
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 2px solid;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.metric-toggle.active {
+  opacity: 1;
+}
+
+.metric-toggle.inactive {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+/* Boolean indicators */
+.bool-yes{color:#28a745;font-weight:600}
+.bool-no{color:#dc3545;font-weight:600}
+.bool-unknown{color:#6c757d;font-style:italic}
+
+/* Empty state */
+.empty{color:#adb5bd;font-style:italic}
+
+/* Tab content isolation */
+.tab-content > .tab-pane {
+  display: none;
+  overflow: hidden;
+}
+
+.tab-content > .tab-pane.show {
+  display: block;
+}
+
+.tab-content > .tab-pane.active {
+  display: block;
+}
+
+/* Feedback card styles */
+.feedback-card {
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+  overflow: hidden; /* Prevent content overflow */
+}
+
+.feedback-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.feedback-ratings {
+  display: flex;
+  gap: 16px;
+}
+
+.rating-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rating-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Accordion containment */
+.accordion-collapse {
+  max-height: none;
+  overflow: visible;
+}
+
+.accordion-body {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* WowDash Profile Style */
+.border-gradient-tab {
+    border-bottom: 2px solid #e9ecef;
+    gap: 0;
+}
+.border-gradient-tab .nav-link {
+    color: #6c757d;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 12px 24px;
+    position: relative;
+    font-weight: 500;
+}
+.border-gradient-tab .nav-link.active {
+    color: var(--bs-primary);
+    background: transparent;
+}
+.border-gradient-tab .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--bs-primary);
+}
+.avatar-upload {
+    position: relative;
+    display: inline-block;
+}
+.avatar-preview {
+    width: 120px;
+    height: 120px;
+    position: relative;
+    border-radius: 50%;
+    border: 3px solid #e9ecef;
+    overflow: hidden;
+}
+.avatar-preview > div {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIj48cmVjdCB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgZmlsbD0iI2Y4ZjlmYSIvPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjYwIiB5PSI2MCIgZmlsbD0iIzZjNzU3ZCIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjQwIj5OQTwvdGV4dD48L3N2Zz4=');
+}
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.status-badge.attivo { background: #d4edda; color: #155724; }
+.status-badge.pausa { background: #fff3cd; color: #856404; }
+.status-badge.ghost { background: #e2e3e5; color: #383d41; }
+.status-badge.insoluto { background: #f8d7da; color: #721c24; }
+.text-primary-light { color: #495057; }
+.text-secondary-light { color: #6c757d; }
+.radius-8 { border-radius: 8px; }
+.py-11 { padding-top: 11px; padding-bottom: 11px; }
+.py-12 { padding-top: 12px; padding-bottom: 12px; }
+.px-56 { padding-left: 56px; padding-right: 56px; }
+.mb-20 { margin-bottom: 20px; }
+.mb-24 { margin-bottom: 24px; }
+.gap-3 { gap: 1rem; }
+.text-md { font-size: 14px; }
+.text-xl { font-size: 20px; }
+.fw-semibold { font-weight: 600; }
+.bg-hover-danger-200:hover { background-color: #f8d7da; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Profilo Cliente</h6>
+    <ul class="d-flex align-items-center gap-2">
+        <li class="fw-medium">
+            <a href="/" class="d-flex align-items-center gap-1 hover-text-primary">
+                <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>Dashboard
+            </a>
+        </li>
+        <li>-</li>
+        <li class="fw-medium"><a href="{{ url_for('customers.list_view') }}">Clienti</a></li>
+        <li>-</li>
+        <li class="fw-medium">{{ cliente.nome_cognome }}</li>
+    </ul>
+</div>
+
+{# Alert Banner per Scadenze - Calcolo sempre dinamico #}
+{% set giorni = cliente.giorni_rimanenti_calcolati %}
+{% if giorni is not none %}
+    {% if giorni < 0 %}
+        {# Già scaduto #}
+        <div class="alert alert-danger d-flex align-items-center mb-24" role="alert">
+            <iconify-icon icon="ri:error-warning-fill" class="icon text-xl me-2"></iconify-icon>
+            <div>
+                <strong>ATTENZIONE: Abbonamento SCADUTO!</strong>
+                L'abbonamento di {{ cliente.nome_cognome }} è scaduto da <strong>{{ -giorni }} {% if -giorni == 1 %}giorno{% else %}giorni{% endif %}</strong> 
+                (data scadenza: {{ cliente.data_rinnovo.strftime('%d/%m/%Y') if cliente.data_rinnovo else 'N/D' }}).
+                È necessario contattare urgentemente il cliente per il rinnovo.
+            </div>
+        </div>
+    {% elif giorni == 0 %}
+        {# Scade oggi #}
+        <div class="alert alert-danger d-flex align-items-center mb-24" role="alert">
+            <iconify-icon icon="ri:error-warning-fill" class="icon text-xl me-2"></iconify-icon>
+            <div>
+                <strong>ATTENZIONE: Abbonamento in SCADENZA OGGI!</strong>
+                L'abbonamento di {{ cliente.nome_cognome }} <strong>scade oggi</strong> 
+                ({{ cliente.data_rinnovo.strftime('%d/%m/%Y') if cliente.data_rinnovo else 'N/D' }}).
+                Contattare immediatamente il cliente per il rinnovo.
+            </div>
+        </div>
+    {% elif giorni <= 10 %}
+        {# Scade entro 10 giorni #}
+        <div class="alert alert-danger d-flex align-items-center mb-24" role="alert">
+            <iconify-icon icon="ri:alarm-warning-fill" class="icon text-xl me-2"></iconify-icon>
+            <div>
+                <strong>URGENTE: Scadenza imminente!</strong>
+                L'abbonamento scade tra <strong>{{ giorni }} giorni</strong> 
+                ({{ cliente.data_rinnovo.strftime('%d/%m/%Y') if cliente.data_rinnovo else 'N/D' }}).
+                Contattare il cliente per il rinnovo.
+            </div>
+        </div>
+    {% elif giorni <= 30 %}
+        {# Scade entro 1 mese #}
+        <div class="alert alert-warning d-flex align-items-center mb-24" role="alert">
+            <iconify-icon icon="ri:calendar-check-fill" class="icon text-xl me-2"></iconify-icon>
+            <div>
+                <strong>Promemoria: Rinnovo in arrivo</strong>
+                L'abbonamento scade tra <strong>{{ giorni }} giorni</strong> 
+                ({{ cliente.data_rinnovo.strftime('%d/%m/%Y') if cliente.data_rinnovo else 'N/D' }}).
+                Pianificare il contatto per il rinnovo.
+            </div>
+        </div>
+    {% endif %}
+{% endif %}
+
+<!-- SEZIONE GRAFICI ANDAMENTO METRICHE -->
+{% if cliente.typeform_responses and cliente.typeform_responses|length > 0 %}
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary bg-opacity-10">
+                <h5 class="mb-0">
+                    <iconify-icon icon="solar:chart-bold" class="me-2"></iconify-icon>
+                    Andamento Metriche nel Tempo
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Loading spinner -->
+                <div id="charts-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Caricamento grafici...</span>
+                    </div>
+                </div>
+                
+                <!-- Charts container (hidden initially) -->
+                <div id="charts-container" style="display: none;">
+                    <!-- Selettore tipo grafico -->
+                    <div class="mb-4">
+                        <div class="btn-group" role="group" aria-label="Tipo di grafico">
+                            <button type="button" class="btn btn-outline-success active" data-chart-type="physical">
+                                Metriche Fisiche/Mentali
+                            </button>
+                            <button type="button" class="btn btn-outline-success" data-chart-type="weight">
+                                Andamento Peso
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Grafico Metriche Fisiche/Mentali -->
+                    <div id="physical-chart-container" class="chart-container">
+                        <!-- Selettore metriche da visualizzare -->
+                        <div class="mb-3">
+                            <small class="text-muted">Clicca sulle metriche per mostrarle/nasconderle:</small>
+                            <div class="d-flex flex-wrap gap-2 mt-2" id="metric-toggles">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                        <canvas id="physicalMetricsChart"></canvas>
+                    </div>
+                    
+                    <!-- Grafico Peso -->
+                    <div id="weight-chart-container" class="chart-container" style="display: none;">
+                        <canvas id="weightChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- No data message (hidden initially) -->
+                <div id="no-data-message" class="alert alert-info" style="display: none;">
+                    <iconify-icon icon="solar:info-circle-bold" class="me-2"></iconify-icon>
+                    Nessun dato disponibile per generare i grafici.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <!-- Left Sidebar Info -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body p-24">
+                <div class="text-center mb-24">
+                    <div class="mb-16">
+                        <!-- Mostra l'ultima foto frontale del feedback se disponibile -->
+                        {% if cliente.typeform_responses and cliente.typeform_responses|length > 0 %}
+                            {% set latest_response = cliente.typeform_responses|sort(attribute='submit_date', reverse=true)|first %}
+                            {% if latest_response.photo_front %}
+                                <div class="mx-auto d-flex align-items-center justify-content-center" 
+                                     style="width: 200px; height: 200px; background: #f8f9fa; border-radius: 15px; border: 3px solid #e3e6f0; padding: 5px;">
+                                    <img src="{{ latest_response.photo_front }}" 
+                                         alt="Foto profilo" 
+                                         style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                </div>
+                                <small class="text-muted d-block mt-2">
+                                    Ultimo aggiornamento: {{ latest_response.submit_date.strftime('%d/%m/%Y') if latest_response.submit_date else 'N/D' }}
+                                </small>
+                            {% else %}
+                                <!-- Mostra immagine default se non c'è foto nel feedback -->
+                                <div class="mx-auto d-flex align-items-center justify-content-center" 
+                                     style="width: 200px; height: 200px; background: #f8f9fa; border-radius: 15px; border: 3px solid #e3e6f0; padding: 5px;">
+                                    <img src="/static/assets/immagini/corposostenibile.jpg" 
+                                         alt="Foto profilo default" 
+                                         style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <!-- Mostra immagine default se non ci sono feedback -->
+                            <div class="mx-auto d-flex align-items-center justify-content-center" 
+                                 style="width: 200px; height: 200px; background: #f8f9fa; border-radius: 15px; border: 3px solid #e3e6f0; padding: 5px;">
+                                <img src="/static/assets/immagini/corposostenibile.jpg" 
+                                     alt="Foto profilo default" 
+                                     style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                            </div>
+                        {% endif %}
+                    </div>
+                    <h5 class="mb-1">{{ cliente.nome_cognome }}</h5>
+                    {% if cliente.stato_cliente %}
+                        <span class="status-badge {{ cliente.stato_cliente.value }}">
+                            {{ cliente.stato_cliente.value }}
+                        </span>
+                    {% endif %}
+                    {% if cliente.alert %}
+                        <span class="badge bg-danger ms-2">⚠️ ALERT</span>
+                    {% endif %}
+                </div>
+
+                <div class="border-top pt-24">
+                    <h6 class="text-xl mb-16">Info Rapide</h6>
+                    <ul>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">ID Cliente</span>
+                            <span class="w-70 text-secondary-light fw-medium">: {{ cliente.cliente_id }}</span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Età</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.age %}{{ cliente.age }} anni{% else %}N/D{% endif %}
+                            </span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Programma</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.programma_attuale %}{{ cliente.programma_attuale }}{% else %}N/D{% endif %}
+                            </span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Tipo Cliente</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.tipologia_cliente %}{{ cliente.tipologia_cliente.value|upper }}{% else %}N/D{% endif %}
+                            </span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Inizio</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.data_inizio_abbonamento %}
+                                    {{ cliente.data_inizio_abbonamento.strftime('%d/%m/%Y') }}
+                                {% else %}N/D{% endif %}
+                            </span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Rinnovo</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.data_rinnovo %}
+                                    {{ cliente.data_rinnovo.strftime('%d/%m/%Y') }}
+                                    {% if cliente.giorni_rimanenti_calcolati %}
+                                        <br><small class="text-warning">({{ cliente.giorni_rimanenti_calcolati }} giorni)</small>
+                                    {% endif %}
+                                {% else %}N/D{% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                    
+                    <!-- Professionisti Assegnati -->
+                    <h6 class="text-xl mb-16 mt-24">Professionisti Assegnati</h6>
+                    <ul>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Nutrizionista</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.nutrizionisti_multipli %}
+                                    {% for user in cliente.nutrizionisti_multipli %}
+                                        {{ user.full_name or user.email }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% elif cliente.nutrizionista_user %}
+                                    {{ cliente.nutrizionista_user.full_name or cliente.nutrizionista_user.email }}
+                                {% elif cliente.nutrizionista %}
+                                    {{ cliente.nutrizionista }} <i class="text-muted">(testo)</i>
+                                {% else %}Non assegnato{% endif %}
+                            </span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Coach</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.coaches_multipli %}
+                                    {% for user in cliente.coaches_multipli %}
+                                        {{ user.full_name or user.email }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% elif cliente.coach_user %}
+                                    {{ cliente.coach_user.full_name or cliente.coach_user.email }}
+                                {% elif cliente.coach %}
+                                    {{ cliente.coach }} <i class="text-muted">(testo)</i>
+                                {% else %}Non assegnato{% endif %}
+                            </span>
+                        </li>
+                        <li class="d-flex align-items-center gap-1 mb-12">
+                            <span class="w-30 text-md fw-semibold text-primary-light">Psicologa</span>
+                            <span class="w-70 text-secondary-light fw-medium">: 
+                                {% if cliente.psicologi_multipli %}
+                                    {% for user in cliente.psicologi_multipli %}
+                                        {{ user.full_name or user.email }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% elif cliente.psicologa_user %}
+                                    {{ cliente.psicologa_user.full_name or cliente.psicologa_user.email }}
+                                {% elif cliente.psicologa %}
+                                    {{ cliente.psicologa }} <i class="text-muted">(testo)</i>
+                                {% else %}Non assegnato{% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Content Area -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-body p-24">
+                <!-- Tab Navigation - TUTTE LE 11 TAB ORIGINALI -->
+                <ul class="nav border-gradient-tab nav-pills mb-20 d-inline-flex flex-wrap" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="pills-anagrafica-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-anagrafica" type="button">
+                            👤 Anagrafica
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-programma-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-programma" type="button">
+                            📋 Programma e Stato
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-obiettivi-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-obiettivi" type="button">
+                            🎯 Obiettivi
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-team-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-team" type="button">
+                            👥 Team
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-piano-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-piano" type="button">
+                            📅 Piano
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-storia-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-storia" type="button">
+                            📝 Storia
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-comunicazione-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-comunicazione" type="button">
+                            💬 Comunicazione
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-alert-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-alert" type="button">
+                            ⚠️ Alert
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-documenti-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-documenti" type="button">
+                            📁 Documenti
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-attivita-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-attivita" type="button">
+                            📌 Attività
+                        </button>
+                    </li>
+                    {% if can_see_check_tab %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-feedback-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-feedback" type="button">
+                            ⭐ Check
+                        </button>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-cronologia-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-cronologia" type="button">
+                            🕐 Cronologia
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="pills-tabContent">
+                    
+                    <!-- TAB ANAGRAFICA -->
+                    <div class="tab-pane fade show active" id="pills-anagrafica" role="tabpanel">
+                        <form id="form-anagrafica" data-cliente-id="{{ cliente.cliente_id }}">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Nome e Cognome <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="nome_cognome" 
+                                               value="{{ cliente.nome_cognome }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Data di Nascita
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="data_di_nascita" 
+                                               value="{{ cliente.data_di_nascita.strftime('%Y-%m-%d') if cliente.data_di_nascita }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Professione
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="professione" 
+                                               value="{{ cliente.professione or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Stato Cliente
+                                            {% if cliente.stato_cliente_data %}
+                                                <small class="text-muted ms-2">(dal {{ cliente.stato_cliente_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                                            {% else %}
+                                                <small class="text-muted ms-2">(data non presente, vecchia procedura)</small>
+                                            {% endif %}
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="stato_cliente">
+                                            <option value="">Seleziona stato</option>
+                                            {% for stato in ['attivo', 'ghost', 'pausa', 'stop', 'insoluto'] %}
+                                                <option value="{{ stato }}" 
+                                                    {% if cliente.stato_cliente and cliente.stato_cliente.value == stato %}selected{% endif %}>
+                                                    {{ stato|upper }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            <i class="ri-information-line"></i> Lo stato globale può diventare GHOST automaticamente quando tutti i servizi attivi sono in ghost
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Team
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="di_team">
+                                            <option value="">Seleziona team</option>
+                                            {% for team in ['interno', 'sales_team', 'setter_team', 'sito', 'va_team'] %}
+                                                <option value="{{ team }}" 
+                                                    {% if cliente.di_team and cliente.di_team.value == team %}selected{% endif %}>
+                                                    {{ team|upper }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Tipologia Cliente
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="tipologia_cliente">
+                                            <option value="">Seleziona tipo</option>
+                                            {% for tipo in ['a', 'b', 'c', 'stop', 'recupero', 'pausa_gt_30'] %}
+                                                <option value="{{ tipo }}" 
+                                                    {% if cliente.tipologia_cliente and cliente.tipologia_cliente.value == tipo %}selected{% endif %}>
+                                                    {{ tipo|upper }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-anagrafica')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB PROGRAMMA -->
+                    <div class="tab-pane fade" id="pills-programma" role="tabpanel">
+                        <form id="form-programma" data-cliente-id="{{ cliente.cliente_id }}">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Programma Attuale
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="programma_attuale" 
+                                               value="{{ cliente.programma_attuale or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Dettaglio Programma
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="programma_attuale_dettaglio" 
+                                               value="{{ cliente.programma_attuale_dettaglio or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Storico Programma
+                                        </label>
+                                        <textarea class="form-control radius-8" name="storico_programma" rows="3">{{ cliente.storico_programma or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Macrocategoria
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="macrocategoria" 
+                                               value="{{ cliente.macrocategoria or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Data Inizio Abbonamento
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="data_inizio_abbonamento" 
+                                               id="data_inizio_abbonamento"
+                                               onchange="calcolaDataRinnovo()"
+                                               value="{{ cliente.data_inizio_abbonamento.strftime('%Y-%m-%d') if cliente.data_inizio_abbonamento }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Durata Programma (giorni)
+                                        </label>
+                                        <input type="number" class="form-control radius-8" name="durata_programma_giorni" 
+                                               id="durata_programma_giorni"
+                                               onchange="calcolaDataRinnovo()"
+                                               oninput="calcolaDataRinnovo()"
+                                               value="{{ cliente.durata_programma_giorni or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Data Rinnovo
+                                            <small class="text-muted" id="data_rinnovo_info">(calcolata automaticamente)</small>
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="data_rinnovo" 
+                                               id="data_rinnovo"
+                                               value="{{ cliente.data_rinnovo.strftime('%Y-%m-%d') if cliente.data_rinnovo }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Modalità Pagamento
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="modalita_pagamento">
+                                            <option value="">Seleziona modalità</option>
+                                            {% for mod in ['bonifico', 'klarna', 'stripe', 'paypal', 'carta', 'contanti'] %}
+                                                <option value="{{ mod }}" 
+                                                    {% if cliente.modalita_pagamento and cliente.modalita_pagamento.value == mod %}selected{% endif %}>
+                                                    {{ mod|upper }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Rate Cliente Sales (€)
+                                        </label>
+                                        <input type="number" step="0.01" class="form-control radius-8" name="rate_cliente_sales" 
+                                               value="{{ cliente.rate_cliente_sales or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Note Rinnovo
+                                        </label>
+                                        <textarea class="form-control radius-8" name="note_rinnovo" rows="3">{{ cliente.note_rinnovo or '' }}</textarea>
+                                    </div>
+                                </div>
+                                
+                                <!-- SEZIONE STATO CLIENTE (unita da pills-check) -->
+                                <div class="col-12">
+                                    <hr class="my-3">
+                                    <h6 class="text-md text-primary-light mb-16">Stati Servizi</h6>
+                                </div>
+                                
+                                <!-- Stati dei servizi con date -->
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Stato Nutrizione
+                                            {% if cliente.stato_nutrizione_data %}
+                                                <small class="text-muted ms-2">(dal {{ cliente.stato_nutrizione_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                                            {% else %}
+                                                <small class="text-muted ms-2">(data non presente, vecchia procedura)</small>
+                                            {% endif %}
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="stato_nutrizione" 
+                                                onchange="trackStatoChange(this, 'nutrizione')">
+                                            <option value="">Seleziona stato</option>
+                                            {% for stato in ['attivo', 'pausa', 'ghost', 'stop', 'insoluto'] %}
+                                                <option value="{{ stato }}" 
+                                                    {% if cliente.stato_nutrizione and cliente.stato_nutrizione.value == stato %}selected{% endif %}>
+                                                    {{ stato|capitalize }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Stato Coach
+                                            {% if cliente.stato_coach_data %}
+                                                <small class="text-muted ms-2">(dal {{ cliente.stato_coach_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                                            {% else %}
+                                                <small class="text-muted ms-2">(data non presente, vecchia procedura)</small>
+                                            {% endif %}
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="stato_coach"
+                                                onchange="trackStatoChange(this, 'coach')">
+                                            <option value="">Seleziona stato</option>
+                                            {% for stato in ['attivo', 'pausa', 'ghost', 'stop', 'insoluto'] %}
+                                                <option value="{{ stato }}" 
+                                                    {% if cliente.stato_coach and cliente.stato_coach.value == stato %}selected{% endif %}>
+                                                    {{ stato|capitalize }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Stato Psicologia
+                                            {% if cliente.stato_psicologia_data %}
+                                                <small class="text-muted ms-2">(dal {{ cliente.stato_psicologia_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                                            {% else %}
+                                                <small class="text-muted ms-2">(data non presente, vecchia procedura)</small>
+                                            {% endif %}
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="stato_psicologia"
+                                                onchange="trackStatoChange(this, 'psicologia')">
+                                            <option value="">Seleziona stato</option>
+                                            {% for stato in ['attivo', 'pausa', 'ghost', 'stop', 'insoluto'] %}
+                                                <option value="{{ stato }}" 
+                                                    {% if cliente.stato_psicologia and cliente.stato_psicologia.value == stato %}selected{% endif %}>
+                                                    {{ stato|capitalize }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Stato Cliente Chat
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="stato_cliente_chat">
+                                            <option value="">Seleziona stato</option>
+                                            {% for stato in ['attivo', 'pausa', 'ghost'] %}
+                                                <option value="{{ stato }}" 
+                                                    {% if cliente.stato_cliente_chat and cliente.stato_cliente_chat.value == stato %}selected{% endif %}>
+                                                    {{ stato|capitalize }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Stato Cliente Globale (read-only, calcolato automaticamente) -->
+                                <div class="col-sm-12">
+                                    <div class="alert alert-info radius-8 mb-20">
+                                        <strong>Stato Cliente Globale:</strong> 
+                                        <span class="badge bg-{{ 'danger' if cliente.stato_cliente and cliente.stato_cliente.value == 'ghost' else 'success' }}">
+                                            {{ cliente.stato_cliente.value|upper if cliente.stato_cliente else 'N/D' }}
+                                        </span>
+                                        {% if cliente.stato_cliente_data %}
+                                            <small class="ms-2">(dal {{ cliente.stato_cliente_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                                        {% endif %}
+                                        <br>
+                                        <small class="text-muted">
+                                            Lo stato globale diventa GHOST automaticamente quando tutti i servizi attivi del cliente sono in ghost.
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <hr class="my-3">
+                                    <h6 class="text-md text-primary-light mb-16">Check e Reach Out</h6>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Giorno Check
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="check_day">
+                                            <option value="">Seleziona giorno</option>
+                                            {% for giorno in ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'] %}
+                                                <option value="{{ giorno }}" 
+                                                    {% if cliente.check_day and cliente.check_day.value == giorno %}selected{% endif %}>
+                                                    {{ giorno|upper }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Check Saltati
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="check_saltati">
+                                            <option value="">Nessuno</option>
+                                            {% for val in ['1', '2', '3', '3_plus'] %}
+                                                <option value="{{ val }}" 
+                                                    {% if cliente.check_saltati and cliente.check_saltati.value == val %}selected{% endif %}>
+                                                    {{ val|replace('_plus', '+') }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Reach Out
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="reach_out">
+                                            <option value="">Seleziona giorno</option>
+                                            {% for giorno in ['lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'] %}
+                                                <option value="{{ giorno }}" 
+                                                    {% if cliente.reach_out and cliente.reach_out.value == giorno %}selected{% endif %}>
+                                                    {{ giorno|capitalize }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-programma')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB OBIETTIVI -->
+                    <div class="tab-pane fade" id="pills-obiettivi" role="tabpanel">
+                        <form id="form-obiettivi" data-cliente-id="{{ cliente.cliente_id }}">
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Obiettivo Semplificato
+                                        </label>
+                                        <textarea class="form-control radius-8" name="obiettivo_semplicato" rows="2">{{ cliente.obiettivo_semplicato or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Obiettivo Cliente (Dettagliato)
+                                        </label>
+                                        <textarea class="form-control radius-8" name="obiettivo_cliente" rows="3">{{ cliente.obiettivo_cliente or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Storia Cliente
+                                        </label>
+                                        <textarea class="form-control radius-8" name="storia_cliente" rows="4">{{ cliente.storia_cliente or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Problema
+                                        </label>
+                                        <textarea class="form-control radius-8" name="problema" rows="3">{{ cliente.problema or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Paure
+                                        </label>
+                                        <textarea class="form-control radius-8" name="paure" rows="3">{{ cliente.paure or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Conseguenze
+                                        </label>
+                                        <textarea class="form-control radius-8" name="conseguenze" rows="3">{{ cliente.conseguenze or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="trasformazione_fisica" 
+                                                   {% if cliente.trasformazione_fisica %}checked{% endif %}>
+                                            <label class="form-check-label">Trasformazione Fisica</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="trasformazione_fisica_condivisa"
+                                                   {% if cliente.trasformazione_fisica_condivisa %}checked{% endif %}>
+                                            <label class="form-check-label">Trasformazione Condivisa</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Trasformazione
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="trasformazione">
+                                            <option value="">Seleziona</option>
+                                            <option value="no" {% if cliente.trasformazione and cliente.trasformazione.value == 'no' %}selected{% endif %}>NO</option>
+                                            <option value="si" {% if cliente.trasformazione and cliente.trasformazione.value == 'si' %}selected{% endif %}>SI</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-obiettivi')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB TEAM -->
+                    <div class="tab-pane fade" id="pills-team" role="tabpanel">
+                        <form id="form-team" data-cliente-id="{{ cliente.cliente_id }}">
+                            <h6 class="text-md text-primary-light mb-16">Assegnazioni</h6>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Consulente Alimentare
+                                            <button type="button" class="btn btn-sm btn-success ms-2" onclick="addProfessionalField('consulenti')">
+                                                <i class="ri-add-line"></i>
+                                            </button>
+                                        </label>
+                                        <div id="consulenti-container">
+                                            {% if cliente.consulenti_multipli %}
+                                                {% for consulente in cliente.consulenti_multipli %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="consulenti_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in consulenti %}
+                                                                <option value="{{ user.id }}" {% if user.id == consulente.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="consulenti_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in consulenti %}
+                                                                <option value="{{ user.id }}" {% if cliente.consulente_alimentare_id == user.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        {% if cliente.consulente_alimentare %}
+                                            <small class="text-muted">Valore precedente: {{ cliente.consulente_alimentare }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Nutrizionista
+                                            <button type="button" class="btn btn-sm btn-success ms-2" onclick="addProfessionalField('nutrizionisti')">
+                                                <i class="ri-add-line"></i>
+                                            </button>
+                                        </label>
+                                        <div id="nutrizionisti-container">
+                                            {% if cliente.nutrizionisti_multipli %}
+                                                {% for nutrizionista in cliente.nutrizionisti_multipli %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="nutrizionisti_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in nutrizionisti %}
+                                                                <option value="{{ user.id }}" {% if user.id == nutrizionista.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="nutrizionisti_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in nutrizionisti %}
+                                                                <option value="{{ user.id }}" {% if cliente.nutrizionista_id == user.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        {% if cliente.nutrizionista %}
+                                            <small class="text-muted">Valore precedente: {{ cliente.nutrizionista }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Coach
+                                            <button type="button" class="btn btn-sm btn-success ms-2" onclick="addProfessionalField('coaches')">
+                                                <i class="ri-add-line"></i>
+                                            </button>
+                                        </label>
+                                        <div id="coaches-container">
+                                            {% if cliente.coaches_multipli %}
+                                                {% for coach in cliente.coaches_multipli %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="coaches_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in coaches %}
+                                                                <option value="{{ user.id }}" {% if user.id == coach.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="coaches_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in coaches %}
+                                                                <option value="{{ user.id }}" {% if cliente.coach_id == user.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        {% if cliente.coach %}
+                                            <small class="text-muted">Valore precedente: {{ cliente.coach }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Psicologa
+                                            <button type="button" class="btn btn-sm btn-success ms-2" onclick="addProfessionalField('psicologi')">
+                                                <i class="ri-add-line"></i>
+                                            </button>
+                                        </label>
+                                        <div id="psicologi-container">
+                                            {% if cliente.psicologi_multipli %}
+                                                {% for psicologo in cliente.psicologi_multipli %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="psicologi_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in psicologi %}
+                                                                <option value="{{ user.id }}" {% if user.id == psicologo.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div class="professional-field mb-2">
+                                                    <div class="input-group">
+                                                        <select class="form-control radius-8 form-select" name="psicologi_ids[]">
+                                                            <option value="">-- Seleziona --</option>
+                                                            {% for user in psicologi %}
+                                                                <option value="{{ user.id }}" {% if cliente.psicologa_id == user.id %}selected{% endif %}>
+                                                                    {{ user.full_name or user.email }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        {% if cliente.psicologa %}
+                                            <small class="text-muted">Valore precedente: {{ cliente.psicologa }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-team')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB PIANO -->
+                    <div class="tab-pane fade" id="pills-piano" role="tabpanel">
+                        <form id="form-piano" data-cliente-id="{{ cliente.cliente_id }}">
+                            <h6 class="text-md text-primary-light mb-16">Call Iniziali</h6>
+                            <div class="row">
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="call_iniziale_nutrizionista"
+                                                   {% if cliente.call_iniziale_nutrizionista %}checked{% endif %}>
+                                            <label class="form-check-label">Call Nutrizionista Effettuata</label>
+                                        </div>
+                                        <input type="date" class="form-control radius-8 mt-2" name="data_call_iniziale_nutrizionista" 
+                                               value="{{ cliente.data_call_iniziale_nutrizionista.strftime('%Y-%m-%d') if cliente.data_call_iniziale_nutrizionista }}"
+                                               placeholder="Data call nutrizionista">
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="call_iniziale_coach"
+                                                   {% if cliente.call_iniziale_coach %}checked{% endif %}>
+                                            <label class="form-check-label">Call Coach Effettuata</label>
+                                        </div>
+                                        <input type="date" class="form-control radius-8 mt-2" name="data_call_iniziale_coach" 
+                                               value="{{ cliente.data_call_iniziale_coach.strftime('%Y-%m-%d') if cliente.data_call_iniziale_coach }}"
+                                               placeholder="Data call coach">
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="call_iniziale_psicologa"
+                                                   {% if cliente.call_iniziale_psicologa %}checked{% endif %}>
+                                            <label class="form-check-label">Call Psicologa Effettuata</label>
+                                        </div>
+                                        <input type="date" class="form-control radius-8 mt-2" name="data_call_iniziale_psicologia" 
+                                               value="{{ cliente.data_call_iniziale_psicologia.strftime('%Y-%m-%d') if cliente.data_call_iniziale_psicologia }}"
+                                               placeholder="Data call psicologa">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-md text-primary-light mb-16 mt-3">Piano Alimentare</h6>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Data Test Alimentare
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="data_test_alim" 
+                                               value="{{ cliente.data_test_alim.strftime('%Y-%m-%d') if cliente.data_test_alim }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Tipo Iniziale
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="tipo_iniziale" 
+                                               value="{{ cliente.tipo_iniziale or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Tipo Attuale
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="tipo_attuale" 
+                                               value="{{ cliente.tipo_attuale or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Dieta Dal
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="dieta_dal" 
+                                               value="{{ cliente.dieta_dal.strftime('%Y-%m-%d') if cliente.dieta_dal }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Nuova Dieta Dal
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="nuova_dieta_dal" 
+                                               value="{{ cliente.nuova_dieta_dal.strftime('%Y-%m-%d') if cliente.nuova_dieta_dal }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Piano Alimentare
+                                        </label>
+                                        <textarea class="form-control radius-8" name="piano_alimentare" rows="3">{{ cliente.piano_alimentare or '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-md text-primary-light mb-16 mt-3">Allenamento</h6>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Allenamento Dal
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="allenamento_dal" 
+                                               value="{{ cliente.allenamento_dal.strftime('%Y-%m-%d') if cliente.allenamento_dal }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Nuovo Allenamento Il
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="nuovo_allenamento_il" 
+                                               value="{{ cliente.nuovo_allenamento_il.strftime('%Y-%m-%d') if cliente.nuovo_allenamento_il }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Luogo di Allenamento
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="luogo_di_allenamento">
+                                            <option value="">Seleziona luogo</option>
+                                            {% for luogo in ['casa', 'palestra', 'ibrido'] %}
+                                                <option value="{{ luogo }}" 
+                                                    {% if cliente.luogo_di_allenamento and cliente.luogo_di_allenamento.value == luogo %}selected{% endif %}>
+                                                    {{ luogo|upper }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-md text-primary-light mb-16 mt-3">Sedute Psicologia</h6>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Sedute Psicologia Comprate
+                                        </label>
+                                        <input type="number" class="form-control radius-8" name="sedute_psicologia_comprate" 
+                                               value="{{ cliente.sedute_psicologia_comprate or 0 }}" min="0">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Sedute Psicologia Svolte
+                                        </label>
+                                        <input type="number" class="form-control radius-8" name="sedute_psicologia_svolte" 
+                                               value="{{ cliente.sedute_psicologia_svolte or 0 }}" min="0">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-piano')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB STORIA SPECIALISTI -->
+                    <div class="tab-pane fade" id="pills-storia" role="tabpanel">
+                        <form id="form-storia" data-cliente-id="{{ cliente.cliente_id }}">
+                            <h6 class="text-md text-primary-light mb-16">Storia e Note Specialisti</h6>
+                            
+                            <!-- Note Coach -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-sm text-primary mb-3 mt-3">
+                                        <i class="bi bi-person-arms-up"></i> Coach
+                                    </h6>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Storia Coach
+                                        </label>
+                                        <textarea class="form-control textarea-enhanced" 
+                                                  name="storia_coach" 
+                                                  rows="4"
+                                                  placeholder="Storia e percorso con il coach...">{{ cliente.storia_coach or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Note Extra Coach
+                                        </label>
+                                        <textarea class="form-control textarea-enhanced" 
+                                                  name="note_extra_coach" 
+                                                  rows="4"
+                                                  placeholder="Note aggiuntive del coach...">{{ cliente.note_extra_coach or '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Note Nutrizione -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-sm text-primary mb-3 mt-3">
+                                        <i class="bi bi-heart-pulse"></i> Nutrizione
+                                    </h6>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Storia Nutrizione
+                                        </label>
+                                        <textarea class="form-control textarea-enhanced" 
+                                                  name="storia_nutrizione" 
+                                                  rows="4"
+                                                  placeholder="Storia nutrizionale e percorso alimentare...">{{ cliente.storia_nutrizione or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Note Extra Nutrizione
+                                        </label>
+                                        <textarea class="form-control textarea-enhanced" 
+                                                  name="note_extra_nutrizione" 
+                                                  rows="4"
+                                                  placeholder="Note aggiuntive del nutrizionista...">{{ cliente.note_extra_nutrizione or '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Note Psicologia -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-sm text-primary mb-3 mt-3">
+                                        <i class="bi bi-chat-heart"></i> Psicologia
+                                    </h6>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Storia Psicologica
+                                        </label>
+                                        <textarea class="form-control textarea-enhanced" 
+                                                  name="storia_psicologica" 
+                                                  rows="4"
+                                                  placeholder="Storia psicologica e percorso terapeutico...">{{ cliente.storia_psicologica or '' }}</textarea>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Note Extra Psicologa
+                                        </label>
+                                        <textarea class="form-control textarea-enhanced" 
+                                                  name="note_extra_psicologa" 
+                                                  rows="4"
+                                                  placeholder="Note aggiuntive della psicologa...">{{ cliente.note_extra_psicologa or '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex align-items-center justify-content-center gap-3 mt-4">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-storia')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+
+                    <!-- TAB COMUNICAZIONE & SOCIAL -->
+                    <div class="tab-pane fade" id="pills-comunicazione" role="tabpanel">
+                        <form id="form-comunicazione" data-cliente-id="{{ cliente.cliente_id }}">
+                            <h6 class="text-md text-primary-light mb-16">Video Feedback</h6>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="no_social"
+                                                   {% if cliente.no_social %}checked{% endif %}>
+                                            <label class="form-check-label">No Social</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="video_feedback"
+                                                   {% if cliente.video_feedback %}checked{% endif %}>
+                                            <label class="form-check-label">Video Feedback</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="video_feedback_richiesto"
+                                                   {% if cliente.video_feedback_richiesto %}checked{% endif %}>
+                                            <label class="form-check-label">Video Feedback Richiesto</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="video_feedback_svolto"
+                                                   {% if cliente.video_feedback_svolto %}checked{% endif %}>
+                                            <label class="form-check-label">Video Feedback Svolto</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="video_feedback_condiviso"
+                                                   {% if cliente.video_feedback_condiviso %}checked{% endif %}>
+                                            <label class="form-check-label">Video Feedback Condiviso</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="proposta_live_training"
+                                                   {% if cliente.proposta_live_training %}checked{% endif %}>
+                                            <label class="form-check-label">Proposta Live Training</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="live_training_bonus_prenotata"
+                                                   {% if cliente.live_training_bonus_prenotata %}checked{% endif %}>
+                                            <label class="form-check-label">Live Training Bonus Prenotata</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-md text-primary-light mb-16 mt-3">Exit Call</h6>
+                            <div class="row">
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="exit_call_richiesta"
+                                                   {% if cliente.exit_call_richiesta %}checked{% endif %}>
+                                            <label class="form-check-label">Exit Call Richiesta</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="exit_call_svolta"
+                                                   {% if cliente.exit_call_svolta %}checked{% endif %}>
+                                            <label class="form-check-label">Exit Call Svolta</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="exit_call_condivisa"
+                                                   {% if cliente.exit_call_condivisa %}checked{% endif %}>
+                                            <label class="form-check-label">Exit Call Condivisa</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-comunicazione')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB ALERT & BONUS -->
+                    <div class="tab-pane fade" id="pills-alert" role="tabpanel">
+                        <form id="form-alert" data-cliente-id="{{ cliente.cliente_id }}">
+                            <h6 class="text-md text-primary-light mb-16">Alert e Bonus</h6>
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="alert"
+                                                   {% if cliente.alert %}checked{% endif %}>
+                                            <label class="form-check-label">Alert Attivo</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="bonus"
+                                                   {% if cliente.bonus %}checked{% endif %}>
+                                            <label class="form-check-label">Bonus Attivo</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Storia Alert
+                                        </label>
+                                        <textarea class="form-control radius-8" name="alert_storia" rows="4">{{ cliente.alert_storia or '' }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-3">
+                                <button type="button" class="btn border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-56 py-11 radius-8"
+                                        onclick="resetForm('form-alert')">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                    Salva
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB DOCUMENTI -->
+                    <div class="tab-pane fade" id="pills-documenti" role="tabpanel">
+                        <h6 class="text-md text-primary-light mb-16">Cartelle Cliniche e Documenti</h6>
+                        
+                        <!-- Banner temporaneo OneDrive -->
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <div class="me-3">
+                                <i class="bi bi-cloud-arrow-down" style="font-size: 2rem;"></i>
+                            </div>
+                            <div>
+                                <h6 class="alert-heading mb-2">
+                                    <i class="bi bi-info-circle me-2"></i>Cartelle Cliniche su OneDrive
+                                </h6>
+                                <p class="mb-0">
+                                    Momentaneamente le cartelle cliniche si trovano ancora su <strong>OneDrive</strong> come sempre. 
+                                    A breve saranno disponibili direttamente qui.
+                                </p>
+                                <div class="mt-2">
+                                    <a href="https://onedrive.live.com" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Apri OneDrive
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if cliente.cartelle %}
+                            <div class="list-group mt-3">
+                                {% for cartella in cliente.cartelle %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ cartella.nome }}</h6>
+                                            {% if cartella.note %}
+                                                <p class="mb-1 text-muted">{{ cartella.note }}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                {{ cartella.allegati|length }} allegati
+                                            </small>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary">
+                                            Apri
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-light border mt-3">
+                                <div class="text-center py-3">
+                                    <i class="bi bi-folder2-open" style="font-size: 3rem; color: #dee2e6;"></i>
+                                    <p class="text-muted mt-2 mb-0">Nessuna cartella clinica locale presente</p>
+                                    <small class="text-muted">Le cartelle sono attualmente disponibili su OneDrive</small>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-primary disabled" disabled>
+                                <i class="bi bi-plus-circle me-1"></i> Aggiungi Cartella (Prossimamente)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB ATTIVITÀ -->
+                    <div class="tab-pane fade" id="pills-attivita" role="tabpanel">
+                        <!-- TICKETS SECTION -->
+                        <h6 class="text-md text-primary-light mb-16">
+                            <i class="bi bi-ticket-detailed me-2"></i>Ticket Associati
+                        </h6>
+                        {% if tickets %}
+                            {% set visible_tickets = [] %}
+                            {% for ticket in tickets %}
+                                {# Mostra ticket solo se: creato da me, assegnato a me, o sono nel dipartimento #}
+                                {% if current_user.is_admin or 
+                                      ticket.created_by_id == current_user.id or 
+                                      ticket.assigned_to_id == current_user.id or
+                                      (ticket.department and ticket.department.id == current_user.department_id) or
+                                      (ticket.department and ticket.department.head_id == current_user.id) %}
+                                    {% set _ = visible_tickets.append(ticket) %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if visible_tickets %}
+                            <div class="list-group mb-4">
+                                {% for ticket in visible_tickets %}
+                                <a href="{{ url_for('ticket.detail', ticket_id=ticket.id) }}" 
+                                   class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-1">
+                                                <span class="badge bg-primary me-2">#{{ ticket.ticket_number }}</span>
+                                                {% if ticket.status.value == 'nuovo' %}
+                                                    <span class="badge bg-danger">Nuovo</span>
+                                                {% elif ticket.status.value == 'in_lavorazione' %}
+                                                    <span class="badge bg-warning text-dark">In Lavorazione</span>
+                                                {% elif ticket.status.value == 'in_attesa' %}
+                                                    <span class="badge bg-info">In Attesa</span>
+                                                {% elif ticket.status.value == 'chiuso' %}
+                                                    <span class="badge bg-success">Chiuso</span>
+                                                {% endif %}
+                                                
+                                                {% if ticket.urgency.value == '1' %}
+                                                    <span class="badge bg-danger ms-1">🔴 Alta</span>
+                                                {% elif ticket.urgency.value == '2' %}
+                                                    <span class="badge bg-warning text-dark ms-1">🟡 Media</span>
+                                                {% else %}
+                                                    <span class="badge bg-success ms-1">🟢 Bassa</span>
+                                                {% endif %}
+                                            </div>
+                                            <h6 class="mb-1">{{ ticket.title }}</h6>
+                                            {% if ticket.description %}
+                                                <p class="mb-1 text-muted small">{{ ticket.description[:100] }}{% if ticket.description|length > 100 %}...{% endif %}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <i class="bi bi-calendar3 me-1"></i>
+                                                Creato il {{ ticket.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                                {% if ticket.department %}
+                                                    | <i class="bi bi-building me-1"></i>{{ ticket.department.name }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <i class="bi bi-chevron-right text-muted"></i>
+                                        </div>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                                <div class="alert alert-light border mb-4">
+                                    <div class="text-center py-3">
+                                        <i class="bi bi-ticket-detailed" style="font-size: 3rem; color: #dee2e6;"></i>
+                                        <p class="text-muted mt-2 mb-0">Nessun ticket visibile per questo cliente</p>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-light border mb-4">
+                                <div class="text-center py-3">
+                                    <i class="bi bi-ticket-detailed" style="font-size: 3rem; color: #dee2e6;"></i>
+                                    <p class="text-muted mt-2 mb-0">Nessun ticket associato a questo cliente</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- TASKS SECTION -->
+                        <h6 class="text-md text-primary-light mb-16 mt-4">
+                            <i class="bi bi-list-task me-2"></i>Attività
+                        </h6>
+                        {% if tasks %}
+                            <div class="list-group">
+                                {% for task in tasks[:5] %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ task.title }}</h6>
+                                            {% if task.description %}
+                                                <p class="mb-1 text-muted small">{{ task.description[:100] }}</p>
+                                            {% endif %}
+                                        </div>
+                                        <span class="badge bg-secondary">
+                                            {{ task.status.value if task.status else 'pending' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-light border">
+                                <div class="text-center py-3">
+                                    <i class="bi bi-list-task" style="font-size: 3rem; color: #dee2e6;"></i>
+                                    <p class="text-muted mt-2 mb-0">Nessuna attività assegnata</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- TAB FEEDBACK -->
+                    {% if can_see_check_tab %}
+                    <div class="tab-pane fade" id="pills-feedback" role="tabpanel">
+                      {% if cliente.typeform_responses and cliente.typeform_responses|length > 0 %}
+                        <div class="row">
+                          <div class="col-12">
+                            {% for response in cliente.typeform_responses|sort(attribute='submit_date', reverse=True) %}
+                              <div class="feedback-card">
+                                <div class="feedback-header">
+                                  <div>
+                                    <h6 class="mb-1">{{ format_date(response.submit_date) if response.submit_date else 'Data sconosciuta' }}</h6>
+                                    {% if response.weight or response.energy_rating %}
+                                      <small class="text-muted">
+                                        {% if response.weight %}Peso: {{ response.weight }}kg{% endif %}
+                                        {% if response.energy_rating %}{% if response.weight %} • {% endif %}Energia: {{ response.energy_rating }}/10{% endif %}
+                                      </small>
+                                    {% endif %}
+                                  </div>
+                                  
+                                  <div class="feedback-ratings">
+                                    {% if can_see_nutrition_ratings and response.nutritionist_rating %}
+                                    <div class="rating-item">
+                                      <iconify-icon icon="fluent-emoji-flat:green-salad" class="rating-icon"></iconify-icon>
+                                      {{ rating_badge(response.nutritionist_rating, false) }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if can_see_psychology_ratings and response.psychologist_rating %}
+                                    <div class="rating-item">
+                                      <iconify-icon icon="material-icon-theme:brainfuck" class="rating-icon"></iconify-icon>
+                                      {{ rating_badge(response.psychologist_rating, false) }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if can_see_coach_ratings and response.coach_rating %}
+                                    <div class="rating-item">
+                                      <iconify-icon icon="emojione-v1:person-lifting-weights" class="rating-icon"></iconify-icon>
+                                      {{ rating_badge(response.coach_rating, false) }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if response.progress_rating %}
+                                    <div class="rating-item">
+                                      <img src="/static/assets/immagini/logo_mini.png" alt="Percorso" class="rating-icon">
+                                      {{ rating_badge(response.progress_rating, false) }}
+                                    </div>
+                                    {% endif %}
+                                  </div>
+                                </div>
+                                
+                                <div class="accordion" id="feedbackAccordion{{ response.id }}">
+                                  <div class="accordion-item border-0">
+                                    <h2 class="accordion-header">
+                                      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                              data-bs-target="#feedbackDetail{{ response.id }}" aria-expanded="false">
+                                        Visualizza dettagli completi
+                                      </button>
+                                    </h2>
+                                    <div id="feedbackDetail{{ response.id }}" class="accordion-collapse collapse" 
+                                         data-bs-parent="#feedbackAccordion{{ response.id }}">
+                                      <div class="accordion-body py-4">
+                                        <!-- Foto progress PRIMA DI TUTTO -->
+                                        {% if response.photo_front or response.photo_side or response.photo_back %}
+                                        <div class="mb-5">
+                                          <h6 class="text-primary fw-bold mb-4">📸 FOTO PROGRESS</h6>
+                                          <div class="row g-4">
+                                            {% if response.photo_front %}
+                                            <div class="col-md-4">
+                                              <div class="text-center">
+                                                <img src="{{ response.photo_front }}" class="img-fluid rounded shadow-sm" alt="Fronte" style="max-height: 350px;">
+                                                <p class="small text-muted mt-3 mb-0">Vista Frontale</p>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if response.photo_side %}
+                                            <div class="col-md-4">
+                                              <div class="text-center">
+                                                <img src="{{ response.photo_side }}" class="img-fluid rounded shadow-sm" alt="Lato" style="max-height: 350px;">
+                                                <p class="small text-muted mt-3 mb-0">Vista Laterale</p>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if response.photo_back %}
+                                            <div class="col-md-4">
+                                              <div class="text-center">
+                                                <img src="{{ response.photo_back }}" class="img-fluid rounded shadow-sm" alt="Retro" style="max-height: 350px;">
+                                                <p class="small text-muted mt-3 mb-0">Vista Posteriore</p>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                          </div>
+                                        </div>
+                                        <hr class="my-5">
+                                        {% endif %}
+                                        
+                                        <!-- SEZIONE METRICHE E VALUTAZIONI -->
+                                        <div class="row g-4 mb-5">
+                                          <div class="col-12">
+                                            <h6 class="text-primary fw-bold mb-4">📊 METRICHE E VALUTAZIONI</h6>
+                                            <div class="row g-3">
+                                              <!-- Peso in evidenza -->
+                                              {% if response.weight %}
+                                              <div class="col-md-3">
+                                                <div class="card bg-light border-0">
+                                                  <div class="card-body text-center py-3">
+                                                    <small class="text-muted">Peso</small>
+                                                    <h5 class="mb-0 text-primary mt-2">{{ response.weight }} kg</h5>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              {% endif %}
+                                              
+                                              <!-- Valutazioni in griglia ordinata -->
+                                              <div class="col-md-9">
+                                                <div class="row g-3">
+                                                  {% if response.digestion_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Digestione</small>
+                                                      <strong class="text-primary fs-5">{{ response.digestion_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.energy_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Energia</small>
+                                                      <strong class="text-primary fs-5">{{ response.energy_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.strength_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Forza</small>
+                                                      <strong class="text-primary fs-5">{{ response.strength_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.hunger_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Fame</small>
+                                                      <strong class="text-primary fs-5">{{ response.hunger_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.sleep_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Sonno</small>
+                                                      <strong class="text-primary fs-5">{{ response.sleep_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.mood_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Umore</small>
+                                                      <strong class="text-primary fs-5">{{ response.mood_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.motivation_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded">
+                                                      <small class="text-muted d-block mb-1">Motivazione</small>
+                                                      <strong class="text-primary fs-5">{{ response.motivation_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                  {% if response.progress_rating %}
+                                                  <div class="col-4 col-md-3">
+                                                    <div class="text-center p-3 border rounded bg-primary bg-opacity-10">
+                                                      <small class="text-muted d-block mb-1">Progresso</small>
+                                                      <strong class="text-primary fs-5">{{ response.progress_rating }}/10</strong>
+                                                    </div>
+                                                  </div>
+                                                  {% endif %}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        <!-- SEZIONE RIFLESSIONI SETTIMANALI -->
+                                        <div class="mb-5">
+                                          <h6 class="text-primary fw-bold mb-4">💭 RIFLESSIONI SETTIMANALI</h6>
+                                          <div class="row g-3">
+                                            {% if response.what_worked %}
+                                            <div class="col-md-6">
+                                              <div class="card border-success border-opacity-25 h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-title text-success mb-2">✅ Cosa ha funzionato</h6>
+                                                  <p class="card-text small">{{ response.what_worked }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            {% if response.what_didnt_work %}
+                                            <div class="col-md-6">
+                                              <div class="card border-warning border-opacity-25 h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-title text-warning mb-2">⚠️ Cosa non ha funzionato</h6>
+                                                  <p class="card-text small">{{ response.what_didnt_work }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            {% if response.what_learned %}
+                                            <div class="col-md-6">
+                                              <div class="card border-info border-opacity-25 h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-title text-info mb-2">💡 Cosa hai imparato</h6>
+                                                  <p class="card-text small">{{ response.what_learned }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            
+                                            {% if response.what_focus_next %}
+                                            <div class="col-md-6">
+                                              <div class="card border-primary border-opacity-25 h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-title text-primary mb-2">🎯 Focus prossima settimana</h6>
+                                                  <p class="card-text small">{{ response.what_focus_next }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                          </div>
+                                          
+                                          {% if response.injuries_notes %}
+                                          <div class="mt-4">
+                                            <div class="alert alert-danger py-3" role="alert">
+                                              <h6 class="alert-heading mb-2">🏥 Note Infortuni/Salute</h6>
+                                              <p class="mb-0 small">{{ response.injuries_notes }}</p>
+                                            </div>
+                                          </div>
+                                          {% endif %}
+                                        </div>
+                                        
+                                        <!-- SEZIONE ADERENZA AI PROGRAMMI -->
+                                        <div class="mb-5">
+                                          <h6 class="text-primary fw-bold mb-4">📋 ADERENZA AI PROGRAMMI</h6>
+                                          <div class="table-responsive">
+                                            <table class="table table-sm table-hover">
+                                              <tbody>
+                                                {% if response.nutrition_program_adherence %}
+                                                <tr>
+                                                  <td class="text-muted" style="width: 30%;">🥗 Programma Nutrizionale</td>
+                                                  <td>{{ response.nutrition_program_adherence }}</td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if response.training_program_adherence %}
+                                                <tr>
+                                                  <td class="text-muted">💪 Programma Allenamento</td>
+                                                  <td>{{ response.training_program_adherence }}</td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if response.exercise_modifications %}
+                                                <tr>
+                                                  <td class="text-muted">🔧 Modifiche Esercizi</td>
+                                                  <td>{{ response.exercise_modifications }}</td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if response.daily_steps %}
+                                                <tr>
+                                                  <td class="text-muted">👟 Passi Giornalieri</td>
+                                                  <td><strong>{{ response.daily_steps }}</strong></td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if response.completed_training_weeks %}
+                                                <tr>
+                                                  <td class="text-muted">📅 Settimane Completate</td>
+                                                  <td>{{ response.completed_training_weeks }}</td>
+                                                </tr>
+                                                {% endif %}
+                                                {% if response.planned_training_days %}
+                                                <tr>
+                                                  <td class="text-muted">📆 Giorni Pianificati</td>
+                                                  <td>{{ response.planned_training_days }}</td>
+                                                </tr>
+                                                {% endif %}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                        
+                                        <!-- SEZIONE FEEDBACK PROFESSIONISTI (se presenti) -->
+                                        {% if (can_see_nutrition_ratings and response.nutritionist_feedback) or (can_see_psychology_ratings and response.psychologist_feedback) or (can_see_coach_ratings and response.coach_feedback) %}
+                                        <div class="mb-5">
+                                          <h6 class="text-primary fw-bold mb-4">👥 FEEDBACK DAI PROFESSIONISTI</h6>
+                                          <div class="row g-3">
+                                            {% if can_see_nutrition_ratings and response.nutritionist_feedback %}
+                                            <div class="col-md-4">
+                                              <div class="card h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-subtitle mb-2 text-muted">🥗 Nutrizionista</h6>
+                                                  <p class="card-text small">{{ response.nutritionist_feedback }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if can_see_psychology_ratings and response.psychologist_feedback %}
+                                            <div class="col-md-4">
+                                              <div class="card h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-subtitle mb-2 text-muted">🧠 Psicologo</h6>
+                                                  <p class="card-text small">{{ response.psychologist_feedback }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                            {% if can_see_coach_ratings and response.coach_feedback %}
+                                            <div class="col-md-4">
+                                              <div class="card h-100">
+                                                <div class="card-body">
+                                                  <h6 class="card-subtitle mb-2 text-muted">🏋️ Coach</h6>
+                                                  <p class="card-text small">{{ response.coach_feedback }}</p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            {% endif %}
+                                          </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <!-- SEZIONE INFO AGGIUNTIVE (se presenti) -->
+                                        {% if response.live_session_topics or response.extra_comments or response.referral %}
+                                        <div class="mb-4">
+                                          <h6 class="text-primary fw-bold mb-4">📝 INFORMAZIONI AGGIUNTIVE</h6>
+                                          <div class="list-group list-group-flush">
+                                            {% if response.live_session_topics %}
+                                            <div class="list-group-item px-0">
+                                              <small class="text-muted d-block">🎯 Argomenti Sessioni Live</small>
+                                              <span>{{ response.live_session_topics }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if response.extra_comments %}
+                                            <div class="list-group-item px-0">
+                                              <small class="text-muted d-block">💬 Commenti Aggiuntivi</small>
+                                              <span>{{ response.extra_comments }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if response.referral %}
+                                            <div class="list-group-item px-0">
+                                              <small class="text-muted d-block">🤝 Referral</small>
+                                              <span>{{ response.referral }}</span>
+                                            </div>
+                                            {% endif %}
+                                          </div>
+                                        </div>
+                                        {% endif %}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      {% else %}
+                        <div class="alert alert-info">
+                          <iconify-icon icon="solar:info-circle-bold"></iconify-icon>
+                          Nessun Check Ricevuto
+                        </div>
+                      {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- TAB CRONOLOGIA -->
+                    <div class="tab-pane fade" id="pills-cronologia" role="tabpanel">
+                        <h6 class="text-md text-primary-light mb-16">Storico Modifiche</h6>
+                        
+                        <div id="cronologia-container">
+                            <div class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Caricamento...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadCronologia()">
+                                Aggiorna Cronologia
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Store CSRF token from Flask template
+const CSRF_TOKEN = "{{ csrf_token() }}";
+
+// Form management
+function resetForm(formId) {
+    document.getElementById(formId).reset();
+}
+
+// Professional field management
+function addProfessionalField(type) {
+    const container = document.getElementById(type + '-container');
+    const existingFields = container.querySelectorAll('.professional-field');
+    
+    // Get the options from the first select
+    const firstSelect = existingFields[0].querySelector('select');
+    const optionsHtml = firstSelect.innerHTML;
+    
+    // Create new field
+    const newField = document.createElement('div');
+    newField.className = 'professional-field mb-2';
+    newField.innerHTML = `
+        <div class="input-group">
+            <select class="form-control radius-8 form-select" name="${type}_ids[]">
+                ${optionsHtml}
+            </select>
+            <button type="button" class="btn btn-danger" onclick="removeProfessionalField(this)">
+                <i class="ri-delete-bin-line"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(newField);
+}
+
+function removeProfessionalField(button) {
+    const field = button.closest('.professional-field');
+    const container = field.parentElement;
+    
+    // Keep at least one field
+    if (container.querySelectorAll('.professional-field').length > 1) {
+        field.remove();
+    } else {
+        // If it's the last field, just clear the selection
+        field.querySelector('select').value = '';
+    }
+}
+
+// Calcola automaticamente la Data Rinnovo
+function calcolaDataRinnovo() {
+    const dataInizioInput = document.getElementById('data_inizio_abbonamento');
+    const durataInput = document.getElementById('durata_programma_giorni');
+    const dataRinnovoInput = document.getElementById('data_rinnovo');
+    const infoLabel = document.getElementById('data_rinnovo_info');
+    
+    if (dataInizioInput && durataInput && dataRinnovoInput) {
+        const dataInizio = dataInizioInput.value;
+        const durata = parseInt(durataInput.value);
+        
+        if (dataInizio && durata && durata > 0) {
+            // Calcola la nuova data di rinnovo
+            const startDate = new Date(dataInizio);
+            startDate.setDate(startDate.getDate() + durata);
+            
+            // Formatta la data nel formato YYYY-MM-DD per l'input date
+            const year = startDate.getFullYear();
+            const month = String(startDate.getMonth() + 1).padStart(2, '0');
+            const day = String(startDate.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+            
+            // Aggiorna il campo data_rinnovo
+            dataRinnovoInput.value = formattedDate;
+            dataRinnovoInput.readOnly = true;
+            dataRinnovoInput.style.backgroundColor = '#f0f0f0';
+            
+            // Mostra che è calcolata automaticamente
+            if (infoLabel) {
+                infoLabel.style.display = 'inline';
+                infoLabel.innerHTML = '(calcolata automaticamente)';
+            }
+            
+            console.log(`Data Rinnovo calcolata: ${dataInizio} + ${durata} giorni = ${formattedDate}`);
+        } else {
+            // Se mancano i dati, permetti modifica manuale
+            dataRinnovoInput.readOnly = false;
+            dataRinnovoInput.style.backgroundColor = '';
+            
+            if (infoLabel) {
+                infoLabel.style.display = 'inline';
+                infoLabel.innerHTML = '(inserimento manuale)';
+            }
+        }
+    }
+}
+
+// Calcola al caricamento della pagina se ci sono già i dati
+document.addEventListener('DOMContentLoaded', function() {
+    calcolaDataRinnovo();
+});
+
+// Get CSRF token
+function getCSRFToken() {
+    return CSRF_TOKEN;
+}
+
+// Track original values for each form
+const originalValues = {};
+document.querySelectorAll('form[data-cliente-id]').forEach(form => {
+    const formId = form.id;
+    originalValues[formId] = {};
+    
+    // Store original values
+    form.querySelectorAll('input, select, textarea').forEach(field => {
+        if (field.type === 'checkbox') {
+            originalValues[formId][field.name] = field.checked;
+        } else {
+            originalValues[formId][field.name] = field.value;
+        }
+    });
+});
+
+// AJAX form submission with change tracking
+document.querySelectorAll('form[data-cliente-id]').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const clienteId = form.dataset.clienteId;
+        const formId = form.id;
+        const data = {};
+        const changes = {};
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        // Disable submit button
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Salvataggio...';
+        }
+        
+        // Handle professional arrays
+        const professionalArrays = {
+            'nutrizionisti_ids[]': 'nutrizionisti_ids',
+            'coaches_ids[]': 'coaches_ids',
+            'psicologi_ids[]': 'psicologi_ids',
+            'consulenti_ids[]': 'consulenti_ids'
+        };
+        
+        // Collect array values - SOLO se ci sono select nel form corrente
+        const arrayValues = {};
+        for (let [arrayName, targetName] of Object.entries(professionalArrays)) {
+            const selects = form.querySelectorAll(`select[name="${arrayName}"]`);
+            
+            // IMPORTANTE: invia l'array SOLO se ci sono select nel form corrente
+            // Se non ci sono select, non inviare nulla per preservare i valori esistenti
+            if (selects.length > 0) {
+                arrayValues[targetName] = [];
+                selects.forEach(select => {
+                    if (select.value) {
+                        arrayValues[targetName].push(select.value);
+                    }
+                });
+                // Invia l'array anche se vuoto (per permettere la rimozione esplicita)
+                // ma SOLO se ci sono effettivamente dei select nel form
+            }
+            // Se selects.length === 0, non aggiungiamo nulla a arrayValues
+            // quindi il backend preserverà le relazioni esistenti
+        }
+        
+        // Convert FormData to JSON and track changes
+        for (let [key, value] of formData.entries()) {
+            // Skip array fields (we handle them separately)
+            if (key.endsWith('[]')) {
+                continue;
+            }
+            
+            // Handle checkboxes specially
+            if (form.elements[key] && form.elements[key].type === 'checkbox') {
+                data[key] = form.elements[key].checked;
+                if (originalValues[formId][key] !== form.elements[key].checked) {
+                    changes[key] = {
+                        old: originalValues[formId][key],
+                        new: form.elements[key].checked
+                    };
+                }
+            } else {
+                data[key] = value || null;
+                if (originalValues[formId][key] !== value) {
+                    changes[key] = {
+                        old: originalValues[formId][key],
+                        new: value
+                    };
+                }
+            }
+        }
+        
+        // Add array values to data - SOLO se esistono nel form corrente
+        // Se non ci sono select per quel tipo nel form, NON inviamo nulla
+        // così il backend preserverà le relazioni esistenti
+        for (let key in arrayValues) {
+            // Aggiungi solo se abbiamo effettivamente raccolto valori per questo tipo
+            data[key] = arrayValues[key];
+        }
+        
+        // Add unchecked checkboxes (they don't appear in FormData)
+        form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            if (!data.hasOwnProperty(checkbox.name)) {
+                data[checkbox.name] = checkbox.checked;
+                if (originalValues[formId][checkbox.name] !== checkbox.checked) {
+                    changes[checkbox.name] = {
+                        old: originalValues[formId][checkbox.name],
+                        new: checkbox.checked
+                    };
+                }
+            }
+        });
+        
+        console.log('Changes detected:', changes);  // Debug log
+        console.log('Data being sent:', data);  // Debug log per vedere tutti i dati inviati
+        console.log('Professional arrays:', {
+            nutrizionisti: data.nutrizionisti_ids || 'not present',
+            coaches: data.coaches_ids || 'not present',
+            psicologi: data.psicologi_ids || 'not present',
+            consulenti: data.consulenti_ids || 'not present'
+        });  // Debug log specifico per gli array dei professionisti
+        
+        try {
+            const response = await fetch(`/customers/${clienteId}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Update original values after successful save
+                Object.keys(data).forEach(key => {
+                    originalValues[formId][key] = data[key];
+                });
+                
+                // Show success message with Bootstrap toast or alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                alertDiv.style.zIndex = '9999';
+                alertDiv.innerHTML = `
+                    ${result.message || 'Dati salvati con successo!'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                
+                // Refresh la pagina dopo 1 secondo per vedere subito le modifiche
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                // Show error message
+                const errorMsg = result.error || 'Errore nel salvataggio dei dati';
+                alert('Errore: ' + errorMsg);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Errore di connessione: ' + error.message);
+        } finally {
+            // Re-enable submit button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Salva';
+            }
+        }
+    });
+});
+
+// Load cronologia when tab is shown
+document.getElementById('pills-cronologia-tab').addEventListener('shown.bs.tab', function() {
+    loadCronologia();
+});
+
+// Function to load cronologia
+async function loadCronologia() {
+    const clienteId = {{ cliente.cliente_id }};
+    const container = document.getElementById('cronologia-container');
+    
+    container.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Caricamento...</span>
+            </div>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/customers/${clienteId}/history/json`);
+        if (!response.ok) throw new Error('Errore nel caricamento della cronologia');
+        
+        const data = await response.json();
+        
+        if (data.versions && data.versions.length > 0) {
+            let html = '<div class="list-group">';
+            
+            data.versions.forEach((version, index) => {
+                const changesList = version.changes ? Object.entries(version.changes)
+                    .map(([field, values]) => `<li><strong>${field}:</strong> ${values.old} → ${values.new}</li>`)
+                    .join('') : '';
+                
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-primary me-2">v${version.version_num || index + 1}</span>
+                                    <small class="text-muted">
+                                        ${version.timestamp || 'Data non disponibile'}
+                                        ${version.user ? `• ${version.user}` : ''}
+                                    </small>
+                                </div>
+                                ${changesList ? `
+                                    <div class="small">
+                                        <strong>Modifiche:</strong>
+                                        <ul class="mb-0 ps-3">
+                                            ${changesList}
+                                        </ul>
+                                    </div>
+                                ` : '<p class="mb-0 text-muted small">Nessun dettaglio disponibile</p>'}
+                            </div>
+                            ${version.can_restore ? `
+                                <button class="btn btn-sm btn-outline-warning" 
+                                        onclick="ripristinaVersione(${clienteId}, ${version.tx_id})">
+                                    Ripristina
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    Nessuna modifica registrata per questo cliente.
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading cronologia:', error);
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                Errore nel caricamento della cronologia: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Function to restore a version
+async function ripristinaVersione(clienteId, txId) {
+    if (!confirm('Sei sicuro di voler ripristinare questa versione? Le modifiche attuali verranno sovrascritte.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/customers/${clienteId}/history/${txId}/restore`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert(data.message || 'Versione ripristinata con successo!');
+            window.location.reload();
+        } else {
+            console.error('Restore error:', data);
+            alert(data.error || 'Errore nel ripristino della versione');
+        }
+    } catch (error) {
+        console.error('Error restoring version:', error);
+        alert('Errore di connessione: ' + error.message);
+    }
+}
+
+// ========================= CHART.JS FEEDBACK METRICS =========================
+// Global variables for charts
+let physicalChart = null;
+let weightChart = null;
+let metricsData = null;
+
+// Load feedback metrics when page loads (if there are feedback responses)
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if charts container exists (meaning there are feedback responses)
+    if (document.getElementById('charts-container')) {
+        loadFeedbackMetrics();
+    }
+});
+
+// Function to load feedback metrics from API
+async function loadFeedbackMetrics() {
+    const clienteId = {{ cliente.cliente_id }};
+    const chartsLoading = document.getElementById('charts-loading');
+    const chartsContainer = document.getElementById('charts-container');
+    const noDataMessage = document.getElementById('no-data-message');
+    
+    try {
+        const response = await fetch(`/api/v1/customers/${clienteId}/feedback-metrics`);
+        if (!response.ok) throw new Error('Errore nel caricamento delle metriche');
+        
+        metricsData = await response.json();
+        
+        if (metricsData.has_data) {
+            chartsLoading.style.display = 'none';
+            chartsContainer.style.display = 'block';
+            
+            // Initialize all charts
+            initializeCharts();
+            
+            // Setup chart type toggle
+            setupChartToggle();
+        } else {
+            chartsLoading.style.display = 'none';
+            noDataMessage.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading feedback metrics:', error);
+        chartsLoading.style.display = 'none';
+        noDataMessage.style.display = 'block';
+        noDataMessage.innerHTML = `
+            <iconify-icon icon="solar:danger-bold" class="me-2"></iconify-icon>
+            Errore nel caricamento delle metriche: ${error.message}
+        `;
+    }
+}
+
+// Initialize all charts
+function initializeCharts() {
+    // Create metric toggles for physical chart
+    createMetricToggles();
+    
+    // Physical/Mental metrics chart
+    const physicalCtx = document.getElementById('physicalMetricsChart').getContext('2d');
+    physicalChart = new Chart(physicalCtx, {
+        type: 'line',
+        data: {
+            labels: metricsData.labels,
+            datasets: [
+                {
+                    label: metricsData.metrics.digestion.label,
+                    data: metricsData.metrics.digestion.data,
+                    borderColor: metricsData.metrics.digestion.color,
+                    backgroundColor: metricsData.metrics.digestion.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.energy.label,
+                    data: metricsData.metrics.energy.data,
+                    borderColor: metricsData.metrics.energy.color,
+                    backgroundColor: metricsData.metrics.energy.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.strength.label,
+                    data: metricsData.metrics.strength.data,
+                    borderColor: metricsData.metrics.strength.color,
+                    backgroundColor: metricsData.metrics.strength.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.sleep.label,
+                    data: metricsData.metrics.sleep.data,
+                    borderColor: metricsData.metrics.sleep.color,
+                    backgroundColor: metricsData.metrics.sleep.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.mood.label,
+                    data: metricsData.metrics.mood.data,
+                    borderColor: metricsData.metrics.mood.color,
+                    backgroundColor: metricsData.metrics.mood.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.motivation.label,
+                    data: metricsData.metrics.motivation.data,
+                    borderColor: metricsData.metrics.motivation.color,
+                    backgroundColor: metricsData.metrics.motivation.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.hunger.label,
+                    data: metricsData.metrics.hunger.data,
+                    borderColor: metricsData.metrics.hunger.color,
+                    backgroundColor: metricsData.metrics.hunger.color + '20',
+                    tension: 0.4
+                },
+                {
+                    label: metricsData.metrics.progress.label,
+                    data: metricsData.metrics.progress.data,
+                    borderColor: metricsData.metrics.progress.color,
+                    backgroundColor: metricsData.metrics.progress.color + '20',
+                    borderWidth: 3,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10,
+                    title: {
+                        display: true,
+                        text: 'Valutazione (1-10)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Data Feedback'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Weight chart
+    const weightCtx = document.getElementById('weightChart').getContext('2d');
+    const weightData = metricsData.metrics.weight.data.filter(w => w !== null);
+    const weightLabels = metricsData.labels.filter((_, i) => metricsData.metrics.weight.data[i] !== null);
+    
+    weightChart = new Chart(weightCtx, {
+        type: 'line',
+        data: {
+            labels: weightLabels,
+            datasets: [{
+                label: metricsData.metrics.weight.label,
+                data: weightData,
+                borderColor: metricsData.metrics.weight.color,
+                backgroundColor: metricsData.metrics.weight.color + '20',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + ' kg';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Peso (kg)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Data Feedback'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Setup chart type toggle buttons
+function setupChartToggle() {
+    const buttons = document.querySelectorAll('[data-chart-type]');
+    const containers = {
+        'physical': document.getElementById('physical-chart-container'),
+        'weight': document.getElementById('weight-chart-container')
+    };
+    
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active button
+            buttons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Show/hide appropriate chart
+            const chartType = button.getAttribute('data-chart-type');
+            Object.keys(containers).forEach(key => {
+                containers[key].style.display = key === chartType ? 'block' : 'none';
+            });
+        });
+    });
+}
+
+// Create metric toggle buttons
+function createMetricToggles() {
+    const togglesContainer = document.getElementById('metric-toggles');
+    if (!togglesContainer || !metricsData) return;
+    
+    let togglesHtml = '';
+    
+    // Create a toggle for each metric (except weight and progress)
+    const metricsToShow = ['digestion', 'energy', 'strength', 'sleep', 'mood', 'motivation', 'hunger', 'progress'];
+    
+    metricsToShow.forEach((key) => {
+        const metric = metricsData.metrics[key];
+        if (metric) {
+            // Create toggle with the metric's color
+            togglesHtml += `
+                <span class="metric-toggle active" 
+                      data-metric="${key}"
+                      style="background-color: ${metric.color}20; 
+                             border-color: ${metric.color}; 
+                             color: ${metric.color};">
+                    ${metric.label}
+                </span>
+            `;
+        }
+    });
+    
+    togglesContainer.innerHTML = togglesHtml;
+    
+    // Add click handlers to toggles
+    document.querySelectorAll('.metric-toggle').forEach(toggle => {
+        toggle.addEventListener('click', function() {
+            const metricKey = this.getAttribute('data-metric');
+            toggleMetricVisibility(metricKey, this);
+        });
+    });
+}
+
+// Toggle metric visibility in the chart
+function toggleMetricVisibility(metricKey, toggleElement) {
+    if (!physicalChart) return;
+    
+    // Find the dataset index for this metric
+    const datasetIndex = physicalChart.data.datasets.findIndex(ds => 
+        ds.label === metricsData.metrics[metricKey].label
+    );
+    
+    if (datasetIndex === -1) return;
+    
+    // Toggle visibility
+    const isVisible = physicalChart.isDatasetVisible(datasetIndex);
+    
+    if (isVisible) {
+        physicalChart.hide(datasetIndex);
+        toggleElement.classList.remove('active');
+        toggleElement.classList.add('inactive');
+    } else {
+        physicalChart.show(datasetIndex);
+        toggleElement.classList.remove('inactive');
+        toggleElement.classList.add('active');
+    }
+}
+
+// Traccia il cambio di stato dei servizi
+function trackStatoChange(selectElement, servizio) {
+    const nuovoStato = selectElement.value;
+    const clienteId = document.querySelector('[data-cliente-id]').dataset.clienteId;
+    
+    if (nuovoStato === 'ghost') {
+        // Mostra un alert quando si mette in ghost
+        Swal.fire({
+            title: 'Conferma Ghost',
+            text: `Stai mettendo il servizio ${servizio} in stato GHOST. Gli altri professionisti verranno notificati via email.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Conferma',
+            cancelButtonText: 'Annulla'
+        }).then((result) => {
+            if (!result.isConfirmed) {
+                // Ripristina il valore precedente
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

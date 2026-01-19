@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Clienti da Associare - Finance{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-link"></i> Clienti Excel da Associare
+                    <span class="badge badge-warning">{{ unmatched|length }}</span>
+                </h1>
+                <div>
+                    <button class="btn btn-info" onclick="importExcel()">
+                        <i class="fas fa-file-excel"></i> Importa Excel
+                    </button>
+                    <a href="{{ url_for('finance.clients_list') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if unmatched %}
+    <!-- Tabella clienti non matchati -->
+    <div class="card shadow">
+        <div class="card-header">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Clienti dall'Excel non ancora associati nel database
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="unmatchedTable">
+                    <thead>
+                        <tr>
+                            <th>Nome Excel</th>
+                            <th>Righe</th>
+                            <th>LTV Totale</th>
+                            <th>Deposito</th>
+                            <th>Prima Vendita</th>
+                            <th>Ultima Vendita</th>
+                            <th>Email</th>
+                            <th>Origine</th>
+                            <th>Suggerimenti</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in unmatched %}
+                        <tr id="row_{{ u.id }}">
+                            <td>
+                                <strong>{{ u.excel_name }}</strong>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-info">{{ u.excel_row_count or 0 }}</span>
+                            </td>
+                            <td class="text-right">
+                                {% if u.total_ltv %}
+                                    <strong>€ {{ "%.2f"|format(u.total_ltv) }}</strong>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if u.total_deposito %}
+                                    € {{ "%.2f"|format(u.total_deposito) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.first_sale_date %}
+                                    {{ u.first_sale_date.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.last_sale_date %}
+                                    {{ u.last_sale_date.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ u.mail or '-' }}</td>
+                            <td>{{ u.origine or '-' }}</td>
+                            <td>
+                                {% if u.id in suggestions and suggestions[u.id] %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-info dropdown-toggle" type="button" 
+                                                data-toggle="dropdown">
+                                            {{ suggestions[u.id]|length }} possibili
+                                        </button>
+                                        <div class="dropdown-menu">
+                                            {% for sugg in suggestions[u.id] %}
+                                            <a class="dropdown-item" href="#" 
+                                               onclick="selectClient({{ u.id }}, {{ sugg.cliente_id }}, '{{ sugg.nome_cognome }}')">
+                                                <i class="fas fa-user"></i> {{ sugg.nome_cognome }}
+                                            </a>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Nessuno</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-success" 
+                                        onclick="showMatchModal({{ u.id }}, '{{ u.excel_name }}')">
+                                    <i class="fas fa-link"></i> Associa
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Nessun cliente da associare -->
+    <div class="alert alert-success">
+        <h4 class="alert-heading">
+            <i class="fas fa-check-circle"></i> Tutti i clienti sono stati associati!
+        </h4>
+        <p>Non ci sono clienti dall'Excel da associare.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('finance.clients_list') }}" class="btn btn-success">
+                <i class="fas fa-users"></i> Vai alla Lista Clienti
+            </a>
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Associazione -->
+<div class="modal fade" id="matchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-link"></i> Associa Cliente
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="matchForm" method="POST">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        Associa "<span id="modalClientName"></span>" a un cliente esistente nel database
+                    </div>
+                    
+                    <!-- Ricerca cliente -->
+                    <div class="form-group">
+                        <label for="searchClient">
+                            <i class="fas fa-search"></i> Cerca Cliente
+                        </label>
+                        <input type="text" class="form-control" id="searchClient" 
+                               placeholder="Digita per cercare..." onkeyup="searchClients()">
+                    </div>
+                    
+                    <!-- Lista clienti -->
+                    <div class="form-group">
+                        <label for="cliente_id">
+                            <i class="fas fa-user"></i> Seleziona Cliente
+                        </label>
+                        <select class="form-control" id="cliente_id" name="cliente_id" size="10" required>
+                            <option value="">-- Caricamento clienti... --</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Crea nuovo cliente -->
+                    <div class="alert alert-warning">
+                        <strong>Cliente non trovato?</strong>
+                        <p>Se il cliente non esiste nel database, puoi crearlo prima di associarlo.</p>
+                        <a href="{{ url_for('customers.create_view') }}" target="_blank" class="btn btn-warning">
+                            <i class="fas fa-user-plus"></i> Crea Nuovo Cliente
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Annulla
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-link"></i> Associa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+var currentUnmatchedId = null;
+var allClients = [];
+
+$(document).ready(function() {
+    $('#unmatchedTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json"
+        },
+        "order": [[2, "desc"]], // Ordina per LTV
+        "pageLength": 25
+    });
+    
+    // Carica lista clienti per il modal
+    loadAllClients();
+});
+
+function loadAllClients() {
+    $.get('/api/clients/list', function(data) {
+        allClients = data.clients || [];
+    });
+}
+
+function showMatchModal(unmatchedId, clientName) {
+    currentUnmatchedId = unmatchedId;
+    $('#modalClientName').text(clientName);
+    $('#matchForm').attr('action', '/finance/clients/unmatched/' + unmatchedId + '/match');
+    
+    // Popola select con tutti i clienti
+    var select = $('#cliente_id');
+    select.empty();
+    select.append('<option value="">-- Seleziona un cliente --</option>');
+    
+    allClients.forEach(function(client) {
+        select.append('<option value="' + client.id + '">' + 
+                     client.nome_cognome + ' (' + client.id + ')</option>');
+    });
+    
+    $('#matchModal').modal('show');
+}
+
+function searchClients() {
+    var search = $('#searchClient').val().toLowerCase();
+    var select = $('#cliente_id');
+    
+    select.empty();
+    select.append('<option value="">-- Seleziona un cliente --</option>');
+    
+    var filtered = allClients.filter(function(client) {
+        return client.nome_cognome.toLowerCase().includes(search);
+    });
+    
+    filtered.forEach(function(client) {
+        select.append('<option value="' + client.id + '">' + 
+                     client.nome_cognome + ' (' + client.id + ')</option>');
+    });
+}
+
+function selectClient(unmatchedId, clienteId, clienteName) {
+    if (confirm('Associare a ' + clienteName + '?')) {
+        var form = $('<form>', {
+            'method': 'POST',
+            'action': '/finance/clients/unmatched/' + unmatchedId + '/match'
+        });
+        form.append($('<input>', {
+            'type': 'hidden',
+            'name': 'cliente_id',
+            'value': clienteId
+        }));
+        $('body').append(form);
+        form.submit();
+    }
+}
+
+function importExcel() {
+    if (confirm('Vuoi importare i dati dall\'Excel?')) {
+        window.location.href = '/finance/import/excel';
+    }
+}
+
+// Gestione form associazione
+$('#matchForm').on('submit', function(e) {
+    if (!$('#cliente_id').val()) {
+        e.preventDefault();
+        alert('Seleziona un cliente!');
+        return false;
+    }
+    return true;
+});
+</script>
+{% endblock %}

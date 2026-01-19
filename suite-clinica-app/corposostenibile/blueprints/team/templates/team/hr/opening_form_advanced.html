@@ -1,0 +1,1157 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Nuova offerta' if mode == 'create' else 'Modifica offerta' }} • HR{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Form Builder Styles */
+  .builder-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+    min-height: 600px;
+  }
+  
+  .builder-panel {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .preview-panel {
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+  
+  .field-item {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    cursor: move;
+    transition: all 0.2s;
+  }
+  
+  .field-item:hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+  
+  .field-item.dragging {
+    opacity: 0.5;
+  }
+  
+  .field-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  .field-type-text { background: #dbeafe; color: #1e40af; }
+  .field-type-email { background: #fce7f3; color: #be185d; }
+  .field-type-number { background: #e0e7ff; color: #4338ca; }
+  .field-type-select { background: #d1fae5; color: #065f46; }
+  .field-type-textarea { background: #fed7aa; color: #c2410c; }
+  .field-type-checkbox { background: #fef3c7; color: #b45309; }
+  .field-type-radio { background: #ede9fe; color: #6d28d9; }
+  .field-type-date { background: #cffafe; color: #0e7490; }
+  .field-type-file { background: #f3f4f6; color: #374151; }
+  
+  .condition-badge {
+    background: #f3e8ff;
+    color: #6b21a8;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+  
+  .score-badge {
+    background: #fef3c7;
+    color: #b45309;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+  
+  .validation-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-size: 12px;
+    margin: 2px;
+  }
+  
+  .field-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .field-actions button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  /* Preview Styles */
+  .preview-field {
+    margin-bottom: 20px;
+  }
+  
+  .preview-field label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  
+  .preview-field .required {
+    color: #dc2626;
+  }
+  
+  .preview-field input,
+  .preview-field select,
+  .preview-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  
+  .preview-field .help-text {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  
+  /* Modal Styles */
+  .modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .tab-content {
+    padding-top: 16px;
+  }
+  
+  /* Template Selector */
+  .template-card {
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .template-card:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+  }
+  
+  .template-card.selected {
+    border-color: #3b82f6;
+    background: #dbeafe;
+  }
+  
+  /* Drag Drop Zone */
+  .drop-zone {
+    min-height: 100px;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #9ca3af;
+  }
+  
+  .drop-zone.drag-over {
+    border-color: #3b82f6;
+    background: #eff6ff;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+  <div class="max-w-1600-px mx-auto">
+    <div class="d-flex justify-content-between align-items-center mb-24">
+      <h4>{{ 'Nuova offerta' if mode == 'create' else 'Modifica offerta' }}</h4>
+      <div>
+        <button type="button" class="btn btn-outline-primary" id="btnLoadTemplate">
+          <i class="ri-file-list-3-line"></i> Carica Template
+        </button>
+        <button type="button" class="btn btn-outline-success" id="btnSaveTemplate">
+          <i class="ri-save-line"></i> Salva come Template
+        </button>
+      </div>
+    </div>
+
+    <form method="post" novalidate id="jobForm">
+      {{ form.hidden_tag() }}
+      
+      <!-- Dettagli Base -->
+      <div class="card mb-24">
+        <div class="card-body">
+          <h6 class="text-md text-neutral-500 mb-16">Informazioni Offerta</h6>
+          <div class="row g-3">
+            <div class="col-md-6">
+              {{ form.title.label(class="form-label") }}
+              {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+              {% for err in form.title.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            <div class="col-md-3">
+              {{ form.department_id.label(class="form-label") }}
+              {{ form.department_id(class="form-select" + (" is-invalid" if form.department_id.errors else "")) }}
+            </div>
+            <div class="col-md-3">
+              {{ form.status.label(class="form-label") }}
+              {{ form.status(class="form-select" + (" is-invalid" if form.status.errors else "")) }}
+            </div>
+            <div class="col-12">
+              {{ form.description.label(class="form-label") }}
+              {{ form.description(class="form-control", rows="3") }}
+              <small class="text-muted">Descrizione breve della posizione (max 255 caratteri)</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Builder -->
+      <div class="builder-container">
+        <!-- Builder Panel -->
+        <div class="builder-panel p-20">
+          <div class="d-flex justify-content-between align-items-center mb-16">
+            <h5>Form Builder</h5>
+            <button type="button" class="btn btn-sm btn-primary" id="btnAddField">
+              <i class="ri-add-line"></i> Aggiungi Campo
+            </button>
+          </div>
+          
+          <!-- Campi Fissi -->
+          <div class="mb-20">
+            <h6 class="text-sm text-muted mb-12">Campi Obbligatori (non modificabili)</h6>
+            <div class="field-item" style="opacity: 0.7; cursor: default;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="ri-user-line"></i> Nome e Cognome</span>
+                <span class="field-type-badge field-type-text">TEXT</span>
+              </div>
+            </div>
+            <div class="field-item" style="opacity: 0.7; cursor: default;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="ri-mail-line"></i> Email</span>
+                <span class="field-type-badge field-type-email">EMAIL</span>
+              </div>
+            </div>
+            <div class="field-item" style="opacity: 0.7; cursor: default;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="ri-phone-line"></i> Telefono</span>
+                <span class="field-type-badge field-type-text">TEXT</span>
+              </div>
+            </div>
+            <div class="field-item" style="opacity: 0.7; cursor: default;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="ri-file-text-line"></i> Curriculum Vitae</span>
+                <span class="field-type-badge field-type-file">FILE</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Campi Personalizzati -->
+          <div>
+            <h6 class="text-sm text-muted mb-12">Campi Personalizzati</h6>
+            <div id="customFields" class="drop-zone">
+              <p class="m-0">Trascina qui i campi o clicca "Aggiungi Campo"</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Preview Panel -->
+        <div class="preview-panel p-20">
+          <h5 class="mb-16">Preview Form</h5>
+          <div class="preview-content" id="formPreview">
+            <!-- Preview generata dinamicamente -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Hidden field per schema -->
+      {{ form.form_schema(id="form_schema") }}
+
+      <!-- Actions -->
+      <div class="text-end mt-24">
+        <a href="{{ url_for('hr.openings_list') }}" class="btn btn-outline-secondary">Annulla</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="ri-save-line"></i> {{ form.submit.label.text }}
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- Modal Add Field -->
+<div class="modal fade" id="fieldModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Configura Campo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tabBasic">Base</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabValidation">Validazioni</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabConditions">Condizioni</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tabScoring">Punteggio</a>
+          </li>
+        </ul>
+        
+        <div class="tab-content">
+          <!-- Tab Base -->
+          <div class="tab-pane fade show active" id="tabBasic">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Tipo Campo</label>
+                <select class="form-select" id="fieldType">
+                  <option value="text">Testo</option>
+                  <option value="email">Email</option>
+                  <option value="number">Numero</option>
+                  <option value="date">Data</option>
+                  <option value="select">Selezione</option>
+                  <option value="radio">Scelta Singola</option>
+                  <option value="checkbox">Scelta Multipla</option>
+                  <option value="textarea">Testo Lungo</option>
+                  <option value="file">File</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">ID Campo</label>
+                <input type="text" class="form-control" id="fieldId" placeholder="es. anni_esperienza">
+                <small class="text-muted">Usato per condizioni e scoring</small>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Etichetta</label>
+                <input type="text" class="form-control" id="fieldLabel" placeholder="es. Anni di esperienza">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Testo di aiuto</label>
+                <input type="text" class="form-control" id="fieldHelp" placeholder="es. Inserisci gli anni totali di esperienza lavorativa">
+              </div>
+              <div class="col-12" id="optionsContainer" style="display:none;">
+                <label class="form-label">Opzioni (una per riga)</label>
+                <textarea class="form-control" id="fieldOptions" rows="4" placeholder="Opzione 1&#10;Opzione 2&#10;Opzione 3"></textarea>
+              </div>
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="fieldRequired">
+                  <label class="form-check-label" for="fieldRequired">Campo obbligatorio</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tab Validazioni -->
+          <div class="tab-pane fade" id="tabValidation">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Tipo Validazione</label>
+                <select class="form-select" id="validationType">
+                  <option value="">Nessuna</option>
+                  <option value="email_corporate">Email Aziendale</option>
+                  <option value="phone_it">Telefono Italiano</option>
+                  <option value="vat_it">Partita IVA</option>
+                  <option value="cf_it">Codice Fiscale</option>
+                  <option value="url">URL Valido</option>
+                  <option value="linkedin">Profilo LinkedIn</option>
+                  <option value="regex">Espressione Regolare</option>
+                </select>
+              </div>
+              <div class="col-12" id="regexContainer" style="display:none;">
+                <label class="form-label">Pattern Regex</label>
+                <input type="text" class="form-control" id="regexPattern" placeholder="es. ^[A-Z]{2}[0-9]{4}$">
+              </div>
+              <div class="col-md-6" id="minContainer">
+                <label class="form-label">Valore Minimo</label>
+                <input type="number" class="form-control" id="minValue">
+              </div>
+              <div class="col-md-6" id="maxContainer">
+                <label class="form-label">Valore Massimo</label>
+                <input type="number" class="form-control" id="maxValue">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Messaggio Errore Custom</label>
+                <input type="text" class="form-control" id="errorMessage" placeholder="es. Inserisci un'email aziendale valida">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tab Condizioni -->
+          <div class="tab-pane fade" id="tabConditions">
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="hasCondition">
+                <label class="form-check-label" for="hasCondition">
+                  Mostra questo campo solo se...
+                </label>
+              </div>
+            </div>
+            <div id="conditionSettings" style="display:none;">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">Campo di riferimento</label>
+                  <select class="form-select" id="conditionField">
+                    <!-- Popolato dinamicamente -->
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Operatore</label>
+                  <select class="form-select" id="conditionOperator">
+                    <option value="equals">Uguale a</option>
+                    <option value="not_equals">Diverso da</option>
+                    <option value="contains">Contiene</option>
+                    <option value="greater_than">Maggiore di</option>
+                    <option value="less_than">Minore di</option>
+                    <option value="in">È tra</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Valore</label>
+                  <input type="text" class="form-control" id="conditionValue" placeholder="es. Si, 5, Manager">
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tab Scoring -->
+          <div class="tab-pane fade" id="tabScoring">
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="hasScoring">
+                <label class="form-check-label" for="hasScoring">
+                  Assegna punteggio per screening automatico
+                </label>
+              </div>
+            </div>
+            <div id="scoringSettings" style="display:none;">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Peso (importanza)</label>
+                  <input type="number" class="form-control" id="scoreWeight" min="1" max="10" value="5">
+                  <small class="text-muted">1 = poco importante, 10 = molto importante</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Tipo Scoring</label>
+                  <select class="form-select" id="scoreType">
+                    <option value="boolean">Si/No (100 o 0 punti)</option>
+                    <option value="linear">Lineare (proporzionale)</option>
+                    <option value="options">Per Opzione</option>
+                    <option value="custom">Personalizzato</option>
+                  </select>
+                </div>
+                <div class="col-12" id="scoreOptionsContainer" style="display:none;">
+                  <label class="form-label">Punteggi per Opzione</label>
+                  <div id="scoreOptionsList">
+                    <!-- Generato dinamicamente -->
+                  </div>
+                </div>
+                <div class="col-md-6" id="scoreMinContainer" style="display:none;">
+                  <label class="form-label">Valore per 0 punti</label>
+                  <input type="number" class="form-control" id="scoreMin" value="0">
+                </div>
+                <div class="col-md-6" id="scoreMaxContainer" style="display:none;">
+                  <label class="form-label">Valore per 100 punti</label>
+                  <input type="number" class="form-control" id="scoreMax" value="10">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" id="btnSaveField">Salva Campo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Templates -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleziona Template</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3" id="templateList">
+          <!-- Templates caricati dinamicamente -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" id="btnApplyTemplate">Applica Template</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block inline_scripts %}
+<script>
+// Form Builder Advanced
+class FormBuilder {
+  constructor() {
+    this.fields = [];
+    this.editingField = null;
+    this.editingIndex = -1;
+    this.init();
+  }
+  
+  init() {
+    // Load existing schema
+    this.loadFromSchema();
+    
+    // Event listeners
+    document.getElementById('btnAddField').addEventListener('click', () => this.openFieldModal());
+    document.getElementById('btnSaveField').addEventListener('click', () => this.saveField());
+    document.getElementById('fieldType').addEventListener('change', (e) => this.onTypeChange(e));
+    document.getElementById('hasCondition').addEventListener('change', (e) => this.toggleCondition(e));
+    document.getElementById('hasScoring').addEventListener('change', (e) => this.toggleScoring(e));
+    document.getElementById('scoreType').addEventListener('change', (e) => this.onScoreTypeChange(e));
+    document.getElementById('validationType').addEventListener('change', (e) => this.onValidationTypeChange(e));
+    
+    // Drag & Drop
+    this.initDragDrop();
+    
+    // Form submit
+    document.getElementById('jobForm').addEventListener('submit', () => this.updateSchema());
+    
+    // Templates
+    document.getElementById('btnLoadTemplate').addEventListener('click', () => this.loadTemplates());
+    document.getElementById('btnSaveTemplate').addEventListener('click', () => this.saveAsTemplate());
+    
+    // Initial preview
+    this.updatePreview();
+  }
+  
+  initDragDrop() {
+    const container = document.getElementById('customFields');
+    let draggedElement = null;
+    
+    container.addEventListener('dragstart', (e) => {
+      if (e.target.classList.contains('field-item')) {
+        draggedElement = e.target;
+        e.target.classList.add('dragging');
+      }
+    });
+    
+    container.addEventListener('dragend', (e) => {
+      if (e.target.classList.contains('field-item')) {
+        e.target.classList.remove('dragging');
+      }
+    });
+    
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const afterElement = this.getDragAfterElement(container, e.clientY);
+      if (afterElement == null) {
+        container.appendChild(draggedElement);
+      } else {
+        container.insertBefore(draggedElement, afterElement);
+      }
+    });
+    
+    container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      this.reorderFields();
+    });
+  }
+  
+  getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.field-item:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+  
+  loadFromSchema() {
+    const schemaInput = document.getElementById('form_schema');
+    if (schemaInput.value) {
+      try {
+        const schema = JSON.parse(schemaInput.value);
+        this.fields = schema.fields || [];
+        this.renderFields();
+        this.updatePreview();
+      } catch (e) {
+        console.error('Invalid schema:', e);
+      }
+    }
+  }
+  
+  openFieldModal(index = -1) {
+    this.editingIndex = index;
+    
+    if (index >= 0) {
+      // Edit existing field
+      this.editingField = {...this.fields[index]};
+      this.populateModal(this.editingField);
+    } else {
+      // New field
+      this.editingField = {
+        id: 'field_' + Date.now(),
+        type: 'text',
+        label: '',
+        required: false
+      };
+      this.resetModal();
+    }
+    
+    // Update condition fields dropdown
+    this.updateConditionFields();
+    
+    const modal = new bootstrap.Modal(document.getElementById('fieldModal'));
+    modal.show();
+  }
+  
+  resetModal() {
+    document.getElementById('fieldType').value = 'text';
+    document.getElementById('fieldId').value = '';
+    document.getElementById('fieldLabel').value = '';
+    document.getElementById('fieldHelp').value = '';
+    document.getElementById('fieldRequired').checked = false;
+    document.getElementById('fieldOptions').value = '';
+    document.getElementById('hasCondition').checked = false;
+    document.getElementById('hasScoring').checked = false;
+    document.getElementById('validationType').value = '';
+    
+    this.toggleCondition({target: {checked: false}});
+    this.toggleScoring({target: {checked: false}});
+    this.onTypeChange({target: {value: 'text'}});
+  }
+  
+  populateModal(field) {
+    document.getElementById('fieldType').value = field.type;
+    document.getElementById('fieldId').value = field.id;
+    document.getElementById('fieldLabel').value = field.label;
+    document.getElementById('fieldHelp').value = field.help || '';
+    document.getElementById('fieldRequired').checked = field.required || false;
+    
+    if (field.options) {
+      document.getElementById('fieldOptions').value = field.options.join('\n');
+    }
+    
+    if (field.validation) {
+      document.getElementById('validationType').value = field.validation.type || '';
+      document.getElementById('minValue').value = field.validation.min || '';
+      document.getElementById('maxValue').value = field.validation.max || '';
+      document.getElementById('regexPattern').value = field.validation.pattern || '';
+      document.getElementById('errorMessage').value = field.validation.message || '';
+    }
+    
+    if (field.condition) {
+      document.getElementById('hasCondition').checked = true;
+      document.getElementById('conditionField').value = field.condition.field;
+      document.getElementById('conditionOperator').value = field.condition.operator;
+      document.getElementById('conditionValue').value = field.condition.value;
+      this.toggleCondition({target: {checked: true}});
+    }
+    
+    if (field.scoring) {
+      document.getElementById('hasScoring').checked = true;
+      document.getElementById('scoreWeight').value = field.scoring.weight;
+      document.getElementById('scoreType').value = field.scoring.type;
+      document.getElementById('scoreMin').value = field.scoring.min || 0;
+      document.getElementById('scoreMax').value = field.scoring.max || 10;
+      this.toggleScoring({target: {checked: true}});
+      this.onScoreTypeChange({target: {value: field.scoring.type}});
+    }
+    
+    this.onTypeChange({target: {value: field.type}});
+  }
+  
+  saveField() {
+    const field = {
+      id: document.getElementById('fieldId').value || 'field_' + Date.now(),
+      type: document.getElementById('fieldType').value,
+      label: document.getElementById('fieldLabel').value,
+      help: document.getElementById('fieldHelp').value,
+      required: document.getElementById('fieldRequired').checked
+    };
+    
+    // Options for select/radio/checkbox
+    const optionsText = document.getElementById('fieldOptions').value;
+    if (optionsText && ['select', 'radio', 'checkbox'].includes(field.type)) {
+      field.options = optionsText.split('\n').filter(o => o.trim());
+    }
+    
+    // Validation
+    const validationType = document.getElementById('validationType').value;
+    if (validationType) {
+      field.validation = {
+        type: validationType
+      };
+      
+      if (validationType === 'regex') {
+        field.validation.pattern = document.getElementById('regexPattern').value;
+      }
+      
+      if (field.type === 'number' || field.type === 'date') {
+        const min = document.getElementById('minValue').value;
+        const max = document.getElementById('maxValue').value;
+        if (min) field.validation.min = min;
+        if (max) field.validation.max = max;
+      }
+      
+      const errorMsg = document.getElementById('errorMessage').value;
+      if (errorMsg) field.validation.message = errorMsg;
+    }
+    
+    // Condition
+    if (document.getElementById('hasCondition').checked) {
+      field.condition = {
+        field: document.getElementById('conditionField').value,
+        operator: document.getElementById('conditionOperator').value,
+        value: document.getElementById('conditionValue').value
+      };
+    }
+    
+    // Scoring
+    if (document.getElementById('hasScoring').checked) {
+      field.scoring = {
+        weight: parseInt(document.getElementById('scoreWeight').value),
+        type: document.getElementById('scoreType').value
+      };
+      
+      if (field.scoring.type === 'linear') {
+        field.scoring.min = parseFloat(document.getElementById('scoreMin').value);
+        field.scoring.max = parseFloat(document.getElementById('scoreMax').value);
+      } else if (field.scoring.type === 'options' && field.options) {
+        field.scoring.values = {};
+        field.options.forEach(opt => {
+          const input = document.querySelector(`input[data-option="${opt}"]`);
+          if (input) {
+            field.scoring.values[opt] = parseFloat(input.value);
+          }
+        });
+      }
+    }
+    
+    // Save to array
+    if (this.editingIndex >= 0) {
+      this.fields[this.editingIndex] = field;
+    } else {
+      this.fields.push(field);
+    }
+    
+    // Update UI
+    this.renderFields();
+    this.updatePreview();
+    this.updateSchema();
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('fieldModal')).hide();
+  }
+  
+  renderFields() {
+    const container = document.getElementById('customFields');
+    
+    if (this.fields.length === 0) {
+      container.innerHTML = '<p class="m-0 text-muted">Trascina qui i campi o clicca "Aggiungi Campo"</p>';
+      container.classList.add('drop-zone');
+    } else {
+      container.classList.remove('drop-zone');
+      container.innerHTML = this.fields.map((field, index) => this.renderFieldItem(field, index)).join('');
+      
+      // Add event listeners
+      container.querySelectorAll('.btn-edit-field').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.currentTarget.dataset.index);
+          this.openFieldModal(index);
+        });
+      });
+      
+      container.querySelectorAll('.btn-delete-field').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const index = parseInt(e.currentTarget.dataset.index);
+          this.deleteField(index);
+        });
+      });
+      
+      // Make draggable
+      container.querySelectorAll('.field-item').forEach(item => {
+        item.draggable = true;
+      });
+    }
+  }
+  
+  renderFieldItem(field, index) {
+    const badges = [];
+    
+    if (field.required) badges.push('<span class="badge bg-danger ms-1">Obbligatorio</span>');
+    if (field.condition) badges.push('<span class="condition-badge">Condizionale</span>');
+    if (field.scoring) badges.push(`<span class="score-badge">Peso: ${field.scoring.weight}</span>`);
+    if (field.validation) badges.push('<span class="validation-item">✓ Validazione</span>');
+    
+    return `
+      <div class="field-item" data-index="${index}">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center mb-1">
+              <strong>${field.label || 'Campo senza nome'}</strong>
+              <span class="field-type-badge field-type-${field.type} ms-2">${field.type}</span>
+              ${badges.join('')}
+            </div>
+            ${field.help ? `<small class="text-muted">${field.help}</small>` : ''}
+          </div>
+          <div class="field-actions">
+            <button type="button" class="btn btn-sm btn-outline-primary btn-edit-field" data-index="${index}">
+              <i class="ri-edit-line"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger btn-delete-field" data-index="${index}">
+              <i class="ri-delete-bin-line"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  deleteField(index) {
+    if (confirm('Eliminare questo campo?')) {
+      this.fields.splice(index, 1);
+      this.renderFields();
+      this.updatePreview();
+      this.updateSchema();
+    }
+  }
+  
+  reorderFields() {
+    const container = document.getElementById('customFields');
+    const items = container.querySelectorAll('.field-item');
+    const newOrder = [];
+    
+    items.forEach(item => {
+      const index = parseInt(item.dataset.index);
+      newOrder.push(this.fields[index]);
+    });
+    
+    this.fields = newOrder;
+    this.renderFields();
+    this.updatePreview();
+    this.updateSchema();
+  }
+  
+  updatePreview() {
+    const preview = document.getElementById('formPreview');
+    
+    // Fixed fields
+    let html = `
+      <div class="preview-field">
+        <label>Nome e Cognome <span class="required">*</span></label>
+        <input type="text" class="form-control" placeholder="Mario Rossi" disabled>
+      </div>
+      <div class="preview-field">
+        <label>Email <span class="required">*</span></label>
+        <input type="email" class="form-control" placeholder="mario.rossi@email.com" disabled>
+      </div>
+      <div class="preview-field">
+        <label>Telefono <span class="required">*</span></label>
+        <input type="tel" class="form-control" placeholder="+39 333 1234567" disabled>
+      </div>
+      <div class="preview-field">
+        <label>Curriculum Vitae <span class="required">*</span></label>
+        <input type="file" class="form-control" accept=".pdf,.doc,.docx" disabled>
+        <div class="help-text">Formati accettati: PDF, DOC, DOCX (max 5MB)</div>
+      </div>
+    `;
+    
+    // Custom fields
+    this.fields.forEach(field => {
+      if (field.condition) {
+        html += `<div class="preview-field" style="border-left: 3px solid #6b21a8; padding-left: 12px;">`;
+        html += `<small class="text-purple-600 d-block mb-2">
+          Visibile se ${field.condition.field} ${field.condition.operator} ${field.condition.value}
+        </small>`;
+      } else {
+        html += `<div class="preview-field">`;
+      }
+      
+      html += `<label>${field.label}`;
+      if (field.required) html += ' <span class="required">*</span>';
+      if (field.scoring) html += ` <span class="score-badge">Peso: ${field.scoring.weight}</span>`;
+      html += '</label>';
+      
+      // Render field based on type
+      switch(field.type) {
+        case 'textarea':
+          html += `<textarea class="form-control" rows="3" disabled></textarea>`;
+          break;
+        case 'select':
+          html += `<select class="form-control" disabled>`;
+          html += `<option>Seleziona...</option>`;
+          if (field.options) {
+            field.options.forEach(opt => {
+              html += `<option>${opt}</option>`;
+            });
+          }
+          html += `</select>`;
+          break;
+        case 'radio':
+          if (field.options) {
+            field.options.forEach(opt => {
+              html += `
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="${field.id}" disabled>
+                  <label class="form-check-label">${opt}</label>
+                </div>
+              `;
+            });
+          }
+          break;
+        case 'checkbox':
+          if (field.options) {
+            field.options.forEach(opt => {
+              html += `
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" disabled>
+                  <label class="form-check-label">${opt}</label>
+                </div>
+              `;
+            });
+          }
+          break;
+        default:
+          html += `<input type="${field.type}" class="form-control" disabled>`;
+      }
+      
+      if (field.help) {
+        html += `<div class="help-text">${field.help}</div>`;
+      }
+      
+      html += '</div>';
+    });
+    
+    preview.innerHTML = html;
+  }
+  
+  updateSchema() {
+    const schema = {
+      version: '2.0',
+      fields: this.fields,
+      scoring: {
+        enabled: this.fields.some(f => f.scoring),
+        weights: {}
+      }
+    };
+    
+    // Calculate total weights for normalization
+    if (schema.scoring.enabled) {
+      this.fields.forEach(field => {
+        if (field.scoring) {
+          schema.scoring.weights[field.id] = field.scoring.weight;
+        }
+      });
+    }
+    
+    document.getElementById('form_schema').value = JSON.stringify(schema);
+  }
+  
+  onTypeChange(e) {
+    const type = e.target.value;
+    const optionsContainer = document.getElementById('optionsContainer');
+    
+    if (['select', 'radio', 'checkbox'].includes(type)) {
+      optionsContainer.style.display = 'block';
+    } else {
+      optionsContainer.style.display = 'none';
+    }
+    
+    // Show/hide min/max for number and date
+    const showMinMax = ['number', 'date'].includes(type);
+    document.getElementById('minContainer').style.display = showMinMax ? 'block' : 'none';
+    document.getElementById('maxContainer').style.display = showMinMax ? 'block' : 'none';
+  }
+  
+  onValidationTypeChange(e) {
+    const type = e.target.value;
+    document.getElementById('regexContainer').style.display = type === 'regex' ? 'block' : 'none';
+  }
+  
+  toggleCondition(e) {
+    document.getElementById('conditionSettings').style.display = e.target.checked ? 'block' : 'none';
+  }
+  
+  toggleScoring(e) {
+    document.getElementById('scoringSettings').style.display = e.target.checked ? 'block' : 'none';
+  }
+  
+  onScoreTypeChange(e) {
+    const type = e.target.value;
+    
+    document.getElementById('scoreOptionsContainer').style.display = type === 'options' ? 'block' : 'none';
+    document.getElementById('scoreMinContainer').style.display = type === 'linear' ? 'block' : 'none';
+    document.getElementById('scoreMaxContainer').style.display = type === 'linear' ? 'block' : 'none';
+    
+    if (type === 'options') {
+      this.updateScoreOptions();
+    }
+  }
+  
+  updateScoreOptions() {
+    const options = document.getElementById('fieldOptions').value.split('\n').filter(o => o.trim());
+    const container = document.getElementById('scoreOptionsList');
+    
+    if (options.length > 0) {
+      container.innerHTML = options.map(opt => `
+        <div class="input-group input-group-sm mb-2">
+          <span class="input-group-text">${opt}</span>
+          <input type="number" class="form-control" data-option="${opt}" min="0" max="100" value="0">
+          <span class="input-group-text">punti</span>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p class="text-muted">Aggiungi prima le opzioni nella tab Base</p>';
+    }
+  }
+  
+  updateConditionFields() {
+    const select = document.getElementById('conditionField');
+    select.innerHTML = '<option value="">Seleziona campo...</option>';
+    
+    this.fields.forEach((field, index) => {
+      if (index !== this.editingIndex) {
+        select.innerHTML += `<option value="${field.id}">${field.label}</option>`;
+      }
+    });
+  }
+  
+  async loadTemplates() {
+    // Simulated templates - in production these would come from the API
+    const templates = [
+      {
+        id: 1,
+        name: 'Developer Full Stack',
+        description: 'Template per posizioni di sviluppo software',
+        fields: [
+          {
+            id: 'anni_esperienza',
+            type: 'number',
+            label: 'Anni di esperienza in sviluppo software',
+            required: true,
+            scoring: { weight: 8, type: 'linear', min: 0, max: 10 }
+          },
+          {
+            id: 'linguaggi',
+            type: 'checkbox',
+            label: 'Quali linguaggi di programmazione conosci?',
+            options: ['JavaScript', 'Python', 'Java', 'C#', 'PHP', 'Ruby', 'Go'],
+            scoring: { weight: 6, type: 'options', values: {'JavaScript': 100, 'Python': 90} }
+          }
+        ]
+      },
+      {
+        id: 2,
+        name: 'Sales Manager',
+        description: 'Template per posizioni commerciali',
+        fields: [
+          {
+            id: 'esperienza_vendite',
+            type: 'select',
+            label: 'Esperienza nel settore vendite',
+            options: ['Nessuna', '1-2 anni', '3-5 anni', '5-10 anni', 'Oltre 10 anni'],
+            required: true,
+            scoring: { weight: 9, type: 'options' }
+          }
+        ]
+      }
+    ];
+    
+    const container = document.getElementById('templateList');
+    container.innerHTML = templates.map(t => `
+      <div class="col-md-6">
+        <div class="card template-card" data-template='${JSON.stringify(t)}'>
+          <div class="card-body">
+            <h6>${t.name}</h6>
+            <p class="text-muted small mb-2">${t.description}</p>
+            <small class="text-primary">${t.fields.length} campi personalizzati</small>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    // Add click handlers
+    container.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        container.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        e.currentTarget.classList.add('selected');
+      });
+    });
+    
+    const modal = new bootstrap.Modal(document.getElementById('templateModal'));
+    modal.show();
+    
+    document.getElementById('btnApplyTemplate').addEventListener('click', () => {
+      const selected = container.querySelector('.template-card.selected');
+      if (selected) {
+        const template = JSON.parse(selected.dataset.template);
+        this.fields = template.fields;
+        this.renderFields();
+        this.updatePreview();
+        this.updateSchema();
+        modal.hide();
+      }
+    });
+  }
+  
+  saveAsTemplate() {
+    if (this.fields.length === 0) {
+      alert('Aggiungi almeno un campo prima di salvare come template');
+      return;
+    }
+    
+    const name = prompt('Nome del template:');
+    if (name) {
+      const template = {
+        name: name,
+        fields: this.fields,
+        created_at: new Date().toISOString()
+      };
+      
+      // In production, send to API
+      console.log('Saving template:', template);
+      alert('Template salvato con successo!');
+    }
+  }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  new FormBuilder();
+});
+</script>
+{% endblock %}

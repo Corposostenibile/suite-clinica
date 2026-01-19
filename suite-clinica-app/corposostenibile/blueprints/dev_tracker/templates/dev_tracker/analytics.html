@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - Dev Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Table Styles */
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background: var(--light-color);
+        border-bottom: 2px solid #E2E8F0;
+        font-weight: 600;
+        color: var(--dark-color);
+        padding: 16px;
+    }
+
+    .table tbody td {
+        padding: 14px 16px;
+        vertical-align: middle;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .mb-32 { margin-bottom: 32px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {# ─────────────────────── HEADER ─────────────────────── #}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">
+                <i class="ri-bar-chart-line me-2"></i> Dev Tracker Analytics
+            </h6>
+            <p class="text-muted mb-0">Comprehensive team performance metrics</p>
+        </div>
+    </div>
+
+    {# ─────────────────────── DEVELOPER PERFORMANCE TABLE ─────────────────────── #}
+    <div class="card">
+        <div class="card-header">
+            <h6 class="card-title mb-0">
+                <i class="ri-team-line me-2"></i> Developer Performance (30d)
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Developer</th>
+                            <th class="text-end">Hours</th>
+                            <th class="text-end">Commits</th>
+                            <th class="text-end">Completed</th>
+                            <th class="text-end">Reviews</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dev in developer_performance %}
+                        <tr>
+                            <td class="fw-semibold">{{ dev.name }}</td>
+                            <td class="text-end">{{ dev.total_hours }}</td>
+                            <td class="text-end">{{ dev.total_commits }}</td>
+                            <td class="text-end">{{ dev.completed_interventions }}</td>
+                            <td class="text-end">{{ dev.reviews_given }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

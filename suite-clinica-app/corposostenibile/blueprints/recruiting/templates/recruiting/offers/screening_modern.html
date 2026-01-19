@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+
+{% block title %}Screening ATS - {{ offer.title }}{% endblock %}
+
+{% block extra_css %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .card-title {
+        color: var(--dark-color);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Stat Cards */
+    .stat-card {
+        background: linear-gradient(135deg, white, var(--light-color));
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        height: 100%;
+        transition: all 0.3s ease;
+        border: 1px solid #E2E8F0;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 8px;
+    }
+
+    .stat-label {
+        color: #718096;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    /* Buttons */
+    .btn-success-custom {
+        background: linear-gradient(135deg, var(--success-color), #239957);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 24px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(69, 203, 133, 0.3);
+    }
+
+    .btn-success-custom:hover {
+        background: linear-gradient(135deg, #239957, var(--success-color));
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.4);
+    }
+
+    .btn-outline-secondary {
+        border: 2px solid #E2E8F0;
+        background: white;
+        color: #4A5568;
+        border-radius: 10px;
+        padding: 10px 24px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-secondary:hover {
+        background: var(--light-color);
+        border-color: #CBD5E0;
+        color: var(--dark-color);
+    }
+
+    /* Alerts */
+    .alert-info {
+        background: linear-gradient(135deg, #EBF8FF, #F0F9FF);
+        border: 1px solid #90CDF4;
+        color: #065F8E;
+        border-radius: 12px;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #F0FDF4, #ECFDF5);
+        border: 1px solid #86EFAC;
+        color: #14532D;
+        border-radius: 12px;
+    }
+
+    .alert-warning {
+        background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+        border: 1px solid #FCD34D;
+        color: #713F12;
+        border-radius: 12px;
+    }
+
+    /* Form Elements */
+    .form-check-custom {
+        padding: 16px;
+        background: var(--light-color);
+        border-radius: 10px;
+        margin-bottom: 12px;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        cursor: pointer;
+    }
+
+    .form-check-custom:hover {
+        background: white;
+        border-color: var(--success-color);
+    }
+
+    .form-check-custom .form-check-input:checked {
+        background-color: var(--success-color);
+        border-color: var(--success-color);
+    }
+
+    /* Table */
+    .table-custom {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .table-custom thead th {
+        background: linear-gradient(135deg, var(--light-color), white);
+        font-weight: 600;
+        color: var(--dark-color);
+        border-bottom: 2px solid #E2E8F0;
+        padding: 14px;
+    }
+
+    .table-custom tbody td {
+        padding: 14px;
+        vertical-align: middle;
+        border-bottom: 1px solid #F1F5F9;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+
+    /* Progress Bar */
+    .progress-custom {
+        height: 10px;
+        background: #E2E8F0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar-success {
+        background: linear-gradient(90deg, var(--success-color), #239957);
+    }
+
+    /* Loading Animation */
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Result Stats */
+    .result-stat {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        border: 2px solid #E2E8F0;
+        transition: all 0.3s ease;
+    }
+
+    .result-stat:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    }
+
+    .result-stat .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .result-stat.success .stat-number {
+        color: var(--success-color);
+    }
+
+    .result-stat.warning .stat-number {
+        color: var(--warning-color);
+    }
+
+    .result-stat.danger .stat-number {
+        color: var(--danger-color);
+    }
+
+    .result-stat.info .stat-number {
+        color: var(--info-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Screening ATS</h6>
+            <p class="text-muted mb-0">{{ offer.title }}</p>
+        </div>
+        <a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}" class="btn btn-success-custom">
+            <i class="ri-arrow-left-line me-2"></i>Torna all'offerta
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            {# Form configurazione screening #}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="ri-settings-3-line me-2"></i>Configurazione Screening
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('recruiting.offer_screening', offer_id=offer.id) }}">
+                        {{ form.hidden_tag() }}
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Candidature da analizzare</label>
+                            <div class="form-check-custom">
+                                {{ form.screen_all(class="form-check-input") }}
+                                <label class="form-check-label ms-2" for="{{ form.screen_all.id }}">
+                                    Tutte le candidature non screenate
+                                    <span class="badge bg-primary ms-2">{{ stats.total - stats.screened if stats.screened else stats.total }}</span>
+                                </label>
+                            </div>
+                            <div class="form-check-custom">
+                                {{ form.only_new(class="form-check-input") }}
+                                <label class="form-check-label ms-2" for="{{ form.only_new.id }}">
+                                    Solo nuove candidature
+                                    <span class="badge bg-info ms-2">{{ stats.new }}</span>
+                                </label>
+                            </div>
+
+                            {% if stats.screened > 0 %}
+                            <small class="text-muted d-block mt-2">
+                                <i class="ri-check-line"></i> {{ stats.screened }} candidature già analizzate
+                            </small>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">
+                                Punteggio minimo per passare
+                            </label>
+                            <div class="alert alert-info">
+                                <i class="ri-information-line me-2"></i>
+                                Funzionalità in sviluppo
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="button" class="btn btn-success-custom" id="startScreeningBtn" onclick="startScreening()">
+                                <i class="ri-play-line me-2"></i>Avvia Screening
+                            </button>
+                            <a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}" class="btn btn-outline-secondary">
+                                <i class="ri-close-line me-2"></i>Annulla
+                            </a>
+                        </div>
+
+                        {# Progress Section #}
+                        <div id="screeningProgress" class="mt-4" style="display: none;">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="spinner-border spinner-border-sm text-primary me-3" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div>
+                                        <strong>Screening in corso...</strong>
+                                        <div class="small text-muted mt-1" id="progressText">Inizializzazione...</div>
+                                    </div>
+                                </div>
+                                <div class="progress-custom">
+                                    <div class="progress-bar progress-bar-success progress-bar-striped progress-bar-animated"
+                                         id="progressBar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Results Section #}
+                        <div id="screeningResults" class="mt-4" style="display: none;">
+                            <div class="alert alert-success">
+                                <h6 class="mb-3"><i class="ri-check-circle-line me-2"></i>Screening Completato!</h6>
+                                <div id="resultsContent"></div>
+                                <div class="mt-3 d-flex gap-2">
+                                    <a href="{{ url_for('recruiting.offer_applications', offer_id=offer.id) }}" class="btn btn-success-custom btn-sm">
+                                        <i class="ri-list-check me-1"></i>Vedi Candidature
+                                    </a>
+                                    {% if offer.kanban %}
+                                    <a href="{{ url_for('recruiting.kanban_view', kanban_id=offer.kanban.id) }}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="ri-kanban-view me-1"></i>Vai al Kanban
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-lg-4">
+            {# Statistiche #}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="ri-bar-chart-line me-2"></i>Statistiche Candidature
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="stat-card">
+                                <div class="stat-value">{{ stats.total }}</div>
+                                <div class="stat-label">Totale candidature</div>
+                                <div class="progress-custom mt-3">
+                                    <div class="progress-bar progress-bar-success" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="stat-card">
+                                <div class="stat-value" style="color: var(--info-color);">{{ stats.new }}</div>
+                                <div class="stat-label">Nuove</div>
+                                <div class="progress-custom mt-3">
+                                    <div class="progress-bar bg-info"
+                                         style="width: {% if stats.total > 0 %}{{ (stats.new / stats.total * 100)|round }}{% else %}0{% endif %}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="stat-card">
+                                <div class="stat-value" style="color: var(--success-color);">{{ stats.screened }}</div>
+                                <div class="stat-label">Già analizzate</div>
+                                <div class="progress-custom mt-3">
+                                    <div class="progress-bar bg-success"
+                                         style="width: {% if stats.total > 0 %}{{ (stats.screened / stats.total * 100)|round }}{% else %}0{% endif %}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestione checkbox esclusivi
+document.addEventListener('DOMContentLoaded', function() {
+    const screenAllCheckbox = document.getElementById('{{ form.screen_all.id }}');
+    const onlyNewCheckbox = document.getElementById('{{ form.only_new.id }}');
+
+    if (screenAllCheckbox && onlyNewCheckbox) {
+        screenAllCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                onlyNewCheckbox.checked = false;
+            }
+        });
+
+        onlyNewCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                screenAllCheckbox.checked = false;
+            }
+        });
+    }
+
+    // ⚡ AUTO-START: Se c'è un flag di auto-screening, avvia automaticamente
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('auto_continue') === '1') {
+        // Seleziona automaticamente "Tutte le candidature non screenate"
+        if (screenAllCheckbox) {
+            screenAllCheckbox.checked = true;
+        }
+
+        // Avvia lo screening dopo 1 secondo
+        setTimeout(() => {
+            console.log('🚀 Auto-starting screening batch...');
+            startScreening();
+        }, 1000);
+    }
+});
+
+// Funzione per avviare lo screening
+async function startScreening() {
+    const form = document.querySelector('form');
+
+    // Validazione form
+    const screenAllCheckbox = document.getElementById('{{ form.screen_all.id }}');
+    const onlyNewCheckbox = document.getElementById('{{ form.only_new.id }}');
+
+    if (!screenAllCheckbox.checked && !onlyNewCheckbox.checked) {
+        alert('Seleziona almeno un tipo di candidature da analizzare');
+        return;
+    }
+
+    const formData = new FormData(form);
+
+    // Disabilita il pulsante
+    const btn = document.getElementById('startScreeningBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ri-loader-4-line me-2 spin"></i>Avvio...';
+
+    // Mostra progress
+    document.getElementById('screeningProgress').style.display = 'block';
+    document.getElementById('screeningResults').style.display = 'none';
+
+    try {
+        // Prepara i dati per l'API
+        let screeningType = 'new';
+        if (screenAllCheckbox.checked) {
+            screeningType = 'all';
+        }
+
+        const screeningData = {
+            screening_type: screeningType,
+            min_score: parseInt(formData.get('min_score') || '60'),
+            auto_reject: formData.get('auto_reject') === 'on',
+            send_notifications: formData.get('send_notifications') === 'on',
+            max_batch_size: 3  // ⚡ BATCH DI 3 (AI ~30s/candidatura, totale ~90s < timeout 120s)
+        };
+
+        // Simula progresso
+        simulateProgress();
+
+        // Ottieni il token CSRF dal form
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        // Chiama l'API
+        const response = await fetch(`/recruiting/api/offers/{{ offer.id }}/screen-all`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(screeningData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showResults(result);
+        } else {
+            throw new Error(result.message || 'Errore durante lo screening');
+        }
+
+    } catch (error) {
+        console.error('Errore:', error);
+        document.getElementById('screeningProgress').style.display = 'none';
+        alert('Errore durante lo screening: ' + error.message);
+    } finally {
+        // Riabilita il pulsante
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ri-play-line me-2"></i>Avvia Screening';
+    }
+}
+
+// Simula il progresso dello screening
+function simulateProgress() {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    let progress = 0;
+    const steps = [
+        'Caricamento candidature...',
+        'Analisi CV e documenti...',
+        'Calcolo punteggi...',
+        'Aggiornamento stati...',
+        'Finalizzazione...'
+    ];
+
+    const interval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress > 90) progress = 90;
+
+        progressBar.style.width = progress + '%';
+
+        const stepIndex = Math.floor(progress / 20);
+        if (stepIndex < steps.length) {
+            progressText.textContent = steps[stepIndex];
+        }
+    }, 500);
+
+    // Ferma la simulazione dopo 10 secondi
+    setTimeout(() => {
+        clearInterval(interval);
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Completamento...';
+    }, 10000);
+}
+
+// Mostra i risultati dello screening
+function showResults(result) {
+    document.getElementById('screeningProgress').style.display = 'none';
+    document.getElementById('screeningResults').style.display = 'block';
+
+    const resultsContent = document.getElementById('resultsContent');
+
+    // Estrai dati dai risultati
+    const processed = result.results?.processed || result.processed || 0;
+    const success = result.results?.success || result.success || 0;
+    const rejected = result.results?.rejected || result.rejected || 0;
+    const errors = result.results?.errors || result.errors || 0;
+    const remaining = result.results?.remaining || 0;
+    const totalFound = result.results?.total_found || 0;
+
+    // Calcola progresso totale
+    const totalProcessed = totalFound - remaining;
+    const progressPercentage = totalFound > 0 ? Math.round((totalProcessed / totalFound) * 100) : 100;
+
+    let html = `
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="result-stat info">
+                    <div class="stat-number">${processed}</div>
+                    <small class="text-muted">Analizzate (questo batch)</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="result-stat success">
+                    <div class="stat-number">${success}</div>
+                    <small class="text-muted">Successo</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="result-stat warning">
+                    <div class="stat-number">${rejected}</div>
+                    <small class="text-muted">Rifiutate</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="result-stat danger">
+                    <div class="stat-number">${errors}</div>
+                    <small class="text-muted">Errori</small>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Se ci sono candidature rimanenti, mostra progresso e avvia auto-refresh
+    if (remaining > 0) {
+        html += `
+            <div class="alert alert-warning">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="spinner-border spinner-border-sm text-warning me-3" role="status"></div>
+                    <div>
+                        <strong>⚡ Processing in corso...</strong>
+                        <div class="small mt-1">
+                            Processate <strong>${totalProcessed} di ${totalFound}</strong> candidature
+                            (<strong>${progressPercentage}%</strong>)
+                        </div>
+                        <div class="small text-muted mt-1">
+                            <strong>${remaining}</strong> candidature rimanenti - Auto-refresh tra <span id="countdown">3</span> secondi...
+                        </div>
+                    </div>
+                </div>
+                <div class="progress-custom">
+                    <div class="progress-bar progress-bar-success" style="width: ${progressPercentage}%"></div>
+                </div>
+            </div>
+        `;
+
+        resultsContent.innerHTML = html;
+
+        // Countdown e auto-refresh
+        let countdown = 3;
+        const countdownElement = document.getElementById('countdown');
+
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdownElement) {
+                countdownElement.textContent = countdown;
+            }
+
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                // Auto-refresh della pagina per continuare lo screening
+                // Aggiungi flag per auto-start
+                window.location.href = window.location.pathname + '?auto_continue=1';
+            }
+        }, 1000);
+
+    } else {
+        // Screening completato!
+        html += `
+            <div class="alert alert-success">
+                <strong>✅ Screening completato al 100%!</strong>
+                <div class="small mt-2">
+                    Tutte le ${totalFound} candidature sono state processate con successo.
+                </div>
+            </div>
+        `;
+        resultsContent.innerHTML = html;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Aggiungi Aggiornamento - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="col-xxl-8 offset-xxl-2">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn btn-sm btn-outline-secondary me-3">
+                    <i class="ri-arrow-left-line"></i>
+                </a>
+                <h4 class="mb-0">Nuovo Aggiornamento</h4>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info mb-4">
+                <i class="ri-information-line me-2"></i>
+                <strong>Progetto:</strong> {{ project.name }}
+            </div>
+
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            {{ form.update_type.label(class="form-label") }}
+                            {{ form.update_type(class="form-select" + (" is-invalid" if form.update_type.errors else "")) }}
+                            {% if form.update_type.errors %}
+                                <div class="invalid-feedback">{{ form.update_type.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="form-check mt-2">
+                                {{ form.is_important(class="form-check-input") }}
+                                {{ form.is_important.label(class="form-check-label") }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="form-check mt-2">
+                                {{ form.is_public(class="form-check-input") }}
+                                {{ form.is_public.label(class="form-check-label") }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    {{ form.title.label(class="form-label") }}
+                    {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                    {% if form.title.errors %}
+                        <div class="invalid-feedback">{{ form.title.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.content.label(class="form-label") }}
+                    {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""), rows=6) }}
+                    {% if form.content.errors %}
+                        <div class="invalid-feedback">{{ form.content.errors[0] }}</div>
+                    {% endif %}
+                    <small class="form-text text-muted">Descrivi dettagliatamente l'aggiornamento o il progresso fatto.</small>
+                </div>
+
+                <!-- Quick Templates -->
+                <div class="mb-3">
+                    <label class="form-label">Template Rapidi</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="useTemplate('milestone')">
+                            🎯 Milestone Completata
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="useTemplate('blocker')">
+                            🚫 Nuovo Blocco
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="useTemplate('progress')">
+                            📊 Aggiornamento Progress
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="useTemplate('meeting')">
+                            🤝 Note Meeting
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <small class="text-muted">
+                            <i class="ri-information-line me-1"></i>
+                            L'aggiornamento sarà visibile nella timeline del progetto
+                        </small>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn btn-secondary me-2">
+                            <i class="ri-close-line me-1"></i> Annulla
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ri-save-line me-1"></i> Salva Aggiornamento
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recent Updates -->
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5 class="mb-0">Ultimi Aggiornamenti</h5>
+        </div>
+        <div class="card-body">
+            {% if project.updates[:5] %}
+                <div class="list-group list-group-flush">
+                    {% for update in project.updates[:5] %}
+                    <div class="list-group-item px-0">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ update.title }}</h6>
+                                <p class="text-muted small mb-1">{{ update.content[:150] }}...</p>
+                                <small class="text-muted">
+                                    {{ update.author.full_name }} - {{ update.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                </small>
+                            </div>
+                            <span class="badge bg-light text-dark">
+                                {{ update.update_type|replace('_', ' ')|title }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted text-center mb-0">Nessun aggiornamento precedente</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function useTemplate(type) {
+    const form = document.querySelector('form');
+    const titleField = form.querySelector('#title');
+    const contentField = form.querySelector('#content');
+    const typeField = form.querySelector('#update_type');
+    
+    const templates = {
+        milestone: {
+            type: 'milestone',
+            title: 'Milestone completata: ',
+            content: 'La milestone "[NOME MILESTONE]" è stata completata con successo.\n\nDettagli:\n- Tutti i deliverables sono stati consegnati\n- I criteri di successo sono stati soddisfatti\n- [AGGIUNGI DETTAGLI]\n\nProssimi passi:\n- [PROSSIMA MILESTONE/ATTIVITÀ]'
+        },
+        blocker: {
+            type: 'blocker',
+            title: 'Blocco identificato: ',
+            content: 'È stato identificato un blocco che impedisce il progresso.\n\nDescrizione del problema:\n[DESCRIVI IL PROBLEMA]\n\nImpatto:\n- [QUALI ATTIVITÀ SONO BLOCCATE]\n- [STIMA RITARDO]\n\nSoluzione proposta:\n[COME RISOLVERE IL BLOCCO]'
+        },
+        progress: {
+            type: 'progress',
+            title: 'Aggiornamento progresso: ',
+            content: 'Progresso significativo su [AREA/FUNZIONALITÀ].\n\nCompletato:\n- [COSA È STATO FATTO]\n\nIn corso:\n- [SU COSA SI STA LAVORANDO]\n\nPianificato:\n- [PROSSIME ATTIVITÀ]'
+        },
+        meeting: {
+            type: 'progress',
+            title: 'Note dal meeting del ' + new Date().toLocaleDateString('it-IT'),
+            content: 'Meeting con [PARTECIPANTI]\n\nArgomenti discussi:\n- [PUNTO 1]\n- [PUNTO 2]\n\nDecisioni prese:\n- [DECISIONE 1]\n- [DECISIONE 2]\n\nAction items:\n- [ ] [AZIONE 1] - Responsabile: [NOME]\n- [ ] [AZIONE 2] - Responsabile: [NOME]'
+        }
+    };
+    
+    const template = templates[type];
+    if (template) {
+        typeField.value = template.type;
+        titleField.value = template.title;
+        contentField.value = template.content;
+        titleField.focus();
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Manuali e Guide - IT Projects{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0">Manuali e Guide</h6>
+    <p class="text-secondary-light mb-0">Seleziona una piattaforma per consultare le guide</p>
+  </div>
+  {% if current_user.is_admin %}
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('it_projects.manuals_admin') }}" class="btn btn-sm btn-outline-primary">
+      <i class="ri-settings-3-line me-1"></i> Gestione Manuali
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{# ─────────────────────── PLATFORM CARDS ─────────────────────── #}
+<div class="row gy-4">
+  {% for key, platform in platforms.items() %}
+  <div class="col-xxl-3 col-xl-4 col-sm-6">
+    <a href="{{ url_for('it_projects.manuals_platform', platform=key) }}" class="card h-100 shadow-sm hover-shadow-lg transition-all text-decoration-none">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-start gap-3 mb-3">
+          <span class="w-56-px h-56-px d-flex justify-content-center align-items-center rounded-circle" style="background-color: {{ platform.color }}20;">
+            <i class="{{ platform.icon }} text-2xl" style="color: {{ platform.color }};"></i>
+          </span>
+          <div class="flex-grow-1">
+            <h5 class="fw-semibold mb-1 text-primary-light">{{ platform.name }}</h5>
+            <p class="text-secondary-light text-sm mb-0">{{ platform.description }}</p>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+          <div class="d-flex gap-3">
+            <span class="text-sm">
+              <i class="ri-article-line me-1 text-secondary-light"></i>
+              <strong>{{ stats[key].articles }}</strong> guide
+            </span>
+            <span class="text-sm">
+              <i class="ri-folder-line me-1 text-secondary-light"></i>
+              <strong>{{ stats[key].categories }}</strong> categorie
+            </span>
+          </div>
+          <i class="ri-arrow-right-line text-secondary-light"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+{# ─────────────────────── QUICK LINKS ─────────────────────── #}
+<div class="row mt-32">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">Link Rapidi</h6>
+      </div>
+      <div class="card-body">
+        <div class="row gy-3">
+          <div class="col-md-3 col-sm-6">
+            <a href="{{ url_for('it_projects.index') }}" class="d-flex align-items-center gap-2 text-decoration-none text-secondary-light hover-text-primary">
+              <i class="ri-folder-cog-line"></i>
+              <span>Progetti IT</span>
+            </a>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <a href="{{ url_for('it_projects.problems_new') }}" class="d-flex align-items-center gap-2 text-decoration-none text-secondary-light hover-text-primary">
+              <i class="ri-bug-line"></i>
+              <span>Segnala Problema</span>
+            </a>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <a href="{{ url_for('it_projects.ideas_new') }}" class="d-flex align-items-center gap-2 text-decoration-none text-secondary-light hover-text-primary">
+              <i class="ri-lightbulb-line"></i>
+              <span>Proponi Idea</span>
+            </a>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <a href="{{ url_for('it_projects.problems_my') }}" class="d-flex align-items-center gap-2 text-decoration-none text-secondary-light hover-text-primary">
+              <i class="ri-file-list-3-line"></i>
+              <span>Le Mie Segnalazioni</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.hover-shadow-lg:hover {
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12) !important;
+  transform: translateY(-2px);
+}
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+.hover-text-primary:hover {
+  color: var(--bs-primary) !important;
+}
+</style>
+{% endblock %}

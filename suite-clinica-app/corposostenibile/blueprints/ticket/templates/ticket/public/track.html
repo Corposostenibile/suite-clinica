@@ -1,0 +1,219 @@
+{# templates/ticket/public/track.html #}
+<!DOCTYPE html>
+<html lang="it" data-theme="light" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verifica Stato Ticket • Supporto</title>
+
+  <!-- Remix-icon – Bootstrap – Wowdash -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}">
+
+  <style>
+    :root{ --brand:#25B36A; --brand-rgb:37,179,106; }
+    .btn-primary{background:var(--brand)!important;border-color:var(--brand)!important}
+    .btn-primary:hover,.btn-primary:focus{background:#1e9a5b!important;border-color:#1e9a5b!important}
+    .icon-field>span.icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--brand)}
+    .icon-field .form-control{padding-left:48px;height:56px}
+    .ticket-details{background:#f8f9fa;border-radius:12px;padding:32px;margin-top:32px}
+    .detail-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #e9ecef}
+    .detail-row:last-child{border-bottom:none}
+    .detail-label{color:#6c757d;font-weight:500}
+    .status-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:14px;font-weight:600}
+    .status-nuovo{background:#dc3545;color:white}
+    .status-in_lavorazione{background:#ffc107;color:#333}
+    .status-in_attesa{background:#17a2b8;color:white}
+    .status-chiuso{background:#28a745;color:white}
+    .urgency-alta{color:#dc3545;font-weight:bold}
+    .urgency-media{color:#ffc107;font-weight:bold}
+    .urgency-bassa{color:#28a745;font-weight:bold}
+    .timeline-item{position:relative;padding-left:40px;padding-bottom:24px}
+    .timeline-item:before{content:'';position:absolute;left:10px;top:8px;width:2px;height:calc(100% + 8px);background:#e9ecef}
+    .timeline-item:last-child:before{display:none}
+    .timeline-icon{position:absolute;left:0;top:0;width:20px;height:20px;border-radius:50%;background:var(--brand);color:white;display:flex;align-items:center;justify-content:center;font-size:10px}
+  </style>
+</head>
+<body>
+
+<section class="auth d-flex flex-wrap bg-base">
+  <!-- ■ colonna immagine --------------------------------------------- -->
+  <div class="flex-grow-1 text-center bg-dark-subtle d-none d-lg-block">
+    <div class="d-flex h-100 align-items-center justify-content-center p-32">
+      <img src="{{ url_for('static', filename='assets/immagini/ticket_track.png') }}"
+           class="img-fluid" alt="Tracking Ticket">
+    </div>
+  </div>
+
+  <!-- ■ colonna form/risultati --------------------------------------- -->
+  <div class="auth-right py-32 px-24 d-flex flex-column justify-content-center">
+    <div class="max-w-600-px mx-auto w-100">
+
+      <div class="text-center text-lg-start mb-40">
+        <a href="" class="d-inline-block max-w-290-px">
+          <img src="{{ url_for('static', filename='assets/immagini/Suite.png') }}" class="img-fluid" alt="logo">
+        </a>
+      </div>
+
+      <h4 class="mb-12">Verifica Stato Ticket</h4>
+      <p class="mb-32 text-secondary-light text-lg">
+        Inserisci il numero del ticket e l'email per verificare lo stato della tua richiesta.
+      </p>
+
+      <!-- ──────────────── Form di ricerca ─────────────────────────── -->
+      <form method="get" class="mb-4">
+        <div class="row">
+          <div class="col-md-6 mb-20">
+            <label class="form-label fw-medium mb-8" for="ticket_number">Numero Ticket</label>
+            <div class="position-relative icon-field">
+              <span class="icon"><iconify-icon icon="ri-ticket-line"></iconify-icon></span>
+              <input type="text" 
+                     class="form-control bg-neutral-50 radius-12 text-uppercase" 
+                     id="ticket_number"
+                     name="number" 
+                     value="{{ ticket_number }}"
+                     placeholder="ES: TK-2024-0001"
+                     required>
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-20">
+            <label class="form-label fw-medium mb-8" for="email">Email</label>
+            <div class="position-relative icon-field">
+              <span class="icon"><iconify-icon icon="mage:email"></iconify-icon></span>
+              <input type="email" 
+                     class="form-control bg-neutral-50 radius-12" 
+                     id="email"
+                     name="email" 
+                     value="{{ email }}"
+                     placeholder="mario.rossi@example.com"
+                     required>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="ri-search-line me-1"></i> Verifica Stato
+        </button>
+      </form>
+
+      <!-- ──────────────── Errore se non trovato ───────────────────── -->
+      {% if error %}
+        <div class="alert alert-danger">
+          <i class="ri-error-warning-line me-1"></i> {{ error }}
+        </div>
+      {% endif %}
+
+      <!-- ──────────────── Dettagli ticket se trovato ──────────────── -->
+      {% if ticket %}
+        <div class="ticket-details">
+          <h5 class="mb-4">
+            <i class="ri-ticket-2-line me-2"></i>
+            Ticket #{{ ticket.ticket_number }}
+          </h5>
+
+          <!-- Stato prominente -->
+          <div class="text-center mb-4 pb-4 border-bottom">
+            <p class="text-muted mb-2">Stato attuale</p>
+            <span class="status-badge status-{{ ticket.status.value }}">
+              {{ ticket.status.value.replace('_', ' ').title() }}
+            </span>
+          </div>
+
+          <!-- Dettagli principali -->
+          <div class="detail-row">
+            <span class="detail-label">Oggetto:</span>
+            <span class="fw-semibold">{{ ticket.title }}</span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Dipartimento:</span>
+            <span>{{ ticket.department.name }}</span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Urgenza:</span>
+            <span class="urgency-{{ ticket.urgency.value }}">
+              {{ ticket.urgency_label }}
+            </span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Data apertura:</span>
+            <span>{{ ticket.created_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Scadenza prevista:</span>
+            <span>{{ ticket.due_date.strftime('%d/%m/%Y alle %H:%M') }}</span>
+          </div>
+
+          {% if ticket.assigned_to %}
+            <div class="detail-row">
+              <span class="detail-label">Assegnato a:</span>
+              <span>{{ ticket.assigned_to.full_name }}</span>
+            </div>
+          {% endif %}
+
+          {% if ticket.status == 'chiuso' and ticket.closed_at %}
+            <div class="detail-row">
+              <span class="detail-label">Chiuso il:</span>
+              <span>{{ ticket.closed_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+            </div>
+          {% endif %}
+
+          <!-- Timeline stati (se ci sono cambi di stato) -->
+          {% if ticket.status_changes %}
+            <div class="mt-4 pt-4 border-top">
+              <h6 class="mb-3">Cronologia aggiornamenti</h6>
+              <div class="timeline">
+                {% for change in ticket.status_changes|reverse %}
+                  <div class="timeline-item">
+                    <div class="timeline-icon">
+                      <i class="ri-check-line"></i>
+                    </div>
+                    <div class="timeline-content">
+                      <p class="mb-1 fw-semibold">
+                        {{ change.to_status.value.replace('_', ' ').title() }}
+                      </p>
+                      <p class="mb-1 text-muted small">
+                        {{ change.created_at.strftime('%d/%m/%Y alle %H:%M') }}
+                      </p>
+                      {% if change.message %}
+                        <p class="mb-0 small">{{ change.message }}</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <!-- Link utili -->
+      <div class="mt-32 text-center">
+        <p class="text-secondary-light">
+          Vuoi aprire un nuovo ticket? 
+          <a href="{{ url_for('public_ticket.new_ticket') }}" class="text-primary-600 fw-medium">
+            Clicca qui
+          </a>
+        </p>
+        <p class="text-secondary-light">
+          <a href="{{ url_for('public_ticket.info') }}" class="text-primary-600 fw-medium">
+            <i class="ri-information-line"></i> Informazioni sul servizio
+          </a>
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- JS -------------------------------------------------------------- -->
+<script src="{{ url_for('static', filename='assets/js/lib/jquery-3.7.1.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/iconify-icon.min.js') }}"></script>
+</body>
+</html>

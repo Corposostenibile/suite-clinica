@@ -1,0 +1,2026 @@
+{% extends "kb/base.html" %}
+
+{% block title %}
+    {{ "Nuovo Articolo" if is_new else "Modifica: " ~ article.title }} - Knowledge Base
+{% endblock %}
+
+{% block extra_head %}
+<!-- Quill.js CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<style>
+    /* Verde principale della suite */
+    :root {
+        --primary-green: #28a745;
+        --primary-green-dark: #218838;
+        --primary-green-light: #e6f7e9;
+        --primary-green-lighter: #f4fbf5;
+    }
+    
+    /* Video Background Styles */
+    .breadcrumb_area {
+        min-height: 350px;
+        display: flex;
+        align-items: center;
+        padding: 120px 0 80px;
+    }
+    
+    .breadcrumb_area video {
+        object-fit: cover;
+    }
+    
+    /* Override colori principali */
+    .btn-primary {
+        background-color: var(--primary-green) !important;
+        border-color: var(--primary-green) !important;
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-green-dark) !important;
+        border-color: var(--primary-green-dark) !important;
+    }
+    
+    .btn-outline-primary {
+        color: var(--primary-green) !important;
+        border-color: var(--primary-green) !important;
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: var(--primary-green) !important;
+        border-color: var(--primary-green) !important;
+        color: white !important;
+    }
+    
+    .btn-outline-secondary {
+        color: #6c757d !important;
+        border-color: #6c757d !important;
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+        color: white !important;
+    }
+    
+    .badge-primary {
+        background-color: var(--primary-green) !important;
+    }
+    
+    /* Breadcrumb links */
+    .breadcrumb-item a {
+        color: var(--primary-green) !important;
+    }
+    
+    .breadcrumb-item a:hover {
+        color: var(--primary-green-dark) !important;
+    }
+    
+    /* Reduce excessive spacing */
+    .doc_documentation_area {
+        padding: 60px 0 40px !important;
+        min-height: auto !important;
+    }
+    
+    /* Card styling to match suite */
+    .editor-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .editor-card-header {
+        background: #f8f9fa;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 15px 20px;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .editor-card-header h6 {
+        margin: 0;
+        color: #1e293b;
+        font-weight: 600;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .editor-card-body {
+        padding: 20px;
+    }
+    
+    /* Form controls styling */
+    .form-label {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    }
+    
+    .form-control-lg {
+        font-size: 16px;
+        padding: 12px 16px;
+    }
+    
+    /* Editor toolbar */
+    .editor-toolbar {
+        background: #f8f9fa;
+        border: 1px solid #e5e7eb;
+        border-bottom: none;
+        border-radius: 6px 6px 0 0;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .editor-toolbar .btn {
+        padding: 6px 10px;
+        font-size: 14px;
+    }
+    
+    /* Quill Editor Customization */
+    .ql-toolbar {
+        border-top: 1px solid #e5e7eb;
+        border-left: 1px solid #e5e7eb;
+        border-right: 1px solid #e5e7eb;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        background: #f8f9fa;
+        padding: 12px;
+    }
+    
+    .ql-container {
+        border-bottom: 1px solid #e5e7eb;
+        border-left: 1px solid #e5e7eb;
+        border-right: 1px solid #e5e7eb;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    
+    .ql-editor {
+        min-height: 400px;
+        padding: 20px;
+    }
+    
+    .ql-editor.ql-blank::before {
+        color: #6c757d;
+        font-style: normal;
+    }
+    
+    /* Preview button in editor */
+    .editor-preview-btn {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        z-index: 10;
+    }
+    
+    /* Upload area */
+    .upload-area {
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .upload-area:hover {
+        border-color: var(--primary-green);
+        background: var(--primary-green-lighter);
+    }
+    
+    .upload-area.dragover {
+        background: var(--primary-green-light);
+        border-color: var(--primary-green);
+    }
+    
+    /* File list */
+    .file-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 15px;
+        background: #f8f9fa;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+    
+    .file-item:hover {
+        background: white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    /* Checkbox styling */
+    .form-check {
+        padding-left: 1.5rem;
+        margin-bottom: 10px;
+    }
+    
+    .form-check-input {
+        margin-top: 0.3rem;
+    }
+    
+    .form-check-label {
+        font-size: 14px;
+        color: #495057;
+    }
+    
+    /* Info text */
+    .text-muted {
+        color: #6c757d !important;
+        font-size: 13px;
+    }
+    
+    /* Actions section */
+    .actions-section {
+        position: sticky;
+        top: 20px;
+    }
+    
+    .editor-info-box {
+        background: #f8f9fa;
+        border-left: 4px solid var(--primary-green);
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 0 4px 4px 0;
+    }
+    
+    .editor-info-box p {
+        margin-bottom: 5px;
+        font-size: 13px;
+        color: #495057;
+    }
+    
+    .editor-info-box strong {
+        color: #1e293b;
+    }
+    
+    /* Custom form overlay and popup (non-blocking) */
+    .form-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9998;
+    }
+    
+    .form-overlay.active {
+        display: block;
+    }
+    
+    .form-popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 0;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 9999;
+        width: 90%;
+        max-width: 900px;
+        max-height: 85vh;
+        overflow: hidden;
+    }
+    
+    .form-popup.active {
+        display: block;
+    }
+    
+    .form-popup-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f8f9fa;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .form-popup-header h3 {
+        margin: 0;
+        color: #1e293b;
+        font-size: 20px;
+        font-weight: 600;
+    }
+    
+    .form-popup-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        color: #6c757d;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+    
+    .form-popup-close:hover {
+        color: #1e293b;
+    }
+    
+    .form-popup-body {
+        padding: 24px;
+        overflow-y: auto;
+    }
+    
+    .form-popup-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 15px 24px;
+        border-top: 1px solid #e5e7eb;
+        background: #f8f9fa;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    /* Alert styling */
+    .alert-info {
+        background-color: #e3f2fd;
+        border-color: #90caf9;
+        color: #1565c0;
+    }
+    
+    /* Success notification */
+    .toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--primary-green);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: none;
+        z-index: 10000;
+    }
+    
+    .toast-notification.show {
+        display: block;
+        animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+
+    
+    /* Publishing Options Styles */
+    .publishing-options-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    
+    .publishing-options-card .editor-card-header {
+        background: linear-gradient(135deg, var(--primary-green) 0%, #27ae60 100%);
+        color: white;
+        border-bottom: none;
+        padding: 20px;
+    }
+    
+    .publishing-options-card .editor-card-header h6 {
+        color: white;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+    }
+    
+    .publishing-options-card .editor-card-header small {
+        color: white;
+        opacity: 0.95;
+        font-size: 13px;
+    }
+    
+    .publishing-options-grid {
+        display: grid;
+        gap: 12px;
+        padding: 4px;
+    }
+
+    .publishing-option {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 18px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .publishing-option:hover {
+        border-color: var(--primary-green);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .publishing-option::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--primary-green);
+        transform: scaleY(0);
+        transition: transform 0.3s ease;
+    }
+    
+    .publishing-option:hover::before {
+        transform: scaleY(1);
+    }
+    
+    .option-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        cursor: pointer;
+    }
+    
+    .modern-toggle {
+        position: relative;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #dee2e6;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin: 0;
+        flex-shrink: 0;
+        margin-top: 2px;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    .modern-toggle:checked {
+        background: var(--primary-green);
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+    }
+
+    .modern-toggle:checked::after {
+        content: '✓';
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        line-height: 1;
+    }
+    
+    .option-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        cursor: pointer;
+        margin: 0;
+        flex: 1;
+    }
+    
+    .option-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary-green-light), var(--primary-green-lighter));
+        color: var(--primary-green);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+    
+    .publishing-option:hover .option-icon {
+        background: linear-gradient(135deg, var(--primary-green), #27ae60);
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .option-content {
+        flex: 1;
+        padding-top: 2px;
+    }
+    
+    .option-title {
+        display: block;
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 4px;
+        transition: color 0.3s ease;
+    }
+    
+    .publishing-option:hover .option-title {
+        color: var(--primary-green);
+    }
+    
+    .option-description {
+        display: block;
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.4;
+    }
+    
+    /* Active state for checked options */
+    .modern-toggle:checked + .option-label .option-icon {
+        background: linear-gradient(135deg, var(--primary-green), #27ae60);
+        color: white;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    .modern-toggle:checked + .option-label .option-title {
+        color: var(--primary-green);
+        font-weight: 700;
+    }
+    
+    .modern-toggle:checked + .option-label .option-description {
+        color: #475569;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .publishing-options-grid {
+            gap: 12px;
+        }
+        
+        .publishing-option {
+            padding: 14px;
+        }
+        
+        .option-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+        }
+        
+        .option-title {
+            font-size: 14px;
+        }
+        
+        .option-description {
+            font-size: 12px;
+        }
+    }
+
+    /* Modern Publishing Options Styles */
+    .modern-publishing-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .modern-publishing-card:hover {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+    }
+
+    .modern-field-group {
+        position: relative;
+        margin-bottom: 24px;
+    }
+
+    .field-icon-wrapper {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .field-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary-green-light), var(--primary-green-lighter));
+        color: var(--primary-green);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        margin-top: 4px;
+        transition: all 0.3s ease;
+    }
+
+    .modern-field-group:hover .field-icon {
+        background: linear-gradient(135deg, var(--primary-green), #27ae60);
+        color: white;
+        transform: scale(1.05);
+    }
+
+    .field-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .modern-label {
+        display: block;
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+        transition: color 0.3s ease;
+    }
+
+    .modern-field-group:hover .modern-label {
+        color: var(--primary-green);
+    }
+
+    .select-wrapper {
+        position: relative;
+        margin-bottom: 6px;
+    }
+
+    .modern-select {
+        width: 100%;
+        height: 46px;
+        padding: 0 40px 0 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        background: white;
+        font-size: 14px;
+        line-height: 42px;
+        color: #334155;
+        transition: all 0.3s ease;
+        appearance: none;
+        cursor: pointer;
+    }
+
+    .modern-select:focus {
+        outline: none;
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+    }
+
+    .select-arrow {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        font-size: 12px;
+        pointer-events: none;
+        transition: all 0.3s ease;
+    }
+
+    .modern-select:focus + .select-arrow {
+        color: var(--primary-green);
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .input-wrapper {
+        position: relative;
+        margin-bottom: 6px;
+    }
+
+    .modern-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        background: white;
+        font-size: 14px;
+        color: #334155;
+        transition: all 0.3s ease;
+    }
+
+    .modern-input:focus {
+        outline: none;
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+    }
+
+    .input-focus-border {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--primary-green);
+        transition: width 0.3s ease;
+    }
+
+    .modern-input:focus + .input-focus-border {
+        width: 100%;
+    }
+
+    .field-help {
+        display: block;
+        font-size: 12px;
+        color: #64748b;
+        line-height: 1.4;
+        margin-top: 4px;
+    }
+
+    .modern-template-btn {
+        width: 100%;
+        padding: 16px 20px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        color: #334155;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 6px;
+    }
+
+    .modern-template-btn:hover {
+        border-color: var(--primary-green);
+        background: linear-gradient(135deg, var(--primary-green-lighter) 0%, #ffffff 100%);
+        color: var(--primary-green);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);
+    }
+
+    .template-btn-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .template-btn-content i {
+        font-size: 16px;
+    }
+
+    .modern-template-btn .fa-chevron-right {
+        font-size: 12px;
+        transition: transform 0.3s ease;
+    }
+
+    .modern-template-btn:hover .fa-chevron-right {
+        transform: translateX(4px);
+    }
+
+    /* Responsive adjustments for modern fields */
+    @media (max-width: 768px) {
+        .field-icon-wrapper {
+            gap: 12px;
+        }
+        
+        .field-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+        }
+        
+        .modern-label {
+            font-size: 14px;
+        }
+        
+        .modern-select,
+        .modern-input {
+            padding: 10px 14px;
+            font-size: 13px;
+        }
+        
+        .modern-template-btn {
+            padding: 14px 16px;
+            font-size: 13px;
+        }
+    }
+
+    /* Modern Tooltip Styles */
+    .modern-tooltip {
+        position: fixed;
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 500;
+        max-width: 250px;
+        z-index: 10000;
+        opacity: 0;
+        transform: translateY(5px);
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        pointer-events: none;
+        line-height: 1.4;
+    }
+
+    .modern-tooltip.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .modern-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #2c3e50;
+    }
+
+    /* Content Index Panel Styles */
+    .content-index-panel {
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin-top: 20px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .content-index-panel.collapsed .index-content,
+    .content-index-panel.collapsed .index-actions {
+        display: none;
+    }
+
+    .index-header {
+        background: linear-gradient(135deg, var(--primary-green-lighter) 0%, #ffffff 100%);
+        padding: 12px 16px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+
+    .index-header h6 {
+        margin: 0;
+        color: var(--primary-green);
+        font-weight: 600;
+        font-size: 14px;
+        flex: 1;
+    }
+
+    .index-header h6 i {
+        margin-right: 8px;
+        color: var(--primary-green);
+    }
+
+    .index-content {
+        padding: 16px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .content-index-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .index-item {
+        margin-bottom: 8px;
+        padding-left: 0;
+    }
+
+    .index-item.level-1 { padding-left: 0; }
+    .index-item.level-2 { padding-left: 16px; }
+    .index-item.level-3 { padding-left: 32px; }
+    .index-item.level-4 { padding-left: 48px; }
+    .index-item.level-5 { padding-left: 64px; }
+    .index-item.level-6 { padding-left: 80px; }
+
+    .index-link {
+        display: block;
+        padding: 6px 12px;
+        color: #475569;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.4;
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+
+    .index-link:hover {
+        background: rgba(40, 167, 69, 0.1);
+        color: var(--primary-green);
+        border-left-color: var(--primary-green);
+        text-decoration: none;
+        transform: translateX(4px);
+    }
+
+    .index-actions {
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 8px;
+    }
+
+    .index-actions .btn {
+        flex: 1;
+        font-size: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .index-actions .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Table of Contents in content */
+    .table-of-contents {
+        background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .table-of-contents h3 {
+        color: var(--primary-green);
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--primary-green-lighter);
+    }
+
+    .table-of-contents ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .table-of-contents li {
+        margin-bottom: 8px;
+    }
+
+    .table-of-contents .toc-level-1 { padding-left: 0; font-weight: 600; }
+    .table-of-contents .toc-level-2 { padding-left: 20px; font-weight: 500; }
+    .table-of-contents .toc-level-3 { padding-left: 40px; }
+    .table-of-contents .toc-level-4 { padding-left: 60px; }
+    .table-of-contents .toc-level-5 { padding-left: 80px; }
+    .table-of-contents .toc-level-6 { padding-left: 100px; }
+
+    .table-of-contents a {
+        color: #475569;
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        transition: all 0.2s ease;
+    }
+
+    .table-of-contents a:hover {
+        background: rgba(40, 167, 69, 0.1);
+        color: var(--primary-green);
+        text-decoration: none;
+    }
+
+    /* Enhanced Quill toolbar styling */
+    .ql-toolbar {
+        border-top: 1px solid #e2e8f0 !important;
+        border-left: 1px solid #e2e8f0 !important;
+        border-right: 1px solid #e2e8f0 !important;
+        border-bottom: none !important;
+        border-radius: 8px 8px 0 0 !important;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+        padding: 12px !important;
+    }
+
+    .ql-toolbar .ql-formats {
+        margin-right: 12px !important;
+    }
+
+    .ql-toolbar button {
+        border-radius: 6px !important;
+        margin: 2px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .ql-toolbar button:hover {
+        background: rgba(40, 167, 69, 0.1) !important;
+        color: var(--primary-green) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    .ql-toolbar button.ql-active {
+        background: var(--primary-green) !important;
+        color: white !important;
+    }
+
+
+
+    .ql-container {
+        border-left: 1px solid #e2e8f0 !important;
+        border-right: 1px solid #e2e8f0 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        border-radius: 0 0 8px 8px !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+
+    .ql-editor {
+        padding: 20px !important;
+        font-size: 15px !important;
+        line-height: 1.7 !important;
+        color: #334155 !important;
+    }
+
+    .ql-editor h1, .ql-editor h2, .ql-editor h3, 
+    .ql-editor h4, .ql-editor h5, .ql-editor h6 {
+        color: var(--primary-green) !important;
+        font-weight: 600 !important;
+        margin-top: 24px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .ql-editor blockquote {
+        border-left: 4px solid var(--primary-green) !important;
+        background: rgba(40, 167, 69, 0.05) !important;
+        padding: 16px 20px !important;
+        margin: 16px 0 !important;
+        border-radius: 0 8px 8px 0 !important;
+    }
+
+    /* Responsive adjustments for content index */
+    @media (max-width: 768px) {
+        .content-index-panel {
+            margin-top: 16px;
+        }
+        
+        .index-header {
+            padding: 10px 12px;
+        }
+        
+        .index-content {
+            padding: 12px;
+            max-height: 200px;
+        }
+        
+        .index-actions {
+            padding: 10px 12px;
+            flex-direction: column;
+        }
+        
+        .index-actions .btn {
+            margin-bottom: 6px;
+        }
+        
+        .modern-tooltip {
+            font-size: 11px;
+            padding: 6px 10px;
+            max-width: 200px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Banner Area with Video Background -->
+<section class="breadcrumb_area" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <!-- Video Background -->
+    <video id="hero-video" autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+        <source src="/static/assets/video/knowledge_base.mp4" type="video/mp4">
+    </video>
+    
+    <!-- Dark Overlay -->
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1;"></div>
+    
+    <div class="container custom_container" style="position: relative; z-index: 2;">
+        <div class="doc_banner_content text-center">
+            <h1 class="wow fadeInUp" data-wow-delay="0.2s" style="color: white; font-size: 48px; font-weight: 700;">
+                {% if is_new %}
+                    Nuovo Articolo
+                {% else %}
+                    Modifica Articolo
+                {% endif %}
+            </h1>
+            <p class="wow fadeInUp" data-wow-delay="0.3s" style="color: rgba(255,255,255,0.9); font-size: 18px; margin-top: 20px;">
+                Dipartimento: <span style="color: #28a745;">{{ department.name }}</span>
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Breadcrumb Section -->
+<section class="page_breadcrumb">
+    <div class="container custom_container">
+        <div class="row align-items-center">
+            <div class="col-lg-8 col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('kb.index') }}">Knowledge Base</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('kb.department_view', department_id=department.id if is_new else article.department_id) }}">{{ department.name if is_new else article.department.name }}</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">
+                            {{ "Nuovo Articolo" if is_new else "Modifica" }}
+                        </li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="col-lg-4 col-md-4 text-right">
+                <a href="{{ url_for('kb.department_view', department_id=department.id if is_new else article.department_id) }}" 
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Torna al Dipartimento
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Main Editor Area -->
+<section class="doc_documentation_area">
+    <div class="container custom_container">
+        <form method="POST" id="articleForm" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            
+            <!-- Template Type Hidden Field -->
+            <input type="hidden" name="template_type" value="standard">
+            
+            <div class="row">
+                <!-- Main Content Column -->
+                <div class="col-lg-8">
+                    <!-- Title and Summary Card -->
+                    <div class="editor-card">
+                        <div class="editor-card-body">
+                            <!-- Title -->
+                            <div class="mb-4">
+                                {{ form.title.label(class="form-label") }}
+                                {{ form.title(class="form-control form-control-lg" + (" is-invalid" if form.title.errors else ""), 
+                                              placeholder="Inserisci il titolo dell'articolo...", id="title") }}
+                                {% if form.title.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.title.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Summary -->
+                            <div class="mb-4">
+                                {{ form.summary.label(class="form-label") }}
+                                <small class="text-muted d-block mb-2">Breve descrizione che apparirà nelle liste e nei risultati di ricerca</small>
+                                {{ form.summary(class="form-control" + (" is-invalid" if form.summary.errors else ""), 
+                                               rows="3", 
+                                               placeholder="Riassunto dell'articolo (opzionale)...") }}
+                                {% if form.summary.errors %}
+                                    <div class="invalid-feedback">
+                                        {{ form.summary.errors[0] }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Content Editor Card -->
+                    <div class="editor-card">
+                        <div class="editor-card-header d-flex justify-content-between align-items-center">
+                            <h6><i class="fas fa-edit"></i> Contenuto Articolo</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewArticle()" title="Anteprima">
+                                <i class="fas fa-eye"></i> Anteprima
+                            </button>
+                        </div>
+                        <div class="editor-card-body">
+                            <!-- Modern WYSIWYG Editor -->
+                            <div id="quill-editor" style="min-height: 400px; border: 1px solid #dee2e6; border-radius: 8px;">
+                                <!-- Quill editor will be initialized here -->
+                            </div>
+                            <textarea name="content" id="content" class="d-none">{{ article.content if article else '' }}</textarea>
+                            {% if form.content.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.content.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Attachments Card -->
+                    <div class="editor-card">
+                        <div class="editor-card-header">
+                            <h6><i class="fas fa-paperclip"></i> Allegati</h6>
+                        </div>
+                        <div class="editor-card-body">
+                            <div class="upload-area" id="uploadArea">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <h5 class="mb-2">Trascina qui i file o clicca per caricare</h5>
+                                <p class="text-muted mb-3">Formati supportati: PDF, Word, Excel, PowerPoint, Immagini, Video</p>
+                                <input type="file" name="attachments" multiple class="d-none" id="fileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.mp4,.mov">
+                                <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-folder-open"></i> Seleziona File
+                                </button>
+                            </div>
+                            <div id="fileList" class="mt-3"></div>
+                            
+                            {% if not is_new and article.attachments %}
+                            <div class="mt-4">
+                                <h6 class="mb-3">Allegati esistenti</h6>
+                                {% for attachment in article.attachments %}
+                                <div class="file-item">
+                                    <div>
+                                        <i class="fas fa-file-{{ attachment.file_type }}"></i>
+                                        <span class="ms-2">{{ attachment.filename }}</span>
+                                        <small class="text-muted ms-2">({{ attachment.file_size|filesizeformat }})</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeAttachment({{ attachment.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Column -->
+                <div class="col-lg-4">
+                    <div class="actions-section">
+                        <!-- Publishing Options -->
+                        <div class="editor-card modern-publishing-card">
+                            <div class="editor-card-header">
+                                <h6><i class="fas fa-cog"></i> Opzioni di Pubblicazione</h6>
+                                <small class="text-muted">Configura le impostazioni di pubblicazione dell'articolo</small>
+                            </div>
+                            <div class="editor-card-body">
+                                <!-- Status -->
+                                <div class="modern-field-group mb-4">
+                                    <div class="field-icon-wrapper">
+                                        <i class="fas fa-circle-dot field-icon"></i>
+                                        <div class="field-content">
+                                            {{ form.status.label(class="modern-label") }}
+                                            <div class="select-wrapper">
+                                                {{ form.status(class="modern-select") }}
+                                                <i class="fas fa-chevron-down select-arrow"></i>
+                                            </div>
+                                            <small class="field-help">Imposta lo stato di pubblicazione dell'articolo</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Visibility -->
+                                <div class="modern-field-group mb-4">
+                                    <div class="field-icon-wrapper">
+                                        <i class="fas fa-eye field-icon"></i>
+                                        <div class="field-content">
+                                            {{ form.visibility.label(class="modern-label") }}
+                                            <div class="select-wrapper">
+                                                {{ form.visibility(class="modern-select") }}
+                                                <i class="fas fa-chevron-down select-arrow"></i>
+                                            </div>
+                                            <small class="field-help">Chi può vedere questo articolo</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Category -->
+                                <div class="modern-field-group mb-4">
+                                    <div class="field-icon-wrapper">
+                                        <i class="fas fa-folder field-icon"></i>
+                                        <div class="field-content">
+                                            {{ form.category_id.label(class="modern-label") }}
+                                            <div class="select-wrapper">
+                                                {{ form.category_id(class="modern-select") }}
+                                                <i class="fas fa-chevron-down select-arrow"></i>
+                                            </div>
+                                            <small class="field-help">Organizza l'articolo in una categoria specifica</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tags -->
+                                <div class="modern-field-group mb-4">
+                                    <div class="field-icon-wrapper">
+                                        <i class="fas fa-tags field-icon"></i>
+                                        <div class="field-content">
+                                            {{ form.tags.label(class="modern-label") }}
+                                            <div class="input-wrapper">
+                                                {{ form.tags(class="modern-input", placeholder="psicologia, procedure, linee-guida...") }}
+                                                <div class="input-focus-border"></div>
+                                            </div>
+                                            <small class="field-help">Aggiungi tag separati da virgola per migliorare la ricerca</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                        </div>
+
+                        <!-- Publishing Options -->
+                        <div class="editor-card publishing-options-card">
+                            <div class="editor-card-header">
+                                <h6><i class="fas fa-rocket"></i> Opzioni Avanzate</h6>
+                                <small>Configura visibilità e funzionalità dell'articolo</small>
+                            </div>
+                            <div class="editor-card-body">
+                                <div class="publishing-options-grid">
+                                    <div class="publishing-option">
+                                        <div class="option-toggle">
+                                            {{ form.is_featured(class="form-check-input modern-toggle", id="is_featured") }}
+                                            <label for="is_featured" class="option-label">
+                                                <div class="option-icon">
+                                                    <i class="fas fa-star"></i>
+                                                </div>
+                                                <div class="option-content">
+                                                    <span class="option-title">Articolo in Evidenza</span>
+                                                    <span class="option-description">Mostra questo articolo nella sezione in evidenza</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="publishing-option">
+                                        <div class="option-toggle">
+                                            {{ form.is_pinned(class="form-check-input modern-toggle", id="is_pinned") }}
+                                            <label for="is_pinned" class="option-label">
+                                                <div class="option-icon">
+                                                    <i class="fas fa-thumbtack"></i>
+                                                </div>
+                                                <div class="option-content">
+                                                    <span class="option-title">Fissa in Alto</span>
+                                                    <span class="option-description">Mantieni questo articolo sempre in cima alla lista</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="publishing-option">
+                                        <div class="option-toggle">
+                                            {{ form.allow_comments(class="form-check-input modern-toggle", id="allow_comments") }}
+                                            <label for="allow_comments" class="option-label">
+                                                <div class="option-icon">
+                                                    <i class="fas fa-comments"></i>
+                                                </div>
+                                                <div class="option-content">
+                                                    <span class="option-title">Abilita Commenti</span>
+                                                    <span class="option-description">Permetti agli utenti di commentare questo articolo</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Conferma lettura temporaneamente nascosta -->
+                                    <div class="publishing-option" style="display: none;">
+                                        <div class="option-toggle">
+                                            {{ form.require_acknowledgment(class="form-check-input modern-toggle", id="require_acknowledgment") }}
+                                            <label for="require_acknowledgment" class="option-label">
+                                                <div class="option-icon">
+                                                    <i class="fas fa-check-circle"></i>
+                                                </div>
+                                                <div class="option-content">
+                                                    <span class="option-title">Richiedi Conferma Lettura</span>
+                                                    <span class="option-description">Gli utenti devono confermare di aver letto l'articolo</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <!-- Action Buttons -->
+                        <div class="editor-card">
+                            <div class="editor-card-body">
+                                <button type="submit" class="btn btn-primary btn-block mb-2">
+                                    <i class="fas fa-save"></i> 
+                                    {{ "Crea Articolo" if is_new else "Salva Modifiche" }}
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-block mb-2" onclick="previewArticle()">
+                                    <i class="fas fa-eye"></i> Anteprima
+                                </button>
+                                <a href="{{ url_for('kb.department_view', department_id=department.id if is_new else article.department_id) }}" 
+                                   class="btn btn-outline-secondary btn-block">
+                                    <i class="fas fa-times"></i> Annulla
+                                </a>
+                                
+                                {% if not is_new %}
+                                <div class="editor-info-box">
+                                    <p>
+                                        <strong>Creato il:</strong><br>
+                                        {{ article.created_at.strftime('%d/%m/%Y alle %H:%M') }}
+                                    </p>
+                                    <p>
+                                        <strong>Autore:</strong><br>
+                                        {{ article.author.first_name }} {{ article.author.last_name }}
+                                    </p>
+                                    {% if article.updated_at %}
+                                    <p>
+                                        <strong>Ultima modifica:</strong><br>
+                                        {{ article.updated_at.strftime('%d/%m/%Y alle %H:%M') }}
+                                    </p>
+                                    {% endif %}
+                                    {% if article.last_editor %}
+                                    <p>
+                                        <strong>Modificato da:</strong><br>
+                                        {{ article.last_editor.first_name }} {{ article.last_editor.last_name }}
+                                    </p>
+                                    {% endif %}
+                                    <p>
+                                        <strong>Visualizzazioni:</strong><br>
+                                        {{ article.views_count }}
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<!-- Preview Overlay and Popup -->
+<div class="form-overlay" id="previewOverlay" onclick="hidePreview()"></div>
+<div class="form-popup" id="previewPopup">
+    <div class="form-popup-header">
+        <h3><i class="fas fa-eye"></i> Anteprima Articolo</h3>
+        <button type="button" class="form-popup-close" onclick="hidePreview()">&times;</button>
+    </div>
+    <div class="form-popup-body" id="previewContent" style="max-height: 60vh; overflow-y: auto;">
+        <!-- Preview content will be loaded here -->
+    </div>
+    <div class="form-popup-footer">
+        <button type="button" class="btn btn-secondary" onclick="hidePreview()">Chiudi</button>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast-notification" id="toastNotification">
+    <i class="fas fa-check-circle"></i> <span id="toastMessage">Salvato automaticamente</span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-save functionality
+{% if not is_new %}
+let autoSaveTimer;
+let hasUnsavedChanges = false;
+
+// Track changes
+document.getElementById('articleForm').addEventListener('input', function() {
+    hasUnsavedChanges = true;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(autoSave, 30000); // Auto-save after 30 seconds of inactivity
+});
+
+function autoSave() {
+    if (!hasUnsavedChanges) return;
+    
+    const formData = {
+        title: document.getElementById('title').value,
+        summary: document.getElementById('summary').value,
+        content: document.getElementById('content').value
+    };
+    
+    fetch('{{ url_for("kb.api_autosave", article_id=article.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Salvato automaticamente');
+            hasUnsavedChanges = false;
+        }
+    })
+    .catch(error => {
+        console.error('Auto-save failed:', error);
+    });
+}
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Hai modifiche non salvate. Sei sicuro di voler lasciare la pagina?';
+    }
+});
+{% endif %}
+
+// Modern Quill.js Editor
+let quill;
+
+// Initialize Quill editor
+document.addEventListener('DOMContentLoaded', function() {
+    // Load Quill.js
+    const script = document.createElement('script');
+    script.src = 'https://cdn.quilljs.com/1.3.6/quill.min.js';
+    script.onload = function() {
+        initializeQuillEditor();
+    };
+    document.head.appendChild(script);
+});
+
+function initializeQuillEditor() {
+    const toolbarOptions = [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        [{ 'align': [] }],
+        ['blockquote', 'code-block'],
+        ['link', 'image', 'video'],
+        ['clean']
+    ];
+
+    quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        modules: {
+            toolbar: toolbarOptions
+        },
+        placeholder: 'Scrivi il contenuto dell\'articolo qui...'
+    });
+
+    // Load existing content
+    const existingContent = document.getElementById('content').value;
+    if (existingContent) {
+        quill.root.innerHTML = existingContent;
+    }
+
+    // Sync content with hidden textarea
+    quill.on('text-change', function() {
+        document.getElementById('content').value = quill.root.innerHTML;
+        {% if not is_new %}
+        hasUnsavedChanges = true;
+        {% endif %}
+    });
+
+    // Custom image handler
+    quill.getModule('toolbar').addHandler('image', function() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+
+        input.onchange = function() {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const range = quill.getSelection();
+                    quill.insertEmbed(range.index, 'image', e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+    });
+
+    // Add tooltips to Quill toolbar buttons
+    addQuillTooltips();
+    
+    // Add content index management
+    addContentIndexFeatures();
+}
+
+// Add helpful tooltips to Quill editor buttons
+function addQuillTooltips() {
+    const tooltips = {
+        '.ql-header': 'Intestazioni - Struttura il contenuto con titoli e sottotitoli',
+        '.ql-bold': 'Grassetto - Evidenzia testo importante (Ctrl+B)',
+        '.ql-italic': 'Corsivo - Enfatizza il testo (Ctrl+I)',
+        '.ql-underline': 'Sottolineato - Sottolinea il testo (Ctrl+U)',
+        '.ql-strike': 'Barrato - Testo barrato per correzioni',
+        '.ql-color': 'Colore testo - Cambia il colore del testo',
+        '.ql-background': 'Evidenziatore - Evidenzia il testo con colore di sfondo',
+        '.ql-list[value="ordered"]': 'Elenco numerato - Crea una lista ordinata',
+        '.ql-list[value="bullet"]': 'Elenco puntato - Crea una lista con punti',
+        '.ql-indent[value="-1"]': 'Riduci rientro - Sposta il testo a sinistra',
+        '.ql-indent[value="+1"]': 'Aumenta rientro - Sposta il testo a destra',
+        '.ql-align': 'Allineamento - Allinea il testo (sinistra, centro, destra)',
+        '.ql-blockquote': 'Citazione - Formatta come citazione',
+        '.ql-code-block': 'Blocco codice - Inserisci codice formattato',
+        '.ql-link': 'Link - Inserisci collegamento ipertestuale',
+        '.ql-image': 'Immagine - Inserisci immagine nel contenuto',
+        '.ql-video': 'Video - Incorpora video nel contenuto',
+        '.ql-clean': 'Pulisci formattazione - Rimuovi tutta la formattazione'
+    };
+
+    // Apply tooltips with delay to ensure toolbar is rendered
+    setTimeout(() => {
+        Object.entries(tooltips).forEach(([selector, tooltip]) => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                element.setAttribute('title', tooltip);
+                element.style.position = 'relative';
+                
+                // Add modern tooltip styling
+                element.addEventListener('mouseenter', function() {
+                    showModernTooltip(this, tooltip);
+                });
+                
+                element.addEventListener('mouseleave', function() {
+                    hideModernTooltip();
+                });
+            });
+        });
+    }, 500);
+}
+
+// Modern tooltip system
+let currentTooltip = null;
+
+function showModernTooltip(element, text) {
+    hideModernTooltip();
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'modern-tooltip';
+    tooltip.textContent = text;
+    document.body.appendChild(tooltip);
+    
+    const rect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    // Position tooltip above the element
+    tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
+    tooltip.style.top = (rect.top - tooltipRect.height - 10) + 'px';
+    
+    // Show tooltip with animation
+    setTimeout(() => tooltip.classList.add('show'), 10);
+    
+    currentTooltip = tooltip;
+}
+
+function hideModernTooltip() {
+    if (currentTooltip) {
+        currentTooltip.remove();
+        currentTooltip = null;
+    }
+}
+
+// Content index management features
+function addContentIndexFeatures() {
+    // Add content index panel
+    const editorCard = document.querySelector('.editor-card');
+    if (editorCard) {
+        const indexPanel = createContentIndexPanel();
+        editorCard.appendChild(indexPanel);
+    }
+    
+    // Monitor content changes for index updates
+    quill.on('text-change', function() {
+        updateContentIndex();
+    });
+    
+    // Initial index generation
+    setTimeout(updateContentIndex, 1000);
+}
+
+function createContentIndexPanel() {
+    const panel = document.createElement('div');
+    panel.className = 'content-index-panel';
+    panel.innerHTML = `
+        <div class="index-header">
+            <h6><i class="fas fa-list-ol"></i> Indice del Contenuto</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleIndexPanel()" title="Mostra/Nascondi Indice">
+                <i class="fas fa-eye" id="indexToggleIcon"></i>
+            </button>
+        </div>
+        <div class="index-content" id="contentIndex">
+            <p class="text-muted">Aggiungi intestazioni per generare automaticamente l'indice</p>
+        </div>
+        <div class="index-actions">
+            <div class="alert alert-info" style="margin: 0; padding: 12px; font-size: 13px;">
+                <i class="fas fa-lightbulb"></i> 
+                <strong>Come creare l'indice:</strong><br>
+                1. Usa i pulsanti <strong>H1, H2, H3</strong> (blu) nella toolbar<br>
+                2. Scrivi i titoli delle sezioni<br>
+                3. L'indice si aggiorna automaticamente qui
+            </div>
+        </div>
+    `;
+    return panel;
+}
+
+function updateContentIndex() {
+    const indexContainer = document.getElementById('contentIndex');
+    if (!indexContainer) return;
+    
+    const content = quill.root;
+    const headings = content.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    
+    if (headings.length === 0) {
+        indexContainer.innerHTML = '<p class="text-muted">Aggiungi intestazioni per generare automaticamente l\'indice</p>';
+        return;
+    }
+    
+    let indexHTML = '<ul class="content-index-list">';
+    headings.forEach((heading, index) => {
+        const level = parseInt(heading.tagName.charAt(1));
+        const text = heading.textContent.trim();
+        const id = `heading-${index}`;
+        
+        // Add ID to heading for navigation
+        heading.id = id;
+        
+        indexHTML += `
+            <li class="index-item level-${level}">
+                <a href="#${id}" onclick="scrollToHeading('${id}')" class="index-link">
+                    ${text}
+                </a>
+            </li>
+        `;
+    });
+    indexHTML += '</ul>';
+    
+    indexContainer.innerHTML = indexHTML;
+}
+
+function scrollToHeading(headingId) {
+    const heading = document.getElementById(headingId);
+    if (heading) {
+        heading.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Highlight the heading briefly
+        heading.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
+        setTimeout(() => {
+            heading.style.backgroundColor = '';
+        }, 2000);
+    }
+}
+
+function toggleIndexPanel() {
+    const panel = document.querySelector('.content-index-panel');
+    const icon = document.getElementById('indexToggleIcon');
+    
+    panel.classList.toggle('collapsed');
+    
+    if (panel.classList.contains('collapsed')) {
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        icon.className = 'fas fa-eye';
+    }
+}
+
+// Removed problematic functions - keeping only simple navigation
+
+// Preview functionality - non-blocking popup
+function previewArticle() {
+    const title = document.getElementById('title').value;
+    const summary = document.getElementById('summary').value;
+    const content = quill ? quill.root.innerHTML : document.getElementById('content').value;
+    
+    if (!title) {
+        alert('Inserisci almeno il titolo per visualizzare l\'anteprima');
+        return;
+    }
+    
+    const previewHtml = `
+        <article class="kb-article-preview">
+            <h1 style="margin-bottom: 20px;">${title}</h1>
+            ${summary ? `<p class="lead text-muted" style="font-size: 1.1rem; margin-bottom: 30px;">${summary}</p>` : ''}
+            <hr style="margin: 30px 0;">
+            <div class="article-content" style="font-size: 1rem; line-height: 1.7;">
+                ${content || '<p class="text-muted">Nessun contenuto inserito</p>'}
+            </div>
+        </article>
+    `;
+    
+    document.getElementById('previewContent').innerHTML = previewHtml;
+    showPreview();
+}
+
+// Show preview popup
+function showPreview() {
+    document.getElementById('previewOverlay').classList.add('active');
+    document.getElementById('previewPopup').classList.add('active');
+}
+
+// Hide preview popup
+function hidePreview() {
+    document.getElementById('previewOverlay').classList.remove('active');
+    document.getElementById('previewPopup').classList.remove('active');
+}
+
+// Toast notification
+function showToast(message) {
+    const toast = document.getElementById('toastNotification');
+    document.getElementById('toastMessage').textContent = message;
+    toast.classList.add('show');
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+
+
+// File upload handling
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+let selectedFiles = [];
+
+// Drag and drop events
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+});
+
+function handleFiles(files) {
+    for (let file of files) {
+        if (!selectedFiles.some(f => f.name === file.name)) {
+            selectedFiles.push(file);
+            displayFile(file);
+        }
+    }
+}
+
+function displayFile(file) {
+    const fileItem = document.createElement('div');
+    fileItem.className = 'file-item';
+    fileItem.innerHTML = `
+        <div>
+            <i class="fas fa-file"></i>
+            <span class="ms-2">${file.name}</span>
+            <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile('${file.name}', this)">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    fileList.appendChild(fileItem);
+}
+
+function removeFile(filename, button) {
+    selectedFiles = selectedFiles.filter(f => f.name !== filename);
+    button.parentElement.remove();
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+{% if not is_new %}
+function removeAttachment(attachmentId) {
+    if (!confirm('Sei sicuro di voler eliminare questo allegato?')) return;
+    
+    fetch(`{{ url_for('kb.api_delete_attachment', attachment_id=0) }}`.replace('0', attachmentId), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Allegato eliminato');
+            location.reload();
+        } else {
+            alert('Errore durante l\'eliminazione dell\'allegato');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Errore durante l\'eliminazione dell\'allegato');
+    });
+}
+{% endif %}
+
+// Form validation
+document.getElementById('articleForm').addEventListener('submit', function(e) {
+    console.log('Form submit event triggered');
+    
+    const titleElement = document.getElementById('title');
+    const contentElement = document.getElementById('content');
+    
+    console.log('Title element:', titleElement);
+    console.log('Content element:', contentElement);
+    
+    if (!titleElement) {
+        console.error('Title element not found!');
+        alert('Errore: Campo titolo non trovato');
+        e.preventDefault();
+        return false;
+    }
+    
+    if (!contentElement) {
+        console.error('Content element not found!');
+        alert('Errore: Campo contenuto non trovato');
+        e.preventDefault();
+        return false;
+    }
+    
+    const title = titleElement.value.trim();
+    const content = contentElement.value.trim();
+    
+    console.log('Title value:', title);
+    console.log('Content value:', content);
+    
+    if (!title) {
+        e.preventDefault();
+        alert('Il titolo è obbligatorio');
+        titleElement.focus();
+        return false;
+    }
+    
+    if (!content) {
+        e.preventDefault();
+        alert('Il contenuto è obbligatorio');
+        contentElement.focus();
+        return false;
+    }
+    
+    // Reset unsaved changes flag
+    {% if not is_new %}
+    hasUnsavedChanges = false;
+    {% endif %}
+    
+    console.log('Form validation passed, submitting...');
+    // Allow form submission
+    return true;
+});
+
+
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Video handling
+    const video = document.getElementById('hero-video');
+    if (video) {
+        video.addEventListener('error', function() {
+            console.log('Video failed to load, using fallback gradient');
+        });
+        
+        video.play().catch(function(error) {
+            console.log('Video autoplay failed:', error);
+        });
+    }
+    
+    // Load marked.js for markdown preview
+    if (!window.marked) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+        document.head.appendChild(script);
+    }
+    
+
+});
+</script>
+
+
+
+{% endblock %}

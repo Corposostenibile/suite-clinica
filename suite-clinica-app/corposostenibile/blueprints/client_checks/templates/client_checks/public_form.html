@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ assignment.form.name }} - Corposostenibile</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Remix Icon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --primary-color: #28a745;
+            --secondary-color: #1e7e34;
+            --dark-color: #212529;
+        }
+
+        body {
+            background: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .logo-container {
+            text-align: center;
+            padding: 40px 20px 30px;
+            background: white;
+        }
+
+        .logo-container img {
+            max-width: 250px;
+            height: auto;
+        }
+
+        .form-body {
+            padding: 40px;
+            background: white;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: var(--dark-color);
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        .btn-submit {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .required-field::after {
+            content: " *";
+            color: #dc3545;
+        }
+
+        .field-help {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .form-check-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        @media (max-width: 768px) {
+            .form-body {
+                padding: 20px;
+            }
+        }
+
+        /* Scale styles */
+        .scale-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .scale-option {
+            flex: 1;
+            text-align: center;
+        }
+
+        .scale-option input[type="radio"] {
+            display: none;
+        }
+
+        .scale-option label {
+            display: block;
+            padding: 10px 5px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .scale-option input[type="radio"]:checked + label {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .scale-option label:hover {
+            border-color: var(--primary-color);
+        }
+
+        /* Rating stars */
+        .rating-stars {
+            display: flex;
+            gap: 0.25rem;
+            margin: 10px 0;
+        }
+
+        .rating-star {
+            font-size: 1.5rem;
+            color: #ddd;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .rating-star.active,
+        .rating-star:hover {
+            color: #ffc107;
+        }
+
+        /* Yes/No buttons */
+        .yes-no-buttons {
+            display: flex;
+            gap: 1rem;
+            margin: 10px 0;
+        }
+
+        .yes-no-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #dee2e6;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .yes-no-btn.active {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .yes-no-btn:hover {
+            border-color: var(--primary-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="form-container">
+            {# Logo #}
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='assets/immagini/corposostenibile.jpg') }}" alt="Corposostenibile Logo">
+            </div>
+
+            {# Body #}
+            <div class="form-body">
+                {% if assignment.form.description %}
+                <div class="alert alert-info mb-4">
+                    <i class="ri-information-line me-2"></i>
+                    {{ assignment.form.description }}
+                </div>
+                {% endif %}
+
+                <!-- Flash messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form id="checkForm" method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <h3 class="section-title">{{ assignment.form.name }}</h3>
+
+                    {% for field in form %}
+                      {% if field.name not in ['csrf_token', 'submit'] %}
+                        <div class="mb-3">
+                          <label class="form-label {% if field.flags.required %}required-field{% endif %}">
+                            {{ field.label.text }}
+                          </label>
+
+                          {% if field.type == 'StringField' %}
+                            {{ field(class="form-control", placeholder=field.description or '') }}
+                          {% elif field.type == 'TextAreaField' %}
+                            {{ field(class="form-control", rows="4", placeholder=field.description or '') }}
+                          {% elif field.type == 'SelectField' %}
+                            {{ field(class="form-select") }}
+                          {% elif field.type == 'BooleanField' %}
+                            <div class="form-check">
+                              {{ field(class="form-check-input") }}
+                              <label class="form-check-label" for="{{ field.id }}">
+                                {{ field.label.text }}
+                              </label>
+                            </div>
+                          {% elif field.type == 'RadioField' %}
+                            {# Check if it's a scale field (1-10) #}
+                            {% if field.choices and field.choices|length == 10 and field.choices[0][0] == '1' %}
+                              <div class="scale-container">
+                                {% for value, label in field.choices %}
+                                  <div class="scale-option">
+                                    <input type="radio" name="{{ field.name }}" id="{{ field.id }}_{{ value }}" value="{{ value }}" {% if field.flags.required %}required{% endif %}>
+                                    <label for="{{ field.id }}_{{ value }}">{{ label }}</label>
+                                  </div>
+                                {% endfor %}
+                              </div>
+                            {% else %}
+                              {# Normal radio buttons #}
+                              {% for subfield in field %}
+                                <div class="form-check">
+                                  {{ subfield(class="form-check-input") }}
+                                  <label class="form-check-label" for="{{ subfield.id }}">
+                                    {{ subfield.label.text }}
+                                  </label>
+                                </div>
+                              {% endfor %}
+                            {% endif %}
+                          {% elif field.type == 'IntegerField' or field.type == 'DecimalField' %}
+                            {{ field(class="form-control", type="number", placeholder=field.description or '') }}
+                          {% elif field.type == 'DateField' %}
+                            {{ field(class="form-control", type="date") }}
+                          {% elif field.type == 'FileField' %}
+                            {{ field(class="form-control", type="file") }}
+                            {% if field.description %}
+                              <div class="field-help">{{ field.description }}</div>
+                            {% endif %}
+                          {% elif 'rating' in field.name.lower() %}
+                            <div class="rating-container" data-field="{{ field.name }}">
+                              <div class="rating-stars">
+                                {% for i in range(1, 6) %}
+                                  <span class="rating-star" data-rating="{{ i }}">★</span>
+                                {% endfor %}
+                              </div>
+                              {{ field(type="hidden") }}
+                            </div>
+                          {% elif 'yesno' in field.name.lower() or field.name.lower().endswith('_yn') %}
+                            <div class="yes-no-container" data-field="{{ field.name }}">
+                              <div class="yes-no-buttons">
+                                <button type="button" class="yes-no-btn" data-value="yes">
+                                  <i class="fas fa-check me-2"></i>Sì
+                                </button>
+                                <button type="button" class="yes-no-btn" data-value="no">
+                                  <i class="fas fa-times me-2"></i>No
+                                </button>
+                              </div>
+                              {{ field(type="hidden") }}
+                            </div>
+                          {% else %}
+                            {{ field(class="form-control", placeholder=field.description or '') }}
+                          {% endif %}
+
+                          {% if field.errors %}
+                            {% for error in field.errors %}
+                              <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                          {% endif %}
+                        </div>
+                      {% endif %}
+                    {% endfor %}
+
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-submit">
+                            <i class="ri-send-plane-line me-2"></i>
+                            Invia Check
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <p class="mb-0" style="color: #212529;">© 2025 Corposostenibile. Tutti i diritti riservati.</p>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- Form Scripts -->
+    <script>
+        // Form validation
+        (function() {
+            'use strict';
+            const form = document.getElementById('checkForm');
+            if (form) {
+                form.addEventListener('submit', function(event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            }
+        })();
+
+        // Gestione rating stars
+        $(document).ready(function() {
+            $('.rating-container').each(function() {
+                const container = $(this);
+                const fieldName = container.data('field');
+                const hiddenInput = container.find('input[type="hidden"]');
+                const stars = container.find('.rating-star');
+
+                stars.on('click', function() {
+                    const rating = $(this).data('rating');
+                    hiddenInput.val(rating);
+
+                    stars.removeClass('active');
+                    stars.slice(0, rating).addClass('active');
+                });
+
+                stars.on('mouseenter', function() {
+                    const rating = $(this).data('rating');
+                    stars.removeClass('active');
+                    stars.slice(0, rating).addClass('active');
+                });
+
+                container.on('mouseleave', function() {
+                    const currentRating = hiddenInput.val();
+                    stars.removeClass('active');
+                    if (currentRating) {
+                        stars.slice(0, currentRating).addClass('active');
+                    }
+                });
+            });
+
+            // Gestione yes/no buttons
+            $('.yes-no-container').each(function() {
+                const container = $(this);
+                const fieldName = container.data('field');
+                const hiddenInput = container.find('input[type="hidden"]');
+                const buttons = container.find('.yes-no-btn');
+
+                buttons.on('click', function() {
+                    const value = $(this).data('value');
+                    hiddenInput.val(value);
+
+                    buttons.removeClass('active');
+                    $(this).addClass('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

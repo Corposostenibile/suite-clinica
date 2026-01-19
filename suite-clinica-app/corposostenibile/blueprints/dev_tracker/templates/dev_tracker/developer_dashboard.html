@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}{{ developer.first_name }} {{ developer.last_name }} - Developer Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #5BC0DE 0%, #46B8D6 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(135deg, #46B8D6 0%, #31B0D5 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(91, 192, 222, 0.3);
+        color: white;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    /* Warning Card Header */
+    .warning-card .card-header {
+        background: linear-gradient(135deg, #F0AD4E 0%, #EC971F 100%);
+        color: white;
+    }
+
+    /* Intervention Border */
+    .intervention-item {
+        border-left: 3px solid;
+        padding-left: 12px;
+        margin-bottom: 12px;
+    }
+
+    .intervention-item.in-progress {
+        border-color: #F0AD4E;
+    }
+
+    .intervention-item.other {
+        border-color: #64748B;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .mb-32 { margin-bottom: 32px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {# ─────────────────────── HEADER ─────────────────────── #}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">{{ developer.first_name }} {{ developer.last_name }}</h6>
+            <p class="text-muted mb-0">{{ developer.job_title or '' }} - Developer Dashboard</p>
+        </div>
+    </div>
+
+    {# ─────────────────────── HERO KPI CARDS ─────────────────────── #}
+    <div class="row gy-4 mb-32">
+        <!-- Hours (30d) -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:clock-time-eight" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Hours (30d)</span>
+                        <h4 class="fw-semibold mb-0">{{ "%.1f"|format(stats_30d.total_hours) }}h</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commits (30d) -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-3">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:source-commit" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Commits (30d)</span>
+                        <h4 class="fw-semibold mb-0">{{ stats_30d.total_commits }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-4">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:briefcase-edit" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Active</span>
+                        <h4 class="fw-semibold mb-0">{{ stats_30d.active_interventions }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Completed (30d) -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-secondary text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:check-circle" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Completed (30d)</span>
+                        <h4 class="fw-semibold mb-0">{{ stats_30d.completed_interventions }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews Given -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:eye-check" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Reviews Given</span>
+                        <h4 class="fw-semibold mb-0">{{ stats_30d.reviews_given }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Days -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-danger text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:calendar-clock" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Avg Days</span>
+                        <h4 class="fw-semibold mb-0">{{ stats_30d.avg_completion_days }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── ACTION BUTTONS ─────────────────────── #}
+    <div class="row mb-32">
+        <div class="col-12">
+            <a href="{{ url_for('dev_tracker.add_worklog') }}" class="btn btn-success me-2">
+                <i class="ri-time-line me-2"></i> Log Hours
+            </a>
+            <a href="{{ url_for('dev_tracker.add_commit') }}" class="btn btn-info">
+                <i class="ri-git-commit-line me-2"></i> Add Commit
+            </a>
+        </div>
+    </div>
+
+    {# ─────────────────────── MAIN CONTENT ─────────────────────── #}
+    <div class="row gy-4 mb-32">
+        <!-- Active Interventions -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-task-line me-2"></i> Active Interventions ({{ active_interventions|length }})
+                    </h6>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for intervention in active_interventions %}
+                    <div class="intervention-item {% if intervention.status.value == 'in_progress' %}in-progress{% else %}other{% endif %}">
+                        <a href="{{ url_for('dev_tracker.intervention_detail', intervention_id=intervention.id) }}" class="fw-semibold">
+                            {{ intervention.title }}
+                        </a>
+                        <br>
+                        <small class="text-muted">
+                            Status: {{ intervention.status.value }} | Due: {{ intervention.due_date|datetime if intervention.due_date else 'N/A' }}
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Work Logs -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-history-line me-2"></i> Recent Work Logs (10)
+                    </h6>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for log in recent_worklogs %}
+                    <div class="mb-3 pb-3 border-bottom">
+                        <strong>{{ log.date|datetime }}</strong> - {{ log.hours_worked }}h
+                        <span class="badge bg-info-subtle text-info-main ms-2">{{ log.work_type.value }}</span>
+                        <br>
+                        <small class="text-muted">{{ log.description or 'No description' }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── COMMITS & REVIEWS ─────────────────────── #}
+    <div class="row gy-4">
+        <!-- Recent Commits -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-git-branch-line me-2"></i> Recent Commits (10)
+                    </h6>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    {% for commit in recent_commits %}
+                    <div class="mb-3 pb-3 border-bottom">
+                        <code class="bg-light px-2 py-1 rounded">{{ commit.commit_hash[:7] if commit.commit_hash else 'N/A' }}</code>
+                        {{ commit.commit_message|truncate(60) }}
+                        <br>
+                        <small class="text-muted">{{ commit.committed_at|timeago if commit.committed_at }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Reviews -->
+        <div class="col-md-6">
+            <div class="card warning-card">
+                <div class="card-header">
+                    <h6 class="mb-0 text-white">
+                        <i class="ri-eye-line me-2"></i> Pending Reviews ({{ reviews_pending|length }})
+                    </h6>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    {% for review in reviews_pending %}
+                    <div class="mb-3 pb-3 border-bottom">
+                        <strong>Review #{{ review.id }}</strong> - Intervention #{{ review.intervention_id }}
+                        <br>
+                        <small class="text-muted">{{ review.created_at|timeago }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

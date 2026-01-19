@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}In Scadenza – Clienti{% endblock %}
+
+{% block extra_css %}
+<style>
+  .scadenza-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid;
+  }
+
+  .scadenza-card.urgenza-critica {
+    border-left-color: #dc2626;
+  }
+
+  .scadenza-card.urgenza-alta {
+    border-left-color: #f97316;
+  }
+
+  .scadenza-card.urgenza-media {
+    border-left-color: #fbbf24;
+  }
+
+  .scadenza-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .giorni-badge {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+  }
+
+  .giorni-badge.critica { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+  .giorni-badge.alta { background: linear-gradient(135deg, #f97316, #ea580c); }
+  .giorni-badge.media { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+
+  .giorni-numero {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .giorni-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .filter-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: #edf2f7;
+    color: #4a5568;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-badge:hover {
+    background: #e2e8f0;
+  }
+
+  .filter-badge.active {
+    background: #f97316;
+    color: white;
+    border-color: #ea580c;
+  }
+
+  .urgenza-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 2px solid;
+  }
+
+  .urgenza-badge.critica {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #dc2626;
+  }
+
+  .urgenza-badge.alta {
+    background: #ffedd5;
+    color: #9a3412;
+    border-color: #f97316;
+  }
+
+  .urgenza-badge.media {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fbbf24;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0"><i class="ri-alarm-warning-line me-2 text-warning"></i>Clienti In Scadenza</h6>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('customers.list_view') }}">Clienti</a></li>
+        <li class="breadcrumb-item active">In Scadenza</li>
+      </ol>
+    </nav>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('customers.list_view') }}" class="btn btn-outline-secondary">
+      <i class="ri-arrow-left-line me-1"></i>Torna ai Clienti
+    </a>
+  </div>
+</div>
+
+{# ─────────────────────── FILTRI AVANZATI ─────────────────────── #}
+<div class="card mb-24">
+  <div class="card-body">
+    <form method="get" action="{{ url_for('customers.in_scadenza_view') }}">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Health Manager</label>
+          <select class="form-select" name="health_manager" onchange="this.form.submit()">
+            <option value="">Tutti gli Health Managers</option>
+            <option value="none" {% if current_health_manager == 'none' %}selected{% endif %}>
+              Nessun Health Manager Assegnato
+            </option>
+            {% for hm in health_managers %}
+            <option value="{{ hm.id }}" {% if current_health_manager == hm.id|string %}selected{% endif %}>
+              {{ hm.first_name }} {{ hm.last_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-5">
+          <label class="form-label">Ricerca</label>
+          <input type="text" class="form-control" name="search" value="{{ search }}"
+                 placeholder="Nome, email, telefono...">
+        </div>
+
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="ri-search-line me-1"></i>Cerca
+          </button>
+        </div>
+      </div>
+    </form>
+
+    {# Quick filters #}
+    <div class="mt-3 d-flex gap-2 flex-wrap">
+      <span class="text-muted me-2">Filtri rapidi:</span>
+      <a href="{{ url_for('customers.in_scadenza_view') }}" class="filter-badge {% if not current_health_manager %}active{% endif %}">
+        <i class="ri-group-line me-1"></i>Tutti
+      </a>
+      <a href="{{ url_for('customers.in_scadenza_view', health_manager='none') }}"
+         class="filter-badge {% if current_health_manager == 'none' %}active{% endif %}">
+        <i class="ri-user-unfollow-line me-1"></i>Senza HM
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── STATISTICHE RAPIDE ─────────────────────── #}
+<div class="row gy-4 mb-24">
+  <div class="col-md-4 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-warning-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-alarm-warning-line text-warning-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0">{{ stats.totale_scadenza }}</h5>
+            <span class="text-muted">Totale In Scadenza</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-danger-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-error-warning-line text-danger-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0">{{ stats.scadenza_7_giorni }}</h5>
+            <span class="text-muted">Entro 7 Giorni (Critici)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-orange-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-time-line text-orange-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0">{{ stats.scadenza_15_giorni }}</h5>
+            <span class="text-muted">Entro 15 Giorni</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── LISTA CLIENTI IN SCADENZA ─────────────────────── #}
+{% if clienti_scadenza %}
+  {% for item in clienti_scadenza %}
+  <div class="card scadenza-card urgenza-{{ item.urgenza }} mb-3">
+    <div class="card-body">
+      <div class="row align-items-center">
+
+        {# ── Badge giorni rimanenti ── #}
+        <div class="col-auto">
+          <div class="giorni-badge {{ item.urgenza }}">
+            <div class="giorni-numero">{{ item.giorni_rimanenti }}</div>
+            <div class="giorni-label">giorni</div>
+          </div>
+        </div>
+
+        {# ── Info cliente ── #}
+        <div class="col">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <h5 class="mb-0">
+              <a href="{{ url_for('customers.detail_view', cliente_id=item.cliente.cliente_id) }}"
+                 class="text-dark text-decoration-none">
+                {{ item.cliente.nome_cognome }}
+              </a>
+            </h5>
+            <span class="urgenza-badge {{ item.urgenza }}">
+              {% if item.urgenza == 'critica' %}
+                <i class="ri-error-warning-line me-1"></i>CRITICO
+              {% elif item.urgenza == 'alta' %}
+                <i class="ri-alarm-warning-line me-1"></i>URGENTE
+              {% else %}
+                <i class="ri-time-line me-1"></i>IN SCADENZA
+              {% endif %}
+            </span>
+          </div>
+
+          <div class="text-muted small mb-2">
+            <i class="ri-user-line me-1"></i>ID: {{ item.cliente.cliente_id }}
+            {% if item.cliente.mail %}
+              <i class="ri-mail-line ms-3 me-1"></i>{{ item.cliente.mail }}
+            {% endif %}
+            {% if item.cliente.cellulare %}
+              <i class="ri-phone-line ms-3 me-1"></i>{{ item.cliente.cellulare }}
+            {% endif %}
+          </div>
+
+          {# Health Manager #}
+          {% if item.cliente.health_manager_user %}
+            <div class="mb-2">
+              <span class="badge bg-success">
+                <i class="ri-user-heart-line me-1"></i>
+                HM: {{ item.cliente.health_manager_user.first_name }} {{ item.cliente.health_manager_user.last_name }}
+              </span>
+            </div>
+          {% else %}
+            <div class="mb-2">
+              <span class="badge bg-warning text-dark">
+                <i class="ri-user-unfollow-line me-1"></i>
+                Nessun Health Manager
+              </span>
+            </div>
+          {% endif %}
+        </div>
+
+        {# ── Data rinnovo ── #}
+        <div class="col-auto text-end">
+          <div class="text-muted small mb-1">
+            <i class="ri-calendar-check-line me-1"></i>Data Rinnovo
+          </div>
+          <div class="fw-bold text-{{ item.urgenza == 'critica' and 'danger' or (item.urgenza == 'alta' and 'warning' or 'info') }}">
+            {{ item.cliente.data_rinnovo.strftime('%d/%m/%Y') }}
+          </div>
+          {% if item.cliente.programma_attuale %}
+            <div class="text-muted small mt-1">
+              <i class="ri-bookmark-line me-1"></i>{{ item.cliente.programma_attuale }}
+            </div>
+          {% endif %}
+        </div>
+
+        {# ── Azioni ── #}
+        <div class="col-12 mt-3 pt-3 border-top">
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('customers.detail_view', cliente_id=item.cliente.cliente_id) }}"
+               class="btn btn-sm btn-outline-primary">
+              <i class="ri-eye-line me-1"></i>Vedi Dettaglio
+            </a>
+            <a href="{{ url_for('customers.detail_view', cliente_id=item.cliente.cliente_id) }}#tab-programma"
+               class="btn btn-sm btn-success">
+              <i class="ri-refresh-line me-1"></i>Rinnova Cliente
+            </a>
+            {% if not item.cliente.health_manager_user %}
+            <button class="btn btn-sm btn-warning" onclick="alert('Assegna un Health Manager per gestire il rinnovo')">
+              <i class="ri-user-add-line me-1"></i>Assegna HM
+            </button>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {# ── PAGINAZIONE ── #}
+  {% if pagination.pages > 1 %}
+  <nav aria-label="Paginazione clienti in scadenza" class="mt-24">
+    <ul class="pagination justify-content-center mb-0">
+      {% set args = request.args.to_dict(flat=True) %}
+      {% set _ = args.pop('page', None) %}
+
+      <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+        <a class="page-link" aria-label="Prev"
+           href="{{ url_for('customers.in_scadenza_view',
+                            page=pagination.prev_num,
+                            **args) if pagination.has_prev else '#' }}">
+          <span aria-hidden="true">&laquo;</span>
+        </a>
+      </li>
+
+      {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if p %}
+          <li class="page-item {% if p == pagination.page %}active{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('customers.in_scadenza_view',
+                                page=p,
+                                **args) }}">{{ p }}</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+
+      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+        <a class="page-link" aria-label="Next"
+           href="{{ url_for('customers.in_scadenza_view',
+                            page=pagination.next_num,
+                            **args) if pagination.has_next else '#' }}">
+          <span aria-hidden="true">&raquo;</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+
+{% else %}
+  {# ── EMPTY STATE ── #}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="ri-check-double-line text-success" style="font-size: 4rem;"></i>
+      <h5 class="text-success mt-3">Ottimo! Nessun cliente in scadenza</h5>
+      <p class="text-muted mb-4">
+        {% if search %}
+          Nessun cliente trovato con la ricerca "{{ search }}"
+        {% elif current_health_manager %}
+          Nessun cliente in scadenza per i filtri selezionati
+        {% else %}
+          Tutti i rinnovi sono sotto controllo. Nessun cliente scade nei prossimi 30 giorni!
+        {% endif %}
+      </p>
+      {% if search or current_health_manager %}
+      <a href="{{ url_for('customers.in_scadenza_view') }}" class="btn btn-primary">
+        <i class="ri-refresh-line me-1"></i>Mostra Tutti
+      </a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

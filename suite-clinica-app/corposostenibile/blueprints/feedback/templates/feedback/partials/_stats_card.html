@@ -1,0 +1,47 @@
+{# Stats card macro with consistent color rules #}
+{% macro stats_card(rating, title, icon, icon_type="iconify") -%}
+  {% if rating is not none %}
+    {% if rating >= 8 %}
+      {% set bg_class = "bg-success-50" %}
+      {% set text_class = "text-success" %}
+      {% set icon_bg = "bg-success-50" %}
+      {% set icon_color = "text-success" %}
+    {% elif rating >= 7 %}
+      {% set bg_class = "bg-warning-50" %}
+      {% set text_class = "text-warning" %}
+      {% set icon_bg = "bg-warning-50" %}
+      {% set icon_color = "text-warning" %}
+    {% else %}
+      {% set bg_class = "bg-danger-50" %}
+      {% set text_class = "text-danger" %}
+      {% set icon_bg = "bg-danger-50" %}
+      {% set icon_color = "text-danger" %}
+    {% endif %}
+  {% else %}
+    {% set bg_class = "bg-secondary-50" %}
+    {% set text_class = "text-secondary" %}
+    {% set icon_bg = "bg-secondary-50" %}
+    {% set icon_color = "text-secondary" %}
+  {% endif %}
+  
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <p class="text-secondary-light mb-1">{{ title }}</p>
+            <h3 class="mb-0 {{ text_class }}">{{ rating }}</h3>
+          </div>
+          <div class="w-48-px h-48-px {{ icon_bg }} rounded-circle d-flex justify-content-center align-items-center">
+            {% if icon_type == "iconify" %}
+            <iconify-icon icon="{{ icon }}" class="{{ icon_color }} text-2xl"></iconify-icon>
+            {% else %}
+            <img src="{{ icon }}" alt="{{ title }}" class="object-fit-cover rounded-circle"
+              style="width: 2em; height: 2em;">
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{%- endmacro %} 

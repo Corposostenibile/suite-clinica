@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Report Assenze • Suite{% endblock %}
+
+{% block content %}
+<section class="p-24">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Report Assenze</h6>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{{ url_for('team.team_dashboard') }}">Team</a></li>
+                    <li class="breadcrumb-item active">Report</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2" onclick="window.print()">
+                <iconify-icon icon="ri:printer-line"></iconify-icon> <span>Stampa</span>
+            </button>
+            <a href="#" class="btn btn-outline-secondary d-flex align-items-center justify-content-center gap-2">
+                <iconify-icon icon="ri:download-line"></iconify-icon> <span>Esporta CSV</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="card radius-12 mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Anno</label>
+                    <select name="year" class="form-select" onchange="this.form.submit()">
+                        {% for y in range(selected_year - 2, selected_year + 2) %}
+                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Mese</label>
+                    <select name="month" class="form-select" onchange="this.form.submit()">
+                        {% set months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                                         'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'] %}
+                        {% for i in range(1, 13) %}
+                        <option value="{{ i }}" {% if i == selected_month %}selected{% endif %}>
+                            {{ months[i-1] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Dipartimento</label>
+                    <select name="dept" class="form-select" onchange="this.form.submit()">
+                        <option value="">Tutti i dipartimenti</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if selected_dept == dept.id %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistiche per dipartimento -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card radius-12">
+                <div class="card-header">
+                    <h5 class="mb-0">Riepilogo per Dipartimento - Anno {{ selected_year }}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Dipartimento</th>
+                                    <th class="text-center">Richieste totali</th>
+                                    <th class="text-center">Giorni totali</th>
+                                    <th class="text-center">Media giorni/richiesta</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in dept_stats %}
+                                <tr>
+                                    <td>{{ stat[0] }}</td>
+                                    <td class="text-center">{{ stat[1] }}</td>
+                                    <td class="text-center">{{ stat[2] or 0 }}</td>
+                                    <td class="text-center">
+                                        {% if stat[1] > 0 %}
+                                            {{ "%.1f"|format((stat[2] or 0) / stat[1]) }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendario mensile -->
+    <div class="card radius-12">
+        <div class="card-header">
+            <h5 class="mb-0">
+                Calendario Assenze - 
+                {% set months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                                 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'] %}
+                {{ months[selected_month-1] }} {{ selected_year }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="calendar-grid">
+                <!-- Header giorni settimana -->
+                <div class="calendar-header">
+                    <div class="calendar-day-header">Lun</div>
+                    <div class="calendar-day-header">Mar</div>
+                    <div class="calendar-day-header">Mer</div>
+                    <div class="calendar-day-header">Gio</div>
+                    <div class="calendar-day-header">Ven</div>
+                    <div class="calendar-day-header">Sab</div>
+                    <div class="calendar-day-header">Dom</div>
+                </div>
+                
+                <!-- Giorni del mese -->
+                <div class="calendar-body">
+                    <!-- Calcola il primo giorno della settimana (0=Lun, 6=Dom) -->
+                    <!-- Formula di Zeller semplificata per il primo del mese -->
+                    {% set a = (14 - selected_month) // 12 %}
+                    {% set y = selected_year - a %}
+                    {% set m = selected_month + 12 * a - 2 %}
+                    {% set first_weekday = (1 + y + y//4 - y//100 + y//400 + (31*m)//12) % 7 %}
+                    {% if first_weekday == 0 %}
+                        {% set first_weekday = 6 %}  <!-- Domenica = 6 -->
+                    {% else %}
+                        {% set first_weekday = first_weekday - 1 %}  <!-- Lun=0, Mar=1, etc -->
+                    {% endif %}
+                    <!-- Calcola l'ultimo giorno del mese -->
+                    {% if selected_month == 12 %}
+                        {% set days_in_month = 31 %}
+                    {% elif selected_month in [4, 6, 9, 11] %}
+                        {% set days_in_month = 30 %}
+                    {% elif selected_month == 2 %}
+                        {% if selected_year % 4 == 0 and (selected_year % 100 != 0 or selected_year % 400 == 0) %}
+                            {% set days_in_month = 29 %}
+                        {% else %}
+                            {% set days_in_month = 28 %}
+                        {% endif %}
+                    {% else %}
+                        {% set days_in_month = 31 %}
+                    {% endif %}
+                    
+                    <!-- Giorni vuoti inizio mese -->
+                    {% for i in range(first_weekday) %}
+                    <div class="calendar-day empty"></div>
+                    {% endfor %}
+                    
+                    <!-- Giorni del mese -->
+                    {% for day in range(1, days_in_month + 1) %}
+                    <div class="calendar-day">
+                        <div class="day-number">{{ day }}</div>
+                        {% if day in calendar_data %}
+                            <div class="absences">
+                                {% for absence in calendar_data[day][:3] %}
+                                <div class="absence-item" 
+                                     style="background-color: 
+                                        {% if absence.type.value == 'ferie' %}#28a745
+                                        {% elif absence.type.value == 'permesso' %}#ffc107
+                                        {% else %}#dc3545{% endif %}">
+                                    <span class="text-truncate" 
+                                          data-bs-toggle="tooltip" 
+                                          title="{{ absence.user.full_name }} - {{ absence.type.value|capitalize }}">
+                                        {{ absence.user.initials }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                                {% if calendar_data[day]|length > 3 %}
+                                <div class="absence-more">+{{ calendar_data[day]|length - 3 }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Legenda -->
+            <div class="mt-3">
+                <span class="badge bg-success me-2">Ferie</span>
+                <span class="badge bg-warning me-2">Permessi</span>
+                <span class="badge bg-danger">Malattia</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.calendar-grid {
+    background: white;
+    border-radius: 8px;
+}
+
+.calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e9ecef;
+    padding: 1px;
+}
+
+.calendar-day-header {
+    background: white;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    color: #495057;
+}
+
+.calendar-body {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e9ecef;
+    padding: 1px;
+}
+
+.calendar-day {
+    background: white;
+    min-height: 80px;
+    padding: 5px;
+    position: relative;
+}
+
+.calendar-day.empty {
+    background: #f8f9fa;
+}
+
+.day-number {
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 3px;
+}
+
+.absences {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.absence-item {
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: white;
+    font-size: 11px;
+    overflow: hidden;
+}
+
+.absence-more {
+    font-size: 10px;
+    color: #6c757d;
+    text-align: center;
+}
+
+@media print {
+    .btn, .form-select {
+        display: none !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block inline_scripts %}
+<script>
+// Inizializza tooltip
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+</script>
+{% endblock %}

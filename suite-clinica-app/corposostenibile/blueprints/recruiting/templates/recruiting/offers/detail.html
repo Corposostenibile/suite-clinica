@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+
+{% block title %}{{ offer.title }} – Dettaglio Offerta{% endblock %}
+
+{% block extra_css %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0">Dettaglio Offerta di Lavoro</h6>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.offers_list') }}">Offerte</a></li>
+        <li class="breadcrumb-item active">{{ offer.title }}</li>
+      </ol>
+    </nav>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('recruiting.offer_edit', offer_id=offer.id) }}" class="btn btn-outline-primary">
+      <i class="ri-edit-line me-1"></i>Modifica
+    </a>
+    {% if offer.status.value == 'published' %}
+    <a href="{{ url_for('recruiting.offer_applications', offer_id=offer.id) }}" class="btn btn-primary">
+      <i class="ri-group-line me-1"></i>Candidature ({{ offer.applications_count }})
+    </a>
+    {% if offer.kanban_id %}
+    <a href="{{ url_for('recruiting.offer_kanban_view', offer_id=offer.id) }}" class="btn btn-info">
+      <i class="ri-kanban-view me-1"></i>Kanban
+    </a>
+    {% endif %}
+    <a href="{{ url_for('recruiting.offer_metrics_dashboard', offer_id=offer.id) }}" class="btn btn-info">
+      <i class="ri-bar-chart-line me-1"></i>Metriche
+    </a>
+    <a href="{{ url_for('recruiting.offer_screening', offer_id=offer.id) }}" class="btn btn-success">
+      <i class="ri-robot-line me-1"></i>Screening ATS
+    </a>
+    {% elif offer.questions|length > 0 %}
+    <form action="{{ url_for('recruiting.offer_publish', offer_id=offer.id) }}" method="POST" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-success">
+        <i class="ri-send-plane-line me-1"></i>Pubblica Offerta
+      </button>
+    </form>
+    {% else %}
+    <a href="{{ url_for('recruiting.offer_questions', offer_id=offer.id) }}" class="btn btn-warning">
+      <i class="ri-questionnaire-line me-1"></i>Configura Domande
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  {# ─────────────────────── INFO PRINCIPALE ─────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h4 class="mb-2">{{ offer.title }}</h4>
+            <div class="text-secondary-light">
+              {% if offer.department %}
+              <span class="me-3"><i class="ri-building-line me-1"></i>{{ offer.department.name }}</span>
+              {% endif %}
+              {% if offer.location %}
+              <span class="me-3"><i class="ri-map-pin-line me-1"></i>{{ offer.location }}</span>
+              {% endif %}
+              {% if offer.employment_type %}
+              <span><i class="ri-briefcase-line me-1"></i>{{ offer.employment_type|title }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            {% if offer.status.value == 'published' %}
+              <span class="badge bg-success">
+                <i class="ri-checkbox-circle-line me-1"></i>Pubblicata
+              </span>
+            {% elif offer.status.value == 'draft' %}
+              <span class="badge bg-secondary">
+                <i class="ri-draft-line me-1"></i>Bozza
+              </span>
+            {% elif offer.status.value == 'closed' %}
+              <span class="badge bg-danger">
+                <i class="ri-close-circle-line me-1"></i>Chiusa
+              </span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <hr>
+        
+        <div class="mb-4">
+          <h6 class="mb-2">Descrizione</h6>
+          <div class="text-secondary">{{ offer.description|nl2br|safe }}</div>
+        </div>
+        
+        {% if offer.requirements %}
+        <div class="mb-4">
+          <h6 class="mb-2">Requisiti</h6>
+          <div class="text-secondary">{{ offer.requirements|nl2br|safe }}</div>
+        </div>
+        {% endif %}
+        
+        {% if offer.benefits %}
+        <div class="mb-4">
+          <h6 class="mb-2">Benefits</h6>
+          <div class="text-secondary">{{ offer.benefits|nl2br|safe }}</div>
+        </div>
+        {% endif %}
+        
+        {% if offer.salary_range %}
+        <div class="mb-4">
+          <h6 class="mb-2">Range Salariale</h6>
+          <div class="text-secondary">{{ offer.salary_range }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    {# ─────────────────────── CONFIGURAZIONE ATS ─────────────────────── #}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-robot-line me-2"></i>Configurazione ATS
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <h6 class="text-muted mb-2">Keywords per Analisi CV:</h6>
+          <div class="p-3 bg-light rounded">
+            {{ offer.what_we_search|nl2br|safe if offer.what_we_search else 'Non configurato' }}
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center mb-2">
+              <div class="flex-grow-1">
+                <span class="text-muted">Peso Form:</span>
+                <strong class="ms-2">{{ offer.form_weight }}%</strong>
+              </div>
+            </div>
+            <div class="progress" style="height: 20px;">
+              <div class="progress-bar bg-primary" style="width: {{ offer.form_weight }}%;">
+                Form {{ offer.form_weight }}%
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center mb-2">
+              <div class="flex-grow-1">
+                <span class="text-muted">Peso CV:</span>
+                <strong class="ms-2">{{ offer.cv_weight }}%</strong>
+              </div>
+            </div>
+            <div class="progress" style="height: 20px;">
+              <div class="progress-bar bg-info" style="width: {{ offer.cv_weight }}%;">
+                CV {{ offer.cv_weight }}%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    {# ─────────────────────── DOMANDE FORM ─────────────────────── #}
+    {% if offer.questions %}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">
+          <i class="ri-questionnaire-line me-2"></i>Domande Candidatura ({{ offer.questions|length }})
+        </h6>
+        <a href="{{ url_for('recruiting.offer_questions', offer_id=offer.id) }}" class="btn btn-sm btn-outline-primary">
+          <i class="ri-edit-line me-1"></i>Modifica
+        </a>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th width="50">#</th>
+                <th>Domanda</th>
+                <th>Tipo</th>
+                <th>Peso</th>
+                <th>Obbligatoria</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for q in offer.questions %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ q.question_text }}</td>
+                <td>
+                  <span class="badge bg-light text-dark">{{ q.question_type.value }}</span>
+                </td>
+                <td>
+                  <span class="badge bg-primary">{{ q.weight }}%</span>
+                </td>
+                <td>
+                  {% if q.is_required %}
+                  <i class="ri-checkbox-circle-fill text-success"></i>
+                  {% else %}
+                  <i class="ri-close-circle-line text-muted"></i>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="3" class="text-end">Peso Totale:</th>
+                <th>
+                  <span class="badge {% if offer.total_questions_weight == 100 %}bg-success{% else %}bg-danger{% endif %}">
+                    {{ offer.total_questions_weight }}%
+                  </span>
+                </th>
+                <th></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  
+  {# ─────────────────────── SIDEBAR ─────────────────────── #}
+  <div class="col-lg-4">
+    {# Statistiche #}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-bar-chart-line me-2"></i>Statistiche
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Visualizzazioni totali:</span>
+          <strong>{{ offer.views_count }}</strong>
+        </div>
+        
+        <div class="ms-3 mb-3">
+          <div class="d-flex justify-content-between small">
+            <span class="text-muted">
+              <i class="ri-linkedin-box-fill text-primary"></i> LinkedIn:
+            </span>
+            <strong>{{ offer.linkedin_views or 0 }}</strong>
+          </div>
+          <div class="d-flex justify-content-between small">
+            <span class="text-muted">
+              <i class="ri-facebook-box-fill text-info"></i> Facebook:
+            </span>
+            <strong>{{ offer.facebook_views or 0 }}</strong>
+          </div>
+          <div class="d-flex justify-content-between small">
+            <span class="text-muted">
+              <i class="ri-instagram-fill text-danger"></i> Instagram:
+            </span>
+            <strong>{{ offer.instagram_views or 0 }}</strong>
+          </div>
+        </div>
+        
+        <div class="d-flex justify-content-between mb-3">
+          <span class="text-muted">Candidature:</span>
+          <strong>{{ offer.applications_count }}</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-3">
+          <span class="text-muted">Tasso Conversione:</span>
+          <strong>
+            {% if offer.views_count > 0 %}
+              {{ ((offer.applications_count / offer.views_count) * 100)|round(1) }}%
+            {% else %}
+              0%
+            {% endif %}
+          </strong>
+        </div>
+        
+        {% if stats.avg_score > 0 %}
+        <hr>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Score Medio:</span>
+          <strong>{{ stats.avg_score|round(1) }}%</strong>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    {# Link Pubblici #}
+    {% if offer.status.value == 'published' %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-link me-2"></i>Link Pubblici
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label text-muted">LinkedIn</label>
+          <div class="input-group">
+            <input type="text" class="form-control form-control-sm" value="{{ offer.get_public_url('linkedin') }}" readonly id="linkedinLink">
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('linkedinLink')">
+              <i class="ri-file-copy-line"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label text-muted">Facebook</label>
+          <div class="input-group">
+            <input type="text" class="form-control form-control-sm" value="{{ offer.get_public_url('facebook') }}" readonly id="facebookLink">
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('facebookLink')">
+              <i class="ri-file-copy-line"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label text-muted">Instagram</label>
+          <div class="input-group">
+            <input type="text" class="form-control form-control-sm" value="{{ offer.get_public_url('instagram') }}" readonly id="instagramLink">
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('instagramLink')">
+              <i class="ri-file-copy-line"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Date #}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Creata:</span>
+          <span>{{ offer.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        {% if offer.published_at %}
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Pubblicata:</span>
+          <span>{{ offer.published_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        {% endif %}
+        {% if offer.closed_at %}
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Chiusa:</span>
+          <span>{{ offer.closed_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    {# Azioni #}
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-title mb-3">Azioni</h6>
+        <div class="d-grid gap-2">
+          {% if offer.status.value == 'published' %}
+          <form action="{{ url_for('recruiting.offer_close', offer_id=offer.id) }}" method="POST">
+            <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Chiudere questa offerta?')">
+              <i class="ri-close-circle-line me-1"></i>Chiudi Offerta
+            </button>
+          </form>
+          {% elif offer.status.value == 'closed' %}
+          <button class="btn btn-secondary" disabled>
+            <i class="ri-lock-line me-1"></i>Offerta Chiusa
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Candidature per fonte #}
+{% if stats.by_source %}
+<div class="card mt-4">
+  <div class="card-header">
+    <h6 class="card-title mb-0">Candidature per Fonte</h6>
+  </div>
+  <div class="card-body">
+    <canvas id="sourceChart" height="100"></canvas>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function copyToClipboard(elementId) {
+  const input = document.getElementById(elementId);
+  input.select();
+  document.execCommand('copy');
+  toastr.success('Link copiato negli appunti!');
+}
+
+{% if stats.by_source %}
+// Chart candidature per fonte
+const ctx = document.getElementById('sourceChart').getContext('2d');
+new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    labels: {{ stats.by_source.keys()|list|tojson }},
+    datasets: [{
+      data: {{ stats.by_source.values()|list|tojson }},
+      backgroundColor: [
+        '#0077b5', // LinkedIn
+        '#1877f2', // Facebook
+        '#e4405f', // Instagram
+        '#718096', // Direct
+        '#48bb78', // Other
+      ]
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

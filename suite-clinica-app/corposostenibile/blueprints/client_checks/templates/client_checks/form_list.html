@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Lista Form di Controllo{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        background: #fff;
+    }
+    
+    .form-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .form-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px 8px 0 0;
+        padding: 1rem;
+    }
+    
+    .form-stats {
+        background: #f8f9fa;
+        border-radius: 0 0 8px 8px;
+        padding: 0.75rem;
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .stat-icon {
+        width: 20px;
+        margin-right: 8px;
+        color: #6c757d;
+    }
+    
+    .action-buttons {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    .btn-action {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 0.25rem;
+        border: none;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-action:hover {
+        transform: scale(1.1);
+    }
+    
+    .btn-edit {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #218838;
+        color: white;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+        color: white;
+    }
+    
+    .btn-view {
+        background: #007bff;
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: #0056b3;
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .search-box {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .filter-tabs {
+        border-bottom: 1px solid #e0e0e0;
+        margin-bottom: 1.5rem;
+    }
+    
+    .filter-tab {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: none;
+        color: #6c757d;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-tab.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+    }
+    
+    .filter-tab:hover {
+        color: #007bff;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-draft {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-archived {
+        background: #f8d7da;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Form di Controllo</h1>
+            <p class="text-muted mb-0">Gestisci i form per i controlli clienti</p>
+        </div>
+        <a href="{{ url_for('client_checks.create_form') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Nuovo Form
+        </a>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="search-box p-3">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" placeholder="Cerca form..." id="searchInput">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="statusFilter">
+                    <option value="">Tutti gli stati</option>
+                    <option value="active">Attivi</option>
+                    <option value="draft">Bozze</option>
+                    <option value="archived">Archiviati</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="sortBy">
+                    <option value="created_desc">Più recenti</option>
+                    <option value="created_asc">Più vecchi</option>
+                    <option value="name_asc">Nome A-Z</option>
+                    <option value="name_desc">Nome Z-A</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">
+            Tutti <span class="badge bg-secondary ms-1">{{ forms.items|length if forms and forms.items else 0 }}</span>
+        </button>
+        <button class="filter-tab" data-filter="active">
+            Attivi <span class="badge bg-success ms-1">{{ forms.items|selectattr('is_active')|list|length if forms and forms.items else 0 }}</span>
+        </button>
+        <button class="filter-tab" data-filter="inactive">
+            Inattivi <span class="badge bg-danger ms-1">{{ forms.items|rejectattr('is_active')|list|length if forms and forms.items else 0 }}</span>
+        </button>
+    </div>
+
+    <!-- Forms Grid -->
+    {% if forms and forms.items and forms.items|length > 0 %}
+    <div class="row" id="formsGrid">
+        {% for form in forms.items %}
+        <div class="col-lg-4 col-md-6 mb-4 form-item" 
+             data-name="{{ form.name|lower }}" 
+             data-status="{{ 'active' if form.is_active else 'inactive' }}"
+             data-created="{{ form.created_at.isoformat() if form.created_at else '' }}">
+            <div class="form-card position-relative">
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="{{ url_for('client_checks.preview_form', id=form.id) }}" 
+                       class="btn btn-action btn-view" 
+                       title="Visualizza">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{{ url_for('client_checks.edit_form', id=form.id) }}" 
+                       class="btn btn-action btn-edit" 
+                       title="Modifica">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button class="btn btn-action btn-delete" 
+                            title="Elimina"
+                            data-form-id="{{ form.id }}"
+                            data-form-name="{{ form.name }}"
+                            onclick="deleteForm(this.dataset.formId, this.dataset.formName)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+
+                <!-- Form Header -->
+                <div class="form-header">
+                    <h5 class="mb-2">{{ form.name }}</h5>
+                    <p class="mb-2 opacity-75">{{ form.description or 'Nessuna descrizione' }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="status-badge status-{{ 'active' if form.is_active else 'inactive' }}">
+                            {% if form.is_active %}Attivo
+                            {% else %}Inattivo
+                            {% endif %}
+                        </span>
+                        <small class="opacity-75">
+                            {{ form.created_at.strftime('%d/%m/%Y') if form.created_at else 'N/A' }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Form Stats -->
+                <div class="form-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-list-ul stat-icon"></i>
+                        <span>{{ form.fields|length if form.fields else 0 }} campi</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-check-circle stat-icon"></i>
+                        <span>{{ form.submissions_count or 0 }} compilazioni</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock stat-icon"></i>
+                        <span>Aggiornato {{ form.updated_at.strftime('%d/%m/%Y') if form.updated_at else 'N/A' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <i class="fas fa-clipboard-list"></i>
+        <h4>Nessun form trovato</h4>
+        <p>Non hai ancora creato nessun form di controllo.</p>
+        <a href="{{ url_for('client_checks.create_form') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Crea il primo form
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Conferma Eliminazione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Sei sicuro di voler eliminare il form "<span id="formNameToDelete"></span>"?</p>
+                <p class="text-danger"><small>Questa azione non può essere annullata.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Elimina</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let formToDelete = null;
+
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    filterForms();
+});
+
+// Status filter
+document.getElementById('statusFilter').addEventListener('change', function() {
+    filterForms();
+});
+
+// Sort functionality
+document.getElementById('sortBy').addEventListener('change', function() {
+    sortForms();
+});
+
+// Filter tabs
+document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        // Update active tab
+        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Filter forms
+        filterForms();
+    });
+});
+
+function filterForms() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const activeTab = document.querySelector('.filter-tab.active').dataset.filter;
+    
+    const formItems = document.querySelectorAll('.form-item');
+    
+    formItems.forEach(item => {
+        const name = item.dataset.name;
+        const status = item.dataset.status;
+        
+        let showItem = true;
+        
+        // Search filter
+        if (searchTerm && !name.includes(searchTerm)) {
+            showItem = false;
+        }
+        
+        // Status filter
+        if (statusFilter && status !== statusFilter) {
+            showItem = false;
+        }
+        
+        // Tab filter
+        if (activeTab !== 'all') {
+            if (activeTab === 'active' && status !== 'active') {
+                showItem = false;
+            } else if (activeTab === 'inactive' && status !== 'inactive') {
+                showItem = false;
+            }
+        }
+        
+        item.style.display = showItem ? 'block' : 'none';
+    });
+}
+
+function sortForms() {
+    const sortBy = document.getElementById('sortBy').value;
+    const grid = document.getElementById('formsGrid');
+    const items = Array.from(grid.children);
+    
+    items.sort((a, b) => {
+        switch (sortBy) {
+            case 'created_desc':
+                return new Date(b.dataset.created) - new Date(a.dataset.created);
+            case 'created_asc':
+                return new Date(a.dataset.created) - new Date(b.dataset.created);
+            case 'name_asc':
+                return a.dataset.name.localeCompare(b.dataset.name);
+            case 'name_desc':
+                return b.dataset.name.localeCompare(a.dataset.name);
+            default:
+                return 0;
+        }
+    });
+    
+    items.forEach(item => grid.appendChild(item));
+}
+
+function deleteForm(formId, formName) {
+    formToDelete = formId;
+    document.getElementById('formNameToDelete').textContent = formName;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+document.getElementById('confirmDelete').addEventListener('click', function() {
+    if (formToDelete) {
+        fetch(`/client-checks/forms/${formToDelete}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the form card from the DOM
+                const formItem = document.querySelector('[data-form-id="' + formToDelete + '"]');
+                if (formItem) {
+                    formItem.remove();
+                }
+                
+                // Show success message
+                showAlert('Form eliminato con successo', 'success');
+                
+                // Reload page to update counts
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showAlert('Errore durante l\'eliminazione del form', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Errore durante l\'eliminazione del form', 'danger');
+        });
+        
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+        formToDelete = null;
+    }
+});
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+// Initialize sorting on page load
+document.addEventListener('DOMContentLoaded', function() {
+    sortForms();
+});
+</script>
+{% endblock %}

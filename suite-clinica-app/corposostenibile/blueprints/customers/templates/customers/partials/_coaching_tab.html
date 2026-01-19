@@ -1,0 +1,2378 @@
+{#
+    TAB COACHING - Partial Template
+    
+    Contenuto interno tab Coaching
+#}
+
+<!-- Sub-tabs Navigation -->
+<ul class="nav nav-pills mb-4 flex-wrap" id="coachingTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="coach-overview-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-overview" type="button" role="tab">
+            <i class="ri-dashboard-line me-2"></i>Panoramica
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-setup-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-setup" type="button" role="tab">
+            <i class="ri-settings-3-line me-2"></i>Setup
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-training-plans-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-training-plans" type="button" role="tab">
+            <i class="ri-run-line me-2"></i>Piani Allenamento
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-training-locations-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-training-locations" type="button" role="tab">
+            <i class="ri-map-pin-line me-2"></i>Luoghi Allenamento
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-notes-old-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-notes-old" type="button" role="tab">
+            <i class="ri-archive-line me-2"></i>Note Vecchie
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-anamnesi-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-anamnesi" type="button" role="tab">
+            <i class="ri-file-list-3-line me-2"></i>Anamnesi
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-diario-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-diario" type="button" role="tab">
+            <i class="ri-book-open-line me-2"></i>Diario
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="coach-alert-tab" data-bs-toggle="pill"
+                data-bs-target="#coach-alert" type="button" role="tab">
+            <i class="ri-alarm-warning-line me-2"></i>Note Alert
+        </button>
+    </li>
+</ul>
+
+<form id="form-coaching" data-cliente-id="{{ cliente.cliente_id }}">
+<div class="tab-content" id="coachingTabsContent">
+                            <!-- TAB PANORAMICA -->
+                            <div class="tab-pane fade show active" id="coach-overview" role="tabpanel">
+
+                        <!-- Card: Team Coach Assegnato -->
+                        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #fef5f5 100%); border: 2px solid rgba(255, 107, 107, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(255, 107, 107, 0.05) 0%, rgba(255, 142, 83, 0.05) 100%); border-bottom: 2px solid rgba(255, 107, 107, 0.15);">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h5 class="modern-card-title mb-0">
+                                        <i class="ri-team-line" style="color: #FF6B6B;"></i>
+                                        Team Coach
+                                    </h5>
+                                    {% if cliente.coaches_multipli %}
+                                    <span class="badge" style="background: linear-gradient(135deg, #95E1D3 0%, #38EF7D 100%); color: #155724; font-weight: 600; padding: 6px 14px; border-radius: 20px; font-size: 12px;">
+                                        <i class="ri-check-line me-1"></i>
+                                        {{ cliente.coaches_multipli|length }} Assegnat{{ 'o' if cliente.coaches_multipli|length == 1 else 'i' }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="modern-card-body">
+                                {% if cliente.coaches_multipli %}
+                                    {% for coach in cliente.coaches_multipli %}
+                                    <div class="position-relative mb-3" style="background: white; border-radius: 20px; padding: 24px; box-shadow: 0 4px 20px rgba(255, 107, 107, 0.08); border: 2px solid rgba(255, 107, 107, 0.1); transition: all 0.3s ease; overflow: hidden;">
+                                        <!-- Decorative gradient bar -->
+                                        <div style="position: absolute; top: 0; left: 0; width: 5px; height: 100%; background: linear-gradient(180deg, #FF6B6B 0%, #FF8E53 100%);"></div>
+
+                                        <div class="d-flex align-items-center gap-4 ps-2">
+                                            <!-- Avatar con effetto -->
+                                            <div class="position-relative" style="flex-shrink: 0;">
+                                                <div style="position: absolute; inset: -4px; background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); border-radius: 24px; opacity: 0.2; animation: pulse 2s ease-in-out infinite;"></div>
+                                                <img src="{{ coach.avatar_url | image_url }}"
+                                                     alt="{{ coach.full_name or coach.email }}"
+                                                     style="width: 90px; height: 90px; border-radius: 22px; object-fit: cover; border: 4px solid white; box-shadow: 0 8px 24px rgba(255, 107, 107, 0.2); position: relative; z-index: 1; transition: transform 0.3s ease;"
+                                                     onmouseover="this.style.transform='scale(1.05) rotate(2deg)'"
+                                                     onmouseout="this.style.transform='scale(1) rotate(0deg)'">
+                                                <!-- Badge verificato -->
+                                                <div style="position: absolute; bottom: -2px; right: -2px; width: 32px; height: 32px; background: linear-gradient(135deg, #95E1D3 0%, #38EF7D 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(56, 239, 125, 0.4); z-index: 2;">
+                                                    <i class="ri-shield-check-fill" style="color: white; font-size: 16px;"></i>
+                                                </div>
+                                            </div>
+
+                                            <!-- Info Coach -->
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center gap-2 mb-3">
+                                                    <h4 class="mb-0 fw-bold" style="color: #1e293b; font-size: 22px;">
+                                                        {{ coach.full_name or coach.email }}
+                                                    </h4>
+                                                </div>
+
+                                                <p class="mb-0 text-muted" style="font-size: 14px; line-height: 1.6;">
+                                                    <i class="ri-mail-line me-1" style="color: #FF6B6B;"></i>
+                                                    {{ coach.email }}
+                                                </p>
+                                            </div>
+
+                                            <!-- Action button -->
+                                            <div>
+                                                <a href="#"
+                                                   onclick="document.getElementById('pills-team-tab').click(); return false;"
+                                                   class="btn btn-sm"
+                                                   style="background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); color: white; border: none; border-radius: 14px; padding: 10px 20px; font-weight: 600; box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3); transition: all 0.3s ease; white-space: nowrap;"
+                                                   onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(255, 107, 107, 0.4)'"
+                                                   onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(255, 107, 107, 0.3)'">
+                                                    <i class="ri-settings-3-line me-1"></i>
+                                                    Gestisci
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- Empty State Modern -->
+                                    <div class="text-center py-5" style="background: linear-gradient(135deg, rgba(255, 107, 107, 0.03) 0%, rgba(255, 142, 83, 0.03) 100%); border-radius: 20px; border: 2px dashed rgba(255, 107, 107, 0.2);">
+                                        <div style="width: 120px; height: 120px; margin: 0 auto 24px; background: linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(255, 142, 83, 0.1) 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                            <i class="ri-user-add-line" style="font-size: 56px; color: #FF6B6B; opacity: 0.7;"></i>
+                                        </div>
+                                        <h5 class="fw-bold mb-2" style="color: #1e293b;">Nessun Coach Assegnato</h5>
+                                        <p class="text-muted mb-4" style="font-size: 14px; max-width: 400px; margin: 0 auto;">
+                                            Assegna un professionista coach a questo cliente per iniziare il percorso di coaching personalizzato
+                                        </p>
+                                        <a href="#"
+                                           onclick="document.getElementById('pills-team-tab').click(); return false;"
+                                           class="btn"
+                                           style="background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); color: white; border: none; border-radius: 14px; padding: 12px 28px; font-weight: 600; box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3); transition: all 0.3s ease;"
+                                           onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(255, 107, 107, 0.4)'"
+                                           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(255, 107, 107, 0.3)'">
+                                            <i class="ri-add-line me-2"></i>
+                                            Assegna Coach dalla Tab Team
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Pulse Animation CSS -->
+                        <style>
+                            @keyframes pulse {
+                                0%, 100% { transform: scale(1); opacity: 0.2; }
+                                50% { transform: scale(1.05); opacity: 0.3; }
+                            }
+                        </style>
+
+                        <!-- Card: Stato Servizio -->
+                        <div class="modern-card" style="background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); border: 2px solid rgba(59, 130, 246, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(96, 165, 250, 0.05) 100%); border-bottom: 2px solid rgba(59, 130, 246, 0.15);">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h5 class="modern-card-title mb-0">
+                                        <i class="ri-toggle-line" style="color: #3B82F6;"></i>
+                                        Stato Servizio Coaching
+                                    </h5>
+                                    {% if cliente.stato_coach %}
+                                    <span class="badge" style="
+                                        {% if cliente.stato_coach.value == 'attivo' %}background: linear-gradient(135deg, #95E1D3 0%, #38EF7D 100%); color: #155724;
+                                        {% elif cliente.stato_coach.value == 'pausa' %}background: linear-gradient(135deg, #FFD93D 0%, #F9A826 100%); color: #856404;
+                                        {% elif cliente.stato_coach.value == 'ghost' %}background: linear-gradient(135deg, #A8DADC 0%, #457B9D 100%); color: #1e3a5f;
+                                        {% elif cliente.stato_coach.value == 'stop' %}background: linear-gradient(135deg, #FF6B6B 0%, #EE5A6F 100%); color: #721c24;
+                                        {% elif cliente.stato_coach.value == 'insoluto' %}background: linear-gradient(135deg, #D8B4FE 0%, #A78BFA 100%); color: #5b21b6;
+                                        {% endif %}
+                                        font-weight: 600; padding: 6px 14px; border-radius: 20px; font-size: 12px;">
+                                        <i class="ri-circle-fill me-1" style="font-size: 8px;"></i>
+                                        {{ cliente.stato_coach.value|capitalize }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="modern-card-body">
+                                <div class="mb-0">
+                                    <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                                        <i class="ri-settings-4-line me-1" style="color: #3B82F6;"></i>
+                                        Stato Coach
+                                        {% if cliente.stato_coach_data %}
+                                            <small class="text-muted ms-2 fw-normal">(dal {{ cliente.stato_coach_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                                        {% else %}
+                                            <small class="text-muted ms-2 fw-normal">(data non presente, vecchia procedura)</small>
+                                        {% endif %}
+                                    </label>
+                                    <select class="form-control modern-form-control form-select" name="stato_coach"
+                                            onchange="trackStatoChange(this, 'coach')"
+                                            style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                            onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                                            onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                                        <option value="">Seleziona stato</option>
+                                        {% for stato in ['attivo', 'pausa', 'ghost', 'stop'] %}
+                                            <option value="{{ stato }}"
+                                                {% if cliente.stato_coach and cliente.stato_coach.value == stato %}selected{% endif %}>
+                                                {{ stato|capitalize }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                                        <i class="ri-information-line me-1"></i>
+                                        Stato attuale del servizio di coaching per questo cliente
+                                    </small>
+                                </div>
+
+                                <!-- Storico Stati Servizio Coach -->
+                                <div class="mt-4 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.2);">
+                                    <h6 class="fw-semibold mb-3" style="color: #1e293b; font-size: 13px;">
+                                        <i class="ri-history-line me-1" style="color: #3B82F6;"></i>
+                                        Storico Stati
+                                    </h6>
+                                    <div id="storico-stato-coach">
+                                        <div class="text-center text-muted py-2">
+                                            <i class="ri-loader-4-line spin"></i> Caricamento storico...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Stato Chat Coaching -->
+                        <div class="modern-card" style="background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%); border: 2px solid rgba(168, 85, 247, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(192, 132, 252, 0.05) 100%); border-bottom: 2px solid rgba(168, 85, 247, 0.15);">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h5 class="modern-card-title mb-0">
+                                        <i class="ri-message-3-line" style="color: #A855F7;"></i>
+                                        Stato Chat Coaching
+                                    </h5>
+                                    {% if cliente.stato_cliente_chat_coaching %}
+                                    <span class="badge" style="
+                                        {% if cliente.stato_cliente_chat_coaching.value == 'attivo' %}background: linear-gradient(135deg, #95E1D3 0%, #38EF7D 100%); color: #155724;
+                                        {% elif cliente.stato_cliente_chat_coaching.value == 'pausa' %}background: linear-gradient(135deg, #FFD93D 0%, #F9A826 100%); color: #856404;
+                                        {% elif cliente.stato_cliente_chat_coaching.value == 'ghost' %}background: linear-gradient(135deg, #A8DADC 0%, #457B9D 100%); color: #1e3a5f;
+                                        {% endif %}
+                                        font-weight: 600; padding: 6px 14px; border-radius: 20px; font-size: 12px;">
+                                        <i class="ri-chat-3-fill me-1" style="font-size: 10px;"></i>
+                                        {{ cliente.stato_cliente_chat_coaching.value|capitalize }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="modern-card-body">
+                                <div class="mb-0">
+                                    <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                                        <i class="ri-chat-settings-line me-1" style="color: #A855F7;"></i>
+                                        Stato Cliente Chat Coaching
+                                    </label>
+                                    <select class="form-control modern-form-control form-select" name="stato_cliente_chat_coaching"
+                                            style="border: 2px solid rgba(168, 85, 247, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                            onfocus="this.style.borderColor='#A855F7'; this.style.boxShadow='0 0 0 4px rgba(168, 85, 247, 0.1)'"
+                                            onblur="this.style.borderColor='rgba(168, 85, 247, 0.2)'; this.style.boxShadow='none'">
+                                        <option value="">Seleziona stato</option>
+                                        {% for stato in ['attivo', 'pausa', 'ghost'] %}
+                                            <option value="{{ stato }}"
+                                                {% if cliente.stato_cliente_chat_coaching and cliente.stato_cliente_chat_coaching.value == stato %}selected{% endif %}>
+                                                {{ stato|capitalize }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                                        <i class="ri-information-line me-1"></i>
+                                        Stato del cliente nella chat di supporto per il servizio coaching
+                                    </small>
+                                </div>
+
+                                <!-- Storico Stati Chat Coaching -->
+                                <div class="mt-4 pt-3" style="border-top: 1px dashed rgba(168, 85, 247, 0.2);">
+                                    <h6 class="fw-semibold mb-3" style="color: #1e293b; font-size: 13px;">
+                                        <i class="ri-history-line me-1" style="color: #A855F7;"></i>
+                                        Storico Stati Chat
+                                    </h6>
+                                    <div id="storico-chat-coaching">
+                                        <div class="text-center text-muted py-2">
+                                            <i class="ri-loader-4-line spin"></i> Caricamento storico...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                            <!-- END TAB PANORAMICA -->
+
+                            <!-- TAB SETUP -->
+                            <div class="tab-pane fade" id="coach-setup" role="tabpanel">
+
+                        <!-- Card: Call Iniziale -->
+                        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); border: 2px solid rgba(34, 197, 94, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(74, 222, 128, 0.05) 100%); border-bottom: 2px solid rgba(34, 197, 94, 0.15);">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h5 class="modern-card-title mb-0">
+                                        <i class="ri-phone-line" style="color: #22C55E;"></i>
+                                        Call Iniziale Coach
+                                    </h5>
+                                    {% if cliente.call_iniziale_coach %}
+                                    <span class="badge" style="background: linear-gradient(135deg, #95E1D3 0%, #38EF7D 100%); color: #155724; font-weight: 600; padding: 6px 14px; border-radius: 20px; font-size: 12px;">
+                                        <i class="ri-check-line me-1"></i>
+                                        Completata
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="modern-card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                                            <i class="ri-checkbox-circle-line me-1" style="color: #22C55E;"></i>
+                                            Stato Call
+                                        </label>
+                                        <div class="form-check" style="padding: 12px 16px; background: rgba(34, 197, 94, 0.05); border-radius: 12px; border: 2px solid rgba(34, 197, 94, 0.2);">
+                                            <input class="form-check-input" type="checkbox" name="call_iniziale_coach"
+                                                   id="call_iniziale_coach"
+                                                   style="width: 20px; height: 20px; cursor: pointer;"
+                                                   {% if cliente.call_iniziale_coach %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="call_iniziale_coach" style="cursor: pointer; margin-left: 8px; color: #1e293b;">
+                                                Call Effettuata
+                                            </label>
+                                        </div>
+                                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                                            <i class="ri-information-line me-1"></i>
+                                            Segna quando la call iniziale è stata completata
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                                            <i class="ri-calendar-line me-1" style="color: #22C55E;"></i>
+                                            Data Call
+                                        </label>
+                                        <input type="date" class="form-control modern-form-control" name="data_call_iniziale_coach"
+                                               value="{{ cliente.data_call_iniziale_coach.strftime('%Y-%m-%d') if cliente.data_call_iniziale_coach }}"
+                                               style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 12px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px;"
+                                               onfocus="this.style.borderColor='#22C55E'; this.style.boxShadow='0 0 0 4px rgba(34, 197, 94, 0.1)'"
+                                               onblur="this.style.borderColor='rgba(34, 197, 94, 0.2)'; this.style.boxShadow='none'">
+                                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                                            <i class="ri-information-line me-1"></i>
+                                            Data in cui è stata effettuata la call
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Reach Out Coaching -->
+                        <div class="modern-card" style="background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%); border: 2px solid rgba(251, 146, 60, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(251, 146, 60, 0.05) 0%, rgba(252, 211, 77, 0.05) 100%); border-bottom: 2px solid rgba(251, 146, 60, 0.15);">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h5 class="modern-card-title mb-0">
+                                        <i class="ri-calendar-check-line" style="color: #FB923C;"></i>
+                                        Reach Out Coaching
+                                    </h5>
+                                    {% if cliente.reach_out_coaching %}
+                                    <span class="badge" style="background: linear-gradient(135deg, rgba(251, 146, 60, 0.2) 0%, rgba(252, 211, 77, 0.2) 100%); color: #92400e; font-weight: 600; padding: 6px 14px; border-radius: 20px; font-size: 12px;">
+                                        <i class="ri-calendar-line me-1"></i>
+                                        {{ cliente.reach_out_coaching.value|capitalize }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="modern-card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                                            <i class="ri-calendar-event-line me-1" style="color: #FB923C;"></i>
+                                            Giorno Reach Out
+                                        </label>
+                                        <select class="form-control modern-form-control form-select" name="reach_out_coaching"
+                                                style="border: 2px solid rgba(251, 146, 60, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                                onfocus="this.style.borderColor='#FB923C'; this.style.boxShadow='0 0 0 4px rgba(251, 146, 60, 0.1)'"
+                                                onblur="this.style.borderColor='rgba(251, 146, 60, 0.2)'; this.style.boxShadow='none'">
+                                            <option value="">Seleziona giorno</option>
+                                            {% for giorno in ['lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'] %}
+                                                <option value="{{ giorno }}"
+                                                    {% if cliente.reach_out_coaching and cliente.reach_out_coaching.value == giorno %}selected{% endif %}>
+                                                    {{ giorno|capitalize }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                                            <i class="ri-information-line me-1"></i>
+                                            Giorno settimanale per il contatto proattivo del servizio coaching
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                            <!-- END TAB SETUP -->
+
+                            <!-- TAB PIANI ALLENAMENTO -->
+                            <div class="tab-pane fade" id="coach-training-plans" role="tabpanel">
+
+                        <!-- Card: Piano Allenamento Attivo -->
+                        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%); border: 2px solid rgba(59, 130, 246, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(96, 165, 250, 0.05) 100%); border-bottom: 2px solid rgba(59, 130, 246, 0.15);">
+                                <h5 class="modern-card-title mb-0">
+                                    <i class="ri-run-line" style="color: #3B82F6;"></i>
+                                    Piano Allenamento Attivo
+                                </h5>
+                            </div>
+                            <div class="modern-card-body">
+                                <div id="training-plan-container">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="ri-loader-4-line spin"></i> Caricamento piano allenamento...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Storico Allenamenti -->
+                        <div class="modern-card" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 2px solid rgba(100, 116, 139, 0.1);">
+                            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(100, 116, 139, 0.05) 0%, rgba(148, 163, 184, 0.05) 100%); border-bottom: 2px solid rgba(100, 116, 139, 0.15);">
+                                <h5 class="modern-card-title mb-0">
+                                    <i class="ri-history-line" style="color: #64748B;"></i>
+                                    Storico Allenamenti
+                                </h5>
+                            </div>
+                            <div class="modern-card-body">
+                                <div id="training-history-container">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="ri-loader-4-line spin"></i> Caricamento storico...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                            </div>
+                            <!-- END TAB PIANI ALLENAMENTO -->
+
+                            <!-- TAB LUOGHI ALLENAMENTO -->
+                            <div class="tab-pane fade" id="coach-training-locations" role="tabpanel">
+
+                        <!-- Card: Luogo Allenamento Attivo -->
+                        <div class="modern-card" style="margin-top: 3rem;">
+                            <div class="modern-card-header">
+                                <h5 class="modern-card-title">
+                                    <i class="ri-map-pin-line"></i>
+                                    Luogo Allenamento Attivo
+                                </h5>
+                            </div>
+                            <div class="modern-card-body">
+                                <div id="location-container">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="ri-loader-4-line spin"></i> Caricamento luogo allenamento...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Storico Luoghi Allenamento -->
+                        <div class="modern-card">
+                            <div class="modern-card-header">
+                                <h5 class="modern-card-title">
+                                    <i class="ri-history-line"></i>
+                                    Storico Luoghi Allenamento
+                                </h5>
+                            </div>
+                            <div class="modern-card-body">
+                                <div id="location-history-container">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="ri-loader-4-line spin"></i> Caricamento storico...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                            </div>
+                            <!-- END TAB LUOGHI ALLENAMENTO -->
+
+                            <!-- TAB NOTE VECCHIE (legacy) -->
+                            <div class="tab-pane fade" id="coach-notes-old" role="tabpanel">
+                                <div class="modern-card" style="margin-top: 3rem;">
+                                    <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(107, 114, 128, 0.05) 0%, rgba(75, 85, 99, 0.05) 100%);">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <h5 class="modern-card-title">
+                                                <i class="ri-archive-line"></i>
+                                                Storia e Note Coach (Archivio)
+                                            </h5>
+                                            <span class="badge bg-secondary">Legacy</span>
+                                        </div>
+                                    </div>
+                                    <div class="modern-card-body">
+                                        <div class="alert alert-info mb-3">
+                                            <i class="ri-information-line me-2"></i>
+                                            <strong>Note storiche:</strong> Per le nuove note usa le tab <strong>Anamnesi</strong>, <strong>Diario</strong> e <strong>Note Alert</strong>.
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="modern-form-label">Storia Coach</label>
+                                                <textarea class="form-control modern-form-control" name="storia_coach" rows="8"
+                                                          placeholder="Storia e percorso con il coach...">{{ cliente.storia_coach or '' }}</textarea>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="modern-form-label">Note Extra Coach</label>
+                                                <textarea class="form-control modern-form-control" name="note_extra_coach" rows="4"
+                                                          placeholder="Note aggiuntive del coach...">{{ cliente.note_extra_coach or '' }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- END TAB NOTE VECCHIE -->
+
+                            <!-- TAB ANAMNESI -->
+                            <div class="tab-pane fade" id="coach-anamnesi" role="tabpanel">
+                                <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%); border: 2px solid rgba(249, 115, 22, 0.15);">
+                                    <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(251, 146, 60, 0.05) 100%); border-bottom: 2px solid rgba(249, 115, 22, 0.15);">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <h5 class="modern-card-title mb-0">
+                                                <i class="ri-file-list-3-line" style="color: #f97316;"></i>
+                                                Anamnesi Iniziale Coaching
+                                            </h5>
+                                            <button type="button" class="btn btn-sm" style="background: #f97316; color: white;" onclick="saveAnamnesi('coaching')">
+                                                <i class="ri-save-line me-1"></i> Salva Anamnesi
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="modern-card-body">
+                                        <div class="mb-3">
+                                            <label class="modern-form-label">Anamnesi Coaching</label>
+                                            <textarea class="form-control modern-form-control" id="anamnesi-coaching-content" rows="12"
+                                                      placeholder="Inserisci l'anamnesi iniziale: livello fitness, obiettivi, limitazioni fisiche, esperienza sportiva..."></textarea>
+                                            <small class="modern-form-hint">Valutazione iniziale completa - sempre modificabile</small>
+                                        </div>
+                                        <div id="anamnesi-coaching-info" class="text-muted small"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- END TAB ANAMNESI -->
+
+                            <!-- TAB DIARIO -->
+                            <div class="tab-pane fade" id="coach-diario" role="tabpanel">
+                                <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%); border: 2px solid rgba(249, 115, 22, 0.15);">
+                                    <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(251, 146, 60, 0.05) 100%); border-bottom: 2px solid rgba(249, 115, 22, 0.15);">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <h5 class="modern-card-title mb-0">
+                                                <i class="ri-book-open-line" style="color: #f97316;"></i>
+                                                Diario Coaching
+                                            </h5>
+                                            <button type="button" class="btn btn-sm" style="background: #f97316; color: white;" data-bs-toggle="modal" data-bs-target="#modalNuovaNota-coaching">
+                                                <i class="ri-add-line me-1"></i> Nuova Nota
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="modern-card-body">
+                                        <div id="diario-coaching-entries">
+                                            <div class="text-center py-4">
+                                                <i class="ri-loader-4-line spin" style="font-size: 24px;"></i>
+                                                <p class="text-muted mt-2">Caricamento note...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- END TAB DIARIO -->
+
+                            <!-- TAB NOTE ALERT -->
+                            <div class="tab-pane fade" id="coach-alert" role="tabpanel">
+                                <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%); border: 2px solid rgba(239, 68, 68, 0.15);">
+                                    <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(248, 113, 113, 0.05) 100%); border-bottom: 2px solid rgba(239, 68, 68, 0.15);">
+                                        <h5 class="modern-card-title mb-0">
+                                            <i class="ri-alarm-warning-line" style="color: #ef4444;"></i>
+                                            Note Alert - Informazioni Critiche
+                                        </h5>
+                                    </div>
+                                    <div class="modern-card-body">
+                                        <div class="alert alert-danger mb-3">
+                                            <i class="ri-error-warning-line me-2"></i>
+                                            <strong>Attenzione:</strong> Note per informazioni critiche (infortuni, limitazioni, controindicazioni).
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="modern-form-label">Note Alert Coaching</label>
+                                            <textarea class="form-control modern-form-control" name="alert_coaching" rows="6"
+                                                      placeholder="Infortuni, limitazioni fisiche, controindicazioni..."
+                                                      style="border-color: rgba(239, 68, 68, 0.3);">{{ cliente.alert_coaching or '' }}</textarea>
+                                            <small class="modern-form-hint text-danger">
+                                                <i class="ri-alarm-warning-line me-1"></i>
+                                                Queste note sono sempre visibili a tutto il team
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- END TAB NOTE ALERT -->
+                        </div>
+                        <!-- END TAB CONTENT -->
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex align-items-center justify-content-center gap-3 mt-4">
+                            <button type="button" class="btn-modern-secondary" onclick="resetForm('form-coaching')">
+                                <i class="ri-close-line me-1"></i> Annulla
+                            </button>
+                            <button type="submit" class="btn-modern-primary">
+                                <i class="ri-save-line me-1"></i> Salva Modifiche
+                            </button>
+                        </div>
+                        </form>
+
+<script>
+// ========================================================================
+// GESTIONE ALLENAMENTI - Sistema Storico
+// ========================================================================
+(function() {
+    const clienteId = {{ cliente.cliente_id }};
+    const csrfToken = "{{ csrf_token() }}";
+
+    async function loadActiveTrainingPlan() {
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/history`);
+            const data = await response.json();
+            const container = document.getElementById('training-plan-container');
+            if (!container) return;
+
+            const activePlan = data.plans.find(p => p.is_active);
+            const legacyPlan = data.plans.find(p => p.is_legacy);
+
+            if (activePlan) {
+                container.innerHTML = renderActiveTrainingPlan(activePlan, data.can_manage);
+                // Carica lo storico delle versioni del piano attivo
+                loadTrainingPlanVersions(activePlan.id);
+            } else if (legacyPlan) {
+                container.innerHTML = renderLegacyTrainingPlan(legacyPlan, data.can_manage);
+            } else {
+                container.innerHTML = `<div class="alert alert-info"><i class="ri-information-line"></i> Nessun piano allenamento attivo. ${data.can_manage ? '<button type="button" class="btn btn-primary btn-sm mt-2" onclick="openAddTrainingModal()"><i class="ri-add-line me-1"></i> Aggiungi Primo Allenamento</button>' : ''}</div>`;
+            }
+        } catch (error) {
+            console.error(error);
+            const container = document.getElementById('training-plan-container');
+            if (container) container.innerHTML = `<div class="alert alert-danger">Errore caricamento</div>`;
+        }
+    }
+
+    function renderActiveTrainingPlan(plan, canManage) {
+        const startDate = plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-';
+        const endDate = plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-';
+
+        // Mostra il download link se c'è un file PDF, altrimenti mostra il vecchio campo testo
+        let pianoAllenamentoHTML = '';
+        if (plan.has_file && plan.piano_allenamento_file_path) {
+            pianoAllenamentoHTML = `
+                <div class="col-12">
+                    <label class="modern-form-label">Piano Allenamento</label>
+                    <div class="alert alert-success d-flex align-items-center justify-content-between" style="margin-bottom: 0;">
+                        <div>
+                            <i class="ri-file-pdf-line me-2" style="font-size: 1.5rem;"></i>
+                            <strong>PDF disponibile</strong>
+                        </div>
+                        <a href="/uploads/${escapeHtml(plan.piano_allenamento_file_path)}"
+                           class="btn btn-sm btn-primary"
+                           target="_blank">
+                            <i class="ri-download-2-line me-1"></i> Scarica Piano Allenamento
+                        </a>
+                    </div>
+                </div>
+            `;
+        } else if (plan.piano_allenamento) {
+            pianoAllenamentoHTML = `
+                <div class="col-12">
+                    <label class="modern-form-label">Piano Allenamento (Legacy)</label>
+                    <textarea class="form-control modern-form-control" rows="4" readonly>${escapeHtml(plan.piano_allenamento)}</textarea>
+                </div>
+            `;
+        }
+
+        // Extra Files section
+        let extraFilesHTML = '';
+        const extraFiles = plan.extra_files || [];
+        if (extraFiles.length > 0 || canManage) {
+            let filesListHTML = '';
+            if (extraFiles.length > 0) {
+                filesListHTML = extraFiles.map(f => `
+                    <div class="d-flex align-items-center justify-content-between p-2 mb-1" style="background: rgba(59, 130, 246, 0.05); border-radius: 6px;">
+                        <div class="d-flex align-items-center">
+                            <i class="ri-file-pdf-line me-2" style="color: #3B82F6;"></i>
+                            <span style="font-size: 13px;">${escapeHtml(f.file_name)}</span>
+                            <span class="text-muted ms-2" style="font-size: 11px;">(${(f.file_size / 1024).toFixed(0)} KB)</span>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <a href="/customers/${clienteId}/training/${plan.id}/extra-files/${f.id}/download"
+                               class="btn btn-sm btn-outline-primary" style="padding: 2px 8px; font-size: 11px;">
+                                <i class="ri-download-line"></i>
+                            </a>
+                            ${canManage ? `
+                                <button type="button" class="btn btn-sm btn-outline-danger" style="padding: 2px 8px; font-size: 11px;"
+                                        onclick="deleteTrainingExtraFile(${plan.id}, ${f.id})">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                filesListHTML = '<div class="text-muted text-center py-2" style="font-size: 13px;">Nessun file extra allegato</div>';
+            }
+
+            extraFilesHTML = `
+                <div class="col-12 mt-3">
+                    <label class="fw-semibold mb-2" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-attachment-2 me-1" style="color: #3B82F6;"></i>
+                        File Extra (${extraFiles.length}/5)
+                    </label>
+                    <div class="p-2 rounded" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                        ${filesListHTML}
+                        ${canManage && extraFiles.length < 5 ? `
+                            <div class="mt-2 pt-2" style="border-top: 1px dashed #e2e8f0;">
+                                <input type="file" id="training_extra_file_${plan.id}" accept=".pdf" style="display: none;"
+                                       onchange="uploadTrainingExtraFile(${plan.id}, this)">
+                                <button type="button" class="btn btn-sm btn-outline-primary w-100"
+                                        onclick="document.getElementById('training_extra_file_${plan.id}').click()">
+                                    <i class="ri-add-line me-1"></i> Aggiungi File PDF (max 50MB)
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Note del piano
+        let notesHTML = '';
+        if (plan.notes) {
+            notesHTML = `
+                <div class="col-12">
+                    <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-sticky-note-line me-1" style="color: #3B82F6;"></i>
+                        Note
+                    </label>
+                    <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                        ${escapeHtml(plan.notes).replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label class="modern-form-label">Nome Piano</label>
+                    <input type="text" class="form-control modern-form-control" value="${escapeHtml(plan.name || '')}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="modern-form-label">Allenamento Dal</label>
+                    <input type="text" class="form-control modern-form-control" value="${startDate}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="modern-form-label">Fino Al</label>
+                    <input type="text" class="form-control modern-form-control" value="${endDate}" readonly>
+                </div>
+                ${pianoAllenamentoHTML}
+                ${extraFilesHTML}
+                ${notesHTML}
+            </div>
+
+            <!-- Storico Modifiche Piano -->
+            <div class="mt-4 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.3);">
+                <h6 class="fw-semibold mb-3" style="color: #1e293b; font-size: 14px;">
+                    <i class="ri-history-line me-1" style="color: #3B82F6;"></i>
+                    Storico Modifiche Piano
+                </h6>
+                <div id="training-plan-versions-${plan.id}">
+                    <div class="text-center text-muted py-2">
+                        <i class="ri-loader-4-line spin"></i> Caricamento storico modifiche...
+                    </div>
+                </div>
+            </div>
+
+            ${canManage ? `
+                <div class="mt-3 d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openChangeTrainingModal(${plan.id})">
+                        <i class="ri-edit-line me-1"></i> Modifica Piano
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddTrainingModal()">
+                        <i class="ri-add-line me-1"></i> Aggiungi Nuovo Allenamento
+                    </button>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    function renderLegacyTrainingPlan(plan, canManage) {
+        const startDate = plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-';
+        const endDate = plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-';
+        return `<div class="alert alert-warning mb-3"><i class="ri-alert-line"></i> <strong>Dati Legacy</strong> - Questi dati provengono dalla vecchia gestione</div><div class="row g-3"><div class="col-md-6"><label class="modern-form-label">Allenamento Dal</label><input type="text" class="form-control modern-form-control" value="${startDate}" readonly></div><div class="col-md-6"><label class="modern-form-label">Nuovo Allenamento Il</label><input type="text" class="form-control modern-form-control" value="${endDate}" readonly></div></div>${canManage ? `<div class="mt-3"><button type="button" class="btn btn-primary btn-sm" onclick="openAddTrainingModal()"><i class="ri-add-line me-1"></i> Inizia Nuovo Sistema Allenamenti</button></div>` : ''}`;
+    }
+
+    async function loadTrainingPlanVersions(planId) {
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/${planId}/versions`);
+            const data = await response.json();
+            const container = document.getElementById(`training-plan-versions-${planId}`);
+            if (!container) return;
+
+            if (!data.ok || !data.versions || data.versions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-2" style="font-size: 13px;">
+                        <i class="ri-information-line me-1"></i>
+                        Nessuna modifica registrata
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = renderTrainingPlanVersions(data.versions);
+        } catch (error) {
+            console.error('Errore caricamento versioni piano:', error);
+            const container = document.getElementById(`training-plan-versions-${planId}`);
+            if (container) {
+                container.innerHTML = `
+                    <div class="alert alert-sm alert-danger">
+                        <i class="ri-error-warning-line me-1"></i>
+                        Errore nel caricamento dello storico
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Memorizza le versioni globalmente per poterle recuperare quando si clicca
+    let cachedVersions = {};
+
+    function renderTrainingPlanVersions(versions) {
+        // Salva le versioni in cache
+        versions.forEach(v => {
+            cachedVersions[v.version_number] = v;
+        });
+
+        return versions.map((version, index) => {
+            const isLatest = index === 0;
+            const changedAt = version.changed_at ? new Date(version.changed_at).toLocaleDateString('it-IT', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : '-';
+
+            const cursorStyle = !isLatest ? 'cursor: pointer;' : '';
+            const hoverStyle = !isLatest ? 'transition: all 0.3s ease;' : '';
+            const onClickAttr = !isLatest ? `onclick="openVersionModal(${version.version_number})"` : '';
+
+            return `
+                <div class="d-flex align-items-start gap-3 mb-2 p-2 rounded"
+                     style="background: rgba(59, 130, 246, 0.05); border-left: 3px solid #3B82F6; ${cursorStyle} ${hoverStyle}"
+                     ${onClickAttr}
+                     ${!isLatest ? 'onmouseover="this.style.background=\'rgba(59, 130, 246, 0.1)\'" onmouseout="this.style.background=\'rgba(59, 130, 246, 0.05)\'"' : ''}>
+                    <div class="flex-shrink-0">
+                        <div class="d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(96, 165, 250, 0.2) 100%); border-radius: 8px;">
+                            <i class="${isLatest ? 'ri-star-fill' : 'ri-history-line'}" style="color: #3B82F6; font-size: 16px;"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-primary" style="font-size: 11px; font-weight: 600;">
+                                Versione ${version.version_number}
+                            </span>
+                            ${isLatest ? '<span class="badge bg-success" style="font-size: 10px;">ATTUALE</span>' : '<span class="badge bg-info" style="font-size: 10px;"><i class="ri-eye-line me-1"></i>CLICCA PER VISUALIZZARE</span>'}
+                        </div>
+                        <div style="font-size: 12px; color: #64748b;">
+                            <i class="ri-calendar-line me-1"></i>
+                            <strong>${changedAt}</strong>
+                            ${version.changed_by ? ` - <i class="ri-user-line me-1"></i><strong>${escapeHtml(version.changed_by)}</strong>` : ''}
+                        </div>
+                        ${version.change_reason ? `
+                            <div class="mt-2 p-2 rounded" style="background: white; border: 1px solid rgba(59, 130, 246, 0.2); font-size: 13px;">
+                                <i class="ri-chat-quote-line me-1" style="color: #3B82F6;"></i>
+                                <strong>Motivazione:</strong> ${escapeHtml(version.change_reason)}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.openVersionModal = function(versionNumber) {
+        const version = cachedVersions[versionNumber];
+        if (!version) {
+            alert('Versione non trovata');
+            return;
+        }
+
+        // Imposta il titolo
+        document.getElementById('version-modal-title').textContent = `Versione ${versionNumber} - Piano Allenamento`;
+
+        // Prepara il contenuto
+        const startDate = version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-';
+        const endDate = version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-';
+        const changedAt = version.changed_at ? new Date(version.changed_at).toLocaleDateString('it-IT', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : '-';
+
+        let content = `
+            <div class="alert alert-info mb-4">
+                <i class="ri-information-line me-2"></i>
+                <strong>Questa è una versione storica del piano allenamento</strong>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-file-text-line me-1" style="color: #3B82F6;"></i>
+                        Nome Piano
+                    </label>
+                    <input type="text" class="form-control" value="${escapeHtml(version.name || '-')}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-calendar-line me-1" style="color: #3B82F6;"></i>
+                        Data Inizio
+                    </label>
+                    <input type="text" class="form-control" value="${startDate}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-calendar-check-line me-1" style="color: #3B82F6;"></i>
+                        Data Fine
+                    </label>
+                    <input type="text" class="form-control" value="${endDate}" readonly>
+                </div>
+        `;
+
+        if (version.notes) {
+            content += `
+                <div class="col-12">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-sticky-note-line me-1" style="color: #3B82F6;"></i>
+                        Note
+                    </label>
+                    <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                        ${escapeHtml(version.notes).replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (version.change_reason) {
+            content += `
+                <div class="col-12">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-chat-quote-line me-1" style="color: #3B82F6;"></i>
+                        Motivazione Modifica
+                    </label>
+                    <div class="p-3 rounded" style="background: rgba(251, 146, 60, 0.05); border: 1px solid rgba(251, 146, 60, 0.2);">
+                        ${escapeHtml(version.change_reason)}
+                    </div>
+                </div>
+            `;
+        }
+
+        content += `
+                <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.3);">
+                    <div class="d-flex align-items-center gap-2" style="font-size: 13px; color: #64748b;">
+                        <i class="ri-calendar-event-line"></i>
+                        <strong>Modificato il:</strong> ${changedAt}
+                        ${version.changed_by ? `<i class="ri-user-line ms-3"></i><strong>da:</strong> ${escapeHtml(version.changed_by)}` : ''}
+                    </div>
+                </div>
+                ${version.has_file && version.piano_allenamento_file_path ? `
+                    <div class="col-12">
+                        <label class="fw-semibold mb-2" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-file-pdf-line me-1" style="color: #3B82F6;"></i>
+                            Piano Allenamento PDF
+                        </label>
+                        <div class="alert alert-success mb-0 d-flex align-items-center justify-content-between">
+                            <div>
+                                <i class="ri-file-pdf-line me-2"></i>
+                                <strong>Piano Allenamento (Versione ${versionNumber})</strong>
+                            </div>
+                            <a href="/uploads/${escapeHtml(version.piano_allenamento_file_path)}"
+                               target="_blank"
+                               class="btn btn-sm btn-outline-success">
+                                <i class="ri-download-line me-1"></i>
+                                Scarica PDF
+                            </a>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        document.getElementById('version-modal-content').innerHTML = content;
+
+        // Apri il modal
+        const modal = new bootstrap.Modal(document.getElementById('viewTrainingVersionModal'));
+        modal.show();
+    };
+
+    // Upload file extra per piano allenamento (esposto globalmente per onclick)
+    window.uploadTrainingExtraFile = async function(planId, inputElement) {
+        const file = inputElement.files[0];
+        if (!file) return;
+
+        // Validazione lato client
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            alert('Il file deve essere in formato PDF');
+            inputElement.value = '';
+            return;
+        }
+
+        if (file.size > 50 * 1024 * 1024) {
+            alert('Il file è troppo grande. Dimensione massima: 50MB');
+            inputElement.value = '';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('extra_file', file);
+
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/${planId}/extra-files/add`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('File extra aggiunto con successo');
+                loadActiveTrainingPlan(); // Ricarica il piano per mostrare il nuovo file
+            } else {
+                alert(data.error || 'Errore durante il caricamento');
+            }
+        } catch (error) {
+            console.error('Errore upload file extra:', error);
+            alert('Errore durante il caricamento del file');
+        }
+
+        inputElement.value = '';
+    }
+
+    // Elimina file extra da piano allenamento (esposto globalmente per onclick)
+    window.deleteTrainingExtraFile = async function(planId, fileId) {
+        if (!confirm('Sei sicuro di voler eliminare questo file?')) return;
+
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/${planId}/extra-files/${fileId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert('File eliminato con successo');
+                loadActiveTrainingPlan(); // Ricarica il piano
+            } else {
+                alert(data.error || 'Errore durante l\'eliminazione');
+            }
+        } catch (error) {
+            console.error('Errore eliminazione file extra:', error);
+            alert('Errore durante l\'eliminazione del file');
+        }
+    }
+
+    async function loadTrainingHistory() {
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/history`);
+            const data = await response.json();
+            const container = document.getElementById('training-history-container');
+            if (!container) return;
+
+            if (data.plans.length === 0) {
+                container.innerHTML = '<p class="text-muted">Nessuno storico disponibile</p>';
+                return;
+            }
+
+            // Filtra solo i piani non attivi
+            const historicalPlans = data.plans.filter(p => !p.is_active);
+
+            if (historicalPlans.length === 0) {
+                container.innerHTML = '<p class="text-muted">Nessuno storico disponibile</p>';
+                return;
+            }
+
+            let html = '<div class="row g-3">';
+            historicalPlans.forEach(p => {
+                const startDate = p.start_date ? new Date(p.start_date).toLocaleDateString('it-IT') : '-';
+                const endDate = p.end_date ? new Date(p.end_date).toLocaleDateString('it-IT') : '-';
+                const badge = p.is_legacy
+                    ? '<span class="badge bg-warning">Legacy</span>'
+                    : '<span class="badge bg-secondary">Chiuso</span>';
+
+                html += `
+                    <div class="col-12">
+                        <div class="card modern-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <h6 class="fw-semibold mb-1" style="color: #1e293b;">
+                                            <i class="ri-file-text-line me-1" style="color: #3B82F6;"></i>
+                                            ${escapeHtml(p.name || 'Piano senza nome')}
+                                        </h6>
+                                        <div class="text-muted" style="font-size: 13px;">
+                                            <i class="ri-calendar-line me-1"></i>
+                                            ${startDate} - ${endDate}
+                                            ${p.duration_days ? `<span class="ms-2">(${p.duration_days} giorni)</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        ${badge}
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2 align-items-center">
+                                    ${p.has_file ? `
+                                        <a href="/uploads/${escapeHtml(p.piano_allenamento_file_path)}"
+                                           target="_blank"
+                                           class="btn btn-sm btn-outline-success">
+                                            <i class="ri-file-pdf-line me-1"></i> PDF
+                                        </a>
+                                    ` : ''}
+                                    ${!p.is_legacy ? `
+                                        <button type="button"
+                                                class="btn btn-sm btn-primary"
+                                                onclick="openTrainingDetailsModal(${p.id})">
+                                            <i class="ri-eye-line me-1"></i> Dettagli
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        } catch (error) {
+            console.error(error);
+            const container = document.getElementById('training-history-container');
+            if (container) container.innerHTML = `<div class="alert alert-danger">Errore caricamento</div>`;
+        }
+    }
+
+    window.openTrainingDetailsModal = async function(planId) {
+        try {
+            // Carica il piano
+            const historyResponse = await fetch(`/customers/${clienteId}/training/history`);
+            const historyData = await historyResponse.json();
+            const plan = historyData.plans.find(p => p.id === planId);
+
+            if (!plan) {
+                alert('Piano non trovato');
+                return;
+            }
+
+            // Carica le versioni
+            const versionsResponse = await fetch(`/customers/${clienteId}/training/${planId}/versions`);
+            const versionsData = await versionsResponse.json();
+
+            // Imposta il titolo del modal
+            document.getElementById('training-details-modal-title').textContent = plan.name || 'Piano Allenamento';
+
+            // Renderizza i dettagli del piano
+            const startDate = plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-';
+            const endDate = plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-';
+
+            let detailsHTML = `
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label class="modern-form-label">Nome Piano</label>
+                        <input type="text" class="form-control modern-form-control" value="${escapeHtml(plan.name || '')}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label">Allenamento Dal</label>
+                        <input type="text" class="form-control modern-form-control" value="${startDate}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label">Fino Al</label>
+                        <input type="text" class="form-control modern-form-control" value="${endDate}" readonly>
+                    </div>
+            `;
+
+            // Piano PDF
+            if (plan.has_file && plan.piano_allenamento_file_path) {
+                detailsHTML += `
+                    <div class="col-12">
+                        <label class="modern-form-label">Piano Allenamento</label>
+                        <div class="alert alert-success d-flex align-items-center justify-content-between" style="margin-bottom: 0;">
+                            <div>
+                                <i class="ri-file-pdf-line me-2" style="font-size: 1.5rem;"></i>
+                                <strong>PDF disponibile</strong>
+                            </div>
+                            <a href="/uploads/${escapeHtml(plan.piano_allenamento_file_path)}"
+                               class="btn btn-sm btn-primary"
+                               target="_blank">
+                                <i class="ri-download-2-line me-1"></i> Scarica Piano Allenamento
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Note
+            if (plan.notes) {
+                detailsHTML += `
+                    <div class="col-12">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-sticky-note-line me-1" style="color: #3B82F6;"></i>
+                            Note
+                        </label>
+                        <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                            ${escapeHtml(plan.notes).replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            detailsHTML += `</div>`;
+
+            // Storico versioni
+            if (versionsData.ok && versionsData.versions && versionsData.versions.length > 0) {
+                detailsHTML += `
+                    <div class="mt-4 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.3);">
+                        <h6 class="fw-semibold mb-3" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-history-line me-1" style="color: #3B82F6;"></i>
+                            Storico Modifiche Piano
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2">
+                `;
+
+                versionsData.versions.forEach(v => {
+                    const isCurrent = v.is_current || false;
+                    const btnClass = isCurrent ? 'btn-primary' : 'btn-outline-secondary';
+                    const label = isCurrent ? `Versione ${v.version_number} (Attuale)` : `Versione ${v.version_number}`;
+
+                    detailsHTML += `
+                        <button type="button"
+                                class="btn btn-sm ${btnClass}"
+                                onclick="openVersionModal(${v.version_number})">
+                            <i class="ri-file-list-line me-1"></i> ${label}
+                        </button>
+                    `;
+                });
+
+                detailsHTML += `
+                        </div>
+                    </div>
+                `;
+
+                // Salva le versioni in cache
+                cachedVersions = {};
+                versionsData.versions.forEach(v => {
+                    cachedVersions[v.version_number] = v;
+                });
+            }
+
+            document.getElementById('training-details-modal-content').innerHTML = detailsHTML;
+
+            // Apri il modal
+            const modal = new bootstrap.Modal(document.getElementById('trainingDetailsModal'));
+            modal.show();
+        } catch (error) {
+            console.error(error);
+            alert('Errore durante il caricamento dei dettagli del piano');
+        }
+    };
+
+    window.openAddTrainingModal = function() {
+        document.getElementById('add_training_name').value = '';
+        document.getElementById('add_training_start_date').value = '';
+        document.getElementById('add_training_end_date').value = '';
+        document.getElementById('add_training_piano_allenamento_file').value = '';
+        document.getElementById('add_training_notes').value = '';
+        fetch(`/customers/${clienteId}/training/history`).then(r => r.json()).then(data => {
+            const activePlan = data.plans.find(p => p.is_active);
+            const startInput = document.getElementById('add_training_start_date');
+            if (activePlan && activePlan.end_date) {
+                const endDate = new Date(activePlan.end_date);
+                endDate.setDate(endDate.getDate() + 1);
+                startInput.value = endDate.toISOString().split('T')[0];
+            } else {
+                startInput.value = new Date().toISOString().split('T')[0];
+            }
+        }).catch(() => { document.getElementById('add_training_start_date').value = new Date().toISOString().split('T')[0]; });
+        new bootstrap.Modal(document.getElementById('addTrainingModal')).show();
+    };
+
+    window.saveAddTraining = async function() {
+        const form = document.getElementById('addTrainingForm');
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+
+        // Validazione file PDF
+        const fileInput = document.getElementById('add_training_piano_allenamento_file');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('Per favore seleziona un file PDF per il piano allenamento');
+            return;
+        }
+        if (file.type !== 'application/pdf') {
+            alert('Il file deve essere in formato PDF');
+            return;
+        }
+        if (file.size > 50 * 1024 * 1024) { // 10MB
+            alert('Il file è troppo grande. Dimensione massima: 50MB');
+            return;
+        }
+
+        // Usa FormData per l'upload multipart
+        const formData = new FormData();
+        formData.append('name', document.getElementById('add_training_name').value);
+        formData.append('start_date', document.getElementById('add_training_start_date').value);
+        formData.append('end_date', document.getElementById('add_training_end_date').value);
+        formData.append('piano_allenamento_file', file);
+        formData.append('notes', document.getElementById('add_training_notes').value);
+
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/add`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                    // Non impostare Content-Type: il browser lo gestisce automaticamente con boundary per multipart
+                },
+                body: formData
+            });
+            const result = await response.json();
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('addTrainingModal')).hide();
+                alert('Allenamento aggiunto con successo!');
+                loadActiveTrainingPlan();
+                loadTrainingHistory();
+            } else {
+                alert('Errore: ' + (result.error || 'Impossibile salvare'));
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Errore durante il salvataggio');
+        }
+    };
+
+    window.openChangeTrainingModal = async function(planId) {
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/history`);
+            const data = await response.json();
+            const plan = data.plans.find(p => p.id === planId);
+            if (!plan) { alert('Piano non trovato'); return; }
+
+            // Popola i campi
+            document.getElementById('change_training_plan_id').value = plan.id;
+            document.getElementById('change_training_start_date').value = plan.start_date || '';
+            document.getElementById('change_training_end_date').value = plan.end_date || '';
+            document.getElementById('change_training_notes').value = plan.notes || '';
+            document.getElementById('change_training_reason').value = '';
+
+            // Resetta il file input
+            document.getElementById('change_training_pdf_file').value = '';
+
+            // Mostra/nascondi il PDF attuale
+            const pdfContainer = document.getElementById('change_training_current_pdf_container');
+            const pdfLink = document.getElementById('change_training_current_pdf_link');
+            const pdfLabel = document.getElementById('change_training_pdf_label');
+
+            if (plan.has_file && plan.piano_allenamento_file_path) {
+                pdfContainer.style.display = 'block';
+                pdfLink.href = `/customers/${clienteId}/training/${plan.id}/download`;
+                pdfLabel.textContent = 'Sostituisci Piano Allenamento (PDF)';
+            } else {
+                pdfContainer.style.display = 'none';
+                pdfLabel.textContent = 'Carica Piano Allenamento (PDF)';
+            }
+
+            new bootstrap.Modal(document.getElementById('changeTrainingModal')).show();
+        } catch (error) { console.error(error); alert('Errore caricamento piano'); }
+    };
+
+    window.saveChangeTraining = async function() {
+        const planId = document.getElementById('change_training_plan_id').value;
+        const changeReason = document.getElementById('change_training_reason').value;
+
+        // Validazione motivazione modifica
+        if (!changeReason || changeReason.trim() === '') {
+            alert('La motivazione della modifica è obbligatoria per tracciare le versioni');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('plan_id', parseInt(planId));
+        formData.append('start_date', document.getElementById('change_training_start_date').value);
+        formData.append('end_date', document.getElementById('change_training_end_date').value);
+        formData.append('notes', document.getElementById('change_training_notes').value);
+        formData.append('change_reason', changeReason);
+
+        // Aggiungi il file PDF se presente
+        const pdfFile = document.getElementById('change_training_pdf_file').files[0];
+        if (pdfFile) {
+            // Validazione file PDF
+            if (pdfFile.type !== 'application/pdf') {
+                alert('Solo file PDF sono permessi');
+                return;
+            }
+            if (pdfFile.size > 50 * 1024 * 1024) {
+                alert('Il file è troppo grande. Massimo 50MB');
+                return;
+            }
+            formData.append('piano_allenamento_file', pdfFile);
+        }
+
+        try {
+            const response = await fetch(`/customers/${clienteId}/training/change`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+            const result = await response.json();
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('changeTrainingModal')).hide();
+                alert('Piano aggiornato con successo!');
+                loadActiveTrainingPlan();
+                loadTrainingHistory();
+            } else {
+                alert('Errore: ' + (result.error || 'Impossibile aggiornare'));
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Errore durante l\'aggiornamento');
+        }
+    };
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function initTrainingManagement() {
+        if (document.getElementById('training-plan-container')) {
+            loadActiveTrainingPlan();
+            loadTrainingHistory();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTrainingManagement);
+    } else {
+        initTrainingManagement();
+    }
+
+    document.addEventListener('shown.bs.tab', function(event) {
+        if (event.target.getAttribute('href') === '#coaching' || event.target.getAttribute('data-bs-target') === '#coaching') {
+            initTrainingManagement();
+        }
+    });
+
+    // Carica anche quando si apre la sotto-tab "Piani Allenamento" dentro Coaching
+    document.addEventListener('shown.bs.tab', function(event) {
+        if (event.target.getAttribute('data-bs-target') === '#coach-training-plans') {
+            initTrainingManagement();
+        }
+    });
+})();
+
+// ========================================================================
+// GESTIONE LUOGO ALLENAMENTO - Sistema Storico
+// ========================================================================
+(function() {
+    const clienteId = {{ cliente.cliente_id }};
+    const csrfToken = "{{ csrf_token() }}";
+
+    async function loadActiveLocation() {
+        try {
+            const response = await fetch(`/customers/${clienteId}/location/history`);
+            const data = await response.json();
+            const container = document.getElementById('location-container');
+            if (!container) return;
+
+            const activeLoc = data.history?.find(l => l.is_active);
+            const legacyLoc = data.legacy_location;
+
+            if (activeLoc) {
+                container.innerHTML = renderActiveLocation(activeLoc, data.can_manage);
+            } else if (legacyLoc) {
+                container.innerHTML = renderLegacyLocation(legacyLoc, data.can_manage);
+            } else {
+                container.innerHTML = `<div class="alert alert-info"><i class="ri-information-line"></i> Nessun luogo allenamento registrato. ${data.can_manage ? '<button type="button" class="btn btn-primary btn-sm mt-2" onclick="openAddLocationModal()"><i class="ri-add-line me-1"></i> Aggiungi Luogo</button>' : ''}</div>`;
+            }
+        } catch (error) {
+            console.error(error);
+            const container = document.getElementById('location-container');
+            if (container) container.innerHTML = `<div class="alert alert-danger">Errore caricamento</div>`;
+        }
+    }
+
+    function renderActiveLocation(loc, canManage) {
+        const startDate = loc.start_date ? new Date(loc.start_date).toLocaleDateString('it-IT') : '-';
+        const endDate = loc.end_date ? new Date(loc.end_date).toLocaleDateString('it-IT') : '-';
+
+        let html = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="modern-form-label">
+                        <i class="ri-map-pin-line me-1" style="color: #3B82F6;"></i>
+                        Luogo
+                    </label>
+                    <input type="text" class="form-control modern-form-control"
+                           value="${escapeHtml(loc.location?.toUpperCase() || '')}" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="modern-form-label">
+                        <i class="ri-calendar-line me-1" style="color: #3B82F6;"></i>
+                        Dal
+                    </label>
+                    <input type="text" class="form-control modern-form-control"
+                           value="${startDate}" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="modern-form-label">
+                        <i class="ri-calendar-check-line me-1" style="color: #3B82F6;"></i>
+                        Fino Al
+                    </label>
+                    <input type="text" class="form-control modern-form-control"
+                           value="${endDate || 'In corso'}" readonly>
+                </div>
+        `;
+
+        if (loc.notes) {
+            html += `
+                <div class="col-12">
+                    <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-sticky-note-line me-1" style="color: #3B82F6;"></i>
+                        Note
+                    </label>
+                    <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                        ${escapeHtml(loc.notes).replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        // Storico Modifiche Luogo
+        html += `
+            <div class="mt-4 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.3);">
+                <h6 class="fw-semibold mb-3" style="color: #1e293b; font-size: 14px;">
+                    <i class="ri-history-line me-1" style="color: #3B82F6;"></i>
+                    Storico Modifiche Luogo
+                </h6>
+                <div id="location-versions-${loc.id}">
+                    <div class="text-center text-muted py-2">
+                        <i class="ri-loader-4-line spin"></i> Caricamento storico modifiche...
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (canManage) {
+            html += `
+                <div class="mt-3 d-flex gap-2">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddLocationModal()">
+                        <i class="ri-add-line me-1"></i> Cambia Luogo
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="openChangeLocationModal(${loc.id})">
+                        <i class="ri-edit-2-line me-1"></i> Modifica Attuale
+                    </button>
+                </div>
+            `;
+        }
+
+        // Carica le versioni dopo il render
+        setTimeout(() => loadLocationVersions(loc.id), 100);
+
+        return html;
+    }
+
+    function renderLegacyLocation(loc, canManage) {
+        let html = `
+            <div class="alert alert-warning mb-3" style="border-left: 4px solid #fbbf24;">
+                <i class="ri-alert-line me-2"></i>
+                <strong>Dati Legacy</strong> - Questi dati provengono dalla vecchia gestione
+            </div>
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label class="modern-form-label">
+                        <i class="ri-map-pin-line me-1" style="color: #3B82F6;"></i>
+                        Luogo
+                    </label>
+                    <input type="text" class="form-control modern-form-control"
+                           value="${escapeHtml(loc.location?.toUpperCase() || '')}" readonly>
+                </div>
+            </div>
+        `;
+
+        if (canManage) {
+            html += `
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddLocationModal()">
+                        <i class="ri-add-line me-1"></i> Inizia Nuovo Sistema
+                    </button>
+                </div>
+            `;
+        }
+
+        return html;
+    }
+
+    async function loadLocationHistory() {
+        try {
+            const response = await fetch(`/customers/${clienteId}/location/history`);
+            const data = await response.json();
+            const container = document.getElementById('location-history-container');
+            if (!container) return;
+
+            const allLocs = data.history || [];
+
+            // Filtra solo i luoghi non attivi
+            const historicalLocs = allLocs.filter(l => !l.is_active);
+
+            if (historicalLocs.length === 0) {
+                container.innerHTML = `<p class="text-muted">Nessuno storico disponibile</p>`;
+                return;
+            }
+
+            let html = '<div class="row g-3">';
+
+            historicalLocs.forEach(loc => {
+                const startDate = loc.start_date ? new Date(loc.start_date).toLocaleDateString('it-IT') : '-';
+                const endDate = loc.end_date ? new Date(loc.end_date).toLocaleDateString('it-IT') : 'In corso';
+
+                // Calcola durata
+                let duration = '';
+                if (loc.start_date && loc.end_date) {
+                    const start = new Date(loc.start_date);
+                    const end = new Date(loc.end_date);
+                    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                    duration = `(${days} giorni)`;
+                }
+
+                html += `
+                    <div class="col-12">
+                        <div class="card modern-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <h6 class="fw-semibold mb-1" style="color: #1e293b;">
+                                            <i class="ri-map-pin-line me-1" style="color: #3B82F6;"></i>
+                                            ${escapeHtml(loc.location?.toUpperCase() || 'Luogo sconosciuto')}
+                                        </h6>
+                                        <div class="text-muted" style="font-size: 13px;">
+                                            <i class="ri-calendar-line me-1"></i>
+                                            ${startDate} - ${endDate}
+                                            ${duration ? `<span class="ms-2">${duration}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-secondary">Storico</span>
+                                    </div>
+                                </div>
+
+                                ${loc.notes ? `
+                                    <div class="mt-2">
+                                        <small class="text-muted d-block mb-1">
+                                            <i class="ri-sticky-note-line me-1"></i> Note:
+                                        </small>
+                                        <div class="p-2 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.15); font-size: 13px;">
+                                            ${escapeHtml(loc.notes)}
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <div class="mt-3">
+                                    <button type="button"
+                                            class="btn btn-sm btn-primary"
+                                            onclick="openLocationDetailsModal(${loc.id})">
+                                        <i class="ri-eye-line me-1"></i> Dettagli
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        } catch (error) {
+            console.error(error);
+            const container = document.getElementById('location-history-container');
+            if (container) container.innerHTML = `<div class="alert alert-danger">Errore caricamento storico</div>`;
+        }
+    }
+
+    // Cache per le versioni dei luoghi
+    let cachedLocationVersions = {};
+
+    async function loadLocationVersions(locationId) {
+        try {
+            const response = await fetch(`/customers/${clienteId}/location/${locationId}/versions`);
+            const data = await response.json();
+
+            if (data.ok && data.versions && data.versions.length > 0) {
+                cachedLocationVersions = {};
+                data.versions.forEach(v => {
+                    cachedLocationVersions[v.version_number] = v;
+                });
+
+                const container = document.getElementById(`location-versions-${locationId}`);
+                if (container) {
+                    container.innerHTML = renderLocationVersions(data.versions);
+                }
+            }
+        } catch (error) {
+            console.error('Errore caricamento versioni luogo:', error);
+        }
+    }
+
+    function renderLocationVersions(versions) {
+        if (!versions || versions.length === 0) {
+            return '<p class="text-muted small">Nessuna modifica registrata</p>';
+        }
+
+        let html = '<div class="d-flex flex-wrap gap-2">';
+
+        versions.forEach(v => {
+            const isCurrent = v.is_current || false;
+            const btnClass = isCurrent ? 'btn-primary' : 'btn-outline-secondary';
+            const label = isCurrent ? `Versione ${v.version_number} (Attuale)` : `Versione ${v.version_number}`;
+
+            html += `
+                <button type="button"
+                        class="btn btn-sm ${btnClass}"
+                        onclick="openLocationVersionModal(${v.version_number})">
+                    <i class="ri-file-list-line me-1"></i> ${label}
+                </button>
+            `;
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    window.openLocationVersionModal = function(versionNumber) {
+        const version = cachedLocationVersions[versionNumber];
+        if (!version) {
+            alert('Versione non trovata');
+            return;
+        }
+
+        // Imposta il titolo
+        document.getElementById('location-version-modal-title').textContent = `Versione ${versionNumber} - Luogo Allenamento`;
+
+        // Prepara il contenuto
+        const startDate = version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-';
+        const endDate = version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : 'In corso';
+        const changedAt = version.changed_at ? new Date(version.changed_at).toLocaleDateString('it-IT', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : '-';
+
+        let content = `
+            <div class="alert alert-info mb-4">
+                <i class="ri-information-line me-2"></i>
+                <strong>Questa è una versione storica del luogo allenamento</strong>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-map-pin-line me-1" style="color: #3B82F6;"></i>
+                        Luogo
+                    </label>
+                    <input type="text" class="form-control" value="${escapeHtml(version.location?.toUpperCase() || '-')}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-calendar-line me-1" style="color: #3B82F6;"></i>
+                        Data Inizio
+                    </label>
+                    <input type="text" class="form-control" value="${startDate}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-calendar-check-line me-1" style="color: #3B82F6;"></i>
+                        Data Fine
+                    </label>
+                    <input type="text" class="form-control" value="${endDate}" readonly>
+                </div>
+        `;
+
+        if (version.notes) {
+            content += `
+                <div class="col-12">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-sticky-note-line me-1" style="color: #3B82F6;"></i>
+                        Note
+                    </label>
+                    <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                        ${escapeHtml(version.notes).replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (version.change_reason) {
+            content += `
+                <div class="col-12">
+                    <label class="fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-chat-quote-line me-1" style="color: #3B82F6;"></i>
+                        Motivazione Modifica
+                    </label>
+                    <div class="p-3 rounded" style="background: rgba(251, 146, 60, 0.05); border: 1px solid rgba(251, 146, 60, 0.2);">
+                        ${escapeHtml(version.change_reason)}
+                    </div>
+                </div>
+            `;
+        }
+
+        content += `
+                <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.3);">
+                    <div class="d-flex align-items-center gap-2" style="font-size: 13px; color: #64748b;">
+                        <i class="ri-calendar-event-line"></i>
+                        <strong>Modificato il:</strong> ${changedAt}
+                        ${version.changed_by ? `<i class="ri-user-line ms-3"></i><strong>da:</strong> ${escapeHtml(version.changed_by)}` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('location-version-modal-content').innerHTML = content;
+
+        // Apri il modal
+        const modal = new bootstrap.Modal(document.getElementById('viewLocationVersionModal'));
+        modal.show();
+    };
+
+    window.openLocationDetailsModal = async function(locationId) {
+        try {
+            // Carica il luogo
+            const historyResponse = await fetch(`/customers/${clienteId}/location/history`);
+            const historyData = await historyResponse.json();
+            const location = historyData.history.find(l => l.id === locationId);
+
+            if (!location) {
+                alert('Luogo non trovato');
+                return;
+            }
+
+            // Carica le versioni
+            const versionsResponse = await fetch(`/customers/${clienteId}/location/${locationId}/versions`);
+            const versionsData = await versionsResponse.json();
+
+            // Imposta il titolo del modal
+            document.getElementById('location-details-modal-title').textContent = location.location?.toUpperCase() || 'Luogo Allenamento';
+
+            // Renderizza i dettagli del luogo
+            const startDate = location.start_date ? new Date(location.start_date).toLocaleDateString('it-IT') : '-';
+            const endDate = location.end_date ? new Date(location.end_date).toLocaleDateString('it-IT') : 'In corso';
+
+            let detailsHTML = `
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <label class="modern-form-label">
+                            <i class="ri-map-pin-line me-1" style="color: #3B82F6;"></i>
+                            Luogo
+                        </label>
+                        <input type="text" class="form-control modern-form-control"
+                               value="${escapeHtml(location.location?.toUpperCase() || '')}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label">
+                            <i class="ri-calendar-line me-1" style="color: #3B82F6;"></i>
+                            Dal
+                        </label>
+                        <input type="text" class="form-control modern-form-control"
+                               value="${startDate}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label">
+                            <i class="ri-calendar-check-line me-1" style="color: #3B82F6;"></i>
+                            Fino Al
+                        </label>
+                        <input type="text" class="form-control modern-form-control"
+                               value="${endDate}" readonly>
+                    </div>
+            `;
+
+            // Note
+            if (location.notes) {
+                detailsHTML += `
+                    <div class="col-12">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-sticky-note-line me-1" style="color: #3B82F6;"></i>
+                            Note
+                        </label>
+                        <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2);">
+                            ${escapeHtml(location.notes).replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            detailsHTML += `</div>`;
+
+            // Storico versioni
+            if (versionsData.ok && versionsData.versions && versionsData.versions.length > 0) {
+                detailsHTML += `
+                    <div class="mt-4 pt-3" style="border-top: 1px dashed rgba(59, 130, 246, 0.3);">
+                        <h6 class="fw-semibold mb-3" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-history-line me-1" style="color: #3B82F6;"></i>
+                            Storico Modifiche Luogo
+                        </h6>
+                        <div class="d-flex flex-wrap gap-2">
+                `;
+
+                versionsData.versions.forEach(v => {
+                    const isCurrent = v.is_current || false;
+                    const btnClass = isCurrent ? 'btn-primary' : 'btn-outline-secondary';
+                    const label = isCurrent ? `Versione ${v.version_number} (Attuale)` : `Versione ${v.version_number}`;
+
+                    detailsHTML += `
+                        <button type="button"
+                                class="btn btn-sm ${btnClass}"
+                                onclick="openLocationVersionModal(${v.version_number})">
+                            <i class="ri-file-list-line me-1"></i> ${label}
+                        </button>
+                    `;
+                });
+
+                detailsHTML += `
+                        </div>
+                    </div>
+                `;
+
+                // Salva le versioni in cache
+                cachedLocationVersions = {};
+                versionsData.versions.forEach(v => {
+                    cachedLocationVersions[v.version_number] = v;
+                });
+            }
+
+            document.getElementById('location-details-modal-content').innerHTML = detailsHTML;
+
+            // Apri il modal
+            const modal = new bootstrap.Modal(document.getElementById('locationDetailsModal'));
+            modal.show();
+        } catch (error) {
+            console.error(error);
+            alert('Errore durante il caricamento dei dettagli del luogo');
+        }
+    };
+
+    window.openAddLocationModal = function() {
+        const modal = new bootstrap.Modal(document.getElementById('addLocationModal'));
+        document.getElementById('add_location_form').reset();
+        document.getElementById('add_location_start_date').valueAsDate = new Date();
+        modal.show();
+    };
+
+    window.saveAddLocation = async function() {
+        const form = document.getElementById('add_location_form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const payload = {
+            start_date: document.getElementById('add_location_start_date').value,
+            end_date: document.getElementById('add_location_end_date').value || null,
+            location: document.getElementById('add_location_location').value,
+            notes: document.getElementById('add_location_notes').value || null,
+        };
+
+        try {
+            const response = await fetch(`/customers/${clienteId}/location/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(payload),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('addLocationModal')).hide();
+                showToast('success', result.message || 'Luogo allenamento aggiunto!');
+                loadActiveLocation();
+                loadLocationHistory();
+            } else {
+                showToast('error', result.error || 'Errore durante il salvataggio');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Errore di rete');
+        }
+    };
+
+    window.openChangeLocationModal = async function(locId) {
+        try {
+            const response = await fetch(`/customers/${clienteId}/location/history`);
+            const data = await response.json();
+            const loc = data.history?.find(l => l.id === locId);
+
+            if (!loc) {
+                showToast('error', 'Luogo non trovato');
+                return;
+            }
+
+            document.getElementById('change_location_id').value = loc.id;
+            document.getElementById('change_location_start_date').value = loc.start_date || '';
+            document.getElementById('change_location_end_date').value = loc.end_date || '';
+            document.getElementById('change_location_location').value = loc.location || '';
+            document.getElementById('change_location_notes').value = loc.notes || '';
+            document.getElementById('change_location_reason').value = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('changeLocationModal'));
+            modal.show();
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Errore durante il caricamento del luogo');
+        }
+    };
+
+    window.saveChangeLocation = async function() {
+        const form = document.getElementById('change_location_form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const locId = document.getElementById('change_location_id').value;
+        const changeReason = document.getElementById('change_location_reason').value;
+
+        // Validazione motivazione modifica
+        if (!changeReason || changeReason.trim() === '') {
+            alert('La motivazione della modifica è obbligatoria per tracciare le versioni');
+            return;
+        }
+
+        const payload = {
+            start_date: document.getElementById('change_location_start_date').value,
+            end_date: document.getElementById('change_location_end_date').value || null,
+            location: document.getElementById('change_location_location').value,
+            notes: document.getElementById('change_location_notes').value || null,
+            change_reason: changeReason,
+        };
+
+        try {
+            const response = await fetch(`/customers/${clienteId}/location/change/${locId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(payload),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('changeLocationModal')).hide();
+                showToast('success', result.message || 'Luogo allenamento modificato!');
+                loadActiveLocation();
+                loadLocationHistory();
+            } else {
+                showToast('error', result.error || 'Errore durante il salvataggio');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('error', 'Errore di rete');
+        }
+    };
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function initLocationManagement() {
+        if (document.getElementById('location-container')) {
+            loadActiveLocation();
+            loadLocationHistory();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLocationManagement);
+    } else {
+        initLocationManagement();
+    }
+
+    document.addEventListener('shown.bs.tab', function(event) {
+        if (event.target.getAttribute('href') === '#coaching' || event.target.getAttribute('data-bs-target') === '#coaching') {
+            initLocationManagement();
+        }
+    });
+
+    // Carica anche quando si apre la sotto-tab "Luoghi Allenamento" dentro Coaching
+    document.addEventListener('shown.bs.tab', function(event) {
+        if (event.target.getAttribute('data-bs-target') === '#coach-training-locations') {
+            initLocationManagement();
+        }
+    });
+})();
+
+// ========================================================================
+// GESTIONE STORICO STATI - Servizio Coach e Chat Coaching
+// ========================================================================
+(function() {
+    const clienteId = {{ cliente.cliente_id }};
+
+    async function loadStoricoStati(servizio, containerId) {
+        try {
+            const response = await fetch(`/customers/${clienteId}/stati/${servizio}/storico`);
+            const data = await response.json();
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (data.ok && data.storico && data.storico.length > 0) {
+                container.innerHTML = renderStoricoStati(data.storico, servizio);
+            } else {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-2" style="font-size: 13px;">
+                        <i class="ri-information-line me-1"></i>
+                        Nessuno storico disponibile
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error(`Errore nel caricamento dello storico ${servizio}:`, error);
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div class="alert alert-sm alert-danger">
+                        <i class="ri-error-warning-line me-1"></i>
+                        Errore nel caricamento dello storico
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function renderStoricoStati(storico, servizio) {
+        // Colori per i badge in base al servizio
+        const colors = {
+            'coach': { primary: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' },
+            'chat_coaching': { primary: '#A855F7', bg: 'rgba(168, 85, 247, 0.1)' }
+        };
+        const color = colors[servizio] || colors['coach'];
+
+        return storico.map((log, index) => {
+            const isAttivo = log.is_attivo;
+            const statoBadgeColor = getStatoBadgeColor(log.stato);
+
+            return `
+                <div class="d-flex align-items-center gap-3 mb-2 p-2 rounded" style="background: ${color.bg}; border-left: 3px solid ${color.primary};">
+                    <div class="flex-shrink-0">
+                        <div class="d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: ${statoBadgeColor.bg}; border-radius: 8px;">
+                            <i class="${isAttivo ? 'ri-checkbox-circle-fill' : 'ri-history-line'}" style="color: ${statoBadgeColor.color}; font-size: 16px;"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge" style="background: ${statoBadgeColor.bg}; color: ${statoBadgeColor.color}; font-size: 11px; font-weight: 600;">
+                                ${log.stato.toUpperCase()}
+                            </span>
+                            ${isAttivo ? '<span class="badge bg-success" style="font-size: 10px;">IN CORSO</span>' : ''}
+                        </div>
+                        <div style="font-size: 12px; color: #64748b;">
+                            <i class="ri-calendar-line me-1"></i>
+                            dal <strong>${log.data_inizio}</strong>
+                            ${log.data_fine ? `al <strong>${log.data_fine}</strong>` : '<strong>(in corso)</strong>'}
+                            <span class="ms-2">
+                                <i class="ri-time-line me-1"></i>
+                                ${log.durata_giorni} ${log.durata_giorni === 1 ? 'giorno' : 'giorni'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function getStatoBadgeColor(stato) {
+        const colors = {
+            'attivo': { bg: 'linear-gradient(135deg, rgba(149, 225, 211, 0.2) 0%, rgba(56, 239, 125, 0.2) 100%)', color: '#16a085' },
+            'pausa': { bg: 'linear-gradient(135deg, rgba(255, 217, 61, 0.2) 0%, rgba(249, 168, 38, 0.2) 100%)', color: '#856404' },
+            'ghost': { bg: 'linear-gradient(135deg, rgba(168, 218, 220, 0.2) 0%, rgba(69, 123, 157, 0.2) 100%)', color: '#1e3a5f' },
+            'stop': { bg: 'linear-gradient(135deg, rgba(255, 107, 107, 0.2) 0%, rgba(238, 90, 111, 0.2) 100%)', color: '#721c24' },
+            'insoluto': { bg: 'linear-gradient(135deg, rgba(216, 180, 254, 0.2) 0%, rgba(167, 139, 250, 0.2) 100%)', color: '#5b21b6' }
+        };
+        return colors[stato] || colors['attivo'];
+    }
+
+    function initStoricoStati() {
+        // Carica lo storico degli stati quando la tab Panoramica è attiva
+        const overviewTab = document.getElementById('coach-overview');
+        if (overviewTab && overviewTab.classList.contains('active')) {
+            loadStoricoStati('coach', 'storico-stato-coach');
+            loadStoricoStati('chat_coaching', 'storico-chat-coaching');
+        }
+    }
+
+    // Inizializza al caricamento della pagina
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initStoricoStati);
+    } else {
+        initStoricoStati();
+    }
+
+    // Ricarica quando si apre la tab Coaching
+    document.addEventListener('shown.bs.tab', function(event) {
+        if (event.target.getAttribute('href') === '#pills-coaching' || event.target.getAttribute('data-bs-target') === '#pills-coaching') {
+            initStoricoStati();
+        }
+    });
+
+    // Ricarica quando si apre la sotto-tab Panoramica dentro Coaching
+    document.addEventListener('shown.bs.tab', function(event) {
+        if (event.target.getAttribute('data-bs-target') === '#coach-overview') {
+            loadStoricoStati('coach', 'storico-stato-coach');
+            loadStoricoStati('chat_coaching', 'storico-chat-coaching');
+        }
+    });
+
+    // Ricarica lo storico dopo il salvataggio del form coaching
+    const formCoaching = document.getElementById('form-coaching');
+    if (formCoaching) {
+        formCoaching.addEventListener('submit', function(e) {
+            // Aspetta che il salvataggio sia completato e poi ricarica lo storico
+            setTimeout(() => {
+                loadStoricoStati('coach', 'storico-stato-coach');
+                loadStoricoStati('chat_coaching', 'storico-chat-coaching');
+            }, 1000); // Attendi 1 secondo per permettere il salvataggio
+        });
+    }
+
+    // Esponi la funzione globalmente per permettere il ricaricamento manuale
+    window.reloadStoricoCoaching = function() {
+        loadStoricoStati('coach', 'storico-stato-coach');
+        loadStoricoStati('chat_coaching', 'storico-chat-coaching');
+    };
+})();
+</script>
+
+<!-- Modal: Nuova Nota Diario Coaching -->
+<div class="modal fade" id="modalNuovaNota-coaching" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(251, 146, 60, 0.05) 100%); border-bottom: 2px solid rgba(249, 115, 22, 0.15);">
+                <h5 class="modal-title">
+                    <i class="ri-book-open-line me-2" style="color: #f97316;"></i>
+                    <span id="diario-coaching-modal-title">Nuova Nota Diario</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="diario-coaching-entry-id" value="">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Data Nota</label>
+                    <input type="date" class="form-control" id="diario-coaching-date">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Contenuto</label>
+                    <textarea class="form-control" id="diario-coaching-content" rows="8"
+                              placeholder="Inserisci il contenuto della nota..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn" style="background: #f97316; color: white;" onclick="saveDiaryEntry('coaching')">
+                    <i class="ri-save-line me-1"></i> Salva Nota
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========================================================================
+// GESTIONE ANAMNESI E DIARIO - Coaching
+// ========================================================================
+(function() {
+    const clienteId = {{ cliente.cliente_id }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ||
+                      document.querySelector('[name="csrf_token"]')?.value || '';
+
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('diario-coaching-date');
+    if (dateInput && !dateInput.value) dateInput.value = today;
+
+    document.getElementById('coach-anamnesi-tab')?.addEventListener('shown.bs.tab', function() {
+        loadAnamnesiCoaching();
+    });
+    document.getElementById('coach-diario-tab')?.addEventListener('shown.bs.tab', function() {
+        loadDiaryEntriesCoaching();
+    });
+
+    window.loadAnamnesiCoaching = async function() {
+        try {
+            const response = await fetch(`/api/v1/customers/${clienteId}/anamnesi/coaching`);
+            const data = await response.json();
+            const textarea = document.getElementById('anamnesi-coaching-content');
+            const infoDiv = document.getElementById('anamnesi-coaching-info');
+
+            if (data.success && data.anamnesi) {
+                textarea.value = data.anamnesi.content || '';
+                infoDiv.innerHTML = `<i class="ri-information-line me-1"></i> Creata: ${data.anamnesi.created_at || 'N/A'}
+                    ${data.anamnesi.last_modified_by ? ` | Ultima modifica: ${data.anamnesi.updated_at} da ${data.anamnesi.last_modified_by}` : ''}`;
+            } else {
+                textarea.value = '';
+                infoDiv.innerHTML = '<i class="ri-information-line me-1"></i> Nessuna anamnesi presente.';
+            }
+        } catch (error) { console.error('Errore caricamento anamnesi:', error); }
+    };
+
+    window.loadDiaryEntriesCoaching = async function() {
+        const container = document.getElementById('diario-coaching-entries');
+        try {
+            const response = await fetch(`/api/v1/customers/${clienteId}/diary/coaching`);
+            const data = await response.json();
+
+            if (data.success && data.entries && data.entries.length > 0) {
+                container.innerHTML = data.entries.map(entry => `
+                    <div class="diary-entry mb-3 p-3 rounded" style="background: rgba(249, 115, 22, 0.05); border-left: 4px solid #f97316;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <strong style="color: #f97316;"><i class="ri-calendar-line me-1"></i>${entry.entry_date_display}</strong>
+                                <span class="text-muted ms-2">di ${entry.author}</span>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary btn-sm" onclick="editDiaryEntryCoaching(${entry.id}, '${entry.entry_date}', '${encodeURIComponent(entry.content)}')"><i class="ri-edit-line"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteDiaryEntryCoaching(${entry.id})"><i class="ri-delete-bin-line"></i></button>
+                            </div>
+                        </div>
+                        <div style="white-space: pre-wrap;">${entry.content}</div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `<div class="text-center py-4"><i class="ri-book-open-line" style="font-size: 48px; color: #d1d5db;"></i><p class="text-muted mt-2">Nessuna nota. Clicca "Nuova Nota" per iniziare.</p></div>`;
+            }
+        } catch (error) { container.innerHTML = '<div class="alert alert-danger">Errore nel caricamento</div>'; }
+    };
+
+    window.editDiaryEntryCoaching = function(entryId, entryDate, encodedContent) {
+        document.getElementById('diario-coaching-entry-id').value = entryId;
+        document.getElementById('diario-coaching-date').value = entryDate;
+        document.getElementById('diario-coaching-content').value = decodeURIComponent(encodedContent);
+        document.getElementById('diario-coaching-modal-title').textContent = 'Modifica Nota Diario';
+        const modal = new bootstrap.Modal(document.getElementById('modalNuovaNota-coaching'));
+        modal.show();
+    };
+
+    window.deleteDiaryEntryCoaching = async function(entryId) {
+        if (!confirm('Eliminare questa nota?')) return;
+        try {
+            const response = await fetch(`/api/v1/customers/${clienteId}/diary/coaching/${entryId}`, {
+                method: 'DELETE', headers: { 'X-CSRFToken': csrfToken }
+            });
+            const data = await response.json();
+            if (data.success) location.reload();
+            else alert('Errore: ' + (data.error || 'Errore sconosciuto'));
+        } catch (error) { alert('Errore durante l\'eliminazione'); }
+    };
+
+    document.getElementById('modalNuovaNota-coaching')?.addEventListener('hidden.bs.modal', function() {
+        document.getElementById('diario-coaching-entry-id').value = '';
+        document.getElementById('diario-coaching-content').value = '';
+        document.getElementById('diario-coaching-modal-title').textContent = 'Nuova Nota Diario';
+        document.getElementById('diario-coaching-date').value = today;
+    });
+})();
+</script>

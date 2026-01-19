@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Database Models Registry - Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        border-radius: 8px;
+        border: 1px solid #CBD5E1;
+        color: #64748B;
+    }
+
+    .btn-outline-secondary:hover, .btn-outline-secondary.active {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    /* Alert Styles */
+    .alert {
+        border-radius: 12px;
+        border: none;
+    }
+
+    .alert-info {
+        background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%);
+        color: #0369A1;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .mb-32 { margin-bottom: 32px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {# ─────────────────────── HEADER ─────────────────────── #}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Database Models Registry</h6>
+            <p class="text-muted mb-0">Analisi e statistiche di tutti i {{ stats.total_models }} modelli del database</p>
+        </div>
+    </div>
+
+    {# ─────────────────────── HERO KPI CARDS ─────────────────────── #}
+    <div class="row gy-4 mb-32">
+        <!-- Total Models -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-1">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:database" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Total Models</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.total_models }}</h4>
+                        <small class="text-muted">tabelle database</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Models With Data -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:check-circle" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">With Data</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.models_with_data }}</h4>
+                        <small class="text-muted">con record</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Records -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-3">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:counter" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Total Records</span>
+                        <h4 class="fw-semibold mb-0">{{ "{:,}".format(stats.total_records) }}</h4>
+                        <small class="text-muted">righe totali</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Storage -->
+        <div class="col-xxl-3 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-4">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:harddisk" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Total Storage</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.total_storage_formatted }}</h4>
+                        <small class="text-muted">spazio occupato</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Largest Table -->
+        <div class="col-xxl-3 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-danger text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:table-large" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Largest Table</span>
+                        <h4 class="fw-semibold mb-0">
+                            {% if stats.largest_table %}
+                            {{ stats.largest_table.table_name }}
+                            {% else %}
+                            N/A
+                            {% endif %}
+                        </h4>
+                        <small class="text-muted">
+                            {% if stats.largest_table %}
+                            {{ "{:,}".format(stats.largest_table.total_records) }} records
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── MODELS TABLE ─────────────────────── #}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">Database Models</h6>
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('database_registry.index', sort_by='table_name', sort_order='asc') }}"
+                   class="btn btn-outline-secondary {% if sort_by == 'table_name' %}active{% endif %}">
+                    <i class="ri-sort-alphabet-asc me-1"></i> Name
+                </a>
+                <a href="{{ url_for('database_registry.index', sort_by='total_records', sort_order='desc') }}"
+                   class="btn btn-outline-secondary {% if sort_by == 'total_records' %}active{% endif %}">
+                    <i class="ri-sort-number-desc me-1"></i> Records
+                </a>
+                <a href="{{ url_for('database_registry.index', sort_by='storage', sort_order='desc') }}"
+                   class="btn btn-outline-secondary {% if sort_by == 'storage' %}active{% endif %}">
+                    <i class="ri-harddisk-line me-1"></i> Storage
+                </a>
+                <a href="{{ url_for('database_registry.index', sort_by='activity', sort_order='desc') }}"
+                   class="btn btn-outline-secondary {% if sort_by == 'activity' %}active{% endif %}">
+                    <i class="ri-line-chart-line me-1"></i> Activity
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Table Name</th>
+                            <th>Class</th>
+                            <th class="text-end">Total Records</th>
+                            <th class="text-end">Today</th>
+                            <th class="text-end">Last 7d</th>
+                            <th class="text-end">Last 30d</th>
+                            <th class="text-end">Growth</th>
+                            <th class="text-end">Storage</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for model in models %}
+                        <tr>
+                            <td>
+                                <code class="bg-light px-2 py-1 rounded">{{ model.table_name }}</code>
+                                {% if model.has_timestamps %}
+                                <span class="badge bg-info-subtle text-info-main ms-1" title="Has created_at/updated_at">
+                                    <i class="ri-time-line"></i>
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ model.class_name }}</td>
+                            <td class="text-end">
+                                <strong>{{ "{:,}".format(model.total_records) }}</strong>
+                            </td>
+                            <td class="text-end">
+                                {% if model.created_today is not none %}
+                                <span class="badge bg-{% if model.created_today > 0 %}success-subtle text-success-main{% else %}secondary-subtle text-secondary-main{% endif %}">
+                                    {{ model.created_today }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if model.created_last_7d is not none %}
+                                {{ model.created_last_7d }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if model.created_last_30d is not none %}
+                                {{ model.created_last_30d }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if model.growth_rate is not none %}
+                                <span class="badge bg-{% if model.growth_rate > 0 %}success-subtle text-success-main{% elif model.growth_rate < 0 %}danger-subtle text-danger-main{% else %}secondary-subtle text-secondary-main{% endif %}">
+                                    {% if model.growth_rate > 0 %}+{% endif %}{{ model.growth_rate }}%
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <small class="text-muted">{{ model.storage_formatted }}</small>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('database_registry.detail', table_name=model.table_name) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="ri-information-line me-1"></i> Details
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── LEGEND ─────────────────────── #}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <strong><i class="ri-information-line me-2"></i> Legenda:</strong>
+                <ul class="mb-0 mt-2">
+                    <li><strong>Today:</strong> Record creati oggi</li>
+                    <li><strong>Last 7d/30d:</strong> Record creati negli ultimi 7/30 giorni</li>
+                    <li><strong>Growth:</strong> Trend crescita (media ultimi 7 giorni vs ultimi 30 giorni)</li>
+                    <li><strong><i class="ri-time-line"></i> Badge:</strong> Modello con TimestampMixin (tracking created_at/updated_at)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

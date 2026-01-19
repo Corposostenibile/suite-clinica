@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Compleanni del Team{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Calendar Styles */
+.calendar-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.calendar-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.calendar-nav {
+    display: flex;
+    gap: 10px;
+}
+
+.calendar-nav button {
+    background: var(--bs-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.calendar-nav button:hover {
+    background: var(--bs-primary-dark);
+    transform: translateY(-2px);
+}
+
+/* Calendar Grid */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e0e0e0;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.calendar-day-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.calendar-day {
+    background: white;
+    min-height: 100px;
+    padding: 8px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.calendar-day:hover {
+    background: #f8f9fa;
+    z-index: 1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.calendar-day.empty {
+    background: #fafafa;
+}
+
+.calendar-day.today {
+    background: #fff9e6;
+    border: 2px solid #ffc107;
+}
+
+.calendar-day-number {
+    font-weight: 600;
+    font-size: 14px;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.calendar-day.today .calendar-day-number {
+    color: #ff9800;
+    font-weight: 700;
+}
+
+/* Birthday Cards in Calendar */
+.birthday-item {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    margin: 2px 0;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.birthday-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.birthday-item.is-today {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Upcoming Birthdays Section */
+.upcoming-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+.upcoming-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.upcoming-title::before {
+    content: '🎂';
+    font-size: 24px;
+}
+
+.birthday-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-left: 4px solid;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: all 0.3s;
+}
+
+.birthday-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.birthday-card.today {
+    border-left-color: #ff5722;
+    background: linear-gradient(135deg, #fff3e0 0%, #ffffff 100%);
+}
+
+.birthday-card.tomorrow {
+    border-left-color: #ff9800;
+}
+
+.birthday-card.this-week {
+    border-left-color: #4caf50;
+}
+
+.birthday-card.later {
+    border-left-color: #2196f3;
+}
+
+.birthday-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 15px;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.birthday-info {
+    flex: 1;
+}
+
+.birthday-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: #2c3e50;
+    margin-bottom: 2px;
+}
+
+.birthday-details {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.birthday-date {
+    background: #f0f0f0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #495057;
+    text-align: center;
+}
+
+.birthday-date .day {
+    font-size: 20px;
+    display: block;
+}
+
+.birthday-date .month {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Birthday Icon */
+.birthday-icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: 18px;
+}
+
+/* Stats Cards */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .calendar-grid {
+        grid-template-columns: repeat(7, 1fr);
+        font-size: 12px;
+    }
+    
+    .calendar-day {
+        min-height: 60px;
+        padding: 4px;
+    }
+    
+    .birthday-item {
+        font-size: 10px;
+        padding: 2px 4px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Compleanni del Team</h6>
+    <ul class="d-flex align-items-center gap-2">
+        <li class="fw-medium">
+            <a href="/" class="d-flex align-items-center gap-1 hover-text-primary">
+                <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>Dashboard
+            </a>
+        </li>
+        <li>-</li>
+        <li class="fw-medium"><a href="{{ url_for('team.user_list') }}">Team</a></li>
+        <li>-</li>
+        <li class="fw-medium">Compleanni</li>
+    </ul>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-value">{{ birthdays_by_day|length }}</div>
+        <div class="stat-label">Compleanni questo mese</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ upcoming_birthdays|length }}</div>
+        <div class="stat-label">Prossimi 30 giorni</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">
+            {% set today_count = 0 %}
+            {% for day, birthdays in birthdays_by_day.items() %}
+                {% for b in birthdays %}
+                    {% if b.is_today %}
+                        {% set today_count = today_count + 1 %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            {{ today_count }}
+        </div>
+        <div class="stat-label">Compleanni oggi</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Calendar Section -->
+    <div class="col-lg-8">
+        <div class="calendar-container">
+            <div class="calendar-header">
+                <h3 class="calendar-title">{{ month_name }} {{ year }}</h3>
+                <div class="calendar-nav">
+                    <button onclick="window.location.href='?month={{ prev_month }}&year={{ prev_year }}'">
+                        <iconify-icon icon="solar:arrow-left-bold"></iconify-icon> Precedente
+                    </button>
+                    <button onclick="window.location.href='?month={{ now.month }}&year={{ now.year }}'" class="btn-today">
+                        Oggi
+                    </button>
+                    <button onclick="window.location.href='?month={{ next_month }}&year={{ next_year }}'">
+                        Successivo <iconify-icon icon="solar:arrow-right-bold"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="calendar-grid">
+                <!-- Day Headers -->
+                <div class="calendar-day-header">Lun</div>
+                <div class="calendar-day-header">Mar</div>
+                <div class="calendar-day-header">Mer</div>
+                <div class="calendar-day-header">Gio</div>
+                <div class="calendar-day-header">Ven</div>
+                <div class="calendar-day-header">Sab</div>
+                <div class="calendar-day-header">Dom</div>
+
+                <!-- Empty cells before first day -->
+                {% for i in range(first_weekday) %}
+                <div class="calendar-day empty"></div>
+                {% endfor %}
+
+                <!-- Days of the month -->
+                {% for day in range(1, days_in_month + 1) %}
+                <div class="calendar-day {% if day == current_day %}today{% endif %}">
+                    <div class="calendar-day-number">{{ day }}</div>
+                    {% if day in birthdays_by_day %}
+                        {% for birthday in birthdays_by_day[day] %}
+                        <div class="birthday-item {% if birthday.is_today %}is-today{% endif %}" 
+                             data-bs-toggle="tooltip" 
+                             data-bs-placement="top" 
+                             title="{{ birthday.user.full_name }}{% if birthday.age %} ({{ birthday.age }} anni){% endif %}">
+                            🎂 {{ birthday.user.first_name }}
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <!-- Empty cells after last day -->
+                {% set remaining = 7 - ((first_weekday + days_in_month) % 7) %}
+                {% if remaining < 7 %}
+                    {% for i in range(remaining) %}
+                    <div class="calendar-day empty"></div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Birthdays Section -->
+    <div class="col-lg-4">
+        <div class="upcoming-section">
+            <h3 class="upcoming-title">Prossimi Compleanni</h3>
+            
+            {% if upcoming_birthdays %}
+                {% for birthday in upcoming_birthdays %}
+                <div class="birthday-card 
+                    {% if birthday.days_until == 0 %}today
+                    {% elif birthday.days_until == 1 %}tomorrow
+                    {% elif birthday.days_until <= 7 %}this-week
+                    {% else %}later{% endif %}">
+                    
+                    <img src="{{ birthday.user.avatar_url }}" alt="{{ birthday.user.full_name }}" class="birthday-avatar">
+                    
+                    <div class="birthday-info">
+                        <div class="birthday-name">
+                            {{ birthday.user.full_name }}
+                        </div>
+                        <div class="birthday-details">
+                            {% if birthday.days_until == 0 %}
+                                <span class="text-danger fw-bold">🎉 Oggi!</span>
+                            {% elif birthday.days_until == 1 %}
+                                <span class="text-warning fw-bold">Domani</span>
+                            {% else %}
+                                Tra {{ birthday.days_until }} giorni
+                            {% endif %}
+                            {% if birthday.age %}
+                                • Compie {{ birthday.age }} anni
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="birthday-date">
+                        <span class="day">{{ birthday.date.day }}</span>
+                        <span class="month">{{ birthday.date.strftime('%b') }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">🎂</div>
+                    <div class="empty-state-text">Nessun compleanno nei prossimi 30 giorni</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Auto-refresh at midnight
+setTimeout(function() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const msUntilMidnight = tomorrow - now;
+    
+    setTimeout(function() {
+        location.reload();
+    }, msUntilMidnight);
+}, 1000);
+</script>
+{% endblock %}

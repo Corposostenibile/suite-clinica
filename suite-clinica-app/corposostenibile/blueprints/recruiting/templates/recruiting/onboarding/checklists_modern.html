@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+
+{% block title %}Checklist Onboarding – Recruiting{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Stat Cards */
+    .stat-card {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .stat-card .stat-icon {
+        width: 50px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .stat-card.secondary {
+        background: linear-gradient(135deg, #4ECAC2 0%, #3AB5AD 100%);
+    }
+
+    .stat-card.warning {
+        background: linear-gradient(135deg, #F0AD4E 0%, #EC971F 100%);
+    }
+
+    .stat-card.info {
+        background: linear-gradient(135deg, #5BC0DE 0%, #31B0D5 100%);
+    }
+
+    /* Progress Bar */
+    .onboarding-progress {
+        height: 8px;
+        background: #E2E8F0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .onboarding-progress-bar {
+        height: 100%;
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-radius: 10px;
+        transition: width 0.3s ease;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-outline-success {
+        color: #45CB85;
+        border: 1px solid #45CB85;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    /* Tabs */
+    .nav-tabs {
+        border-bottom: 2px solid #E2E8F0;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #64748B;
+        padding: 12px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: #45CB85;
+        border-color: transparent;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #45CB85;
+        border-bottom: 2px solid #45CB85;
+        background: transparent;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 5rem;
+        color: #E2E8F0;
+        margin-bottom: 24px;
+    }
+
+    /* Badge */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+
+    /* Table */
+    .table {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .table thead {
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+    }
+
+    .table th {
+        border: none;
+        padding: 16px;
+        font-weight: 600;
+        color: var(--dark-color);
+    }
+
+    .table td {
+        padding: 16px;
+        vertical-align: middle;
+        border-top: 1px solid #E2E8F0;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Checklist Onboarding</h6>
+            <p class="text-muted mb-0">Gestione onboarding nuovi assunti</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('recruiting.onboarding_templates') }}" class="btn btn-sm btn-outline-success">
+                <i class="ri-file-list-3-line me-1"></i>Template
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-24">
+        <div class="col-md-3 mb-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-1 opacity-75">Checklist Attive</p>
+                        <h3 class="mb-0">{{ active_checklists|length }}</h3>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="ri-user-follow-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="stat-card secondary">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-1 opacity-75">Completate</p>
+                        <h3 class="mb-0">{{ completed_checklists|length }}</h3>
+                        <small class="opacity-75">Ultime 30</small>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="ri-checkbox-circle-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="stat-card warning">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-1 opacity-75">In Scadenza</p>
+                        <h3 class="mb-0">
+                            {% set expiring = active_checklists|selectattr('is_expiring')|list %}
+                            {{ expiring|length }}
+                        </h3>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="ri-alarm-warning-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="stat-card info">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="mb-1 opacity-75">Progresso Medio</p>
+                        <h3 class="mb-0">
+                            {% if active_checklists %}
+                                {% set total_progress = active_checklists|sum(attribute='progress_percentage') %}
+                                {{ (total_progress / active_checklists|length)|round|int }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </h3>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="ri-pie-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-24" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#active-tab" type="button">
+                <i class="ri-user-follow-line me-1"></i>
+                Checklist Attive ({{ active_checklists|length }})
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#completed-tab" type="button">
+                <i class="ri-checkbox-circle-line me-1"></i>
+                Completate ({{ completed_checklists|length }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Active Checklists -->
+        <div class="tab-pane fade show active" id="active-tab">
+            {% if active_checklists %}
+            <div class="row">
+                {% for checklist in active_checklists %}
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div class="d-flex align-items-start justify-content-between">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <a href="{{ url_for('recruiting.onboarding_checklist_detail', checklist_id=checklist.id) }}"
+                                           class="text-decoration-none text-dark">
+                                            {{ checklist.application.full_name }}
+                                        </a>
+                                    </h6>
+                                    <p class="text-muted small mb-0">{{ checklist.template.name }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <!-- Progress Bar -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted">Progresso</small>
+                                    <small class="fw-semibold">{{ checklist.progress_percentage|round|int }}%</small>
+                                </div>
+                                <div class="onboarding-progress">
+                                    <div class="onboarding-progress-bar" style="width: {{ checklist.progress_percentage }}%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Stats -->
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <div class="border-end">
+                                        <div class="fw-semibold text-success">{{ checklist.progress_items|selectattr('status', 'equalto', 'completed')|list|length }}</div>
+                                        <small class="text-muted">Completati</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="border-end">
+                                        <div class="fw-semibold text-warning">{{ checklist.progress_items|selectattr('status', 'equalto', 'in_progress')|list|length }}</div>
+                                        <small class="text-muted">In Corso</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="fw-semibold text-muted">{{ checklist.progress_items|selectattr('status', 'equalto', 'pending')|list|length }}</div>
+                                    <small class="text-muted">Da Fare</small>
+                                </div>
+                            </div>
+
+                            <!-- Dates -->
+                            <div class="border-top pt-3">
+                                <div class="d-flex justify-content-between small">
+                                    <span class="text-muted">
+                                        <i class="ri-calendar-line me-1"></i>
+                                        {{ checklist.start_date.strftime('%d/%m/%Y') if checklist.start_date }}
+                                    </span>
+                                    {% if checklist.expected_end_date %}
+                                    <span class="text-muted">
+                                        <i class="ri-calendar-check-line me-1"></i>
+                                        {{ checklist.expected_end_date.strftime('%d/%m/%Y') }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Action -->
+                            <a href="{{ url_for('recruiting.onboarding_checklist_detail', checklist_id=checklist.id) }}"
+                               class="btn btn-success btn-sm w-100 mt-3">
+                                <i class="ri-eye-line me-1"></i>Visualizza
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="ri-user-follow-line empty-state-icon"></i>
+                <h5>Nessuna checklist attiva</h5>
+                <p class="text-muted">Non ci sono checklist di onboarding in corso al momento.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Completed Checklists -->
+        <div class="tab-pane fade" id="completed-tab">
+            {% if completed_checklists %}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Candidato</th>
+                                <th>Template</th>
+                                <th>Data Inizio</th>
+                                <th>Data Completamento</th>
+                                <th>Durata</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for checklist in completed_checklists %}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">{{ checklist.application.full_name }}</div>
+                                    <small class="text-muted">{{ checklist.application.email }}</small>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">{{ checklist.template.name }}</div>
+                                </td>
+                                <td>{{ checklist.start_date.strftime('%d/%m/%Y') if checklist.start_date else '-' }}</td>
+                                <td>
+                                    {% if checklist.actual_end_date %}
+                                    <div class="text-success fw-semibold">{{ checklist.actual_end_date.strftime('%d/%m/%Y') }}</div>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if checklist.start_date and checklist.actual_end_date %}
+                                    {% set duration = (checklist.actual_end_date - checklist.start_date).days %}
+                                    <span class="fw-semibold">{{ duration }} giorni</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('recruiting.onboarding_checklist_detail', checklist_id=checklist.id) }}"
+                                       class="btn btn-sm btn-outline-success">
+                                        <i class="ri-eye-line"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="ri-checkbox-circle-line empty-state-icon"></i>
+                <h5>Nessuna checklist completata</h5>
+                <p class="text-muted">Non ci sono checklist completate negli ultimi 30 giorni.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

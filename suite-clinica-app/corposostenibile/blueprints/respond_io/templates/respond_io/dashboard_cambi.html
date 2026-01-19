@@ -1,0 +1,681 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Cambi di Stato - Respond.io{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <!-- Breadcrumb -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Dashboard Cambi di Stato</h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('welcome.index') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">Respond IO</li>
+            <li>-</li>
+            <li class="fw-medium">Cambi Stato</li>
+        </ul>
+    </div>
+    
+    <!-- Header con filtri -->
+    <div class="row mb-4">
+        <div class="col-12">
+            
+            <!-- Filtri data -->
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-3">
+                        <h6 class="fw-bold text-lg mb-0">Seleziona Periodo</h6>
+                        <div class="btn-group" role="group">
+                            <a href="?start_date={{ date.today().isoformat() }}&end_date={{ date.today().isoformat() }}" 
+                               class="btn btn-sm bg-primary-50 text-primary-600 radius-4 px-12">Oggi</a>
+                            <a href="?start_date={{ (date.today() - timedelta(days=6)).isoformat() }}&end_date={{ date.today().isoformat() }}" 
+                               class="btn btn-sm bg-primary-50 text-primary-600 radius-4 px-12">7 giorni</a>
+                            <a href="?start_date={{ (date.today() - timedelta(days=29)).isoformat() }}&end_date={{ date.today().isoformat() }}" 
+                               class="btn btn-sm bg-primary-50 text-primary-600 radius-4 px-12">30 giorni</a>
+                            <a href="?start_date={{ date.today().replace(day=1).isoformat() }}&end_date={{ date.today().isoformat() }}" 
+                               class="btn btn-sm bg-primary-50 text-primary-600 radius-4 px-12">Questo mese</a>
+                        </div>
+                    </div>
+                    <form method="get" action="{{ url_for('respond_io.dashboard_cambi') }}" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label text-secondary-light fw-medium">Data Inizio</label>
+                            <input type="date" name="start_date" class="form-control radius-8" value="{{ start_date.isoformat() }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-secondary-light fw-medium">Data Fine</label>
+                            <input type="date" name="end_date" class="form-control radius-8" value="{{ end_date.isoformat() }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary-600 w-100 radius-8">
+                                <iconify-icon icon="solar:magnifer-linear" class="icon me-2"></iconify-icon> Applica Filtri
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card riassuntiva -->
+    <div class="row gy-4 mb-4">
+        <div class="col-xxl-12">
+            <div class="card p-3 shadow-2 radius-8 border-0 bg-gradient-end-1">
+                <div class="card-body text-center">
+                    <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
+                        <span class="w-72-px h-72-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+                            <iconify-icon icon="solar:chart-2-bold" class="icon text-3xl"></iconify-icon>
+                        </span>
+                        <div>
+                            <h6 class="text-secondary-light fw-medium mb-1">Totale Cambi di Stato</h6>
+                            <h1 class="fw-bold text-primary-600 mb-0">{{ stats.total_changes }}</h1>
+                        </div>
+                    </div>
+                    <span class="text-secondary-light fw-medium">{{ start_date.strftime('%d %B %Y') }} - {{ end_date.strftime('%d %B %Y') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lifecycle Principali -->
+    <div class="row gy-4 mb-4">
+        <div class="col-12">
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <h6 class="fw-bold text-lg mb-0">Lifecycle Principali (Funnel)</h6>
+                        <span class="bg-success-focus px-12 py-4 rounded-2 fw-medium text-success-main text-sm">
+                            <iconify-icon icon="solar:graph-up-linear" class="icon me-1"></iconify-icon>
+                            Funnel Principale
+                        </span>
+                    </div>
+                    <div class="row gy-3">
+                        {% for lifecycle, data in stats.main_lifecycles.items() %}
+                        <div class="col-xl-2 col-sm-6">
+                            <div class="p-3 radius-8 border bg-gradient-end-2 h-100">
+                                <div class="text-center">
+                                    <span class="w-48-px h-48-px bg-success-main text-white d-inline-flex justify-content-center align-items-center rounded-circle mb-2">
+                                        <iconify-icon icon="solar:user-check-rounded-bold" class="icon text-xl"></iconify-icon>
+                                    </span>
+                                    <h6 class="fw-medium text-secondary-light mb-2 text-sm">{{ lifecycle }}</h6>
+                                    <h4 class="fw-bold text-success-main mb-0">{{ data.total }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Grafico principale -->
+                    <div class="mt-4" style="height: 400px;">
+                        <canvas id="mainLifecycleChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lifecycle Secondari -->
+    <div class="row gy-4 mb-4">
+        <div class="col-12">
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <h6 class="fw-bold text-lg mb-0">Lifecycle Secondari</h6>
+                        <span class="bg-warning-focus px-12 py-4 rounded-2 fw-medium text-warning-main text-sm">
+                            <iconify-icon icon="solar:users-group-rounded-linear" class="icon me-1"></iconify-icon>
+                            Fuori Target
+                        </span>
+                    </div>
+                    <div class="row gy-3">
+                        {% for lifecycle, data in stats.secondary_lifecycles.items() %}
+                        <div class="col-md-4">
+                            <div class="p-3 radius-8 border bg-gradient-end-3 h-100">
+                                <div class="text-center">
+                                    <span class="w-48-px h-48-px bg-warning-main text-white d-inline-flex justify-content-center align-items-center rounded-circle mb-2">
+                                        <iconify-icon icon="solar:user-cross-rounded-linear" class="icon text-xl"></iconify-icon>
+                                    </span>
+                                    <h6 class="fw-medium text-secondary-light mb-2 text-sm">{{ lifecycle }}</h6>
+                                    <h4 class="fw-bold text-warning-main mb-0">{{ data.total }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canali -->
+    <div class="row gy-4 mb-4">
+        <div class="col-md-12">
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <h6 class="fw-bold text-lg mb-0">Cambi per Canale WhatsApp</h6>
+                        <select id="channelSelect" class="form-select form-select-sm w-auto bg-base border text-secondary-light radius-8">
+                            {% for channel, count in stats.top_channels %}
+                            <option value="{{ channel }}">{{ channel }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Canale</th>
+                                            <th class="text-end">Cambi</th>
+                                            <th class="text-end">%</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for channel, count in stats.top_channels %}
+                                        <tr>
+                                            <td>{{ channel }}</td>
+                                            <td class="text-end">{{ count }}</td>
+                                            <td class="text-end">
+                                                {{ ((count / stats.total_changes * 100)|round(1)) if stats.total_changes > 0 else 0 }}%
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div style="position: relative; height: 400px;">
+                                <canvas id="channelLifecycleChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Grafico Prenotazioni per Canale -->
+    <div class="row gy-4 mb-4">
+        <div class="col-12">
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <div>
+                            <h6 class="fw-bold text-lg mb-2">Top Canali - Prenotazioni</h6>
+                            <span class="text-sm fw-medium text-secondary-light">Prenotazioni nel periodo selezionato</span>
+                        </div>
+                        <span class="bg-primary-focus px-12 py-4 rounded-2 fw-medium text-primary-600 text-sm">
+                            <iconify-icon icon="solar:calendar-mark-bold" class="icon me-1"></iconify-icon>
+                            Periodo: {{ days_in_period }} giorni
+                        </span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div style="position: relative; height: 400px;">
+                                <canvas id="bookingsChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Canale</th>
+                                            <th class="text-end">Prenotazioni</th>
+                                            <th class="text-end">%</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% set total_bookings = stats.bookings_by_channel.values() | sum %}
+                                        {% for channel, count in stats.bookings_by_channel.items() | sort(attribute=1, reverse=true) %}
+                                        <tr>
+                                            <td><strong>{{ channel }}</strong></td>
+                                            <td class="text-end">{{ count }}</td>
+                                            <td class="text-end">
+                                                {{ ((count / total_bookings * 100)|round(1)) if total_bookings > 0 else 0 }}%
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% if total_bookings > 0 %}
+                                        <tr class="table-primary">
+                                            <td><strong>TOTALE</strong></td>
+                                            <td class="text-end"><strong>{{ total_bookings }}</strong></td>
+                                            <td class="text-end"><strong>100%</strong></td>
+                                        </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafico Media Nuove Lead per Giorno della Settimana -->
+    <div class="row gy-4 mb-4">
+        <div class="col-12">
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20">
+                        <div>
+                            <h6 class="fw-bold text-lg mb-2">Media Nuove Lead per Giorno</h6>
+                            <span class="text-sm fw-medium text-secondary-light">Analisi storica settimanale</span>
+                        </div>
+                        <span class="bg-info-focus px-12 py-4 rounded-2 fw-medium text-info-main text-sm">
+                            <iconify-icon icon="solar:graph-new-up-linear" class="icon me-1"></iconify-icon>
+                            Dati Storici
+                        </span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-9">
+                            <div style="position: relative; height: 350px;">
+                                <canvas id="weekdayChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card radius-8 bg-base h-100">
+                                <div class="card-body p-20">
+                                    <h6 class="fw-semibold mb-3">Riepilogo Settimanale</h6>
+                                    <ul class="list-unstyled mb-0">
+                                        {% for day, avg in stats.weekday_averages.items() %}
+                                        <li class="d-flex justify-content-between py-1">
+                                            <span>{{ day[:3] }}:</span>
+                                            <strong>{{ avg }}</strong>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    <hr class="my-3">
+                                    <div class="text-center p-3 bg-primary-50 radius-8">
+                                        <span class="text-secondary-light text-sm d-block mb-1">Media totale</span>
+                                        <h3 class="fw-bold text-primary-600 mb-1">{{ (stats.weekday_averages.values() | sum / 7) | round(1) }}</h3>
+                                        <span class="text-secondary-light text-sm">lead/giorno</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <div class="bg-info-50 p-12 radius-8 d-inline-block">
+                            <iconify-icon icon="solar:info-circle-linear" class="icon text-info-main me-1"></iconify-icon>
+                            <span class="text-secondary-light text-sm">
+                                Dati calcolati su tutto lo storico disponibile
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div> <!-- dashboard-main-body -->
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Grafico Lifecycle Principali
+    const mainCtx = document.getElementById('mainLifecycleChart').getContext('2d');
+    const mainLifecycles = {{ main_lifecycles|tojson }};
+    const mainData = [
+        {% for lc in main_lifecycles %}
+        {{ stats.main_lifecycles[lc].total }},
+        {% endfor %}
+    ];
+    
+    new Chart(mainCtx, {
+        type: 'bar',
+        data: {
+            labels: mainLifecycles,
+            datasets: [{
+                label: 'Cambi di Stato',
+                data: mainData,
+                backgroundColor: [
+                    '#28a745', '#17a2b8', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            }
+        }
+    });
+    
+    // Grafico Lifecycle per Canale
+    const lifecycleByChannel = {{ stats.lifecycle_by_channel|tojson }};
+    const allLifecycles = {{ main_lifecycles|tojson }}.concat({{ secondary_lifecycles|tojson }});
+    
+    console.log('Lifecycle by channel data:', lifecycleByChannel);
+    console.log('All lifecycles:', allLifecycles);
+    
+    // Inizializza il grafico per canale
+    setTimeout(function() {
+        const channelSelect = document.getElementById('channelSelect');
+        const channelCanvas = document.getElementById('channelLifecycleChart');
+        
+        console.log('Channel select element:', channelSelect);
+        console.log('Canvas element:', channelCanvas);
+        
+        if (!channelCanvas) {
+            console.error('Canvas not found!');
+            return;
+        }
+        
+        const ctx = channelCanvas.getContext('2d');
+        console.log('Canvas context:', ctx);
+        
+        // Colori per i lifecycle
+        const colors = {
+            'Nuova Lead': '#28a745',
+            'Contrassegnato': '#17a2b8',
+            'In Target': '#ffc107',
+            'Link Da Inviare': '#fd7e14',
+            'Link Inviato': '#dc3545',
+            'Prenotato': '#6f42c1',
+            'Non In Target': '#6c757d',
+            'Under': '#343a40',
+            'Prenotato Non In Target': '#795548'
+        };
+        
+        // Funzione per aggiornare il grafico
+        function updateChannelChart(channelName) {
+            console.log('Updating chart for channel:', channelName);
+            const channelData = lifecycleByChannel[channelName] || {};
+            console.log('Channel data:', channelData);
+            
+            // Prepara i dati
+            const labels = [];
+            const data = [];
+            const backgroundColor = [];
+            
+            allLifecycles.forEach(lc => {
+                if (channelData[lc] && channelData[lc] > 0) {
+                    labels.push(lc);
+                    data.push(channelData[lc]);
+                    backgroundColor.push(colors[lc] || '#888');
+                }
+            });
+            
+            console.log('Chart labels:', labels);
+            console.log('Chart data:', data);
+            
+            // Se il grafico esiste, distruggilo e ricrealo
+            if (window.channelLifecycleChart && window.channelLifecycleChart.destroy) {
+                window.channelLifecycleChart.destroy();
+                window.channelLifecycleChart = null;
+            }
+            
+            // Crea sempre un nuovo grafico
+            if (labels.length > 0) {
+                // Crea nuovo grafico
+                window.channelLifecycleChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Cambi di Stato',
+                            data: data,
+                            backgroundColor: backgroundColor,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Lifecycle per ' + channelName,
+                                font: { size: 16 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }
+                            },
+                            x: {
+                                ticks: {
+                                    autoSkip: false,
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                console.log('No data for channel:', channelName);
+            }
+        }
+        
+        // Inizializza con il primo canale
+        if (channelSelect && channelSelect.options.length > 0) {
+            updateChannelChart(channelSelect.value);
+            
+            // Event listener per cambio selezione
+            channelSelect.addEventListener('change', function() {
+                updateChannelChart(this.value);
+            });
+        }
+    }, 100); // Piccolo delay per assicurarsi che il DOM sia pronto
+    
+    // Grafico Prenotazioni per Canale
+    const bookingsData = {{ stats.bookings_by_channel|tojson }};
+    
+    // Ordina i dati per numero di prenotazioni (decrescente)
+    const sortedBookings = Object.entries(bookingsData).sort((a, b) => b[1] - a[1]);
+    const bookingLabels = sortedBookings.map(item => item[0]);
+    const bookingValues = sortedBookings.map(item => item[1]);
+    
+    // Colori per ogni canale
+    const bookingColors = [
+        '#007bff', // Blu
+        '#28a745', // Verde
+        '#ffc107', // Giallo
+        '#dc3545', // Rosso
+        '#17a2b8', // Ciano
+        '#6610f2', // Viola
+        '#e83e8c', // Rosa
+        '#fd7e14', // Arancione
+        '#6c757d', // Grigio
+        '#343a40'  // Grigio scuro
+    ];
+    
+    // Crea il grafico a barre orizzontali
+    const bookingsCtx = document.getElementById('bookingsChart');
+    if (bookingsCtx) {
+        new Chart(bookingsCtx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: bookingLabels,
+                datasets: [{
+                    label: 'Prenotazioni',
+                    data: bookingValues,
+                    backgroundColor: bookingColors.slice(0, bookingLabels.length),
+                    borderColor: bookingColors.slice(0, bookingLabels.length),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // Rende il grafico orizzontale
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Prenotazioni per Canale WhatsApp',
+                        font: {
+                            size: 18,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = bookingValues.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return `Prenotazioni: ${context.raw} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            font: {
+                                size: 14
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Numero di Prenotazioni',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Grafico Media Nuove Lead per Giorno della Settimana
+    const weekdayData = {{ stats.weekday_averages|tojson }};
+    const weekdayLabels = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+    const weekdayValues = weekdayLabels.map(day => weekdayData[day] || 0);
+    
+    // Colori diversi per giorni lavorativi e weekend
+    const weekdayColors = [
+        '#17a2b8', // Lunedì - ciano
+        '#17a2b8', // Martedì
+        '#17a2b8', // Mercoledì
+        '#17a2b8', // Giovedì
+        '#17a2b8', // Venerdì
+        '#ffc107', // Sabato - giallo
+        '#ff6b6b'  // Domenica - rosso chiaro
+    ];
+    
+    const weekdayCtx = document.getElementById('weekdayChart');
+    if (weekdayCtx) {
+        new Chart(weekdayCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: weekdayLabels,
+                datasets: [{
+                    label: 'Media Nuove Lead',
+                    data: weekdayValues,
+                    backgroundColor: 'rgba(23, 162, 184, 0.2)',
+                    borderColor: '#17a2b8',
+                    borderWidth: 3,
+                    pointBackgroundColor: weekdayColors,
+                    pointBorderColor: weekdayColors,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Andamento Settimanale Media Nuove Lead',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Media: ${context.raw} nuove lead`;
+                            },
+                            afterLabel: function(context) {
+                                const avg = weekdayValues.reduce((a, b) => a + b, 0) / 7;
+                                const diff = context.raw - avg;
+                                if (diff > 0) {
+                                    return `+${diff.toFixed(1)} rispetto alla media`;
+                                } else {
+                                    return `${diff.toFixed(1)} rispetto alla media`;
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            font: {
+                                size: 12
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Media Nuove Lead',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 13,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+});
+</script>
+{% endblock %}

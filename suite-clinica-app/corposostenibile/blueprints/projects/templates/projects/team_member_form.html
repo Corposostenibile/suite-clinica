@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Aggiungi Membro Team - {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="col-xxl-6 offset-xxl-3">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn btn-sm btn-outline-secondary me-3">
+                    <i class="ri-arrow-left-line"></i>
+                </a>
+                <h4 class="mb-0">Aggiungi Membro al Team</h4>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info mb-4">
+                <i class="ri-information-line me-2"></i>
+                <strong>Progetto:</strong> {{ project.name }}
+            </div>
+
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-3">
+                    {{ form.user_id.label(class="form-label") }}
+                    {{ form.user_id(class="form-select" + (" is-invalid" if form.user_id.errors else "")) }}
+                    {% if form.user_id.errors %}
+                        <div class="invalid-feedback">{{ form.user_id.errors[0] }}</div>
+                    {% endif %}
+                    <small class="form-text text-muted">Seleziona l'utente da aggiungere al team del progetto</small>
+                </div>
+
+                <div class="mb-3">
+                    {{ form.role.label(class="form-label") }}
+                    {{ form.role(class="form-select" + (" is-invalid" if form.role.errors else "")) }}
+                    {% if form.role.errors %}
+                        <div class="invalid-feedback">{{ form.role.errors[0] }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.allocation_percentage.label(class="form-label") }}
+                    <div class="input-group">
+                        {{ form.allocation_percentage(class="form-control" + (" is-invalid" if form.allocation_percentage.errors else "")) }}
+                        <span class="input-group-text">%</span>
+                    </div>
+                    {% if form.allocation_percentage.errors %}
+                        <div class="invalid-feedback">{{ form.allocation_percentage.errors[0] }}</div>
+                    {% endif %}
+                    <small class="form-text text-muted">Percentuale di tempo che il membro dedicherà a questo progetto</small>
+                </div>
+
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn btn-secondary me-2">
+                        <i class="ri-close-line me-1"></i> Annulla
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ri-user-add-line me-1"></i> Aggiungi al Team
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Current Team Members -->
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5 class="mb-0">Team Attuale</h5>
+        </div>
+        <div class="card-body">
+            {% if project.team_members %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Membro</th>
+                                <th>Ruolo</th>
+                                <th>Allocazione</th>
+                                <th>Dal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in project.team_members %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-xs me-2">
+                                            <span class="avatar-title bg-light text-dark rounded-circle">
+                                                {{ member.user.first_name[0] }}{{ member.user.last_name[0] }}
+                                            </span>
+                                        </div>
+                                        <div>{{ member.user.full_name }}</div>
+                                    </div>
+                                </td>
+                                <td>{{ member.role }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: {{ member.allocation_percentage }}%">
+                                            {{ member.allocation_percentage }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ member.joined_date.strftime('%d/%m/%Y') if member.joined_date else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted text-center mb-0">Nessun membro nel team</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

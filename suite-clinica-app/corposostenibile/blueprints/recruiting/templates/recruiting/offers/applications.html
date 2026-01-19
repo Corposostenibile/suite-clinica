@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}Candidature - {{ offer.title }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.offers_list') }}">Offerte</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}">{{ offer.title }}</a></li>
+        <li class="breadcrumb-item active">Candidature</li>
+      </ol>
+    </nav>
+    <h2>
+      <i class="ri-user-search-line me-2"></i>Candidature per {{ offer.title }}
+    </h2>
+    <p class="text-muted">{{ applications|length }} candidature ricevute</p>
+  </div>
+  <div class="col-auto">
+    <a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}" class="btn btn-outline-primary">
+      <i class="ri-arrow-left-line me-1"></i>Torna all'Offerta
+    </a>
+  </div>
+</div>
+
+{# Filtri e ordinamento #}
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row align-items-center">
+      <div class="col-md-4">
+        <label class="form-label">Ordina per:</label>
+        <select class="form-select" onchange="window.location.href='?sort=' + this.value">
+          <option value="date" {% if request.args.get('sort', 'date') == 'date' %}selected{% endif %}>
+            Data candidatura
+          </option>
+          <option value="score" {% if request.args.get('sort') == 'score' %}selected{% endif %}>
+            Punteggio
+          </option>
+          <option value="name" {% if request.args.get('sort') == 'name' %}selected{% endif %}>
+            Nome
+          </option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Filtra per stato:</label>
+        <select class="form-select" id="statusFilter">
+          <option value="">Tutti gli stati</option>
+          <option value="new">Nuove</option>
+          <option value="screening">In screening</option>
+          <option value="reviewed">Revisionate</option>
+          <option value="interview_scheduled">Colloquio programmato</option>
+          <option value="interviewed">Colloquiate</option>
+          <option value="offer_sent">Offerta inviata</option>
+          <option value="hired">Assunte</option>
+          <option value="rejected">Rifiutate</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Filtra per fonte:</label>
+        <select class="form-select" id="sourceFilter">
+          <option value="">Tutte le fonti</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="facebook">Facebook</option>
+          <option value="instagram">Instagram</option>
+          <option value="website">Sito web</option>
+          <option value="referral">Referral</option>
+          <option value="direct">Diretta</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Lista candidature #}
+{% if applications %}
+<div class="row" id="applicationsContainer">
+  {% for application in applications %}
+  <div class="col-lg-6 mb-4 application-card" 
+       data-status="{{ application.status.value if application.status else 'new' }}"
+       data-source="{{ application.source.value if application.source else 'unknown' }}">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="mb-0">
+            {{ application.first_name }} {{ application.last_name }}
+          </h5>
+          <small class="text-muted">
+            <i class="ri-calendar-line me-1"></i>
+            {{ application.created_at.strftime('%d/%m/%Y %H:%M') if application.created_at else 'N/D' }}
+          </small>
+        </div>
+        <div class="text-end">
+          {% if application.total_score is not none %}
+          <div class="badge bg-primary fs-6">
+            <i class="ri-star-line me-1"></i>{{ application.total_score|round(1) }}%
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row mb-3">
+          <div class="col-6">
+            <small class="text-muted d-block">Email</small>
+            <strong>{{ application.email }}</strong>
+          </div>
+          <div class="col-6">
+            <small class="text-muted d-block">Telefono</small>
+            <strong>{{ application.phone or 'Non fornito' }}</strong>
+          </div>
+        </div>
+        
+        <div class="row mb-3">
+          <div class="col-6">
+            <small class="text-muted d-block">Fonte</small>
+            {% if application.source %}
+              {% if application.source.value == 'linkedin' %}
+                <span class="badge bg-primary">
+                  <i class="ri-linkedin-box-fill me-1"></i>LinkedIn
+                </span>
+              {% elif application.source.value == 'facebook' %}
+                <span class="badge bg-info">
+                  <i class="ri-facebook-box-fill me-1"></i>Facebook
+                </span>
+              {% elif application.source.value == 'instagram' %}
+                <span class="badge bg-danger">
+                  <i class="ri-instagram-fill me-1"></i>Instagram
+                </span>
+              {% else %}
+                <span class="badge bg-secondary">{{ application.source.value|title }}</span>
+              {% endif %}
+            {% else %}
+              <span class="badge bg-secondary">Sconosciuta</span>
+            {% endif %}
+          </div>
+          <div class="col-6">
+            <small class="text-muted d-block">Stato</small>
+            {% if application.status %}
+              {% if application.status.value == 'new' %}
+                <span class="badge bg-info">Nuova</span>
+              {% elif application.status.value == 'screening' %}
+                <span class="badge bg-warning">Screening</span>
+              {% elif application.status.value == 'reviewed' %}
+                <span class="badge bg-primary">Revisionata</span>
+              {% elif application.status.value == 'interview_scheduled' %}
+                <span class="badge bg-purple">Colloquio programmato</span>
+              {% elif application.status.value == 'interviewed' %}
+                <span class="badge bg-teal">Colloquiata</span>
+              {% elif application.status.value == 'offer_sent' %}
+                <span class="badge bg-orange">Offerta inviata</span>
+              {% elif application.status.value == 'hired' %}
+                <span class="badge bg-success">Assunta</span>
+              {% elif application.status.value == 'rejected' %}
+                <span class="badge bg-danger">Rifiutata</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ application.status.value|title }}</span>
+              {% endif %}
+            {% else %}
+              <span class="badge bg-info">Nuova</span>
+            {% endif %}
+          </div>
+        </div>
+        
+        {% if application.cv_path %}
+        <div class="mb-3">
+          <small class="text-muted d-block mb-1">CV</small>
+          <a href="{{ url_for('recruiting.download_cv', application_id=application.id) }}" 
+             class="btn btn-sm btn-outline-primary">
+            <i class="ri-file-download-line me-1"></i>Scarica CV
+          </a>
+        </div>
+        {% endif %}
+        
+        {% if application.internal_notes %}
+        <div class="alert alert-warning mb-0">
+          <small>
+            <i class="ri-sticky-note-line me-1"></i>
+            <strong>Note:</strong> {{ application.internal_notes[:100] }}{% if application.internal_notes|length > 100 %}...{% endif %}
+          </small>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-footer">
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="{{ url_for('recruiting.application_detail', application_id=application.id) }}" 
+             class="btn btn-primary btn-sm">
+            <i class="ri-eye-line me-1"></i>Dettagli
+          </a>
+          
+          {% if offer.kanban_id %}
+          <button class="btn btn-outline-success btn-sm" 
+                  onclick="moveToKanban({{ application.id }}, {{ offer.kanban_id }})"
+                  title="Sposta nel Kanban">
+            <i class="ri-kanban-view"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="ri-information-line me-2"></i>
+  Nessuna candidatura ricevuta per questa offerta.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-purple {
+  background-color: #6f42c1 !important;
+}
+.bg-teal {
+  background-color: #20c997 !important;
+}
+.bg-orange {
+  background-color: #fd7e14 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Filtri
+document.getElementById('statusFilter')?.addEventListener('change', filterApplications);
+document.getElementById('sourceFilter')?.addEventListener('change', filterApplications);
+
+function filterApplications() {
+  const statusFilter = document.getElementById('statusFilter').value;
+  const sourceFilter = document.getElementById('sourceFilter').value;
+  
+  document.querySelectorAll('.application-card').forEach(card => {
+    let show = true;
+    
+    if (statusFilter && card.dataset.status !== statusFilter) {
+      show = false;
+    }
+    
+    if (sourceFilter && card.dataset.source !== sourceFilter) {
+      show = false;
+    }
+    
+    card.style.display = show ? 'block' : 'none';
+  });
+}
+
+function moveToKanban(applicationId, kanbanId) {
+  if (confirm('Vuoi spostare questa candidatura nel Kanban?')) {
+    // Implementa la logica per spostare nel kanban
+    window.location.href = `/recruiting/kanban/${kanbanId}?highlight=${applicationId}`;
+  }
+}
+
+// Get CSRF token
+function getCsrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content || 
+         document.querySelector('input[name="csrf_token"]')?.value || '';
+}
+
+// Approve Application
+async function approveApplication(applicationId) {
+  const notes = prompt('Note per l\'approvazione (opzionale):');
+  if (notes === null) return; // User cancelled
+  
+  const startDate = prompt('Data inizio proposta (YYYY-MM-DD, opzionale):');
+  if (startDate === null) return; // User cancelled
+  
+  try {
+    const response = await fetch(`/recruiting/api/applications/${applicationId}/approve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ 
+        notes: notes || '',
+        start_date: startDate || null
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert(result.message);
+      if (confirm('Vuoi procedere con l\'onboarding?')) {
+        window.location.href = result.onboarding_url;
+      } else {
+        location.reload();
+      }
+    } else {
+      alert('Errore: ' + result.message);
+    }
+  } catch (error) {
+    alert('Errore nell\'approvazione della candidatura');
+    console.error(error);
+  }
+}
+
+// Send Offer
+async function sendOffer(applicationId) {
+  const salaryOffer = prompt('Offerta salariale (opzionale):');
+  if (salaryOffer === null) return; // User cancelled
+  
+  const startDate = prompt('Data inizio proposta (YYYY-MM-DD, opzionale):');
+  if (startDate === null) return; // User cancelled
+  
+  const message = prompt('Messaggio personalizzato (opzionale):');
+  if (message === null) return; // User cancelled
+  
+  try {
+    const response = await fetch(`/recruiting/api/applications/${applicationId}/send-offer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ 
+        salary_offer: salaryOffer || null,
+        start_date: startDate || null,
+        message: message || ''
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert(result.message);
+      location.reload();
+    } else {
+      alert('Errore: ' + result.message);
+    }
+  } catch (error) {
+    alert('Errore nell\'invio dell\'offerta');
+    console.error(error);
+  }
+}
+
+// Request Info
+async function requestInfo(applicationId) {
+  const subject = prompt('Oggetto della richiesta:', 'Richiesta informazioni aggiuntive');
+  if (!subject) return;
+  
+  const message = prompt('Messaggio da inviare al candidato:');
+  if (!message) {
+    alert('Il messaggio è obbligatorio');
+    return;
+  }
+  
+  const infoType = prompt('Tipo di informazioni (general/documents/references):', 'general');
+  
+  try {
+    const response = await fetch(`/recruiting/api/applications/${applicationId}/request-info`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ 
+        subject: subject,
+        message: message,
+        info_type: infoType || 'general'
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert(result.message);
+      location.reload();
+    } else {
+      alert('Errore: ' + result.message);
+    }
+  } catch (error) {
+    alert('Errore nella richiesta informazioni');
+    console.error(error);
+  }
+}
+
+// Reject Application
+async function rejectApplication(applicationId) {
+  if (!confirm('Sei sicuro di voler rifiutare questa candidatura?')) return;
+  
+  const reason = prompt('Motivo del rifiuto (opzionale):');
+  if (reason === null) return; // User cancelled
+  
+  try {
+    const response = await fetch(`/recruiting/api/applications/${applicationId}/reject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert(result.message);
+      location.reload();
+    } else {
+      alert('Errore: ' + result.message);
+    }
+  } catch (error) {
+    alert('Errore nel rifiuto della candidatura');
+    console.error(error);
+  }
+}
+
+// Run Single Screening (allows re-screening)
+async function runSingleScreening(applicationId) {
+  if (!confirm('Avviare lo screening automatico per questa candidatura?')) return;
+  
+  try {
+    const response = await fetch(`/recruiting/api/applications/${applicationId}/screen`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({})
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      alert('Screening completato con successo!');
+      location.reload();
+    } else {
+      alert('Errore: ' + result.message);
+    }
+  } catch (error) {
+    alert('Errore durante lo screening');
+    console.error(error);
+  }
+}
+</script>
+{% endblock %}

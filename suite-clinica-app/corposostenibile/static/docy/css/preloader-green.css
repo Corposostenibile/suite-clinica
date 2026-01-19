@@ -1,0 +1,38 @@
+/* Preloader verde Corposostenibile */
+#preloader .spinner {
+    border: 3px solid rgba(37, 179, 106, 0.2) !important;
+    border-top-color: #25B36A !important;
+}
+
+#preloader .spinner:before {
+    background-color: #25B36A !important;
+}
+
+#preloader .round_spinner {
+    border-color: rgba(37, 179, 106, 0.1) !important;
+}
+
+#preloader .round_spinner:before {
+    background: #25B36A !important;
+}
+
+#preloader .ctn-preloader {
+    background: white !important;
+}
+
+#preloader .head {
+    color: #25B36A !important;
+}
+
+#preloader p {
+    color: #7e8e9f !important;
+}
+
+/* Override del pallino che gira */
+.round_spinner .spinner::after {
+    background: #25B36A !important;
+}
+
+.spinner::after {
+    background: #25B36A !important;
+}

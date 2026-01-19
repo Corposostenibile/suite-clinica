@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}{% if project %}Modifica{% else %}Nuovo{% endif %} Progetto IT - Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{% if project %}{{ url_for('it_projects.detail', project_id=project.id) }}{% else %}{{ url_for('it_projects.index') }}{% endif %}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <div>
+      <h6 class="fw-semibold mb-0">{% if project %}Modifica Progetto{% else %}Nuovo Progetto IT{% endif %}</h6>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.index') }}">Progetti IT</a></li>
+          <li class="breadcrumb-item active">{% if project %}Modifica{% else %}Nuovo{% endif %}</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<form method="POST" action="{% if project %}{{ url_for('it_projects.edit', project_id=project.id) }}{% else %}{{ url_for('it_projects.new') }}{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row gy-4">
+    {# ─────────────────────── MAIN FORM ─────────────────────── #}
+    <div class="col-lg-8">
+      <!-- Info Base -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">
+            <i class="ri-information-line text-primary-600 me-2"></i>Informazioni Base
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Titolo <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control"
+                   value="{{ project.title if project else '' }}"
+                   placeholder="Nome del progetto" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-medium">Descrizione</label>
+            <textarea name="description" class="form-control" rows="4"
+                      placeholder="Descrizione generale del progetto">{{ project.description if project else '' }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-medium">Specifiche Tecniche</label>
+            <textarea name="specifications" class="form-control" rows="5"
+                      placeholder="Dettagli tecnici, architettura, tecnologie utilizzate...">{{ project.specifications if project else '' }}</textarea>
+            <small class="text-muted">Descrivere l'architettura, le tecnologie, i requisiti tecnici</small>
+          </div>
+
+          <div class="mb-0">
+            <label class="form-label fw-medium">Strategia di Adoption</label>
+            <textarea name="adoption_strategy" class="form-control" rows="4"
+                      placeholder="Come verra adottato il progetto, formazione, rollout...">{{ project.adoption_strategy if project else '' }}</textarea>
+            <small class="text-muted">Piano di implementazione, formazione utenti, rollout</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tempistiche -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">
+            <i class="ri-time-line text-info me-2"></i>Tempistiche
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-medium">Ore Previste</label>
+              <input type="number" name="estimated_hours" class="form-control"
+                     value="{{ project.estimated_hours if project else 0 }}"
+                     step="0.5" min="0" placeholder="0">
+            </div>
+            {% if project %}
+            <div class="col-md-6">
+              <label class="form-label fw-medium">Ore Svolte</label>
+              <input type="number" name="worked_hours" class="form-control"
+                     value="{{ project.worked_hours if project else 0 }}"
+                     step="0.5" min="0" placeholder="0">
+            </div>
+            {% endif %}
+          </div>
+
+          <hr class="my-4">
+
+          <label class="form-label fw-medium d-block mb-3">Deadline</label>
+          <div class="d-flex gap-3 mb-3">
+            <button type="button" class="btn flex-grow-1 {% if not project or not project.has_deadline %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                    id="btnNoDeadline" onclick="toggleDeadline(false)">
+              <i class="ri-calendar-close-line me-2"></i>Da Definire
+            </button>
+            <button type="button" class="btn flex-grow-1 {% if project and project.has_deadline %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                    id="btnWithDeadline" onclick="toggleDeadline(true)">
+              <i class="ri-calendar-check-line me-2"></i>Con Deadline
+            </button>
+          </div>
+
+          <div id="deadlineInput" style="{% if not project or not project.has_deadline %}display: none;{% endif %}">
+            <input type="date" name="deadline" class="form-control"
+                   value="{{ project.deadline.strftime('%Y-%m-%d') if project and project.deadline else '' }}">
+            <small class="text-muted">I progetti con deadline vengono ordinati per data di scadenza</small>
+          </div>
+          <div id="noDeadlineText" style="{% if project and project.has_deadline %}display: none;{% endif %}">
+            <div class="alert alert-info mb-0">
+              <i class="ri-information-line me-2"></i>
+              I progetti senza deadline possono essere riordinati manualmente per priorita nella lista
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ─────────────────────── SIDEBAR ─────────────────────── #}
+    <div class="col-lg-4">
+      <!-- Stato -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">
+            <i class="ri-flag-line text-warning-main me-2"></i>Stato
+          </h6>
+        </div>
+        <div class="card-body">
+          <select name="status" class="form-select">
+            {% for value, label in statuses %}
+            <option value="{{ value }}" {% if project and project.status == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Team -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="card-title mb-0">
+            <i class="ri-team-line text-primary-600 me-2"></i>Team di Lavoro
+          </h6>
+        </div>
+        <div class="card-body">
+          {% if it_members %}
+          <div class="d-flex flex-column gap-2">
+            {% for member in it_members %}
+            <label class="team-option d-flex align-items-center gap-3 p-3 border radius-8 cursor-pointer {% if project and member in project.team_members %}border-primary bg-primary-50{% endif %}">
+              <input type="checkbox" name="team_members" value="{{ member.id }}" class="form-check-input m-0"
+                     {% if project and member in project.team_members %}checked{% endif %}
+                     onchange="this.closest('.team-option').classList.toggle('border-primary', this.checked); this.closest('.team-option').classList.toggle('bg-primary-50', this.checked);">
+              <div class="w-40-px h-40-px rounded-circle bg-primary-100 d-flex justify-content-center align-items-center text-primary-600 fw-semibold flex-shrink-0">
+                {{ member.first_name[0] }}{{ member.last_name[0] if member.last_name else '' }}
+              </div>
+              <span class="fw-medium">{{ member.full_name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-3 text-muted">
+            <iconify-icon icon="mdi:account-group-outline" style="font-size: 2rem;"></iconify-icon>
+            <p class="mt-2 mb-0">Nessun membro nel dipartimento IT</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="card">
+        <div class="card-body">
+          <button type="submit" class="btn btn-primary w-100 mb-2">
+            <i class="ri-save-line me-2"></i>
+            {% if project %}Salva Modifiche{% else %}Crea Progetto{% endif %}
+          </button>
+          <a href="{% if project %}{{ url_for('it_projects.detail', project_id=project.id) }}{% else %}{{ url_for('it_projects.index') }}{% endif %}"
+             class="btn btn-outline-secondary w-100">
+            <i class="ri-close-line me-2"></i>Annulla
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleDeadline(hasDeadline) {
+    const btnNo = document.getElementById('btnNoDeadline');
+    const btnWith = document.getElementById('btnWithDeadline');
+    const deadlineInput = document.getElementById('deadlineInput');
+    const noDeadlineText = document.getElementById('noDeadlineText');
+
+    if (hasDeadline) {
+        btnNo.classList.remove('btn-primary');
+        btnNo.classList.add('btn-outline-secondary');
+        btnWith.classList.remove('btn-outline-secondary');
+        btnWith.classList.add('btn-primary');
+        deadlineInput.style.display = 'block';
+        noDeadlineText.style.display = 'none';
+    } else {
+        btnNo.classList.remove('btn-outline-secondary');
+        btnNo.classList.add('btn-primary');
+        btnWith.classList.remove('btn-primary');
+        btnWith.classList.add('btn-outline-secondary');
+        deadlineInput.style.display = 'none';
+        noDeadlineText.style.display = 'block';
+        // Clear deadline value when switching to "Da Definire"
+        deadlineInput.querySelector('input').value = '';
+    }
+}
+</script>
+<style>
+.cursor-pointer { cursor: pointer; }
+.team-option { transition: all 0.2s ease; }
+.team-option:hover { border-color: var(--bs-primary) !important; }
+</style>
+{% endblock %}

@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Pacchetti e Costi - Finance{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header con statistiche -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-box"></i> Pacchetti e Costi
+                </h1>
+                <a href="{{ url_for('finance.package_create') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuovo Pacchetto
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs filtro listino -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link {% if listino_filter == 'tutti' %}active{% endif %}"
+                       href="{{ url_for('finance.packages_list', listino='tutti') }}">
+                        <i class="fas fa-list"></i> Tutti
+                        <span class="badge badge-secondary">{{ count_vecchio + count_nuovo }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if listino_filter == 'nuovo' %}active{% endif %}"
+                       href="{{ url_for('finance.packages_list', listino='nuovo') }}">
+                        <i class="fas fa-star text-success"></i> Nuovo Listino
+                        <span class="badge badge-success">{{ count_nuovo }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if listino_filter == 'vecchio' %}active{% endif %}"
+                       href="{{ url_for('finance.packages_list', listino='vecchio') }}">
+                        <i class="fas fa-archive text-secondary"></i> Vecchio Listino
+                        <span class="badge badge-secondary">{{ count_vecchio }}</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Cards statistiche -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Pacchetti Visualizzati
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_packages }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Margine Medio
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ "%.1f"|format(avg_margin) }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Nuovo / Vecchio Listino
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ count_nuovo }} / {{ count_vecchio }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella pacchetti -->
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Lista Pacchetti
+                {% if listino_filter == 'nuovo' %}
+                    <span class="badge badge-success ml-2">Nuovo Listino</span>
+                {% elif listino_filter == 'vecchio' %}
+                    <span class="badge badge-secondary ml-2">Vecchio Listino</span>
+                {% endif %}
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="packagesTable">
+                    <thead>
+                        <tr>
+                            <th>Listino</th>
+                            <th>Nome</th>
+                            <th>Prezzo</th>
+                            <th>Durata</th>
+                            <th>Costo Nutriz.</th>
+                            <th>Costo Coach</th>
+                            <th>Costo Psic.</th>
+                            <th>Totale Costi</th>
+                            <th>Marginalità</th>
+                            <th>Margine %</th>
+                            <th>Comm. Sales</th>
+                            <th>Margine Post Sales</th>
+                            <th>Netto Post Sales</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for package in packages %}
+                        <tr>
+                            <td class="text-center">
+                                {% if package.listino_type == 'nuovo' %}
+                                    <span class="badge badge-success">NUOVO</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">VECCHIO</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('finance.package_detail', package_id=package.id) }}">
+                                    <strong>{{ package.name }}</strong>
+                                </a>
+                            </td>
+                            <td class="text-right">€ {{ "%.2f"|format(package.price) }}</td>
+                            <td class="text-center">{{ package.duration_months }} mesi</td>
+                            <td class="text-right">€ {{ "%.2f"|format(package.nutritionist_cost_monthly) }}/mese</td>
+                            <td class="text-right">€ {{ "%.2f"|format(package.coach_cost_monthly) }}/mese</td>
+                            <td class="text-right">€ {{ "%.2f"|format(package.psychologist_cost_monthly) }}/mese</td>
+                            <td class="text-right font-weight-bold">€ {{ "%.2f"|format(package.total_costs) }}</td>
+                            <td class="text-right">
+                                <span class="{% if package.margin > 0 %}text-success{% else %}text-danger{% endif %}">
+                                    € {{ "%.2f"|format(package.margin) }}
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <span class="{% if package.margin_percent > 30 %}text-success{% elif package.margin_percent > 0 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ "%.1f"|format(package.margin_percent) }}%
+                                </span>
+                            </td>
+                            <td class="text-right">€ {{ "%.2f"|format(package.sales_commission_amount) }}</td>
+                            <td class="text-right">
+                                <span class="{% if package.margin_post_sales > 0 %}text-success{% else %}text-danger{% endif %}">
+                                    € {{ "%.2f"|format(package.margin_post_sales) }}
+                                </span>
+                            </td>
+                            <td class="text-right font-weight-bold">€ {{ "%.2f"|format(package.net_post_sales) }}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('finance.package_edit', package_id=package.id) }}"
+                                       class="btn btn-warning" title="Modifica">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-danger"
+                                            onclick="confirmDelete({{ package.id }}, '{{ package.name }}')"
+                                            title="Elimina">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal conferma eliminazione -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Conferma Eliminazione</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Sei sicuro di voler eliminare il pacchetto "<span id="packageName"></span>"?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Annulla</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Elimina</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#packagesTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json"
+        },
+        "order": [[0, "desc"], [1, "asc"]],
+        "pageLength": 50
+    });
+});
+
+function confirmDelete(packageId, packageName) {
+    $('#packageName').text(packageName);
+    $('#deleteForm').attr('action', '/finance/packages/' + packageId + '/delete');
+    $('#deleteModal').modal('show');
+}
+</script>
+{% endblock %}

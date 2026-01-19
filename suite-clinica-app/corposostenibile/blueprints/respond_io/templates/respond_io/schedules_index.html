@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Orari Utenti Respond.io{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <!-- Breadcrumb -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Orari di Lavoro</h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('welcome.index') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">Respond IO</li>
+            <li>-</li>
+            <li class="fw-medium">Orari di Lavoro</li>
+        </ul>
+    </div>
+    
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card radius-8 border-0 mb-4">
+                <div class="card-body p-20">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h6 class="fw-bold text-lg mb-0">Gestione Orari Utenti Respond.io</h6>
+                        <div>
+                            <a href="{{ url_for('respond_io.calendar_view') }}" class="btn btn-primary-600 radius-8 me-2">
+                                <iconify-icon icon="solar:calendar-bold" class="icon me-2"></iconify-icon>
+                                Calendario Interattivo
+                            </a>
+                            <a href="{{ url_for('respond_io.assignment_monitoring') }}" class="btn bg-success-focus text-success-main radius-8">
+                                <iconify-icon icon="solar:user-check-rounded-linear" class="icon me-2"></iconify-icon>
+                                Dashboard Assegnazioni
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row gy-4 mb-4">
+        <div class="col-xxl-4 col-sm-6">
+            <div class="card p-3 shadow-2 radius-8 border-0 bg-gradient-end-1 h-100">
+                <div class="card-body p-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+                            <iconify-icon icon="solar:user-linear" class="icon text-xl"></iconify-icon>
+                        </span>
+                        <div>
+                            <span class="mb-2 fw-medium text-secondary-light text-sm">Utenti Respond.io</span>
+                            <h6 class="fw-semibold">{{ stats.total_users }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xxl-4 col-sm-6">
+            <div class="card p-3 shadow-2 radius-8 border-0 bg-gradient-end-2 h-100">
+                <div class="card-body p-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                            <iconify-icon icon="solar:calendar-mark-bold" class="icon text-xl"></iconify-icon>
+                        </span>
+                        <div>
+                            <span class="mb-2 fw-medium text-secondary-light text-sm">Con Orari Configurati</span>
+                            <h6 class="fw-semibold">{{ stats.users_with_schedules }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xxl-4 col-sm-6">
+            <div class="card p-3 shadow-2 radius-8 border-0 bg-gradient-end-3 h-100">
+                <div class="card-body p-0">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                            <iconify-icon icon="solar:user-check-rounded-bold" class="icon text-xl"></iconify-icon>
+                        </span>
+                        <div>
+                            <span class="mb-2 fw-medium text-secondary-light text-sm">In Turno Ora</span>
+                            <h6 class="fw-semibold">{{ stats.users_on_duty }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    {% if needs_sync %}
+    <!-- Messaggio Sincronizzazione -->
+    <div class="card radius-8 border-0">
+        <div class="card-body text-center py-5">
+            <span class="w-72-px h-72-px bg-primary-50 text-primary-600 d-inline-flex justify-content-center align-items-center rounded-circle mb-3">
+                <iconify-icon icon="solar:refresh-linear" class="icon text-3xl"></iconify-icon>
+            </span>
+            <h5 class="fw-bold mb-2">Nessun utente Respond.io trovato</h5>
+            <p class="text-secondary-light mb-4">È necessario sincronizzare gli utenti dal workspace Respond.io</p>
+            <form method="POST" action="{{ url_for('respond_io.sync_respond_io_users') }}" class="d-inline">
+                {{ filter_form.hidden_tag() }}
+                <button type="submit" class="btn btn-primary-600 btn-lg radius-8">
+                    <iconify-icon icon="solar:cloud-download-linear" class="icon me-2"></iconify-icon>
+                    Sincronizza Utenti Respond.io
+                </button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <!-- Tabella Orari -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Orari di Lavoro Utenti</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table basic-border-table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Utente</th>
+                            <th class="text-center">Stato</th>
+                            <th class="text-center">Lunedì</th>
+                            <th class="text-center">Martedì</th>
+                            <th class="text-center">Mercoledì</th>
+                            <th class="text-center">Giovedì</th>
+                            <th class="text-center">Venerdì</th>
+                            <th class="text-center">Sabato</th>
+                            <th class="text-center">Domenica</th>
+                            <th class="text-center">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in users_schedules %}
+                        <tr class="{% if item.is_on_duty %}table-success{% endif %}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="w-40-px h-40-px bg-primary-50 text-primary-600 d-flex justify-content-center align-items-center rounded-circle me-3 fw-semibold">
+                                        {{ item.user.first_name[0] }}{{ item.user.last_name[0] }}
+                                    </span>
+                                    <div>
+                                        <a href="{{ url_for('respond_io.schedule_edit', user_id=item.user.id) }}" 
+                                           class="text-primary-600 fw-semibold text-decoration-none">
+                                            {{ item.user.full_name }}
+                                        </a>
+                                        <div class="text-muted small">{{ item.user.email }}</div>
+                                        {% if item.user.role %}
+                                        <span class="badge bg-secondary-50 text-secondary-600 ms-0 mt-1">{{ item.user.role }}</span>
+                                        {% endif %}
+                                        {% if item.user.team_name %}
+                                        <span class="badge bg-info-50 text-info-main ms-1 mt-1">{{ item.user.team_name }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                {% if item.is_on_duty %}
+                                <span class="badge bg-success-focus text-success-main px-12 py-4 radius-4">In Turno</span>
+                                {% elif item.has_schedules %}
+                                <span class="badge bg-danger-focus text-danger-main px-12 py-4 radius-4">Offline</span>
+                                {% else %}
+                                <span class="badge bg-warning-focus text-warning-main px-12 py-4 radius-4">Non Configurato</span>
+                                {% endif %}
+                            </td>
+                            
+                            {% for day in range(7) %}
+                            <td class="text-center small">
+                                {% if day in item.schedules %}
+                                    {% set schedule = item.schedules[day] %}
+                                    {% if schedule.is_active %}
+                                        <div class="text-success">
+                                            {{ schedule.start_time.strftime('%H:%M') }}<br>
+                                            {{ schedule.end_time.strftime('%H:%M') }}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                            
+                            <td class="text-center">
+                                <a href="{{ url_for('respond_io.schedule_edit', user_id=item.user.id) }}" 
+                                   class="btn btn-sm btn-outline-success radius-4"
+                                   title="Modifica Orari">
+                                    <iconify-icon icon="lucide:edit" class="icon text-md"></iconify-icon>
+                                    <span class="d-none d-md-inline ms-1">Modifica</span>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center py-4 text-muted">
+                                Nessun utente trovato
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Pulsante Sincronizzazione sempre visibile per admin -->
+    {% if current_user.is_admin and not needs_sync %}
+    <div class="mt-3 text-end">
+        <form method="POST" action="{{ url_for('respond_io.sync_respond_io_users') }}" class="d-inline">
+            {{ filter_form.hidden_tag() }}
+            <button type="submit" class="btn bg-primary-50 text-primary-600 radius-8">
+                <iconify-icon icon="solar:refresh-linear" class="icon me-2"></iconify-icon>
+                Aggiorna Utenti da Respond.io
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div> <!-- dashboard-main-body -->
+{% endblock %}

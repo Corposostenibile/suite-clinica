@@ -1,0 +1,733 @@
+{% extends "base.html" %}
+
+{% block title %}Form Builder - {{ offer.title }} – Recruiting{% endblock %}
+
+{% block extra_css %}
+<style>
+  .question-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: white;
+    position: relative;
+    transition: all 0.3s;
+  }
+  
+  .question-card.dragging {
+    opacity: 0.5;
+  }
+  
+  .question-card:hover {
+    border-color: #cbd5e0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  
+  .drag-handle {
+    cursor: move;
+    color: #a0aec0;
+    font-size: 1.25rem;
+  }
+  
+  .weight-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-block;
+  }
+  
+  .total-weight {
+    font-size: 2rem;
+    font-weight: bold;
+  }
+  
+  .total-weight.valid { color: #48bb78; }
+  .total-weight.invalid { color: #f56565; }
+  
+  .question-type-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+  }
+  
+  .preview-section {
+    background: #f7fafc;
+    border: 2px dashed #cbd5e0;
+    border-radius: 8px;
+    padding: 2rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0">Form Builder - Domande Candidatura</h6>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.offers_list') }}">Offerte</a></li>
+        <li class="breadcrumb-item">{{ offer.title }}</li>
+        <li class="breadcrumb-item active">Domande</li>
+      </ol>
+    </nav>
+  </div>
+  <div>
+    <button class="btn btn-success" onclick="saveQuestions(event)">
+      <i class="ri-save-line me-1"></i>Salva Domande
+    </button>
+  </div>
+</div>
+
+{# Info Offerta #}
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h5 class="mb-1">{{ offer.title }}</h5>
+        <p class="text-muted mb-0">{{ offer.department.name if offer.department else 'N/A' }} • {{ offer.location or 'Remoto' }}</p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <div class="badge bg-warning text-dark">
+          <i class="ri-draft-line me-1"></i>Bozza - Non Pubblicata
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  {# ─────────────────────── FORM BUILDER ─────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">
+          <i class="ri-questionnaire-line me-2"></i>Domande del Form
+        </h6>
+        <button class="btn btn-primary btn-sm" onclick="addQuestion()">
+          <i class="ri-add-line me-1"></i>Aggiungi Domanda
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="questionsContainer">
+          {% for question in questions %}
+          <div class="question-card" data-id="{{ question.id }}">
+            {# ... existing question ... #}
+          </div>
+          {% endfor %}
+        </div>
+        
+        {% if not questions %}
+        <div id="emptyState" class="text-center py-5">
+          <i class="ri-questionnaire-line" style="font-size: 3rem; color: #cbd5e0;"></i>
+          <h5 class="mt-3">Nessuna domanda aggiunta</h5>
+          <p class="text-muted">Inizia aggiungendo domande per il form di candidatura</p>
+          <button class="btn btn-primary" onclick="addQuestion()">
+            <i class="ri-add-line me-1"></i>Aggiungi Prima Domanda
+          </button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    
+    {# Preview #}
+    <div class="card mt-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-eye-line me-2"></i>Anteprima Form Candidato
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="preview-section" id="previewSection">
+          <p class="text-muted text-center">L'anteprima apparirà dopo aver aggiunto domande</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {# ─────────────────────── SIDEBAR ─────────────────────── #}
+  <div class="col-lg-4">
+    {# Peso Totale #}
+    <div class="card mb-4">
+      <div class="card-body text-center">
+        <h6 class="card-title">Peso Totale Domande</h6>
+        <div class="total-weight invalid" id="totalWeight">0%</div>
+        <div class="progress mt-3" style="height: 25px;">
+          <div class="progress-bar" id="weightProgress" style="width: 0%;">0%</div>
+        </div>
+        <small class="text-muted d-block mt-2">Il totale deve essere esattamente 100%</small>
+      </div>
+    </div>
+    
+    {# Tipi di Domanda #}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Tipi di Domanda Disponibili</h6>
+      </div>
+      <div class="card-body">
+        <div class="list-group list-group-flush">
+          <div class="list-group-item px-0">
+            <i class="ri-text me-2"></i>Testo breve
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-file-text-line me-2"></i>Testo lungo
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-radio-button-line me-2"></i>Scelta singola
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-checkbox-line me-2"></i>Scelta multipla
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-number-1 me-2"></i>Numero
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-calendar-line me-2"></i>Data
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-attachment-line me-2"></i>Upload file
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-mail-line me-2"></i>Email
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-phone-line me-2"></i>Telefono
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-star-line me-2"></i>Valutazione
+          </div>
+          <div class="list-group-item px-0">
+            <i class="ri-toggle-line me-2"></i>Sì/No
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    {# Help #}
+    <div class="card bg-light">
+      <div class="card-body">
+        <h6 class="card-title">
+          <i class="ri-information-line me-2"></i>Come Funziona
+        </h6>
+        <ol class="small mb-0">
+          <li class="mb-2">Aggiungi domande al form</li>
+          <li class="mb-2">Per ogni domanda, specifica la <strong>risposta attesa</strong></li>
+          <li class="mb-2">Assegna un <strong>peso %</strong> in base all'importanza</li>
+          <li class="mb-2">Il totale dei pesi deve essere <strong>100%</strong></li>
+          <li>Il sistema userà questi dati per lo <strong>screening automatico</strong></li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Modal Aggiungi/Modifica Domanda #}
+<div class="modal fade" id="questionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="questionModalTitle">Aggiungi Domanda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="questionForm">
+          <div class="mb-3">
+            <label class="form-label">Testo Domanda <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="questionText" rows="2" required></textarea>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Tipo Domanda <span class="text-danger">*</span></label>
+              <select class="form-select" id="questionType" onchange="updateQuestionFields()">
+                <option value="short_text">Testo breve</option>
+                <option value="long_text">Testo lungo</option>
+                <option value="select">Scelta singola</option>
+                <option value="multiselect">Scelta multipla</option>
+                <option value="number">Numero</option>
+                <option value="date">Data</option>
+                <option value="file">Upload file</option>
+                <option value="email">Email</option>
+                <option value="phone">Telefono</option>
+                <option value="url">URL</option>
+                <option value="yesno">Sì/No</option>
+              </select>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Peso % (Importanza) <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="questionWeight" min="0" max="100" value="0" required>
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+          </div>
+          
+          {# Opzioni (per select, radio, checkbox) #}
+          <div id="optionsField" class="mb-3" style="display: none;">
+            <label class="form-label">Opzioni (una per riga)</label>
+            <textarea class="form-control" id="questionOptions" rows="4" placeholder="Opzione 1&#10;Opzione 2&#10;Opzione 3"></textarea>
+          </div>
+          
+          {# Risposta Attesa #}
+          <div id="expectedAnswerField" class="mb-3">
+            <label class="form-label">Risposta Attesa</label>
+            <input type="text" class="form-control" id="expectedAnswer" placeholder="Risposta ideale del candidato">
+            <small class="text-muted">Il sistema userà questa risposta per lo scoring automatico</small>
+          </div>
+          
+          {# Range (per number, rating) #}
+          <div id="rangeFields" class="row" style="display: none;">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Valore Minimo Atteso</label>
+              <input type="number" class="form-control" id="expectedMin">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Valore Massimo Atteso</label>
+              <input type="number" class="form-control" id="expectedMax">
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="isRequired" checked>
+                <label class="form-check-label" for="isRequired">
+                  Domanda Obbligatoria
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Testo di Aiuto (opzionale)</label>
+            <input type="text" class="form-control" id="helpText" placeholder="Suggerimento per il candidato">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" onclick="saveQuestion()">Salva Domanda</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+let questions = {{ questions|tojson if questions else '[]' }};
+let currentEditIndex = -1;
+
+// Initialize sortable
+const sortable = Sortable.create(document.getElementById('questionsContainer'), {
+  handle: '.drag-handle',
+  animation: 150,
+  onEnd: function(evt) {
+    // Reorder questions array
+    const item = questions.splice(evt.oldIndex, 1)[0];
+    questions.splice(evt.newIndex, 0, item);
+    updateQuestionNumbers();
+  }
+});
+
+function addQuestion() {
+  currentEditIndex = -1;
+  document.getElementById('questionModalTitle').textContent = 'Aggiungi Domanda';
+  document.getElementById('questionForm').reset();
+  updateQuestionFields();
+  new bootstrap.Modal(document.getElementById('questionModal')).show();
+}
+
+function editQuestion(index) {
+  currentEditIndex = index;
+  const question = questions[index];
+  
+  document.getElementById('questionModalTitle').textContent = 'Modifica Domanda';
+  document.getElementById('questionText').value = question.question_text;
+  document.getElementById('questionType').value = question.question_type;
+  document.getElementById('questionWeight').value = question.weight;
+  document.getElementById('isRequired').checked = question.is_required;
+  document.getElementById('helpText').value = question.help_text || '';
+  document.getElementById('expectedAnswer').value = question.expected_answer || '';
+  
+  if (question.options && question.options.length > 0) {
+    document.getElementById('questionOptions').value = question.options.join('\n');
+  }
+  
+  if (question.expected_min !== undefined) {
+    document.getElementById('expectedMin').value = question.expected_min;
+  }
+  if (question.expected_max !== undefined) {
+    document.getElementById('expectedMax').value = question.expected_max;
+  }
+  
+  updateQuestionFields();
+  new bootstrap.Modal(document.getElementById('questionModal')).show();
+}
+
+function updateQuestionFields() {
+  const type = document.getElementById('questionType').value;
+  
+  // Show/hide options field
+  const needsOptions = ['select', 'multiselect'].includes(type);
+  document.getElementById('optionsField').style.display = needsOptions ? 'block' : 'none';
+  
+  // Show/hide range fields
+  const needsRange = ['number'].includes(type);
+  document.getElementById('rangeFields').style.display = needsRange ? 'flex' : 'none';
+  
+  // Update expected answer field
+  if (needsOptions) {
+    document.getElementById('expectedAnswerField').querySelector('label').textContent = 'Opzioni Attese (separate da virgola)';
+    document.getElementById('expectedAnswer').placeholder = 'Opzione1, Opzione2';
+  } else if (type === 'yesno') {
+    document.getElementById('expectedAnswerField').querySelector('label').textContent = 'Risposta Attesa';
+    document.getElementById('expectedAnswer').placeholder = 'si o no';
+  } else {
+    document.getElementById('expectedAnswerField').querySelector('label').textContent = 'Risposta Attesa';
+    document.getElementById('expectedAnswer').placeholder = 'Risposta ideale del candidato';
+  }
+}
+
+function saveQuestion() {
+  const questionData = {
+    question_text: document.getElementById('questionText').value,
+    question_type: document.getElementById('questionType').value,
+    weight: parseFloat(document.getElementById('questionWeight').value) || 0,
+    is_required: document.getElementById('isRequired').checked,
+    help_text: document.getElementById('helpText').value,
+    expected_answer: document.getElementById('expectedAnswer').value,
+    options: [],
+    expected_options: [],
+    expected_min: null,
+    expected_max: null
+  };
+  
+  // Handle options
+  const type = questionData.question_type;
+  if (['select', 'multiselect', 'radio', 'checkbox'].includes(type)) {
+    const optionsText = document.getElementById('questionOptions').value;
+    questionData.options = optionsText.split('\n').filter(o => o.trim());
+    
+    // Expected options from expected_answer
+    if (questionData.expected_answer) {
+      questionData.expected_options = questionData.expected_answer.split(',').map(o => o.trim());
+    }
+  }
+  
+  // Handle range
+  if (['number', 'rating'].includes(type)) {
+    const min = document.getElementById('expectedMin').value;
+    const max = document.getElementById('expectedMax').value;
+    if (min) questionData.expected_min = parseFloat(min);
+    if (max) questionData.expected_max = parseFloat(max);
+  }
+  
+  // Add or update question
+  if (currentEditIndex === -1) {
+    questions.push(questionData);
+  } else {
+    questions[currentEditIndex] = questionData;
+  }
+  
+  // Close modal
+  bootstrap.Modal.getInstance(document.getElementById('questionModal')).hide();
+  
+  // Refresh display
+  renderQuestions();
+  updateTotalWeight();
+  updatePreview();
+}
+
+function deleteQuestion(index) {
+  if (confirm('Eliminare questa domanda?')) {
+    questions.splice(index, 1);
+    renderQuestions();
+    updateTotalWeight();
+    updatePreview();
+  }
+}
+
+function renderQuestions() {
+  const container = document.getElementById('questionsContainer');
+  const emptyState = document.getElementById('emptyState');
+  
+  if (questions.length === 0) {
+    container.innerHTML = '';
+    if (emptyState) emptyState.style.display = 'block';
+    return;
+  }
+  
+  if (emptyState) emptyState.style.display = 'none';
+  
+  container.innerHTML = questions.map((q, index) => `
+    <div class="question-card" data-index="${index}">
+      <div class="d-flex align-items-start gap-3">
+        <div class="drag-handle">
+          <i class="ri-drag-move-2-line"></i>
+        </div>
+        
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="mb-0">${index + 1}. ${q.question_text}</h6>
+            <div class="d-flex gap-2">
+              <span class="weight-badge">${q.weight}%</span>
+              <button class="btn btn-sm btn-outline-primary" onclick="editQuestion(${index})">
+                <i class="ri-edit-line"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteQuestion(${index})">
+                <i class="ri-delete-bin-line"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="text-muted small">
+            <span class="me-3"><i class="ri-input-method-line me-1"></i>${getTypeLabel(q.question_type)}</span>
+            ${q.is_required ? '<span class="text-danger"><i class="ri-asterisk me-1"></i>Obbligatoria</span>' : ''}
+          </div>
+          
+          ${q.expected_answer ? `
+            <div class="mt-2 p-2 bg-light rounded">
+              <small class="text-muted">Risposta attesa: <strong>${q.expected_answer}</strong></small>
+            </div>
+          ` : ''}
+          
+          ${q.options && q.options.length > 0 ? `
+            <div class="mt-2">
+              <small class="text-muted">Opzioni: ${q.options.join(', ')}</small>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getTypeLabel(type) {
+  const labels = {
+    'text': 'Testo breve',
+    'textarea': 'Testo lungo',
+    'select': 'Scelta singola',
+    'multiselect': 'Scelta multipla',
+    'radio': 'Radio button',
+    'checkbox': 'Checkbox',
+    'number': 'Numero',
+    'date': 'Data',
+    'file': 'Upload file',
+    'email': 'Email',
+    'phone': 'Telefono',
+    'url': 'URL',
+    'rating': 'Valutazione',
+    'yes_no': 'Sì/No'
+  };
+  return labels[type] || type;
+}
+
+function updateTotalWeight() {
+  const total = questions.reduce((sum, q) => sum + (q.weight || 0), 0);
+  const totalElement = document.getElementById('totalWeight');
+  const progressBar = document.getElementById('weightProgress');
+  
+  totalElement.textContent = total + '%';
+  progressBar.style.width = Math.min(total, 100) + '%';
+  progressBar.textContent = total + '%';
+  
+  if (total === 100) {
+    totalElement.classList.remove('invalid');
+    totalElement.classList.add('valid');
+    progressBar.classList.remove('bg-danger');
+    progressBar.classList.add('bg-success');
+  } else {
+    totalElement.classList.remove('valid');
+    totalElement.classList.add('invalid');
+    progressBar.classList.remove('bg-success');
+    progressBar.classList.add(total > 100 ? 'bg-danger' : 'bg-warning');
+  }
+}
+
+function updatePreview() {
+  const preview = document.getElementById('previewSection');
+  
+  if (questions.length === 0) {
+    preview.innerHTML = '<p class="text-muted text-center">L\'anteprima apparirà dopo aver aggiunto domande</p>';
+    return;
+  }
+  
+  preview.innerHTML = `
+    <h6 class="mb-3">Come apparirà al candidato:</h6>
+    ${questions.map((q, i) => `
+      <div class="mb-3">
+        <label class="form-label">
+          ${i + 1}. ${q.question_text}
+          ${q.is_required ? '<span class="text-danger">*</span>' : ''}
+        </label>
+        ${renderPreviewField(q)}
+        ${q.help_text ? `<small class="text-muted">${q.help_text}</small>` : ''}
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderPreviewField(question) {
+  switch(question.question_type) {
+    case 'text':
+    case 'email':
+    case 'phone':
+    case 'url':
+      return '<input type="text" class="form-control" disabled>';
+    
+    case 'textarea':
+      return '<textarea class="form-control" rows="3" disabled></textarea>';
+    
+    case 'select':
+      return `
+        <select class="form-select" disabled>
+          <option>Seleziona...</option>
+          ${question.options ? question.options.map(o => `<option>${o}</option>`).join('') : ''}
+        </select>
+      `;
+    
+    case 'radio':
+      return question.options ? question.options.map(o => `
+        <div class="form-check">
+          <input class="form-check-input" type="radio" disabled>
+          <label class="form-check-label">${o}</label>
+        </div>
+      `).join('') : '';
+    
+    case 'checkbox':
+      return question.options ? question.options.map(o => `
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" disabled>
+          <label class="form-check-label">${o}</label>
+        </div>
+      `).join('') : '';
+    
+    case 'number':
+      return '<input type="number" class="form-control" disabled>';
+    
+    case 'date':
+      return '<input type="date" class="form-control" disabled>';
+    
+    case 'file':
+      return '<input type="file" class="form-control" disabled>';
+    
+    case 'rating':
+      return `
+        <div>
+          ${[1,2,3,4,5].map(i => '<i class="ri-star-line text-warning"></i>').join('')}
+        </div>
+      `;
+    
+    case 'yes_no':
+      return `
+        <div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" disabled>
+            <label class="form-check-label">Sì</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" disabled>
+            <label class="form-check-label">No</label>
+          </div>
+        </div>
+      `;
+    
+    default:
+      return '<input type="text" class="form-control" disabled>';
+  }
+}
+
+function updateQuestionNumbers() {
+  // Re-render after reordering
+  renderQuestions();
+}
+
+async function saveQuestions(event) {
+  // Validate total weight
+  const total = questions.reduce((sum, q) => sum + (q.weight || 0), 0);
+  if (Math.abs(total - 100) > 0.01) {
+    alert('Il peso totale delle domande deve essere esattamente 100%!\nAttualmente: ' + total + '%');
+    return;
+  }
+  
+  if (questions.length === 0) {
+    alert('Aggiungi almeno una domanda prima di salvare!');
+    return;
+  }
+  
+  // Show loading
+  const btn = event.currentTarget;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvataggio...';
+  btn.disabled = true;
+  
+  try {
+    const response = await fetch("{{ url_for('recruiting.offer_questions', offer_id=offer.id) }}", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify(questions)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error:', response.status, errorText);
+      throw new Error(`Server error: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Show success message
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alert alert-success alert-dismissible fade show';
+      alertDiv.innerHTML = `
+        <i class="ri-check-line me-2"></i>${result.message || 'Domande salvate con successo!'}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+      document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('.card-body').firstChild);
+      
+      // Ask if want to publish
+      setTimeout(() => {
+        if (confirm('Domande salvate! Vuoi pubblicare l\'offerta ora?')) {
+          window.location.href = "{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}";
+        }
+      }, 1000);
+    } else {
+      console.error('Backend error:', result);
+      alert('Errore: ' + (result.message || 'Errore nel salvataggio delle domande'));
+    }
+  } catch (error) {
+    console.error('Error details:', error);
+    alert('Errore: ' + error.message);
+  } finally {
+    // Restore button
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+  renderQuestions();
+  updateTotalWeight();
+  updatePreview();
+});
+</script>
+
+{# Hidden form for publishing #}
+<form id="publishForm" action="{{ url_for('recruiting.offer_publish', offer_id=offer.id) }}" method="POST" style="display: none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endblock %}

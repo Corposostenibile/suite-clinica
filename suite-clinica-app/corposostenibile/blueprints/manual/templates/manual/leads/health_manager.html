@@ -1,0 +1,1247 @@
+{% extends "base.html" %}
+
+{% block title %}Manuale Leads Health Manager - Guida Completa{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables - Health Manager Orange */
+    :root {
+        --primary-orange: #F0AD4E;
+        --primary-orange-dark: #EC971F;
+        --primary-orange-light: #FFF3E0;
+        --primary-orange-lighter: #FFF9F0;
+    }
+
+    /* Global Reading Progress Bar */
+    .global-reading-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 9999;
+    }
+
+    .global-reading-progress-fill {
+        height: 100%;
+        background: var(--primary-orange);
+        width: 0%;
+        transition: width 0.1s ease-out;
+    }
+
+    /* Floating TOC Styles */
+    #tocFloatingPanel .toc-link:hover {
+        background: var(--primary-orange-lighter) !important;
+        color: var(--primary-orange-dark) !important;
+        border-left-color: var(--primary-orange) !important;
+    }
+
+    #tocFloatingPanel .toc-link:hover .toc-bullet {
+        background: var(--primary-orange) !important;
+        transform: scale(1.2);
+    }
+
+    #tocFloatingPanel .toc-link.active {
+        background: var(--primary-orange-light) !important;
+        color: var(--primary-orange-dark) !important;
+        font-weight: 600;
+        border-left-color: var(--primary-orange) !important;
+    }
+
+    #tocFloatingPanel .toc-link.active .toc-bullet {
+        background: var(--primary-orange) !important;
+        transform: scale(1.3);
+    }
+
+    #tocFloatingBtn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(240, 173, 78, 0.5);
+    }
+
+    /* Manual Container */
+    .manual-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+    }
+
+    /* Manual Header */
+    .manual-header {
+        background: linear-gradient(135deg, var(--primary-orange) 0%, var(--primary-orange-dark) 100%);
+        color: white;
+        padding: 48px 20px;
+        margin-bottom: 40px;
+        border-radius: 0;
+        text-align: center;
+    }
+
+    .manual-header h1 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: white !important;
+    }
+
+    .manual-header p {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin: 0;
+        color: white !important;
+    }
+
+    /* Sections */
+    .manual-section {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .manual-section h2 {
+        color: var(--primary-orange);
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--primary-orange-light);
+    }
+
+    .manual-section h3 {
+        color: #2c3e50;
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-top: 32px;
+        margin-bottom: 16px;
+    }
+
+    .manual-section h4 {
+        color: #495057;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 24px;
+        margin-bottom: 12px;
+    }
+
+    .manual-section p {
+        line-height: 1.7;
+        color: #212529;
+        margin-bottom: 16px;
+    }
+
+    .manual-section ul,
+    .manual-section ol {
+        line-height: 1.8;
+        margin-bottom: 16px;
+        padding-left: 24px;
+    }
+
+    .manual-section li {
+        margin-bottom: 8px;
+        color: #212529;
+    }
+
+    /* Step Box */
+    .step-box {
+        background: #f8f9fa;
+        border-left: 4px solid var(--primary-orange);
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .step-box ol {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    /* Alert Boxes */
+    .alert-tip {
+        background: var(--primary-orange-lighter);
+        border-left: 4px solid var(--primary-orange);
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-tip h5 {
+        color: var(--primary-orange-dark);
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-warning-custom {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-warning-custom h5 {
+        color: #856404;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-important {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-important h5 {
+        color: #721c24;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    /* Tables */
+    .manual-table {
+        width: 100%;
+        margin: 20px 0;
+        border-collapse: collapse;
+        background: white;
+        font-size: 0.95rem;
+    }
+
+    .manual-table thead {
+        background: var(--primary-orange);
+        color: white;
+    }
+
+    .manual-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .manual-table td {
+        padding: 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .manual-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .manual-table code {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+        color: #e83e8c;
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background: #45CB85;
+        color: white;
+    }
+
+    .badge-primary {
+        background: #487FFF;
+        color: white;
+    }
+
+    .badge-warning {
+        background: var(--primary-orange);
+        color: white;
+    }
+
+    .badge-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .badge-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .badge-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    /* Code Snippet */
+    .code-snippet {
+        background: #2d3748;
+        color: #f7fafc;
+        padding: 16px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        margin: 16px 0;
+        overflow-x: auto;
+    }
+
+    /* Example Box */
+    .example-box {
+        background: #fff9e6;
+        border: 1px solid #ffe066;
+        border-radius: 4px;
+        padding: 16px;
+        margin: 20px 0;
+    }
+
+    .example-box h5 {
+        color: #b8860b;
+        font-weight: 600;
+        margin-bottom: 12px;
+        font-size: 1rem;
+    }
+
+    /* Back to Top */
+    .back-to-top {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        width: 50px;
+        height: 50px;
+        background: var(--primary-orange);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(240, 173, 78, 0.3);
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .back-to-top.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .back-to-top:hover {
+        background: var(--primary-orange-dark);
+        transform: translateY(-4px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .manual-section {
+            padding: 24px 20px;
+        }
+
+        .manual-header h1 {
+            font-size: 1.75rem;
+        }
+
+        #tocFloatingPanel {
+            width: 90% !important;
+            right: -90% !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Global Reading Progress Bar -->
+<div class="global-reading-progress">
+    <div class="global-reading-progress-fill" id="globalProgressBar"></div>
+</div>
+
+<!-- Floating TOC Button -->
+<button id="tocFloatingBtn" style="position: fixed; bottom: 110px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-orange); color: white; border: none; box-shadow: 0 4px 20px rgba(240, 173, 78, 0.4); cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.3s ease;">
+    <i class="ri-list-unordered"></i>
+</button>
+
+<!-- Floating TOC Panel -->
+<div id="tocFloatingPanel" style="position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 10002; transition: right 0.3s ease; overflow-y: auto;">
+    <div style="position: sticky; top: 0; background: var(--primary-orange); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+        <h5 style="margin: 0; font-size: 18px; font-weight: 600;">
+            <i class="ri-list-unordered"></i> Indice
+        </h5>
+        <button id="tocCloseBtn" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+            <i class="ri-close-line"></i>
+        </button>
+    </div>
+
+    <!-- Reading Progress -->
+    <div style="padding: 20px; border-bottom: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase;">Progresso</span>
+            <span id="progressPercent" style="font-size: 12px; font-weight: 600; color: var(--primary-orange);">0%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
+            <div class="progress-bar" id="readingProgressBar" style="width: 0%; background: var(--primary-orange); border-radius: 10px; transition: width 0.3s ease;"></div>
+        </div>
+    </div>
+
+    <!-- TOC Navigation -->
+    <div style="padding: 20px;">
+        <nav class="toc-nav" id="tocNav"></nav>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="tocOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; opacity: 0; visibility: hidden; transition: all 0.3s ease;"></div>
+
+<!-- Back to Top Button -->
+<button class="back-to-top" id="backToTop">
+    <i class="ri-arrow-up-line"></i>
+</button>
+
+<!-- Manual Header -->
+<div class="manual-header">
+    <h1>🏥 Manuale Leads Health Manager</h1>
+    <p>Guida completa per l'assegnazione professionisti e conversione clienti</p>
+</div>
+
+<div class="manual-container" id="articleContent">
+
+    <!-- Introduzione -->
+    <section id="introduzione" class="manual-section">
+        <h2>Introduzione</h2>
+
+        <p>Benvenuto nel manuale completo del modulo <strong>Lead Management - Sezione Health Manager</strong>. Come Health Manager, hai la responsabilità cruciale di coordinare l'onboarding dei nuovi clienti e creare il team di professionisti perfetto per ogni persona.</p>
+
+        <h3>Il Ruolo di Health Manager nel Workflow Lead</h3>
+        <p>Il team Health Manager rappresenta il <strong>ponte tra vendita e servizio</strong>:</p>
+        <ul>
+            <li><strong>Sales</strong> ha chiuso la vendita e assegnato te come responsabile</li>
+            <li><strong>Finance</strong> ha verificato che i pagamenti siano corretti</li>
+            <li><strong>Health Manager</strong> (TU) costruisci il team di professionisti</li>
+            <li><strong>Cliente</strong> inizia il percorso con il team assegnato</li>
+        </ul>
+
+        <h3>Workflow Completo Health Manager</h3>
+        <div class="step-box">
+            <ol>
+                <li><strong>Sales Assegna</strong>: Il sales ti assegna la lead con data onboarding</li>
+                <li><strong>Finance Approva</strong>: Finance verifica i pagamenti</li>
+                <li><strong>Lead Visibile</strong>: La lead appare nel tuo pannello Health Manager</li>
+                <li><strong>Analisi Lead</strong>: Leggi client story, pacchetto, esigenze</li>
+                <li><strong>Selezione Team</strong>: Scegli nutrizionista, coach, psicologo</li>
+                <li><strong>Assegnazione</strong>: Confermi le assegnazioni</li>
+                <li><strong>Conversione Automatica</strong>: Sistema crea il Cliente!</li>
+                <li><strong>Professionisti Notificati</strong>: Il team riceve il nuovo cliente</li>
+                <li><strong>Onboarding Inizia</strong>: Il cliente entra nel percorso</li>
+            </ol>
+        </div>
+
+        <h3>Requisiti di Accesso</h3>
+        <p>Per accedere al pannello Health Manager è necessario:</p>
+        <ul>
+            <li><strong>Essere Admin</strong> (accesso completo) OPPURE</li>
+            <li><strong>Appartenere al Dipartimento Health Manager</strong> (department_id = 13)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>🎯 La Tua Missione</h5>
+            <p>Il tuo obiettivo è creare il <strong>team perfetto</strong> per ogni cliente, garantendo che inizi il percorso con i professionisti più adatti alle sue esigenze specifiche.</p>
+        </div>
+
+        <div class="alert-important">
+            <h5>⚡ Momento Critico</h5>
+            <p>L'assegnazione professionisti è il momento in cui la <strong>lead diventa cliente</strong>. È un processo irreversibile: una volta convertita, la lead esce dal sistema leads ed entra in /customers/.</p>
+        </div>
+    </section>
+
+    <!-- 1. Pannello Health Manager -->
+    <section id="pannello-hm" class="manual-section">
+        <h2>1. Pannello Health Manager</h2>
+
+        <p>Il <strong>Health Manager Panel</strong> è la tua dashboard principale per gestire le lead pronte per l'assegnazione.</p>
+
+        <h3>1.1 Accedere al Pannello</h3>
+        <div class="step-box">
+            <ol>
+                <li>Dalla sidebar, clicca su <strong>Leads</strong></li>
+                <li>Seleziona <span class="badge badge-warning">🌱 Assegna Professionisti</span></li>
+                <li>Oppure vai direttamente a <code>/sales-form/health-manager</code></li>
+            </ol>
+        </div>
+
+        <h3>1.2 Lead Visibili nel Pannello</h3>
+        <p>Nel pannello vedi <strong>solo le lead che soddisfano TUTTI questi criteri</strong>:</p>
+        <ul>
+            <li>✅ <code>health_manager_id</code> = il tuo ID (assegnate a te dal sales)</li>
+            <li>✅ <code>finance_approved</code> = True (Finance ha verificato i pagamenti)</li>
+            <li>✅ <code>status</code> ≠ CONVERTED (non ancora convertite)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>📋 Nota</h5>
+            <p>Se una lead non appare nel pannello anche se il sales dice di avertela assegnata, probabilmente Finance non ha ancora approvato i pagamenti. Contatta Finance o aspetta la verifica.</p>
+        </div>
+
+        <h3>1.3 Informazioni Disponibili</h3>
+        <p>Per ogni lead nel pannello visualizzi:</p>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Campo</th>
+                    <th>Descrizione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Nome Completo</strong></td>
+                    <td>First Name + Last Name del cliente</td>
+                </tr>
+                <tr>
+                    <td><strong>Email</strong></td>
+                    <td>Contatto email</td>
+                </tr>
+                <tr>
+                    <td><strong>Telefono</strong></td>
+                    <td>Numero di telefono</td>
+                </tr>
+                <tr>
+                    <td><strong>Sales Responsabile</strong></td>
+                    <td>Chi ha gestito la vendita</td>
+                </tr>
+                <tr>
+                    <td><strong>Pacchetto</strong></td>
+                    <td>Quale pacchetto ha acquistato</td>
+                </tr>
+                <tr>
+                    <td><strong>Data Onboarding</strong></td>
+                    <td>Quando deve iniziare il percorso</td>
+                </tr>
+                <tr>
+                    <td><strong>Importo</strong></td>
+                    <td>Prezzo totale pagato (€)</td>
+                </tr>
+                <tr>
+                    <td><strong>Azioni</strong></td>
+                    <td>Bottone "Assegna Professionisti"</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>1.4 Filtri Disponibili</h3>
+        <p>Puoi filtrare le lead per:</p>
+        <ul>
+            <li><strong>Sales</strong>: Vedi solo lead di uno specifico venditore</li>
+            <li><strong>Ricerca</strong>: Cerca per nome, email o telefono</li>
+        </ul>
+
+        <h3>1.5 Prioritizzazione</h3>
+        <div class="alert-warning-custom">
+            <h5>⏰ Gestione Priorità</h5>
+            <p>Lavora sempre sulle lead con <strong>data onboarding più vicina</strong> per prima! Il sistema ordina automaticamente per data onboarding crescente.</p>
+        </div>
+    </section>
+
+    <!-- 2. Analisi Pre-Assegnazione -->
+    <section id="analisi-lead" class="manual-section">
+        <h2>2. Analisi della Lead</h2>
+
+        <p>Prima di assegnare i professionisti, devi analizzare attentamente la lead per fare le scelte giuste.</p>
+
+        <h3>2.1 Leggere la Client Story</h3>
+        <p>La <strong>client story</strong> è il documento più importante. Contiene:</p>
+        <ul>
+            <li>Background personale e professionale</li>
+            <li>Motivazioni primarie e obiettivi</li>
+            <li>Situazione fisica/psicologica attuale</li>
+            <li>Esperienze precedenti (cosa ha funzionato/non funzionato)</li>
+            <li>Disponibilità oraria e impegno</li>
+            <li>Note mediche importanti (allergie, patologie, intolleranze)</li>
+        </ul>
+
+        <div class="step-box">
+            <strong>Come Accedere:</strong>
+            <ol>
+                <li>Dalla riga della lead, clicca <span class="badge badge-info">Visualizza Dettaglio</span></li>
+                <li>Scorri alla sezione "Client Story"</li>
+                <li>Leggi attentamente TUTTA la storia</li>
+            </ol>
+        </div>
+
+        <div class="alert-tip">
+            <h5>💡 Tip</h5>
+            <p>Prendi appunti mentre leggi la client story. Evidenzia mentalmente le parole chiave che ti aiuteranno a scegliere i professionisti giusti.</p>
+        </div>
+
+        <h3>2.2 Capire il Pacchetto</h3>
+        <p>Guarda quale pacchetto ha acquistato il cliente:</p>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Tipo Pacchetto</th>
+                    <th>Servizi Inclusi</th>
+                    <th>Cosa Assegnare</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Solo Nutrizione</strong></td>
+                    <td>Nutrizionista</td>
+                    <td>1 Nutrizionista</td>
+                </tr>
+                <tr>
+                    <td><strong>Solo Coach</strong></td>
+                    <td>Coach</td>
+                    <td>1 Coach</td>
+                </tr>
+                <tr>
+                    <td><strong>Solo Psicologia</strong></td>
+                    <td>Psicologo</td>
+                    <td>1 Psicologo</td>
+                </tr>
+                <tr>
+                    <td><strong>Nutrizione + Coach</strong></td>
+                    <td>Nutrizionista + Coach</td>
+                    <td>1 Nutrizionista + 1 Coach</td>
+                </tr>
+                <tr>
+                    <td><strong>Nutrizione + Psicologia</strong></td>
+                    <td>Nutrizionista + Psicologo</td>
+                    <td>1 Nutrizionista + 1 Psicologo</td>
+                </tr>
+                <tr>
+                    <td><strong>Programma Completo</strong></td>
+                    <td>Tutti e 3</td>
+                    <td>1 Nutrizionista + 1 Coach + 1 Psicologo</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-important">
+            <h5>⚠️ Importante</h5>
+            <p>Devi assegnare <strong>SOLO</strong> i professionisti inclusi nel pacchetto. Non puoi assegnare servizi non pagati. Il sistema controllerà automaticamente.</p>
+        </div>
+
+        <h3>2.3 Verificare Disponibilità Professionisti</h3>
+        <p>Prima di assegnare, controlla:</p>
+        <ul>
+            <li><strong>Carico di lavoro</strong>: Quanti clienti attivi ha ogni professionista?</li>
+            <li><strong>Specializzazione</strong>: Il professionista è adatto all'obiettivo del cliente?</li>
+            <li><strong>Disponibilità oraria</strong>: Può seguire il cliente negli orari richiesti?</li>
+            <li><strong>Lingua</strong>: Se cliente straniero, professionista parla la lingua?</li>
+        </ul>
+    </section>
+
+    <!-- 3. Assegnazione Professionisti -->
+    <section id="assegnazione-professionisti" class="manual-section">
+        <h2>3. Assegnazione Professionisti</h2>
+
+        <p>Questo è il momento cruciale: assegni il team di professionisti che seguirà il cliente.</p>
+
+        <h3>3.1 Procedura Assegnazione</h3>
+
+        <div class="step-box">
+            <ol>
+                <li>Dal pannello Health Manager, clicca <span class="badge badge-warning">Assegna Professionisti</span> sulla riga della lead</li>
+                <li>Si apre il modal di assegnazione con i campi necessari</li>
+                <li>Compila i campi in base al pacchetto:
+                    <ul>
+                        <li><strong>Nutrizionista</strong>: Dropdown con lista nutrizionisti (se nel pacchetto)</li>
+                        <li><strong>Coach</strong>: Dropdown con lista coach (se nel pacchetto)</li>
+                        <li><strong>Psicologo</strong>: Dropdown con lista psicologi (se nel pacchetto)</li>
+                    </ul>
+                </li>
+                <li>(Opzionale) Aggiungi note nel campo <strong>Health Manager Notes</strong></li>
+                <li>Clicca <span class="badge badge-success">Conferma Assegnazione</span></li>
+            </ol>
+        </div>
+
+        <h3>3.2 Professionisti Disponibili</h3>
+        <p>I dropdown mostrano solo professionisti:</p>
+        <ul>
+            <li>✅ Appartenenti al dipartimento corretto (Nutrizione=2, Coach=3, Psicologia=4)</li>
+            <li>✅ Con account attivo (<code>is_active=True</code>)</li>
+            <li>✅ Non in trial o con trial completato</li>
+        </ul>
+
+        <h3>3.3 Criteri di Selezione Professionisti</h3>
+
+        <h4>🥗 Nutrizionista</h4>
+        <div class="example-box">
+            <h5>Quando Assegnare Chi</h5>
+            <ul>
+                <li><strong>Obiettivo dimagrimento</strong> → Nutrizionista esperto in deficit calorico</li>
+                <li><strong>Aumento massa</strong> → Nutrizionista specializzato sport/ipertrofia</li>
+                <li><strong>Patologie</strong> (diabete, celiachia) → Nutrizionista con competenze mediche</li>
+                <li><strong>Vegetariano/Vegano</strong> → Nutrizionista con esperienza plant-based</li>
+                <li><strong>Intolleranze multiple</strong> → Nutrizionista esperto in allergie</li>
+            </ul>
+        </div>
+
+        <h4>💪 Coach</h4>
+        <div class="example-box">
+            <h5>Quando Assegnare Chi</h5>
+            <ul>
+                <li><strong>Principiante assoluto</strong> → Coach paziente, approccio educativo</li>
+                <li><strong>Atleta avanzato</strong> → Coach con background agonistico</li>
+                <li><strong>Over 50</strong> → Coach specializzato terza età</li>
+                <li><strong>Riabilitazione</strong> → Coach con formazione fisioterapica</li>
+                <li><strong>Sport specifico</strong> (running, crossfit) → Coach con competenza specifica</li>
+            </ul>
+        </div>
+
+        <h4>🧠 Psicologo</h4>
+        <div class="example-box">
+            <h5>Quando Assegnare Chi</h5>
+            <ul>
+                <li><strong>Disturbi alimentari</strong> → Psicologo specializzato DCA</li>
+                <li><strong>Ansia/stress</strong> → Psicologo approccio cognitivo-comportamentale</li>
+                <li><strong>Motivazione/autostima</strong> → Psicologo coaching motivazionale</li>
+                <li><strong>Trauma/abuso</strong> → Psicologo con formazione trauma</li>
+                <li><strong>Giovani (&lt;25)</strong> → Psicologo con esperienza adolescenti</li>
+            </ul>
+        </div>
+
+        <h3>3.4 Bilanciamento Carico</h3>
+        <div class="alert-warning-custom">
+            <h5>⚖️ Distribuisci il Carico</h5>
+            <p>Cerca di distribuire equamente i nuovi clienti tra i professionisti. Se un nutrizionista ha già 30 clienti e un altro ne ha 15, assegna al secondo (a parità di competenze).</p>
+        </div>
+
+        <h3>3.5 Note Health Manager</h3>
+        <p>Usa il campo note per comunicare info utili ai professionisti:</p>
+
+        <div class="example-box">
+            <h5>Esempi Note Utili</h5>
+            <ul>
+                <li>"Cliente molto motivato, ha già esperienza palestra. Può partire con programma intermedio"</li>
+                <li>"Attenzione: intolleranza lattosio + celiachia. Necessario piano alimentare molto personalizzato"</li>
+                <li>"Ha avuto esperienza negativa con coach precedente troppo rigido. Servono empatia e flessibilità"</li>
+                <li>"Obiettivo matrimonio tra 4 mesi - alta motivazione ma possibile ansia da risultato"</li>
+                <li>"Cliente straniero - parla italiano basico. Usare linguaggio semplice"</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- 4. Conversione Automatica -->
+    <section id="conversione-automatica" class="manual-section">
+        <h2>4. Conversione Automatica Lead → Cliente</h2>
+
+        <p>Quando confermi l'assegnazione professionisti, avviene la <strong>magia</strong>: la lead diventa automaticamente un cliente nel sistema!</p>
+
+        <h3>4.1 Cosa Succede Automaticamente</h3>
+
+        <div class="step-box">
+            <strong>Azioni Automatiche del Sistema:</strong>
+            <ol>
+                <li><strong>Crea il Cliente</strong>:
+                    <ul>
+                        <li>Nuovo record nella tabella <code>Cliente</code></li>
+                        <li>Copia anagrafica dalla Lead (nome, email, telefono, ecc.)</li>
+                        <li>Imposta <code>package_id</code> dal pacchetto lead</li>
+                        <li>Copia la <code>client_story</code> dalla lead</li>
+                    </ul>
+                </li>
+                <li><strong>Assegna i Professionisti</strong>:
+                    <ul>
+                        <li>Crea relazioni Many-to-Many con nutrizionisti selezionati</li>
+                        <li>Crea relazioni Many-to-Many con coach selezionati</li>
+                        <li>Crea relazioni Many-to-Many con psicologi selezionati</li>
+                    </ul>
+                </li>
+                <li><strong>Attiva i Servizi</strong>:
+                    <ul>
+                        <li>Se nutrizionista assegnato → <code>stato_servizi_nutrizione = ACTIVE</code></li>
+                        <li>Se coach assegnato → <code>stato_servizi_coach = ACTIVE</code></li>
+                        <li>Se psicologo assegnato → <code>stato_servizi_psicologia = ACTIVE</code></li>
+                    </ul>
+                </li>
+                <li><strong>Aggiorna la Lead</strong>:
+                    <ul>
+                        <li><code>Lead.status</code> → <code>CONVERTED</code> ✅</li>
+                        <li><code>Lead.converted_to_client_id</code> = nuovo cliente ID</li>
+                        <li><code>Lead.converted_at</code> = now()</li>
+                        <li><code>Lead.converted_by</code> = tuo user ID</li>
+                        <li><code>Lead.assigned_nutritionist_id</code> = nutrizionista selezionato</li>
+                        <li><code>Lead.assigned_coach_id</code> = coach selezionato</li>
+                        <li><code>Lead.assigned_psychologist_id</code> = psicologo selezionato</li>
+                        <li><code>Lead.assigned_at</code> = now()</li>
+                    </ul>
+                </li>
+                <li><strong>Activity Log</strong>:
+                    <ul>
+                        <li>"Lead convertita in cliente ID {cliente_id}"</li>
+                        <li>"Professionisti assegnati: [Nome Nutrizionista], [Nome Coach], [Nome Psicologo]"</li>
+                    </ul>
+                </li>
+                <li><strong>La Lead Scompare</strong>:
+                    <ul>
+                        <li>Non più visibile nel pannello Health Manager</li>
+                        <li>Non più visibile nella dashboard Sales</li>
+                        <li>Rimane traccia storica con status CONVERTED</li>
+                    </ul>
+                </li>
+                <li><strong>Cliente Visibile</strong>:
+                    <ul>
+                        <li>Il nuovo cliente appare in <code>/customers/</code></li>
+                        <li>I professionisti assegnati lo vedono nella loro lista clienti</li>
+                        <li>Possono iniziare a lavorare subito (cartella clinica, piani, ecc.)</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="alert-important">
+            <h5>🔒 Processo Irreversibile</h5>
+            <p>Una volta convertita, la lead <strong>NON può tornare indietro</strong>. Assicurati di aver verificato tutto prima di confermare!</p>
+        </div>
+
+        <h3>4.2 Verifica Post-Conversione</h3>
+        <p>Dopo la conversione, verifica che sia andato tutto bene:</p>
+
+        <div class="step-box">
+            <ol>
+                <li>Vai a <code>/customers/</code></li>
+                <li>Cerca il cliente appena creato (per nome o email)</li>
+                <li>Apri la scheda cliente</li>
+                <li>Verifica che:
+                    <ul>
+                        <li>✅ I dati anagrafici siano corretti</li>
+                        <li>✅ Il pacchetto sia quello giusto</li>
+                        <li>✅ I professionisti assegnati siano quelli selezionati</li>
+                        <li>✅ Gli stati servizi siano ACTIVE</li>
+                        <li>✅ La client story sia presente</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <h3>4.3 Notifiche (se configurate)</h3>
+        <p>Se il sistema ha le notifiche attive, vengono inviati avvisi a:</p>
+        <ul>
+            <li>📧 <strong>Professionisti assegnati</strong>: "Hai un nuovo cliente: [Nome]"</li>
+            <li>📧 <strong>Sales responsabile</strong>: "La tua lead [Nome] è stata convertita in cliente"</li>
+            <li>📧 <strong>Cliente</strong> (opzionale): "Benvenuto! Ecco il tuo team"</li>
+        </ul>
+    </section>
+
+    <!-- 5. Storico Conversioni -->
+    <section id="storico" class="manual-section">
+        <h2>5. Storico Conversioni</h2>
+
+        <p>Il sistema mantiene uno storico completo di tutte le tue conversioni.</p>
+
+        <h3>5.1 Accedere allo Storico</h3>
+        <div class="step-box">
+            <ol>
+                <li>Dal pannello Health Manager, clicca sul tab <span class="badge badge-info">Storico</span></li>
+                <li>Oppure vai a <code>/sales-form/health-manager/history</code></li>
+            </ol>
+        </div>
+
+        <h3>5.2 Informazioni Storico</h3>
+        <p>Per ogni conversione vedrai:</p>
+        <ul>
+            <li><strong>Nome Cliente</strong></li>
+            <li><strong>Data Conversione</strong></li>
+            <li><strong>Sales Responsabile</strong></li>
+            <li><strong>Pacchetto</strong></li>
+            <li><strong>Nutrizionista Assegnato</strong> (se applicabile)</li>
+            <li><strong>Coach Assegnato</strong> (se applicabile)</li>
+            <li><strong>Psicologo Assegnato</strong> (se applicabile)</li>
+            <li><strong>Note HM</strong> (le tue note)</li>
+            <li><strong>Link al Cliente</strong>: Click per vedere scheda cliente</li>
+        </ul>
+
+        <h3>5.3 Filtri Disponibili</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Filtro</th>
+                    <th>Descrizione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Sales</strong></td>
+                    <td>Mostra solo conversioni di un venditore specifico</td>
+                </tr>
+                <tr>
+                    <td><strong>Data Da - A</strong></td>
+                    <td>Range date per filtrare periodo</td>
+                </tr>
+                <tr>
+                    <td><strong>Professionista</strong></td>
+                    <td>Cerca conversioni dove hai assegnato un professionista specifico</td>
+                </tr>
+                <tr>
+                    <td><strong>Ricerca</strong></td>
+                    <td>Cerca per nome cliente, email, telefono</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>5.4 Statistiche</h3>
+        <p>L'header dello storico mostra:</p>
+        <ul>
+            <li><strong>Totale Conversioni</strong>: Numero clienti convertiti (lifetime)</li>
+            <li><strong>Conversioni Mese</strong>: Numero conversioni mese corrente</li>
+            <li><strong>Tasso Conversione</strong>: % di lead assegnate a te che hai convertito</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>📊 Metriche Performance</h5>
+            <p>Usa lo storico per analizzare le tue performance e identificare pattern (es. quali professionisti assegni più spesso, quali pacchetti gestisci meglio, ecc.).</p>
+        </div>
+    </section>
+
+    <!-- 6. Best Practices -->
+    <section id="best-practices" class="manual-section">
+        <h2>6. Best Practices Health Manager</h2>
+
+        <h3>6.1 Tempistiche</h3>
+        <div class="alert-tip">
+            <h5>⏱️ Target: Converti entro 48h</h5>
+            <p>Una volta che la lead appare nel tuo pannello (Finance ha approvato), cerca di completare l'assegnazione entro <strong>48 ore</strong> per non ritardare l'onboarding.</p>
+        </div>
+
+        <h3>6.2 Comunicazione con Sales</h3>
+        <p>Se hai dubbi sulla lead:</p>
+        <ul>
+            <li>Contatta il sales responsabile per chiarimenti</li>
+            <li>Chiedi dettagli non chiari nella client story</li>
+            <li>Verifica aspettative del cliente se incerto</li>
+        </ul>
+
+        <h3>6.3 Comunicazione con Professionisti</h3>
+        <p>Prima di assegnare un professionista:</p>
+        <ul>
+            <li>Verifica che sia disponibile (non in ferie, non sovraccarico)</li>
+            <li>Se caso complesso, chiedi al professionista se si sente adeguato</li>
+            <li>Informa il professionista dell'arrivo del nuovo cliente</li>
+        </ul>
+
+        <h3>6.4 Documentazione</h3>
+        <div class="step-box">
+            <strong>Checklist Pre-Assegnazione:</strong>
+            <ul>
+                <li>☑️ Client story letta attentamente</li>
+                <li>☑️ Pacchetto verificato (servizi inclusi)</li>
+                <li>☑️ Professionisti scelti in base a competenze specifiche</li>
+                <li>☑️ Carico lavoro professionisti controllato</li>
+                <li>☑️ Data onboarding verificata (compatibile con disponibilità professionisti)</li>
+                <li>☑️ Note HM compilate con info utili</li>
+            </ul>
+        </div>
+
+        <h3>6.5 Casi Particolari</h3>
+
+        <h4>Cliente con Patologie</h4>
+        <div class="alert-important">
+            <h5>⚠️ Attenzione Medica</h5>
+            <p>Se il cliente ha patologie mediche (diabete, ipertensione, disturbi alimentari gravi), assegna <strong>SEMPRE</strong> professionisti con formazione medica adeguata. In caso di dubbio, consulta il coordinatore medico.</p>
+        </div>
+
+        <h4>Cliente Minorenne</h4>
+        <div class="alert-important">
+            <h5>🔞 Under 18</h5>
+            <p>Per clienti minorenni:</p>
+            <ul>
+                <li>Verifica che ci sia consenso genitoriale</li>
+                <li>Assegna professionisti con esperienza adolescenti</li>
+                <li>Coinvolgi sempre psicologo se disponibile nel pacchetto</li>
+            </ul>
+        </div>
+
+        <h4>Cliente Straniero</h4>
+        <div class="alert-tip">
+            <h5>🌍 Lingua</h5>
+            <p>Se il cliente non parla bene italiano:</p>
+            <ul>
+                <li>Assegna professionisti multilingua se possibile</li>
+                <li>Segnala nelle note HM la lingua del cliente</li>
+                <li>Verifica che il professionista sia consapevole</li>
+            </ul>
+        </div>
+
+        <h3>6.6 Errori da Evitare</h3>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>❌ Errore</th>
+                    <th>✅ Cosa Fare Invece</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Assegnare senza leggere client story</td>
+                    <td>SEMPRE leggere la storia prima di assegnare</td>
+                </tr>
+                <tr>
+                    <td>Assegnare professionista sovraccarico</td>
+                    <td>Controllare il carico e distribuire equamente</td>
+                </tr>
+                <tr>
+                    <td>Non verificare il pacchetto</td>
+                    <td>Assegnare SOLO servizi inclusi nel pacchetto pagato</td>
+                </tr>
+                <tr>
+                    <td>Non comunicare con professionista</td>
+                    <td>Avvisare il professionista del nuovo cliente</td>
+                </tr>
+                <tr>
+                    <td>Ignorare note mediche</td>
+                    <td>Leggere attentamente allergie/patologie/intolleranze</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>6.7 KPI Health Manager</h3>
+        <p>Metriche che dovresti monitorare:</p>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>KPI</th>
+                    <th>Target</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Tempo Medio Conversione</td>
+                    <td>&lt; 48 ore</td>
+                </tr>
+                <tr>
+                    <td>Tasso Conversione</td>
+                    <td>100% (tutte le lead assegnate convertite)</td>
+                </tr>
+                <tr>
+                    <td>Bilanciamento Carico</td>
+                    <td>Deviazione standard &lt; 20% tra professionisti</td>
+                </tr>
+                <tr>
+                    <td>Soddisfazione Cliente (30gg)</td>
+                    <td>&gt; 4.5/5</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- 7. FAQ -->
+    <section id="faq" class="manual-section">
+        <h2>7. Domande Frequenti (FAQ)</h2>
+
+        <h3>Q: Posso annullare una conversione se ho sbagliato assegnazione?</h3>
+        <p><strong>A:</strong> No, la conversione è irreversibile. Devi correggere direttamente nella scheda cliente in /customers/ modificando i professionisti assegnati.</p>
+
+        <h3>Q: Cosa faccio se non ci sono professionisti disponibili di una categoria?</h3>
+        <p><strong>A:</strong> Contatta l'admin o il coordinatore del dipartimento. Non puoi convertire senza assegnare tutti i servizi del pacchetto.</p>
+
+        <h3>Q: Posso assegnare più di un nutrizionista allo stesso cliente?</h3>
+        <p><strong>A:</strong> Sì, il sistema supporta assegnazioni multiple (relazioni M2M), ma di norma si assegna UN professionista per categoria. Casi speciali vanno discussi con admin.</p>
+
+        <h3>Q: La lead non appare nel mio pannello, perché?</h3>
+        <p><strong>A:</strong> Verifica: 1) Il sales ti ha assegnato come HM? 2) Finance ha approvato i pagamenti? Se entrambi sì, contatta supporto tecnico.</p>
+
+        <h3>Q: Posso riassegnare una lead a un altro Health Manager?</h3>
+        <p><strong>A:</strong> No, solo il sales o un admin possono riassegnare l'Health Manager. Contatta il sales responsabile.</p>
+
+        <h3>Q: Quanto tempo ho per convertire una lead?</h3>
+        <p><strong>A:</strong> Non c'è scadenza tecnica, ma il target è 48 ore dall'approvazione Finance per rispettare la data onboarding concordata con il cliente.</p>
+
+        <h3>Q: Posso vedere tutte le conversioni (anche di altri HM)?</h3>
+        <p><strong>A:</strong> No, vedi solo le TUE conversioni. Gli admin vedono tutto.</p>
+
+        <h3>Q: Cosa succede se assegno professionisti sbagliati?</h3>
+        <p><strong>A:</strong> Dopo la conversione, vai in /customers/, apri il cliente e modifica manualmente i professionisti assegnati. Informa i professionisti del cambio.</p>
+    </section>
+
+    <!-- 8. Supporto -->
+    <section id="supporto" class="manual-section">
+        <h2>8. Supporto e Assistenza</h2>
+
+        <p>Se hai bisogno di aiuto:</p>
+
+        <div class="alert-tip">
+            <h5>📞 Contatti</h5>
+            <ul>
+                <li><strong>Ticket System</strong>: <a href="/ticket">Apri un ticket</a> per problemi tecnici</li>
+                <li><strong>Admin</strong>: Contatta l'admin per escalation o casi complessi</li>
+                <li><strong>Coordinatori Dipartimento</strong>: Per disponibilità professionisti</li>
+                <li><strong>Sales Team</strong>: Per chiarimenti su lead specifiche</li>
+                <li><strong>Finance</strong>: Se lead non appare dopo giorni (verifica pagamenti)</li>
+            </ul>
+        </div>
+
+        <h3>Link Utili</h3>
+        <ul>
+            <li><a href="/sales-form/health-manager">Pannello Health Manager</a> - Le tue lead da assegnare</li>
+            <li><a href="/sales-form/health-manager/history">Storico</a> - Le tue conversioni</li>
+            <li><a href="/customers">Clienti</a> - Tutti i clienti convertiti</li>
+            <li><a href="/manual/leads">Manuale Leads</a> - Homepage manuali</li>
+        </ul>
+
+        <h3>Best Practices Comunicazione</h3>
+        <div class="alert-tip">
+            <h5>🤝 Lavoro di Squadra</h5>
+            <p>Il tuo ruolo è di <strong>coordinamento</strong>. Comunica sempre con:</p>
+            <ul>
+                <li><strong>Sales</strong>: Per capire aspettative cliente</li>
+                <li><strong>Professionisti</strong>: Per verificare disponibilità e competenze</li>
+                <li><strong>Cliente</strong> (se necessario): Per confermare date o chiarire esigenze</li>
+            </ul>
+            <p>Una buona comunicazione = cliente soddisfatto e team efficiente! 🎯</p>
+        </div>
+    </section>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ==================== FLOATING TOC ====================
+document.addEventListener('DOMContentLoaded', function() {
+    const tocFloatingBtn = document.getElementById('tocFloatingBtn');
+    const tocFloatingPanel = document.getElementById('tocFloatingPanel');
+    const tocCloseBtn = document.getElementById('tocCloseBtn');
+    const tocOverlay = document.getElementById('tocOverlay');
+    const tocNav = document.getElementById('tocNav');
+    const articleContent = document.getElementById('articleContent');
+    const backToTop = document.getElementById('backToTop');
+    const progressBar = document.getElementById('readingProgressBar');
+    const globalProgressBar = document.getElementById('globalProgressBar');
+    const progressPercent = document.getElementById('progressPercent');
+
+    // Genera TOC
+    function generateTOC() {
+        const headings = articleContent.querySelectorAll('h2, h3');
+        let tocHTML = '';
+        let currentH2 = null;
+
+        headings.forEach((heading, index) => {
+            const id = heading.closest('section')?.id || `heading-${index}`;
+            const text = heading.textContent;
+            const level = heading.tagName.toLowerCase();
+
+            if (level === 'h2') {
+                if (currentH2) tocHTML += '</div>';
+                tocHTML += `
+                    <div style="margin-bottom: 16px;">
+                        <a href="#${id}" class="toc-link" style="display: flex; align-items: start; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: #2c3e50; transition: all 0.2s; border-left: 3px solid transparent; gap: 10px;">
+                            <span class="toc-bullet" style="width: 8px; height: 8px; border-radius: 50%; background: #cbd5e0; flex-shrink: 0; margin-top: 6px; transition: all 0.2s;"></span>
+                            <span style="font-weight: 600; font-size: 14px; line-height: 1.4;">${text}</span>
+                        </a>
+                `;
+                currentH2 = id;
+            } else if (level === 'h3' && currentH2) {
+                tocHTML += `
+                    <a href="#${id}" class="toc-link toc-sub" style="display: flex; align-items: start; padding: 8px 12px 8px 30px; border-radius: 8px; text-decoration: none; color: #64748b; transition: all 0.2s; border-left: 3px solid transparent; gap: 10px;">
+                        <span class="toc-bullet" style="width: 6px; height: 6px; border-radius: 50%; background: #e2e8f0; flex-shrink: 0; margin-top: 6px; transition: all 0.2s;"></span>
+                        <span style="font-size: 13px; line-height: 1.4;">${text}</span>
+                    </a>
+                `;
+            }
+        });
+
+        if (currentH2) tocHTML += '</div>';
+        tocNav.innerHTML = tocHTML;
+
+        // Click handlers
+        document.querySelectorAll('.toc-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    closeTOC();
+                }
+            });
+        });
+    }
+
+    function openTOC() {
+        tocFloatingPanel.style.right = '0';
+        tocOverlay.style.opacity = '1';
+        tocOverlay.style.visibility = 'visible';
+    }
+
+    function closeTOC() {
+        tocFloatingPanel.style.right = '-400px';
+        tocOverlay.style.opacity = '0';
+        tocOverlay.style.visibility = 'hidden';
+    }
+
+    tocFloatingBtn?.addEventListener('click', openTOC);
+    tocCloseBtn?.addEventListener('click', closeTOC);
+    tocOverlay?.addEventListener('click', closeTOC);
+
+    // Highlight active section
+    function highlightActiveTOC() {
+        const sections = articleContent.querySelectorAll('section[id]');
+        const scrollPos = window.scrollY + 100;
+
+        sections.forEach(section => {
+            const top = section.offsetTop;
+            const bottom = top + section.offsetHeight;
+            const id = section.id;
+
+            if (scrollPos >= top && scrollPos < bottom) {
+                document.querySelectorAll('.toc-link').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${id}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        });
+    }
+
+    // Reading Progress
+    function updateReadingProgress() {
+        const windowHeight = window.innerHeight;
+        const documentHeight = articleContent.offsetHeight;
+        const scrollTop = window.scrollY;
+        const trackLength = documentHeight - windowHeight;
+        const percentScrolled = Math.min(Math.round((scrollTop / trackLength) * 100), 100);
+
+        if (progressBar) progressBar.style.width = percentScrolled + '%';
+        if (globalProgressBar) globalProgressBar.style.width = percentScrolled + '%';
+        if (progressPercent) progressPercent.textContent = percentScrolled + '%';
+    }
+
+    // Back to Top
+    function toggleBackToTop() {
+        if (window.scrollY > 300) {
+            backToTop?.classList.add('visible');
+        } else {
+            backToTop?.classList.remove('visible');
+        }
+    }
+
+    backToTop?.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Scroll events
+    window.addEventListener('scroll', () => {
+        highlightActiveTOC();
+        updateReadingProgress();
+        toggleBackToTop();
+    });
+
+    // Initialize
+    generateTOC();
+    updateReadingProgress();
+});
+</script>
+{% endblock %}

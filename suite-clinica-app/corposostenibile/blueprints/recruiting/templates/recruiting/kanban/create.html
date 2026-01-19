@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}Crea Pipeline Kanban - Recruiting{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('recruiting.kanban_list') }}">Pipeline Kanban</a></li>
+                <li class="breadcrumb-item active">Nuova Pipeline</li>
+            </ol>
+        </nav>
+        <h2>
+            <i class="ri-kanban-view me-2"></i>Crea Nuova Pipeline Kanban
+        </h2>
+        <p class="text-muted">Configura una nuova pipeline per gestire il processo di recruiting</p>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('recruiting.kanban_create') }}">
+    {{ form.hidden_tag() }}
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="ri-information-line me-2"></i>Informazioni Pipeline
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.name.label.text }} <span class="text-danger">*</span></label>
+                        {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="Es: Pipeline Standard, Selezione Sviluppatori, Fast Track...") }}
+                        {% if form.name.errors %}
+                        <div class="invalid-feedback">{{ form.name.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.description.label.text }}</label>
+                        {{ form.description(class="form-control", rows=4, placeholder="Descrivi come funziona questa pipeline e quando utilizzarla...") }}
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback">{{ form.description.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ form.auto_reject_days.label.text }}</label>
+                                <div class="input-group">
+                                    {{ form.auto_reject_days(class="form-control", placeholder="0 = disabilitato") }}
+                                    <span class="input-group-text">giorni</span>
+                                </div>
+                                <small class="text-muted">
+                                    Dopo quanti giorni di inattività rifiutare automaticamente i candidati (0 = mai)
+                                </small>
+                                {% if form.auto_reject_days.errors %}
+                                <div class="invalid-feedback">{{ form.auto_reject_days.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mb-3">
+                                {{ form.is_default(class="form-check-input") }}
+                                <label class="form-check-label" for="{{ form.is_default.id }}">
+                                    {{ form.is_default.label.text }}
+                                </label>
+                                <small class="d-block text-muted">
+                                    La pipeline default viene assegnata automaticamente alle nuove offerte
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mb-3">
+                                {{ form.is_active(class="form-check-input", checked=True) }}
+                                <label class="form-check-label" for="{{ form.is_active.id }}">
+                                    {{ form.is_active.label.text }}
+                                </label>
+                                <small class="d-block text-muted">
+                                    Solo le pipeline attive possono essere utilizzate
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="ri-stack-line me-2"></i>Fasi della Pipeline
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="ri-information-line me-2"></i>
+                        <strong>Fasi Predefinite:</strong> La pipeline verrà creata con le seguenti fasi standard che potrai personalizzare successivamente:
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="card border-secondary">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-secondary mb-2">1</span>
+                                    <h6>Candidatura Ricevuta</h6>
+                                    <small class="text-muted">Nuove candidature</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-info mb-2">2</span>
+                                    <h6>Screening CV</h6>
+                                    <small class="text-muted">Valutazione iniziale</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-warning mb-2">3</span>
+                                    <h6>Colloquio Telefonico</h6>
+                                    <small class="text-muted">Primo contatto</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-orange">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-orange mb-2">4</span>
+                                    <h6>Test Tecnico</h6>
+                                    <small class="text-muted">Valutazione competenze</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-teal">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-teal mb-2">5</span>
+                                    <h6>Colloquio HR</h6>
+                                    <small class="text-muted">Valutazione soft skills</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-purple">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-purple mb-2">6</span>
+                                    <h6>Colloquio Tecnico</h6>
+                                    <small class="text-muted">Approfondimento tecnico</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-primary mb-2">7</span>
+                                    <h6>Colloquio Finale</h6>
+                                    <small class="text-muted">Decisione finale</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-success mb-2">8</span>
+                                    <h6>Offerta</h6>
+                                    <small class="text-muted">Proposta contrattuale</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <span class="badge bg-danger mb-2">✗</span>
+                                    <h6>Rifiutato</h6>
+                                    <small class="text-muted">Non idoneo</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <i class="ri-edit-line me-2"></i>
+                        Dopo la creazione potrai:
+                        <ul class="mb-0 mt-2">
+                            <li>Aggiungere, rimuovere o rinominare le fasi</li>
+                            <li>Cambiare i colori e le icone</li>
+                            <li>Configurare email automatiche per ogni fase</li>
+                            <li>Definire campi obbligatori per ogni passaggio</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="ri-question-line me-2"></i>Aiuto
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>Cos'è una Pipeline Kanban?</h6>
+                    <p class="text-muted">
+                        Una pipeline Kanban è un sistema visuale per gestire il flusso dei candidati 
+                        attraverso le varie fasi del processo di selezione.
+                    </p>
+                    
+                    <h6 class="mt-3">Vantaggi:</h6>
+                    <ul class="text-muted">
+                        <li>Visualizzazione immediata dello stato dei candidati</li>
+                        <li>Processo standardizzato e ripetibile</li>
+                        <li>Tracciamento dei tempi per ogni fase</li>
+                        <li>Automazione di task ripetitivi</li>
+                        <li>Collaborazione efficace del team HR</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">Suggerimenti:</h6>
+                    <ul class="text-muted">
+                        <li>Crea pipeline diverse per ruoli diversi (es: tecnici vs commerciali)</li>
+                        <li>Usa l'auto-rifiuto per mantenere la pipeline pulita</li>
+                        <li>Configura email automatiche per aggiornare i candidati</li>
+                        <li>Monitora le metriche per ottimizzare il processo</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="ri-save-line me-1"></i>Crea Pipeline
+                </button>
+                <a href="{{ url_for('recruiting.kanban_list') }}" class="btn btn-outline-secondary">
+                    <i class="ri-close-line me-1"></i>Annulla
+                </a>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-orange {
+    background-color: #fd7e14 !important;
+}
+.border-orange {
+    border-color: #fd7e14 !important;
+}
+.bg-teal {
+    background-color: #20c997 !important;
+}
+.border-teal {
+    border-color: #20c997 !important;
+}
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+.border-purple {
+    border-color: #6f42c1 !important;
+}
+.question-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s;
+}
+.question-card:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Animazione cards
+document.querySelectorAll('.card').forEach(card => {
+    if (card.classList.contains('border-secondary') || 
+        card.classList.contains('border-info') || 
+        card.classList.contains('border-warning') ||
+        card.classList.contains('border-orange') ||
+        card.classList.contains('border-teal') ||
+        card.classList.contains('border-purple') ||
+        card.classList.contains('border-primary') ||
+        card.classList.contains('border-success') ||
+        card.classList.contains('border-danger')) {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.05)';
+            this.style.transition = 'transform 0.3s';
+        });
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    }
+});
+
+// Auto-save draft
+let formData = {};
+const form = document.querySelector('form');
+
+if (form) {
+    // Save to localStorage on input
+    form.addEventListener('input', function(e) {
+        if (e.target.name) {
+            formData[e.target.name] = e.target.value;
+            localStorage.setItem('kanban_draft', JSON.stringify(formData));
+        }
+    });
+    
+    // Load from localStorage on page load
+    const savedData = localStorage.getItem('kanban_draft');
+    if (savedData) {
+        formData = JSON.parse(savedData);
+        Object.keys(formData).forEach(key => {
+            const field = form.querySelector(`[name="${key}"]`);
+            if (field) {
+                field.value = formData[key];
+            }
+        });
+    }
+    
+    // Clear localStorage on submit
+    form.addEventListener('submit', function() {
+        localStorage.removeItem('kanban_draft');
+    });
+}
+</script>
+{% endblock %}

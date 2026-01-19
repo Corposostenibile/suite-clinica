@@ -1,0 +1,333 @@
+{# ===================================================================
+  okr_dashboard.html  –  Corposostenibile design system v2
+  =================================================================== #}
+{% extends "base.html" %}
+
+{# ────────────────────────────
+ TITLE
+ ──────────────────────────── #}
+{% block title %}Dashboard OKR • {{ dept.name }}{% endblock %}
+
+{# ────────────────────────────
+ EXTRA CSS
+ ──────────────────────────── #}
+{% block extra_css %}
+{{ super() }}
+<style>
+ /* helpers ---------------------------------------------------- */
+ .okr-page .section   { margin-bottom: 1.5rem; }
+ .radius-16           { border-radius: 16px; }
+ .w-50-px,.h-50-px    { width: 50px; height: 50px; }
+ .filter-select       { min-width: 120px; }
+
+ /* gradient header ------------------------------------------- */
+ .okr-header{
+   background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);
+   border-radius: 16px;
+   padding: 2rem;
+ }
+
+ /* objectives list styling moderno --------------------------- */
+ #objectivesList {
+   position: relative;
+   max-width: 100%;
+   overflow-x: hidden;
+ }
+ 
+ .objective-item {
+   padding: 1.75rem 0;
+   position: relative;
+   transition: all 0.3s ease;
+ }
+ 
+ .objective-item:not(:last-child) {
+   border-bottom: 1px solid #e9ecef;
+ }
+ 
+ .objective-item:hover {
+   background: linear-gradient(to right, rgba(40,199,111,0.02) 0%, transparent 100%);
+   margin: 0 -1.5rem;
+   padding-left: 1.5rem;
+   padding-right: 1.5rem;
+ }
+ 
+ .objective-number {
+   width: 40px;
+   height: 40px;
+   background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+   color: white;
+   border-radius: 50%;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-weight: 700;
+   font-size: 1rem;
+   flex-shrink: 0;
+   box-shadow: 0 2px 4px rgba(40,199,111,0.2);
+ }
+ 
+ .objective-title {
+   font-size: 1.125rem;
+   font-weight: 500;
+   color: #212529;
+   line-height: 1.5;
+   margin: 0;
+   letter-spacing: -0.01em;
+   word-wrap: break-word;
+   overflow-wrap: break-word;
+   max-width: 100%;
+ }
+ 
+ .objective-type-pill {
+   font-size: 0.75rem;
+   font-weight: 600;
+   padding: 0.375rem 0.875rem;
+   border-radius: 24px;
+   white-space: nowrap;
+   text-transform: uppercase;
+   letter-spacing: 0.5px;
+   transition: all 0.2s ease;
+   background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+   color: white;
+   box-shadow: 0 2px 4px rgba(40,199,111,0.2);
+ }
+ 
+ /* animazione hover per tipo OKR */
+ .objective-item:hover .objective-type-pill {
+   transform: translateY(-1px);
+   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+ }
+ 
+ /* linea di connessione tra obiettivi */
+ #objectivesList::before {
+   content: '';
+   position: absolute;
+   left: 19px;
+   top: 60px;
+   bottom: 60px;
+   width: 2px;
+   background: linear-gradient(to bottom, #e9ecef 0%, transparent 100%);
+ }
+ 
+ /* key results styling ---------------------------------------- */
+ .key-results {
+   margin-left: 52px;
+   background: #f8f9fa;
+   padding: 1.25rem;
+   border-radius: 12px;
+   border: 1px solid #e9ecef;
+ }
+ 
+ .kr-list {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+ }
+ 
+ .kr-item {
+   background: white;
+   padding: 0.875rem 1rem;
+   border-radius: 8px;
+   border: 1px solid #e9ecef;
+   transition: all 0.2s ease;
+ }
+ 
+ .kr-item:hover {
+   border-color: #28c76f;
+   box-shadow: 0 2px 8px rgba(40,199,111,0.1);
+ }
+ 
+ .kr-number {
+   width: 24px;
+   height: 24px;
+   background: #e9ecef;
+   color: #6c757d;
+   border-radius: 50%;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 0.75rem;
+   font-weight: 600;
+   flex-shrink: 0;
+   margin-right: 0.75rem;
+ }
+ 
+ .kr-content {
+   font-size: 0.925rem;
+   color: #495057;
+   line-height: 1.5;
+   word-wrap: break-word;
+   overflow-wrap: break-word;
+   max-width: 100%;
+ }
+
+ /* member row ------------------------------------------------- */
+ .member-kr-item{
+   display:flex; align-items:center; justify-content:space-between;
+   padding:.75rem 0; border-bottom:1px dashed #e9ecef;
+ }
+
+ /* timeline --------------------------------------------------- */
+ .timeline-marker{ width:10px; height:10px; margin-top:6px; }
+</style>
+{% endblock %}
+
+{# ────────────────────────────
+ MAIN CONTENT
+ ──────────────────────────── #}
+{% block content %}
+<section class="okr-page px-24">
+
+ {# ▸ Gradient Header ---------------------------------------- #}
+ <div class="okr-header radius-16 d-flex flex-wrap align-items-center justify-content-between gap-3 section">
+   <div>
+     <h4 class="fw-semibold mb-2">OKR Dashboard – {{ dept.name }}</h4>
+     <p class="text-muted mb-0">
+       Responsabile:
+       {% if dept.head %}<strong>{{ dept.head.full_name }}</strong>{% else %}<em>Non assegnato</em>{% endif %}
+     </p>
+   </div>
+   <div class="d-flex gap-2">
+     <a href="{{ url_for('department.department_detail', dept_id=dept.id) }}"
+        class="btn btn-outline-secondary d-flex align-items-center gap-2">
+       <iconify-icon icon="ri:arrow-left-line"></iconify-icon> Dipartimento
+     </a>
+     {% if can_edit %}
+       <a href="{{ url_for('department.okr_create', dept_id=dept.id) }}"
+          class="btn btn-success d-flex align-items-center gap-2">
+         <iconify-icon icon="ri:add-line"></iconify-icon> Nuovo Obiettivo
+       </a>
+     {% endif %}
+   </div>
+ </div>
+
+ {# ▸ Filters ------------------------------------------------- #}
+ <div class="card radius-16 section">
+   <div class="card-body p-24">
+     <div class="row g-3 align-items-end">
+       <div class="col-md-2">
+         <label class="form-label small text-muted mb-1">Anno</label>
+         <select class="form-select form-select-sm filter-select" id="yearFilter">
+           {% for year in available_years %}
+             <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year }}</option>
+           {% endfor %}
+         </select>
+       </div>
+     </div>
+   </div>
+ </div>
+
+ {# ▸ KPI cards (semplificato) ----------------------------- #}
+ <div class="row row-cols-xxxl-2 row-cols-lg-2 row-cols-sm-2 row-cols-1 gy-4 section">
+
+   {# • Obiettivi Attivi ------------------------------------- #}
+   <div class="col">
+     <div class="card shadow-none border bg-gradient-start-4 h-100">
+       <div class="card-body p-20">
+         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+           <div>
+             <p class="fw-medium text-primary-light mb-1">Obiettivi Attivi</p>
+             <h6 class="mb-0">{{ stats.active }}</h6>
+           </div>
+           <div class="w-50-px h-50-px bg-success-main rounded-circle d-flex justify-content-center align-items-center">
+             <iconify-icon icon="ri:play-circle-fill" class="text-white text-2xl"></iconify-icon>
+           </div>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   {# • Totale Key Results ---------------------------------- #}
+   <div class="col">
+     <div class="card shadow-none border bg-gradient-start-4 h-100">
+       <div class="card-body p-20">
+         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+           <div>
+             <p class="fw-medium text-primary-light mb-1">Key Results Totali</p>
+             <h6 class="mb-0">{{ stats.total_kr }}</h6>
+           </div>
+           <div class="w-50-px h-50-px bg-success-main rounded-circle d-flex justify-content-center align-items-center">
+             <iconify-icon icon="ri:list-check" class="text-white text-2xl"></iconify-icon>
+           </div>
+         </div>
+       </div>
+     </div>
+   </div>
+
+ </div><!-- /.KPI row -->
+
+ {# ▸ Two-column layout -------------------------------------- #}
+ <div class="row g-4">
+
+   {# » Objectives list -------------------------------------- #}
+   <div class="col-lg-12">
+     <div class="card radius-16 section" id="objectivesCard">
+       <div class="card-header">
+         <h6 class="card-title mb-0">Obiettivi {{ current_year }}</h6>
+       </div>
+       <div class="card-body p-24" style="overflow-x: auto;">
+         {% if objectives %}
+           <div id="objectivesList">
+             {% for objective in objectives %}
+               {% with loop_index=loop.index %}
+                 {% include 'department/okr/_okr_card.html' %}
+               {% endwith %}
+             {% endfor %}
+           </div>
+         {% else %}
+           <div class="d-flex flex-column align-items-center justify-content-center gap-2 py-64">
+             <iconify-icon icon="ri:flag-line" class="text-muted" style="font-size:3rem;"></iconify-icon>
+             <p class="text-muted mb-0">Nessun obiettivo per i filtri selezionati.</p>
+             {% if can_edit %}
+               <a href="{{ url_for('department.okr_create', dept_id=dept.id) }}"
+                  class="btn btn-success">Crea il primo obiettivo</a>
+             {% endif %}
+           </div>
+         {% endif %}
+       </div>
+     </div>
+   </div>
+
+ </div><!-- /.main row -->
+
+</section>
+
+{% endblock %}
+
+{# ────────────────────────────
+ INLINE SCRIPTS
+ ──────────────────────────── #}
+{% block inline_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+/* filters ----------------------------------------------------- */
+const yearFilter = document.getElementById('yearFilter');
+if(yearFilter){
+  yearFilter.addEventListener('change',()=>{
+    const y = yearFilter.value;
+    window.location.href=`?year=${y}`;
+  });
+}
+
+/* drag & drop obiettivi -------------------------------------- */
+{% if can_edit %}
+const list=document.getElementById('objectivesList');
+if(list){
+ new Sortable(list,{
+   handle:'.drag-handle',
+   animation:150,
+   onEnd:()=>{
+     const order=[...list.children].map(el=>el.dataset.id);
+     fetch('{{ url_for("department.okr_reorder") }}',{
+       method:'POST',
+       headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token() }}'},
+       body:JSON.stringify({dept_id:{{ dept.id }},order})
+     });
+   }
+ });
+}
+{% endif %}
+
+// Rimosso update KR - non più necessario
+</script>
+{% endblock %}

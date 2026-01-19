@@ -1,0 +1,689 @@
+{% extends "base.html" %}
+
+{% block title %}Onboarding – Recruiting{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0">Gestione Onboarding</h6>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+        <li class="breadcrumb-item active">Onboarding</li>
+      </ol>
+    </nav>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+      <i class="ri-filter-line me-1"></i>Filtri
+    </button>
+    <a href="{{ url_for('recruiting.onboarding_templates') }}" class="btn btn-outline-primary">
+      <i class="ri-file-list-3-line me-1"></i>Template
+    </a>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newOnboardingModal">
+      <i class="ri-add-line me-1"></i>Nuovo Onboarding
+    </button>
+  </div>
+</div>
+
+{# ─────────────────────── STATISTICHE ─────────────────────── #}
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 bg-primary bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">In Corso</p>
+            <h4 class="mb-0">{{ stats.in_progress }}</h4>
+          </div>
+          <div class="bg-primary bg-opacity-25 rounded-circle p-3">
+            <i class="ri-user-follow-line fs-4 text-primary"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-0 bg-warning bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">In Scadenza</p>
+            <h4 class="mb-0">{{ stats.expiring_soon }}</h4>
+          </div>
+          <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+            <i class="ri-alarm-warning-line fs-4 text-warning"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-0 bg-success bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">Completati</p>
+            <h4 class="mb-0">{{ stats.completed_month }}</h4>
+            <small class="text-muted">Questo mese</small>
+          </div>
+          <div class="bg-success bg-opacity-25 rounded-circle p-3">
+            <i class="ri-checkbox-circle-line fs-4 text-success"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-0 bg-info bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">Tempo Medio</p>
+            <h4 class="mb-0">{{ stats.avg_completion_days }}</h4>
+            <small class="text-muted">giorni</small>
+          </div>
+          <div class="bg-info bg-opacity-25 rounded-circle p-3">
+            <i class="ri-time-line fs-4 text-info"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── TABS ─────────────────────── #}
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item">
+    <a class="nav-link active" data-bs-toggle="tab" href="#activeTab">
+      <i class="ri-play-circle-line me-1"></i>
+      Attivi <span class="badge bg-primary ms-1">{{ active_onboardings|length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#completedTab">
+      <i class="ri-checkbox-circle-line me-1"></i>
+      Completati <span class="badge bg-success ms-1">{{ completed_onboardings|length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#templatesTab">
+      <i class="ri-file-list-3-line me-1"></i>
+      Template <span class="badge bg-secondary ms-1">{{ templates|length }}</span>
+    </a>
+  </li>
+</ul>
+
+<div class="tab-content">
+  {# ─────────────────────── TAB ATTIVI ─────────────────────── #}
+  <div class="tab-pane fade show active" id="activeTab">
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Dipendente</th>
+                <th>Dipartimento</th>
+                <th>Data Inizio</th>
+                <th>Progresso</th>
+                <th>Responsabile</th>
+                <th>Stato</th>
+                <th width="120">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for checklist in active_onboardings %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <div class="avatar avatar-sm me-2">
+                      <span class="avatar-title rounded-circle bg-primary">
+                        {{ checklist.employee_name[0]|upper }}
+                      </span>
+                    </div>
+                    <div>
+                      <a href="{{ url_for('recruiting.onboarding_detail', checklist_id=checklist.id) }}" class="text-dark fw-semibold">
+                        {{ checklist.employee_name }}
+                      </a>
+                      <div class="small text-muted">{{ checklist.employee_email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark">
+                    <i class="ri-building-line me-1"></i>{{ checklist.department.name }}
+                  </span>
+                </td>
+                <td>
+                  <span title="{{ checklist.start_date.strftime('%d/%m/%Y') }}">
+                    {{ checklist.start_date|timeago }}
+                  </span>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height: 20px; min-width: 100px;">
+                      <div class="progress-bar {% if checklist.progress_percentage >= 75 %}bg-success{% elif checklist.progress_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                           style="width: {{ checklist.progress_percentage }}%">
+                        {{ checklist.progress_percentage }}%
+                      </div>
+                    </div>
+                    <small class="text-muted">
+                      {{ checklist.completed_tasks }}/{{ checklist.total_tasks }}
+                    </small>
+                  </div>
+                </td>
+                <td>
+                  {% if checklist.assigned_to %}
+                  <span class="text-muted">{{ checklist.assigned_to.full_name }}</span>
+                  {% else %}
+                  <span class="text-muted fst-italic">Non assegnato</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if checklist.is_overdue %}
+                  <span class="badge bg-danger">
+                    <i class="ri-error-warning-line me-1"></i>In ritardo
+                  </span>
+                  {% elif checklist.days_remaining <= 3 %}
+                  <span class="badge bg-warning">
+                    <i class="ri-alarm-warning-line me-1"></i>{{ checklist.days_remaining }}g rimanenti
+                  </span>
+                  {% else %}
+                  <span class="badge bg-info">
+                    <i class="ri-time-line me-1"></i>{{ checklist.days_remaining }}g rimanenti
+                  </span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="btn-group" role="group">
+                    <a href="{{ url_for('recruiting.onboarding_detail', checklist_id=checklist.id) }}" 
+                       class="btn btn-sm btn-light" title="Visualizza">
+                      <i class="ri-eye-line"></i>
+                    </a>
+                    <button class="btn btn-sm btn-light" onclick="sendReminder({{ checklist.id }})" title="Invia promemoria">
+                      <i class="ri-mail-send-line"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light" onclick="editOnboarding({{ checklist.id }})" title="Modifica">
+                      <i class="ri-edit-line"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+              
+              {% if not active_onboardings %}
+              <tr>
+                <td colspan="7" class="text-center py-4">
+                  <i class="ri-inbox-line fs-1 text-muted d-block mb-2"></i>
+                  <p class="text-muted mb-0">Nessun onboarding attivo</p>
+                </td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {# ─────────────────────── TAB COMPLETATI ─────────────────────── #}
+  <div class="tab-pane fade" id="completedTab">
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Dipendente</th>
+                <th>Dipartimento</th>
+                <th>Periodo</th>
+                <th>Durata</th>
+                <th>Valutazione</th>
+                <th width="100">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for checklist in completed_onboardings %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <div class="avatar avatar-sm me-2">
+                      <span class="avatar-title rounded-circle bg-success">
+                        {{ checklist.employee_name[0]|upper }}
+                      </span>
+                    </div>
+                    <div>
+                      <span class="fw-semibold">{{ checklist.employee_name }}</span>
+                      <div class="small text-muted">{{ checklist.employee_email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ checklist.department.name }}</td>
+                <td>
+                  <small class="text-muted">
+                    {{ checklist.start_date.strftime('%d/%m/%Y') }} - 
+                    {{ checklist.completed_at.strftime('%d/%m/%Y') }}
+                  </small>
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark">
+                    {{ (checklist.completed_at - checklist.start_date).days }} giorni
+                  </span>
+                </td>
+                <td>
+                  {% if checklist.feedback_rating %}
+                  <div class="d-flex align-items-center gap-1">
+                    {% for i in range(5) %}
+                      {% if i < checklist.feedback_rating %}
+                      <i class="ri-star-fill text-warning"></i>
+                      {% else %}
+                      <i class="ri-star-line text-muted"></i>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="btn-group">
+                    <a href="{{ url_for('recruiting.onboarding_detail', checklist_id=checklist.id) }}" 
+                       class="btn btn-sm btn-light">
+                      <i class="ri-eye-line"></i>
+                    </a>
+                    <button class="btn btn-sm btn-light" onclick="downloadReport({{ checklist.id }})">
+                      <i class="ri-download-line"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+              
+              {% if not completed_onboardings %}
+              <tr>
+                <td colspan="6" class="text-center py-4">
+                  <p class="text-muted mb-0">Nessun onboarding completato</p>
+                </td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {# ─────────────────────── TAB TEMPLATE ─────────────────────── #}
+  <div class="tab-pane fade" id="templatesTab">
+    <div class="row">
+      {% for template in templates %}
+      <div class="col-md-4 mb-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <h5 class="card-title mb-0">{{ template.name }}</h5>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-light" data-bs-toggle="dropdown">
+                  <i class="ri-more-2-fill"></i>
+                </button>
+                <ul class="dropdown-menu">
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('recruiting.onboarding_template_edit', template_id=template.id) }}">
+                      <i class="ri-edit-line me-2"></i>Modifica
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="duplicateTemplate({{ template.id }})">
+                      <i class="ri-file-copy-line me-2"></i>Duplica
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <a class="dropdown-item text-danger" href="#" onclick="deleteTemplate({{ template.id }})">
+                      <i class="ri-delete-bin-line me-2"></i>Elimina
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            <p class="card-text text-muted small">{{ template.description }}</p>
+            
+            <div class="mb-3">
+              <span class="badge bg-light text-dark">
+                <i class="ri-building-line me-1"></i>{{ template.department.name }}
+              </span>
+              <span class="badge bg-light text-dark ms-1">
+                <i class="ri-task-line me-1"></i>{{ template.tasks|length }} task
+              </span>
+              <span class="badge bg-light text-dark ms-1">
+                <i class="ri-calendar-line me-1"></i>{{ template.default_duration }} giorni
+              </span>
+            </div>
+            
+            <div class="d-grid">
+              <button class="btn btn-outline-primary btn-sm" onclick="useTemplate({{ template.id }})">
+                <i class="ri-add-line me-1"></i>Usa Template
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      
+      <div class="col-md-4 mb-3">
+        <div class="card h-100 border-dashed bg-light">
+          <div class="card-body d-flex flex-column align-items-center justify-content-center">
+            <i class="ri-add-circle-line fs-1 text-muted mb-3"></i>
+            <h6 class="text-muted">Nuovo Template</h6>
+            <button class="btn btn-outline-primary btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#newTemplateModal">
+              Crea Template
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODALS ─────────────────────── #}
+{# Modal Nuovo Onboarding #}
+<div class="modal fade" id="newOnboardingModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nuovo Onboarding</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('recruiting.onboarding_create') }}">
+        {{ csrf_token() }}
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nome Dipendente <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="employee_name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email <span class="text-danger">*</span></label>
+              <input type="email" class="form-control" name="employee_email" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Dipartimento <span class="text-danger">*</span></label>
+              <select class="form-select" name="department_id" required onchange="loadTemplates(this.value)">
+                <option value="">Seleziona...</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Template</label>
+              <select class="form-select" name="template_id" id="templateSelect">
+                <option value="">Nessun template</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Data Inizio <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" name="start_date" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Durata (giorni)</label>
+              <input type="number" class="form-control" name="duration" value="30" min="1">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Responsabile</label>
+              <select class="form-select" name="assigned_to_id">
+                <option value="">Seleziona...</option>
+                {% for user in users %}
+                <option value="{{ user.id }}">{{ user.full_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Note</label>
+              <textarea class="form-control" name="notes" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn btn-primary">Crea Onboarding</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# Modal Nuovo Template #}
+<div class="modal fade" id="newTemplateModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nuovo Template Onboarding</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('recruiting.onboarding_template_create') }}">
+        {{ csrf_token() }}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome Template <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descrizione</label>
+            <textarea class="form-control" name="description" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Dipartimento <span class="text-danger">*</span></label>
+            <select class="form-select" name="department_id" required>
+              <option value="">Seleziona...</option>
+              {% for dept in departments %}
+              <option value="{{ dept.id }}">{{ dept.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Durata Default (giorni)</label>
+            <input type="number" class="form-control" name="default_duration" value="30" min="1">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn btn-primary">Crea Template</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# Modal Filtri #}
+<div class="modal fade" id="filterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Filtri Onboarding</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Dipartimento</label>
+          <select class="form-select" id="filterDepartment">
+            <option value="">Tutti</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}">{{ dept.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Stato</label>
+          <select class="form-select" id="filterStatus">
+            <option value="">Tutti</option>
+            <option value="active">Attivi</option>
+            <option value="overdue">In ritardo</option>
+            <option value="completed">Completati</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Periodo</label>
+          <div class="row g-2">
+            <div class="col-6">
+              <input type="date" class="form-control" id="filterDateFrom" placeholder="Da">
+            </div>
+            <div class="col-6">
+              <input type="date" class="form-control" id="filterDateTo" placeholder="A">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+        <button type="button" class="btn btn-primary" onclick="applyFilters()">Applica</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load templates for department
+async function loadTemplates(departmentId) {
+  const select = document.getElementById('templateSelect');
+  select.innerHTML = '<option value="">Caricamento...</option>';
+  
+  if (!departmentId) {
+    select.innerHTML = '<option value="">Nessun template</option>';
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/recruiting/api/onboarding/templates?department_id=${departmentId}`);
+    const templates = await response.json();
+    
+    select.innerHTML = '<option value="">Nessun template</option>';
+    templates.forEach(t => {
+      const option = document.createElement('option');
+      option.value = t.id;
+      option.textContent = `${t.name} (${t.tasks_count} task)`;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    toastr.error('Errore caricamento template');
+  }
+}
+
+// Use template
+function useTemplate(templateId) {
+  const modal = new bootstrap.Modal(document.getElementById('newOnboardingModal'));
+  document.querySelector('#templateSelect').value = templateId;
+  modal.show();
+}
+
+// Send reminder
+async function sendReminder(checklistId) {
+  if (!confirm('Inviare un promemoria per questo onboarding?')) return;
+  
+  try {
+    const response = await fetch(`/recruiting/api/onboarding/${checklistId}/reminder`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token() }}'
+      }
+    });
+    
+    if (response.ok) {
+      toastr.success('Promemoria inviato');
+    } else {
+      toastr.error('Errore invio promemoria');
+    }
+  } catch (error) {
+    toastr.error('Errore di connessione');
+  }
+}
+
+// Download report
+function downloadReport(checklistId) {
+  window.location.href = `/recruiting/onboarding/${checklistId}/report`;
+}
+
+// Delete template
+async function deleteTemplate(templateId) {
+  if (!confirm('Eliminare questo template? L\'azione non può essere annullata.')) return;
+  
+  try {
+    const response = await fetch(`/recruiting/api/onboarding/templates/${templateId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token() }}'
+      }
+    });
+    
+    if (response.ok) {
+      toastr.success('Template eliminato');
+      location.reload();
+    } else {
+      toastr.error('Errore eliminazione template');
+    }
+  } catch (error) {
+    toastr.error('Errore di connessione');
+  }
+}
+
+// Duplicate template
+async function duplicateTemplate(templateId) {
+  const name = prompt('Nome del nuovo template:');
+  if (!name) return;
+  
+  try {
+    const response = await fetch(`/recruiting/api/onboarding/templates/${templateId}/duplicate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify({ name })
+    });
+    
+    if (response.ok) {
+      toastr.success('Template duplicato');
+      location.reload();
+    } else {
+      toastr.error('Errore duplicazione template');
+    }
+  } catch (error) {
+    toastr.error('Errore di connessione');
+  }
+}
+
+// Apply filters
+function applyFilters() {
+  const params = new URLSearchParams();
+  
+  const dept = document.getElementById('filterDepartment').value;
+  if (dept) params.append('department_id', dept);
+  
+  const status = document.getElementById('filterStatus').value;
+  if (status) params.append('status', status);
+  
+  const dateFrom = document.getElementById('filterDateFrom').value;
+  if (dateFrom) params.append('date_from', dateFrom);
+  
+  const dateTo = document.getElementById('filterDateTo').value;
+  if (dateTo) params.append('date_to', dateTo);
+  
+  window.location.href = `${window.location.pathname}?${params.toString()}`;
+}
+
+// Reset filters
+function resetFilters() {
+  document.getElementById('filterDepartment').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterDateFrom').value = '';
+  document.getElementById('filterDateTo').value = '';
+}
+</script>
+{% endblock %}

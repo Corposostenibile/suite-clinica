@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }} - Progetti IT{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <div>
+      <h6 class="fw-semibold mb-0">{{ project.title }}</h6>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.index') }}">Progetti IT</a></li>
+          <li class="breadcrumb-item active">Dettaglio</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('it_projects.edit', project_id=project.id) }}" class="btn btn-sm btn-primary-600">
+      <i class="ri-edit-line me-1"></i> Modifica
+    </a>
+    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+      <i class="ri-delete-bin-line"></i>
+    </button>
+  </div>
+</div>
+
+{# ─────────────────────── HEADER CON STATO ─────────────────────── #}
+<div class="row gy-4 mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="w-64-px h-64-px bg-primary-100 text-primary-600 d-flex justify-content-center align-items-center rounded-circle">
+              <iconify-icon icon="mdi:folder-cog-outline" style="font-size: 2rem;"></iconify-icon>
+            </span>
+            <div>
+              <h4 class="fw-semibold mb-1">{{ project.title }}</h4>
+              <div class="d-flex gap-2 align-items-center">
+                <span class="badge bg-{{ project.status_color }}-subtle text-{{ project.status_color }}-main">
+                  {{ project.status_label }}
+                </span>
+                {% if project.has_deadline %}
+                  {% if project.is_overdue %}
+                    <span class="badge bg-danger-subtle text-danger-main">
+                      <i class="ri-error-warning-line me-1"></i>Scaduto da {{ (-project.days_until_deadline)|abs }} giorni
+                    </span>
+                  {% elif project.days_until_deadline <= 7 %}
+                    <span class="badge bg-warning-subtle text-warning-main">
+                      <i class="ri-calendar-line me-1"></i>{{ project.deadline.strftime('%d/%m/%Y') }} ({{ project.days_until_deadline }} giorni)
+                    </span>
+                  {% else %}
+                    <span class="badge bg-success-subtle text-success-main">
+                      <i class="ri-calendar-line me-1"></i>{{ project.deadline.strftime('%d/%m/%Y') }}
+                    </span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-secondary-main">
+                    <i class="ri-calendar-close-line me-1"></i>Deadline da definire
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#updateHoursModal">
+              <i class="ri-time-line me-2"></i>Aggiorna Ore
+            </button>
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="ri-refresh-line me-2"></i>Cambia Stato
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item {% if project.status == 'planning' %}active{% endif %}" href="#" onclick="updateStatus('planning')">Pianificazione</a></li>
+                <li><a class="dropdown-item {% if project.status == 'in_progress' %}active{% endif %}" href="#" onclick="updateStatus('in_progress')">In Corso</a></li>
+                <li><a class="dropdown-item {% if project.status == 'review' %}active{% endif %}" href="#" onclick="updateStatus('review')">In Review</a></li>
+                <li><a class="dropdown-item {% if project.status == 'on_hold' %}active{% endif %}" href="#" onclick="updateStatus('on_hold')">In Pausa</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item {% if project.status == 'completed' %}active{% endif %}" href="#" onclick="updateStatus('completed')">Completato</a></li>
+                <li><a class="dropdown-item {% if project.status == 'cancelled' %}active{% endif %}" href="#" onclick="updateStatus('cancelled')">Annullato</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── STATS CARDS ─────────────────────── #}
+<div class="row gy-4 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:clock-outline" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Ore Svolte</span>
+          <h4 class="fw-semibold mb-0">{{ project.worked_hours|int }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:clock-fast" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Ore Previste</span>
+          <h4 class="fw-semibold mb-0">{{ project.estimated_hours|int }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:clock-alert-outline" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Ore Rimanenti</span>
+          <h4 class="fw-semibold mb-0">{{ project.remaining_hours|int }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:percent" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Completamento</span>
+          <h4 class="fw-semibold mb-0">{{ project.progress_percentage }}%</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── PROGRESS BAR ─────────────────────── #}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold">Progresso Progetto</span>
+          <span class="fw-bold text-{{ 'success' if project.progress_percentage >= 100 else 'primary' if project.progress_percentage >= 50 else 'warning' }}">{{ project.progress_percentage }}%</span>
+        </div>
+        <div class="progress" style="height: 16px;">
+          <div class="progress-bar bg-{% if project.progress_percentage >= 100 %}success{% elif project.progress_percentage >= 50 %}primary{% else %}warning{% endif %}"
+               style="width: {{ project.progress_percentage }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row gy-4">
+  {# ─────────────────────── MAIN CONTENT ─────────────────────── #}
+  <div class="col-lg-8">
+    {% if project.description %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-file-text-line text-primary-600 me-2"></i>Descrizione
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ project.description }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if project.specifications %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-code-box-line text-info me-2"></i>Specifiche Tecniche
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ project.specifications }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if project.adoption_strategy %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-rocket-line text-success-main me-2"></i>Strategia di Adoption
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ project.adoption_strategy }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not project.description and not project.specifications and not project.adoption_strategy %}
+    <div class="card mb-4">
+      <div class="card-body text-center py-5 text-muted">
+        <iconify-icon icon="mdi:file-document-edit-outline" style="font-size: 3rem;"></iconify-icon>
+        <p class="mt-3 mb-0">Nessuna descrizione o specifica aggiunta</p>
+        <a href="{{ url_for('it_projects.edit', project_id=project.id) }}" class="btn btn-sm btn-primary-600 mt-3">
+          <i class="ri-edit-line me-1"></i>Aggiungi Dettagli
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─────────────────────── SIDEBAR ─────────────────────── #}
+  <div class="col-lg-4">
+    <!-- Team -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-team-line text-primary-600 me-2"></i>Team di Lavoro
+        </h6>
+      </div>
+      <div class="card-body">
+        {% if project.team_members %}
+        {% for member in project.team_members %}
+        <div class="d-flex align-items-center gap-3 {% if not loop.last %}mb-3 pb-3 border-bottom{% endif %}">
+          <div class="w-40-px h-40-px rounded-circle bg-primary-100 d-flex justify-content-center align-items-center text-primary-600 fw-semibold">
+            {{ member.first_name[0] }}{{ member.last_name[0] if member.last_name else '' }}
+          </div>
+          <div>
+            <h6 class="mb-0 fw-medium">{{ member.full_name }}</h6>
+            <span class="text-sm text-secondary-light">{{ member.department.name if member.department else 'IT' }}</span>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-3 text-muted">
+          <iconify-icon icon="mdi:account-group-outline" style="font-size: 2rem;"></iconify-icon>
+          <p class="mt-2 mb-0">Nessun membro assegnato</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="card">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-information-line text-secondary me-2"></i>Informazioni
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <span class="text-sm text-secondary-light d-block">Stato</span>
+          <span class="badge bg-{{ project.status_color }}-subtle text-{{ project.status_color }}-main">
+            {{ project.status_label }}
+          </span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-secondary-light d-block">Priorita</span>
+          <span class="fw-medium">
+            {% if project.has_deadline %}
+            Ordinato per deadline
+            {% else %}
+            #{{ project.priority_order + 1 }} nella lista
+            {% endif %}
+          </span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-secondary-light d-block">Creato il</span>
+          <span class="fw-medium">{{ project.created_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-secondary-light d-block">Ultimo aggiornamento</span>
+          <span class="fw-medium">{{ project.updated_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+
+        {% if project.created_by %}
+        <div class="mb-0">
+          <span class="text-sm text-secondary-light d-block">Creato da</span>
+          <span class="fw-medium">{{ project.created_by.full_name }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL AGGIORNA ORE ─────────────────────── #}
+<div class="modal fade" id="updateHoursModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Aggiorna Ore Lavorate</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Ore Lavorate</label>
+          <input type="number" class="form-control" id="workedHoursInput"
+                 value="{{ project.worked_hours }}" step="0.5" min="0">
+          <small class="text-muted">Ore previste: {{ project.estimated_hours }}</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" onclick="updateHours()">Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL ELIMINA ─────────────────────── #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Elimina Progetto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Sei sicuro di voler eliminare il progetto <strong>{{ project.title }}</strong>?</p>
+        <p class="text-danger mb-0">Questa azione non puo essere annullata.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <form action="{{ url_for('it_projects.delete', project_id=project.id) }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-danger">Elimina</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateHours() {
+    const hours = parseFloat(document.getElementById('workedHoursInput').value) || 0;
+
+    fetch('{{ url_for("it_projects.update_hours", project_id=project.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ worked_hours: hours })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Errore: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        alert('Errore nel salvataggio');
+    });
+}
+
+function updateStatus(status) {
+    fetch('{{ url_for("it_projects.update_status", project_id=project.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Errore: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        alert('Errore nel salvataggio');
+    });
+}
+</script>
+{% endblock %}

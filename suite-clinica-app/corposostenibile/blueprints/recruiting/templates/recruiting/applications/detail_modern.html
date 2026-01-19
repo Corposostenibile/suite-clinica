@@ -1,0 +1,1051 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application.full_name }} – Dettaglio Candidatura{% endblock %}
+
+{% block extra_css %}
+<!-- CSRF Token for JavaScript -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Hero Header */
+    .hero-header {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+    }
+
+    .hero-header .score-circle {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #45CB85;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .hero-header .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .hero-header .info-item i {
+        width: 24px;
+        text-align: center;
+        margin-right: 12px;
+        opacity: 0.9;
+    }
+
+    .hero-header h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        color: white !important;
+    }
+
+    /* Tabs */
+    .nav-tabs {
+        border-bottom: 2px solid #E2E8F0;
+        margin-bottom: 24px;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #64748B;
+        padding: 12px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: #487FFF;
+        border-bottom-color: #E2E8F0;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #487FFF;
+        background: transparent;
+        border-bottom-color: #487FFF;
+    }
+
+    /* Stats Cards */
+    .stat-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--dark-color);
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.875rem;
+        color: #64748B;
+        font-weight: 500;
+    }
+
+    .stat-card.success .stat-value { color: #45CB85; }
+    .stat-card.info .stat-value { color: #487FFF; }
+    .stat-card.warning .stat-value { color: #F0AD4E; }
+
+    /* Info Box */
+    .info-box {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .info-box-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748B;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .info-box-value {
+        color: var(--dark-color);
+        font-size: 1rem;
+        font-weight: 500;
+    }
+
+    /* Answer Card */
+    .answer-card {
+        background: white;
+        border: 1px solid #E2E8F0;
+        border-left: 4px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.3s;
+    }
+
+    .answer-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .answer-card.correct {
+        border-left-color: #45CB85;
+        background: linear-gradient(to right, #F0FDF4 0%, white 100%);
+    }
+
+    .answer-card.partial {
+        border-left-color: #F0AD4E;
+        background: linear-gradient(to right, #FFFBEB 0%, white 100%);
+    }
+
+    .answer-card.incorrect {
+        border-left-color: #DC3545;
+        background: linear-gradient(to right, #FEF2F2 0%, white 100%);
+    }
+
+    .answer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+
+    .answer-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .answer-section {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+    }
+
+    .answer-section-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748B;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    /* Skill Tags */
+    .skill-tag {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin: 4px;
+        font-weight: 500;
+    }
+
+    .skill-tag.found {
+        background: linear-gradient(135deg, #C6F6D5 0%, #9AE6B4 100%);
+        color: #22543D;
+    }
+
+    .skill-tag.missing {
+        background: linear-gradient(135deg, #FED7D7 0%, #FCA5A5 100%);
+        color: #742A2A;
+    }
+
+    /* Timeline */
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #E2E8F0;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -1.375rem;
+        top: 0.25rem;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background: #4ECAC2;
+        border: 2px solid white;
+        box-shadow: 0 0 0 4px #E2E8F0;
+    }
+
+    .timeline-item.success::before {
+        background: #45CB85;
+        box-shadow: 0 0 0 4px #C6F6D5;
+    }
+
+    /* AI Analysis Card */
+    .ai-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 16px;
+    }
+
+    .ai-card .recommendation-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 12px 20px;
+        border-radius: 24px;
+        font-weight: 600;
+        font-size: 1rem;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .ai-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .ai-list li {
+        padding: 12px;
+        margin-bottom: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+    }
+
+    /* Action Button */
+    .action-btn {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s;
+        border: none;
+        margin-bottom: 12px;
+    }
+
+    .action-btn.primary {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+    }
+
+    .action-btn.primary:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+    }
+
+    .action-btn.secondary {
+        background: white;
+        color: #45CB85;
+        border: 1px solid #45CB85;
+    }
+
+    .action-btn.secondary:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+    }
+
+    /* Badge */
+    .custom-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .text-white-80 { color: rgba(255,255,255,0.8); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Back Button -->
+    <div class="mb-3">
+        <a href="{{ url_for('recruiting.offer_applications', offer_id=application.job_offer_id) }}" class="btn btn-sm btn-outline-success">
+            <i class="ri-arrow-left-line"></i> Torna alle Candidature
+        </a>
+    </div>
+
+    <!-- Hero Header -->
+    <div class="hero-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2>{{ application.full_name }}</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="info-item">
+                            <i class="ri-briefcase-line"></i>
+                            <span>{{ application.job_offer.title if application.job_offer else 'N/A' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="ri-mail-line"></i>
+                            <span>{{ application.email }}</span>
+                        </div>
+                        {% if application.phone %}
+                        <div class="info-item">
+                            <i class="ri-phone-line"></i>
+                            <span>{{ application.phone }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {% if application.linkedin_profile %}
+                        <div class="info-item">
+                            <i class="ri-linkedin-box-fill"></i>
+                            <a href="{{ application.linkedin_profile }}" target="_blank" class="text-white text-decoration-underline">LinkedIn</a>
+                        </div>
+                        {% endif %}
+                        {% if application.portfolio_url %}
+                        <div class="info-item">
+                            <i class="ri-global-line"></i>
+                            <a href="{{ application.portfolio_url }}" target="_blank" class="text-white text-decoration-underline">Portfolio</a>
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <i class="ri-calendar-line"></i>
+                            <span>{{ application.created_at.strftime('%d/%m/%Y %H:%M') if application.created_at else 'N/D' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                {% if application.total_score is not none %}
+                <div class="score-circle mx-auto mb-3">
+                    {{ application.total_score|round|int }}%
+                </div>
+                <div class="text-white-80">Score Totale ATS</div>
+                {% else %}
+                <div class="text-white-80">
+                    <i class="ri-timer-line" style="font-size: 3rem;"></i>
+                    <div class="mt-2">Non ancora analizzato</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <div class="col-lg-9">
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs" id="candidateTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                        <i class="ri-user-line me-2"></i>Overview
+                    </button>
+                </li>
+                {% if application.cv_file_path %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="cv-tab" data-bs-toggle="tab" data-bs-target="#cv" type="button" role="tab">
+                        <i class="ri-file-pdf-line me-2"></i>CV
+                    </button>
+                </li>
+                {% endif %}
+                {% if application.screened_at %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="ats-tab" data-bs-toggle="tab" data-bs-target="#ats" type="button" role="tab">
+                        <i class="ri-robot-line me-2"></i>Analisi ATS
+                    </button>
+                </li>
+                {% endif %}
+                {% if answers %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="answers-tab" data-bs-toggle="tab" data-bs-target="#answers" type="button" role="tab">
+                        <i class="ri-questionnaire-line me-2"></i>Risposte ({{ answers|length }})
+                    </button>
+                </li>
+                {% endif %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="docs-tab" data-bs-toggle="tab" data-bs-target="#docs" type="button" role="tab">
+                        <i class="ri-file-list-3-line me-2"></i>Documenti e Note
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tabs Content -->
+            <div class="tab-content" id="candidateTabsContent">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                    <!-- Stats Row -->
+                    {% if application.screened_at %}
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="stat-card success">
+                                <div class="stat-value">{{ application.total_score|round|int if application.total_score else 0 }}%</div>
+                                <div class="stat-label">Score Totale</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card info">
+                                <div class="stat-value">{{ application.cv_score|round|int if application.cv_score else 0 }}%</div>
+                                <div class="stat-label">Score CV</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card warning">
+                                <div class="stat-value">{{ application.form_score|round|int if application.form_score else 0 }}%</div>
+                                <div class="stat-label">Score Questionario</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Info Grid -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-information-line me-2"></i>Informazioni Candidatura
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Fonte</div>
+                                        <div class="info-box-value">
+                                            {% if application.source %}
+                                            <span class="badge bg-info">
+                                                {{ application.source.value|replace('_', ' ')|title }}
+                                            </span>
+                                            {% else %}
+                                            Diretta
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Stato</div>
+                                        <div class="info-box-value">
+                                            {% if application.status %}
+                                            <span class="badge bg-primary">
+                                                {{ application.status.value|replace('_', ' ')|title }}
+                                            </span>
+                                            {% else %}
+                                            Nuova
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Data Candidatura</div>
+                                        <div class="info-box-value">
+                                            {{ application.created_at.strftime('%d/%m/%Y alle %H:%M') if application.created_at else 'N/D' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% if application.screened_at %}
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Data Screening</div>
+                                        <div class="info-box-value">
+                                            {{ application.screened_at.strftime('%d/%m/%Y alle %H:%M') if application.screened_at else 'N/D' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cover Letter -->
+                    {% if application.cover_letter %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-file-text-line me-2"></i>Lettera di Presentazione
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-box" style="white-space: pre-wrap;">{{ application.cover_letter }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Timeline -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-time-line me-2"></i>Timeline
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                <div class="timeline-item">
+                                    <small class="text-muted">{{ application.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    <div class="fw-medium">Candidatura ricevuta</div>
+                                    <small class="text-muted">Fonte: {{ application.source.value if application.source else 'Diretta' }}</small>
+                                </div>
+
+                                {% if application.screened_at %}
+                                <div class="timeline-item success">
+                                    <small class="text-muted">{{ application.screened_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    <div class="fw-medium">Screening ATS completato</div>
+                                    <small class="text-muted">Score: {{ application.total_score|round|int }}%</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ATS Analysis Tab -->
+                {% if application.screened_at %}
+                <div class="tab-pane fade" id="ats" role="tabpanel">
+                    <!-- AI Recommendation Card -->
+                    {% if ai_analysis and ai_analysis.cv_analysis and ai_analysis.cv_analysis.ai_analysis %}
+                    {% set ai_data = ai_analysis.cv_analysis.ai_analysis %}
+
+                    <!-- Top Summary Card -->
+                    <div class="card mb-4" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%); color: white; border: none;">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div style="width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
+                                            <i class="ri-brain-line" style="font-size: 2.5rem; color: white;"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="mb-1" style="color: white;">Valutazione AI</h5>
+                                            <p class="mb-0" style="color: rgba(255,255,255,0.85);">Analisi automatica del profilo candidato</p>
+                                        </div>
+                                    </div>
+                                    {% if ai_data.summary %}
+                                    <div class="p-3" style="background: rgba(255,255,255,0.15); border-radius: 12px; backdrop-filter: blur(10px);">
+                                        <p class="mb-0" style="color: white;">{{ ai_data.summary }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div style="font-size: 3.5rem; font-weight: bold; line-height: 1; margin-bottom: 10px; color: white;">
+                                        {{ "%.0f"|format(ai_data.relevance_score) if ai_data.relevance_score else "0" }}%
+                                    </div>
+                                    <div style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.9);">
+                                        Rilevanza
+                                    </div>
+                                    {% if ai_data.recommendation %}
+                                    <div class="mt-3">
+                                        <span class="badge" style="background: rgba(255,255,255,0.25); padding: 10px 20px; font-size: 0.9rem; color: white;">
+                                            {% if ai_data.recommendation == 'CONSIGLIATO' %}
+                                            <i class="ri-thumb-up-fill me-1"></i>CONSIGLIATO
+                                            {% elif ai_data.recommendation == 'NON_CONSIGLIATO' %}
+                                            <i class="ri-thumb-down-fill me-1"></i>NON CONSIGLIATO
+                                            {% else %}
+                                            {{ ai_data.recommendation }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Strengths & Weaknesses Grid -->
+                    <div class="row mb-4">
+                        {% if ai_data.strengths %}
+                        <div class="col-md-6 mb-4 mb-md-0">
+                            <div class="card h-100">
+                                <div class="card-header" style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-bottom: 2px solid #81C784;">
+                                    <h6 class="card-title mb-0" style="color: #2E7D32;">
+                                        <i class="ri-thumb-up-fill me-2"></i>Punti di Forza
+                                        <span class="badge bg-success ms-2">{{ ai_data.strengths|length }}</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    {% for strength in ai_data.strengths %}
+                                    <div class="d-flex align-items-start mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                                        <div class="flex-shrink-0">
+                                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #C8E6C9 0%, #A5D6A7 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="ri-check-line" style="color: #2E7D32; font-size: 1.2rem;"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <p class="mb-0">{{ strength }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if ai_data.weaknesses %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header" style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%); border-bottom: 2px solid #FFB74D;">
+                                    <h6 class="card-title mb-0" style="color: #E65100;">
+                                        <i class="ri-alert-fill me-2"></i>Aree di Miglioramento
+                                        <span class="badge bg-warning ms-2">{{ ai_data.weaknesses|length }}</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    {% for weakness in ai_data.weaknesses %}
+                                    <div class="d-flex align-items-start mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+                                        <div class="flex-shrink-0">
+                                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #FFE0B2 0%, #FFCC80 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="ri-alert-line" style="color: #E65100; font-size: 1.2rem;"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <p class="mb-0">{{ weakness }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Skills Comparison -->
+                    <div class="row mb-4">
+                        {% if ai_data.key_skills_found %}
+                        <div class="col-md-6 mb-4 mb-md-0">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0 text-success">
+                                        <i class="ri-star-fill me-2"></i>Competenze Chiave Possedute
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for skill in ai_data.key_skills_found %}
+                                        <span class="skill-tag found">
+                                            <i class="ri-check-line me-1"></i>{{ skill }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if ai_data.missing_skills %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0 text-danger">
+                                        <i class="ri-close-circle-fill me-2"></i>Competenze Mancanti
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for skill in ai_data.missing_skills %}
+                                        <span class="skill-tag missing">
+                                            <i class="ri-close-line me-1"></i>{{ skill }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Keywords Analysis -->
+                    {% if ai_analysis.cv_analysis.keywords %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-key-2-line me-2"></i>Analisi Keywords CV
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if ai_analysis.cv_analysis.keywords.found %}
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <h6 class="mb-0 text-success">
+                                            <i class="ri-checkbox-circle-line me-2"></i>Keywords Trovate
+                                        </h6>
+                                        <span class="badge bg-success ms-2">{{ ai_analysis.cv_analysis.keywords.found|length }}</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for keyword in ai_analysis.cv_analysis.keywords.found %}
+                                        <span class="badge" style="background: #C8E6C9; color: #2E7D32; padding: 6px 12px;">{{ keyword }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if ai_analysis.cv_analysis.keywords.missing %}
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <h6 class="mb-0 text-danger">
+                                            <i class="ri-close-circle-line me-2"></i>Keywords Mancanti
+                                        </h6>
+                                        <span class="badge bg-danger ms-2">{{ ai_analysis.cv_analysis.keywords.missing|length }}</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for keyword in ai_analysis.cv_analysis.keywords.missing %}
+                                        <span class="badge" style="background: #FFCDD2; color: #C62828; padding: 6px 12px;">{{ keyword }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Answers Tab -->
+                {% if answers %}
+                <div class="tab-pane fade" id="answers" role="tabpanel">
+                    {% for item in answers %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <!-- Question Header -->
+                            <div class="d-flex justify-content-between align-items-start mb-3 pb-3 border-bottom">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-2">
+                                        <span class="badge bg-secondary me-2">{{ loop.index }}</span>
+                                        {{ item.question.question_text }}
+                                    </h6>
+                                    <span class="badge bg-light text-dark me-2">Peso: {{ item.question.weight }}%</span>
+                                </div>
+                                {% if item.score is not none %}
+                                <div class="text-end">
+                                    <div class="badge {% if item.score >= 80 %}bg-success{% elif item.score >= 50 %}bg-warning{% else %}bg-danger{% endif %}" style="font-size: 1.2rem; padding: 8px 16px;">
+                                        {{ item.score|round|int }}%
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Answers Comparison -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <div class="p-3 bg-light rounded">
+                                        <small class="text-muted d-block mb-2"><strong>Risposta Candidato:</strong></small>
+                                        <div>
+                                            {% if item.answer.answer_json %}
+                                                {{ item.answer.answer_json|join(', ') }}
+                                            {% elif item.answer.answer_file_path %}
+                                                <a href="/uploads/{{ item.answer.answer_file_path }}" target="_blank">
+                                                    <i class="ri-attachment-line"></i> File allegato
+                                                </a>
+                                            {% else %}
+                                                {{ item.answer.answer_text or 'Nessuna risposta' }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 rounded" style="background: #F0FDF4;">
+                                        <small class="text-success d-block mb-2"><strong>Risposta Attesa:</strong></small>
+                                        <div class="text-success">
+                                            {% if item.question.expected_options %}
+                                                {{ item.question.expected_options|join(', ') }}
+                                            {% elif item.question.expected_min and item.question.expected_max %}
+                                                Tra {{ item.question.expected_min }} e {{ item.question.expected_max }}
+                                            {% else %}
+                                                {{ item.question.expected_answer or 'Non specificata' }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- CV Tab -->
+                {% if application.cv_file_path %}
+                <div class="tab-pane fade" id="cv" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="card-title mb-0">
+                                    <i class="ri-file-pdf-line me-2"></i>Curriculum Vitae
+                                </h6>
+                                <a href="{{ url_for('recruiting.download_cv', application_id=application.id) }}" class="btn btn-sm btn-success">
+                                    <i class="ri-download-line me-1"></i>Scarica
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <iframe
+                                src="{{ url_for('recruiting.view_cv', application_id=application.id) }}"
+                                style="width: 100%; height: 800px; border: none;"
+                                type="application/pdf">
+                                <p>Il tuo browser non supporta la visualizzazione dei PDF.
+                                    <a href="{{ url_for('recruiting.download_cv', application_id=application.id) }}">Scarica il CV</a>
+                                </p>
+                            </iframe>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Documents Tab -->
+                <div class="tab-pane fade" id="docs" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-folder-line me-2"></i>Documenti e Allegati
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if application.cv_file_path %}
+                            <div class="d-flex justify-content-between align-items-center p-3 mb-3 border rounded">
+                                <div>
+                                    <i class="ri-file-pdf-line text-danger me-2" style="font-size: 1.5rem;"></i>
+                                    <strong>Curriculum Vitae</strong>
+                                </div>
+                                <a href="{{ url_for('recruiting.download_cv', application_id=application.id) }}" class="btn btn-success">
+                                    <i class="ri-download-line me-1"></i>Scarica CV
+                                </a>
+                            </div>
+                            {% endif %}
+
+                            {% if not application.cv_file_path %}
+                            <div class="text-center py-5">
+                                <i class="ri-file-line" style="font-size: 4rem; color: #E2E8F0;"></i>
+                                <p class="text-muted mt-3 mb-0">Nessun documento caricato</p>
+                            </div>
+                            {% endif %}
+
+                            <!-- Internal Notes -->
+                            <hr class="my-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="ri-sticky-note-line me-2"></i>Note Interne
+                                </h6>
+                                <button class="btn btn-sm btn-success" onclick="addNote()">
+                                    <i class="ri-add-line me-1"></i>Aggiungi Nota
+                                </button>
+                            </div>
+                            {% if application.internal_notes %}
+                            <div class="info-box" style="white-space: pre-wrap;">{{ application.internal_notes }}</div>
+                            {% else %}
+                            <p class="text-muted">Nessuna nota presente</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-3">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-flashlight-line me-2"></i>Azioni Rapide
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if application.cv_file_path %}
+                    <a href="{{ url_for('recruiting.download_cv', application_id=application.id) }}" class="action-btn primary">
+                        <i class="ri-download-line me-2"></i>Scarica CV
+                    </a>
+                    {% endif %}
+
+                    <button class="action-btn secondary" onclick="addNote()">
+                        <i class="ri-sticky-note-line me-2"></i>Aggiungi Nota
+                    </button>
+
+                    {% if application.job_offer.kanban_id %}
+                    <a href="{{ url_for('recruiting.offer_kanban_view', offer_id=application.job_offer_id) }}" class="action-btn secondary">
+                        <i class="ri-kanban-view me-2"></i>Vai al Kanban
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Stage Info -->
+            {% if application.kanban_stage %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-kanban-view me-2"></i>Stage Attuale
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <div class="info-box-value">{{ application.kanban_stage.name }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Add Note -->
+<div class="modal fade" id="noteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Aggiungi Nota Interna</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea class="form-control" id="noteText" rows="4" placeholder="Scrivi una nota..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <button type="button" class="btn btn-success" onclick="saveNote()">Salva Nota</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const applicationId = {{ application.id }};
+
+function addNote() {
+    new bootstrap.Modal(document.getElementById('noteModal')).show();
+}
+
+async function saveNote() {
+    const notes = document.getElementById('noteText').value;
+
+    if (!notes.trim()) {
+        alert('Inserisci una nota');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/recruiting/api/kanban/application/${applicationId}/notes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content
+            },
+            body: JSON.stringify({ notes })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('Nota aggiunta con successo');
+            bootstrap.Modal.getInstance(document.getElementById('noteModal')).hide();
+            location.reload();
+        }
+    } catch (error) {
+        alert('Errore nel salvataggio della nota');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}{% if article %}Modifica{% else %}Nuovo{% endif %} Articolo - Manuali{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.manuals_admin_articles') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <h6 class="fw-semibold mb-0">{% if article %}Modifica Articolo{% else %}Nuovo Articolo{% endif %}</h6>
+  </div>
+  {% if article %}
+  <a href="{{ url_for('it_projects.manuals_article', platform=article.platform, article_id=article.id, slug=article.slug) }}"
+     class="btn btn-sm btn-outline-secondary" target="_blank">
+    <i class="ri-eye-line me-1"></i> Visualizza
+  </a>
+  {% endif %}
+</div>
+
+<form method="POST" id="articleForm">
+  <div class="row">
+    {# ─────────────────────── MAIN FORM ─────────────────────── #}
+    <div class="col-lg-8">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">Contenuto</h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Titolo <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control" required
+                   value="{{ article.title if article else '' }}"
+                   placeholder="Es: Come creare un nuovo cliente">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Sommario</label>
+            <textarea name="summary" class="form-control" rows="2"
+                      placeholder="Breve descrizione dell'articolo (apparirà nelle liste)">{{ article.summary if article else '' }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Contenuto <span class="text-danger">*</span></label>
+            <textarea name="content" id="contentEditor" class="form-control" rows="15" required>{{ article.content if article else '' }}</textarea>
+            <small class="text-secondary-light">Puoi usare HTML per formattare il contenuto</small>
+          </div>
+        </div>
+      </div>
+
+      {# Video section #}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="ri-video-line me-2"></i>Video Tutorial</h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-0">
+            <label class="form-label">URL Video Loom</label>
+            <input type="url" name="loom_url" class="form-control"
+                   value="{{ article.loom_url if article else '' }}"
+                   placeholder="https://www.loom.com/share/...">
+            <small class="text-secondary-light">Incolla l'URL di condivisione del video Loom</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ─────────────────────── SIDEBAR ─────────────────────── #}
+    <div class="col-lg-4">
+      {# Publish settings #}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">Pubblicazione</h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Piattaforma <span class="text-danger">*</span></label>
+            <select name="platform" id="platformSelect" class="form-select" required>
+              <option value="">Seleziona piattaforma</option>
+              {% for key, platform in platforms.items() %}
+              <option value="{{ key }}"
+                      {% if article and article.platform == key %}selected{% endif %}
+                      {% if request.args.get('platform') == key %}selected{% endif %}>
+                {{ platform.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Categoria</label>
+            <select name="category_id" id="categorySelect" class="form-select">
+              <option value="">Nessuna categoria</option>
+              {% for cat in categories %}
+              <option value="{{ cat.id }}"
+                      data-platform="{{ cat.platform }}"
+                      {% if article and article.category_id == cat.id %}selected{% endif %}>
+                {{ cat.name }} ({{ platforms[cat.platform].name }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input type="checkbox" name="is_published" id="isPublished" class="form-check-input"
+                     {% if article and article.is_published %}checked{% endif %}>
+              <label class="form-check-label" for="isPublished">Pubblicato</label>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input type="checkbox" name="is_featured" id="isFeatured" class="form-check-input"
+                     {% if article and article.is_featured %}checked{% endif %}>
+              <label class="form-check-label" for="isFeatured">In evidenza</label>
+            </div>
+          </div>
+
+          {% if article %}
+          <div class="border-top pt-3 mt-3">
+            <div class="text-secondary-light text-sm">
+              <div class="mb-1">
+                <i class="ri-eye-line me-1"></i>{{ article.views_count }} visualizzazioni
+              </div>
+              <div class="mb-1">
+                <i class="ri-calendar-line me-1"></i>Creato: {{ article.created_at.strftime('%d/%m/%Y %H:%M') }}
+              </div>
+              <div>
+                <i class="ri-refresh-line me-1"></i>Aggiornato: {{ article.updated_at.strftime('%d/%m/%Y %H:%M') }}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer">
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary-600">
+              <i class="ri-save-line me-1"></i>
+              {% if article %}Salva Modifiche{% else %}Crea Articolo{% endif %}
+            </button>
+            <a href="{{ url_for('it_projects.manuals_admin_articles') }}" class="btn btn-outline-secondary">
+              Annulla
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {# Tips #}
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="ri-lightbulb-line me-2"></i>Suggerimenti</h6>
+        </div>
+        <div class="card-body">
+          <ul class="mb-0 ps-3">
+            <li class="mb-2 text-sm">Usa titoli chiari e descrittivi</li>
+            <li class="mb-2 text-sm">Aggiungi un sommario per migliorare la visibilità nelle liste</li>
+            <li class="mb-2 text-sm">I video Loom vengono incorporati automaticamente</li>
+            <li class="mb-2 text-sm">Puoi usare tag HTML per formattare (h2, h3, p, ul, ol, code, etc.)</li>
+            <li class="text-sm">Gli articoli "in evidenza" appaiono in cima alla pagina della piattaforma</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const platformSelect = document.getElementById('platformSelect');
+  const categorySelect = document.getElementById('categorySelect');
+  const categoryOptions = categorySelect.querySelectorAll('option[data-platform]');
+
+  function filterCategories() {
+    const selectedPlatform = platformSelect.value;
+
+    categoryOptions.forEach(option => {
+      if (!selectedPlatform || option.dataset.platform === selectedPlatform) {
+        option.style.display = '';
+      } else {
+        option.style.display = 'none';
+        if (option.selected) {
+          categorySelect.value = '';
+        }
+      }
+    });
+  }
+
+  platformSelect.addEventListener('change', filterCategories);
+  filterCategories(); // Initial filter
+});
+</script>
+{% endblock %}

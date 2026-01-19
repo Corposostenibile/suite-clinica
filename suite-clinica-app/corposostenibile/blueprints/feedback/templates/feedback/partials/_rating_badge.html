@@ -1,0 +1,14 @@
+{# Rating badge macro with consistent color rules #}
+{% macro rating_badge(rating, show_slash_10=false) -%}
+  {% if rating is not none %}
+    {% if rating >= 8 %}
+      <span class="badge bg-success">{{ rating }}{% if show_slash_10 %}/10{% endif %}</span>
+    {% elif rating >= 7 %}
+      <span class="badge bg-warning text-dark">{{ rating }}{% if show_slash_10 %}/10{% endif %}</span>
+    {% else %}
+      <span class="badge bg-danger">{{ rating }}{% if show_slash_10 %}/10{% endif %}</span>
+    {% endif %}
+  {% else %}
+    <span class="badge bg-secondary">-</span>
+  {% endif %}
+{%- endmacro %}

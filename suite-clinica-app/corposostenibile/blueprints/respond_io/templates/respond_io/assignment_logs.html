@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Storico Assegnazioni - Respond.io{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">
+                    <i class="ri-history-line me-2"></i>Storico Assegnazioni
+                </h2>
+                <a href="{{ url_for('respond_io.assignment_monitoring') }}" class="btn btn-outline-secondary">
+                    <i class="ri-arrow-left-line me-1"></i>Torna alla Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella Log -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4">ID</th>
+                            <th>Data/Ora</th>
+                            <th>Eseguito da</th>
+                            <th>Tipo</th>
+                            <th>Lifecycle</th>
+                            <th class="text-center">Contatti</th>
+                            <th class="text-center">Assegnati</th>
+                            <th class="text-center">Falliti</th>
+                            <th>Stato</th>
+                            <th>Durata</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td class="px-4">
+                                <span class="badge bg-secondary">#{{ log.id }}</span>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ log.started_at.strftime('%d/%m/%Y') }}</strong><br>
+                                    <small class="text-muted">{{ log.started_at.strftime('%H:%M:%S') }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if log.executed_by %}
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-2">
+                                            {% if log.executed_by.avatar %}
+                                            <img src="{{ log.executed_by.avatar }}" class="rounded-circle" alt="">
+                                            {% else %}
+                                            <div class="avatar-title bg-primary-subtle text-primary rounded-circle">
+                                                {{ log.executed_by.first_name[0] }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <small>{{ log.executed_by.full_name }}</small>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Sistema</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.assignment_type == 'manual' %}
+                                    <span class="badge bg-primary">Manuale</span>
+                                {% elif log.assignment_type == 'automatic' %}
+                                    <span class="badge bg-info">Automatico</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.assignment_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.lifecycles_processed %}
+                                    <small>{{ log.lifecycles_processed|length }} lifecycle</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ log.total_contacts }}</strong>
+                            </td>
+                            <td class="text-center">
+                                <span class="text-success">{{ log.contacts_assigned }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if log.contacts_failed > 0 %}
+                                    <span class="text-danger">{{ log.contacts_failed }}</span>
+                                {% else %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.status == 'completed' %}
+                                    <span class="badge bg-success">
+                                        <i class="ri-check-line me-1"></i>Completato
+                                    </span>
+                                {% elif log.status == 'partial' %}
+                                    <span class="badge bg-warning">
+                                        <i class="ri-alert-line me-1"></i>Parziale
+                                    </span>
+                                {% elif log.status == 'in_progress' %}
+                                    <span class="badge bg-info">
+                                        <i class="ri-loader-4-line me-1"></i>In Corso
+                                    </span>
+                                {% elif log.status == 'failed' %}
+                                    <span class="badge bg-danger">
+                                        <i class="ri-close-line me-1"></i>Fallito
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.status }}</span>
+                                {% endif %}
+                                
+                                {% if log.success_rate %}
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-success" style="width: {{ log.success_rate }}%"></div>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.duration_seconds %}
+                                    {{ log.duration_seconds|round(1) }}s
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('respond_io.assignment_log_detail', log_id=log.id) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Dettagli">
+                                    <i class="ri-eye-line"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="text-center py-4 text-muted">
+                                Nessun log di assegnazione trovato
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if logs.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('respond_io.assignment_logs', page=logs.prev_num) }}">
+                            <i class="ri-arrow-left-s-line"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                        {% if page_num %}
+                            {% if page_num != logs.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('respond_io.assignment_logs', page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('respond_io.assignment_logs', page=logs.next_num) }}">
+                            <i class="ri-arrow-right-s-line"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="mb-1">{{ logs.total }}</h3>
+                    <p class="text-muted mb-0">Totale Assegnazioni</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="mb-1 text-success">
+                        {% set success_count = logs.items|selectattr('status', 'equalto', 'completed')|list|length %}
+                        {{ success_count }}
+                    </h3>
+                    <p class="text-muted mb-0">Completate</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="mb-1 text-warning">
+                        {% set partial_count = logs.items|selectattr('status', 'equalto', 'partial')|list|length %}
+                        {{ partial_count }}
+                    </h3>
+                    <p class="text-muted mb-0">Parziali</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="mb-1 text-danger">
+                        {% set failed_count = logs.items|selectattr('status', 'equalto', 'failed')|list|length %}
+                        {{ failed_count }}
+                    </h3>
+                    <p class="text-muted mb-0">Fallite</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-sm {
+    width: 2rem;
+    height: 2rem;
+}
+.avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.avatar-title {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}

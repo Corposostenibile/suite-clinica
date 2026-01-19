@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Progetti di Sviluppo • Suite{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Progetti di Sviluppo</h6>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                data-bs-target="#filterCollapse" aria-expanded="false">
+            <i class="ri-filter-3-line me-1"></i>
+            Filtri
+        </button>
+        <a href="{{ url_for('projects.create') }}" class="btn btn-primary">
+            <i class="ri-add-line me-1"></i>
+            Nuovo Progetto
+        </a>
+    </div>
+</div>
+
+<!-- FILTRI (collassabili) -->
+<div class="collapse mb-24" id="filterCollapse">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filtri Avanzati</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{{ url_for('projects.dashboard') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Stato</label>
+                    {{ filter_form.status(class="form-select") }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Priorità</label>
+                    {{ filter_form.priority(class="form-select") }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipologia</label>
+                    {{ filter_form.project_type(class="form-select") }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Dipartimento</label>
+                    {{ filter_form.department_id(class="form-select") }}
+                </div>
+                <!-- Rimuoviamo il checkbox show_completed perché ora mostriamo sempre i completati -->
+                <div class="col-md-6">
+                    <div class="form-check mt-4">
+                        {{ filter_form.show_cancelled(class="form-check-input") }}
+                        {{ filter_form.show_cancelled.label(class="form-check-label") }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ri-search-line me-1"></i> Applica Filtri
+                    </button>
+                    <a href="{{ url_for('projects.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="ri-refresh-line me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- TABELLA PROGETTI -->
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex flex-wrap align-items-center justify-content-between">
+            <h5 class="card-title mb-0">Lista Progetti</h5>
+            <span class="text-muted">{{ projects|length }} progetti trovati</span>
+        </div>
+    </div>
+    
+    <div class="card-body">
+        {% if projects %}
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Progetto</th>
+                            <th style="width: 140px;">Tipo</th>
+                            <th style="width: 120px;">Stato</th>
+                            <th style="width: 100px;" class="text-center">Priorità</th>
+                            <th style="width: 150px;">Progresso</th>
+                            <th style="width: 180px;">Project Manager</th>
+                            <th style="width: 150px;">Team</th>
+                            <th style="width: 100px;" class="text-center">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for project in projects %}
+                        <tr class="align-middle" style="cursor: pointer;" onclick="window.location='{{ url_for('projects.detail', project_id=project.id) }}'">
+                            <td onclick="event.stopPropagation();">
+                                <div>
+                                    <a href="{{ url_for('projects.detail', project_id=project.id) }}"
+                                       class="fw-semibold text-dark text-decoration-none" style="font-size: 0.95rem;">
+                                        {{ project.name }}
+                                    </a>
+                                    {% if project.description %}
+                                        <div class="text-muted small mt-1" style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            {{ project.description }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            
+                            <td>
+                                <span class="badge bg-secondary">
+                                    {{ project.project_type|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            
+                            <td>
+                                {% set status_colors = {
+                                    'planning': 'info',
+                                    'in_progress': 'primary',
+                                    'testing': 'warning',
+                                    'review': 'secondary',
+                                    'completed': 'success',
+                                    'on_hold': 'dark',
+                                    'cancelled': 'danger'
+                                } %}
+                                <span class="badge bg-{{ status_colors[project.status.value] }}">
+                                    {{ project.status.value|replace('_', ' ')|title }}
+                                </span>
+                            </td>
+                            
+                            <td class="text-center">
+                                {% if project.priority.value == 'critical' %}
+                                    <span class="badge bg-danger">
+                                        <i class="ri-fire-line me-1"></i>Critica
+                                    </span>
+                                {% elif project.priority.value == 'high' %}
+                                    <span class="badge bg-warning">
+                                        <i class="ri-arrow-up-line me-1"></i>Alta
+                                    </span>
+                                {% elif project.priority.value == 'medium' %}
+                                    <span class="badge bg-info">Media</span>
+                                {% else %}
+                                    <span class="badge bg-success">Bassa</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-fill" style="height: 6px;">
+                                        <div class="progress-bar bg-success" 
+                                             style="width: {{ project.progress_percentage }}%">
+                                        </div>
+                                    </div>
+                                    <small class="fw-semibold">{{ project.progress_percentage }}%</small>
+                                </div>
+                                <small class="text-muted">
+                                    {{ project.completed_milestones_count }}/{{ project.total_milestones_count }} milestone
+                                </small>
+                            </td>
+                            
+                            
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if project.project_manager %}
+                                        {% if project.project_manager.avatar_path %}
+                                            <img src="{{ url_for('team.serve_avatar', user_id=project.project_manager.id) }}"
+                                                 alt="{{ project.project_manager.full_name }}"
+                                                 class="rounded-circle"
+                                                 style="width: 32px; height: 32px; object-fit: cover;">
+                                        {% else %}
+                                            <img src="{{ url_for('static', filename='assets/immagini/logo_user.png') }}"
+                                                 alt="{{ project.project_manager.full_name }}"
+                                                 class="rounded-circle"
+                                                 style="width: 32px; height: 32px;">
+                                        {% endif %}
+                                        <div>
+                                            <div class="fw-medium">{{ project.project_manager.full_name }}</div>
+                                            <small class="text-muted">Project Manager</small>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="small">
+                                    {% if project.team_members %}
+                                        <div class="d-flex align-items-center gap-1">
+                                            <i class="ri-team-line text-muted"></i>
+                                            <span>{{ project.team_members|length }} membri</span>
+                                        </div>
+                                        {% if project.department %}
+                                            <div class="text-muted">{{ project.department.name }}</div>
+                                        {% elif project.is_company_wide %}
+                                            <div class="text-muted">Aziendale</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Nessun team</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            
+                            <td class="text-center" onclick="event.stopPropagation();">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('projects.detail', project_id=project.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizza">
+                                        <i class="ri-eye-line"></i>
+                                    </a>
+                                    <a href="{{ url_for('projects.edit', project_id=project.id) }}" 
+                                       class="btn btn-outline-secondary" title="Modifica">
+                                        <i class="ri-pencil-line"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="ri-folder-open-line" style="font-size: 3rem; color: #dee2e6;"></i>
+                <p class="mt-3 text-muted">Nessun progetto trovato</p>
+                <a href="{{ url_for('projects.create') }}" class="btn btn-primary">
+                    <i class="ri-add-line me-1"></i> Crea il primo progetto
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh ogni 60 secondi per progetti attivi
+    {% if stats and stats.in_progress > 0 %}
+    setTimeout(function() {
+        location.reload();
+    }, 60000);
+    {% endif %}
+    
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+</script>
+{% endblock %}

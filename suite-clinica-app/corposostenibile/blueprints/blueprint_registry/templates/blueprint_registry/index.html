@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Blueprint Registry - Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .mb-32 { margin-bottom: 32px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {# ─────────────────────── HEADER ─────────────────────── #}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Registro Blueprint</h6>
+            <p class="text-muted mb-0">Governance e tracciamento dei {{ stats.total }} blueprint della suite</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('blueprint_registry.create') }}" class="btn btn-success">
+                <i class="ri-add-line me-2"></i> Nuovo Blueprint
+            </a>
+            {% endif %}
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="toggleHidden"
+                       {% if show_hidden %}checked{% endif %}
+                       onchange="window.location.href='{{ url_for('blueprint_registry.index', show_hidden='true' if not show_hidden else 'false') }}'">
+                <label class="form-check-label" for="toggleHidden">
+                    <i class="ri-eye{% if not show_hidden %}-off{% endif %}-line me-1"></i>
+                    Mostra Nascosti ({{ stats.hidden }})
+                </label>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── HERO KPI CARDS ─────────────────────── #}
+    <div class="row gy-4 mb-32">
+        <!-- Total Blueprints -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-1">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:view-dashboard-outline" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Totale Blueprint</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.total }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:check-circle-outline" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Attivi</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.active }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-secondary text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:eye-off-outline" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Nascosti</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.hidden }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Open Issues -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-3">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-danger text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:alert-circle-outline" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Issues Aperti</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.total_issues }}</h4>
+                        <small class="text-muted">{{ stats.critical_issues }} critici</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- In Progress -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-4">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:progress-clock" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">In Corso</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.in_progress_interventions }}</h4>
+                        <small class="text-muted">interventi</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Beta -->
+        <div class="col-xxl-2 col-sm-6 col-md-4">
+            <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+                <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+                    <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+                        <iconify-icon icon="mdi:test-tube" class="icon"></iconify-icon>
+                    </span>
+                    <div>
+                        <span class="text-sm text-secondary-light fw-medium d-block">Beta</span>
+                        <h4 class="fw-semibold mb-0">{{ stats.beta }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ─────────────────────── BLUEPRINTS TABLE ─────────────────────── #}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">Blueprints</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Codice</th>
+                            <th>Nome</th>
+                            <th>Stato</th>
+                            <th>Adozione</th>
+                            <th>Issues</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bp in blueprints %}
+                        <tr {% if bp.status.value == 'archived' %}class="table-secondary" style="opacity: 0.6;"{% endif %}>
+                            <td>
+                                <code class="bg-light px-2 py-1 rounded">{{ bp.code }}</code>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div>
+                                        <h6 class="mb-0 fw-medium">{{ bp.name }}</h6>
+                                        {% if bp.status.value == 'archived' %}
+                                        <span class="badge bg-secondary-subtle text-secondary-main">Nascosto</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if bp.status.value == 'active' %}
+                                    <span class="badge bg-success-subtle text-success-main">
+                                        <i class="ri-checkbox-circle-line me-1"></i>Attivo
+                                    </span>
+                                {% elif bp.status.value == 'beta' %}
+                                    <span class="badge bg-info-subtle text-info-main">
+                                        <i class="ri-flask-line me-1"></i>Beta
+                                    </span>
+                                {% elif bp.status.value == 'archived' %}
+                                    <span class="badge bg-secondary-subtle text-secondary-main">
+                                        <i class="ri-archive-line me-1"></i>Archiviato
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning-subtle text-warning-main">
+                                        {{ bp.status.value|title }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if bp.adoption_level.value == 'critical' %}
+                                    <span class="badge bg-danger-subtle text-danger-main">Critico</span>
+                                {% elif bp.adoption_level.value == 'high' %}
+                                    <span class="badge bg-warning-subtle text-warning-main">Alto</span>
+                                {% elif bp.adoption_level.value == 'medium' %}
+                                    <span class="badge bg-info-subtle text-info-main">Medio</span>
+                                {% elif bp.adoption_level.value == 'low' %}
+                                    <span class="badge bg-secondary-subtle text-secondary-main">Basso</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Nessuno</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if bp.issues|length > 0 %}
+                                    <span class="fw-semibold text-danger">{{ bp.issues|length }}</span>
+                                {% else %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a href="{{ url_for('blueprint_registry.detail', code=bp.code) }}"
+                                       class="btn btn-sm btn-outline-primary" title="Dettagli">
+                                        <i class="ri-eye-line"></i>
+                                    </a>
+                                    {% if current_user.is_admin %}
+                                    <a href="{{ url_for('blueprint_registry.edit', code=bp.code) }}"
+                                       class="btn btn-sm btn-outline-info" title="Modifica">
+                                        <i class="ri-edit-line"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('blueprint_registry.toggle_visibility', code=bp.code) }}"
+                                          style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit"
+                                                class="btn btn-sm {% if bp.status.value == 'archived' %}btn-outline-success{% else %}btn-outline-secondary{% endif %}"
+                                                title="{% if bp.status.value == 'archived' %}Mostra blueprint{% else %}Nascondi blueprint{% endif %}">
+                                            <i class="ri-{% if bp.status.value == 'archived' %}eye{% else %}eye-off{% endif %}-line"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

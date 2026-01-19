@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Report Mensile Sales{% endblock %}
+
+{% block extra_css %}
+{% include 'team/weekly_report/_step_base_css.html' %}
+<style>
+    /* Form group styling */
+    .form-group {
+        margin-bottom: 2.5rem;
+    }
+    
+    .form-label {
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 0.75rem;
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-label .question-number {
+        background: #28c76f;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+    
+    .form-control {
+        border-radius: 10px;
+        border: 2px solid #e0e6ed;
+        padding: 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #fafafa;
+    }
+    
+    .form-control:focus {
+        border-color: #28c76f;
+        box-shadow: 0 0 0 0.2rem rgba(40, 199, 111, 0.15);
+        background: white;
+    }
+    
+    /* Section dividers */
+    .question-divider {
+        height: 1px;
+        background: linear-gradient(to right, transparent, #dee2e6, transparent);
+        margin: 2rem 0;
+    }
+    
+    /* Info box */
+    .info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    
+    .info-box h5 {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-box p {
+        margin-bottom: 0;
+        opacity: 0.95;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include 'team/weekly_report/_step_base_html.html' %}
+
+<div class="container px-24">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-lg">
+                <div class="card-body p-5">
+                    <h3 class="card-title mb-4">📊 Report Mensile - {{ department_name }}</h3>
+                    
+                    <div class="info-box">
+                        <h5>📅 Report Mensile</h5>
+                        <p>Questo è il tuo report mensile. Prenditi il tempo necessario per riflettere sulle sfide affrontate questo mese e le aree di miglioramento.</p>
+                    </div>
+                    
+                    <form method="POST" id="step-form">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Domanda 1: Ostacolo principale -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="question-number">1</span>
+                                {{ form.main_obstacle.label.text }}
+                            </label>
+                            {{ form.main_obstacle(class="form-control" + (" is-invalid" if form.main_obstacle.errors else "")) }}
+                            {% if form.main_obstacle.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.main_obstacle.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted mt-2">
+                                Descrivi in dettaglio l'ostacolo più significativo che hai affrontato questo mese.
+                            </small>
+                        </div>
+                        
+                        <div class="question-divider"></div>
+                        
+                        <!-- Domanda 2: Suggerimenti per superare l'ostacolo -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="question-number">2</span>
+                                {{ form.obstacle_suggestions.label.text }}
+                            </label>
+                            {{ form.obstacle_suggestions(class="form-control" + (" is-invalid" if form.obstacle_suggestions.errors else "")) }}
+                            {% if form.obstacle_suggestions.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.obstacle_suggestions.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted mt-2">
+                                Proponi soluzioni concrete e azioni specifiche per affrontare l'ostacolo descritto.
+                            </small>
+                        </div>
+                        
+                        <div class="question-divider"></div>
+                        
+                        <!-- Domanda 3: Punti da migliorare -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="question-number">3</span>
+                                {{ form.work_improvements.label.text }}
+                            </label>
+                            {{ form.work_improvements(class="form-control" + (" is-invalid" if form.work_improvements.errors else "")) }}
+                            {% if form.work_improvements.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.work_improvements.errors[0] }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted mt-2">
+                                Identifica sia i punti deboli che desideri rafforzare, sia le competenze che vuoi sviluppare ulteriormente.
+                            </small>
+                        </div>
+                        
+                        <!-- Navigation buttons -->
+                        <div class="d-flex justify-content-between mt-5">
+                            <button type="submit" name="action" value="back" class="btn btn-secondary">
+                                <i class="ri-arrow-left-line me-2"></i>Indietro
+                            </button>
+                            <button type="submit" name="action" value="next" class="btn btn-primary btn-lg">
+                                Continua<i class="ri-arrow-right-line ms-2"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textareas
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(textarea => {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+    });
+});
+</script>
+{% endblock %}

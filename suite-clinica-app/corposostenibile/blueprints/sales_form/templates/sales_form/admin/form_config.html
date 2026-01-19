@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Configurazione Form – Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <h6 class="fw-semibold mb-0">Configurazione Form di Sistema</h6>
+  <nav>
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item">
+        <a href="{{ url_for('sales_form.admin_dashboard') }}">Dashboard</a>
+      </li>
+      <li class="breadcrumb-item active">Configurazione Form</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Impostazioni Form</h6>
+      </div>
+      <div class="card-body">
+        <form action="{{ url_for('sales_form.admin_form_update') }}" method="POST">
+          {{ csrf_token() }}
+
+          <div class="mb-3">
+            <label class="form-label">Descrizione</label>
+            <input type="text" name="description" class="form-control"
+                   value="{{ form.description }}" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Messaggio di Successo</label>
+            <textarea name="success_message" class="form-control" rows="3">{{ form.success_message }}</textarea>
+            <small class="text-muted">Messaggio mostrato dopo l'invio del form</small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">URL di Redirect (opzionale)</label>
+            <input type="url" name="redirect_url" class="form-control"
+                   value="{{ form.redirect_url }}">
+            <small class="text-muted">Dove reindirizzare dopo l'invio (lascia vuoto per mostrare il messaggio)</small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Colore Primario</label>
+            <input type="color" name="primary_color" class="form-control form-control-color"
+                   value="{{ form.primary_color }}" style="max-width: 100px;">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">URL Logo (opzionale)</label>
+            <input type="url" name="logo_url" class="form-control"
+                   value="{{ form.logo_url }}">
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="is_active"
+                     {% if form.is_active %}checked{% endif %}>
+              <label class="form-check-label">Form Attivo</label>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="ri-save-line me-1"></i> Salva Modifiche
+            </button>
+            <a href="{{ url_for('sales_form.admin_form_builder') }}"
+               class="btn btn-outline-primary">
+              <i class="ri-brush-line me-1"></i> Modifica Campi
+            </a>
+            <a href="{{ url_for('sales_form.admin_form_preview') }}"
+               class="btn btn-outline-info">
+              <i class="ri-eye-line me-1"></i> Anteprima
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Statistiche Form</h6>
+      </div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>Campi Configurati</span>
+            <span class="badge bg-primary">{{ fields|length }}</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>Lead Totali</span>
+            <span class="badge bg-success">{{ form.submission_count }}</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>Stato</span>
+            {% if form.is_active %}
+            <span class="badge bg-success">Attivo</span>
+            {% else %}
+            <span class="badge bg-danger">Inattivo</span>
+            {% endif %}
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    {% if fields %}
+    <div class="card mt-3">
+      <div class="card-header">
+        <h6 class="card-title mb-0">Campi del Form</h6>
+      </div>
+      <div class="card-body">
+        <div class="list-group list-group-flush">
+          {% for field in fields[:5] %}
+          <div class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="mb-0">{{ field.field_label }}</h6>
+                <small class="text-muted">{{ field.field_type }}</small>
+              </div>
+              {% if field.is_required %}
+              <span class="badge bg-warning">Obbligatorio</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+          {% if fields|length > 5 %}
+          <div class="text-center mt-2">
+            <a href="{{ url_for('sales_form.admin_form_builder') }}"
+               class="btn btn-sm btn-outline-primary">
+              Vedi tutti i {{ fields|length }} campi
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

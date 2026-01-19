@@ -1,0 +1,609 @@
+{# -----------------------------------------------------------------------------
+  templates/customers/form.html – Crea / modifica cliente - VERSIONE STILIZZATA
+  Solo i campi presenti nel modello Cliente ridotto
+----------------------------------------------------------------------------- #}
+{% set is_create  = (mode or 'create') == 'create' %}
+{% set page_title = 'Nuovo cliente' if is_create else 'Modifica cliente' %}
+
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} • Corposostenibile{% endblock %}
+
+{# --------------------------------------------------
+   CSS per migliorare l'aspetto del form - STILE TEAM IDENTICO
+-------------------------------------------------- #}
+{% block extra_css %}
+<style>
+  .form-control.radius-8,
+  .form-select.radius-8 {border-radius:8px}
+  .invalid-feedback{font-size:.875rem}
+  
+  /* Sezioni form - IDENTICO AL TEAM FORM */
+  .form-section{
+    background:#f8f9fa;
+    border-radius:8px;
+    padding:20px;
+    margin-bottom:20px
+  }
+  .form-section h6{
+    color:var(--brand-green);
+    margin-bottom:16px;
+    display:flex;
+    align-items:center
+  }
+  .form-section h6 iconify-icon{
+    font-size:1.25rem;
+    margin-right:8px
+  }
+  
+  /* Checkbox group - IDENTICO AL TEAM FORM */
+  .checkbox-group{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:12px;
+    margin-top:8px
+  }
+  .checkbox-group .form-check{
+    min-width:unset;
+    margin-bottom:0;
+    padding:10px 14px;
+    background:#fff;
+    border:1px solid #dee2e6;
+    border-radius:6px;
+    transition:all 0.2s;
+    display:flex;
+    align-items:center
+  }
+  .checkbox-group .form-check:hover{
+    border-color:var(--brand-green);
+    background:#f0f9f4
+  }
+  .checkbox-group .form-check-input{
+    margin:0;
+    flex-shrink:0
+  }
+  .checkbox-group .form-check-label{
+    margin:0 0 0 8px;
+    cursor:pointer;
+    user-select:none;
+    display:flex;
+    align-items:center;
+    width:100%
+  }
+  .checkbox-group .form-check-input:checked ~ .form-check-label{
+    color:var(--brand-green);
+    font-weight:500
+  }
+  
+  /* Info line con icone allineate */
+  .form-text iconify-icon{
+    vertical-align:text-bottom;
+    margin-right:4px
+  }
+  
+  /* Pulsanti finali con icone allineate */
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center
+  }
+  .btn iconify-icon{
+    font-size:1.125rem;
+    line-height:1
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24 px-24">
+  <h6 class="fw-semibold mb-0">{{ page_title }}</h6>
+  <ul class="d-flex align-items-center gap-2">
+    <li class="fw-medium">
+      <a href="/" class="d-flex align-items-center gap-1 hover-text-primary">
+        <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+        Dashboard
+      </a>
+    </li>
+    <li>-</li>
+    <li class="fw-medium">
+      <a href="{{ url_for('customers.list_view') }}" class="hover-text-primary">Clienti</a>
+    </li>
+    <li>-</li>
+    <li class="fw-medium">{{ page_title }}</li>
+  </ul>
+</div>
+
+<!-- FORM CARD -->
+<div class="card h-100 p-0 radius-12 mx-24">
+  <div class="card-body p-24">
+
+    {# Flash messages #}
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='warning' else 'success' if cat=='success' else cat }} alert-dismissible fade show mb-16">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row justify-content-center">
+      <div class="col-xl-8 col-lg-10">
+
+        <!-- FORM -->
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }} {{ form.cliente_id }}
+
+          <!-- SEZIONE ANAGRAFICA BASE -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:user-line"></iconify-icon>Anagrafica Base</h6>
+            
+            <!-- Nome Cognome + Data nascita -->
+            <div class="row g-2">
+              <div class="col-md-8 mb-20">
+                {{ form.nome_cognome.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.nome_cognome(class="form-control radius-8{% if form.nome_cognome.errors %} is-invalid{% endif %}", placeholder="Nome e Cognome") }}
+                {% for err in form.nome_cognome.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.data_di_nascita.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_di_nascita(class="form-control radius-8{% if form.data_di_nascita.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_di_nascita.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <!-- Professione + Macrocategoria -->
+            <div class="mb-20">
+              {{ form.professione.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.professione(class="form-control radius-8{% if form.professione.errors %} is-invalid{% endif %}", rows=2, placeholder="Descrivi la professione del cliente") }}
+              {% for err in form.professione.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.macrocategoria.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.macrocategoria(class="form-control radius-8{% if form.macrocategoria.errors %} is-invalid{% endif %}", rows=2, placeholder="Categoria di appartenenza") }}
+              {% for err in form.macrocategoria.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- SEZIONE PROGRAMMA -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:file-list-3-line"></iconify-icon>Programma</h6>
+            
+            <!-- Storico programma -->
+            <div class="mb-20">
+              {{ form.storico_programma.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.storico_programma(class="form-control radius-8{% if form.storico_programma.errors %} is-invalid{% endif %}", rows=3, placeholder="Programmi precedenti del cliente") }}
+              {% for err in form.storico_programma.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <!-- Programma attuale -->
+            <div class="mb-20">
+              {{ form.programma_attuale.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.programma_attuale(class="form-control radius-8{% if form.programma_attuale.errors %} is-invalid{% endif %}", rows=3, placeholder="Programma attualmente in corso") }}
+              {% for err in form.programma_attuale.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <!-- Date e durata -->
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.data_inizio_abbonamento.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_inizio_abbonamento(class="form-control radius-8{% if form.data_inizio_abbonamento.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_inizio_abbonamento.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.durata_programma_giorni.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.durata_programma_giorni(class="form-control radius-8{% if form.durata_programma_giorni.errors %} is-invalid{% endif %}", placeholder="es. 90") }}
+                {% for err in form.durata_programma_giorni.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.rate_cliente_sales.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.rate_cliente_sales(class="form-control radius-8{% if form.rate_cliente_sales.errors %} is-invalid{% endif %}", placeholder="Valutazione") }}
+                {% for err in form.rate_cliente_sales.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE OBIETTIVI & PROBLEMATICHE -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:target-line"></iconify-icon>Obiettivi & Problematiche</h6>
+            
+            <div class="mb-20">
+              {{ form.obiettivo_semplicato.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.obiettivo_semplicato(class="form-control radius-8{% if form.obiettivo_semplicato.errors %} is-invalid{% endif %}", rows=3, placeholder="Obiettivi principali del cliente") }}
+              {% for err in form.obiettivo_semplicato.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.consulente_alimentare.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.consulente_alimentare(class="form-control radius-8{% if form.consulente_alimentare.errors %} is-invalid{% endif %}", rows=2, placeholder="Note consulente alimentare") }}
+              {% for err in form.consulente_alimentare.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.problema.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.problema(class="form-control radius-8{% if form.problema.errors %} is-invalid{% endif %}", rows=3, placeholder="Problematiche del cliente") }}
+              {% for err in form.problema.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.paure.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.paure(class="form-control radius-8{% if form.paure.errors %} is-invalid{% endif %}", rows=3, placeholder="Paure e timori del cliente") }}
+              {% for err in form.paure.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.conseguenze.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.conseguenze(class="form-control radius-8{% if form.conseguenze.errors %} is-invalid{% endif %}", rows=3, placeholder="Conseguenze dei problemi") }}
+              {% for err in form.conseguenze.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- SEZIONE CALL INIZIALI -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:phone-line"></iconify-icon>Call Iniziali</h6>
+            
+            <!-- Date call -->
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.data_call_iniziale_nutrizionista.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_call_iniziale_nutrizionista(class="form-control radius-8{% if form.data_call_iniziale_nutrizionista.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_call_iniziale_nutrizionista.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.data_call_iniziale_psicologia.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_call_iniziale_psicologia(class="form-control radius-8{% if form.data_call_iniziale_psicologia.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_call_iniziale_psicologia.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.data_call_iniziale_coach.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_call_iniziale_coach(class="form-control radius-8{% if form.data_call_iniziale_coach.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_call_iniziale_coach.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+            
+            <!-- Checkbox call -->
+            <div class="checkbox-group">
+              <div class="form-check">
+                {{ form.call_iniziale_nutrizionista(class="form-check-input") }}
+                {{ form.call_iniziale_nutrizionista.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.call_iniziale_coach(class="form-check-input") }}
+                {{ form.call_iniziale_coach.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.call_iniziale_psicologa(class="form-check-input") }}
+                {{ form.call_iniziale_psicologa.label(class="form-check-label") }}
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE TEAM E CLASSIFICAZIONE -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:team-line"></iconify-icon>Team & Classificazione</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-3 mb-20">
+                {{ form.di_team.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.di_team(class="form-select radius-8{% if form.di_team.errors %} is-invalid{% endif %}") }}
+                {% for err in form.di_team.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-3 mb-20">
+                {{ form.modalita_pagamento.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.modalita_pagamento(class="form-select radius-8{% if form.modalita_pagamento.errors %} is-invalid{% endif %}") }}
+                {% for err in form.modalita_pagamento.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-3 mb-20">
+                {{ form.tipologia_cliente.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.tipologia_cliente(class="form-select radius-8{% if form.tipologia_cliente.errors %} is-invalid{% endif %}") }}
+                {% for err in form.tipologia_cliente.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-3 mb-20">
+                {{ form.stato_cliente.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.stato_cliente(class="form-select radius-8{% if form.stato_cliente.errors %} is-invalid{% endif %}") }}
+                {% for err in form.stato_cliente.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+            
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.stato_cliente_chat.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.stato_cliente_chat(class="form-select radius-8{% if form.stato_cliente_chat.errors %} is-invalid{% endif %}") }}
+                {% for err in form.stato_cliente_chat.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.stato_cliente_sedute_psico.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.stato_cliente_sedute_psico(class="form-select radius-8{% if form.stato_cliente_sedute_psico.errors %} is-invalid{% endif %}") }}
+                {% for err in form.stato_cliente_sedute_psico.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.note_rinnovo.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.note_rinnovo(class="form-control radius-8{% if form.note_rinnovo.errors %} is-invalid{% endif %}", rows=2, placeholder="Note per il rinnovo") }}
+                {% for err in form.note_rinnovo.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE STAFF -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:user-heart-line"></iconify-icon>Staff Assegnato</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.nutrizionista.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.nutrizionista(class="form-select radius-8{% if form.nutrizionista.errors %} is-invalid{% endif %}") }}
+                {% for err in form.nutrizionista.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.coach.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.coach(class="form-select radius-8{% if form.coach.errors %} is-invalid{% endif %}") }}
+                {% for err in form.coach.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.psicologa.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.psicologa(class="form-select radius-8{% if form.psicologa.errors %} is-invalid{% endif %}") }}
+                {% for err in form.psicologa.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+            
+            <div class="mb-20">
+              {{ form.figura_di_riferimento.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.figura_di_riferimento(class="form-select radius-8{% if form.figura_di_riferimento.errors %} is-invalid{% endif %}") }}
+              {% for err in form.figura_di_riferimento.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- SEZIONE TEST E TIPI -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:test-tube-line"></iconify-icon>Test & Tipi</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.data_test_alim.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_test_alim(class="form-control radius-8{% if form.data_test_alim.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_test_alim.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.tipo_iniziale.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.tipo_iniziale(class="form-select radius-8{% if form.tipo_iniziale.errors %} is-invalid{% endif %}") }}
+                {% for err in form.tipo_iniziale.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.tipo_attuale.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.tipo_attuale(class="form-select radius-8{% if form.tipo_attuale.errors %} is-invalid{% endif %}") }}
+                {% for err in form.tipo_attuale.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+            
+            <div class="mb-20">
+              {{ form.piano_alimentare.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.piano_alimentare(class="form-control radius-8{% if form.piano_alimentare.errors %} is-invalid{% endif %}", rows=3, placeholder="Dettagli del piano alimentare") }}
+              {% for err in form.piano_alimentare.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- SEZIONE CHECK E STATI -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:checkbox-line"></iconify-icon>Check & Stati</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.check_day.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.check_day(class="form-control radius-8{% if form.check_day.errors %} is-invalid{% endif %}", placeholder="es. Lunedì") }}
+                {% for err in form.check_day.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.check_saltati.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.check_saltati(class="form-control radius-8{% if form.check_saltati.errors %} is-invalid{% endif %}", placeholder="Numero check saltati") }}
+                {% for err in form.check_saltati.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4 mb-20">
+                {{ form.luogo_di_allenamento.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.luogo_di_allenamento(class="form-select radius-8{% if form.luogo_di_allenamento.errors %} is-invalid{% endif %}") }}
+                {% for err in form.luogo_di_allenamento.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE STORIE SPECIALISTI -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:file-text-line"></iconify-icon>Storie Specialisti</h6>
+            
+            <div class="mb-20">
+              {{ form.storia_coach.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.storia_coach(class="form-control radius-8{% if form.storia_coach.errors %} is-invalid{% endif %}", rows=3, placeholder="Storia e note del coach") }}
+              {% for err in form.storia_coach.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.storia_nutrizione.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.storia_nutrizione(class="form-control radius-8{% if form.storia_nutrizione.errors %} is-invalid{% endif %}", rows=3, placeholder="Storia nutrizionale") }}
+              {% for err in form.storia_nutrizione.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.note_extra_nutrizione.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.note_extra_nutrizione(class="form-control radius-8{% if form.note_extra_nutrizione.errors %} is-invalid{% endif %}", rows=3, placeholder="Note aggiuntive nutrizione") }}
+              {% for err in form.note_extra_nutrizione.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+            
+            <div class="mb-20">
+              {{ form.storia_psicologica.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.storia_psicologica(class="form-control radius-8{% if form.storia_psicologica.errors %} is-invalid{% endif %}", rows=3, placeholder="Storia psicologica") }}
+              {% for err in form.storia_psicologica.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- SEZIONE ALLENAMENTO & DIETA -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:run-line"></iconify-icon>Allenamento & Dieta</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-6 mb-20">
+                {{ form.allenamento_dal.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.allenamento_dal(class="form-control radius-8{% if form.allenamento_dal.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.allenamento_dal.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-6 mb-20">
+                {{ form.nuovo_allenamento_il.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.nuovo_allenamento_il(class="form-control radius-8{% if form.nuovo_allenamento_il.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.nuovo_allenamento_il.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+            
+            <div class="row g-2">
+              <div class="col-md-6 mb-20">
+                {{ form.dieta_dal.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.dieta_dal(class="form-control radius-8{% if form.dieta_dal.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.dieta_dal.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-6 mb-20">
+                {{ form.nuova_dieta_dal.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.nuova_dieta_dal(class="form-control radius-8{% if form.nuova_dieta_dal.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.nuova_dieta_dal.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE SOCIAL & MEDIA -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:camera-line"></iconify-icon>Social & Media</h6>
+            
+            <div class="checkbox-group">
+              <div class="form-check">
+                {{ form.no_social(class="form-check-input") }}
+                {{ form.no_social.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.video_feedback(class="form-check-input") }}
+                {{ form.video_feedback.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.proposta_live_training(class="form-check-input") }}
+                {{ form.proposta_live_training.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.live_training_proposte(class="form-check-input") }}
+                {{ form.live_training_proposte.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.video_feedback_richiesto(class="form-check-input") }}
+                {{ form.video_feedback_richiesto.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.video_feedback_svolto(class="form-check-input") }}
+                {{ form.video_feedback_svolto.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.video_feedback_condiviso(class="form-check-input") }}
+                {{ form.video_feedback_condiviso.label(class="form-check-label") }}
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE TRASFORMAZIONE -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:trophy-line"></iconify-icon>Trasformazione</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.trasformazione.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.trasformazione(class="form-select radius-8{% if form.trasformazione.errors %} is-invalid{% endif %}") }}
+                {% for err in form.trasformazione.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="col-md-4">
+                <div class="form-check" style="background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:10px 14px;transition:all 0.2s">
+                  {{ form.trasformazione_fisica(class="form-check-input") }}
+                  {{ form.trasformazione_fisica.label(class="form-check-label", style="margin-left:8px;cursor:pointer") }}
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-check" style="background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:10px 14px;transition:all 0.2s">
+                  {{ form.trasformazione_fisica_condivisa(class="form-check-input") }}
+                  {{ form.trasformazione_fisica_condivisa.label(class="form-check-label", style="margin-left:8px;cursor:pointer") }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEZIONE EXIT CALL & BONUS -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:logout-box-line"></iconify-icon>Exit Call & Bonus</h6>
+            
+            <div class="checkbox-group">
+              <div class="form-check">
+                {{ form.exit_call_richiesta(class="form-check-input") }}
+                {{ form.exit_call_richiesta.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.exit_call_svolta(class="form-check-input") }}
+                {{ form.exit_call_svolta.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.exit_call_condivisa(class="form-check-input") }}
+                {{ form.exit_call_condivisa.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.bonus(class="form-check-input") }}
+                {{ form.bonus.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.alert(class="form-check-input") }}
+                {{ form.alert.label(class="form-check-label") }}
+              </div>
+              <div class="form-check">
+                {{ form.reach_out(class="form-check-input") }}
+                {{ form.reach_out.label(class="form-check-label") }}
+              </div>
+            </div>
+            
+            <div class="mt-3 mb-20">
+              {{ form.alert_storia.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+              {{ form.alert_storia(class="form-control radius-8{% if form.alert_storia.errors %} is-invalid{% endif %}", rows=3, placeholder="Storia degli alert") }}
+              {% for err in form.alert_storia.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- SEZIONE RINNOVI -->
+          <div class="form-section">
+            <h6><iconify-icon icon="ri:refresh-line"></iconify-icon>Rinnovi</h6>
+            
+            <div class="row g-2">
+              <div class="col-md-4 mb-20">
+                {{ form.data_rinnovo.label(class="form-label fw-semibold text-primary-light text-sm mb-8") }}
+                {{ form.data_rinnovo(class="form-control radius-8{% if form.data_rinnovo.errors %} is-invalid{% endif %}", type="date") }}
+                {% for err in form.data_rinnovo.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+              {# giorni_rimanenti rimosso - ora calcolato dinamicamente #}
+              <div class="col-md-4">
+                <div class="form-check" style="background:#fff;border:1px solid #dee2e6;border-radius:6px;padding:10px 14px;transition:all 0.2s">
+                  {{ form.in_scadenza(class="form-check-input") }}
+                  {{ form.in_scadenza.label(class="form-check-label", style="margin-left:8px;cursor:pointer") }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="d-flex align-items-center justify-content-center gap-3 mt-4">
+            <a href="{{ url_for('customers.list_view') }}" class="btn btn-outline-danger px-5 py-2">
+              <iconify-icon icon="ri:close-line" class="me-2"></iconify-icon>Annulla
+            </a>
+            <button type="submit" class="btn btn-primary px-5 py-2">
+              <iconify-icon icon="ri:save-line" class="me-2"></iconify-icon>{{ 'Crea cliente' if is_create else 'Salva modifiche' }}
+            </button>
+          </div>
+        </form><!-- /form -->
+
+      </div>
+    </div>
+
+  </div>
+</div><!-- /card -->
+
+{% endblock %}

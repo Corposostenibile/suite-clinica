@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Report Settimanale - Manutenzione{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Report Settimanale</h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('welcome.index') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">Team</li>
+            <li>-</li>
+            <li class="fw-medium">Report Settimanale</li>
+        </ul>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <!-- Icona manutenzione -->
+                    <div class="mb-4">
+                        <iconify-icon icon="solar:settings-minimalistic-bold-duotone" 
+                                     class="text-warning" 
+                                     style="font-size: 80px;">
+                        </iconify-icon>
+                    </div>
+                    
+                    <!-- Titolo -->
+                    <h2 class="mb-3 text-dark">Pagina in Manutenzione</h2>
+                    
+                    <!-- Messaggio principale -->
+                    <div class="alert alert-warning border-warning border-2 mx-auto" style="max-width: 500px;">
+                        <h5 class="alert-heading mb-3">
+                            <iconify-icon icon="solar:info-circle-bold" class="me-2"></iconify-icon>
+                            Manutenzione in corso
+                        </h5>
+                        <p class="mb-2 fs-5">
+                            La pagina tornerà disponibile entro <strong>un'ora</strong>.
+                        </p>
+                        <p class="mb-0 text-muted">
+                            Ci scusiamo per il disagio.
+                        </p>
+                    </div>
+                    
+                    <!-- Timer countdown (opzionale) -->
+                    <div class="mt-4">
+                        <div class="d-inline-flex align-items-center gap-2 bg-light rounded-pill px-4 py-2">
+                            <iconify-icon icon="solar:clock-circle-bold" class="text-primary fs-5"></iconify-icon>
+                            <span class="text-muted">Tempo stimato rimanente:</span>
+                            <strong class="text-primary" id="countdown">60:00</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Informazioni aggiuntive -->
+                    <div class="mt-5 pt-3 border-top">
+                        <p class="text-muted mb-2">
+                            <iconify-icon icon="solar:question-circle-linear" class="me-1"></iconify-icon>
+                            Per domande urgenti, contatta il team di supporto
+                        </p>
+                        <div class="d-flex justify-content-center gap-3 mt-3">
+                            <a href="{{ url_for('welcome.index') }}" class="btn btn-outline-primary">
+                                <iconify-icon icon="solar:home-2-linear" class="me-2"></iconify-icon>
+                                Torna alla Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card informativa -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <iconify-icon icon="solar:lightbulb-bolt-bold-duotone" 
+                                     class="text-info fs-4 mt-1">
+                        </iconify-icon>
+                        <div>
+                            <h6 class="mb-2">Cosa stiamo facendo?</h6>
+                            <p class="text-muted mb-0">
+                                Stiamo aggiornando il sistema dei report settimanali per offrirti una migliore esperienza. 
+                                Le modifiche includono miglioramenti alle performance e nuove funzionalità.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Countdown timer opzionale
+(function() {
+    let minutes = 59;
+    let seconds = 60;
+    const countdownEl = document.getElementById('countdown');
+    
+    if (countdownEl) {
+        const timer = setInterval(function() {
+            seconds--;
+            if (seconds < 0) {
+                minutes--;
+                seconds = 59;
+            }
+            
+            if (minutes < 0) {
+                clearInterval(timer);
+                countdownEl.textContent = "Ricarica la pagina";
+                return;
+            }
+            
+            const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+            const displaySeconds = seconds < 10 ? '0' + seconds : seconds;
+            countdownEl.textContent = displayMinutes + ':' + displaySeconds;
+        }, 1000);
+    }
+})();
+
+// Auto-refresh dopo 60 minuti
+setTimeout(function() {
+    window.location.reload();
+}, 3600000); // 60 minuti in millisecondi
+</script>
+
+<style>
+/* Animazione per l'icona di manutenzione */
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.card:first-child iconify-icon[icon*="settings"] {
+    animation: rotate 8s linear infinite;
+}
+
+/* Pulse per il countdown */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+#countdown {
+    animation: pulse 2s ease-in-out infinite;
+}
+</style>
+{% endblock %}

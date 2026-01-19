@@ -1,0 +1,435 @@
+{# templates/ticket/public/success.html #}
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticket Inviato con Successo • Corpo Sostenibile</title>
+  
+  <!-- Bootstrap • Remix-Icon -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+  
+  <style>
+    :root{
+      --bs-primary:#25B36A;
+      --bs-primary-rgb:37,179,106;
+      --gradient-primary: linear-gradient(135deg, #25B36A 0%, #1e9a5b 100%);
+      --gradient-success: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    }
+    
+    /* Override primario */
+    .btn-primary{
+      background:var(--bs-primary);
+      border-color:var(--bs-primary);
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover{
+      background:#1e9a5b;
+      border-color:#1e9a5b;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(37,179,106,0.3);
+    }
+    
+    /* Background gradient */
+    body{
+      background: linear-gradient(135deg, #f6f9fc 0%, #e9f7ef 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body::before{
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -30%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(circle, rgba(37,179,106,0.1) 0%, transparent 70%);
+      border-radius: 50%;
+      z-index: -1;
+    }
+    
+    /* Container principale */
+    .success-container{
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+      padding: 60px;
+      max-width: 800px;
+      margin: 40px auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .success-container::before{
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: var(--gradient-primary);
+    }
+    
+    /* Success icon animato */
+    .success-icon{
+      width: 120px;
+      height: 120px;
+      background: var(--gradient-success);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 30px;
+      position: relative;
+      animation: scaleIn 0.5s ease-out;
+    }
+    .success-icon i{
+      font-size: 60px;
+      color: var(--bs-primary);
+    }
+    .success-icon::after{
+      content: '';
+      position: absolute;
+      inset: -20px;
+      border: 3px solid var(--bs-primary);
+      border-radius: 50%;
+      opacity: 0.2;
+      animation: pulse 2s infinite;
+    }
+    
+    /* Ticket number style */
+    .ticket-number-box{
+      background: var(--gradient-primary);
+      color: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin: 30px 0;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .ticket-number-box::before{
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: rgba(255,255,255,0.1);
+      transform: rotate(45deg);
+    }
+    .ticket-number-label{
+      font-size: 16px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .ticket-number{
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      margin: 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Info boxes */
+    .info-box{
+      background: #f8f9fa;
+      border-radius: 16px;
+      padding: 32px;
+      margin: 24px 0;
+      border: 1px solid #e9ecef;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    .info-box:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+    .info-box h5{
+      color: #2c3e50;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .info-box h5 i{
+      width: 36px;
+      height: 36px;
+      background: var(--gradient-primary);
+      color: white;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    
+    /* Timeline style */
+    .timeline-item{
+      display: flex;
+      align-items: start;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-left: 8px;
+    }
+    .timeline-item:last-child{
+      margin-bottom: 0;
+    }
+    .timeline-icon{
+      width: 40px;
+      height: 40px;
+      background: white;
+      border: 2px solid var(--bs-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bs-primary);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .timeline-icon::after{
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 20px;
+      background: #dee2e6;
+    }
+    .timeline-item:last-child .timeline-icon::after{
+      display: none;
+    }
+    .timeline-content{
+      flex: 1;
+      padding-top: 8px;
+    }
+    .timeline-content strong{
+      color: #2c3e50;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .timeline-content p{
+      margin: 0;
+      color: #6c757d;
+      line-height: 1.6;
+    }
+    
+    /* Alert personalizzato */
+    .custom-alert{
+      background: #e3f2fd;
+      border: 2px solid #2196f3;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 30px 0;
+      display: flex;
+      align-items: start;
+      gap: 16px;
+    }
+    .custom-alert i{
+      color: #2196f3;
+      font-size: 24px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    /* Button group */
+    .action-buttons{
+      display: flex;
+      gap: 16px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+    .action-buttons .btn{
+      flex: 1;
+      min-width: 200px;
+      padding: 14px 24px;
+      font-weight: 600;
+      border-radius: 8px;
+    }
+    
+    /* Footer section */
+    .footer-section{
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 30px;
+      border-top: 1px solid #e9ecef;
+    }
+    .footer-links{
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .footer-links a{
+      color: #6c757d;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 0.3s ease;
+    }
+    .footer-links a:hover{
+      color: var(--bs-primary);
+    }
+    
+    /* Animations */
+    @keyframes scaleIn {
+      from{transform: scale(0.5); opacity: 0;}
+      to{transform: scale(1); opacity: 1;}
+    }
+    @keyframes pulse {
+      0%{transform: scale(1); opacity: 0.2;}
+      50%{transform: scale(1.05); opacity: 0.1;}
+      100%{transform: scale(1); opacity: 0.2;}
+    }
+    @keyframes fadeInUp {
+      from{opacity: 0; transform: translateY(20px);}
+      to{opacity: 1; transform: translateY(0);}
+    }
+    .fade-in{
+      animation: fadeInUp 0.8s ease-out;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .success-container{
+        padding: 40px 24px;
+        margin: 20px;
+      }
+      .ticket-number{
+        font-size: 32px;
+      }
+      .action-buttons{
+        flex-direction: column;
+      }
+      .action-buttons .btn{
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="success-container fade-in">
+      
+      <!-- Logo -->
+      <div class="text-center mb-5 pb-3">
+        <a href="/">
+          <img src="{{ url_for('static', filename='assets/immagini/Suite.png') }}" 
+               class="img-fluid" style="max-width:220px" alt="Corpo Sostenibile">
+        </a>
+      </div>
+      
+      <!-- Success message -->
+      <div class="text-center">
+        <div class="success-icon">
+          <i class="ri-check-line"></i>
+        </div>
+        
+        <h1 class="h2 mb-3 fw-bold">Ticket inviato con successo!</h1>
+        <p class="lead text-muted mb-0">
+          La tua richiesta è stata registrata correttamente nel sistema di ticketing aziendale.
+        </p>
+      </div>
+      
+      <!-- Numero Ticket -->
+      <div class="ticket-number-box">
+        <div class="ticket-number-label">Il numero del tuo ticket è:</div>
+        <h2 class="ticket-number">#{{ ticket_number }}</h2>
+      </div>
+      
+      <!-- Prossimi passi -->
+      <div class="info-box">
+        <h5>
+          <i class="ri-compass-line"></i>
+          Cosa succede ora?
+        </h5>
+        
+        <div class="timeline-item">
+          <div class="timeline-icon">
+            <i class="ri-mail-check-line"></i>
+          </div>
+          <div class="timeline-content">
+            <strong>Conferma via email</strong>
+            <p>Riceverai immediatamente una email di conferma all'indirizzo <strong>{{ ticket_email }}</strong> con tutti i dettagli della tua richiesta.</p>
+          </div>
+        </div>
+        
+        <div class="timeline-item">
+          <div class="timeline-icon">
+            <i class="ri-user-follow-line"></i>
+          </div>
+          <div class="timeline-content">
+            <strong>Presa in carico</strong>
+            <p>Il responsabile del dipartimento selezionato prenderà in carico la tua richiesta secondo i tempi previsti dal livello di urgenza indicato.</p>
+          </div>
+        </div>
+        
+        <div class="timeline-item">
+          <div class="timeline-icon">
+            <i class="ri-notification-3-line"></i>
+          </div>
+          <div class="timeline-content">
+            <strong>Aggiornamenti automatici</strong>
+            <p>Riceverai notifiche email automatiche ad ogni cambio di stato del ticket, fino alla sua completa risoluzione.</p>
+          </div>
+        </div>
+        
+        <div class="timeline-item">
+          <div class="timeline-icon">
+            <i class="ri-checkbox-circle-line"></i>
+          </div>
+          <div class="timeline-content">
+            <strong>Chiusura ticket</strong>
+            <p>Al termine della gestione riceverai una notifica di chiusura con il riepilogo delle azioni intraprese.</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action buttons -->
+      <div class="action-buttons">
+        <a href="{{ url_for('public_ticket.new_ticket') }}" 
+           class="btn btn-primary">
+          <i class="ri-add-circle-line me-2"></i>Apri un Nuovo Ticket
+        </a>
+        <a href="{{ url_for('public_ticket.info') }}" 
+           class="btn btn-outline-secondary">
+          <i class="ri-information-line me-2"></i>Informazioni sul Sistema
+        </a>
+      </div>
+      
+      
+      
+    </div>
+  </div>
+  
+  <script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+  <script>
+    // Confetti animation on load (opzionale, per celebrare il successo)
+    document.addEventListener('DOMContentLoaded', function() {
+      // Salva il numero del ticket nel localStorage per eventuali riferimenti futuri
+      const ticketNumber = '{{ ticket_number }}';
+      const ticketDate = new Date().toISOString();
+      
+      // Mantieni un registro degli ultimi 5 ticket (solo nel browser dell'utente)
+      let recentTickets = JSON.parse(localStorage.getItem('recentTickets') || '[]');
+      recentTickets.unshift({
+        number: ticketNumber,
+        date: ticketDate,
+        email: '{{ ticket_email }}'
+      });
+      // Mantieni solo gli ultimi 5
+      recentTickets = recentTickets.slice(0, 5);
+      localStorage.setItem('recentTickets', JSON.stringify(recentTickets));
+    });
+  </script>
+</body>
+</html>

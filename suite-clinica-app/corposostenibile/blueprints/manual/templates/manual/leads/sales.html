@@ -1,0 +1,1572 @@
+{% extends "base.html" %}
+
+{% block title %}Manuale Leads Sales - Guida Completa{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables - Sales Blue */
+    :root {
+        --primary-blue: #487FFF;
+        --primary-blue-dark: #3867E5;
+        --primary-blue-light: #E5F3FF;
+        --primary-blue-lighter: #F4F9FF;
+    }
+
+    /* Global Reading Progress Bar */
+    .global-reading-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 9999;
+    }
+
+    .global-reading-progress-fill {
+        height: 100%;
+        background: var(--primary-blue);
+        width: 0%;
+        transition: width 0.1s ease-out;
+    }
+
+    /* Floating TOC Styles */
+    #tocFloatingPanel .toc-link:hover {
+        background: var(--primary-blue-lighter) !important;
+        color: var(--primary-blue-dark) !important;
+        border-left-color: var(--primary-blue) !important;
+    }
+
+    #tocFloatingPanel .toc-link:hover .toc-bullet {
+        background: var(--primary-blue) !important;
+        transform: scale(1.2);
+    }
+
+    #tocFloatingPanel .toc-link.active {
+        background: var(--primary-blue-light) !important;
+        color: var(--primary-blue-dark) !important;
+        font-weight: 600;
+        border-left-color: var(--primary-blue) !important;
+    }
+
+    #tocFloatingPanel .toc-link.active .toc-bullet {
+        background: var(--primary-blue) !important;
+        transform: scale(1.3);
+    }
+
+    #tocFloatingBtn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(72, 127, 255, 0.5);
+    }
+
+    /* Manual Container */
+    .manual-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+    }
+
+    /* Manual Header */
+    .manual-header {
+        background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+        color: white;
+        padding: 48px 20px;
+        margin-bottom: 40px;
+        border-radius: 0;
+        text-align: center;
+    }
+
+    .manual-header h1 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: white !important;
+    }
+
+    .manual-header p {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin: 0;
+        color: white !important;
+    }
+
+    /* Sections */
+    .manual-section {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .manual-section h2 {
+        color: var(--primary-blue);
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--primary-blue-light);
+    }
+
+    .manual-section h3 {
+        color: #2c3e50;
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-top: 32px;
+        margin-bottom: 16px;
+    }
+
+    .manual-section h4 {
+        color: #495057;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 24px;
+        margin-bottom: 12px;
+    }
+
+    .manual-section p {
+        line-height: 1.7;
+        color: #212529;
+        margin-bottom: 16px;
+    }
+
+    .manual-section ul,
+    .manual-section ol {
+        line-height: 1.8;
+        margin-bottom: 16px;
+        padding-left: 24px;
+    }
+
+    .manual-section li {
+        margin-bottom: 8px;
+        color: #212529;
+    }
+
+    /* Step Box */
+    .step-box {
+        background: #f8f9fa;
+        border-left: 4px solid var(--primary-blue);
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .step-box ol {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    /* Alert Boxes */
+    .alert-tip {
+        background: var(--primary-blue-lighter);
+        border-left: 4px solid var(--primary-blue);
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-tip h5 {
+        color: var(--primary-blue-dark);
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-warning-custom {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-warning-custom h5 {
+        color: #856404;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-important {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-important h5 {
+        color: #721c24;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    /* Tables */
+    .manual-table {
+        width: 100%;
+        margin: 20px 0;
+        border-collapse: collapse;
+        background: white;
+        font-size: 0.95rem;
+    }
+
+    .manual-table thead {
+        background: var(--primary-blue);
+        color: white;
+    }
+
+    .manual-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .manual-table td {
+        padding: 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .manual-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .manual-table code {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+        color: #e83e8c;
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background: #45CB85;
+        color: white;
+    }
+
+    .badge-primary {
+        background: var(--primary-blue);
+        color: white;
+    }
+
+    .badge-warning {
+        background: #ffc107;
+        color: #212529;
+    }
+
+    .badge-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .badge-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .badge-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    /* Code Snippet */
+    .code-snippet {
+        background: #2d3748;
+        color: #f7fafc;
+        padding: 16px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        margin: 16px 0;
+        overflow-x: auto;
+    }
+
+    /* Example Box */
+    .example-box {
+        background: #fff9e6;
+        border: 1px solid #ffe066;
+        border-radius: 4px;
+        padding: 16px;
+        margin: 20px 0;
+    }
+
+    .example-box h5 {
+        color: #b8860b;
+        font-weight: 600;
+        margin-bottom: 12px;
+        font-size: 1rem;
+    }
+
+    /* Back to Top */
+    .back-to-top {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        width: 50px;
+        height: 50px;
+        background: var(--primary-blue);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(72, 127, 255, 0.3);
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .back-to-top.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .back-to-top:hover {
+        background: var(--primary-blue-dark);
+        transform: translateY(-4px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .manual-section {
+            padding: 24px 20px;
+        }
+
+        .manual-header h1 {
+            font-size: 1.75rem;
+        }
+
+        #tocFloatingPanel {
+            width: 90% !important;
+            right: -90% !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Global Reading Progress Bar -->
+<div class="global-reading-progress">
+    <div class="global-reading-progress-fill" id="globalProgressBar"></div>
+</div>
+
+<!-- Floating TOC Button -->
+<button id="tocFloatingBtn" style="position: fixed; bottom: 110px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-blue); color: white; border: none; box-shadow: 0 4px 20px rgba(72, 127, 255, 0.4); cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.3s ease;">
+    <i class="ri-list-unordered"></i>
+</button>
+
+<!-- Floating TOC Panel -->
+<div id="tocFloatingPanel" style="position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 10002; transition: right 0.3s ease; overflow-y: auto;">
+    <div style="position: sticky; top: 0; background: var(--primary-blue); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+        <h5 style="margin: 0; font-size: 18px; font-weight: 600;">
+            <i class="ri-list-unordered"></i> Indice
+        </h5>
+        <button id="tocCloseBtn" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+            <i class="ri-close-line"></i>
+        </button>
+    </div>
+
+    <!-- Reading Progress -->
+    <div style="padding: 20px; border-bottom: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase;">Progresso</span>
+            <span id="progressPercent" style="font-size: 12px; font-weight: 600; color: var(--primary-blue);">0%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
+            <div class="progress-bar" id="readingProgressBar" style="width: 0%; background: var(--primary-blue); border-radius: 10px; transition: width 0.3s ease;"></div>
+        </div>
+    </div>
+
+    <!-- TOC Navigation -->
+    <div style="padding: 20px;">
+        <nav class="toc-nav" id="tocNav"></nav>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="tocOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; opacity: 0; visibility: hidden; transition: all 0.3s ease;"></div>
+
+<!-- Back to Top Button -->
+<button class="back-to-top" id="backToTop">
+    <i class="ri-arrow-up-line"></i>
+</button>
+
+<!-- Manual Header -->
+<div class="manual-header">
+    <h1>💼 Manuale Leads Sales</h1>
+    <p>Guida completa per la gestione lead dalla acquisizione alla conversione</p>
+</div>
+
+<div class="manual-container" id="articleContent">
+
+    <!-- Introduzione -->
+    <section id="introduzione" class="manual-section">
+        <h2>Introduzione</h2>
+
+        <p>Benvenuto nel manuale completo del modulo <strong>Lead Management - Sezione Sales</strong>. Come membro del team Sales, sei il primo punto di contatto con i potenziali clienti e gestisci l'intero processo di vendita.</p>
+
+        <h3>Il Ruolo di Sales nel Workflow Lead</h3>
+        <p>Il team Sales è il <strong>motore del business</strong>, responsabile di:</p>
+        <ul>
+            <li><strong>Acquisizione</strong>: Condividere il link univoco per generare lead</li>
+            <li><strong>Qualificazione</strong>: Valutare e qualificare ogni lead</li>
+            <li><strong>Consulenza</strong>: Comprendere le esigenze e proporre il pacchetto giusto</li>
+            <li><strong>Chiusura</strong>: Gestire pagamenti e completare la vendita</li>
+            <li><strong>Onboarding</strong>: Assegnare l'Health Manager per iniziare il percorso</li>
+        </ul>
+
+        <h3>Workflow Completo Sales</h3>
+        <div class="step-box">
+            <ol>
+                <li><strong>Condivisione Link</strong>: Ricevi e condividi il tuo link univoco</li>
+                <li><strong>Lead Generata + Check 1</strong>: Il prospect compila il form → lead creata automaticamente con Check 1 completato ✅</li>
+                <li><strong>Primo Contatto</strong>: Contatti la lead via email/telefono/WhatsApp, valuti le risposte Check 1</li>
+                <li><strong>Check 2</strong>: Invii il link Check 2 al prospect per approfondire salute e abitudini</li>
+                <li><strong>Client Story</strong>: Raccogli la storia e le motivazioni del cliente durante la chiamata</li>
+                <li><strong>Check 3</strong> (opzionale): Invii il link Check 3 per completare il profilo prima della conversione</li>
+                <li><strong>Proposta Pacchetto</strong>: Selezioni il pacchetto più adatto alle esigenze</li>
+                <li><strong>Registrazione Pagamento</strong>: Registri acconto e/o saldo</li>
+                <li><strong>Assegnazione HM</strong>: Assegni Health Manager e data onboarding</li>
+                <li><strong>Finance Approval</strong>: Finance verifica i pagamenti</li>
+                <li><strong>Conversione</strong>: Health Manager converte in cliente (i check vengono trasferiti nella tab "Check 2.0")</li>
+            </ol>
+        </div>
+
+        <div class="alert-warning">
+            <h5>⚠️ Nota sui Check</h5>
+            <p>NON è obbligatorio che il prospect completi tutti e 3 i check prima della conversione. Puoi convertire anche con solo Check 1 completato, l'importante è avere pagamento registrato e HM assegnato. I check 2 e 3 servono per raccogliere più informazioni e facilitare il lavoro dell'Health Manager.</p>
+        </div>
+
+        <h3>Requisiti di Accesso</h3>
+        <p>Per accedere al modulo Lead Sales è necessario:</p>
+        <ul>
+            <li><strong>Essere Admin</strong> (accesso completo) OPPURE</li>
+            <li><strong>Appartenere al Dipartimento Sales</strong> (department_id = 5 o 18)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>🎯 Obiettivo Sales</h5>
+            <p>Il tuo obiettivo è portare ogni lead da <code>NEW</code> a <code>CONVERTED</code> nel minor tempo possibile, garantendo la massima qualità del servizio.</p>
+        </div>
+    </section>
+
+    <!-- Sistema Check Multipli -->
+    <section id="sistema-check-multipli" class="manual-section">
+        <h2>Sistema Check Multipli (Check 1, 2, 3)</h2>
+
+        <p>Il sistema di acquisizione lead si basa su <strong>3 questionari progressivi</strong> (Check 1, Check 2, Check 3) che permettono di qualificare gradualmente il prospect e raccogliere informazioni sempre più dettagliate.</p>
+
+        <h3>Panoramica dei 3 Check</h3>
+        <div class="step-box">
+            <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 4px;">
+                <h5 style="color: #1976d2; margin-bottom: 10px;">📋 Check Iniziale 1</h5>
+                <p style="margin: 0;"><strong>Quando:</strong> Primo contatto con il prospect</p>
+                <p style="margin: 0;"><strong>Scopo:</strong> Raccogliere dati anagrafici base e prime informazioni sulla motivazione</p>
+                <p style="margin: 0;"><strong>Campi:</strong> 23 domande (nome, email, telefono, data nascita, motivazione, obiettivi, ecc.)</p>
+                <p style="margin: 0;"><strong>Completamento:</strong> Automatico quando il prospect compila il tuo link univoco OPPURE manualmente dal sales</p>
+            </div>
+
+            <div style="margin-bottom: 20px; padding: 15px; background: #f3e5f5; border-left: 4px solid #9c27b0; border-radius: 4px;">
+                <h5 style="color: #7b1fa2; margin-bottom: 10px;">📋 Check Iniziale 2</h5>
+                <p style="margin: 0;"><strong>Quando:</strong> Dopo il primo contatto e valutazione iniziale</p>
+                <p style="margin: 0;"><strong>Scopo:</strong> Approfondire lo stato di salute e le abitudini del prospect</p>
+                <p style="margin: 0;"><strong>Campi:</strong> Form in preparazione (placeholder temporaneo)</p>
+                <p style="margin: 0;"><strong>Completamento:</strong> Il prospect riceve un link dedicato per compilare Check 2</p>
+            </div>
+
+            <div style="margin-bottom: 20px; padding: 15px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                <h5 style="color: #388e3c; margin-bottom: 10px;">📋 Check Iniziale 3</h5>
+                <p style="margin: 0;"><strong>Quando:</strong> Fase finale prima della conversione</p>
+                <p style="margin: 0;"><strong>Scopo:</strong> Completare il profilo del cliente per l'Health Manager</p>
+                <p style="margin: 0;"><strong>Campi:</strong> Form in preparazione (placeholder temporaneo)</p>
+                <p style="margin: 0;"><strong>Completamento:</strong> Il prospect riceve un link dedicato per compilare Check 3</p>
+            </div>
+        </div>
+
+        <h3>Come Funzionano i Link Check</h3>
+
+        <h4>Generazione Automatica dei Link</h4>
+        <p>Quando una lead viene creata (sia da form pubblico che manualmente dal sales), il sistema genera <strong>automaticamente 3 link univoci</strong>, uno per ogni check:</p>
+        <ul>
+            <li><code>https://suite.corposostenibile.com/sf/check/ABC123XYZ-1</code> → Check 1</li>
+            <li><code>https://suite.corposostenibile.com/sf/check/ABC123XYZ-2</code> → Check 2</li>
+            <li><code>https://suite.corposostenibile.com/sf/check/ABC123XYZ-3</code> → Check 3</li>
+        </ul>
+
+        <div class="alert-warning">
+            <h5>⚠️ Importante</h5>
+            <p>Ogni link è <strong>univoco e monouso</strong>. Una volta compilato un check, il link scompare dalla pagina dettaglio lead perché non è più necessario.</p>
+        </div>
+
+        <h4>Quando Inviare i Link Check</h4>
+        <div class="step-box">
+            <ol>
+                <li><strong>Check 1</strong>: Inviato automaticamente quando condividi il tuo link sales OPPURE la lead viene creata manualmente
+                    <ul>
+                        <li>Se il prospect compila il form pubblico → Check 1 già completato ✅</li>
+                        <li>Se crei la lead manualmente → Devi inviare il link Check 1 al prospect</li>
+                    </ul>
+                </li>
+                <li><strong>Check 2</strong>: Inviato dopo aver valutato le risposte del Check 1 e fatto il primo contatto telefonico</li>
+                <li><strong>Check 3</strong>: Inviato nella fase finale, quando il prospect è vicino alla conversione</li>
+            </ol>
+        </div>
+
+        <h4>Dove Trovare i Link Check</h4>
+        <p>I link si trovano nella pagina <strong>Dettaglio Lead</strong>, sezione <em>"Link Form Check"</em>:</p>
+        <div class="step-box">
+            <ol>
+                <li>Vai alla Dashboard Leads</li>
+                <li>Clicca su una lead per aprire il dettaglio</li>
+                <li>Scorri fino alla sezione "Link Form Check"</li>
+                <li>Vedrai 3 box (Check 1, Check 2, Check 3):
+                    <ul>
+                        <li><strong>Se NON completato</strong>: Vedi il link con pulsante <span class="badge badge-primary">Copia</span></li>
+                        <li><strong>Se completato</strong>: Vedi data/ora di completamento ✅ (nessun link visibile)</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <h3>Visualizzare le Risposte dei Check</h3>
+        <p>Ogni check ha una <strong>tab dedicata</strong> nella pagina Dettaglio Lead:</p>
+        <ul>
+            <li><strong>Tab "Check 1"</strong>: Mostra tutte le risposte al Check Iniziale 1</li>
+            <li><strong>Tab "Check 2"</strong>: Mostra tutte le risposte al Check Iniziale 2 (se completato)</li>
+            <li><strong>Tab "Check 3"</strong>: Mostra tutte le risposte al Check Iniziale 3 (se completato)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>💡 Tip per Sales</h5>
+            <p>Prima di chiamare una lead, leggi SEMPRE le risposte dei check completati. Ti permetterà di personalizzare la conversazione e dimostrare professionalità!</p>
+        </div>
+
+        <h3>Stato dei Check nella Dashboard</h3>
+        <p>Nel <strong>Pannello Health Manager</strong> (<code>/sales-form/health-manager</code>) puoi vedere lo stato di completamento dei 3 check per ogni lead:</p>
+        <ul>
+            <li><span class="badge bg-success">✓ 1</span> = Check 1 completato</li>
+            <li><span class="badge bg-secondary">○ 2</span> = Check 2 non completato</li>
+            <li><span class="badge bg-success">✓ 3</span> = Check 3 completato</li>
+        </ul>
+
+        <h4>Filtri per Check Mancanti</h4>
+        <p>Puoi filtrare le lead per check mancanti usando i checkbox nel pannello filtri:</p>
+        <ul>
+            <li><strong>Check 1 mancante</strong>: Mostra solo lead che non hanno completato Check 1</li>
+            <li><strong>Check 2 mancante</strong>: Mostra solo lead che non hanno completato Check 2</li>
+            <li><strong>Check 3 mancante</strong>: Mostra solo lead che non hanno completato Check 3</li>
+        </ul>
+
+        <div class="example-box">
+            <h5>Esempio Workflow Completo</h5>
+            <p><strong>Scenario:</strong> Marco è un prospect interessato al servizio</p>
+            <ol>
+                <li><strong>Giorno 1</strong>: Marco clicca sul tuo link sales e compila il form → <span class="badge bg-success">Check 1 ✓</span></li>
+                <li><strong>Giorno 2</strong>: Tu chiami Marco, discutete i suoi obiettivi, invii link Check 2 → Marco compila → <span class="badge bg-success">Check 2 ✓</span></li>
+                <li><strong>Giorno 5</strong>: Marco è convinto, vuole procedere. Invii link Check 3 → Marco compila → <span class="badge bg-success">Check 3 ✓</span></li>
+                <li><strong>Giorno 6</strong>: Registri il pagamento, assegni HM, lead convertita!</li>
+            </ol>
+        </div>
+
+        <h3>Conversione a Cliente: I Check nel Profilo Cliente</h3>
+        <p>Quando una lead viene <strong>convertita in cliente</strong>, tutte le risposte dei 3 check vengono trasferite nella tab <strong>"Check 2.0"</strong> del profilo cliente:</p>
+        <ul>
+            <li>Ogni check diventa un <strong>form separato</strong> nel sistema Check 2.0</li>
+            <li>L'Health Manager può vedere tutte le risposte storiche per pianificare il percorso</li>
+            <li>Le date di completamento vengono preservate</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>🎯 Best Practice</h5>
+            <p><strong>Non aspettare</strong> che il prospect completi tutti e 3 i check prima di convertire! Puoi convertire anche con solo Check 1 completato. L'importante è che il pagamento sia registrato e l'Health Manager assegnato.</p>
+        </div>
+    </section>
+
+    <!-- 1. Link Univoco -->
+    <section id="link-univoco" class="manual-section">
+        <h2>1. Il Tuo Link Univoco per Acquisizione Lead</h2>
+
+        <p>Ogni sales ha un <strong>link univoco personale</strong> che traccia automaticamente tutte le lead generate.</p>
+
+        <h3>1.1 Trovare il Tuo Link</h3>
+        <div class="step-box">
+            <ol>
+                <li>Vai alla tua <strong>Dashboard Leads</strong> (<code>/sales-form/</code>)</li>
+                <li>Nella sezione "Il Mio Link", trovi:
+                    <ul>
+                        <li><strong>URL Completo</strong>: <code>https://suite.corposostenibile.com/welcome-form/ABC1234XYZ</code></li>
+                        <li><strong>Codice Univoco</strong>: 10 caratteri alfanumerici (es. ABC1234XYZ)</li>
+                        <li><strong>Statistiche</strong>: Click totali, lead generate</li>
+                    </ul>
+                </li>
+                <li>Clicca <span class="badge badge-primary">Copia Link</span> per copiare negli appunti</li>
+            </ol>
+        </div>
+
+        <h3>1.2 Come Condividere il Link</h3>
+
+        <h4>📱 WhatsApp</h4>
+        <div class="example-box">
+            <h5>Messaggio Template</h5>
+            <p>Ciao [Nome]! 👋<br>
+            Ti mando il link per compilare il nostro questionario iniziale.<br>
+            Bastano 2 minuti e sarà fondamentale per capire come possiamo aiutarti nel tuo percorso!<br><br>
+            👉 <strong>[IL TUO LINK]</strong><br><br>
+            Appena compilato ti ricontatto subito! 💪</p>
+        </div>
+
+        <h4>📧 Email</h4>
+        <div class="example-box">
+            <h5>Email Template</h5>
+            <p><strong>Oggetto:</strong> Il tuo questionario personalizzato - Corpo Sostenibile<br><br>
+            Ciao [Nome],<br><br>
+            grazie per il tuo interesse! Per offrirti il percorso più adatto alle tue esigenze, ti chiedo di compilare questo breve questionario:<br><br>
+            <strong>[IL TUO LINK]</strong><br><br>
+            Richiede solo 2-3 minuti e mi permetterà di prepararmi al meglio per la nostra chiamata!<br><br>
+            A presto,<br>
+            [Il tuo nome]</p>
+        </div>
+
+        <h4>💬 Instagram/Facebook</h4>
+        <p>Puoi condividere il link nei DM o nei post. Il sistema traccia automaticamente da dove arriva la lead grazie ai parametri UTM.</p>
+
+        <div class="alert-tip">
+            <h5>💡 Tip</h5>
+            <p>Usa sempre il <strong>tuo link personale</strong>. Non copiare link di altri sales perché le lead verranno assegnate a loro, non a te!</p>
+        </div>
+
+        <h3>1.3 Tracking e Analytics</h3>
+        <p>Il tuo link traccia automaticamente:</p>
+        <ul>
+            <li><strong>Click Count</strong>: Quante volte è stato cliccato</li>
+            <li><strong>Submission Count</strong>: Quante lead hanno compilato il form</li>
+            <li><strong>Conversion Rate</strong>: % di click che diventano lead</li>
+            <li><strong>Last Clicked</strong>: Ultima volta che è stato usato</li>
+        </ul>
+
+        <div class="alert-important">
+            <h5>⚠️ Attenzione</h5>
+            <p>Se il tuo link non funziona o non è stato ancora generato, contatta un admin che lo creerà per te.</p>
+        </div>
+    </section>
+
+    <!-- 2. Dashboard Lead Personali -->
+    <section id="dashboard" class="manual-section">
+        <h2>2. Dashboard Lead Personali</h2>
+
+        <p>La tua dashboard è il centro di controllo per gestire tutte le tue lead.</p>
+
+        <h3>2.1 Accedere alla Dashboard</h3>
+        <div class="step-box">
+            <ol>
+                <li>Dalla sidebar, clicca su <strong>Leads</strong></li>
+                <li>Seleziona <span class="badge badge-primary">🌱 Le mie Leads</span></li>
+                <li>Oppure vai direttamente a <code>/sales-form/</code></li>
+            </ol>
+        </div>
+
+        <h3>2.2 Statistiche Header</h3>
+        <p>Nella parte alta della dashboard trovi le tue metriche principali:</p>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Metrica</th>
+                    <th>Descrizione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Totale Lead</strong></td>
+                    <td>Numero totale di lead generate dal tuo link</td>
+                </tr>
+                <tr>
+                    <td><strong>Revenue Atteso</strong></td>
+                    <td>Somma di tutti gli importi finali delle tue lead (€)</td>
+                </tr>
+                <tr>
+                    <td><strong>Pagato</strong></td>
+                    <td>Somma di quanto effettivamente incassato (€)</td>
+                </tr>
+                <tr>
+                    <td><strong>Approvato</strong></td>
+                    <td>Importo approvato da Finance (€)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>2.3 Filtri e Ricerca</h3>
+        <p>Puoi filtrare le tue lead per:</p>
+        <ul>
+            <li><strong>Data Da - A</strong>: Filtra per periodo specifico</li>
+            <li><strong>Ricerca</strong>: Cerca per nome, email o telefono</li>
+        </ul>
+
+        <h3>2.4 Tabella Lead</h3>
+        <p>Per ogni lead visualizzi:</p>
+        <ul>
+            <li><strong>Nome Completo</strong></li>
+            <li><strong>Email</strong></li>
+            <li><strong>Telefono</strong></li>
+            <li><strong>Stato</strong>: Badge colorato con lo stato attuale</li>
+            <li><strong>Importo</strong>: Prezzo finale del pacchetto</li>
+            <li><strong>Pagato</strong>: Quanto ha già pagato</li>
+            <li><strong>Data Creazione</strong></li>
+            <li><strong>Azioni</strong>: Bottone "Visualizza"</li>
+        </ul>
+
+        <h3>2.5 Stati Lead</h3>
+        <p>Gli stati possibili sono:</p>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Stato</th>
+                    <th>Badge</th>
+                    <th>Significato</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>NEW</code></td>
+                    <td><span class="badge badge-secondary">Nuova</span></td>
+                    <td>Lead appena generata, da contattare</td>
+                </tr>
+                <tr>
+                    <td><code>CONTACTED</code></td>
+                    <td><span class="badge badge-info">Contattata</span></td>
+                    <td>Hai aggiunto la client story</td>
+                </tr>
+                <tr>
+                    <td><code>QUALIFIED</code></td>
+                    <td><span class="badge badge-primary">Qualificata</span></td>
+                    <td>Hai selezionato un pacchetto</td>
+                </tr>
+                <tr>
+                    <td><code>PARTIAL_PAYMENT</code></td>
+                    <td><span class="badge badge-warning">Acconto</span></td>
+                    <td>Ha pagato l'acconto (parziale)</td>
+                </tr>
+                <tr>
+                    <td><code>FULL_PAYMENT</code></td>
+                    <td><span class="badge badge-success">Pagamento Completo</span></td>
+                    <td>Ha pagato tutto, in attesa Finance</td>
+                </tr>
+                <tr>
+                    <td><code>FINANCE_APPROVED</code></td>
+                    <td><span class="badge badge-success">Approvata Finance</span></td>
+                    <td>Finance ha verificato, in attesa HM</td>
+                </tr>
+                <tr>
+                    <td><code>CONVERTED</code></td>
+                    <td><span class="badge badge-success">✅ Convertita</span></td>
+                    <td>Diventata cliente! Complimenti! 🎉</td>
+                </tr>
+                <tr>
+                    <td><code>LOST</code></td>
+                    <td><span class="badge badge-danger">Persa</span></td>
+                    <td>Non interessata o non più contattabile</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-tip">
+            <h5>🎯 Focus</h5>
+            <p>Concentrati sulle lead in stato <code>NEW</code> e <code>CONTACTED</code> per massimizzare le conversioni!</p>
+        </div>
+    </section>
+
+    <!-- 3. Dettaglio Lead -->
+    <section id="dettaglio-lead" class="manual-section">
+        <h2>3. Gestione Dettaglio Lead</h2>
+
+        <p>Cliccando su "Visualizza" accedi alla pagina di dettaglio completo della lead.</p>
+
+        <h3>3.1 Informazioni Disponibili</h3>
+
+        <h4>📋 Dati Anagrafici</h4>
+        <ul>
+            <li>Nome e Cognome</li>
+            <li>Email</li>
+            <li>Telefono</li>
+            <li>Data di Nascita (se fornita)</li>
+            <li><strong>Sesso</strong> (Maschio/Femmina - modificabile dal sales)</li>
+            <li>Codice Fiscale (se fornito)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>💡 Modifica Sesso</h5>
+            <p>Il campo <strong>Sesso</strong> è disponibile in due punti della pagina dettaglio:
+            <ul style="margin-top: 8px;">
+                <li>Sezione "Informazioni Base" (nella parte superiore)</li>
+                <li>Sidebar "Azioni Rapide" (sotto "Aggiungi Storia")</li>
+            </ul>
+            Basta selezionare "Maschio" o "Femmina" dal dropdown e il dato si salva automaticamente.</p>
+        </div>
+
+        <h4>📝 Risposte Check (Tab Dedicate)</h4>
+        <p>Le risposte ai questionari check sono organizzate in <strong>3 tab separate</strong>:</p>
+        <ul>
+            <li><strong>Tab "Check 1"</strong>: Tutte le 23 risposte del Check Iniziale 1 (dati anagrafici, motivazione, obiettivi)</li>
+            <li><strong>Tab "Check 2"</strong>: Risposte del Check Iniziale 2 (approfondimento salute e abitudini) - se completato</li>
+            <li><strong>Tab "Check 3"</strong>: Risposte del Check Iniziale 3 (profilo completo per HM) - se completato</li>
+        </ul>
+
+        <h4>🔗 Link Form Check</h4>
+        <p>Nella sezione "Link Form Check" trovi i 3 link univoci per i questionari:</p>
+        <ul>
+            <li><strong>Se check NON completato</strong>: Vedi il link con pulsante "Copia" per inviarlo al prospect</li>
+            <li><strong>Se check completato</strong>: Vedi solo la data/ora di completamento ✅ (il link scompare)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>💡 Tip</h5>
+            <p>Leggi SEMPRE le risposte dei check completati prima di contattare la lead. Ti aiuterà a personalizzare l'approccio e aumentare le probabilità di chiusura!</p>
+        </div>
+
+        <h4>💰 Informazioni Commerciali</h4>
+        <ul>
+            <li>Pacchetto selezionato (se già scelto)</li>
+            <li>Importo totale, sconti applicati, importo finale</li>
+            <li>Lista pagamenti registrati</li>
+            <li>Stato approvazione Finance</li>
+        </ul>
+
+        <h4>📊 Timeline Attività</h4>
+        <p>Cronologia completa di tutte le azioni sulla lead:</p>
+        <ul>
+            <li>Lead creata da form</li>
+            <li>Storia cliente aggiunta</li>
+            <li>Pacchetto selezionato</li>
+            <li>Pagamenti registrati</li>
+            <li>Health Manager assegnato</li>
+            <li>Approvazioni Finance</li>
+        </ul>
+    </section>
+
+    <!-- 4. Client Story -->
+    <section id="client-story" class="manual-section">
+        <h2>4. Aggiungere la Client Story</h2>
+
+        <p>La <strong>Client Story</strong> è il cuore della vendita consultiva. È qui che raccogli la storia, le motivazioni e gli obiettivi del cliente.</p>
+
+        <h3>4.1 Quando Aggiungere la Story</h3>
+        <p>Aggiungi la client story subito dopo il <strong>primo contatto</strong> con la lead:</p>
+        <ul>
+            <li>Dopo la chiamata conoscitiva</li>
+            <li>Durante l'incontro di persona</li>
+            <li>Dopo una videocall Zoom/Meet</li>
+        </ul>
+
+        <h3>4.2 Come Aggiungere la Story</h3>
+        <div class="step-box">
+            <ol>
+                <li>Dalla pagina dettaglio lead, clicca <span class="badge badge-primary">Aggiungi Client Story</span></li>
+                <li>Si apre un editor di testo dove scrivi la storia del cliente</li>
+                <li>Scrivi in modo narrativo, completo e dettagliato</li>
+                <li>Clicca <span class="badge badge-success">Salva Story</span></li>
+            </ol>
+        </div>
+
+        <h3>4.3 Cosa Includere nella Story</h3>
+
+        <div class="example-box">
+            <h5>✅ Template Client Story Efficace</h5>
+            <p><strong>Background:</strong><br>
+            [Nome] ha [età] anni, lavora come [professione] e ha un ritmo di vita [descrivi]. Ha già provato [esperienze precedenti] ma senza risultati duraturi.<br><br>
+
+            <strong>Motivazione Primaria:</strong><br>
+            Il suo obiettivo principale è [obiettivo specifico]. È motivato/a da [cosa lo spinge]. La sua frustrazione maggiore è [pain point].<br><br>
+
+            <strong>Situazione Attuale:</strong><br>
+            Attualmente pesa [peso], vorrebbe arrivare a [obiettivo peso]. Ha provato [diete/allenamenti] senza successo perché [motivo fallimento].<br><br>
+
+            <strong>Disponibilità e Impegno:</strong><br>
+            Può allenarsi [giorni/settimana] preferibilmente [mattina/sera]. Ha vincoli [es. lavoro su turni, famiglia]. È disposto/a a investire [budget] per un programma completo.<br><br>
+
+            <strong>Note Speciali:</strong><br>
+            [Allergie, intolleranze, patologie, note mediche importanti]</p>
+        </div>
+
+        <h3>4.4 Effetto della Client Story</h3>
+        <p>Una volta salvata la client story:</p>
+        <ul>
+            <li>✅ Lo stato lead passa automaticamente da <code>NEW</code> → <code>CONTACTED</code></li>
+            <li>✅ La timeline registra "Storia cliente aggiunta"</li>
+            <li>✅ Diventa visibile a tutti i professionisti che lavoreranno con il cliente</li>
+        </ul>
+
+        <div class="alert-important">
+            <h5>⚠️ Privacy</h5>
+            <p>La client story contiene informazioni sensibili. NON includere dati non pertinenti o giudizi personali. Sii professionale e rispettoso.</p>
+        </div>
+
+        <h3>4.5 Modificare la Story</h3>
+        <p>Puoi modificare la client story in qualsiasi momento cliccando <span class="badge badge-info">Modifica Story</span>. Ogni modifica viene tracciata con timestamp.</p>
+    </section>
+
+    <!-- 5. Selezione Pacchetto -->
+    <section id="selezione-pacchetto" class="manual-section">
+        <h2>5. Selezione del Pacchetto</h2>
+
+        <p>Dopo aver raccolto la client story, è il momento di proporre il <strong>pacchetto più adatto</strong> alle esigenze del cliente.</p>
+
+        <h3>5.1 Pacchetti Disponibili</h3>
+        <p>I pacchetti sono configurati dall'admin e includono combinazioni di servizi:</p>
+        <ul>
+            <li><strong>Solo Nutrizione</strong></li>
+            <li><strong>Solo Coach</strong></li>
+            <li><strong>Solo Psicologia</strong></li>
+            <li><strong>Nutrizione + Coach</strong></li>
+            <li><strong>Nutrizione + Psicologia</strong></li>
+            <li><strong>Programma Completo</strong> (Nutrizione + Coach + Psicologia)</li>
+            <li>...e altri pacchetti personalizzati</li>
+        </ul>
+
+        <h3>5.2 Come Selezionare il Pacchetto</h3>
+        <div class="step-box">
+            <ol>
+                <li>Dalla pagina dettaglio lead, sezione "Pacchetto"</li>
+                <li>Clicca <span class="badge badge-primary">Seleziona Pacchetto</span></li>
+                <li>Si apre un dropdown con tutti i pacchetti disponibili</li>
+                <li>Seleziona il pacchetto appropriato</li>
+                <li>Conferma la selezione</li>
+            </ol>
+        </div>
+
+        <h3>5.3 Cosa Succede Automaticamente</h3>
+        <p>Quando selezioni un pacchetto:</p>
+        <ul>
+            <li>✅ <code>Lead.package_id</code> viene impostato</li>
+            <li>✅ <code>Lead.total_amount</code> = prezzo del pacchetto (dal database)</li>
+            <li>✅ <code>Lead.final_amount</code> = total_amount (se non applichi sconti)</li>
+            <li>✅ Stato lead → <code>QUALIFIED</code></li>
+            <li>✅ Timeline: "Pacchetto selezionato: [Nome Pacchetto]"</li>
+        </ul>
+
+        <div class="alert-important">
+            <h5>🔒 Sicurezza Prezzi</h5>
+            <p>Il prezzo viene <strong>sempre preso dal database</strong>, non dal frontend. Questo previene manipolazioni. Tu selezioni solo il pacchetto, il sistema recupera automaticamente il prezzo corretto.</p>
+        </div>
+
+        <h3>5.4 Applicare Sconti</h3>
+        <p>Se hai autorizzazione per applicare sconti:</p>
+        <div class="step-box">
+            <ol>
+                <li>Dopo aver selezionato il pacchetto, vedrai i campi sconto</li>
+                <li>Inserisci <strong>Importo Sconto</strong> (€)</li>
+                <li>Inserisci <strong>Motivo Sconto</strong> (obbligatorio)</li>
+                <li>Il sistema calcola automaticamente: <code>final_amount = total_amount - discount_amount</code></li>
+            </ol>
+        </div>
+
+        <div class="example-box">
+            <h5>Esempi Motivi Sconto Validi</h5>
+            <ul>
+                <li>"Sconto early bird - iscrizione entro 48h"</li>
+                <li>"Cliente referral - segnalato da [Nome]"</li>
+                <li>"Promozione Black Friday 2025"</li>
+                <li>"Sconto fedeltà - già cliente in passato"</li>
+            </ul>
+        </div>
+
+        <h3>5.5 Modificare il Pacchetto</h3>
+        <p>Puoi cambiare pacchetto in qualsiasi momento prima della conversione finale. Le modifiche vengono tracciate nella timeline.</p>
+
+        <div class="alert-warning-custom">
+            <h5>⚠️ Attenzione</h5>
+            <p>Se cambi pacchetto dopo aver registrato pagamenti, assicurati che i pagamenti corrispondano al nuovo importo finale!</p>
+        </div>
+    </section>
+
+    <!-- 6. Registrazione Pagamenti -->
+    <section id="registrazione-pagamenti" class="manual-section">
+        <h2>6. Registrazione Pagamenti</h2>
+
+        <p>Dopo aver proposto e concordato il pacchetto, è il momento di registrare i pagamenti ricevuti.</p>
+
+        <h3>6.1 Tipi di Pagamento</h3>
+        <p>Il sistema supporta due tipi di pagamento:</p>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Codice</th>
+                    <th>Quando Usarlo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>ACCONTO</strong></td>
+                    <td><code>ACCONTO</code></td>
+                    <td>Primo pagamento parziale (es. 50% del totale)</td>
+                </tr>
+                <tr>
+                    <td><strong>SALDO</strong></td>
+                    <td><code>SALDO</code></td>
+                    <td>Pagamento finale per completare (es. restante 50%)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>6.2 Metodi di Pagamento Supportati</h3>
+        <ul>
+            <li><strong>BONIFICO</strong>: Bonifico bancario (richiedi CRO/TRN)</li>
+            <li><strong>CARTA</strong>: Carta di credito/debito (Stripe, gateway)</li>
+            <li><strong>CONTANTI</strong>: Contante (emetti sempre ricevuta)</li>
+            <li><strong>PAYPAL</strong>: PayPal</li>
+            <li><strong>STRIPE</strong>: Stripe</li>
+            <li><strong>ALTRO</strong>: Altri metodi (specifica nelle note)</li>
+        </ul>
+
+        <h3>6.3 Come Registrare un Pagamento</h3>
+
+        <div class="step-box">
+            <ol>
+                <li>Dalla pagina dettaglio lead, sezione "Pagamenti"</li>
+                <li>Clicca <span class="badge badge-success">Registra Pagamento</span></li>
+                <li>Compila il form:
+                    <ul>
+                        <li><strong>Importo</strong>: €XX.XX (obbligatorio)</li>
+                        <li><strong>Tipo Pagamento</strong>: ACCONTO o SALDO</li>
+                        <li><strong>Metodo</strong>: Seleziona dal dropdown</li>
+                        <li><strong>Data Pagamento</strong>: Quando è stato effettuato</li>
+                        <li><strong>Transaction ID</strong>: CRO, TRN, ID Stripe (se disponibile)</li>
+                        <li><strong>Note</strong>: Eventuali note (opzionale ma consigliato)</li>
+                    </ul>
+                </li>
+                <li>Clicca <span class="badge badge-success">Salva Pagamento</span></li>
+            </ol>
+        </div>
+
+        <h3>6.4 Cosa Succede Automaticamente</h3>
+        <p>Quando registri un pagamento:</p>
+        <ul>
+            <li>✅ <code>Lead.paid_amount</code> viene incrementato dell'importo</li>
+            <li>✅ Se <code>paid_amount >= final_amount</code> → stato diventa <code>FULL_PAYMENT</code></li>
+            <li>✅ Se <code>paid_amount < final_amount</code> → stato diventa <code>PARTIAL_PAYMENT</code></li>
+            <li>✅ Timeline: "Pagamento registrato €XXX - [Metodo]"</li>
+            <li>✅ La lead appare nel Finance Panel per verifica</li>
+        </ul>
+
+        <h3>6.5 Esempi Pratici</h3>
+
+        <div class="example-box">
+            <h5>Scenario 1: Pagamento in Due Rate</h5>
+            <p><strong>Pacchetto:</strong> €1000<br>
+            <strong>Accordo:</strong> €500 acconto + €500 saldo<br><br>
+            <strong>Passo 1:</strong> Registra pagamento<br>
+            - Importo: €500<br>
+            - Tipo: ACCONTO<br>
+            - Metodo: BONIFICO<br>
+            → Stato lead: <code>PARTIAL_PAYMENT</code><br><br>
+            <strong>Passo 2:</strong> Quando ricevi il saldo, registra secondo pagamento<br>
+            - Importo: €500<br>
+            - Tipo: SALDO<br>
+            - Metodo: BONIFICO<br>
+            → Stato lead: <code>FULL_PAYMENT</code> ✅</p>
+        </div>
+
+        <div class="example-box">
+            <h5>Scenario 2: Pagamento Unica Soluzione</h5>
+            <p><strong>Pacchetto:</strong> €800<br>
+            <strong>Accordo:</strong> Tutto subito<br><br>
+            <strong>Passo 1:</strong> Registra pagamento<br>
+            - Importo: €800<br>
+            - Tipo: ACCONTO (anche se unica soluzione)<br>
+            - Metodo: CARTA<br>
+            → Stato lead: <code>FULL_PAYMENT</code> ✅</p>
+        </div>
+
+        <h3>6.6 Best Practices Pagamenti</h3>
+
+        <div class="alert-tip">
+            <h5>💡 Consigli</h5>
+            <ul>
+                <li>Registra il pagamento SUBITO dopo averlo ricevuto</li>
+                <li>Per bonifici, richiedi SEMPRE il CRO/TRN e inseriscilo in "Transaction ID"</li>
+                <li>Per contanti, emetti ricevuta e allegala (foto) nelle note</li>
+                <li>Aggiungi note dettagliate per facilitare la verifica Finance</li>
+                <li>Se il cliente paga tramite terzi, specifica nelle note</li>
+            </ul>
+        </div>
+
+        <div class="alert-important">
+            <h5>⚠️ Importante</h5>
+            <p>NON inventare pagamenti che non hai ricevuto. Finance verificherà TUTTO prima di approvare. Falsi pagamenti bloccheranno la lead e danneggeranno la tua reputazione.</p>
+        </div>
+
+        <h3>6.7 Visualizzare i Pagamenti Registrati</h3>
+        <p>Nella sezione "Pagamenti" del dettaglio lead vedi la lista completa:</p>
+        <ul>
+            <li>Importo</li>
+            <li>Tipo (ACCONTO/SALDO)</li>
+            <li>Metodo</li>
+            <li>Data</li>
+            <li>Transaction ID</li>
+            <li>Note</li>
+            <li>Stato verifica Finance (se verificato)</li>
+        </ul>
+    </section>
+
+    <!-- 7. Assegnazione Health Manager -->
+    <section id="assegnazione-hm" class="manual-section">
+        <h2>7. Assegnazione Health Manager</h2>
+
+        <p>L'ultimo passo operativo Sales è assegnare un <strong>Health Manager</strong> che coordinerà l'onboarding del cliente.</p>
+
+        <h3>7.1 Quando Assegnare l'HM</h3>
+        <p>Assegna l'Health Manager quando:</p>
+        <ul>
+            <li>✅ La client story è completa</li>
+            <li>✅ Il pacchetto è stato selezionato</li>
+            <li>✅ Il pagamento è stato registrato (almeno acconto)</li>
+            <li>✅ Hai concordato con il cliente la data di inizio</li>
+        </ul>
+
+        <h3>7.2 Come Assegnare l'Health Manager</h3>
+
+        <div class="step-box">
+            <ol>
+                <li>Dalla pagina dettaglio lead, sezione "Health Manager"</li>
+                <li>Clicca <span class="badge badge-primary">Assegna Health Manager</span></li>
+                <li>Compila:
+                    <ul>
+                        <li><strong>Health Manager</strong>: Seleziona dal dropdown (dipartimento 13)</li>
+                        <li><strong>Data Onboarding</strong>: Data concordata con il cliente per iniziare</li>
+                    </ul>
+                </li>
+                <li>Clicca <span class="badge badge-success">Assegna</span></li>
+            </ol>
+        </div>
+
+        <h3>7.3 Cosa Succede Automaticamente</h3>
+        <ul>
+            <li>✅ <code>Lead.health_manager_id</code> viene impostato</li>
+            <li>✅ <code>Lead.onboarding_date</code> = data selezionata</li>
+            <li>✅ <code>Lead.health_manager_assigned_at</code> = now()</li>
+            <li>✅ Timeline: "Health Manager assegnato: [Nome HM] - Data onboarding: [Data]"</li>
+            <li>✅ La lead appare nel pannello dell'Health Manager</li>
+            <li>✅ L'HM riceve una notifica (se configurata)</li>
+        </ul>
+
+        <h3>7.4 Scegliere l'Health Manager Giusto</h3>
+
+        <div class="alert-tip">
+            <h5>🎯 Criteri di Scelta</h5>
+            <ul>
+                <li><strong>Carico di lavoro</strong>: Scegli l'HM con meno lead attive</li>
+                <li><strong>Specializzazione</strong>: Alcuni HM sono specializzati in certi obiettivi</li>
+                <li><strong>Disponibilità</strong>: Verifica che l'HM sia disponibile nella data onboarding</li>
+                <li><strong>Lingua</strong>: Se il cliente parla altre lingue, assegna HM multilingua</li>
+            </ul>
+        </div>
+
+        <h3>7.5 Modificare l'Assegnazione</h3>
+        <p>Puoi riassegnare un diverso Health Manager in qualsiasi momento prima della conversione. L'HM precedente viene notificato del cambio.</p>
+
+        <div class="alert-important">
+            <h5>⚠️ Importante</h5>
+            <p>Una volta che l'Health Manager converte la lead in cliente, NON puoi più modificare l'assegnazione da questo pannello.</p>
+        </div>
+    </section>
+
+    <!-- 8. Statistiche e Performance -->
+    <section id="statistiche" class="manual-section">
+        <h2>8. Statistiche e Performance Sales</h2>
+
+        <p>Il sistema traccia automaticamente tutte le tue metriche di performance.</p>
+
+        <h3>8.1 Accedere alle Statistiche</h3>
+        <div class="step-box">
+            <ol>
+                <li>Dalla dashboard leads, clicca <span class="badge badge-info">Le mie Statistiche</span></li>
+                <li>Oppure vai a <code>/sales-form/stats</code></li>
+            </ol>
+        </div>
+
+        <h3>8.2 KPI Principali</h3>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>KPI</th>
+                    <th>Descrizione</th>
+                    <th>Target</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Total Leads</strong></td>
+                    <td>Numero totale lead generate</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td><strong>Conversion Rate</strong></td>
+                    <td>% di lead convertite in clienti</td>
+                    <td>&gt; 40%</td>
+                </tr>
+                <tr>
+                    <td><strong>Revenue Generated</strong></td>
+                    <td>Fatturato totale generato (€)</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td><strong>Average Deal Size</strong></td>
+                    <td>Valore medio per lead (€)</td>
+                    <td>-</td>
+                </tr>
+                <tr>
+                    <td><strong>Time to Conversion</strong></td>
+                    <td>Tempo medio da NEW a CONVERTED (giorni)</td>
+                    <td>&lt; 7 giorni</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>8.3 Funnel di Conversione</h3>
+        <p>Visualizzazione grafica del tuo funnel:</p>
+        <ul>
+            <li>NEW → CONTACTED: __% drop-off</li>
+            <li>CONTACTED → QUALIFIED: __% drop-off</li>
+            <li>QUALIFIED → PAYMENT: __% drop-off</li>
+            <li>PAYMENT → CONVERTED: __% drop-off</li>
+        </ul>
+
+        <h3>8.4 Classifiche e Ranking</h3>
+        <p>Confronta le tue performance con gli altri sales:</p>
+        <ul>
+            <li><strong>Top Sales per Revenue</strong>: Classifica fatturato</li>
+            <li><strong>Top Sales per Lead Count</strong>: Classifica numero lead</li>
+            <li><strong>Best Conversion Rate</strong>: Classifica tasso conversione</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>📈 Growth Tips</h5>
+            <ul>
+                <li>Monitora il tuo conversion rate settimanalmente</li>
+                <li>Analizza dove perdi più lead nel funnel</li>
+                <li>Confrontati con i top performer per imparare</li>
+                <li>Riduci il time to conversion contattando lead entro 24h</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- 9. Best Practices -->
+    <section id="best-practices" class="manual-section">
+        <h2>9. Best Practices Sales</h2>
+
+        <h3>9.1 Contatto Veloce = Alta Conversione</h3>
+        <div class="alert-tip">
+            <h5>⚡ Regola d'Oro: Contatta entro 24 ore</h5>
+            <p>Le statistiche dimostrano che le lead contattate entro 24 ore dalla compilazione hanno un tasso di conversione <strong>3x superiore</strong> rispetto a quelle contattate dopo.</p>
+        </div>
+
+        <h3>9.2 Personalizza Sempre</h3>
+        <p>Non usare script rigidi. Personalizza l'approccio basandoti su:</p>
+        <ul>
+            <li>Risposte del form</li>
+            <li>Obiettivo dichiarato</li>
+            <li>Pain point evidenziato</li>
+            <li>Budget indicato</li>
+        </ul>
+
+        <h3>9.3 Consulenza, Non Vendita Aggressiva</h3>
+        <div class="example-box">
+            <h5>✅ Approccio Consultivo</h5>
+            <p>"Vedo che hai scritto che hai già provato 3 diete senza risultati. Questo è frustrante, capisco. Il nostro approccio è diverso perché lavoriamo non solo sulla nutrizione, ma anche sulla psicologia e motivazione. Credi che questo possa aiutarti?"</p>
+        </div>
+
+        <div class="example-box">
+            <h5>❌ Vendita Aggressiva</h5>
+            <p>"Abbiamo una promozione che scade oggi! Se paghi ora ti faccio uno sconto! È l'occasione della vita!"</p>
+        </div>
+
+        <h3>9.4 Traccia Tutto</h3>
+        <p>Usa sempre il sistema per tracciare:</p>
+        <ul>
+            <li>Ogni telefonata (aggiungi note nella timeline)</li>
+            <li>Ogni email inviata</li>
+            <li>Ogni promessa fatta al cliente</li>
+            <li>Ogni follow-up programmato</li>
+        </ul>
+
+        <h3>9.5 Gestione Obiezioni</h3>
+
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Obiezione</th>
+                    <th>Come Gestirla</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>"È troppo caro"</td>
+                    <td>Focalizza sul <strong>valore</strong>, non sul prezzo. Scomponi il costo giornaliero. Proponi rate.</td>
+                </tr>
+                <tr>
+                    <td>"Ci devo pensare"</td>
+                    <td>Identifica la vera obiezione. Chiedi: "Cosa ti frena esattamente?"</td>
+                </tr>
+                <tr>
+                    <td>"Non ho tempo"</td>
+                    <td>Mostra flessibilità. "Il nostro programma si adatta ai tuoi orari, non viceversa"</td>
+                </tr>
+                <tr>
+                    <td>"Ho già provato"</td>
+                    <td>Differenziazione. "Cosa è andato storto? Come siamo diversi?"</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>9.6 Follow-up Strutturato</h3>
+        <div class="step-box">
+            <strong>Timeline Follow-up Ottimale:</strong>
+            <ol>
+                <li><strong>Giorno 1</strong>: Primo contatto entro 24h dalla compilazione</li>
+                <li><strong>Giorno 2</strong>: Se non risponde, secondo tentativo (email + SMS)</li>
+                <li><strong>Giorno 5</strong>: Terzo tentativo (chiamata + WhatsApp)</li>
+                <li><strong>Giorno 10</strong>: Ultimo tentativo con messaggio personalizzato</li>
+                <li><strong>Giorno 15</strong>: Se ancora nessuna risposta → stato LOST</li>
+            </ol>
+        </div>
+
+        <h3>9.7 Checklist Pre-Conversione</h3>
+        <div class="alert-important">
+            <h5>✅ Controlla Prima di Assegnare HM</h5>
+            <ul>
+                <li>☑️ Client story completa e dettagliata</li>
+                <li>☑️ Pacchetto selezionato corretto</li>
+                <li>☑️ Pagamento registrato con tutti i dettagli</li>
+                <li>☑️ Data onboarding concordata con il cliente</li>
+                <li>☑️ Cliente informato su cosa aspettarsi</li>
+                <li>☑️ Contratto firmato (se richiesto)</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- 10. FAQ -->
+    <section id="faq" class="manual-section">
+        <h2>10. Domande Frequenti (FAQ)</h2>
+
+        <h3>Q: Posso cambiare il prezzo di un pacchetto?</h3>
+        <p><strong>A:</strong> No, i prezzi sono fissi nel database. Puoi solo applicare sconti autorizzati. Questo garantisce consistenza e previene errori.</p>
+
+        <h3>Q: Cosa faccio se la lead non risponde mai?</h3>
+        <p><strong>A:</strong> Segui la timeline di follow-up (5 tentativi in 15 giorni). Dopo, marca come LOST con motivo "Non risponde ai tentativi di contatto".</p>
+
+        <h3>Q: Posso gestire lead di altri sales?</h3>
+        <p><strong>A:</strong> No, vedi solo le TUE lead (generate dal tuo link). Gli admin vedono tutte le lead.</p>
+
+        <h3>Q: Quanto tempo ho per convertire una lead?</h3>
+        <p><strong>A:</strong> Non c'è limite tecnico, ma il target aziendale è &lt; 7 giorni dal primo contatto alla conversione.</p>
+
+        <h3>Q: Posso cancellare un pagamento registrato per errore?</h3>
+        <p><strong>A:</strong> No, i pagamenti sono immutabili una volta salvati. Contatta un admin per correzioni.</p>
+
+        <h3>Q: La lead è bloccata in FULL_PAYMENT da giorni, perché?</h3>
+        <p><strong>A:</strong> Finance deve verificare i pagamenti. Se tarda, sollecita il team Finance o l'admin.</p>
+
+        <h3>Q: Posso riassegnare una lead già convertita?</h3>
+        <p><strong>A:</strong> No, una volta convertita la lead diventa un Cliente e esce dal sistema leads. Non è più modificabile da qui.</p>
+
+        <h3>Q: Come funzionano le commissioni?</h3>
+        <p><strong>A:</strong> Le commissioni sono calcolate automaticamente sul <code>paid_amount</code> approvato da Finance. Consulta il tuo contratto o l'admin per le percentuali.</p>
+    </section>
+
+    <!-- 11. Supporto -->
+    <section id="supporto" class="manual-section">
+        <h2>11. Supporto e Assistenza</h2>
+
+        <p>Se hai bisogno di aiuto o hai domande:</p>
+
+        <div class="alert-tip">
+            <h5>📞 Contatti</h5>
+            <ul>
+                <li><strong>Ticket System</strong>: <a href="/ticket">Apri un ticket</a> per problemi tecnici</li>
+                <li><strong>Admin</strong>: Contatta l'admin per escalation o autorizzazioni speciali</li>
+                <li><strong>Team Sales</strong>: Confrontati con colleghi più esperti</li>
+                <li><strong>Finance</strong>: Per chiarimenti su pagamenti bloccati</li>
+            </ul>
+        </div>
+
+        <h3>Link Utili</h3>
+        <ul>
+            <li><a href="/sales-form/">Dashboard Leads</a> - Le tue lead</li>
+            <li><a href="/sales-form/stats">Statistiche</a> - Le tue performance</li>
+            <li><a href="/manual/leads">Manuale Leads</a> - Homepage manuali</li>
+        </ul>
+
+        <h3>Formazione e Crescita</h3>
+        <p>Per migliorare le tue skills:</p>
+        <ul>
+            <li>Partecipa ai training periodici organizzati dall'azienda</li>
+            <li>Studia i casi di successo dei top performer</li>
+            <li>Richiedi feedback al tuo manager sulle tue tecniche di vendita</li>
+            <li>Analizza le tue metriche settimanalmente per identificare aree di miglioramento</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>🎯 Ricorda</h5>
+            <p>Sei il primo punto di contatto con i nostri futuri clienti. La tua professionalità, empatia e competenza fanno la differenza tra una lead persa e un cliente soddisfatto a lungo termine!</p>
+        </div>
+    </section>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ==================== FLOATING TOC ====================
+document.addEventListener('DOMContentLoaded', function() {
+    const tocFloatingBtn = document.getElementById('tocFloatingBtn');
+    const tocFloatingPanel = document.getElementById('tocFloatingPanel');
+    const tocCloseBtn = document.getElementById('tocCloseBtn');
+    const tocOverlay = document.getElementById('tocOverlay');
+    const tocNav = document.getElementById('tocNav');
+    const articleContent = document.getElementById('articleContent');
+    const backToTop = document.getElementById('backToTop');
+    const progressBar = document.getElementById('readingProgressBar');
+    const globalProgressBar = document.getElementById('globalProgressBar');
+    const progressPercent = document.getElementById('progressPercent');
+
+    // Genera TOC
+    function generateTOC() {
+        const headings = articleContent.querySelectorAll('h2, h3');
+        let tocHTML = '';
+        let currentH2 = null;
+
+        headings.forEach((heading, index) => {
+            const id = heading.closest('section')?.id || `heading-${index}`;
+            const text = heading.textContent;
+            const level = heading.tagName.toLowerCase();
+
+            if (level === 'h2') {
+                if (currentH2) tocHTML += '</div>';
+                tocHTML += `
+                    <div style="margin-bottom: 16px;">
+                        <a href="#${id}" class="toc-link" style="display: flex; align-items: start; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: #2c3e50; transition: all 0.2s; border-left: 3px solid transparent; gap: 10px;">
+                            <span class="toc-bullet" style="width: 8px; height: 8px; border-radius: 50%; background: #cbd5e0; flex-shrink: 0; margin-top: 6px; transition: all 0.2s;"></span>
+                            <span style="font-weight: 600; font-size: 14px; line-height: 1.4;">${text}</span>
+                        </a>
+                `;
+                currentH2 = id;
+            } else if (level === 'h3' && currentH2) {
+                tocHTML += `
+                    <a href="#${id}" class="toc-link toc-sub" style="display: flex; align-items: start; padding: 8px 12px 8px 30px; border-radius: 8px; text-decoration: none; color: #64748b; transition: all 0.2s; border-left: 3px solid transparent; gap: 10px;">
+                        <span class="toc-bullet" style="width: 6px; height: 6px; border-radius: 50%; background: #e2e8f0; flex-shrink: 0; margin-top: 6px; transition: all 0.2s;"></span>
+                        <span style="font-size: 13px; line-height: 1.4;">${text}</span>
+                    </a>
+                `;
+            }
+        });
+
+        if (currentH2) tocHTML += '</div>';
+        tocNav.innerHTML = tocHTML;
+
+        // Click handlers
+        document.querySelectorAll('.toc-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    closeTOC();
+                }
+            });
+        });
+    }
+
+    function openTOC() {
+        tocFloatingPanel.style.right = '0';
+        tocOverlay.style.opacity = '1';
+        tocOverlay.style.visibility = 'visible';
+    }
+
+    function closeTOC() {
+        tocFloatingPanel.style.right = '-400px';
+        tocOverlay.style.opacity = '0';
+        tocOverlay.style.visibility = 'hidden';
+    }
+
+    tocFloatingBtn?.addEventListener('click', openTOC);
+    tocCloseBtn?.addEventListener('click', closeTOC);
+    tocOverlay?.addEventListener('click', closeTOC);
+
+    // Highlight active section
+    function highlightActiveTOC() {
+        const sections = articleContent.querySelectorAll('section[id]');
+        const scrollPos = window.scrollY + 100;
+
+        sections.forEach(section => {
+            const top = section.offsetTop;
+            const bottom = top + section.offsetHeight;
+            const id = section.id;
+
+            if (scrollPos >= top && scrollPos < bottom) {
+                document.querySelectorAll('.toc-link').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${id}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        });
+    }
+
+    // Reading Progress
+    function updateReadingProgress() {
+        const windowHeight = window.innerHeight;
+        const documentHeight = articleContent.offsetHeight;
+        const scrollTop = window.scrollY;
+        const trackLength = documentHeight - windowHeight;
+        const percentScrolled = Math.min(Math.round((scrollTop / trackLength) * 100), 100);
+
+        if (progressBar) progressBar.style.width = percentScrolled + '%';
+        if (globalProgressBar) globalProgressBar.style.width = percentScrolled + '%';
+        if (progressPercent) progressPercent.textContent = percentScrolled + '%';
+    }
+
+    // Back to Top
+    function toggleBackToTop() {
+        if (window.scrollY > 300) {
+            backToTop?.classList.add('visible');
+        } else {
+            backToTop?.classList.remove('visible');
+        }
+    }
+
+    backToTop?.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Scroll events
+    window.addEventListener('scroll', () => {
+        highlightActiveTOC();
+        updateReadingProgress();
+        toggleBackToTop();
+    });
+
+    // Initialize
+    generateTOC();
+    updateReadingProgress();
+});
+</script>
+{% endblock %}

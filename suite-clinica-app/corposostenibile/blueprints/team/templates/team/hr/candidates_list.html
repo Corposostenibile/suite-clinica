@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Candidati • HR</title>
+
+  <!-- Remix‑Icon + Bootstrap -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}">
+
+  <style>
+    :root{--bs-primary:#25B36A;--bs-primary-rgb:37,179,106}
+    .btn-primary{background:var(--bs-primary);border-color:var(--bs-primary)}
+    .btn-primary:hover{background:#1e9a5b;border-color:#1e9a5b}
+  </style>
+</head>
+<body>
+
+<section class="p-24">
+  <!-- header ---------------------------------------------------- -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="m-0">Candidati</h4>
+    <a href="{{ url_for('hr.hr_dashboard') }}" class="btn btn-outline-secondary">
+      <i class="ri-pie-chart-line me-1"></i> Dashboard HR
+    </a>
+  </div>
+
+  <!-- search ---------------------------------------------------- -->
+  <form method="get" class="row g-2 align-items-end mb-4">
+    <div class="col-md-6">
+      <label for="q" class="form-label fw-semibold">Ricerca</label>
+      <input type="text" id="q" name="q" value="{{ q or '' }}" placeholder="nome, email, telefono…"
+             class="form-control">
+    </div>
+    <div class="col-md-2 d-grid">
+      <button type="submit" class="btn btn-primary">
+        <i class="ri-search-line me-1"></i> Cerca
+      </button>
+    </div>
+  </form>
+
+  <!-- flash ----------------------------------------------------- -->
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      <div class="mb-3">
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='warning'
+                                    else 'success' if cat=='success'
+                                    else cat }}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- tabella --------------------------------------------------- -->
+  {% if candidates %}
+    <div class="table-responsive">
+      <table class="table align-middle table-bordered">
+        <thead class="table-light">
+          <tr>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Telefono</th>
+            <th class="text-center">Ultimo stage</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in candidates %}
+            {# lista → ordina per applied_at e prendi l'ultimo #}
+            {% set last_app = (c.applications | sort(attribute='applied_at') | last) %}
+            <tr>
+              <td>{{ c.full_name }}</td>
+              <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
+              <td>{{ c.phone or '—' }}</td>
+              <td class="text-center">
+                {% if last_app %}
+                  <span class="badge
+                       {% if last_app.stage.value=='hired' %}bg-success
+                       {% elif last_app.stage.value in ['rejected','lost'] %}bg-danger
+                       {% else %}bg-secondary{% endif %}">
+                    {{ last_app.stage.value|replace('_',' ')|title }}
+                  </span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{{ url_for('hr.candidate_detail', cand_id=c.id) }}"
+                   class="btn btn-sm btn-outline-secondary" title="Dettaglio">
+                  <i class="ri-eye-line"></i>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-muted">Nessun candidato trovato.</p>
+  {% endif %}
+
+</section>
+
+<script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

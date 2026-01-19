@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Manuali - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.manuals_index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <div>
+      <h6 class="fw-semibold mb-0">Gestione Manuali e Guide</h6>
+      <p class="text-secondary-light mb-0 text-sm">Dashboard amministrativa</p>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('it_projects.manuals_admin_category_new') }}" class="btn btn-sm btn-outline-primary">
+      <i class="ri-folder-add-line me-1"></i> Nuova Categoria
+    </a>
+    <a href="{{ url_for('it_projects.manuals_admin_article_new') }}" class="btn btn-sm btn-primary-600">
+      <i class="ri-add-line me-1"></i> Nuovo Articolo
+    </a>
+  </div>
+</div>
+
+{# ─────────────────────── STATS ─────────────────────── #}
+<div class="row gy-4 mb-4">
+  <div class="col-xxl-2 col-sm-4">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-1">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-article-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Totale Articoli</span>
+          <h4 class="fw-semibold mb-0">{{ stats.total_articles }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xxl-2 col-sm-4">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-check-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Pubblicati</span>
+          <h4 class="fw-semibold mb-0">{{ stats.published }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xxl-2 col-sm-4">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-3">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-draft-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Bozze</span>
+          <h4 class="fw-semibold mb-0">{{ stats.drafts }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xxl-2 col-sm-4">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-info text-white d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-folder-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Categorie</span>
+          <h4 class="fw-semibold mb-0">{{ stats.total_categories }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xxl-2 col-sm-4">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-secondary text-white d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-eye-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Visualizzazioni</span>
+          <h4 class="fw-semibold mb-0">{{ stats.total_views }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row gy-4">
+  {# ─────────────────────── RECENT ARTICLES ─────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="ri-time-line me-2"></i>Articoli Recenti</h6>
+        <a href="{{ url_for('it_projects.manuals_admin_articles') }}" class="btn btn-sm btn-outline-primary">
+          Vedi Tutti
+        </a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_articles %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Titolo</th>
+                <th>Piattaforma</th>
+                <th>Stato</th>
+                <th>Aggiornato</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for article in recent_articles %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="fw-medium">{{ article.title[:40] }}{% if article.title|length > 40 %}...{% endif %}</span>
+                    {% if article.has_video %}
+                    <i class="ri-video-line text-purple"></i>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <span class="badge" style="background-color: {{ platforms[article.platform].color }}20; color: {{ platforms[article.platform].color }};">
+                    {{ platforms[article.platform].name }}
+                  </span>
+                </td>
+                <td>
+                  {% if article.is_published %}
+                  <span class="badge bg-success-subtle text-success-main">Pubblicato</span>
+                  {% else %}
+                  <span class="badge bg-warning-subtle text-warning-main">Bozza</span>
+                  {% endif %}
+                </td>
+                <td class="text-secondary-light text-sm">{{ article.updated_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>
+                  <a href="{{ url_for('it_projects.manuals_admin_article_edit', article_id=article.id) }}"
+                     class="btn btn-sm btn-outline-primary">
+                    <i class="ri-edit-line"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-secondary-light">
+          <i class="ri-file-list-3-line text-3xl mb-2"></i>
+          <p>Nessun articolo presente</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ─────────────────────── SIDEBAR ─────────────────────── #}
+  <div class="col-lg-4">
+    {# Popular articles #}
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="ri-bar-chart-line me-2"></i>Articoli Popolari</h6>
+      </div>
+      <div class="card-body p-0">
+        {% if popular_articles %}
+        <div class="list-group list-group-flush">
+          {% for article in popular_articles %}
+          <a href="{{ url_for('it_projects.manuals_admin_article_edit', article_id=article.id) }}"
+             class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+            <span>{{ article.title[:30] }}{% if article.title|length > 30 %}...{% endif %}</span>
+            <span class="badge bg-primary-subtle text-primary-main">{{ article.views_count }} views</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-3 text-secondary-light">
+          Nessun dato
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Quick actions #}
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="ri-flashlight-line me-2"></i>Azioni Rapide</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          <a href="{{ url_for('it_projects.manuals_admin_articles') }}" class="btn btn-outline-secondary">
+            <i class="ri-article-line me-2"></i>Gestisci Articoli
+          </a>
+          <a href="{{ url_for('it_projects.manuals_admin_categories') }}" class="btn btn-outline-secondary">
+            <i class="ri-folder-line me-2"></i>Gestisci Categorie
+          </a>
+          <a href="{{ url_for('it_projects.manuals_index') }}" class="btn btn-outline-secondary">
+            <i class="ri-eye-line me-2"></i>Visualizza Manuali
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.text-purple {
+  color: #8b5cf6;
+}
+</style>
+{% endblock %}

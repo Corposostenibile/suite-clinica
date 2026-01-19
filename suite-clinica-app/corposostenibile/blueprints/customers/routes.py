@@ -1,0 +1,6832 @@
+# routes.py
+# ---------------------------------------------------------------
+# Blueprint "customers" – CRUD + Dashboard + REST API v1
+# ---------------------------------------------------------------
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import date, datetime, timedelta
+from http import HTTPStatus
+import json
+import logging
+from typing import Any, Dict
+
+from dateutil.relativedelta import relativedelta
+
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+    abort,
+)
+from flask_login import current_user                    # type: ignore
+from sqlalchemy import func, or_
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import selectinload
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound
+
+from corposostenibile.extensions import db, csrf
+from corposostenibile.models import (
+    CartellaClinica,
+    Cliente,
+    ClientCheckAssignment,
+    ClientCheckResponse,
+    MealPlan,
+    TrainingPlan,
+    TrainingLocation,
+    StatoClienteEnum,
+    LuogoAllenEnum,
+    Task,
+    TipoProfessionistaEnum,
+    User,
+    PagamentoInterno,
+    PagamentoInternoApprovazione,
+    PagamentoInternoStatusEnum,
+    TipoPagamentoInternoEnum,
+    PagamentoEnum,
+    AttribuibileAEnum,
+    Package,
+    PlanExtraFile,
+    PlanTypeEnum,
+)
+from . import customers_bp                              # blueprint declared in __init__.py
+from .filters import parse_filter_args
+from .forms import ClienteForm, ClienteCreateForm, CustomerFilterForm
+from .permissions import CustomerPerm, has_permission, permission_required
+from .repository import customers_repo
+from .schemas import ClienteSchema
+from .services import (
+    create_cliente,
+    delete_cliente,
+    restore_cliente_version,
+    update_cliente,
+    calculate_dashboard_kpis,
+    calculate_health_scores,
+    calculate_temporal_metrics,
+    calculate_segments,
+)
+
+logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------------------- #
+#  Helper – metriche dashboard                                               #
+# --------------------------------------------------------------------------- #
+def _compute_dashboard_metrics() -> Dict[str, Any]:
+    """
+    Calcola KPI e dataset per la dashboard "Customers".
+
+    Restituisce un dict serializzabile JSON:
+        {
+          "kpi": {...},
+          "charts": {
+              "new_customers_monthly": [...],
+              "status_distribution": [...]
+          }
+        }
+    """
+    today = date.today()
+    first_day_month = today.replace(day=1)
+    threshold_scadenza = today + timedelta(days=30)
+
+    # ▸ KPI -------------------------------------------------------------- #
+    total_clients = db.session.query(func.count(Cliente.cliente_id)).scalar() or 0
+
+    total_active = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(Cliente.stato_cliente == "attivo")
+        .scalar()
+        or 0
+    )
+
+    new_month = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(Cliente.created_at >= first_day_month)
+        .scalar()
+        or 0
+    )
+
+    in_scadenza = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo <= threshold_scadenza,
+        )
+        .scalar()
+        or 0
+    )
+
+    percent_scadenza = round((in_scadenza / total_clients) * 100, 2) if total_clients else 0.0
+
+    # ▸ KPI per Specialty (Nutrizione, Coach, Psicologia) --------------- #
+    nutrizione_attivo = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(Cliente.stato_nutrizione == "attivo")
+        .scalar()
+        or 0
+    )
+
+    coach_attivo = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(Cliente.stato_coach == "attivo")
+        .scalar()
+        or 0
+    )
+
+    psicologia_attivo = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(Cliente.stato_psicologia == "attivo")
+        .scalar()
+        or 0
+    )
+
+    # ▸ Nuovi clienti per mese (ultimi 12) ------------------------------- #
+    start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
+    monthly_rows = (
+        db.session.query(
+            func.date_trunc("month", Cliente.created_at).label("month"),
+            func.count(Cliente.cliente_id).label("count"),
+        )
+        .filter(Cliente.created_at >= start_period)
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+    new_customers_monthly = [
+        {"month": row.month.strftime("%Y-%m"), "count": row.count}
+        for row in monthly_rows
+    ]
+
+    # ▸ Distribuzione stato cliente -------------------------------------- #
+    status_rows = (
+        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        .group_by(Cliente.stato_cliente)
+        .all()
+    )
+    status_distribution = [
+        {
+            "status": status.value if status is not None else "undefined",
+            "count": count,
+        }
+        for status, count in status_rows
+    ]
+
+    return {
+        "kpi": {
+            "total_active": total_active,
+            "new_month": new_month,
+            "percent_scadenza": percent_scadenza,
+        },
+        "charts": {
+            "new_customers_monthly": new_customers_monthly,
+            "status_distribution": status_distribution,
+        },
+        # Stats for React frontend
+        "total_clienti": total_clients,
+        "nutrizione_attivo": nutrizione_attivo,
+        "coach_attivo": coach_attivo,
+        "psicologia_attivo": psicologia_attivo,
+    }
+
+# --------------------------------------------------------------------------- #
+#  Row-level loader (ACL "sales")                                             #
+# --------------------------------------------------------------------------- #
+@customers_bp.url_value_preprocessor
+def _load_cliente(_endpoint, values):  # noqa: D401
+    """Carica il cliente in g.cliente (o None) se <cliente_id> presente nella URL."""
+    cid = values.get("cliente_id") if values else None
+    if cid:
+        try:
+            g.cliente = customers_repo.get_one(int(cid), eager=True)
+        except NotFound:
+            g.cliente = None
+
+# --------------------------------------------------------------------------- #
+#  Context processor                                                          #
+# --------------------------------------------------------------------------- #
+@customers_bp.context_processor
+def inject_permissions():
+    """Rende disponibile has_permission nei template."""
+    return {"has_permission": has_permission}
+
+# --------------------------------------------------------------------------- #
+#  DASHBOARD                                                                  #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/dashboard", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def dashboard_view() -> str:
+    """Dashboard con KPI e grafici del modulo Customers."""
+    data = _compute_dashboard_metrics()
+    return render_template(
+        "customers/dashboard.html",
+        kpi=data["kpi"],
+        chart_new_customers=json.dumps(data["charts"]["new_customers_monthly"]),
+        chart_status=json.dumps(data["charts"]["status_distribution"]),
+    )
+
+@customers_bp.route("/dashboard-360", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def dashboard_360_view() -> str:
+    """Dashboard 360° avanzata con KPI dinamici e filtri."""
+    from corposostenibile.models import TypeFormResponse, User
+    
+    # Calcola KPI principali
+    kpi = calculate_dashboard_kpis()
+    
+    # Calcola Health Scores
+    health_data = calculate_health_scores()
+    
+    # Calcola metriche temporali
+    temporal_data = calculate_temporal_metrics()
+    
+    # Calcola segmenti
+    segments_data = calculate_segments()
+    
+    # Ottieni lista professionisti per filtri
+    nutrizionisti = db.session.query(
+        func.concat(User.first_name, ' ', User.last_name).label('full_name')
+    ).join(
+        Cliente, Cliente.nutrizionista_id == User.id
+    ).distinct().all()
+    coaches = db.session.query(
+        func.concat(User.first_name, ' ', User.last_name).label('full_name')
+    ).join(
+        Cliente, Cliente.coach_id == User.id
+    ).distinct().all()
+    psicologi = db.session.query(
+        func.concat(User.first_name, ' ', User.last_name).label('full_name')
+    ).join(
+        Cliente, Cliente.psicologa_id == User.id
+    ).distinct().all()
+    
+    professionisti = list(set([n[0] for n in nutrizionisti if n[0]] + 
+                             [c[0] for c in coaches if c[0]] + 
+                             [p[0] for p in psicologi if p[0]]))
+    
+    # Prepara dati per i grafici iniziali
+    chart_data = {
+        'stati_cliente': _get_stati_distribution(),
+        'tipologia': _get_tipologia_distribution(),
+        'team': _get_team_distribution(),
+        'pagamento': _get_pagamento_distribution(),
+        'check_saltati': _get_check_saltati_distribution()
+    }
+    
+    return render_template(
+        "customers/dashboard_360.html",
+        kpi=kpi,
+        health=health_data,
+        wellness=health_data.get('wellness', {}),
+        temporal=temporal_data,
+        segments=segments_data,
+        chart_data=chart_data,
+        professionisti=professionisti
+    )
+
+@customers_bp.route("/dashboard/data", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def dashboard_data():
+    """API endpoint per aggiornare i dati della dashboard con filtri."""
+    filters = request.json
+    
+    # Applica filtri e ricalcola KPI
+    kpi = calculate_dashboard_kpis(filters)
+    
+    # Ricalcola grafici con filtri
+    charts = {
+        'stati_cliente': _get_stati_distribution(filters),
+        'tipologia': _get_tipologia_distribution(filters),
+        'wellness_trend': _get_wellness_trend(filters)
+    }
+    
+    return jsonify({
+        'kpi': kpi,
+        'charts': charts
+    })
+
+# --------------------------------------------------------------------------- #
+#  LISTA / FILTRI                                                             #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def list_view() -> str:
+    """Lista clienti con filtri e paginazione."""
+    from corposostenibile.models import User, Department
+
+    form = CustomerFilterForm(request.args, meta={"csrf": False})
+
+    # Popola i dropdown dei professionisti con UNA SOLA QUERY
+    dept_names = ['Nutrizione', 'Nutrizione 2', 'Coach', 'Psicologia',
+                  'Consulenti Sales 1', 'Consulenti Sales 2']
+
+    users_with_dept = (
+        db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'), Department.id.label('dept_id'))
+        .join(Department, User.department_id == Department.id)
+        .filter(Department.name.in_(dept_names) | (Department.id == 13))
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+
+    # Raggruppa per dipartimento
+    nutrizionisti = []
+    coaches = []
+    psicologi = []
+    consulenti = []
+    health_managers = []
+
+    for u_id, first_name, last_name, email, dept_name, dept_id in users_with_dept:
+        full_name = f"{first_name} {last_name}".strip()
+        choice = (str(u_id), full_name or email)
+        if dept_name in ['Nutrizione', 'Nutrizione 2']:
+            nutrizionisti.append(choice)
+        elif dept_name == 'Coach':
+            coaches.append(choice)
+        elif dept_name == 'Psicologia':
+            psicologi.append(choice)
+        elif dept_name in ['Consulenti Sales 1', 'Consulenti Sales 2']:
+            consulenti.append(choice)
+        if dept_id == 13:  # Health Managers
+            health_managers.append(choice)
+
+    form.nutrizionista_id.choices = [("", "Tutti i nutrizionisti")] + nutrizionisti
+    form.coach_id.choices = [("", "Tutti i coach")] + coaches
+    form.psicologa_id.choices = [("", "Tutti gli psicologi")] + psicologi
+    form.consulente_alimentare_id.choices = [("", "Tutti i consulenti")] + consulenti
+    form.health_manager_id.choices = [("", "Tutti gli health manager")] + health_managers
+
+    params = parse_filter_args(request.args)
+
+    pagination = customers_repo.list(
+        filters=params,
+        order_by=request.args.get("order_by", "nome_cognome"),
+        page=request.args.get("page", 1, type=int),
+        per_page=100,
+        eager=True,
+    )
+
+    # Calcola statistiche per professionista se filtrato
+    professional_stats = None
+    if params.nutrizionista_id or params.coach_id or params.psicologa_id or params.consulente_alimentare_id or params.health_manager_id:
+        from corposostenibile.models import TipologiaClienteEnum
+        from sqlalchemy import text
+        
+        # Determina quale professionista è filtrato
+        prof_type = None
+        prof_id = None
+        prof_name = None
+        prof_avatar = None
+        query = None
+        
+        if params.nutrizionista_id:
+            prof_type = 'nutrizionista'
+            prof_id = params.nutrizionista_id
+            # Trova il nome e avatar del nutrizionista
+            user = db.session.query(User).filter_by(id=prof_id).first()
+            prof_name = user.full_name if user else "Nutrizionista"
+            prof_avatar = user.avatar_url if user else None
+            
+            # Query per contare clienti per tipologia
+            query = text("""
+                SELECT c.tipologia_cliente, COUNT(*) as count
+                FROM clienti c
+                JOIN cliente_nutrizionisti cn ON c.cliente_id = cn.cliente_id
+                WHERE cn.user_id = :user_id
+                GROUP BY c.tipologia_cliente
+            """).bindparams(user_id=prof_id)
+            
+        elif params.coach_id:
+            prof_type = 'coach'
+            prof_id = params.coach_id
+            user = db.session.query(User).filter_by(id=prof_id).first()
+            prof_name = user.full_name if user else "Coach"
+            prof_avatar = user.avatar_url if user else None
+            
+            query = text("""
+                SELECT c.tipologia_cliente, COUNT(*) as count
+                FROM clienti c
+                JOIN cliente_coaches cc ON c.cliente_id = cc.cliente_id
+                WHERE cc.user_id = :user_id
+                GROUP BY c.tipologia_cliente
+            """).bindparams(user_id=prof_id)
+            
+        elif params.psicologa_id:
+            prof_type = 'psicologa'
+            prof_id = params.psicologa_id
+            user = db.session.query(User).filter_by(id=prof_id).first()
+            prof_name = user.full_name if user else "Psicologa"
+            prof_avatar = user.avatar_url if user else None
+            
+            query = text("""
+                SELECT c.tipologia_cliente, COUNT(*) as count
+                FROM clienti c
+                JOIN cliente_psicologi cp ON c.cliente_id = cp.cliente_id
+                WHERE cp.user_id = :user_id
+                GROUP BY c.tipologia_cliente
+            """).bindparams(user_id=prof_id)
+            
+        elif params.consulente_alimentare_id:
+            prof_type = 'consulente'
+            prof_id = params.consulente_alimentare_id
+            user = db.session.query(User).filter_by(id=prof_id).first()
+            prof_name = user.full_name if user else "Consulente"
+            prof_avatar = user.avatar_url if user else None
+
+            query = text("""
+                SELECT c.tipologia_cliente, COUNT(*) as count
+                FROM clienti c
+                JOIN cliente_consulenti_alimentari cca ON c.cliente_id = cca.cliente_id
+                WHERE cca.user_id = :user_id
+                GROUP BY c.tipologia_cliente
+            """).bindparams(user_id=prof_id)
+
+        elif params.health_manager_id:
+            prof_type = 'health_manager'
+            prof_id = params.health_manager_id
+            user = db.session.query(User).filter_by(id=prof_id).first()
+            prof_name = user.full_name if user else "Health Manager"
+            prof_avatar = user.avatar_url if user else None
+
+            query = text("""
+                SELECT c.tipologia_cliente, COUNT(*) as count
+                FROM clienti c
+                WHERE c.health_manager_id = :user_id
+                GROUP BY c.tipologia_cliente
+            """).bindparams(user_id=prof_id)
+
+        if query is not None:
+            results = db.session.execute(query).fetchall()
+            
+            # Prepara le statistiche raggruppando per tipologia
+            from collections import defaultdict
+            stats_by_type = defaultdict(int)
+            total = 0
+            
+            for row in results:
+                # La tipologia è salvata come stringa minuscola nel DB
+                tipo = row[0]
+                count = row[1]
+                
+                if tipo:
+                    # Normalizza: minuscolo -> maiuscolo per A, B, C
+                    tipo_lower = str(tipo).lower()
+                    if tipo_lower in ['a', 'b', 'c']:
+                        tipo_str = tipo_lower.upper()
+                    elif tipo_lower == 'pausa_gt_30':
+                        tipo_str = 'Pausa >30gg'
+                    elif tipo_lower == 'recupero':
+                        tipo_str = 'Recupero'
+                    elif tipo_lower == 'stop':
+                        tipo_str = 'Stop'
+                    else:
+                        tipo_str = tipo_lower.title()  # Capitalizza altri valori
+                else:
+                    tipo_str = 'Non specificato'
+                
+                stats_by_type[tipo_str] += count
+                total += count
+            
+            professional_stats = {
+                'type': prof_type,
+                'name': prof_name,
+                'avatar': prof_avatar,
+                'total': total,
+                'by_tipologia': dict(stats_by_type)  # Converti defaultdict in dict normale
+            }
+    
+    return render_template(
+        "customers/list.html",
+        pagination=pagination,
+        form=form,
+        filters_applied=bool(params),
+        professional_stats=professional_stats,
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  VISUALE NUTRIZIONISTA                                                      #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/visuale-nutrizionista", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def list_nutrizionista() -> str:
+    """Lista clienti ottimizzata per nutrizionisti.
+
+    Visibile solo a: admin, CCO, nutrizionisti (dipartimento Nutrizione/Nutrizione 2)
+
+    Logica permessi:
+    - Admin/CCO: vedono tutti i clienti, possono filtrare per tutti i nutrizionisti
+    - Head dipartimento Nutrizione: vedono tutti i clienti, possono filtrare per tutti i nutrizionisti
+    - Team leader: vedono solo clienti dei membri del proprio team, filtrano per membri del team
+    - Nutrizionista normale: vede solo i propri clienti
+    """
+    from corposostenibile.models import User, Department, Team
+
+    # Verifica accesso: admin, CCO o nutrizionista
+    is_admin = current_user.is_admin
+
+    # Controlla dipartimento
+    is_cco = False
+    is_nutrizionista = False
+    is_department_head = False
+    is_team_leader = False
+    team_member_ids = []
+
+    if current_user.department:
+        is_cco = current_user.department.name == 'CCO'
+        is_nutrizionista = current_user.department.name in ['Nutrizione', 'Nutrizione 2']
+
+        # Verifica se è head del dipartimento Nutrizione
+        if is_nutrizionista and current_user.department.head_id == current_user.id:
+            is_department_head = True
+
+        # Verifica se è team leader (head di un team nel dipartimento Nutrizione)
+        if is_nutrizionista and not is_department_head:
+            # Cerca se l'utente è head di un team
+            user_team = Team.query.filter_by(head_id=current_user.id).first()
+            if user_team:
+                is_team_leader = True
+                # Recupera tutti gli ID dei membri del team (incluso il team leader stesso)
+                team_member_ids = [m.id for m in user_team.members]
+                if current_user.id not in team_member_ids:
+                    team_member_ids.append(current_user.id)
+
+    if not (is_admin or is_cco or is_nutrizionista):
+        flash("Non hai i permessi per accedere a questa vista.", "danger")
+        return redirect(url_for("customers.list_view"))
+
+    # Form filtri (riutilizziamo lo stesso)
+    form = CustomerFilterForm(request.args, meta={"csrf": False})
+
+    # Popola dropdown nutrizionisti in base ai permessi
+    dept_names = ['Nutrizione', 'Nutrizione 2']
+
+    if is_team_leader and not is_admin and not is_cco and not is_department_head:
+        # Team leader: mostra solo membri del proprio team
+        users_with_dept = (
+            db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'))
+            .join(Department, User.department_id == Department.id)
+            .filter(User.id.in_(team_member_ids))
+            .order_by(User.first_name, User.last_name)
+            .all()
+        )
+    else:
+        # Admin, CCO, head dipartimento: mostra tutti i nutrizionisti
+        users_with_dept = (
+            db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'))
+            .join(Department, User.department_id == Department.id)
+            .filter(Department.name.in_(dept_names))
+            .order_by(User.first_name, User.last_name)
+            .all()
+        )
+
+    nutrizionisti = []
+    for u_id, first_name, last_name, email, dept_name in users_with_dept:
+        full_name = f"{first_name} {last_name}".strip()
+        nutrizionisti.append((str(u_id), full_name or email))
+
+    form.nutrizionista_id.choices = [("", "Tutti i nutrizionisti")] + nutrizionisti
+
+    params = parse_filter_args(request.args)
+
+    # Filtra solo clienti con nutrizionista assegnato
+    params = replace(params, has_nutrizionista=True)
+
+    # Applica filtri in base al ruolo
+    if is_nutrizionista and not is_admin and not is_cco and not is_department_head:
+        if is_team_leader:
+            # Team leader: filtra per i membri del team
+            params = replace(params, nutrizionista_ids=team_member_ids)
+        else:
+            # Nutrizionista normale: filtra solo i propri clienti
+            params = replace(params, nutrizionista_id=current_user.id)
+
+    pagination = customers_repo.list(
+        filters=params,
+        order_by=request.args.get("order_by", "nome_cognome"),
+        page=request.args.get("page", 1, type=int),
+        per_page=100,
+        eager=True,
+    )
+
+    # Calcola KPI per la visuale nutrizionista
+    from corposostenibile.blueprints.customers.filters import apply_customer_filters
+    from corposostenibile.models import StatoClienteEnum
+
+    base_query = apply_customer_filters(db.session.query(Cliente), params)
+
+    kpi = {
+        'stato_attivo': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.attivo).count(),
+        'stato_ghost': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.ghost).count(),
+        'stato_pausa': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.pausa).count(),
+        'stato_stop': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.stop).count(),
+        'chat_attivo': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.attivo).count(),
+        'chat_ghost': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.ghost).count(),
+        'chat_pausa': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.pausa).count(),
+        'chat_stop': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.stop).count(),
+    }
+
+    return render_template(
+        "customers/list_nutrizionista.html",
+        pagination=pagination,
+        form=form,
+        filters_applied=bool(params),
+        is_admin=is_admin,
+        is_cco=is_cco,
+        is_department_head=is_department_head,
+        is_team_leader=is_team_leader,
+        kpi=kpi,
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  VISUALE COACH                                                               #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/visuale-coach", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def list_coach() -> str:
+    """Lista clienti ottimizzata per coach.
+
+    Visibile solo a: admin, CCO, coach (dipartimento Coach)
+    Head del dipartimento Coach può filtrare per tutti i coach.
+    """
+    from corposostenibile.models import User, Department
+
+    # Verifica accesso: admin, CCO o coach
+    is_admin = current_user.is_admin
+
+    # Controlla dipartimento
+    is_cco = False
+    is_coach = False
+    is_department_head = False
+    if current_user.department:
+        is_cco = current_user.department.name == 'CCO'
+        is_coach = current_user.department.name == 'Coach'
+        # Verifica se è head del dipartimento Coach
+        if is_coach and current_user.department.head_id == current_user.id:
+            is_department_head = True
+
+    if not (is_admin or is_cco or is_coach):
+        flash("Non hai i permessi per accedere a questa vista.", "danger")
+        return redirect(url_for("customers.list_view"))
+
+    # Form filtri (riutilizziamo lo stesso)
+    form = CustomerFilterForm(request.args, meta={"csrf": False})
+
+    # Popola dropdown coach
+    dept_names = ['Coach']
+    users_with_dept = (
+        db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'))
+        .join(Department, User.department_id == Department.id)
+        .filter(Department.name.in_(dept_names))
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+
+    coaches = []
+    for u_id, first_name, last_name, email, dept_name in users_with_dept:
+        full_name = f"{first_name} {last_name}".strip()
+        coaches.append((str(u_id), full_name or email))
+
+    form.coach_id.choices = [("", "Tutti i coach")] + coaches
+
+    params = parse_filter_args(request.args)
+
+    # Filtra solo clienti con coach assegnato
+    params = replace(params, has_coach=True)
+
+    # Se coach non admin/CCO/head dipartimento, filtra solo i suoi clienti
+    if is_coach and not is_admin and not is_cco and not is_department_head:
+        params = replace(params, coach_id=current_user.id)
+
+    pagination = customers_repo.list(
+        filters=params,
+        order_by=request.args.get("order_by", "nome_cognome"),
+        page=request.args.get("page", 1, type=int),
+        per_page=100,
+        eager=True,
+    )
+
+    # Calcola KPI per la visuale coach
+    from corposostenibile.blueprints.customers.filters import apply_customer_filters
+    from corposostenibile.models import StatoClienteEnum
+
+    base_query = apply_customer_filters(db.session.query(Cliente), params)
+
+    kpi = {
+        'stato_attivo': base_query.filter(Cliente.stato_coach == StatoClienteEnum.attivo).count(),
+        'stato_ghost': base_query.filter(Cliente.stato_coach == StatoClienteEnum.ghost).count(),
+        'stato_pausa': base_query.filter(Cliente.stato_coach == StatoClienteEnum.pausa).count(),
+        'stato_stop': base_query.filter(Cliente.stato_coach == StatoClienteEnum.stop).count(),
+        'chat_attivo': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.attivo).count(),
+        'chat_ghost': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.ghost).count(),
+        'chat_pausa': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.pausa).count(),
+        'chat_stop': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.stop).count(),
+    }
+
+    return render_template(
+        "customers/list_coach.html",
+        pagination=pagination,
+        form=form,
+        filters_applied=bool(params),
+        is_admin=is_admin,
+        is_cco=is_cco,
+        is_department_head=is_department_head,
+        kpi=kpi,
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  VISUALE PSICOLOGIA                                                         #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/visuale-psicologia", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def list_psicologo() -> str:
+    """Lista clienti ottimizzata per psicologi.
+
+    Visibile solo a: admin, CCO, psicologi (dipartimento Psicologia)
+    Head del dipartimento Psicologia può filtrare per tutti gli psicologi.
+    """
+    from corposostenibile.models import User, Department
+
+    is_admin = current_user.is_admin
+
+    is_cco = False
+    is_psicologo = False
+    is_department_head = False
+    if current_user.department:
+        is_cco = current_user.department.name == 'CCO'
+        is_psicologo = current_user.department.name == 'Psicologia'
+        # Verifica se è head del dipartimento Psicologia
+        if is_psicologo and current_user.department.head_id == current_user.id:
+            is_department_head = True
+
+    if not (is_admin or is_cco or is_psicologo):
+        flash("Non hai i permessi per accedere a questa vista.", "danger")
+        return redirect(url_for("customers.list_view"))
+
+    form = CustomerFilterForm(request.args, meta={"csrf": False})
+
+    dept_names = ['Psicologia']
+    users_with_dept = (
+        db.session.query(User.id, User.first_name, User.last_name, User.email)
+        .join(Department, User.department_id == Department.id)
+        .filter(Department.name.in_(dept_names))
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+
+    psicologi = []
+    for u_id, first_name, last_name, email in users_with_dept:
+        full_name = f"{first_name} {last_name}".strip()
+        psicologi.append((str(u_id), full_name or email))
+
+    form.psicologa_id.choices = [("", "Tutti gli psicologi")] + psicologi
+
+    params = parse_filter_args(request.args)
+
+    # Filtra solo clienti con psicologo assegnato
+    params = replace(params, has_psicologo=True)
+
+    # Se psicologo non admin/CCO/head dipartimento, filtra solo i suoi clienti
+    if is_psicologo and not is_admin and not is_cco and not is_department_head:
+        params = replace(params, psicologa_id=current_user.id)
+
+    pagination = customers_repo.list(
+        filters=params,
+        order_by=request.args.get("order_by", "nome_cognome"),
+        page=request.args.get("page", 1, type=int),
+        per_page=100,
+        eager=True,
+    )
+
+    # Calcola KPI per la visuale psicologia
+    from corposostenibile.blueprints.customers.filters import apply_customer_filters
+    from corposostenibile.models import StatoClienteEnum
+
+    base_query = apply_customer_filters(db.session.query(Cliente), params)
+
+    kpi = {
+        'stato_attivo': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.attivo).count(),
+        'stato_ghost': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.ghost).count(),
+        'stato_pausa': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.pausa).count(),
+        'stato_stop': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.stop).count(),
+        'chat_attivo': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.attivo).count(),
+        'chat_ghost': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.ghost).count(),
+        'chat_pausa': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.pausa).count(),
+        'chat_stop': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.stop).count(),
+    }
+
+    return render_template(
+        "customers/list_psicologo.html",
+        pagination=pagination,
+        form=form,
+        filters_applied=bool(params),
+        is_admin=is_admin,
+        is_cco=is_cco,
+        is_department_head=is_department_head,
+        kpi=kpi,
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  VISUALE FINANCE                                                            #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/visuale-finance", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def list_finance() -> str:
+    """Lista pagamenti clienti per il team Finance.
+
+    Mostra tutti i clienti con i loro pagamenti in ordine alfabetico.
+    Clienti con più pagamenti mostrano i pagamenti successivi come sub-righe.
+    Paginazione: 100 clienti per pagina.
+    """
+    from corposostenibile.models import PagamentoInterno, Cliente
+    from sqlalchemy import func
+    import math
+
+    # Paginazione
+    page = request.args.get('page', 1, type=int)
+    per_page = 100
+
+    # Filtri
+    q = request.args.get('q', '').strip()
+    tipologia = request.args.get('tipologia', '')
+    metodo = request.args.get('metodo_pagamento', '')
+    data_inizio = request.args.get('data_inizio', '')
+    data_fine = request.args.get('data_fine', '')
+
+    # Query base: tutti i pagamenti con join cliente
+    query = db.session.query(PagamentoInterno, Cliente).join(
+        Cliente, PagamentoInterno.cliente_id == Cliente.cliente_id
+    ).order_by(
+        Cliente.nome_cognome.asc(),
+        PagamentoInterno.data_pagamento.desc()
+    )
+
+    # Applica filtri
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f'%{q}%'))
+    if tipologia:
+        query = query.filter(PagamentoInterno.servizio_acquistato.ilike(f'{tipologia}%'))
+    if metodo:
+        query = query.filter(PagamentoInterno.metodo_pagamento == metodo)
+    if data_inizio:
+        try:
+            from datetime import datetime
+            dt_inizio = datetime.strptime(data_inizio, '%Y-%m-%d').date()
+            query = query.filter(PagamentoInterno.data_pagamento >= dt_inizio)
+        except ValueError:
+            pass
+    if data_fine:
+        try:
+            from datetime import datetime
+            dt_fine = datetime.strptime(data_fine, '%Y-%m-%d').date()
+            query = query.filter(PagamentoInterno.data_pagamento <= dt_fine)
+        except ValueError:
+            pass
+
+    # Esegui query
+    risultati = query.all()
+
+    # Raggruppa per cliente
+    clienti_pagamenti = {}
+    for pagamento, cliente in risultati:
+        cliente_id = cliente.cliente_id
+        if cliente_id not in clienti_pagamenti:
+            clienti_pagamenti[cliente_id] = {
+                'cliente': cliente,
+                'pagamenti': []
+            }
+        clienti_pagamenti[cliente_id]['pagamenti'].append(pagamento)
+
+    # Ordina per nome cliente
+    clienti_list_all = sorted(
+        clienti_pagamenti.values(),
+        key=lambda x: x['cliente'].nome_cognome.lower() if x['cliente'].nome_cognome else ''
+    )
+
+    # KPI (calcolati su tutti i risultati, non paginati)
+    totale_pagamenti = len(risultati)
+    totale_clienti = len(clienti_pagamenti)
+    totale_importo = sum(p.importo or 0 for p, c in risultati)
+
+    # Conta per tipologia
+    kpi_tipologie = {
+        'deposito_iniziale': 0,
+        'saldo_acconto': 0,
+        'rinnovo': 0,
+        'live_trainings': 0,
+        'altro': 0,
+    }
+    for p, c in risultati:
+        servizio = (p.servizio_acquistato or '').lower()
+        if servizio.startswith('deposito iniziale'):
+            kpi_tipologie['deposito_iniziale'] += 1
+        elif servizio.startswith('saldo acconto'):
+            kpi_tipologie['saldo_acconto'] += 1
+        elif servizio.startswith('rinnovo'):
+            kpi_tipologie['rinnovo'] += 1
+        elif servizio.startswith('live training'):
+            kpi_tipologie['live_trainings'] += 1
+        else:
+            kpi_tipologie['altro'] += 1
+
+    # Paginazione manuale sui clienti
+    total_pages = math.ceil(len(clienti_list_all) / per_page) if clienti_list_all else 1
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    clienti_list = clienti_list_all[start_idx:end_idx]
+
+    # Oggetto paginazione
+    pagination = {
+        'page': page,
+        'per_page': per_page,
+        'total': totale_clienti,
+        'pages': total_pages,
+        'has_prev': page > 1,
+        'has_next': page < total_pages,
+        'prev_num': page - 1 if page > 1 else None,
+        'next_num': page + 1 if page < total_pages else None,
+    }
+
+    # Carica packages per il modal di aggiunta pagamento
+    packages = Package.query.order_by(Package.name).all()
+
+    return render_template(
+        "customers/list_finance.html",
+        clienti_list=clienti_list,
+        totale_pagamenti=totale_pagamenti,
+        totale_clienti=totale_clienti,
+        totale_importo=totale_importo,
+        kpi_tipologie=kpi_tipologie,
+        pagination=pagination,
+        packages=packages,
+        today=date.today(),
+        filters={
+            'q': q,
+            'tipologia': tipologia,
+            'metodo_pagamento': metodo,
+            'data_inizio': data_inizio,
+            'data_fine': data_fine,
+        }
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  CREATE                                                                     #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/new", methods=["GET", "POST"])
+@permission_required(CustomerPerm.CREATE)
+def create_view() -> str:
+    """Crea un nuovo cliente - solo con nome_cognome."""
+    form = ClienteCreateForm()
+    if form.validate_on_submit():
+        try:
+            # Crea il cliente con solo il nome_cognome
+            cliente_data = {
+                'nome_cognome': form.nome_cognome.data.strip()
+            }
+            cliente = create_cliente(cliente_data, current_user)
+            db.session.commit()
+        except SQLAlchemyError:  # pragma: no cover
+            db.session.rollback()
+            logger.exception("Errore creazione cliente")
+            flash("Errore durante il salvataggio. Riprova.", "danger")
+        else:
+            flash("Cliente creato con successo! Ora puoi completare i suoi dati.", "success")
+            return redirect(url_for("customers.detail_view", cliente_id=cliente.cliente_id))
+    return render_template("customers/create_simple.html", form=form)
+
+# --------------------------------------------------------------------------- #
+#  DETAIL                                                                     #
+# --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+#  DETAIL                                                                     #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def detail_view(cliente_id: int) -> str:
+    """Pagina di dettaglio completo del cliente."""
+
+    # Verifica accesso per trial users
+    if current_user.is_authenticated and current_user.is_trial:
+        if current_user.trial_stage < 2:
+            # Stage 1: nessun accesso ai clienti
+            abort(403)
+        elif current_user.trial_stage == 2:
+            # Stage 2: verifica che il cliente sia assegnato
+            assigned_ids = [c.cliente_id for c in current_user.trial_assigned_clients]
+            if cliente_id not in assigned_ids:
+                flash('Non hai accesso a questo cliente', 'warning')
+                return redirect(url_for('customers.list_view'))
+
+    cliente: Cliente = (
+        db.session.query(Cliente)
+        .filter_by(cliente_id=cliente_id)
+        .options(
+            # Relazioni User per professionisti (usate nel template header)
+            selectinload(Cliente.health_manager_user),
+            selectinload(Cliente.nutrizionista_user),
+            selectinload(Cliente.coach_user),
+            selectinload(Cliente.psicologa_user),
+            selectinload(Cliente.frozen_by_user),
+            # Relazioni many-to-many professionisti (già selectin nel model, ma esplicitiamo)
+            selectinload(Cliente.nutrizionisti_multipli),
+            selectinload(Cliente.coaches_multipli),
+            selectinload(Cliente.psicologi_multipli),
+        )
+        .one_or_404()
+    )
+    g.cliente = cliente
+    # NOTA: tasks, tickets, cartelle, versions non sono usati nel template - non caricarli
+    # NOTA: weekly_checks, dca_checks, typeform_responses, call_bonus_history sono lazy=dynamic
+    #       e vengono caricati solo se usati - OK per ora
+
+    # Determina le visibilità per il tab Check
+    from corposostenibile.blueprints.feedback.helpers import is_in_department, is_department_head
+    
+    can_see_check_tab = True  # Visibile a tutti gli utenti
+    can_see_nutrition_ratings = False
+    can_see_psychology_ratings = False
+    can_see_coach_ratings = False
+    
+    if current_user.is_admin:
+        # can_see_check_tab già True per tutti
+        can_see_nutrition_ratings = True
+        can_see_psychology_ratings = True
+        can_see_coach_ratings = True
+    else:
+        # Check if user is in relevant departments
+        is_nutrition = is_in_department(['nutrizion'])
+        is_psychology = is_in_department(['psicolog'])
+        is_coach = is_in_department(['coach', 'sport'])
+        
+        is_nutrition_head = is_department_head(['nutrizion'])
+        is_psychology_head = is_department_head(['psicolog'])
+        is_coach_head = is_department_head(['coach', 'sport'])
+        
+        # Check if user is assigned to this specific client
+        is_assigned_to_client = False
+        
+        if is_nutrition and cliente.nutrizionisti_multipli:
+            if any(n.id == current_user.id for n in cliente.nutrizionisti_multipli):
+                is_assigned_to_client = True
+                can_see_nutrition_ratings = True
+        
+        if is_psychology and cliente.psicologi_multipli:
+            if any(p.id == current_user.id for p in cliente.psicologi_multipli):
+                is_assigned_to_client = True
+                can_see_psychology_ratings = True
+        
+        if is_coach and cliente.coaches_multipli:
+            if any(c.id == current_user.id for c in cliente.coaches_multipli):
+                is_assigned_to_client = True
+                can_see_coach_ratings = True
+        
+        # Tab is visible only if:
+        # 1. User is department head (sees all clients in their department)
+        # 2. User is assigned to this specific client
+        if is_nutrition_head or is_psychology_head or is_coach_head:
+            # can_see_check_tab già True per tutti
+            # Department heads see all ratings for their department
+            if is_nutrition_head:
+                can_see_nutrition_ratings = True
+            if is_psychology_head:
+                can_see_psychology_ratings = True
+            if is_coach_head:
+                can_see_coach_ratings = True
+        elif is_assigned_to_client:
+            # Regular members see tab only if assigned to client
+            # can_see_check_tab già True per tutti
+            # Visibility for ratings is already set above based on assignment
+            pass
+
+    # Ottieni gli user per dipartimento per i dropdown con UNA SOLA QUERY
+    from corposostenibile.models import User, Department, TypeFormResponse, Allegato
+
+    # Importa modelli per client checks
+    from corposostenibile.models import (
+        ClientCheckAssignment,
+        ClientCheckResponse,
+        CheckForm,
+        CheckFormTypeEnum
+    )
+
+    # Query unica per tutti i professionisti
+    dept_names = ['Nutrizione', 'Nutrizione 2', 'Coach', 'Psicologia',
+                  'Consulenti Sales 1', 'Consulenti Sales 2']
+
+    users_with_dept = (
+        db.session.query(User, Department.name.label('dept_name'), Department.id.label('dept_id'))
+        .join(Department, User.department_id == Department.id)
+        .filter(Department.name.in_(dept_names) | (Department.id == 13))
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+
+    # Raggruppa per dipartimento
+    nutrizionisti = []
+    coaches = []
+    psicologi = []
+    consulenti = []
+    health_managers = []
+
+    for user, dept_name, dept_id in users_with_dept:
+        if dept_name in ['Nutrizione', 'Nutrizione 2']:
+            nutrizionisti.append(user)
+        elif dept_name == 'Coach':
+            coaches.append(user)
+        elif dept_name == 'Psicologia':
+            psicologi.append(user)
+        elif dept_name in ['Consulenti Sales 1', 'Consulenti Sales 2']:
+            consulenti.append(user)
+        if dept_id == 13:  # Health Managers
+            health_managers.append(user)
+
+    # Serializza utenti per JavaScript (per dropdown professionisti)
+    nutrizionisti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in nutrizionisti]
+    coaches_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in coaches]
+    psicologi_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in psicologi]
+    consulenti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in consulenti]
+    health_managers_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in health_managers]
+
+    # Gestione immagine profilo: cerca nell'ultimo feedback TypeForm
+    profile_image = None
+    latest_response = db.session.query(TypeFormResponse.photo_front).filter_by(
+        cliente_id=cliente_id
+    ).filter(TypeFormResponse.photo_front.isnot(None)).order_by(
+        TypeFormResponse.submit_date.desc()
+    ).first()
+
+    if latest_response:
+        profile_image = latest_response[0]
+
+    # Form disponibili per nuovi check (UNA query invece di 2)
+    from corposostenibile.models import CheckForm, ClienteSubscription
+    all_check_forms = db.session.query(CheckForm).filter_by(is_active=True).order_by(CheckForm.name).all()
+    available_initial_forms = [f for f in all_check_forms if f.form_type == CheckFormTypeEnum.iniziale]
+    available_weekly_forms = [f for f in all_check_forms if f.form_type == CheckFormTypeEnum.settimanale]
+
+    # Pacchetti disponibili per tab Pagamenti
+    packages = db.session.query(Package).order_by(Package.name).all()
+
+    # Pacchetto attuale del cliente (da ultima subscription attiva)
+    pacchetto_attuale = None
+    subscription_attuale = db.session.query(ClienteSubscription).filter(
+        ClienteSubscription.cliente_id == cliente_id,
+        ClienteSubscription.status == 'active'
+    ).order_by(ClienteSubscription.created_at.desc()).first()
+
+    if subscription_attuale and subscription_attuale.package:
+        pacchetto_attuale = subscription_attuale.package
+
+    # =========================================================================
+    # CHECK INIZIALI (1, 2, 3) dalla Lead originale (se cliente convertito)
+    # =========================================================================
+    original_lead = cliente.original_lead  # backref da SalesLead.converted_to_client
+    lead_check_fields_ordered = {}
+
+    lead_check_links = {}
+    lead_check_urls = {}
+
+    if original_lead:
+        # Recupera configurazioni form per mostrare le domande in ordine
+        from corposostenibile.models import SalesFormConfig, SalesFormLink
+
+        # Recupera i link dei check per ottenere i config_id
+        check_links = {
+            'check1': SalesFormLink.query.filter_by(lead_id=original_lead.id, check_number=1).first(),
+            'check2': SalesFormLink.query.filter_by(lead_id=original_lead.id, check_number=2).first(),
+            'check3': SalesFormLink.query.filter_by(lead_id=original_lead.id, check_number=3).first()
+        }
+
+        for check_key, link in check_links.items():
+            if link and link.config_id:
+                config = SalesFormConfig.query.get(link.config_id)
+                if config and config.fields:
+                    lead_check_fields_ordered[check_key] = sorted(config.fields, key=lambda f: f.position)
+                else:
+                    lead_check_fields_ordered[check_key] = []
+            else:
+                # Fallback: prova a caricare config con ID = check_number
+                check_num = int(check_key[-1])
+                config = SalesFormConfig.query.get(check_num)
+                if config and config.fields:
+                    lead_check_fields_ordered[check_key] = sorted(config.fields, key=lambda f: f.position)
+                else:
+                    lead_check_fields_ordered[check_key] = []
+
+        # Salva i link e genera gli URL completi
+        lead_check_links = check_links
+        for check_key, link in check_links.items():
+            if link:
+                lead_check_urls[check_key] = url_for('welcome_form', unique_code=link.unique_code, _external=True)
+            else:
+                lead_check_urls[check_key] = None
+
+    return render_template(
+        "customers/detail_editable.html",
+        cliente=cliente,
+        nutrizionisti=nutrizionisti,
+        coaches=coaches,
+        psicologi=psicologi,
+        consulenti=consulenti,
+        health_managers=health_managers,
+        nutrizionisti_json=nutrizionisti_json,
+        coaches_json=coaches_json,
+        psicologi_json=psicologi_json,
+        consulenti_json=consulenti_json,
+        health_managers_json=health_managers_json,
+        profile_image=profile_image,
+        can_see_check_tab=can_see_check_tab,
+        can_see_nutrition_ratings=can_see_nutrition_ratings,
+        can_see_psychology_ratings=can_see_psychology_ratings,
+        can_see_coach_ratings=can_see_coach_ratings,
+        available_initial_forms=available_initial_forms,
+        available_weekly_forms=available_weekly_forms,
+        today=date.today(),
+        packages=packages,
+        pacchetto_attuale=pacchetto_attuale,
+        subscription_attuale=subscription_attuale,
+        # Check iniziali dalla lead originale
+        original_lead=original_lead,
+        lead_check_fields_ordered=lead_check_fields_ordered,
+        lead_check_links=lead_check_links,
+        lead_check_urls=lead_check_urls,
+    )
+
+# --------------------------------------------------------------------------- #
+#  DETAIL TEST (Per testare modifiche senza impatto su produzione)           #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/detail_test", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def detail_test_view(cliente_id: int) -> str:
+    """Pagina di test per il dettaglio cliente - per sviluppo e test."""
+    
+    cliente: Cliente = (
+        db.session.query(Cliente)
+        .filter_by(cliente_id=cliente_id)
+        .options(
+            selectinload(Cliente.cartelle).selectinload(CartellaClinica.allegati),
+            selectinload(Cliente.tickets),
+        )
+        .one_or_404()
+    )
+    g.cliente = cliente
+
+    cartelle = list(cliente.cartelle)
+    tasks = cliente.tasks if hasattr(cliente, "tasks") else []
+    tickets = cliente.tickets if hasattr(cliente, "tickets") else []
+    versions = cliente.versions if hasattr(cliente, "versions") else []
+    
+    # Determina le visibilità per il tab Check
+    from corposostenibile.blueprints.feedback.helpers import is_in_department, is_department_head
+    
+    can_see_check_tab = True  # Visibile a tutti gli utenti
+    can_see_nutrition_ratings = False
+    can_see_psychology_ratings = False
+    can_see_coach_ratings = False
+    
+    if current_user.is_admin:
+        # can_see_check_tab già True per tutti
+        can_see_nutrition_ratings = True
+        can_see_psychology_ratings = True
+        can_see_coach_ratings = True
+    else:
+        # Check if user is in relevant departments
+        is_nutrition = is_in_department(['nutrizion'])
+        is_psychology = is_in_department(['psicolog'])
+        is_coach = is_in_department(['coach', 'sport'])
+        
+        is_nutrition_head = is_department_head(['nutrizion'])
+        is_psychology_head = is_department_head(['psicolog'])
+        is_coach_head = is_department_head(['coach', 'sport'])
+        
+        # Check if user is assigned to this specific client
+        is_assigned_to_client = False
+        
+        if is_nutrition and cliente.nutrizionisti_multipli:
+            if any(n.id == current_user.id for n in cliente.nutrizionisti_multipli):
+                is_assigned_to_client = True
+                can_see_nutrition_ratings = True
+        
+        if is_psychology and cliente.psicologi_multipli:
+            if any(p.id == current_user.id for p in cliente.psicologi_multipli):
+                is_assigned_to_client = True
+                can_see_psychology_ratings = True
+        
+        if is_coach and cliente.coaches_multipli:
+            if any(c.id == current_user.id for c in cliente.coaches_multipli):
+                is_assigned_to_client = True
+                can_see_coach_ratings = True
+        
+        # Tab is visible only if:
+        # 1. User is department head (sees all clients in their department)
+        # 2. User is assigned to this specific client
+        if is_nutrition_head or is_psychology_head or is_coach_head:
+            # can_see_check_tab già True per tutti
+            # Department heads see all ratings for their department
+            if is_nutrition_head:
+                can_see_nutrition_ratings = True
+            if is_psychology_head:
+                can_see_psychology_ratings = True
+            if is_coach_head:
+                can_see_coach_ratings = True
+        elif is_assigned_to_client:
+            # Regular members see tab only if assigned to client
+            # can_see_check_tab già True per tutti
+            # Visibility for ratings is already set above based on assignment
+            pass
+
+    # Ottieni gli user per dipartimento per i dropdown
+    from corposostenibile.models import User, Department, TypeFormResponse, Allegato
+
+    # Nutrizione (1 e 2)
+    nutrizionisti = []
+    for dept_name in ['Nutrizione', 'Nutrizione 2']:
+        dept = db.session.query(Department).filter_by(name=dept_name).first()
+        if dept:
+            nutrizionisti.extend(db.session.query(User).filter_by(department_id=dept.id).all())
+    nutrizionisti.sort(key=lambda u: u.full_name or '')
+
+    # Coach
+    dept_coach = db.session.query(Department).filter_by(name='Coach').first()
+    coaches = db.session.query(User).filter_by(department_id=dept_coach.id).all() if dept_coach else []
+    coaches.sort(key=lambda u: u.full_name or '')
+    
+    # Psicologia
+    dept_psico = db.session.query(Department).filter_by(name='Psicologia').first()
+    psicologi = db.session.query(User).filter_by(department_id=dept_psico.id).all() if dept_psico else []
+    psicologi.sort(key=lambda u: u.full_name or '')
+    
+    # Consulenti Sales (1 e 2)
+    consulenti = []
+    for dept_name in ['Consulenti Sales 1', 'Consulenti Sales 2']:
+        dept = db.session.query(Department).filter_by(name=dept_name).first()
+        if dept:
+            consulenti.extend(db.session.query(User).filter_by(department_id=dept.id).all())
+    consulenti.sort(key=lambda u: u.full_name or '')
+
+    # Health Managers (dipartimento ID 13)
+    health_managers = []
+    health_dept = db.session.query(Department).filter_by(id=13).first()
+    if health_dept:
+        health_managers = db.session.query(User).filter_by(department_id=13).all()
+        health_managers.sort(key=lambda u: u.full_name or '')
+
+    # Serializza utenti per JavaScript (per dropdown professionisti)
+    nutrizionisti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in nutrizionisti]
+    coaches_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in coaches]
+    psicologi_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in psicologi]
+    consulenti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in consulenti]
+    health_managers_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in health_managers]
+
+    # Gestione immagine profilo: priorità a TypeForm response, poi allegati
+    profile_image = None
+    
+    # 1. Prima cerca nell'ultimo feedback TypeForm
+    latest_response = db.session.query(TypeFormResponse).filter_by(
+        cliente_id=cliente_id
+    ).order_by(TypeFormResponse.submit_date.desc()).first()
+    
+    if latest_response and latest_response.photo_front:
+        profile_image = latest_response.photo_front
+    
+    # 2. Se non c'è feedback, cerca l'ultima immagine frontale negli allegati
+    if not profile_image:
+        # Cerca negli allegati delle cartelle cliniche con nome che contiene "front" o "frontale"
+        for cartella in cartelle:
+            for allegato in cartella.allegati:
+                if allegato.file_path and any(keyword in allegato.file_path.lower() 
+                                             for keyword in ['front', 'frontale', 'fronte', 'davanti']):
+                    # Assume che file_path sia un percorso relativo o URL
+                    profile_image = allegato.file_path
+                    break
+            if profile_image:
+                break
+    
+    # 3. Se ancora non trova nulla, prendi la prima immagine disponibile
+    if not profile_image:
+        for cartella in cartelle:
+            for allegato in cartella.allegati:
+                if allegato.file_type and 'image' in allegato.file_type.lower():
+                    profile_image = allegato.file_path
+                    break
+            if profile_image:
+                break
+
+    # ─────────────────────────── DATI CLIENT CHECKS ─────────────────────────── #
+    
+    # Ottieni tutte le assegnazioni di check per questo cliente
+    check_assignments = db.session.query(ClientCheckAssignment).filter_by(
+        cliente_id=cliente_id,
+        is_active=True
+    ).options(
+        selectinload(ClientCheckAssignment.form),
+        selectinload(ClientCheckAssignment.responses)
+    ).all()
+    
+    # Statistiche check
+    total_assignments = len(check_assignments)
+    completed_assignments = len([a for a in check_assignments if a.response_count > 0])
+    pending_assignments = total_assignments - completed_assignments
+    
+    # Check recenti (ultimi 5)
+    recent_responses = db.session.query(ClientCheckResponse).join(
+        ClientCheckAssignment
+    ).filter(
+        ClientCheckAssignment.cliente_id == cliente_id
+    ).order_by(
+        ClientCheckResponse.created_at.desc()
+    ).limit(5).all()
+    
+    # Form disponibili per nuove assegnazioni (separati per tipo)
+    from corposostenibile.models import CheckFormTypeEnum
+    available_initial_forms = db.session.query(CheckForm).filter_by(
+        is_active=True,
+        form_type=CheckFormTypeEnum.iniziale
+    ).order_by(CheckForm.name).all()
+
+    available_weekly_forms = db.session.query(CheckForm).filter_by(
+        is_active=True,
+        form_type=CheckFormTypeEnum.settimanale
+    ).order_by(CheckForm.name).all()
+
+    # USA IL TEMPLATE PRINCIPALE CON I TAB CHECK INTEGRATI
+    return render_template(
+        "customers/detail.html",
+        cliente=cliente,
+        cartelle=cartelle,
+        tasks=tasks,
+        tickets=tickets,
+        versions=versions,
+        nutrizionisti=nutrizionisti,
+        coaches=coaches,
+        psicologi=psicologi,
+        consulenti=consulenti,
+        profile_image=profile_image,
+        latest_response=latest_response,
+        can_see_check_tab=can_see_check_tab,
+        can_see_nutrition_ratings=can_see_nutrition_ratings,
+        can_see_psychology_ratings=can_see_psychology_ratings,
+        can_see_coach_ratings=can_see_coach_ratings,
+        # Check forms disponibili
+        check_assignments=check_assignments,
+        total_assignments=total_assignments,
+        completed_assignments=completed_assignments,
+        pending_assignments=pending_assignments,
+        recent_responses=recent_responses,
+        available_initial_forms=available_initial_forms,
+        available_weekly_forms=available_weekly_forms,
+        health_managers=health_managers,  # Aggiunto per completezza
+    )
+
+# --------------------------------------------------------------------------- #
+#  HISTORY                                                                    #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW_HISTORY)
+def history_view(cliente_id: int) -> str:
+    """Storico versioni (SQLAlchemy-Continuum)."""
+    limit = request.args.get("limit", 50, type=int)
+    versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
+
+    return render_template(
+        "customers/history.html",
+        cliente=g.cliente,   # type: ignore[arg-type]
+        versions=versions,
+        limit=limit,
+    )
+
+@customers_bp.route("/<int:cliente_id>/history/json", methods=["GET"])
+@permission_required(CustomerPerm.VIEW_HISTORY)
+def history_json(cliente_id: int):
+    """Restituisce lo storico versioni in formato JSON per AJAX."""
+    try:
+        # Start fresh session to avoid transaction issues
+        db.session.rollback()
+        
+        cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first()
+        if not cliente:
+            return jsonify({"error": "Cliente non trovato"}), HTTPStatus.NOT_FOUND
+        
+        # Import versioning classes and timezone
+        from sqlalchemy_continuum import version_class, transaction_class
+        import pytz
+        from sqlalchemy import text
+        from datetime import timedelta
+        
+        # Get version class and transaction class
+        ClienteVersion = version_class(Cliente)
+        Transaction = transaction_class(Cliente)
+        
+        # Query versions with transaction info
+        versions_query = db.session.query(ClienteVersion).filter(
+            ClienteVersion.cliente_id == cliente_id
+        ).order_by(ClienteVersion.transaction_id.desc()).limit(50).all()
+        
+        versions_data = []
+        
+        # Italy timezone (handles DST automatically)
+        italy_tz = pytz.timezone('Europe/Rome')
+        
+        for version in versions_query:
+            # Get transaction info using raw SQL to avoid user_id column issue
+            timestamp_str = 'Data non disponibile'
+            user_str = None
+            
+            try:
+                result = db.session.execute(
+                    text("SELECT issued_at FROM transaction WHERE id = :tx_id"),
+                    {"tx_id": version.transaction_id}
+                ).first()
+                
+                if result and result[0]:
+                    utc_time = pytz.utc.localize(result[0])
+                    italy_time = utc_time.astimezone(italy_tz)
+                    timestamp_str = italy_time.strftime('%d/%m/%Y %H:%M')
+                    
+                    # Try to get user from ActivityLog based on timestamp
+                    from corposostenibile.blueprints.customers.models.activity_log import ActivityLog
+                    from corposostenibile.models import User
+                    
+                    # Find ActivityLog entry near this timestamp for this cliente
+                    activity = db.session.query(ActivityLog).filter(
+                        ActivityLog.cliente_id == cliente_id,
+                        ActivityLog.ts >= result[0] - timedelta(seconds=5),
+                        ActivityLog.ts <= result[0] + timedelta(seconds=5)
+                    ).first()
+                    
+                    if activity and activity.user_id:
+                        user = db.session.query(User).filter_by(id=activity.user_id).first()
+                        if user:
+                            # Use full name if available, otherwise email
+                            if hasattr(user, 'full_name') and user.full_name:
+                                user_str = user.full_name
+                            else:
+                                user_str = user.email or f"User #{user.id}"
+                            
+            except Exception as e:
+                logger.debug(f"Error getting transaction timestamp: {e}")
+                db.session.rollback()  # Clear any error state
+            
+            # Build version info
+            version_info = {
+                'version_num': version.transaction_id,
+                'tx_id': version.transaction_id,
+                'timestamp': timestamp_str,
+                'user': user_str,
+                'changes': {},
+                'can_restore': current_user.is_authenticated
+            }
+            
+            # Get changeset safely
+            try:
+                if hasattr(version, 'changeset') and version.changeset:
+                    for field_name, (old_val, new_val) in version.changeset.items():
+                        # Skip system fields
+                        if field_name in ['cliente_id', 'created_at', 'updated_at', 'search_vector', 'created_by']:
+                            continue
+                        
+                        # Convert dates to string
+                        if hasattr(old_val, 'strftime'):
+                            old_val = old_val.strftime('%Y-%m-%d') if old_val else None
+                        if hasattr(new_val, 'strftime'):
+                            new_val = new_val.strftime('%Y-%m-%d') if new_val else None
+                        
+                        # Convert enums to string
+                        if hasattr(old_val, 'value'):
+                            old_val = old_val.value
+                        if hasattr(new_val, 'value'):
+                            new_val = new_val.value
+                        
+                        # Get human-readable field name
+                        field_label = field_name.replace('_', ' ').title()
+
+                        # Store the change
+                        version_info['changes'][field_label] = {
+                            'old': str(old_val) if old_val not in [None, ''] else 'vuoto',
+                            'new': str(new_val) if new_val not in [None, ''] else 'vuoto'
+                        }
+            except Exception as e:
+                logger.debug(f"Error getting changeset: {e}")
+                # Continue without changeset
+            
+            # Determine operation type
+            if version.operation_type == 0:  # Insert
+                version_info['operation'] = 'Creazione'
+            elif version.operation_type == 1:  # Update
+                version_info['operation'] = 'Modifica'
+            elif version.operation_type == 2:  # Delete
+                version_info['operation'] = 'Eliminazione'
+            else:
+                version_info['operation'] = 'Sconosciuto'
+            
+            # Only add if there are changes or it's a special operation
+            if version_info['changes'] or version.operation_type in [0, 2]:
+                versions_data.append(version_info)
+        
+        return jsonify({'versions': versions_data}), HTTPStatus.OK
+        
+    except Exception as exc:
+        logger.exception(f"Errore nel recupero della cronologia per cliente {cliente_id}: {exc}")
+        return jsonify({"error": str(exc)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+@customers_bp.route("/<int:cliente_id>/history/<int:tx_id>/restore", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def history_restore_view(cliente_id: int, tx_id: int):
+    """Ripristina lo stato alla transazione *tx_id*."""
+    logger.info(f"Restore request - Cliente: {cliente_id}, TX: {tx_id}, User: {current_user}")
+    
+    # Verifica che l'utente sia autenticato
+    if not current_user.is_authenticated:
+        logger.warning(f"Restore denied - User not authenticated: {current_user}")
+        return jsonify({"error": "Devi essere autenticato per ripristinare versioni"}), HTTPStatus.FORBIDDEN
+        
+    try:
+        logger.info(f"Attempting restore for cliente {cliente_id} to tx {tx_id}")
+        restore_cliente_version(cliente_id, tx_id, current_user)
+        db.session.commit()
+        logger.info(f"Restore successful for cliente {cliente_id}")
+        
+        # Return JSON response for AJAX
+        return jsonify({"success": True, "message": "Versione ripristinata con successo"}), HTTPStatus.OK
+        
+    except Exception as exc:  # pragma: no cover
+        db.session.rollback()
+        logger.exception(f"Errore ripristino versione cliente {cliente_id} tx {tx_id}: {exc}")
+        return jsonify({"error": str(exc)}), HTTPStatus.BAD_REQUEST
+
+# --------------------------------------------------------------------------- #
+#  EDIT / DELETE                                                              #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/edit", methods=["GET", "POST"])
+@permission_required(CustomerPerm.EDIT)
+def edit_view(cliente_id: int) -> str:
+    """Modifica anagrafica cliente."""
+    # Trial users non possono modificare clienti
+    if current_user.is_authenticated and current_user.is_trial:
+        abort(403)
+
+    cliente: Cliente = g.cliente  # type: ignore[assignment]
+    form = ClienteForm(obj=cliente)
+    if form.validate_on_submit():
+        try:
+            update_cliente(cliente, form.data, current_user)
+            db.session.commit()
+        except SQLAlchemyError:  # pragma: no cover
+            db.session.rollback()
+            logger.exception("Errore aggiornamento cliente")
+            flash("Errore durante il salvataggio.", "danger")
+        else:
+            flash("Cliente aggiornato!", "success")
+            return redirect(url_for("customers.detail_view", cliente_id=cliente.cliente_id))
+    return render_template("customers/form.html", form=form, mode="edit", cliente=cliente)
+
+@customers_bp.route("/<int:cliente_id>/delete", methods=["POST"])
+@permission_required(CustomerPerm.DELETE)
+def delete_view(cliente_id: int):
+    """Hard-delete di un cliente (solo admin)."""
+    # Verifica che l'utente sia admin (trial users non possono cancellare)
+    if not current_user.is_admin or current_user.is_trial:
+        abort(403, "Solo gli amministratori possono eliminare i clienti")
+    
+    # Elimina definitivamente il cliente (hard delete)
+    delete_cliente(g.cliente, current_user, soft=False)  # type: ignore[arg-type]
+    flash("Cliente eliminato definitivamente.", "warning")
+    return redirect(url_for("customers.list_view"))
+
+# --------------------------------------------------------------------------- #
+#  IN-PLACE FIELD UPDATE (AJAX)                                               #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/field", methods=["PATCH"])
+@permission_required(CustomerPerm.EDIT)
+def update_single_field(cliente_id: int):
+    """
+    Aggiorna un singolo campo del cliente via JSON:
+        {\"field\": \"nome_cognome\", \"value\": \"Mario Rossi\"}
+    """
+    payload: Dict[str, Any] = request.get_json(force=True, silent=False) or {}
+
+    field = payload.get("field")
+    value = payload.get("value")
+
+    if not field:
+        raise BadRequest("Payload must include 'field'.")
+    if not hasattr(Cliente, field):
+        raise BadRequest(f"Campo non valido: {field!r}")
+
+    cliente: Cliente = customers_repo.get_one(cliente_id)
+
+    # Validazione parziale Marshmallow
+    errors = ClienteSchema().validate({field: value}, partial=True)
+    if errors:
+        raise BadRequest(errors)
+
+    try:
+        update_cliente(cliente, {field: value}, current_user)
+        db.session.commit()
+    except Exception as exc:  # pragma: no cover
+        db.session.rollback()
+        logger.exception("Errore update_single_field")
+        return jsonify({"ok": False, "error": str(exc)}), HTTPStatus.BAD_REQUEST
+
+    return jsonify({"ok": True, "value": getattr(cliente, field)}), HTTPStatus.OK
+
+@customers_bp.route("/<int:cliente_id>/update", methods=["POST", "OPTIONS"])
+def update_multiple_fields(cliente_id: int):
+    """
+    Aggiorna più campi del cliente via JSON (per form editabili).
+    Accetta un oggetto JSON con i campi da aggiornare.
+    """
+    # Handle OPTIONS request for CORS
+    if request.method == "OPTIONS":
+        return "", HTTPStatus.NO_CONTENT
+    
+    # Verifica che l'utente sia autenticato
+    if not current_user.is_authenticated:
+        logger.warning(f"Accesso negato per utente non autenticato: {current_user}")
+        return jsonify({"error": "Devi essere autenticato per accedere"}), HTTPStatus.FORBIDDEN
+    
+    # Debug logging
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"Request headers: {dict(request.headers)}")
+    logger.info(f"Request content type: {request.content_type}")
+    logger.info(f"Request data: {request.data}")
+    
+    # Try to get JSON payload
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+        logger.info(f"Parsed payload: {payload}")
+        
+        # Debug: Log tutti i campi stato ricevuti
+        for key in payload:
+            if 'stato' in key.lower():
+                logger.info(f"Campo stato ricevuto - {key}: {payload[key]} (tipo: {type(payload[key])})")
+                
+    except Exception as e:
+        logger.error(f"Errore parsing JSON: {e}")
+        logger.error(f"Raw data: {request.data}")
+        return jsonify({"error": f"Errore nel parsing dei dati: {str(e)}"}), HTTPStatus.BAD_REQUEST
+    
+    if not payload:
+        logger.warning("Payload vuoto ricevuto")
+        return jsonify({"error": "Nessun dato da aggiornare"}), HTTPStatus.BAD_REQUEST
+    
+    # Usa query diretta invece di repository per evitare NotFound exception
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first()
+    if not cliente:
+        return jsonify({"error": f"Cliente {cliente_id} non trovato"}), HTTPStatus.NOT_FOUND
+    
+    # Gestione campi multipli (professionisti)
+    multi_fields = {}
+    
+    # Estrai i campi multipli dal payload
+    # IMPORTANTE: Aggiorniamo solo se il campo è presente nel payload
+    # Se non è presente, le relazioni esistenti vengono preservate
+    if 'nutrizionisti_ids' in payload:
+        ids = payload.pop('nutrizionisti_ids')
+        # Gestiamo anche array vuoti per permettere la rimozione esplicita
+        if ids is not None:  # Accetta sia array vuoti che array con valori
+            if ids:
+                multi_fields['nutrizionisti'] = [int(id) for id in ids if id]
+            else:
+                multi_fields['nutrizionisti'] = []  # Array vuoto per rimuovere tutti
+    
+    if 'coaches_ids' in payload:
+        ids = payload.pop('coaches_ids')
+        if ids is not None:  # Accetta sia array vuoti che array con valori
+            if ids:
+                multi_fields['coaches'] = [int(id) for id in ids if id]
+            else:
+                multi_fields['coaches'] = []  # Array vuoto per rimuovere tutti
+    
+    if 'psicologi_ids' in payload:
+        ids = payload.pop('psicologi_ids')
+        if ids is not None:  # Accetta sia array vuoti che array con valori
+            if ids:
+                multi_fields['psicologi'] = [int(id) for id in ids if id]
+            else:
+                multi_fields['psicologi'] = []  # Array vuoto per rimuovere tutti
+    
+    if 'consulenti_ids' in payload:
+        ids = payload.pop('consulenti_ids')
+        if ids is not None:  # Accetta sia array vuoti che array con valori
+            if ids:
+                multi_fields['consulenti'] = [int(id) for id in ids if id]
+            else:
+                multi_fields['consulenti'] = []  # Array vuoto per rimuovere tutti
+    
+    # Filtra solo i campi validi del modello
+    valid_fields = {}
+    for field, value in payload.items():
+        if hasattr(Cliente, field):
+            # Gestione campi booleani (checkbox)
+            if isinstance(value, str) and value in ['true', 'false']:
+                value = value == 'true'
+            # Gestione campi vuoti
+            elif value == '' or value is None:
+                value = None
+            # Gestione campi FK per professionisti (conversione da stringa a intero)
+            elif field in ['nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id', 'health_manager_id']:
+                if value:
+                    try:
+                        value = int(value)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Impossibile convertire ID per campo {field}: {value}")
+                        value = None
+                else:
+                    value = None
+            # Gestione campi Integer (es. recensione_stelle)
+            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte']:
+                if value:
+                    try:
+                        value = int(value)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Impossibile convertire valore numerico per campo {field}: {value}")
+                        value = None
+                else:
+                    value = None
+            # Gestione date (convert string to date object)
+            elif field.startswith('data_') or field.endswith('_dal') or field.endswith('_il') or field.endswith('_date'):
+                if value:
+                    try:
+                        from datetime import datetime
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        logger.warning(f"Impossibile convertire data per campo {field}: {value}")
+                        value = None
+                else:
+                    value = None
+            valid_fields[field] = value
+    
+    # Calcolo automatico della Data Rinnovo se ci sono data_inizio_abbonamento e durata_programma_giorni
+    if 'data_inizio_abbonamento' in valid_fields and 'durata_programma_giorni' in valid_fields:
+        data_inizio = valid_fields.get('data_inizio_abbonamento')
+        durata = valid_fields.get('durata_programma_giorni')
+        
+        if data_inizio and durata:
+            try:
+                from datetime import timedelta
+                # Se durata è una stringa, convertila in intero
+                if isinstance(durata, str):
+                    durata = int(durata)
+                
+                # Calcola la data di rinnovo
+                data_rinnovo_calcolata = data_inizio + timedelta(days=durata)
+                valid_fields['data_rinnovo'] = data_rinnovo_calcolata
+                logger.info(f"Data Rinnovo calcolata automaticamente: {data_inizio} + {durata} giorni = {data_rinnovo_calcolata}")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Impossibile calcolare data_rinnovo: {e}")
+    
+    # Se non ci sono campi validi ma ci sono professionisti multipli da aggiornare, è ok
+    if not valid_fields and not multi_fields:
+        return jsonify({"error": "Nessun campo valido da aggiornare"}), HTTPStatus.BAD_REQUEST
+    
+    # Import degli enum necessari
+    from corposostenibile.models import (
+        TeamEnum, PagamentoEnum, GiornoEnum, StatoClienteEnum,
+        CheckSaltatiEnum, LuogoAllenEnum, FiguraRifEnum,
+        TrasformazioneEnum, TipologiaClienteEnum
+    )
+    
+    # Mapping dei campi agli enum
+    enum_fields = {
+        'di_team': TeamEnum,
+        'modalita_pagamento': PagamentoEnum,
+        'check_day': GiornoEnum,
+        'stato_cliente': StatoClienteEnum,
+        'stato_cliente_chat': StatoClienteEnum,
+        'stato_cliente_sedute_psico': StatoClienteEnum,
+        'stato_psicologia': StatoClienteEnum,
+        'stato_nutrizione': StatoClienteEnum,
+        'stato_coach': StatoClienteEnum,
+        'stato_cliente_chat_coaching': StatoClienteEnum,
+        'stato_cliente_chat_nutrizione': StatoClienteEnum,
+        'stato_cliente_chat_psicologia': StatoClienteEnum,
+        'check_saltati': CheckSaltatiEnum,
+        'luogo_di_allenamento': LuogoAllenEnum,
+        'figura_di_riferimento': FiguraRifEnum,
+        'trasformazione': TrasformazioneEnum,
+        'tipologia_cliente': TipologiaClienteEnum,
+    }
+    
+    # Mappatura per vecchi valori stato_cliente
+    stato_cliente_mapping = {
+        'cliente': 'attivo',
+        'ex_cliente': 'stop',
+        'ex cliente': 'stop',  # Gestisce anche con spazio
+        'ex-cliente': 'stop',  # Gestisce anche con trattino
+        'acconto': 'stop',
+        'ghosting': 'ghost',
+        'inattivo': 'stop',
+        'sospeso': 'pausa'
+    }
+    
+    try:
+        # Process enum fields before updating
+        processed_fields = {}
+        for field, value in valid_fields.items():
+            # Gestione enum
+            if field in enum_fields and value is not None:
+                # Applica mappatura per campi stato_cliente e varianti
+                stato_fields = ['stato_cliente', 'stato_cliente_chat', 'stato_cliente_sedute_psico',
+                               'stato_psicologia', 'stato_nutrizione', 'stato_coach',
+                               'stato_cliente_chat_coaching', 'stato_cliente_chat_nutrizione', 'stato_cliente_chat_psicologia']
+                if field in stato_fields:
+                    original_value = value
+                    # Converti in stringa e pulisci
+                    if value:
+                        value = str(value).strip().lower()
+                    value = stato_cliente_mapping.get(value, value)
+                    if original_value != value:
+                        logger.info(f"Mappatura {field}: {original_value} -> {value}")
+                try:
+                    value = enum_fields[field](value)
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"Valore enum non valido per {field}: {value}. Errore: {e}")
+                    # Se è un campo stato, proviamo con 'stop' come fallback
+                    if field in stato_fields:
+                        try:
+                            # Prova prima con 'attivo' come default sicuro
+                            value = enum_fields[field]('attivo')
+                            logger.info(f"Utilizzato fallback 'attivo' per {field} (valore originale: {valid_fields[field]})")
+                        except:
+                            logger.error(f"Impossibile impostare anche il fallback per {field}")
+                            continue
+                    else:
+                        continue
+            processed_fields[field] = value
+        
+        # Log dei campi processati prima dell'update
+        for field, value in processed_fields.items():
+            if 'stato' in field.lower():
+                logger.info(f"Campo stato processato - {field}: {value} (tipo: {type(value)})")
+        
+        # Use the service function update_cliente which handles ActivityLog
+        # Passa multi_fields per gestire le relazioni many-to-many
+        update_cliente(cliente, processed_fields, current_user, multi_fields=multi_fields)
+        db.session.commit()
+        
+        logger.info(f"Cliente {cliente_id} aggiornato con successo da {current_user.id}")
+        return jsonify({"ok": True, "message": "Dati salvati con successo"}), HTTPStatus.OK
+    except Exception as exc:
+        db.session.rollback()
+        logger.exception(f"Errore update_multiple_fields per cliente {cliente_id}: {exc}")
+        return jsonify({"error": f"Errore durante il salvataggio: {str(exc)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+# --------------------------------------------------------------------------- #
+#  FREEZE MANAGEMENT                                                          #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/freeze", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def freeze_cliente_route(cliente_id: int):
+    """
+    Mette un cliente in stato FREEZE.
+    Solo Health Manager (dept_id=13) o admin possono eseguire questa azione.
+    """
+    from corposostenibile.blueprints.customers.services import freeze_cliente
+
+    # Ottieni i dati dal form
+    data = request.get_json() if request.is_json else request.form
+    reason = data.get('freeze_reason', '').strip() if data else None
+
+    result = freeze_cliente(cliente_id, current_user, reason)
+
+    if result["status"] == "success":
+        return jsonify(result), HTTPStatus.OK
+    elif result["status"] == "warning":
+        return jsonify(result), HTTPStatus.OK  # Already frozen, not an error
+    else:
+        return jsonify(result), HTTPStatus.BAD_REQUEST
+
+
+@customers_bp.route("/<int:cliente_id>/unfreeze", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def unfreeze_cliente_route(cliente_id: int):
+    """
+    Rimuove un cliente dallo stato FREEZE.
+    Solo Health Manager (dept_id=13) o admin possono eseguire questa azione.
+    """
+    from corposostenibile.blueprints.customers.services import unfreeze_cliente
+
+    # Ottieni i dati dal form
+    data = request.get_json() if request.is_json else request.form
+    resolution = data.get('freeze_resolution', '').strip() if data else None
+
+    result = unfreeze_cliente(cliente_id, current_user, resolution)
+
+    if result["status"] == "success":
+        return jsonify(result), HTTPStatus.OK
+    elif result["status"] == "warning":
+        return jsonify(result), HTTPStatus.OK  # Already unfrozen, not an error
+    else:
+        return jsonify(result), HTTPStatus.BAD_REQUEST
+
+
+@customers_bp.route("/<int:cliente_id>/freeze-history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_freeze_history(cliente_id: int):
+    """
+    Restituisce lo storico freeze del cliente.
+    """
+    from corposostenibile.models import ClienteFreezeHistory
+
+    history = db.session.query(ClienteFreezeHistory).filter_by(
+        cliente_id=cliente_id
+    ).order_by(ClienteFreezeHistory.freeze_date.desc()).all()
+
+    data = []
+    for h in history:
+        data.append({
+            'id': h.id,
+            'freeze_date': h.freeze_date.strftime('%d/%m/%Y %H:%M') if h.freeze_date else None,
+            'freeze_reason': h.freeze_reason,
+            'frozen_by': h.frozen_by.full_name if h.frozen_by else 'N/A',
+            'unfreeze_date': h.unfreeze_date.strftime('%d/%m/%Y %H:%M') if h.unfreeze_date else None,
+            'unfreeze_resolution': h.unfreeze_resolution,
+            'unfrozen_by': h.unfrozen_by.full_name if h.unfrozen_by else None,
+            'is_active': h.is_active
+        })
+
+    return jsonify({'history': data}), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  GESTIONE STORICO PROFESSIONISTI                                            #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/<int:cliente_id>/professionisti/assign", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def assign_professionista(cliente_id: int):
+    """
+    Assegna un professionista al cliente e registra l'azione nello storico.
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory
+    from datetime import datetime as dt
+
+    payload = request.get_json(force=True) or {}
+
+    # Valida campi richiesti
+    required_fields = ['tipo_professionista', 'user_id', 'data_dal', 'motivazione_aggiunta']
+    for field in required_fields:
+        if field not in payload:
+            return jsonify({"error": f"Campo {field} obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first()
+    if not cliente:
+        return jsonify({"error": f"Cliente {cliente_id} non trovato"}), HTTPStatus.NOT_FOUND
+
+    # Converti data_dal da stringa a date
+    try:
+        data_dal = dt.strptime(payload['data_dal'], '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return jsonify({"error": "Formato data non valido. Usa YYYY-MM-DD"}), HTTPStatus.BAD_REQUEST
+
+    # Crea record storico
+    history = ClienteProfessionistaHistory(
+        cliente_id=cliente_id,
+        user_id=payload['user_id'],
+        tipo_professionista=payload['tipo_professionista'],
+        data_dal=data_dal,
+        motivazione_aggiunta=payload['motivazione_aggiunta'],
+        assegnato_da_id=current_user.id,
+        is_active=True
+    )
+
+    db.session.add(history)
+
+    # IMPORTANTE: Aggiungi il professionista alle relazioni del cliente
+    user_id = payload['user_id']
+    tipo = payload['tipo_professionista']
+    professionista = db.session.query(User).get(user_id)
+
+    if professionista:
+        if tipo == 'nutrizionista' and professionista not in cliente.nutrizionisti_multipli:
+            cliente.nutrizionisti_multipli.append(professionista)
+        elif tipo == 'coach' and professionista not in cliente.coaches_multipli:
+            cliente.coaches_multipli.append(professionista)
+        elif tipo == 'psicologa' and professionista not in cliente.psicologi_multipli:
+            cliente.psicologi_multipli.append(professionista)
+        elif tipo == 'consulente' and professionista not in cliente.consulenti_multipli:
+            cliente.consulenti_multipli.append(professionista)
+        elif tipo == 'health_manager':
+            cliente.health_manager_id = user_id
+
+    db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "message": "Professionista assegnato con successo",
+        "history_id": history.id
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/professionisti/<int:history_id>/interrupt", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def interrupt_professionista(cliente_id: int, history_id: int):
+    """
+    Interrompe un'assegnazione di professionista e registra la motivazione.
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory
+    from datetime import datetime as dt, date
+
+    payload = request.get_json(force=True) or {}
+
+    # Valida campo obbligatorio
+    if 'motivazione_interruzione' not in payload:
+        return jsonify({"error": "Campo motivazione_interruzione obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    # Recupera il record di storico
+    history = db.session.query(ClienteProfessionistaHistory).filter_by(
+        id=history_id,
+        cliente_id=cliente_id
+    ).first()
+
+    if not history:
+        return jsonify({"error": "Assegnazione non trovata"}), HTTPStatus.NOT_FOUND
+
+    if not history.is_active:
+        return jsonify({"error": "Assegnazione già interrotta"}), HTTPStatus.BAD_REQUEST
+
+    # Gestione data_al: usa quella fornita o oggi
+    if 'data_al' in payload and payload['data_al']:
+        try:
+            data_al = dt.strptime(payload['data_al'], '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            return jsonify({"error": "Formato data non valido. Usa YYYY-MM-DD"}), HTTPStatus.BAD_REQUEST
+    else:
+        data_al = date.today()
+
+    # Recupera il cliente
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first()
+    if not cliente:
+        return jsonify({"error": "Cliente non trovato"}), HTTPStatus.NOT_FOUND
+
+    # Aggiorna il record
+    history.data_al = data_al
+    history.motivazione_interruzione = payload['motivazione_interruzione']
+    history.interrotto_da_id = current_user.id
+    history.is_active = False
+
+    # IMPORTANTE: Rimuovi il professionista dalle relazioni del cliente
+    professionista = history.professionista
+    tipo = history.tipo_professionista
+
+    if tipo == 'nutrizionista' and professionista in cliente.nutrizionisti_multipli:
+        cliente.nutrizionisti_multipli.remove(professionista)
+    elif tipo == 'coach' and professionista in cliente.coaches_multipli:
+        cliente.coaches_multipli.remove(professionista)
+    elif tipo == 'psicologa' and professionista in cliente.psicologi_multipli:
+        cliente.psicologi_multipli.remove(professionista)
+    elif tipo == 'consulente' and professionista in cliente.consulenti_multipli:
+        cliente.consulenti_multipli.remove(professionista)
+    elif tipo == 'health_manager' and cliente.health_manager_id == professionista.id:
+        cliente.health_manager_id = None
+
+    db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "message": "Assegnazione interrotta con successo"
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/professionisti/legacy/interrupt", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def interrupt_professionista_legacy(cliente_id: int):
+    """
+    Interrompe un professionista legacy (senza storico) creando prima il record storico.
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory
+    from datetime import datetime as dt, date
+
+    payload = request.get_json(force=True) or {}
+
+    # Valida campi obbligatori
+    required_fields = ['user_id', 'tipo_professionista', 'motivazione_interruzione']
+    for field in required_fields:
+        if field not in payload:
+            return jsonify({"error": f"Campo {field} obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first()
+    if not cliente:
+        return jsonify({"error": f"Cliente {cliente_id} non trovato"}), HTTPStatus.NOT_FOUND
+
+    # Gestione data_al: usa quella fornita o oggi
+    if 'data_al' in payload and payload['data_al']:
+        try:
+            data_al = dt.strptime(payload['data_al'], '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            return jsonify({"error": "Formato data non valido. Usa YYYY-MM-DD"}), HTTPStatus.BAD_REQUEST
+    else:
+        data_al = date.today()
+
+    # Crea record storico già interrotto (per professionista legacy)
+    # Non abbiamo data_dal precisa, quindi la impostiamo a None o a oggi
+    history = ClienteProfessionistaHistory(
+        cliente_id=cliente_id,
+        user_id=payload['user_id'],
+        tipo_professionista=payload['tipo_professionista'],
+        data_dal=data_al,  # Usiamo la data di interruzione anche come data inizio
+        motivazione_aggiunta='Assegnazione precedente (storico creato durante interruzione)',
+        assegnato_da_id=current_user.id,
+        data_al=data_al,
+        motivazione_interruzione=payload['motivazione_interruzione'],
+        interrotto_da_id=current_user.id,
+        is_active=False  # Già interrotto
+    )
+
+    db.session.add(history)
+
+    # IMPORTANTE: Rimuovi il professionista dalle relazioni del cliente
+    user_id = payload['user_id']
+    tipo = payload['tipo_professionista']
+    professionista = db.session.query(User).get(user_id)
+
+    if professionista:
+        if tipo == 'nutrizionista' and professionista in cliente.nutrizionisti_multipli:
+            cliente.nutrizionisti_multipli.remove(professionista)
+        elif tipo == 'coach' and professionista in cliente.coaches_multipli:
+            cliente.coaches_multipli.remove(professionista)
+        elif tipo == 'psicologa' and professionista in cliente.psicologi_multipli:
+            cliente.psicologi_multipli.remove(professionista)
+        elif tipo == 'consulente' and professionista in cliente.consulenti_multipli:
+            cliente.consulenti_multipli.remove(professionista)
+        elif tipo == 'health_manager' and cliente.health_manager_id == user_id:
+            cliente.health_manager_id = None
+
+    db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "message": "Assegnazione legacy interrotta con successo"
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/professionisti/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_professionisti_history(cliente_id: int):
+    """
+    Restituisce lo storico completo delle assegnazioni professionisti per un cliente.
+    Include sia le assegnazioni con storico che quelle legacy (senza storico).
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first()
+    if not cliente:
+        return jsonify({"error": f"Cliente {cliente_id} non trovato"}), HTTPStatus.NOT_FOUND
+
+    # Recupera storico con tracking
+    history_records = db.session.query(ClienteProfessionistaHistory).filter_by(
+        cliente_id=cliente_id
+    ).order_by(ClienteProfessionistaHistory.data_dal.desc()).all()
+
+    data = []
+    for h in history_records:
+        data.append({
+            'id': h.id,
+            'tipo_professionista': h.tipo_professionista,
+            'professionista_nome': h.professionista.full_name if h.professionista else 'N/A',
+            'professionista_id': h.user_id,
+            'data_dal': h.data_dal.strftime('%d/%m/%Y') if h.data_dal else None,
+            'data_al': h.data_al.strftime('%d/%m/%Y') if h.data_al else None,
+            'motivazione_aggiunta': h.motivazione_aggiunta,
+            'motivazione_interruzione': h.motivazione_interruzione,
+            'assegnato_da': h.assegnato_da.full_name if h.assegnato_da else 'N/A',
+            'interrotto_da': h.interrotto_da.full_name if h.interrotto_da else None,
+            'is_active': h.is_active,
+            'has_history': True  # Indica che questo ha tracking completo
+        })
+
+    # Aggiungi professionisti attualmente assegnati SENZA storico (legacy)
+    legacy_professionisti = []
+
+    # Nutrizionisti
+    for nutri in cliente.nutrizionisti_multipli:
+        # Verifica se c'è già nello storico
+        if not any(h.user_id == nutri.id and h.tipo_professionista == 'nutrizionista' and h.is_active for h in history_records):
+            legacy_professionisti.append({
+                'id': None,  # Nessun ID storico
+                'tipo_professionista': 'nutrizionista',
+                'professionista_nome': nutri.full_name or nutri.email,
+                'professionista_id': nutri.id,
+                'data_dal': None,
+                'data_al': None,
+                'motivazione_aggiunta': 'Assegnazione precedente (senza storico)',
+                'motivazione_interruzione': None,
+                'assegnato_da': 'N/A',
+                'interrotto_da': None,
+                'is_active': True,
+                'has_history': False  # Legacy senza tracking
+            })
+
+    # Coach
+    for coach in cliente.coaches_multipli:
+        if not any(h.user_id == coach.id and h.tipo_professionista == 'coach' and h.is_active for h in history_records):
+            legacy_professionisti.append({
+                'id': None,
+                'tipo_professionista': 'coach',
+                'professionista_nome': coach.full_name or coach.email,
+                'professionista_id': coach.id,
+                'data_dal': None,
+                'data_al': None,
+                'motivazione_aggiunta': 'Assegnazione precedente (senza storico)',
+                'motivazione_interruzione': None,
+                'assegnato_da': 'N/A',
+                'interrotto_da': None,
+                'is_active': True,
+                'has_history': False
+            })
+
+    # Psicologi
+    for psi in cliente.psicologi_multipli:
+        if not any(h.user_id == psi.id and h.tipo_professionista == 'psicologa' and h.is_active for h in history_records):
+            legacy_professionisti.append({
+                'id': None,
+                'tipo_professionista': 'psicologa',
+                'professionista_nome': psi.full_name or psi.email,
+                'professionista_id': psi.id,
+                'data_dal': None,
+                'data_al': None,
+                'motivazione_aggiunta': 'Assegnazione precedente (senza storico)',
+                'motivazione_interruzione': None,
+                'assegnato_da': 'N/A',
+                'interrotto_da': None,
+                'is_active': True,
+                'has_history': False
+            })
+
+    # Consulenti Alimentari
+    for consulente in cliente.consulenti_multipli:
+        if not any(h.user_id == consulente.id and h.tipo_professionista == 'consulente' and h.is_active for h in history_records):
+            legacy_professionisti.append({
+                'id': None,
+                'tipo_professionista': 'consulente',
+                'professionista_nome': consulente.full_name or consulente.email,
+                'professionista_id': consulente.id,
+                'data_dal': None,
+                'data_al': None,
+                'motivazione_aggiunta': 'Assegnazione precedente (senza storico)',
+                'motivazione_interruzione': None,
+                'assegnato_da': 'N/A',
+                'interrotto_da': None,
+                'is_active': True,
+                'has_history': False
+            })
+
+    # Health Manager (singolo)
+    if cliente.health_manager_user:
+        if not any(h.user_id == cliente.health_manager_user.id and h.tipo_professionista == 'health_manager' and h.is_active for h in history_records):
+            legacy_professionisti.append({
+                'id': None,
+                'tipo_professionista': 'health_manager',
+                'professionista_nome': cliente.health_manager_user.full_name or cliente.health_manager_user.email,
+                'professionista_id': cliente.health_manager_user.id,
+                'data_dal': None,
+                'data_al': None,
+                'motivazione_aggiunta': 'Assegnazione precedente (senza storico)',
+                'motivazione_interruzione': None,
+                'assegnato_da': 'N/A',
+                'interrotto_da': None,
+                'is_active': True,
+                'has_history': False
+            })
+
+    # Unisci storico + legacy
+    all_history = data + legacy_professionisti
+
+    return jsonify({'history': all_history}), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/evaluations/<string:service_type>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_service_evaluations(cliente_id: int, service_type: str):
+    """
+    Recupera l'andamento delle valutazioni del cliente per un servizio specifico.
+    Include dati da Check Settimanali (vecchi) e Check 2.0 (WeeklyCheckResponse).
+
+    Args:
+        cliente_id: ID del cliente
+        service_type: Tipo servizio ('nutrizione', 'coaching', 'psicologia')
+
+    Returns:
+        JSON con lista valutazioni ordinate per data
+    """
+    from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        return jsonify({'error': 'Cliente non trovato'}), HTTPStatus.NOT_FOUND
+
+    # Valida service_type
+    valid_services = ['nutrizione', 'coaching', 'psicologia']
+    if service_type not in valid_services:
+        return jsonify({'error': f'Servizio non valido. Valori accettati: {", ".join(valid_services)}'}), HTTPStatus.BAD_REQUEST
+
+    # Mappatura service_type -> campo valutazione in WeeklyCheckResponse
+    rating_field_map = {
+        'nutrizione': 'nutritionist_rating',
+        'coaching': 'coach_rating',
+        'psicologia': 'psychologist_rating'
+    }
+
+    feedback_field_map = {
+        'nutrizione': 'nutritionist_feedback',
+        'coaching': 'coach_feedback',
+        'psicologia': 'psychologist_feedback'
+    }
+
+    rating_field = rating_field_map[service_type]
+    feedback_field = feedback_field_map[service_type]
+
+    # Recupera valutazioni dai Check 2.0 (WeeklyCheckResponse)
+    weekly_checks = db.session.query(WeeklyCheck).filter_by(cliente_id=cliente_id).all()
+    weekly_check_ids = [wc.id for wc in weekly_checks]
+
+    evaluations = []
+
+    if weekly_check_ids:
+        # Query per recuperare le risposte con valutazione per questo servizio
+        responses = db.session.query(WeeklyCheckResponse).filter(
+            WeeklyCheckResponse.weekly_check_id.in_(weekly_check_ids),
+            getattr(WeeklyCheckResponse, rating_field).isnot(None)
+        ).order_by(WeeklyCheckResponse.submit_date.asc()).all()
+
+        for response in responses:
+            rating = getattr(response, rating_field)
+            feedback = getattr(response, feedback_field)
+
+            evaluations.append({
+                'date': response.submit_date.isoformat() if response.submit_date else None,
+                'check_type': 'Check 2.0',
+                'rating': rating,
+                'notes': feedback if feedback else None
+            })
+
+    # TODO: Aggiungi anche valutazioni da ClientCheckResponse (check vecchi) se necessario
+    # Per ora includiamo solo i Check 2.0
+
+    return jsonify({
+        'evaluations': evaluations,
+        'service_type': service_type,
+        'total_count': len(evaluations)
+    }), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  CREA LEAD PER CHECK (Clienti senza Lead originale)                         #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/create-lead-for-checks", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def create_lead_for_checks(cliente_id: int):
+    """
+    Crea una SalesLead retroattiva per un cliente esistente che non ha una lead associata.
+    Questo permette al cliente di compilare i Check 1, 2, 3 anche se non proviene dal flusso lead standard.
+
+    La lead viene creata con:
+    - Dati anagrafici copiati dal cliente
+    - Status 'CONVERTED' (già convertito)
+    - Link ai check 1, 2, 3 generati automaticamente
+    """
+    import secrets
+    from corposostenibile.models import SalesLead, SalesFormLink, SalesFormConfig
+    from corposostenibile.models import LeadStatusEnum
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        return jsonify({'success': False, 'error': 'Cliente non trovato'}), HTTPStatus.NOT_FOUND
+
+    # Verifica che non abbia già una lead associata
+    if cliente.original_lead:
+        return jsonify({
+            'success': False,
+            'error': 'Il cliente ha già una lead associata',
+            'lead_id': cliente.original_lead.id
+        }), HTTPStatus.BAD_REQUEST
+
+    try:
+        # Genera codice unico per la lead
+        lead_unique_code = f"RETRO-{cliente_id}-{secrets.token_hex(4).upper()}"
+
+        # Estrai nome e cognome dal nome_cognome del cliente
+        nome_parts = (cliente.nome_cognome or "").strip().split(" ", 1)
+        first_name = nome_parts[0] if nome_parts else "N/D"
+        last_name = nome_parts[1] if len(nome_parts) > 1 else ""
+
+        # Crea la SalesLead
+        new_lead = SalesLead(
+            first_name=first_name,
+            last_name=last_name,
+            email=cliente.mail or f"cliente_{cliente_id}@placeholder.local",
+            phone=cliente.numero_telefono,
+            birth_date=cliente.data_di_nascita,
+            gender=cliente.genere,
+            unique_code=lead_unique_code,
+            status=LeadStatusEnum.CONVERTED,
+            converted_to_client_id=cliente_id,
+            converted_at=datetime.now(),
+            converted_by=current_user.id,
+            conversion_notes="Lead creata retroattivamente per permettere compilazione Check 1, 2, 3",
+            form_responses={},
+            sales_user_id=current_user.id,
+        )
+        db.session.add(new_lead)
+        db.session.flush()  # Per ottenere l'ID
+
+        # Recupera i config_id per i check (assumiamo ID 1, 2, 3 per check 1, 2, 3)
+        check_configs = {
+            1: SalesFormConfig.query.get(1),
+            2: SalesFormConfig.query.get(2),
+            3: SalesFormConfig.query.get(3)
+        }
+
+        # Crea i link per i check 1, 2, 3
+        check_urls = {}
+        for check_num in [1, 2, 3]:
+            link_code = f"{lead_unique_code}-CHECK{check_num}"
+
+            check_link = SalesFormLink(
+                lead_id=new_lead.id,
+                check_number=check_num,
+                config_id=check_configs[check_num].id if check_configs[check_num] else check_num,
+                unique_code=link_code,
+                is_active=True,
+            )
+            db.session.add(check_link)
+            check_urls[f'check{check_num}'] = url_for('welcome_form', unique_code=link_code, _external=True)
+
+        db.session.commit()
+
+        logger.info(f"Lead retroattiva #{new_lead.id} creata per cliente #{cliente_id} da utente #{current_user.id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Lead creata con successo. Il cliente può ora compilare i Check 1, 2, 3.',
+            'lead_id': new_lead.id,
+            'check_urls': check_urls
+        }), HTTPStatus.CREATED
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Errore nella creazione lead retroattiva per cliente #{cliente_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Errore nella creazione della lead: {str(e)}'
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# --------------------------------------------------------------------------- #
+#  API REST v1                                                                #
+# --------------------------------------------------------------------------- #
+api_bp = Blueprint("customers_api_v1", __name__, url_prefix="/api/v1/customers")
+csrf.exempt(api_bp)  # Exclude API blueprint from CSRF protection
+
+cliente_schema = ClienteSchema()
+clienti_schema = ClienteSchema(many=True)
+
+# – JSON error handler ------------------------------------------------------ #
+@api_bp.errorhandler(BadRequest)
+@api_bp.errorhandler(NotFound)
+@api_bp.errorhandler(Forbidden)
+def _json_error(err):  # type: ignore[override]
+    return (
+        jsonify({"error": err.name, "description": err.description}),
+        getattr(err, "code", HTTPStatus.BAD_REQUEST),
+    )
+
+# – CRUD -------------------------------------------------------------------- #
+@api_bp.route("/", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_list() -> Any:
+    params = parse_filter_args(request.args)
+    pagination = customers_repo.list(
+        filters=params,
+        order_by=request.args.get("order_by"),
+        page=request.args.get("page", 1, type=int),
+        per_page=request.args.get("per_page", 50, type=int),
+        eager=True,
+    )
+    return jsonify(
+        {
+            "data": clienti_schema.dump(pagination.items),
+            "pagination": {
+                "page": pagination.page,
+                "pages": pagination.pages,
+                "total": pagination.total,
+            },
+        }
+    )
+
+@api_bp.route("/<int:cliente_id>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_detail(cliente_id: int) -> Any:
+    cliente = customers_repo.get_one(cliente_id, eager=True)
+    return jsonify({"data": cliente_schema.dump(cliente)})
+
+@api_bp.route("/", methods=["POST"])
+@permission_required(CustomerPerm.CREATE)
+def api_create() -> Any:
+    data: Dict[str, Any] = request.get_json(force=True, silent=False)
+    errors = cliente_schema.validate(data)
+    if errors:
+        raise BadRequest(errors)
+    cliente = create_cliente(data, current_user)
+    return jsonify({"data": cliente_schema.dump(cliente)}), HTTPStatus.CREATED
+
+@api_bp.route("/<int:cliente_id>", methods=["PATCH"])
+@permission_required(CustomerPerm.EDIT)
+def api_update(cliente_id: int) -> Any:
+    cliente = customers_repo.get_one(cliente_id)
+    data: Dict[str, Any] = request.get_json(force=True, silent=False)
+    # Use schema with session for validation
+    with db.session.no_autoflush:
+        errors = cliente_schema.validate(data, partial=True, session=db.session)
+    if errors:
+        raise BadRequest(errors)
+    update_cliente(cliente, data, current_user)
+    return jsonify({"data": cliente_schema.dump(cliente)})
+
+@api_bp.route("/<int:cliente_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.DELETE)
+def api_delete(cliente_id: int) -> Any:
+    cliente = customers_repo.get_one(cliente_id)
+    delete_cliente(cliente, current_user)
+    return "", HTTPStatus.NO_CONTENT
+
+# – HISTORY ----------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW_HISTORY)
+def api_history(cliente_id: int) -> Any:
+    limit = request.args.get("limit", 100, type=int)
+    versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
+
+    op_map = {0: "insert", 1: "update", 2: "delete"}
+    data = []
+    for v in versions:
+        tx = getattr(v, "transaction", None)
+        data.append(
+            {
+                "txId": getattr(tx, "id", None) if tx else None,
+                "op": op_map.get(getattr(v, "operation_type", None), "unknown"),
+                "userId": getattr(tx, "user_id", None) if tx else None,
+                "timestamp": getattr(tx, "issued_at", None).isoformat() if tx and hasattr(tx, "issued_at") else None,
+                "changes": getattr(v, "changeset", {}) or {},
+            }
+        )
+    return jsonify({"data": data})
+
+# – STATS ------------------------------------------------------------------- #
+@api_bp.route("/stats", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_stats() -> Any:
+    """Espone le metriche di dashboard in JSON."""
+    return jsonify(_compute_dashboard_metrics())
+
+# – FEEDBACK METRICS ------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/feedback-metrics", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_feedback_metrics(cliente_id: int) -> Any:
+    """
+    Restituisce le metriche dei feedback per un cliente specifico.
+    Dati organizzati per grafici Chart.js.
+    """
+    from corposostenibile.models import TypeFormResponse
+    
+    # Recupera tutti i feedback del cliente ordinati per data
+    responses = (
+        db.session.query(TypeFormResponse)
+        .filter_by(cliente_id=cliente_id)
+        .order_by(TypeFormResponse.submit_date.asc())
+        .all()
+    )
+    
+    if not responses:
+        return jsonify({
+            "has_data": False,
+            "message": "Nessun feedback disponibile per questo cliente"
+        })
+    
+    # Prepara i dati per i grafici
+    metrics_data = {
+        "has_data": True,
+        "typeform_count": len(responses),  # Numero di risposte
+        "labels": [],  # Date dei feedback
+        "metrics": {
+            "weight": {"label": "Peso (kg)", "data": [], "color": "rgb(46, 204, 113)"},
+            "digestion": {"label": "Digestione", "data": [], "color": "rgb(75, 192, 192)"},
+            "energy": {"label": "Energia", "data": [], "color": "rgb(255, 206, 86)"},
+            "strength": {"label": "Forza", "data": [], "color": "rgb(255, 99, 132)"},
+            "sleep": {"label": "Sonno", "data": [], "color": "rgb(153, 102, 255)"},
+            "mood": {"label": "Umore", "data": [], "color": "rgb(255, 159, 64)"},
+            "motivation": {"label": "Motivazione", "data": [], "color": "rgb(46, 204, 113)"},
+            "hunger": {"label": "Fame", "data": [], "color": "rgb(231, 76, 60)"},
+            "progress": {"label": "Progresso", "data": [], "color": "rgb(52, 152, 219)"},
+        }
+    }
+    
+    # Estrai i dati da ogni risposta
+    for response in responses:
+        # Aggiungi etichetta data
+        date_label = response.submit_date.strftime("%d/%m/%Y") if response.submit_date else "N/A"
+        metrics_data["labels"].append(date_label)
+        
+        # Metriche fisiche/mentali (rating 1-10)
+        metrics_data["metrics"]["weight"]["data"].append(response.weight)
+        metrics_data["metrics"]["digestion"]["data"].append(response.digestion_rating)
+        metrics_data["metrics"]["energy"]["data"].append(response.energy_rating)
+        metrics_data["metrics"]["strength"]["data"].append(response.strength_rating)
+        metrics_data["metrics"]["sleep"]["data"].append(response.sleep_rating)
+        metrics_data["metrics"]["mood"]["data"].append(response.mood_rating)
+        metrics_data["metrics"]["motivation"]["data"].append(response.motivation_rating)
+        metrics_data["metrics"]["hunger"]["data"].append(response.hunger_rating)
+        metrics_data["metrics"]["progress"]["data"].append(response.progress_rating)
+    
+    # Calcola statistiche aggregate
+    stats = {
+        "total_responses": len(responses),
+        "latest_response": responses[-1].submit_date.strftime("%d/%m/%Y") if responses else None,
+        "averages": {}
+    }
+    
+    # Calcola medie per ogni metrica
+    for key, metric in metrics_data["metrics"].items():
+        values = [v for v in metric["data"] if v is not None]
+        if values:
+            if key == "weight":
+                stats["averages"][key] = round(sum(values) / len(values), 1)
+            else:
+                stats["averages"][key] = round(sum(values) / len(values), 1)
+        else:
+            stats["averages"][key] = None
+    
+    metrics_data["stats"] = stats
+    
+    return jsonify(metrics_data)
+
+
+@api_bp.route("/<int:cliente_id>/weekly-checks-metrics", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_weekly_checks_metrics(cliente_id: int) -> Any:
+    """
+    Restituisce le metriche dei Weekly Checks per un cliente specifico.
+    Dati organizzati per grafici Chart.js (stesso formato di TypeForm).
+    """
+    from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck
+
+    # Recupera tutte le risposte ai weekly checks del cliente ordinate per data
+    # WeeklyCheckResponse si collega a WeeklyCheck che ha cliente_id
+    responses = (
+        db.session.query(WeeklyCheckResponse)
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(WeeklyCheck.cliente_id == cliente_id)
+        .order_by(WeeklyCheckResponse.submit_date.asc())
+        .all()
+    )
+
+    if not responses:
+        return jsonify({
+            "has_data": False,
+            "weekly_count": 0,
+            "message": "Nessun weekly check disponibile per questo cliente"
+        })
+
+    # Prepara i dati per i grafici (stesso formato di TypeForm)
+    metrics_data = {
+        "has_data": True,
+        "weekly_count": len(responses),
+        "labels": [],  # Date dei check
+        "metrics": {
+            "digestion": {"label": "Digestione", "data": [], "color": "rgb(75, 192, 192)"},
+            "energy": {"label": "Energia", "data": [], "color": "rgb(255, 206, 86)"},
+            "strength": {"label": "Forza", "data": [], "color": "rgb(255, 99, 132)"},
+            "sleep": {"label": "Sonno", "data": [], "color": "rgb(153, 102, 255)"},
+            "mood": {"label": "Umore", "data": [], "color": "rgb(255, 159, 64)"},
+            "motivation": {"label": "Motivazione", "data": [], "color": "rgb(46, 204, 113)"},
+            "hunger": {"label": "Fame", "data": [], "color": "rgb(231, 76, 60)"},
+            "progress": {"label": "Progresso", "data": [], "color": "rgb(52, 152, 219)"},
+        },
+        "weight_data": []  # Array di {date, weight}
+    }
+
+    # Estrai i dati da ogni risposta
+    for response in responses:
+        # Aggiungi etichetta data
+        date_label = response.submit_date.strftime("%d/%m/%Y") if response.submit_date else "N/A"
+        metrics_data["labels"].append(date_label)
+
+        # Metriche fisiche/mentali (rating 0-10)
+        metrics_data["metrics"]["digestion"]["data"].append(response.digestion_rating)
+        metrics_data["metrics"]["energy"]["data"].append(response.energy_rating)
+        metrics_data["metrics"]["strength"]["data"].append(response.strength_rating)
+        metrics_data["metrics"]["sleep"]["data"].append(response.sleep_rating)
+        metrics_data["metrics"]["mood"]["data"].append(response.mood_rating)
+        metrics_data["metrics"]["motivation"]["data"].append(response.motivation_rating)
+        metrics_data["metrics"]["hunger"]["data"].append(response.hunger_rating)
+        metrics_data["metrics"]["progress"]["data"].append(response.progress_rating)
+
+        # Peso (se disponibile)
+        if response.weight:
+            metrics_data["weight_data"].append({
+                "date": date_label,
+                "weight": float(response.weight)
+            })
+
+    return jsonify(metrics_data)
+
+
+# --------------------------------------------------------------------------- #
+#  CUSTOMER CARE INTERVENTIONS API                                            #
+# --------------------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/customer-care-interventions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_customer_care_interventions(cliente_id: int):
+    """Ottiene tutti gli interventi di customer care per un cliente."""
+    from corposostenibile.models import CustomerCareIntervention
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    interventions = db.session.query(CustomerCareIntervention).filter_by(
+        cliente_id=cliente_id
+    ).order_by(CustomerCareIntervention.intervention_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "data": [intervention.to_dict() for intervention in interventions]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/customer-care-interventions", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_customer_care_intervention(cliente_id: int):
+    """Crea un nuovo intervento di customer care."""
+    from corposostenibile.models import CustomerCareIntervention
+    from datetime import datetime
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    data = request.get_json()
+
+    # Validazione
+    if not data.get('intervention_date'):
+        return jsonify({"success": False, "error": "Data intervento richiesta"}), 400
+    if not data.get('notes'):
+        return jsonify({"success": False, "error": "Note richieste"}), 400
+
+    try:
+        # Parse date
+        intervention_date = datetime.strptime(data['intervention_date'], '%Y-%m-%d').date()
+
+        # Crea intervento
+        intervention = CustomerCareIntervention(
+            cliente_id=cliente_id,
+            intervention_date=intervention_date,
+            notes=data['notes'],
+            loom_link=data.get('loom_link'),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Intervento registrato con successo"
+        }), 201
+
+    except ValueError as e:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/customer-care-interventions/<int:intervention_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_customer_care_intervention(intervention_id: int):
+    """Aggiorna un intervento di customer care esistente."""
+    from corposostenibile.models import CustomerCareIntervention
+    from datetime import datetime
+
+    intervention = db.session.query(CustomerCareIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    data = request.get_json()
+
+    try:
+        if 'intervention_date' in data:
+            intervention.intervention_date = datetime.strptime(
+                data['intervention_date'], '%Y-%m-%d'
+            ).date()
+
+        if 'notes' in data:
+            intervention.notes = data['notes']
+
+        if 'loom_link' in data:
+            intervention.loom_link = data['loom_link']
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Intervento aggiornato con successo"
+        })
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/customer-care-interventions/<int:intervention_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_customer_care_intervention(intervention_id: int):
+    """Elimina un intervento di customer care."""
+    from corposostenibile.models import CustomerCareIntervention
+
+    intervention = db.session.query(CustomerCareIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    try:
+        db.session.delete(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Intervento eliminato con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  CHECK IN INTERVENTIONS API                                                 #
+# --------------------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/check-in-interventions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_check_in_interventions(cliente_id: int):
+    """Ottiene tutti gli interventi di check-in per un cliente."""
+    from corposostenibile.models import CheckInIntervention
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    interventions = db.session.query(CheckInIntervention).filter_by(
+        cliente_id=cliente_id
+    ).order_by(CheckInIntervention.intervention_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "data": [intervention.to_dict() for intervention in interventions]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/check-in-interventions", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_check_in_intervention(cliente_id: int):
+    """Crea un nuovo intervento di check-in."""
+    from corposostenibile.models import CheckInIntervention
+    from datetime import datetime
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    data = request.get_json()
+
+    if not data.get('intervention_date'):
+        return jsonify({"success": False, "error": "Data intervento richiesta"}), 400
+    if not data.get('notes'):
+        return jsonify({"success": False, "error": "Note richieste"}), 400
+
+    try:
+        intervention_date = datetime.strptime(data['intervention_date'], '%Y-%m-%d').date()
+
+        intervention = CheckInIntervention(
+            cliente_id=cliente_id,
+            intervention_date=intervention_date,
+            notes=data['notes'],
+            loom_link=data.get('loom_link'),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Check-in registrato con successo"
+        }), 201
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/check-in-interventions/<int:intervention_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_check_in_intervention(intervention_id: int):
+    """Aggiorna un intervento di check-in esistente."""
+    from corposostenibile.models import CheckInIntervention
+    from datetime import datetime
+
+    intervention = db.session.query(CheckInIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    data = request.get_json()
+
+    try:
+        if 'intervention_date' in data:
+            intervention.intervention_date = datetime.strptime(
+                data['intervention_date'], '%Y-%m-%d'
+            ).date()
+
+        if 'notes' in data:
+            intervention.notes = data['notes']
+
+        if 'loom_link' in data:
+            intervention.loom_link = data['loom_link']
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Check-in aggiornato con successo"
+        })
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/check-in-interventions/<int:intervention_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_check_in_intervention(intervention_id: int):
+    """Elimina un intervento di check-in."""
+    from corposostenibile.models import CheckInIntervention
+
+    intervention = db.session.query(CheckInIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    try:
+        db.session.delete(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Check-in eliminato con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  CONTINUITY CALL INTERVENTIONS API                                          #
+# --------------------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/continuity-call-interventions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_continuity_call_interventions(cliente_id: int):
+    """Ottiene tutti gli interventi di continuity call per un cliente."""
+    from corposostenibile.models import ContinuityCallIntervention
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    interventions = db.session.query(ContinuityCallIntervention).filter_by(
+        cliente_id=cliente_id
+    ).order_by(ContinuityCallIntervention.intervention_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "data": [intervention.to_dict() for intervention in interventions]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/continuity-call-interventions", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_continuity_call_intervention(cliente_id: int):
+    """Crea un nuovo intervento di continuity call."""
+    from corposostenibile.models import ContinuityCallIntervention
+    from datetime import datetime
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    data = request.get_json()
+
+    if not data.get('intervention_date'):
+        return jsonify({"success": False, "error": "Data intervento richiesta"}), 400
+    if not data.get('notes'):
+        return jsonify({"success": False, "error": "Note richieste"}), 400
+
+    try:
+        intervention_date = datetime.strptime(data['intervention_date'], '%Y-%m-%d').date()
+
+        intervention = ContinuityCallIntervention(
+            cliente_id=cliente_id,
+            intervention_date=intervention_date,
+            notes=data['notes'],
+            loom_link=data.get('loom_link'),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Continuity call registrata con successo"
+        }), 201
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/continuity-call-interventions/<int:intervention_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_continuity_call_intervention(intervention_id: int):
+    """Aggiorna un intervento di continuity call esistente."""
+    from corposostenibile.models import ContinuityCallIntervention
+    from datetime import datetime
+
+    intervention = db.session.query(ContinuityCallIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    data = request.get_json()
+
+    try:
+        if 'intervention_date' in data:
+            intervention.intervention_date = datetime.strptime(
+                data['intervention_date'], '%Y-%m-%d'
+            ).date()
+
+        if 'notes' in data:
+            intervention.notes = data['notes']
+
+        if 'loom_link' in data:
+            intervention.loom_link = data['loom_link']
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Continuity call aggiornata con successo"
+        })
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/continuity-call-interventions/<int:intervention_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_continuity_call_intervention(intervention_id: int):
+    """Elimina un intervento di continuity call."""
+    from corposostenibile.models import ContinuityCallIntervention
+
+    intervention = db.session.query(ContinuityCallIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    try:
+        db.session.delete(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Continuity call eliminata con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  GESTIONE PROFESSIONISTI - Assegnazione / Interruzione / Storico           #
+# --------------------------------------------------------------------------- #
+
+@api_bp.route("/<int:cliente_id>/professionisti/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_professionisti_history(cliente_id: int):
+    """
+    Ottiene lo storico completo delle assegnazioni professionisti per un cliente.
+    Include sia le assegnazioni tracciate che quelle legacy (senza history).
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory, User
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    # Ottieni storico tracciato
+    history_records = db.session.query(ClienteProfessionistaHistory).filter_by(
+        cliente_id=cliente_id
+    ).order_by(ClienteProfessionistaHistory.data_dal.desc()).all()
+
+    # Mappa user_id -> nome per ottimizzazione
+    user_ids = set()
+    for h in history_records:
+        user_ids.add(h.user_id)
+        if h.assegnato_da_id:
+            user_ids.add(h.assegnato_da_id)
+        if h.interrotto_da_id:
+            user_ids.add(h.interrotto_da_id)
+
+    users_map = {}
+    users_avatar_map = {}
+    if user_ids:
+        users = db.session.query(User).filter(User.id.in_(user_ids)).all()
+        users_map = {u.id: u.full_name or u.email for u in users}
+        users_avatar_map = {u.id: u.avatar_path for u in users}
+
+    history_list = []
+    tracked_user_types = set()  # (user_id, tipo) per identificare assegnazioni legacy
+
+    for h in history_records:
+        tracked_user_types.add((h.user_id, h.tipo_professionista))
+        history_list.append({
+            "id": h.id,
+            "tipo_professionista": h.tipo_professionista,
+            "professionista_nome": users_map.get(h.user_id, "Sconosciuto"),
+            "professionista_id": h.user_id,
+            "avatar_path": users_avatar_map.get(h.user_id),
+            "data_dal": h.data_dal.strftime("%d/%m/%Y") if h.data_dal else None,
+            "data_al": h.data_al.strftime("%d/%m/%Y") if h.data_al else None,
+            "motivazione_aggiunta": h.motivazione_aggiunta,
+            "motivazione_interruzione": h.motivazione_interruzione,
+            "assegnato_da": users_map.get(h.assegnato_da_id) if h.assegnato_da_id else None,
+            "interrotto_da": users_map.get(h.interrotto_da_id) if h.interrotto_da_id else None,
+            "is_active": h.is_active,
+            "has_history": True,
+        })
+
+    # Aggiungi assegnazioni legacy (senza history record attivo)
+    legacy_assignments = []
+
+    # Nutrizionisti
+    for n in cliente.nutrizionisti_multipli:
+        if (n.id, "nutrizionista") not in tracked_user_types or not any(
+            h["professionista_id"] == n.id and h["tipo_professionista"] == "nutrizionista" and h["is_active"]
+            for h in history_list
+        ):
+            legacy_assignments.append({
+                "id": None,
+                "tipo_professionista": "nutrizionista",
+                "professionista_nome": n.full_name or n.email,
+                "professionista_id": n.id,
+                "avatar_path": n.avatar_path,
+                "data_dal": None,
+                "data_al": None,
+                "motivazione_aggiunta": None,
+                "motivazione_interruzione": None,
+                "assegnato_da": None,
+                "interrotto_da": None,
+                "is_active": True,
+                "has_history": False,
+            })
+
+    # Coach
+    for c in cliente.coaches_multipli:
+        if (c.id, "coach") not in tracked_user_types or not any(
+            h["professionista_id"] == c.id and h["tipo_professionista"] == "coach" and h["is_active"]
+            for h in history_list
+        ):
+            legacy_assignments.append({
+                "id": None,
+                "tipo_professionista": "coach",
+                "professionista_nome": c.full_name or c.email,
+                "professionista_id": c.id,
+                "avatar_path": c.avatar_path,
+                "data_dal": None,
+                "data_al": None,
+                "motivazione_aggiunta": None,
+                "motivazione_interruzione": None,
+                "assegnato_da": None,
+                "interrotto_da": None,
+                "is_active": True,
+                "has_history": False,
+            })
+
+    # Psicologi
+    for p in cliente.psicologi_multipli:
+        if (p.id, "psicologa") not in tracked_user_types or not any(
+            h["professionista_id"] == p.id and h["tipo_professionista"] == "psicologa" and h["is_active"]
+            for h in history_list
+        ):
+            legacy_assignments.append({
+                "id": None,
+                "tipo_professionista": "psicologa",
+                "professionista_nome": p.full_name or p.email,
+                "professionista_id": p.id,
+                "avatar_path": p.avatar_path,
+                "data_dal": None,
+                "data_al": None,
+                "motivazione_aggiunta": None,
+                "motivazione_interruzione": None,
+                "assegnato_da": None,
+                "interrotto_da": None,
+                "is_active": True,
+                "has_history": False,
+            })
+
+    # Combina e ordina per data (legacy senza data vanno in fondo)
+    all_history = history_list + legacy_assignments
+
+    return jsonify({"history": all_history})
+
+
+@api_bp.route("/<int:cliente_id>/professionisti/assign", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def assign_professionista(cliente_id: int):
+    """
+    Assegna un professionista a un cliente.
+    Crea un record in ClienteProfessionistaHistory e aggiunge alla relazione many-to-many.
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory, User
+    from flask_login import current_user
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    data = request.get_json() or {}
+
+    # Validazione campi obbligatori
+    tipo_professionista = data.get("tipo_professionista")
+    user_id = data.get("user_id")
+    data_dal_str = data.get("data_dal")
+    motivazione = data.get("motivazione_aggiunta")
+
+    if not all([tipo_professionista, user_id, data_dal_str, motivazione]):
+        return jsonify({
+            "ok": False,
+            "error": "Campi obbligatori: tipo_professionista, user_id, data_dal, motivazione_aggiunta"
+        }), 400
+
+    # Valida tipo professionista
+    valid_types = ["nutrizionista", "coach", "psicologa", "health_manager", "consulente"]
+    if tipo_professionista not in valid_types:
+        return jsonify({
+            "ok": False,
+            "error": f"Tipo professionista non valido. Valori accettati: {valid_types}"
+        }), 400
+
+    # Verifica che l'utente esista
+    user = db.session.query(User).filter_by(id=user_id).first()
+    if not user:
+        return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+
+    # Parse data
+    try:
+        data_dal = datetime.strptime(data_dal_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"ok": False, "error": "Formato data non valido (usa YYYY-MM-DD)"}), 400
+
+    try:
+        # Crea record history
+        history = ClienteProfessionistaHistory(
+            cliente_id=cliente_id,
+            user_id=user_id,
+            tipo_professionista=tipo_professionista,
+            data_dal=data_dal,
+            motivazione_aggiunta=motivazione,
+            assegnato_da_id=current_user.id if current_user.is_authenticated else None,
+            is_active=True,
+        )
+        db.session.add(history)
+
+        # Aggiungi alla relazione many-to-many appropriata
+        if tipo_professionista == "nutrizionista":
+            if user not in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.append(user)
+        elif tipo_professionista == "coach":
+            if user not in cliente.coaches_multipli:
+                cliente.coaches_multipli.append(user)
+        elif tipo_professionista == "psicologa":
+            if user not in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.append(user)
+        elif tipo_professionista == "consulente":
+            if user not in cliente.consulenti_multipli:
+                cliente.consulenti_multipli.append(user)
+        elif tipo_professionista == "health_manager":
+            cliente.health_manager_id = user_id
+
+        db.session.commit()
+
+        return jsonify({
+            "ok": True,
+            "message": "Professionista assegnato con successo",
+            "history_id": history.id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@api_bp.route("/<int:cliente_id>/professionisti/<int:history_id>/interrupt", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def interrupt_professionista(cliente_id: int, history_id: int):
+    """
+    Interrompe un'assegnazione professionista tracciata.
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory, User
+    from flask_login import current_user
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    history = db.session.query(ClienteProfessionistaHistory).filter_by(
+        id=history_id,
+        cliente_id=cliente_id,
+        is_active=True
+    ).first_or_404()
+
+    data = request.get_json() or {}
+    motivazione = data.get("motivazione_interruzione")
+    data_al_str = data.get("data_al")
+
+    if not motivazione:
+        return jsonify({"ok": False, "error": "Motivazione interruzione obbligatoria"}), 400
+
+    try:
+        # Parse data fine (default: oggi)
+        data_al = date.today()
+        if data_al_str:
+            data_al = datetime.strptime(data_al_str, "%Y-%m-%d").date()
+
+        # Aggiorna record history
+        history.is_active = False
+        history.data_al = data_al
+        history.motivazione_interruzione = motivazione
+        history.interrotto_da_id = current_user.id if current_user.is_authenticated else None
+
+        # Rimuovi dalla relazione many-to-many
+        user = db.session.query(User).filter_by(id=history.user_id).first()
+        if user:
+            if history.tipo_professionista == "nutrizionista":
+                if user in cliente.nutrizionisti_multipli:
+                    cliente.nutrizionisti_multipli.remove(user)
+            elif history.tipo_professionista == "coach":
+                if user in cliente.coaches_multipli:
+                    cliente.coaches_multipli.remove(user)
+            elif history.tipo_professionista == "psicologa":
+                if user in cliente.psicologi_multipli:
+                    cliente.psicologi_multipli.remove(user)
+            elif history.tipo_professionista == "consulente":
+                if user in cliente.consulenti_multipli:
+                    cliente.consulenti_multipli.remove(user)
+            elif history.tipo_professionista == "health_manager":
+                if cliente.health_manager_id == history.user_id:
+                    cliente.health_manager_id = None
+
+        db.session.commit()
+
+        return jsonify({
+            "ok": True,
+            "message": "Assegnazione interrotta con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@api_bp.route("/<int:cliente_id>/professionisti/legacy/interrupt", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def interrupt_legacy_professionista(cliente_id: int):
+    """
+    Interrompe un'assegnazione legacy (senza record history).
+    Crea un record history con data_dal = oggi e lo marca come interrotto.
+    """
+    from corposostenibile.models import ClienteProfessionistaHistory, User
+    from flask_login import current_user
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    data = request.get_json() or {}
+
+    user_id = data.get("user_id")
+    tipo_professionista = data.get("tipo_professionista")
+    motivazione = data.get("motivazione_interruzione")
+
+    if not all([user_id, tipo_professionista, motivazione]):
+        return jsonify({
+            "ok": False,
+            "error": "Campi obbligatori: user_id, tipo_professionista, motivazione_interruzione"
+        }), 400
+
+    user = db.session.query(User).filter_by(id=user_id).first()
+    if not user:
+        return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+
+    try:
+        today = date.today()
+
+        # Crea record history già interrotto
+        history = ClienteProfessionistaHistory(
+            cliente_id=cliente_id,
+            user_id=user_id,
+            tipo_professionista=tipo_professionista,
+            data_dal=today,  # Non conosciamo la data reale di inizio
+            motivazione_aggiunta="Assegnazione legacy (data inizio sconosciuta)",
+            assegnato_da_id=None,
+            is_active=False,
+            data_al=today,
+            motivazione_interruzione=motivazione,
+            interrotto_da_id=current_user.id if current_user.is_authenticated else None,
+        )
+        db.session.add(history)
+
+        # Rimuovi dalla relazione many-to-many
+        if tipo_professionista == "nutrizionista":
+            if user in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.remove(user)
+        elif tipo_professionista == "coach":
+            if user in cliente.coaches_multipli:
+                cliente.coaches_multipli.remove(user)
+        elif tipo_professionista == "psicologa":
+            if user in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.remove(user)
+        elif tipo_professionista == "consulente":
+            if user in cliente.consulenti_multipli:
+                cliente.consulenti_multipli.remove(user)
+        elif tipo_professionista == "health_manager":
+            if cliente.health_manager_id == user_id:
+                cliente.health_manager_id = None
+
+        db.session.commit()
+
+        return jsonify({
+            "ok": True,
+            "message": "Assegnazione legacy interrotta con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  LISTA CLIENTI IN SCADENZA (< 30 gg)                                        #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/expiring", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def expiring_list_view() -> str:
+    """Lista clienti il cui rinnovo scade entro 30 giorni."""
+    form = CustomerFilterForm(request.args, meta={"csrf": False})
+    q      = form.q.data
+    today  = date.today()
+    limit  = today + timedelta(days=30)
+
+    # query base: solo clienti con data_rinnovo entro 30 gg
+    query = (
+        db.session.query(Cliente)
+        .filter(Cliente.data_rinnovo.isnot(None),
+                Cliente.data_rinnovo <= limit)
+    )
+
+    # ricerca su nome / consulente
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(Cliente.nome_cognome.ilike(like),
+                Cliente.consulente_alimentare.ilike(like))
+        )
+
+    # paginazione
+    page      = request.args.get("page", 1, type=int)
+    per_page  = current_app.config.get("CUSTOMERS_PAGE_SIZE", 25)
+    pagination = query.order_by(Cliente.data_rinnovo.asc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return render_template(
+        "customers/list_expiring.html",
+        pagination=pagination,
+        form=form,
+        filters_applied=bool(q),
+    )
+
+# --------------------------------------------------------------------------- #
+#  RECUPERO GHOST - Clienti in stato ghost da recuperare                     #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/recupero-ghost", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def recupero_ghost_view() -> str:
+    """
+    Pagina dedicata ai clienti in stato GHOST per il recupero.
+    Mostra SOLO i clienti andati in ghost con la nuova metodologia automatica:
+    - stato_cliente = 'ghost'
+    - TUTTI i servizi assegnati (con almeno un professionista) sono in ghost
+    """
+    from corposostenibile.models import User
+
+    # Query base: clienti in ghost CON DATA (nuova metodologia)
+    # Mostra solo quelli andati in ghost DA OGGI (o con data recente)
+    today = date.today()
+
+    query = db.session.query(Cliente).filter(
+        Cliente.stato_cliente == StatoClienteEnum.ghost,
+        Cliente.stato_cliente_data.isnot(None),  # DEVE avere una data
+        Cliente.stato_cliente_data >= today  # Solo da oggi in poi
+    )
+
+    # Eager load delle relazioni professionisti per il filtro
+    query = query.options(
+        selectinload(Cliente.nutrizionisti_multipli),
+        selectinload(Cliente.coaches_multipli),
+        selectinload(Cliente.psicologi_multipli)
+    )
+
+    # ── FILTRO HEALTH MANAGER ──
+    health_manager_filter = request.args.get('health_manager', '').strip()
+    if health_manager_filter == 'none':
+        # Mostra solo clienti SENZA health manager
+        query = query.filter(Cliente.health_manager_id.is_(None))
+    elif health_manager_filter and health_manager_filter.isdigit():
+        # Mostra solo clienti con health manager specifico
+        query = query.filter(Cliente.health_manager_id == int(health_manager_filter))
+
+    # Filtro ricerca opzionale
+    search = request.args.get('search', '').strip()
+    if search:
+        query = query.filter(
+            or_(
+                Cliente.nome_cognome.ilike(f'%{search}%'),
+                Cliente.mail.ilike(f'%{search}%'),
+                Cliente.cellulare.ilike(f'%{search}%')
+            )
+        )
+
+    # Ordinamento per data ghost (più recenti prima)
+    query = query.order_by(Cliente.stato_cliente_data.desc().nulls_last())
+
+    # Paginazione
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Prepara dati arricchiti per il template
+    # FILTRO: Mostra solo clienti con metodologia automatica
+    clienti_ghost = []
+    for cliente in pagination.items:
+        # Helper per ottenere valore stato (gestisce Enum e str)
+        def get_stato_value(stato):
+            if stato is None:
+                return None
+            return stato.value if hasattr(stato, 'value') else str(stato)
+
+        # Conta servizi assegnati (con almeno un professionista)
+        servizi_assegnati = []
+        servizi_ghost = []
+
+        # Nutrizione
+        if cliente.nutrizionisti_multipli and len(cliente.nutrizionisti_multipli) > 0:
+            servizi_assegnati.append('nutrizione')
+            stato_nutri = get_stato_value(cliente.stato_nutrizione)
+            if stato_nutri == 'ghost':
+                servizi_ghost.append({
+                    'nome': 'Nutrizione',
+                    'data': cliente.stato_nutrizione_data,
+                    'professionisti': [u.full_name or u.email for u in cliente.nutrizionisti_multipli]
+                })
+
+        # Coaching
+        if cliente.coaches_multipli and len(cliente.coaches_multipli) > 0:
+            servizi_assegnati.append('coaching')
+            stato_coach = get_stato_value(cliente.stato_coach)
+            if stato_coach == 'ghost':
+                servizi_ghost.append({
+                    'nome': 'Coaching',
+                    'data': cliente.stato_coach_data,
+                    'professionisti': [u.full_name or u.email for u in cliente.coaches_multipli]
+                })
+
+        # Psicologia
+        if cliente.psicologi_multipli and len(cliente.psicologi_multipli) > 0:
+            servizi_assegnati.append('psicologia')
+            stato_psico = get_stato_value(cliente.stato_psicologia)
+            if stato_psico == 'ghost':
+                servizi_ghost.append({
+                    'nome': 'Psicologia',
+                    'data': cliente.stato_psicologia_data,
+                    'professionisti': [u.full_name or u.email for u in cliente.psicologi_multipli]
+                })
+
+        # ⚡ FILTRO METODOLOGIA AUTOMATICA ⚡
+        # Mostra solo se:
+        # 1. Ha almeno un servizio assegnato
+        # 2. TUTTI i servizi assegnati sono in ghost
+        if not servizi_assegnati:
+            # Skip: nessun servizio assegnato
+            continue
+
+        if len(servizi_ghost) != len(servizi_assegnati):
+            # Skip: non tutti i servizi assegnati sono in ghost
+            continue
+
+        # ✅ Cliente valido: tutti i servizi assegnati sono in ghost
+
+        # Calcola giorni in ghost
+        giorni_ghost = None
+        if cliente.stato_cliente_data:
+            giorni_ghost = (date.today() - cliente.stato_cliente_data.date()).days
+
+        clienti_ghost.append({
+            'cliente': cliente,
+            'servizi_ghost': servizi_ghost,
+            'giorni_ghost': giorni_ghost
+        })
+
+    # Statistiche (conta solo clienti con metodologia automatica nella lista corrente)
+    # Per statistiche precise, dovremmo rifare il controllo su tutti i clienti ghost,
+    # ma per performance usiamo il conteggio della lista filtrata corrente
+    total_displayed = len(clienti_ghost)
+
+    # Conta per periodo
+    ghost_7_giorni = sum(1 for c in clienti_ghost
+                         if c['cliente'].stato_cliente_data
+                         and c['cliente'].stato_cliente_data.date() >= date.today() - timedelta(days=7))
+    ghost_30_giorni = sum(1 for c in clienti_ghost
+                          if c['cliente'].stato_cliente_data
+                          and c['cliente'].stato_cliente_data.date() >= date.today() - timedelta(days=30))
+
+    stats = {
+        'totale_ghost': total_displayed,
+        'ghost_ultimi_7_giorni': ghost_7_giorni,
+        'ghost_ultimi_30_giorni': ghost_30_giorni,
+    }
+
+    # Carica lista Health Managers per il filtro (dipartimento 13)
+    health_managers = db.session.query(User).filter(
+        User.department_id == 13,
+        User.is_active == True
+    ).order_by(User.first_name, User.last_name).all()
+
+    return render_template(
+        "customers/recupero_ghost.html",
+        clienti_ghost=clienti_ghost,
+        pagination=pagination,
+        stats=stats,
+        search=search,
+        health_managers=health_managers,
+        current_health_manager=health_manager_filter
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  IN SCADENZA - Clienti con rinnovo entro 30 giorni                         #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/in-scadenza", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def in_scadenza_view() -> str:
+    """
+    Pagina dedicata ai clienti in scadenza (data_rinnovo entro 30 giorni).
+    Filtrabile per Health Manager.
+    """
+    from corposostenibile.models import User
+
+    # Data limite: oggi + 30 giorni
+    today = date.today()
+    limite_scadenza = today + timedelta(days=30)
+
+    # Query base: clienti con data_rinnovo entro 30 giorni
+    query = db.session.query(Cliente).filter(
+        Cliente.data_rinnovo.isnot(None),
+        Cliente.data_rinnovo <= limite_scadenza,
+        Cliente.data_rinnovo >= today  # Non mostrare quelli già scaduti
+    )
+
+    # Eager load delle relazioni professionisti
+    query = query.options(
+        selectinload(Cliente.nutrizionisti_multipli),
+        selectinload(Cliente.coaches_multipli),
+        selectinload(Cliente.psicologi_multipli)
+    )
+
+    # ── FILTRO HEALTH MANAGER ──
+    health_manager_filter = request.args.get('health_manager', '').strip()
+    if health_manager_filter == 'none':
+        query = query.filter(Cliente.health_manager_id.is_(None))
+    elif health_manager_filter and health_manager_filter.isdigit():
+        query = query.filter(Cliente.health_manager_id == int(health_manager_filter))
+
+    # Filtro ricerca opzionale
+    search = request.args.get('search', '').strip()
+    if search:
+        query = query.filter(
+            or_(
+                Cliente.nome_cognome.ilike(f'%{search}%'),
+                Cliente.mail.ilike(f'%{search}%'),
+                Cliente.cellulare.ilike(f'%{search}%')
+            )
+        )
+
+    # Ordinamento per data rinnovo (più urgenti prima)
+    query = query.order_by(Cliente.data_rinnovo.asc())
+
+    # Paginazione
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Statistiche sul TOTALE (non sulla paginazione)
+    # Query base per statistiche (senza paginazione)
+    stats_query_base = db.session.query(Cliente).filter(
+        Cliente.data_rinnovo.isnot(None),
+        Cliente.data_rinnovo <= limite_scadenza,
+        Cliente.data_rinnovo >= today
+    )
+
+    # Applica gli stessi filtri delle statistiche
+    if health_manager_filter == 'none':
+        stats_query_base = stats_query_base.filter(Cliente.health_manager_id.is_(None))
+    elif health_manager_filter and health_manager_filter.isdigit():
+        stats_query_base = stats_query_base.filter(Cliente.health_manager_id == int(health_manager_filter))
+
+    if search:
+        stats_query_base = stats_query_base.filter(
+            or_(
+                Cliente.nome_cognome.ilike(f'%{search}%'),
+                Cliente.mail.ilike(f'%{search}%'),
+                Cliente.cellulare.ilike(f'%{search}%')
+            )
+        )
+
+    # Calcola statistiche sul totale
+    totale_scadenza = stats_query_base.count()
+
+    # Critici (entro 7 giorni)
+    limite_7_giorni = today + timedelta(days=7)
+    scadenza_7_giorni = stats_query_base.filter(
+        Cliente.data_rinnovo <= limite_7_giorni
+    ).count()
+
+    # Urgenti (entro 15 giorni)
+    limite_15_giorni = today + timedelta(days=15)
+    scadenza_15_giorni = stats_query_base.filter(
+        Cliente.data_rinnovo <= limite_15_giorni
+    ).count()
+
+    stats = {
+        'totale_scadenza': totale_scadenza,
+        'scadenza_7_giorni': scadenza_7_giorni,
+        'scadenza_15_giorni': scadenza_15_giorni,
+        'scadenza_30_giorni': totale_scadenza,  # È lo stesso del totale
+    }
+
+    # Prepara dati arricchiti per il template (solo pagina corrente)
+    clienti_scadenza = []
+    for cliente in pagination.items:
+        # Calcola giorni rimanenti
+        giorni_rimanenti = (cliente.data_rinnovo - today).days
+
+        # Determina urgenza
+        if giorni_rimanenti <= 7:
+            urgenza = 'critica'  # Rosso
+        elif giorni_rimanenti <= 15:
+            urgenza = 'alta'  # Arancione
+        else:
+            urgenza = 'media'  # Giallo
+
+        clienti_scadenza.append({
+            'cliente': cliente,
+            'giorni_rimanenti': giorni_rimanenti,
+            'urgenza': urgenza
+        })
+
+    # Carica lista Health Managers per il filtro (dipartimento 13)
+    health_managers = db.session.query(User).filter(
+        User.department_id == 13,
+        User.is_active == True
+    ).order_by(User.first_name, User.last_name).all()
+
+    return render_template(
+        "customers/in_scadenza.html",
+        clienti_scadenza=clienti_scadenza,
+        pagination=pagination,
+        stats=stats,
+        search=search,
+        health_managers=health_managers,
+        current_health_manager=health_manager_filter
+    )
+
+# --------------------------------------------------------------------------- #
+#  Helper functions per dashboard 360°                                        #
+# --------------------------------------------------------------------------- #
+def _get_stati_distribution(filters=None):
+    """Ottiene distribuzione stati cliente."""
+    query = db.session.query(
+        Cliente.stato_cliente,
+        func.count(Cliente.cliente_id).label('count')
+    )
+    
+    if filters:
+        query = _apply_dashboard_filters(query, filters)
+    
+    results = query.group_by(Cliente.stato_cliente).all()
+    
+    return [r.count for r in results]
+
+def _get_tipologia_distribution(filters=None):
+    """Ottiene distribuzione tipologia clienti."""
+    query = db.session.query(
+        Cliente.tipologia_cliente,
+        func.count(Cliente.cliente_id).label('count')
+    )
+    
+    if filters:
+        query = _apply_dashboard_filters(query, filters)
+    
+    results = query.group_by(Cliente.tipologia_cliente).all()
+    
+    return [r.count for r in results]
+
+def _get_team_distribution(filters=None):
+    """Ottiene distribuzione per team."""
+    query = db.session.query(
+        Cliente.di_team,
+        func.count(Cliente.cliente_id).label('count')
+    )
+    
+    if filters:
+        query = _apply_dashboard_filters(query, filters)
+    
+    results = query.group_by(Cliente.di_team).all()
+    
+    return [r.count for r in results]
+
+def _get_pagamento_distribution(filters=None):
+    """Ottiene distribuzione modalità pagamento."""
+    query = db.session.query(
+        Cliente.modalita_pagamento,
+        func.count(Cliente.cliente_id).label('count')
+    )
+    
+    if filters:
+        query = _apply_dashboard_filters(query, filters)
+    
+    results = query.group_by(Cliente.modalita_pagamento).all()
+    
+    return [r.count for r in results]
+
+def _get_check_saltati_distribution(filters=None):
+    """Ottiene distribuzione check saltati."""
+    query = db.session.query(
+        Cliente.check_saltati,
+        func.count(Cliente.cliente_id).label('count')
+    )
+    
+    if filters:
+        query = _apply_dashboard_filters(query, filters)
+    
+    results = query.group_by(Cliente.check_saltati).all()
+    
+    return [r.count for r in results]
+
+def _get_wellness_trend(filters=None):
+    """Ottiene trend wellness nel tempo."""
+    from corposostenibile.models import TypeFormResponse
+    
+    # Query per ottenere medie wellness per settimana
+    query = db.session.query(
+        func.date_trunc('week', TypeFormResponse.submit_date).label('week'),
+        func.avg(TypeFormResponse.energy_rating).label('energy'),
+        func.avg(TypeFormResponse.mood_rating).label('mood'),
+        func.avg(TypeFormResponse.sleep_rating).label('sleep'),
+        func.avg(TypeFormResponse.motivation_rating).label('motivation')
+    )
+    
+    if filters and filters.get('dateRange'):
+        # Applica filtro date
+        pass
+    
+    results = query.group_by('week').order_by('week').limit(12).all()
+    
+    return {
+        'labels': [r.week.strftime('%d/%m') for r in results],
+        'energy': [float(r.energy or 0) for r in results],
+        'mood': [float(r.mood or 0) for r in results],
+        'sleep': [float(r.sleep or 0) for r in results],
+        'motivation': [float(r.motivation or 0) for r in results]
+    }
+
+def _apply_dashboard_filters(query, filters):
+    """Applica filtri alla query."""
+    if filters.get('statoCliente'):
+        query = query.filter(Cliente.stato_cliente.in_(filters['statoCliente']))
+    
+    if filters.get('team'):
+        query = query.filter(Cliente.di_team.in_(filters['team']))
+    
+    if filters.get('tipologia'):
+        query = query.filter(Cliente.tipologia_cliente.in_(filters['tipologia']))
+    
+    return query
+
+
+# --------------------------------------------------------------------------- #
+#  CALL BONUS ROUTES                                                          #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/<int:cliente_id>/call-bonus", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_call_bonus_route(cliente_id: int):
+    """Crea una nuova richiesta di call bonus per un cliente."""
+    from .services import create_call_bonus
+    from flask_login import current_user
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        flash("Cliente non trovato.", "danger")
+        return redirect(url_for("customers.list_view"))
+
+    # Estrai tipo e ID dal campo professionista_data (formato: "tipo_id")
+    professionista_data = request.form.get('professionista_data', '')
+    data_richiesta_str = request.form.get('data_richiesta', '')
+
+    if not professionista_data:
+        flash("Seleziona un professionista.", "danger")
+        return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
+
+    try:
+        # Splitta il valore per ottenere tipo e ID
+        tipo_str, professionista_id_str = professionista_data.split('_', 1)
+        professionista_id = int(professionista_id_str)
+        tipo_professionista = TipoProfessionistaEnum(tipo_str)
+
+        # Converti la data
+        from datetime import datetime
+        data_richiesta = datetime.strptime(data_richiesta_str, '%Y-%m-%d').date() if data_richiesta_str else date.today()
+
+        # Crea la call bonus
+        call_bonus = create_call_bonus(
+            cliente_id=cliente_id,
+            professionista_id=professionista_id,
+            tipo_professionista=tipo_professionista,
+            created_by_user=current_user,
+            data_richiesta=data_richiesta
+        )
+        flash(f"Call bonus creata con successo!", "success")
+    except ValueError as e:
+        flash(f"Errore nei dati del form: {str(e)}", "danger")
+    except Exception as e:
+        flash(f"Errore nella creazione della call bonus: {str(e)}", "danger")
+
+    return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
+
+
+@customers_bp.route("/call-bonus/<int:call_bonus_id>/response", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def update_call_bonus_response_route(call_bonus_id: int):
+    """Aggiorna la risposta del cliente (accettata/rifiutata)."""
+    from .forms import CallBonusResponseForm
+    from .services import update_call_bonus_response
+
+    form = CallBonusResponseForm()
+
+    if form.validate_on_submit():
+        try:
+            call_bonus = update_call_bonus_response(
+                call_bonus_id=call_bonus_id,
+                status=form.status.data,
+                motivazione_rifiuto=form.motivazione_rifiuto.data if form.status.data == 'rifiutata' else None,
+                data_risposta=form.data_risposta.data
+            )
+            flash(f"Risposta cliente salvata: {form.status.data.upper()}", "success")
+            return redirect(url_for("customers.detail_view", cliente_id=call_bonus.cliente_id))
+        except Exception as e:
+            flash(f"Errore nell'aggiornamento della risposta: {str(e)}", "danger")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", "danger")
+
+    # Fallback redirect
+    return redirect(url_for("customers.list_view"))
+
+
+@customers_bp.route("/call-bonus/<int:call_bonus_id>/hm-confirm", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def update_call_bonus_hm_confirm_route(call_bonus_id: int):
+    """Conferma/gestione health manager della call bonus."""
+    from .forms import CallBonusHMConfirmForm
+    from .services import update_call_bonus_hm_confirm
+    from flask_login import current_user
+
+    form = CallBonusHMConfirmForm()
+
+    if form.validate_on_submit():
+        try:
+            call_bonus = update_call_bonus_hm_confirm(
+                call_bonus_id=call_bonus_id,
+                confermata_hm=form.confermata_hm.data,
+                note_hm=form.note_hm.data,
+                hm_user=current_user,
+                data_conferma_hm=form.data_conferma_hm.data
+            )
+            esito = "CONFERMATA" if form.confermata_hm.data else "NON ANDATA A BUON FINE"
+            flash(f"Call bonus {esito} dall'Health Manager", "success")
+            return redirect(url_for("customers.call_bonus_accettate_view"))
+        except Exception as e:
+            flash(f"Errore nella conferma HM: {str(e)}", "danger")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", "danger")
+
+    # Fallback redirect
+    return redirect(url_for("customers.call_bonus_accettate_view"))
+
+
+@customers_bp.route("/call-bonus-accettate", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def call_bonus_accettate_view():
+    """Visualizza tutte le call bonus accettate (filtrabili per health manager)."""
+    from datetime import date
+    from .services import get_call_bonus_accettate
+    from corposostenibile.models import User
+
+    # Filtro per health manager (opzionale)
+    health_manager_id = request.args.get('health_manager_id', type=int)
+
+    # Ottieni call bonus accettate
+    call_bonus_list = get_call_bonus_accettate(health_manager_id=health_manager_id)
+
+    # Ottieni lista health managers per il filtro
+    health_managers = db.session.query(User).filter(
+        User.department_id == 13  # Department ID 13 = Health Manager
+    ).order_by(User.first_name).all()
+
+    return render_template(
+        "customers/call_bonus_accettate.html",
+        call_bonus_list=call_bonus_list,
+        health_managers=health_managers,
+        selected_hm_id=health_manager_id,
+        today=date.today()
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  DIET MANAGEMENT API (Gestione Storico Diete)                              #
+# --------------------------------------------------------------------------- #
+
+def _can_manage_meal_plans(cliente: Cliente) -> bool:
+    """True se l'utente corrente può creare/chiudere piani del cliente.
+    Ammette admin oppure nutrizionisti assegnati al cliente.
+    """
+    if current_user.is_admin:
+        return True
+    # Utenti in dipartimento nutrizione assegnati al cliente
+    try:
+        if getattr(cliente, 'nutrizionisti_multipli', None):
+            return any(n.id == current_user.id for n in cliente.nutrizionisti_multipli)
+        # fallback legacy: attributo enum/stringa
+        nutritionist_name = (current_user.full_name or '').lower().replace(' ', '_')
+        return bool(getattr(cliente, 'nutrizionista', None)) and nutritionist_name in cliente.nutrizionista
+    except Exception:
+        return False
+
+
+@customers_bp.route("/<int:cliente_id>/diet/add", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_diet_add(cliente_id: int):
+    """Aggiunge una nuova dieta (continuazione normale del periodo).
+
+    Chiude il piano attivo (se necessario), crea nuovo MealPlan con start_date
+    default (end_date precedente + 1 giorno), is_active=True.
+    """
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_meal_plans(cliente):
+        abort(403)
+
+    payload = request.get_json(silent=True) or {}
+
+    # Parse date
+    start_str = payload.get("start_date")
+    end_str = payload.get("end_date")
+    piano_alimentare = payload.get("piano_alimentare", "").strip()
+    notes = payload.get("notes", "").strip()
+
+    try:
+        if start_str:
+            start_date = datetime.fromisoformat(start_str).date()
+        else:
+            # Calcola start_date default dal piano precedente
+            start_date = MealPlan.calculate_next_start_date(cliente_id) or date.today()
+
+        if not end_str:
+            return jsonify({"error": "end_date è obbligatorio"}), HTTPStatus.BAD_REQUEST
+        end_date = datetime.fromisoformat(end_str).date()
+    except Exception as exc:
+        return jsonify({"error": f"Date non valide: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    # Validazione date
+    if start_date >= end_date:
+        return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+    # Chiudi piano attivo se esiste
+    active_plan = (
+        db.session.query(MealPlan)
+        .filter_by(cliente_id=cliente_id, is_active=True)
+        .first()
+    )
+
+    if active_plan:
+        # Verifica che il piano attivo abbia end_date
+        if not active_plan.end_date:
+            # Imposta end_date al giorno prima di start_date
+            active_plan.end_date = start_date - timedelta(days=1)
+        elif active_plan.end_date >= start_date:
+            # Aggiorna end_date se necessario
+            active_plan.end_date = start_date - timedelta(days=1)
+        active_plan.is_active = False
+        db.session.flush()  # Commit changes to active plan before validation
+
+    # Crea nuovo piano
+    name = payload.get("name", "").strip() or f"Dieta {start_date.strftime('%d/%m/%Y')}"
+
+    plan = MealPlan(
+        cliente_id=cliente_id,
+        created_by_id=getattr(current_user, "id", None),
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        piano_alimentare=piano_alimentare,
+        notes=notes,
+        is_active=True,
+        target_calories=payload.get("target_calories"),
+        target_proteins=payload.get("target_proteins"),
+        target_carbohydrates=payload.get("target_carbohydrates"),
+        target_fats=payload.get("target_fats"),
+    )
+
+    # Valida sovrapposizioni
+    try:
+        plan.validate_no_overlap()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(plan)
+
+    # Aggiorna campi legacy sul Cliente per compatibilità
+    cliente.dieta_dal = start_date
+    cliente.nuova_dieta_dal = end_date
+
+    db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "plan_id": plan.id,
+        "message": "Dieta aggiunta con successo"
+    }), HTTPStatus.CREATED
+
+
+@customers_bp.route("/<int:cliente_id>/diet/change", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_diet_change(cliente_id: int):
+    """Cambia dieta esistente (modifica/chiusura con flessibilità date).
+
+    Permette modificare date (soprattutto end_date), tipo, piano.
+    Valida che non ci siano sovrapposizioni.
+    """
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_meal_plans(cliente):
+        abort(403)
+
+    payload = request.get_json(silent=True) or {}
+
+    # Identifica piano da modificare
+    plan_id = payload.get("plan_id")
+    if not plan_id:
+        return jsonify({"error": "plan_id è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    plan = db.session.query(MealPlan).filter_by(id=plan_id, cliente_id=cliente_id).one_or_404()
+
+    # Parse modifiche
+    change_reason = payload.get("change_reason", "").strip()
+
+    # Modalità 1: Modifica piano esistente
+    if payload.get("start_date") or payload.get("end_date") or payload.get("piano_alimentare"):
+        # Aggiorna campi
+        if payload.get("start_date"):
+            try:
+                plan.start_date = datetime.fromisoformat(payload["start_date"]).date()
+            except Exception as exc:
+                return jsonify({"error": f"start_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+        if payload.get("end_date"):
+            try:
+                plan.end_date = datetime.fromisoformat(payload["end_date"]).date()
+            except Exception as exc:
+                return jsonify({"error": f"end_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+        if plan.start_date >= plan.end_date:
+            return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+        if "piano_alimentare" in payload:
+            plan.piano_alimentare = payload.get("piano_alimentare", "").strip()
+
+        if "notes" in payload:
+            plan.notes = payload.get("notes", "").strip()
+
+        if "is_active" in payload:
+            plan.is_active = bool(payload.get("is_active"))
+
+        plan.changed_by_id = getattr(current_user, "id", None)
+        plan.change_reason = change_reason
+
+        # Valida sovrapposizioni (escludendo questo piano)
+        try:
+            plan.validate_no_overlap(exclude_id=plan.id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+        # Aggiorna campi legacy se è il piano attivo
+        if plan.is_active:
+            cliente.dieta_dal = plan.start_date
+            cliente.nuova_dieta_dal = plan.end_date
+            if plan.tipo_attuale:
+                cliente.tipo_attuale = plan.tipo_attuale
+
+        db.session.commit()
+
+        return jsonify({
+            "ok": True,
+            "plan_id": plan.id,
+            "message": "Piano aggiornato con successo"
+        }), HTTPStatus.OK
+
+    return jsonify({"error": "Nessuna modifica specificata"}), HTTPStatus.BAD_REQUEST
+
+
+@customers_bp.route("/<int:cliente_id>/diet/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_diet_history(cliente_id: int):
+    """Restituisce lo storico completo delle diete per il cliente."""
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+
+    plans = (
+        db.session.query(MealPlan)
+        .filter_by(cliente_id=cliente_id)
+        .order_by(MealPlan.start_date.desc())
+        .all()
+    )
+
+    def _serialize(plan: MealPlan):
+        return {
+            "id": plan.id,
+            "name": plan.name,
+            "start_date": plan.start_date.isoformat() if plan.start_date else None,
+            "end_date": plan.end_date.isoformat() if plan.end_date else None,
+            "is_active": bool(plan.is_active),
+            "piano_alimentare": plan.piano_alimentare,
+            "notes": plan.notes,
+            "change_reason": plan.change_reason,
+            "duration_days": plan.duration_days,
+            "created_at": plan.created_at.isoformat() if plan.created_at else None,
+            "created_by": plan.created_by.full_name if plan.created_by else None,
+        }
+
+    # Aggiungi piano legacy se esiste
+    legacy_plan = None
+    if cliente.dieta_dal:
+        legacy_plan = {
+            "id": None,
+            "name": "Piano Legacy (da vecchi campi)",
+            "start_date": cliente.dieta_dal.isoformat() if cliente.dieta_dal else None,
+            "end_date": cliente.nuova_dieta_dal.isoformat() if cliente.nuova_dieta_dal else None,
+            "is_active": False,
+            "piano_alimentare": cliente.piano_alimentare if hasattr(cliente, 'piano_alimentare') else None,
+            "notes": "Dati legacy dalla vecchia gestione",
+            "is_legacy": True,
+        }
+
+    plans_data = [_serialize(p) for p in plans]
+
+    # Aggiungi piano legacy solo se non ci sono MealPlan o se le date non si sovrappongono
+    if legacy_plan and (not plans_data or all(p["start_date"] != legacy_plan["start_date"] for p in plans_data)):
+        plans_data.append(legacy_plan)
+
+    return jsonify({
+        "plans": plans_data,
+        "can_manage": _can_manage_meal_plans(cliente),
+    })
+
+
+# --------------------------------------------------------------------------- #
+#  TRAINING PLANS API                                                         #
+# --------------------------------------------------------------------------- #
+
+def _can_manage_training_plans(cliente: Cliente) -> bool:
+    """True se l'utente corrente può creare/chiudere piani allenamento del cliente."""
+    if current_user.is_admin:
+        return True
+    try:
+        if getattr(cliente, 'coaches_multipli', None):
+            return any(c.id == current_user.id for c in cliente.coaches_multipli)
+        return False
+    except Exception:
+        return False
+
+
+@customers_bp.route("/<int:cliente_id>/training/add", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_training_add(cliente_id: int):
+    """Aggiunge un nuovo piano allenamento con upload PDF."""
+    from werkzeug.utils import secure_filename
+    import os
+    from flask import current_app
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_training_plans(cliente):
+        abort(403)
+
+    # Gestione multipart form data invece di JSON
+    start_str = request.form.get("start_date")
+    end_str = request.form.get("end_date")
+    notes = request.form.get("notes", "").strip()
+
+    # Gestione upload file PDF
+    piano_allenamento_file_path = None
+    if 'piano_allenamento_file' in request.files:
+        file = request.files['piano_allenamento_file']
+        if file and file.filename:
+            # Validazione file
+            if not file.filename.lower().endswith('.pdf'):
+                return jsonify({"error": "Il file deve essere in formato PDF"}), HTTPStatus.BAD_REQUEST
+
+            # Sanitizza filename
+            filename = secure_filename(file.filename)
+            if not filename:
+                return jsonify({"error": "Nome file non valido"}), HTTPStatus.BAD_REQUEST
+
+            # Crea directory: uploads/training_plans/{cliente_id}/
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            training_folder = os.path.join(upload_folder, 'training_plans', str(cliente_id))
+            os.makedirs(training_folder, exist_ok=True)
+
+            # Genera filename unico con timestamp
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            name, ext = os.path.splitext(filename)
+            final_filename = f"training_{timestamp}_{name}{ext}"
+            filepath = os.path.join(training_folder, final_filename)
+
+            try:
+                file.save(filepath)
+                # Salva path relativo per il database
+                piano_allenamento_file_path = f"training_plans/{cliente_id}/{final_filename}"
+                logger.info(f"File piano allenamento salvato: {piano_allenamento_file_path}")
+            except Exception as e:
+                logger.exception(f"Errore salvataggio file: {e}")
+                return jsonify({"error": f"Errore durante il salvataggio del file: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+    else:
+        return jsonify({"error": "File PDF del piano allenamento è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        if start_str:
+            start_date = datetime.fromisoformat(start_str).date()
+        else:
+            start_date = TrainingPlan.calculate_next_start_date(cliente_id) or date.today()
+
+        if not end_str:
+            return jsonify({"error": "end_date è obbligatorio"}), HTTPStatus.BAD_REQUEST
+        end_date = datetime.fromisoformat(end_str).date()
+    except Exception as exc:
+        return jsonify({"error": f"Date non valide: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if start_date >= end_date:
+        return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+    active_plan = db.session.query(TrainingPlan).filter_by(cliente_id=cliente_id, is_active=True).first()
+    if active_plan:
+        if not active_plan.end_date:
+            active_plan.end_date = start_date - timedelta(days=1)
+        elif active_plan.end_date >= start_date:
+            active_plan.end_date = start_date - timedelta(days=1)
+        active_plan.is_active = False
+        db.session.flush()
+
+    name = request.form.get("name", "").strip() or f"Allenamento {start_date.strftime('%d/%m/%Y')}"
+    plan = TrainingPlan(
+        cliente_id=cliente_id,
+        created_by_id=getattr(current_user, "id", None),
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        piano_allenamento=None,  # Deprecato, ora usiamo il file
+        piano_allenamento_file_path=piano_allenamento_file_path,
+        notes=notes,
+        is_active=True,
+    )
+
+    try:
+        plan.validate_no_overlap()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(plan)
+    cliente.allenamento_dal = start_date
+    cliente.nuovo_allenamento_il = end_date
+    db.session.commit()
+
+    return jsonify({"ok": True, "plan_id": plan.id, "message": "Allenamento aggiunto con successo"}), HTTPStatus.CREATED
+
+
+@customers_bp.route("/<int:cliente_id>/training/change", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_training_change(cliente_id: int):
+    """Cambia piano allenamento esistente."""
+    from werkzeug.utils import secure_filename
+    import os
+    from flask import current_app
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_training_plans(cliente):
+        abort(403)
+
+    # Gestione multipart form data invece di JSON
+    plan_id = request.form.get("plan_id")
+    if not plan_id:
+        return jsonify({"error": "plan_id è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        plan_id = int(plan_id)
+    except ValueError:
+        return jsonify({"error": "plan_id non valido"}), HTTPStatus.BAD_REQUEST
+
+    plan = db.session.query(TrainingPlan).filter_by(id=plan_id, cliente_id=cliente_id).one_or_404()
+    change_reason = request.form.get("change_reason", "").strip()
+
+    # Verifica se c'è almeno un campo da modificare
+    has_changes = False
+
+    # Gestione date
+    start_str = request.form.get("start_date")
+    end_str = request.form.get("end_date")
+
+    if start_str:
+        try:
+            new_start_date = datetime.fromisoformat(start_str).date()
+            plan.start_date = new_start_date
+            has_changes = True
+        except Exception as exc:
+            return jsonify({"error": f"start_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if end_str:
+        try:
+            new_end_date = datetime.fromisoformat(end_str).date()
+            plan.end_date = new_end_date
+            has_changes = True
+        except Exception as exc:
+            return jsonify({"error": f"end_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if plan.start_date >= plan.end_date:
+        return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+    # Gestione upload file PDF (se presente)
+    if 'piano_allenamento_file' in request.files:
+        file = request.files['piano_allenamento_file']
+        if file and file.filename:
+            # Validazione file
+            if not file.filename.lower().endswith('.pdf'):
+                return jsonify({"error": "Il file deve essere in formato PDF"}), HTTPStatus.BAD_REQUEST
+
+            # Sanitizza filename
+            filename = secure_filename(file.filename)
+            if not filename:
+                return jsonify({"error": "Nome file non valido"}), HTTPStatus.BAD_REQUEST
+
+            # Crea directory: uploads/training_plans/{cliente_id}/
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            training_folder = os.path.join(upload_folder, 'training_plans', str(cliente_id))
+            os.makedirs(training_folder, exist_ok=True)
+
+            # Genera filename unico con timestamp
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            name, ext = os.path.splitext(filename)
+            final_filename = f"training_{timestamp}_{name}{ext}"
+            filepath = os.path.join(training_folder, final_filename)
+
+            try:
+                file.save(filepath)
+                # Salva path relativo per il database
+                plan.piano_allenamento_file_path = f"training_plans/{cliente_id}/{final_filename}"
+                has_changes = True
+                logger.info(f"File piano allenamento salvato: {plan.piano_allenamento_file_path}")
+            except Exception as e:
+                logger.exception(f"Errore salvataggio file: {e}")
+                return jsonify({"error": f"Errore durante il salvataggio del file: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    # Gestione notes
+    if "notes" in request.form:
+        plan.notes = request.form.get("notes", "").strip()
+        has_changes = True
+
+    # Gestione is_active
+    if "is_active" in request.form:
+        plan.is_active = request.form.get("is_active") == "true"
+        has_changes = True
+
+    if has_changes:
+        plan.changed_by_id = getattr(current_user, "id", None)
+        plan.change_reason = change_reason
+
+        try:
+            plan.validate_no_overlap(exclude_id=plan.id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+        db.session.commit()
+
+    return jsonify({"ok": True, "message": "Piano allenamento aggiornato"})
+
+
+@customers_bp.route("/<int:cliente_id>/training/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_training_history(cliente_id: int):
+    """Restituisce lo storico completo dei piani allenamento."""
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    plans = db.session.query(TrainingPlan).filter_by(cliente_id=cliente_id).order_by(TrainingPlan.start_date.desc()).all()
+
+    def _serialize(plan: TrainingPlan):
+        # Recupera file extra per questo piano
+        extra_files = db.session.query(PlanExtraFile).filter_by(
+            plan_type=PlanTypeEnum.training_plan,
+            plan_id=plan.id
+        ).order_by(PlanExtraFile.created_at).all()
+
+        return {
+            "id": plan.id,
+            "name": plan.name,
+            "start_date": plan.start_date.isoformat() if plan.start_date else None,
+            "end_date": plan.end_date.isoformat() if plan.end_date else None,
+            "is_active": bool(plan.is_active),
+            "piano_allenamento": plan.piano_allenamento,
+            "piano_allenamento_file_path": plan.piano_allenamento_file_path,
+            "has_file": bool(plan.piano_allenamento_file_path),
+            "notes": plan.notes,
+            "change_reason": plan.change_reason,
+            "duration_days": plan.duration_days,
+            "created_at": plan.created_at.isoformat() if plan.created_at else None,
+            "created_by": plan.created_by.full_name if plan.created_by else None,
+            "extra_files": [
+                {"id": f.id, "file_name": f.file_name, "file_size": f.file_size}
+                for f in extra_files
+            ],
+        }
+
+    legacy_plan = None
+    if cliente.allenamento_dal:
+        legacy_plan = {
+            "id": None,
+            "name": "Piano Legacy (da vecchi campi)",
+            "start_date": cliente.allenamento_dal.isoformat() if cliente.allenamento_dal else None,
+            "end_date": cliente.nuovo_allenamento_il.isoformat() if cliente.nuovo_allenamento_il else None,
+            "is_active": False,
+            "piano_allenamento": None,
+            "notes": "Dati legacy dalla vecchia gestione",
+            "is_legacy": True,
+        }
+
+    plans_data = [_serialize(p) for p in plans]
+    if legacy_plan and (not plans_data or all(p["start_date"] != legacy_plan["start_date"] for p in plans_data)):
+        plans_data.append(legacy_plan)
+
+    return jsonify({"plans": plans_data, "can_manage": _can_manage_training_plans(cliente)})
+
+
+@customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/versions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_training_versions(cliente_id: int, plan_id: int):
+    """Restituisce lo storico delle versioni di un piano allenamento specifico."""
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(TrainingPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Recupera tutte le versioni usando SQLAlchemy-Continuum
+    versions = []
+    if hasattr(TrainingPlan, 'versions'):
+        # Ottieni tutte le versioni del piano
+        plan_versions = plan.versions.all()
+
+        for idx, version in enumerate(plan_versions):
+            file_path = version.piano_allenamento_file_path if hasattr(version, 'piano_allenamento_file_path') else None
+            version_data = {
+                "version_number": idx + 1,
+                "transaction_id": version.transaction_id if hasattr(version, 'transaction_id') else None,
+                "name": version.name if hasattr(version, 'name') else None,
+                "start_date": version.start_date.isoformat() if hasattr(version, 'start_date') and version.start_date else None,
+                "end_date": version.end_date.isoformat() if hasattr(version, 'end_date') and version.end_date else None,
+                "notes": version.notes if hasattr(version, 'notes') else None,
+                "change_reason": version.change_reason if hasattr(version, 'change_reason') else None,
+                "changed_by_id": version.changed_by_id if hasattr(version, 'changed_by_id') else None,
+                "changed_at": version.updated_at.isoformat() if hasattr(version, 'updated_at') and version.updated_at else None,
+                "has_file": bool(file_path),
+                "piano_allenamento_file_path": file_path,
+            }
+
+            # Aggiungi il nome dell'utente che ha fatto la modifica
+            if version_data["changed_by_id"]:
+                from corposostenibile.models import User
+                user = db.session.query(User).filter_by(id=version_data["changed_by_id"]).first()
+                version_data["changed_by"] = user.full_name if user else None
+
+            versions.append(version_data)
+
+    # Se ci sono versioni storiche, la versione corrente è len(versions) + 1
+    # Se NON ci sono versioni storiche, la versione corrente è la versione 1
+    current_version_number = len(versions) + 1 if versions else 1
+
+    # Aggiungi la versione corrente (quella nel record principale)
+    current_version_data = {
+        "version_number": current_version_number,
+        "transaction_id": None,
+        "name": plan.name,
+        "start_date": plan.start_date.isoformat() if plan.start_date else None,
+        "end_date": plan.end_date.isoformat() if plan.end_date else None,
+        "notes": plan.notes,
+        "change_reason": plan.change_reason,
+        "changed_by_id": plan.changed_by_id,
+        "changed_at": plan.updated_at.isoformat() if plan.updated_at else None,
+        "has_file": bool(plan.piano_allenamento_file_path),
+        "piano_allenamento_file_path": plan.piano_allenamento_file_path,
+        "is_current": True,
+    }
+
+    # Aggiungi il nome dell'utente per la versione corrente
+    if current_version_data["changed_by_id"]:
+        from corposostenibile.models import User
+        user = db.session.query(User).filter_by(id=current_version_data["changed_by_id"]).first()
+        current_version_data["changed_by"] = user.full_name if user else None
+
+    versions.append(current_version_data)
+
+    # Ordina per versione (più recente prima)
+    versions.reverse()
+
+    return jsonify({
+        "ok": True,
+        "plan_id": plan_id,
+        "current_version": {
+            "name": plan.name,
+            "start_date": plan.start_date.isoformat() if plan.start_date else None,
+            "end_date": plan.end_date.isoformat() if plan.end_date else None,
+            "notes": plan.notes,
+            "change_reason": plan.change_reason,
+        },
+        "versions": versions
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/download", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_training_download(cliente_id: int, plan_id: int):
+    """Download del PDF del piano allenamento."""
+    import os
+    from flask import current_app, send_from_directory
+
+    # Verifica che il cliente e il piano esistano e siano collegati
+    plan = db.session.query(TrainingPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    if not plan.piano_allenamento_file_path:
+        abort(404, description="File PDF non trovato per questo piano allenamento")
+
+    # Costruisci il path completo al file
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    file_path = os.path.join(upload_folder, plan.piano_allenamento_file_path)
+
+    # Verifica che il file esista fisicamente
+    if not os.path.exists(file_path):
+        logger.error(f"File piano allenamento non trovato: {file_path}")
+        abort(404, description="File PDF non trovato sul server")
+
+    # Estrai directory e filename
+    directory = os.path.dirname(file_path)
+    filename = os.path.basename(file_path)
+
+    # Invia il file
+    return send_from_directory(
+        directory,
+        filename,
+        as_attachment=True,
+        download_name=f"piano_allenamento_{plan.name or plan.id}.pdf"
+    )
+
+
+@customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/extra-files/add", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_training_extra_file_add(cliente_id: int, plan_id: int):
+    """Aggiunge un file extra a un piano allenamento."""
+    from werkzeug.utils import secure_filename
+    import os
+    from flask import current_app
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    plan = db.session.query(TrainingPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Verifica limite di 5 file extra
+    existing_files = db.session.query(PlanExtraFile).filter_by(
+        plan_type=PlanTypeEnum.training_plan,
+        plan_id=plan_id
+    ).count()
+
+    if existing_files >= 5:
+        return jsonify({"error": "Massimo 5 file extra consentiti per piano"}), HTTPStatus.BAD_REQUEST
+
+    # Gestione upload file PDF
+    if 'extra_file' not in request.files:
+        return jsonify({"error": "Nessun file fornito"}), HTTPStatus.BAD_REQUEST
+
+    file = request.files['extra_file']
+    if not file or not file.filename:
+        return jsonify({"error": "Nessun file selezionato"}), HTTPStatus.BAD_REQUEST
+
+    # Validazione file
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({"error": "Il file deve essere in formato PDF"}), HTTPStatus.BAD_REQUEST
+
+    # Sanitizza filename
+    filename = secure_filename(file.filename)
+    if not filename:
+        return jsonify({"error": "Nome file non valido"}), HTTPStatus.BAD_REQUEST
+
+    # Verifica dimensione (max 50MB)
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > 50 * 1024 * 1024:
+        return jsonify({"error": "Il file è troppo grande. Dimensione massima: 50MB"}), HTTPStatus.BAD_REQUEST
+
+    # Crea directory: uploads/training_plans/{cliente_id}/extra/
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    extra_folder = os.path.join(upload_folder, 'training_plans', str(cliente_id), 'extra')
+    os.makedirs(extra_folder, exist_ok=True)
+
+    # Genera filename unico con timestamp
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    final_filename = f"extra_{timestamp}_{name}{ext}"
+    filepath = os.path.join(extra_folder, final_filename)
+
+    try:
+        file.save(filepath)
+        # Salva path relativo per il database
+        relative_path = f"training_plans/{cliente_id}/extra/{final_filename}"
+
+        extra_file = PlanExtraFile(
+            plan_type=PlanTypeEnum.training_plan,
+            plan_id=plan_id,
+            file_path=relative_path,
+            file_name=filename,
+            file_size=file_size,
+            uploaded_by_id=getattr(current_user, "id", None)
+        )
+        db.session.add(extra_file)
+        db.session.commit()
+
+        logger.info(f"File extra aggiunto al piano allenamento {plan_id}: {relative_path}")
+        return jsonify({
+            "ok": True,
+            "file_id": extra_file.id,
+            "file_name": extra_file.file_name,
+            "file_size": extra_file.file_size,
+            "message": "File extra aggiunto con successo"
+        })
+    except Exception as e:
+        logger.exception(f"Errore salvataggio file extra: {e}")
+        db.session.rollback()
+        return jsonify({"error": f"Errore durante il salvataggio del file: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/extra-files/<int:file_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def api_training_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
+    """Rimuove un file extra da un piano allenamento."""
+    import os
+    from flask import current_app
+
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(TrainingPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Verifica che il file appartenga al piano
+    extra_file = db.session.query(PlanExtraFile).filter_by(
+        id=file_id,
+        plan_type=PlanTypeEnum.training_plan,
+        plan_id=plan_id
+    ).one_or_404()
+
+    # Rimuovi il file fisico
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.join(upload_folder, extra_file.file_path)
+
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+    except Exception as e:
+        logger.warning(f"Errore rimozione file fisico {filepath}: {e}")
+
+    # Rimuovi il record dal database
+    db.session.delete(extra_file)
+    db.session.commit()
+
+    logger.info(f"File extra {file_id} rimosso dal piano allenamento {plan_id}")
+    return jsonify({"ok": True, "message": "File extra rimosso con successo"})
+
+
+@customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/extra-files/<int:file_id>/download", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_training_extra_file_download(cliente_id: int, plan_id: int, file_id: int):
+    """Scarica un file extra di un piano allenamento."""
+    from flask import send_file, current_app
+    import os
+
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(TrainingPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Verifica che il file appartenga al piano
+    extra_file = db.session.query(PlanExtraFile).filter_by(
+        id=file_id,
+        plan_type=PlanTypeEnum.training_plan,
+        plan_id=plan_id
+    ).one_or_404()
+
+    # Costruisci il path completo del file
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.abspath(os.path.join(upload_folder, extra_file.file_path))
+
+    if not os.path.exists(filepath):
+        logger.error(f"File extra non trovato: {filepath}")
+        abort(404, description="File non trovato sul server")
+
+    return send_file(
+        filepath,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=extra_file.file_name
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  STORICO STATI API                                                          #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/<int:cliente_id>/stati/<servizio>/storico", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_storico_stati(cliente_id: int, servizio: str):
+    """
+    Recupera lo storico degli stati per un servizio specifico.
+
+    servizio può essere: 'coach', 'nutrizione', 'psicologia',
+                         'chat_coaching', 'chat_nutrizione', 'chat_psicologia'
+    """
+    from corposostenibile.models import StatoServizioLog
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+
+    # Recupera lo storico ordinato per data (dal più recente al più vecchio)
+    storico = StatoServizioLog.query.filter_by(
+        cliente_id=cliente_id,
+        servizio=servizio
+    ).order_by(StatoServizioLog.data_inizio.desc()).all()
+
+    # Prepara la risposta JSON
+    result = []
+    for log in storico:
+        result.append({
+            'id': log.id,
+            'stato': log.stato.value if log.stato else None,
+            'data_inizio': log.data_inizio.strftime('%d/%m/%Y') if log.data_inizio else None,
+            'data_fine': log.data_fine.strftime('%d/%m/%Y') if log.data_fine else None,
+            'is_attivo': log.is_attivo,
+            'durata_giorni': log.durata_giorni
+        })
+
+    return jsonify({
+        'ok': True,
+        'servizio': servizio,
+        'storico': result
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/patologie/storico", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_storico_patologie(cliente_id: int):
+    """
+    Recupera lo storico completo delle patologie del cliente.
+    Mostra quando ogni patologia è stata aggiunta o rimossa.
+    """
+    from corposostenibile.models import PatologiaLog
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+
+    # Recupera lo storico ordinato per data (dal più recente al più vecchio)
+    storico = PatologiaLog.query.filter_by(
+        cliente_id=cliente_id
+    ).order_by(PatologiaLog.data_inizio.desc()).all()
+
+    # Prepara la risposta JSON
+    result = []
+    for log in storico:
+        result.append({
+            'id': log.id,
+            'patologia': log.patologia,
+            'patologia_nome': log.patologia_nome,
+            'azione': log.azione,
+            'data_inizio': log.data_inizio.strftime('%d/%m/%Y') if log.data_inizio else None,
+            'data_fine': log.data_fine.strftime('%d/%m/%Y') if log.data_fine else None,
+            'is_attiva': log.is_attiva,
+            'durata_giorni': log.durata_giorni,
+            'note': log.note
+        })
+
+    return jsonify({
+        'ok': True,
+        'storico': result
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/patologie_psico/storico", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_storico_patologie_psico(cliente_id: int):
+    """
+    Recupera lo storico completo delle patologie psicologiche del cliente.
+    Mostra quando ogni patologia psicologica è stata aggiunta o rimossa.
+    """
+    from corposostenibile.models import PatologiaPsicoLog
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+
+    # Recupera lo storico ordinato per data (dal più recente al più vecchio)
+    storico = PatologiaPsicoLog.query.filter_by(
+        cliente_id=cliente_id
+    ).order_by(PatologiaPsicoLog.data_inizio.desc()).all()
+
+    # Prepara la risposta JSON
+    result = []
+    for log in storico:
+        result.append({
+            'id': log.id,
+            'patologia': log.patologia,
+            'patologia_nome': log.patologia_nome,
+            'azione': log.azione,
+            'data_inizio': log.data_inizio.strftime('%d/%m/%Y') if log.data_inizio else None,
+            'data_fine': log.data_fine.strftime('%d/%m/%Y') if log.data_fine else None,
+            'is_attiva': log.is_attiva,
+            'durata_giorni': log.durata_giorni,
+            'note': log.note
+        })
+
+    return jsonify({
+        'ok': True,
+        'storico': result
+    }), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  TRAINING LOCATIONS API                                                     #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/<int:cliente_id>/location/add", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_location_add(cliente_id: int):
+    """Aggiunge un nuovo storico luogo allenamento."""
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_training_plans(cliente):
+        abort(403)
+
+    payload = request.get_json(silent=True) or {}
+    start_str = payload.get("start_date")
+    end_str = payload.get("end_date")
+    location = payload.get("location", "").strip()
+    notes = payload.get("notes", "").strip()
+
+    if not location:
+        return jsonify({"error": "location è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        if start_str:
+            start_date = datetime.fromisoformat(start_str).date()
+        else:
+            start_date = TrainingLocation.calculate_next_start_date(cliente_id) or date.today()
+
+        end_date = None
+        if end_str:
+            end_date = datetime.fromisoformat(end_str).date()
+    except Exception as exc:
+        return jsonify({"error": f"Date non valide: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if end_date and start_date >= end_date:
+        return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+    # Chiudi location attiva se esiste
+    active_loc = db.session.query(TrainingLocation).filter_by(cliente_id=cliente_id, is_active=True).first()
+    if active_loc:
+        if not active_loc.end_date:
+            active_loc.end_date = start_date - timedelta(days=1)
+        elif active_loc.end_date >= start_date:
+            active_loc.end_date = start_date - timedelta(days=1)
+        active_loc.is_active = False
+        db.session.flush()
+
+    loc = TrainingLocation(
+        cliente_id=cliente_id,
+        created_by_id=getattr(current_user, "id", None),
+        start_date=start_date,
+        end_date=end_date,
+        location=location,
+        notes=notes,
+        is_active=True,
+    )
+
+    try:
+        loc.validate_no_overlap()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.add(loc)
+        cliente.luogo_di_allenamento = LuogoAllenEnum(location)  # Aggiorna campo legacy
+        db.session.commit()
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({"error": f"Errore enum: {str(e)}"}), HTTPStatus.BAD_REQUEST
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Errore aggiunta location per cliente {cliente_id}: {e}")
+        return jsonify({"error": "Errore durante il salvataggio"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    return jsonify({"ok": True, "location_id": loc.id, "message": "Luogo allenamento aggiunto con successo"}), HTTPStatus.CREATED
+
+
+@customers_bp.route("/<int:cliente_id>/location/change/<int:loc_id>", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_location_change(cliente_id: int, loc_id: int):
+    """Cambia storico luogo allenamento esistente."""
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_training_plans(cliente):
+        abort(403)
+
+    payload = request.get_json(silent=True) or {}
+    loc = db.session.query(TrainingLocation).filter_by(id=loc_id, cliente_id=cliente_id).one_or_404()
+    change_reason = payload.get("change_reason", "").strip()
+
+    if payload.get("start_date") or payload.get("end_date") or payload.get("location"):
+        if payload.get("start_date"):
+            try:
+                loc.start_date = datetime.fromisoformat(payload["start_date"]).date()
+            except Exception as exc:
+                return jsonify({"error": f"start_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+        if "end_date" in payload:
+            if payload["end_date"]:
+                try:
+                    loc.end_date = datetime.fromisoformat(payload["end_date"]).date()
+                except Exception as exc:
+                    return jsonify({"error": f"end_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+            else:
+                loc.end_date = None
+
+        if loc.end_date and loc.start_date >= loc.end_date:
+            return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+        if "location" in payload:
+            loc.location = payload.get("location", "").strip()
+
+        if "notes" in payload:
+            loc.notes = payload.get("notes", "").strip()
+
+        if "is_active" in payload:
+            loc.is_active = bool(payload.get("is_active"))
+
+        loc.changed_by_id = getattr(current_user, "id", None)
+        loc.change_reason = change_reason
+
+        try:
+            loc.validate_no_overlap(exclude_id=loc.id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+        # Aggiorna campo legacy se questa è la location attiva
+        if loc.is_active and loc.location:
+            cliente.luogo_di_allenamento = LuogoAllenEnum(loc.location)
+
+        db.session.commit()
+
+    return jsonify({"ok": True, "message": "Luogo allenamento aggiornato"})
+
+
+@customers_bp.route("/<int:cliente_id>/location/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_location_history(cliente_id: int):
+    """Restituisce lo storico completo dei luoghi allenamento."""
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    locations = db.session.query(TrainingLocation).filter_by(cliente_id=cliente_id).order_by(TrainingLocation.start_date.desc()).all()
+
+    def _serialize(loc: TrainingLocation):
+        return {
+            "id": loc.id,
+            "start_date": loc.start_date.isoformat() if loc.start_date else None,
+            "end_date": loc.end_date.isoformat() if loc.end_date else None,
+            "location": loc.location,
+            "is_active": bool(loc.is_active),
+            "notes": loc.notes,
+            "change_reason": loc.change_reason,
+            "duration_days": loc.duration_days,
+            "created_at": loc.created_at.isoformat() if loc.created_at else None,
+            "created_by": loc.created_by.full_name if loc.created_by else None,
+        }
+
+    # Aggiungi location legacy se esiste
+    legacy_loc = None
+    if cliente.luogo_di_allenamento:
+        legacy_loc = {
+            "id": None,
+            "start_date": None,
+            "end_date": None,
+            "location": cliente.luogo_di_allenamento,
+            "is_active": False,
+            "notes": "Dati legacy dalla vecchia gestione",
+            "is_legacy": True,
+        }
+
+    locs_data = [_serialize(l) for l in locations]
+    if legacy_loc and not any(l["location"] == legacy_loc["location"] and l["is_active"] for l in locs_data):
+        locs_data.append(legacy_loc)
+
+    return jsonify({"history": locs_data, "legacy_location": legacy_loc, "can_manage": _can_manage_training_plans(cliente)})
+
+
+@customers_bp.route("/<int:cliente_id>/location/<int:location_id>/versions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_location_versions(cliente_id: int, location_id: int):
+    """Restituisce lo storico delle versioni di un luogo allenamento specifico."""
+    # Verifica che il luogo appartenga al cliente
+    location = db.session.query(TrainingLocation).filter_by(
+        id=location_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Recupera tutte le versioni usando SQLAlchemy-Continuum
+    versions = []
+    if hasattr(TrainingLocation, 'versions'):
+        # Ottieni tutte le versioni del luogo
+        location_versions = location.versions.all()
+
+        for idx, version in enumerate(location_versions):
+            version_data = {
+                "version_number": idx + 1,
+                "transaction_id": version.transaction_id if hasattr(version, 'transaction_id') else None,
+                "start_date": version.start_date.isoformat() if hasattr(version, 'start_date') and version.start_date else None,
+                "end_date": version.end_date.isoformat() if hasattr(version, 'end_date') and version.end_date else None,
+                "location": version.location if hasattr(version, 'location') else None,
+                "notes": version.notes if hasattr(version, 'notes') else None,
+                "change_reason": version.change_reason if hasattr(version, 'change_reason') else None,
+                "changed_by_id": version.changed_by_id if hasattr(version, 'changed_by_id') else None,
+                "changed_at": version.updated_at.isoformat() if hasattr(version, 'updated_at') and version.updated_at else None,
+            }
+
+            # Aggiungi il nome dell'utente che ha fatto la modifica
+            if version_data["changed_by_id"]:
+                from corposostenibile.models import User
+                user = db.session.query(User).filter_by(id=version_data["changed_by_id"]).first()
+                version_data["changed_by"] = user.full_name if user else None
+
+            versions.append(version_data)
+
+    # Se ci sono versioni storiche, la versione corrente è len(versions) + 1
+    # Se NON ci sono versioni storiche, la versione corrente è la versione 1
+    current_version_number = len(versions) + 1 if versions else 1
+
+    # Aggiungi la versione corrente (quella nel record principale)
+    current_version_data = {
+        "version_number": current_version_number,
+        "transaction_id": None,
+        "start_date": location.start_date.isoformat() if location.start_date else None,
+        "end_date": location.end_date.isoformat() if location.end_date else None,
+        "location": location.location,
+        "notes": location.notes,
+        "change_reason": location.change_reason,
+        "changed_by_id": location.changed_by_id,
+        "changed_at": location.updated_at.isoformat() if location.updated_at else None,
+        "is_current": True,
+    }
+
+    # Aggiungi il nome dell'utente per la versione corrente
+    if current_version_data["changed_by_id"]:
+        from corposostenibile.models import User
+        user = db.session.query(User).filter_by(id=current_version_data["changed_by_id"]).first()
+        current_version_data["changed_by"] = user.full_name if user else None
+
+    versions.append(current_version_data)
+
+    # Ordina per versione (più recente prima)
+    versions.reverse()
+
+    return jsonify({
+        "ok": True,
+        "location_id": location_id,
+        "current_version": {
+            "start_date": location.start_date.isoformat() if location.start_date else None,
+            "end_date": location.end_date.isoformat() if location.end_date else None,
+            "location": location.location,
+            "notes": location.notes,
+            "change_reason": location.change_reason,
+        },
+        "versions": versions
+    }), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  API: Nutrition (Piani Alimentari) - Sistema Storico e Versionamento       #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/<int:cliente_id>/nutrition/add", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_nutrition_add(cliente_id: int):
+    """Aggiunge un nuovo piano alimentare con upload PDF."""
+    from werkzeug.utils import secure_filename
+    import os
+    from flask import current_app
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_meal_plans(cliente):
+        abort(403)
+
+    # Gestione multipart form data invece di JSON
+    start_str = request.form.get("start_date")
+    end_str = request.form.get("end_date")
+    notes = request.form.get("notes", "").strip()
+
+    # Gestione upload file PDF
+    piano_alimentare_file_path = None
+    if 'piano_alimentare_file' in request.files:
+        file = request.files['piano_alimentare_file']
+        if file and file.filename:
+            # Validazione file
+            if not file.filename.lower().endswith('.pdf'):
+                return jsonify({"error": "Il file deve essere in formato PDF"}), HTTPStatus.BAD_REQUEST
+
+            # Sanitizza filename
+            filename = secure_filename(file.filename)
+            if not filename:
+                return jsonify({"error": "Nome file non valido"}), HTTPStatus.BAD_REQUEST
+
+            # Crea directory: uploads/meal_plans/{cliente_id}/
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            nutrition_folder = os.path.join(upload_folder, 'meal_plans', str(cliente_id))
+            os.makedirs(nutrition_folder, exist_ok=True)
+
+            # Genera filename unico con timestamp
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            name, ext = os.path.splitext(filename)
+            final_filename = f"nutrition_{timestamp}_{name}{ext}"
+            filepath = os.path.join(nutrition_folder, final_filename)
+
+            try:
+                file.save(filepath)
+                # Salva path relativo per il database
+                piano_alimentare_file_path = f"meal_plans/{cliente_id}/{final_filename}"
+                logger.info(f"File piano alimentare salvato: {piano_alimentare_file_path}")
+            except Exception as e:
+                logger.exception(f"Errore salvataggio file: {e}")
+                return jsonify({"error": f"Errore durante il salvataggio del file: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+    else:
+        return jsonify({"error": "File PDF del piano alimentare è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        if start_str:
+            start_date = datetime.fromisoformat(start_str).date()
+        else:
+            start_date = MealPlan.calculate_next_start_date(cliente_id) or date.today()
+
+        if not end_str:
+            return jsonify({"error": "end_date è obbligatorio"}), HTTPStatus.BAD_REQUEST
+        end_date = datetime.fromisoformat(end_str).date()
+    except Exception as exc:
+        return jsonify({"error": f"Date non valide: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if start_date >= end_date:
+        return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+    active_plan = db.session.query(MealPlan).filter_by(cliente_id=cliente_id, is_active=True).first()
+    if active_plan:
+        if not active_plan.end_date:
+            active_plan.end_date = start_date - timedelta(days=1)
+        elif active_plan.end_date >= start_date:
+            active_plan.end_date = start_date - timedelta(days=1)
+        active_plan.is_active = False
+        db.session.flush()
+
+    name = request.form.get("name", "").strip() or f"Piano Alimentare {start_date.strftime('%d/%m/%Y')}"
+    plan = MealPlan(
+        cliente_id=cliente_id,
+        created_by_id=getattr(current_user, "id", None),
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        piano_alimentare=None,  # Deprecato, ora usiamo il file
+        piano_alimentare_file_path=piano_alimentare_file_path,
+        notes=notes,
+        is_active=True,
+    )
+
+    try:
+        plan.validate_no_overlap()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(plan)
+    cliente.dieta_dal = start_date
+    cliente.nuova_dieta_dal = end_date
+    db.session.commit()
+
+    return jsonify({"ok": True, "plan_id": plan.id, "message": "Piano alimentare aggiunto con successo"}), HTTPStatus.CREATED
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/change", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_nutrition_change(cliente_id: int):
+    """Cambia piano alimentare esistente."""
+    from werkzeug.utils import secure_filename
+    import os
+    from flask import current_app
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    if not _can_manage_meal_plans(cliente):
+        abort(403)
+
+    # Gestione multipart form data invece di JSON
+    plan_id = request.form.get("plan_id")
+    if not plan_id:
+        return jsonify({"error": "plan_id è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        plan_id = int(plan_id)
+    except ValueError:
+        return jsonify({"error": "plan_id non valido"}), HTTPStatus.BAD_REQUEST
+
+    plan = db.session.query(MealPlan).filter_by(id=plan_id, cliente_id=cliente_id).one_or_404()
+    change_reason = request.form.get("change_reason", "").strip()
+
+    # Verifica se c'è almeno un campo da modificare
+    has_changes = False
+
+    # Gestione date
+    start_str = request.form.get("start_date")
+    end_str = request.form.get("end_date")
+
+    if start_str:
+        try:
+            new_start_date = datetime.fromisoformat(start_str).date()
+            plan.start_date = new_start_date
+            has_changes = True
+        except Exception as exc:
+            return jsonify({"error": f"start_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if end_str:
+        try:
+            new_end_date = datetime.fromisoformat(end_str).date()
+            plan.end_date = new_end_date
+            has_changes = True
+        except Exception as exc:
+            return jsonify({"error": f"end_date non valida: {exc}"}), HTTPStatus.BAD_REQUEST
+
+    if plan.start_date >= plan.end_date:
+        return jsonify({"error": "start_date deve essere precedente a end_date"}), HTTPStatus.BAD_REQUEST
+
+    # Gestione upload file PDF (se presente)
+    if 'piano_alimentare_file' in request.files:
+        file = request.files['piano_alimentare_file']
+        if file and file.filename:
+            # Validazione file
+            if not file.filename.lower().endswith('.pdf'):
+                return jsonify({"error": "Il file deve essere in formato PDF"}), HTTPStatus.BAD_REQUEST
+
+            # Sanitizza filename
+            filename = secure_filename(file.filename)
+            if not filename:
+                return jsonify({"error": "Nome file non valido"}), HTTPStatus.BAD_REQUEST
+
+            # Crea directory: uploads/meal_plans/{cliente_id}/
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            nutrition_folder = os.path.join(upload_folder, 'meal_plans', str(cliente_id))
+            os.makedirs(nutrition_folder, exist_ok=True)
+
+            # Genera filename unico con timestamp
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            name, ext = os.path.splitext(filename)
+            final_filename = f"nutrition_{timestamp}_{name}{ext}"
+            filepath = os.path.join(nutrition_folder, final_filename)
+
+            try:
+                file.save(filepath)
+                # Salva path relativo per il database
+                plan.piano_alimentare_file_path = f"meal_plans/{cliente_id}/{final_filename}"
+                has_changes = True
+                logger.info(f"File piano alimentare salvato: {plan.piano_alimentare_file_path}")
+            except Exception as e:
+                logger.exception(f"Errore salvataggio file: {e}")
+                return jsonify({"error": f"Errore durante il salvataggio del file: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    # Gestione notes
+    if "notes" in request.form:
+        plan.notes = request.form.get("notes", "").strip()
+        has_changes = True
+
+    # Gestione is_active
+    if "is_active" in request.form:
+        plan.is_active = request.form.get("is_active") == "true"
+        has_changes = True
+
+    if has_changes:
+        plan.changed_by_id = getattr(current_user, "id", None)
+        plan.change_reason = change_reason
+
+        try:
+            plan.validate_no_overlap(exclude_id=plan.id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
+
+        db.session.commit()
+
+    return jsonify({"ok": True, "message": "Piano alimentare aggiornato"})
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_nutrition_history(cliente_id: int):
+    """Restituisce lo storico completo dei piani alimentari."""
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    plans = db.session.query(MealPlan).filter_by(cliente_id=cliente_id).order_by(MealPlan.start_date.desc()).all()
+
+    def _serialize(plan: MealPlan):
+        # Recupera file extra per questo piano
+        extra_files = db.session.query(PlanExtraFile).filter_by(
+            plan_type=PlanTypeEnum.meal_plan,
+            plan_id=plan.id
+        ).order_by(PlanExtraFile.created_at).all()
+
+        return {
+            "id": plan.id,
+            "name": plan.name,
+            "start_date": plan.start_date.isoformat() if plan.start_date else None,
+            "end_date": plan.end_date.isoformat() if plan.end_date else None,
+            "is_active": bool(plan.is_active),
+            "piano_alimentare": plan.piano_alimentare,
+            "piano_alimentare_file_path": plan.piano_alimentare_file_path,
+            "has_file": bool(plan.piano_alimentare_file_path),
+            "notes": plan.notes,
+            "change_reason": plan.change_reason,
+            "duration_days": plan.duration_days,
+            "created_at": plan.created_at.isoformat() if plan.created_at else None,
+            "created_by": plan.created_by.full_name if plan.created_by else None,
+            "extra_files": [
+                {"id": f.id, "file_name": f.file_name, "file_size": f.file_size}
+                for f in extra_files
+            ],
+        }
+
+    legacy_plan = None
+    if cliente.dieta_dal:
+        legacy_plan = {
+            "id": None,
+            "name": "Piano Legacy (da vecchi campi)",
+            "start_date": cliente.dieta_dal.isoformat() if cliente.dieta_dal else None,
+            "end_date": cliente.nuova_dieta_dal.isoformat() if cliente.nuova_dieta_dal else None,
+            "is_active": False,
+            "piano_alimentare": None,
+            "notes": "Dati legacy dalla vecchia gestione",
+            "is_legacy": True,
+        }
+
+    plans_data = [_serialize(p) for p in plans]
+    if legacy_plan and (not plans_data or all(p["start_date"] != legacy_plan["start_date"] for p in plans_data)):
+        plans_data.append(legacy_plan)
+
+    return jsonify({"ok": True, "plans": plans_data})
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/versions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_nutrition_versions(cliente_id: int, plan_id: int):
+    """Restituisce lo storico delle versioni di un piano alimentare specifico."""
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(MealPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Recupera tutte le versioni usando SQLAlchemy-Continuum
+    versions = []
+    if hasattr(MealPlan, 'versions'):
+        # Ottieni tutte le versioni del piano (ordinate per transaction_id)
+        plan_versions = list(plan.versions.all())
+        total_versions = len(plan_versions)
+
+        for idx, version in enumerate(plan_versions):
+            file_path = version.piano_alimentare_file_path if hasattr(version, 'piano_alimentare_file_path') else None
+            is_latest = (idx == total_versions - 1)  # L'ultima versione è quella corrente
+
+            version_data = {
+                "version_number": idx + 1,
+                "transaction_id": version.transaction_id if hasattr(version, 'transaction_id') else None,
+                "name": version.name if hasattr(version, 'name') else None,
+                "start_date": version.start_date.isoformat() if hasattr(version, 'start_date') and version.start_date else None,
+                "end_date": version.end_date.isoformat() if hasattr(version, 'end_date') and version.end_date else None,
+                "notes": version.notes if hasattr(version, 'notes') else None,
+                "change_reason": version.change_reason if hasattr(version, 'change_reason') else None,
+                "changed_by_id": version.changed_by_id if hasattr(version, 'changed_by_id') else None,
+                "changed_at": version.updated_at.isoformat() if hasattr(version, 'updated_at') and version.updated_at else None,
+                "has_file": bool(file_path),
+                "piano_alimentare_file_path": file_path,
+                "is_current": is_latest,
+            }
+
+            # Aggiungi il nome dell'utente che ha fatto la modifica
+            if version_data["changed_by_id"]:
+                from corposostenibile.models import User
+                user = db.session.query(User).filter_by(id=version_data["changed_by_id"]).first()
+                version_data["changed_by"] = user.full_name if user else None
+
+            versions.append(version_data)
+
+    # Se non ci sono versioni (Continuum non attivo), mostra solo il record corrente
+    if not versions:
+        current_version_data = {
+            "version_number": 1,
+            "transaction_id": None,
+            "name": plan.name,
+            "start_date": plan.start_date.isoformat() if plan.start_date else None,
+            "end_date": plan.end_date.isoformat() if plan.end_date else None,
+            "notes": plan.notes,
+            "change_reason": plan.change_reason,
+            "changed_by_id": plan.changed_by_id,
+            "changed_at": plan.updated_at.isoformat() if plan.updated_at else None,
+            "has_file": bool(plan.piano_alimentare_file_path),
+            "piano_alimentare_file_path": plan.piano_alimentare_file_path,
+            "is_current": True,
+        }
+        if current_version_data["changed_by_id"]:
+            from corposostenibile.models import User
+            user = db.session.query(User).filter_by(id=current_version_data["changed_by_id"]).first()
+            current_version_data["changed_by"] = user.full_name if user else None
+        versions.append(current_version_data)
+
+    # Ordina per versione (più recente prima)
+    versions.reverse()
+
+    return jsonify({
+        "ok": True,
+        "plan_id": plan_id,
+        "current_version": {
+            "name": plan.name,
+            "start_date": plan.start_date.isoformat() if plan.start_date else None,
+            "end_date": plan.end_date.isoformat() if plan.end_date else None,
+            "notes": plan.notes,
+            "change_reason": plan.change_reason,
+        },
+        "versions": versions
+    }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/download", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_nutrition_download(cliente_id: int, plan_id: int):
+    """Scarica il PDF del piano alimentare."""
+    from flask import send_file, current_app
+    import os
+
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(MealPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    if not plan.piano_alimentare_file_path:
+        abort(404, description="Nessun file PDF disponibile per questo piano alimentare")
+
+    # Costruisci il path completo del file
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.join(upload_folder, plan.piano_alimentare_file_path)
+
+    if not os.path.exists(filepath):
+        logger.error(f"File piano alimentare non trovato: {filepath}")
+        abort(404, description="File PDF non trovato sul server")
+
+    # Estrae il nome del file dal path
+    filename = os.path.basename(plan.piano_alimentare_file_path)
+
+    return send_file(
+        filepath,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f"piano_alimentare_{cliente.nome}_{cliente.cognome}.pdf"
+    )
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/add", methods=["POST"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_nutrition_extra_file_add(cliente_id: int, plan_id: int):
+    """Aggiunge un file extra a un piano alimentare."""
+    from werkzeug.utils import secure_filename
+    import os
+    from flask import current_app
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    plan = db.session.query(MealPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Verifica limite di 5 file extra
+    existing_files = db.session.query(PlanExtraFile).filter_by(
+        plan_type=PlanTypeEnum.meal_plan,
+        plan_id=plan_id
+    ).count()
+
+    if existing_files >= 5:
+        return jsonify({"error": "Massimo 5 file extra consentiti per piano"}), HTTPStatus.BAD_REQUEST
+
+    # Gestione upload file PDF
+    if 'extra_file' not in request.files:
+        return jsonify({"error": "Nessun file fornito"}), HTTPStatus.BAD_REQUEST
+
+    file = request.files['extra_file']
+    if not file or not file.filename:
+        return jsonify({"error": "Nessun file selezionato"}), HTTPStatus.BAD_REQUEST
+
+    # Validazione file
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({"error": "Il file deve essere in formato PDF"}), HTTPStatus.BAD_REQUEST
+
+    # Sanitizza filename
+    filename = secure_filename(file.filename)
+    if not filename:
+        return jsonify({"error": "Nome file non valido"}), HTTPStatus.BAD_REQUEST
+
+    # Verifica dimensione (max 50MB)
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > 50 * 1024 * 1024:
+        return jsonify({"error": "Il file è troppo grande. Dimensione massima: 50MB"}), HTTPStatus.BAD_REQUEST
+
+    # Crea directory: uploads/meal_plans/{cliente_id}/extra/
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    extra_folder = os.path.join(upload_folder, 'meal_plans', str(cliente_id), 'extra')
+    os.makedirs(extra_folder, exist_ok=True)
+
+    # Genera filename unico con timestamp
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    name, ext = os.path.splitext(filename)
+    final_filename = f"extra_{timestamp}_{name}{ext}"
+    filepath = os.path.join(extra_folder, final_filename)
+
+    try:
+        file.save(filepath)
+        # Salva path relativo per il database
+        relative_path = f"meal_plans/{cliente_id}/extra/{final_filename}"
+
+        extra_file = PlanExtraFile(
+            plan_type=PlanTypeEnum.meal_plan,
+            plan_id=plan_id,
+            file_path=relative_path,
+            file_name=filename,
+            file_size=file_size,
+            uploaded_by_id=getattr(current_user, "id", None)
+        )
+        db.session.add(extra_file)
+        db.session.commit()
+
+        logger.info(f"File extra aggiunto al piano alimentare {plan_id}: {relative_path}")
+        return jsonify({
+            "ok": True,
+            "file_id": extra_file.id,
+            "file_name": extra_file.file_name,
+            "file_size": extra_file.file_size,
+            "message": "File extra aggiunto con successo"
+        })
+    except Exception as e:
+        logger.exception(f"Errore salvataggio file extra: {e}")
+        db.session.rollback()
+        return jsonify({"error": f"Errore durante il salvataggio del file: {str(e)}"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/<int:file_id>", methods=["DELETE"])
+@csrf.exempt
+@permission_required(CustomerPerm.EDIT)
+def api_nutrition_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
+    """Rimuove un file extra da un piano alimentare."""
+    import os
+    from flask import current_app
+
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(MealPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Verifica che il file appartenga al piano
+    extra_file = db.session.query(PlanExtraFile).filter_by(
+        id=file_id,
+        plan_type=PlanTypeEnum.meal_plan,
+        plan_id=plan_id
+    ).one_or_404()
+
+    # Rimuovi il file fisico
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.join(upload_folder, extra_file.file_path)
+
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+    except Exception as e:
+        logger.warning(f"Errore rimozione file fisico {filepath}: {e}")
+
+    # Rimuovi il record dal database
+    db.session.delete(extra_file)
+    db.session.commit()
+
+    logger.info(f"File extra {file_id} rimosso dal piano alimentare {plan_id}")
+    return jsonify({"ok": True, "message": "File extra rimosso con successo"})
+
+
+@customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/<int:file_id>/download", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_nutrition_extra_file_download(cliente_id: int, plan_id: int, file_id: int):
+    """Scarica un file extra di un piano alimentare."""
+    from flask import send_file, current_app
+    import os
+
+    # Verifica che il piano appartenga al cliente
+    plan = db.session.query(MealPlan).filter_by(
+        id=plan_id,
+        cliente_id=cliente_id
+    ).one_or_404()
+
+    # Verifica che il file appartenga al piano
+    extra_file = db.session.query(PlanExtraFile).filter_by(
+        id=file_id,
+        plan_type=PlanTypeEnum.meal_plan,
+        plan_id=plan_id
+    ).one_or_404()
+
+    # Costruisci il path completo del file
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.abspath(os.path.join(upload_folder, extra_file.file_path))
+
+    if not os.path.exists(filepath):
+        logger.error(f"File extra non trovato: {filepath}")
+        abort(404, description="File non trovato sul server")
+
+    return send_file(
+        filepath,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=extra_file.file_name
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  PAGAMENTI INTERNI - CRUD                                                   #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/<int:cliente_id>/pagamenti/interni", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_pagamenti_interni_list(cliente_id: int):
+    """Lista pagamenti interni di un cliente."""
+    cliente = customers_repo.get_one(cliente_id)
+    if not cliente:
+        return jsonify({"success": False, "message": "Cliente non trovato"}), HTTPStatus.NOT_FOUND
+
+    pagamenti = PagamentoInterno.query.filter_by(cliente_id=cliente_id).order_by(
+        PagamentoInterno.data_pagamento.desc()
+    ).all()
+
+    result = []
+    for p in pagamenti:
+        approvazione = p.approvazione
+        result.append({
+            "id": p.id,
+            "data_pagamento": p.data_pagamento.isoformat() if p.data_pagamento else None,
+            "importo": float(p.importo) if p.importo else 0,
+            "servizio_acquistato": p.servizio_acquistato,
+            "sotto_categoria": p.sotto_categoria,
+            "durata": p.durata,
+            "metodo_pagamento": p.metodo_pagamento.value if p.metodo_pagamento else None,
+            "contabile": p.contabile,
+            "note": p.note,
+            "status": p.status.value if p.status else "completato",
+            "created_by": p.created_by.full_name if p.created_by else None,
+            "stato_approvazione": approvazione.stato_approvazione if approvazione else "da_valutare",
+            "tipo_pagamento": approvazione.tipo_pagamento.value if approvazione and approvazione.tipo_pagamento else None,
+        })
+
+    return jsonify({"success": True, "pagamenti": result}), HTTPStatus.OK
+
+
+@customers_bp.route("/pagamenti/interni", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_pagamento_interno():
+    """Crea un nuovo pagamento interno."""
+    try:
+        data = request.get_json()
+        if not data:
+            raise BadRequest("Dati mancanti")
+
+        cliente_id = data.get("cliente_id")
+        if not cliente_id:
+            raise BadRequest("cliente_id mancante")
+
+        # Converti cliente_id in intero e usa db.session.get per poter modificare l'oggetto
+        try:
+            cliente_id = int(cliente_id)
+        except (ValueError, TypeError):
+            raise BadRequest("cliente_id non valido")
+
+        cliente = db.session.get(Cliente, cliente_id)
+        if not cliente:
+            raise NotFound("Cliente non trovato")
+
+        # Normalizza metodo pagamento
+        metodo_pagamento = data.get("modalita_pagamento", "")
+        if metodo_pagamento:
+            metodo_map = {
+                "bonifico": PagamentoEnum.bonifico,
+                "bonifico bancario": PagamentoEnum.bonifico,
+                "klarna": PagamentoEnum.klarna,
+                "stripe": PagamentoEnum.stripe,
+                "paypal": PagamentoEnum.paypal,
+                "carta": PagamentoEnum.carta,
+                "carta di credito": PagamentoEnum.carta,
+                "contanti": PagamentoEnum.contanti,
+            }
+            metodo_lower = str(metodo_pagamento).strip().lower()
+            metodo_pagamento = metodo_map.get(metodo_lower)
+
+        # servizio_acquistato può essere inviato come "servizio_acquistato" (con nome pacchetto)
+        # oppure come "tipologia_servizio" (solo tipologia)
+        servizio = data.get("servizio_acquistato") or data.get("tipologia_servizio")
+
+        # Normalizza attribuibile_a (solo per rinnovi)
+        attribuibile_a_value = data.get("attribuibile_a")
+        attribuibile_a = None
+        if attribuibile_a_value:
+            attribuibile_map = {
+                "sales": AttribuibileAEnum.sales,
+                "team_interno": AttribuibileAEnum.team_interno,
+                "nutrizionista": AttribuibileAEnum.nutrizionista,
+                "coach": AttribuibileAEnum.coach,
+                "psicologo": AttribuibileAEnum.psicologo,
+                "health_manager": AttribuibileAEnum.health_manager,
+            }
+            attribuibile_a = attribuibile_map.get(str(attribuibile_a_value).strip().lower())
+
+        pagamento = PagamentoInterno(
+            cliente_id=cliente_id,
+            importo=data.get("importo"),
+            data_pagamento=date.fromisoformat(data.get("data_pagamento")) if data.get("data_pagamento") else date.today(),
+            metodo_pagamento=metodo_pagamento,
+            servizio_acquistato=servizio,
+            sotto_categoria=data.get("sotto_categoria") or None,
+            attribuibile_a=attribuibile_a,
+            pacchetto_id=data.get("pacchetto_id") or None,
+            durata=data.get("durata"),
+            contabile=data.get("contabile"),
+            note=data.get("note"),
+            status=PagamentoInternoStatusEnum.completato,
+            created_by_id=current_user.id,
+        )
+        db.session.add(pagamento)
+
+        # ─────────────────────────────────────────────────────────────────────
+        # AGGIORNAMENTO AUTOMATICO DURATA E DATA RINNOVO
+        # Quando si inserisce un pagamento con un pacchetto, aggiungi i giorni
+        # del pacchetto alla durata_programma_giorni e ricalcola data_rinnovo
+        # ─────────────────────────────────────────────────────────────────────
+        giorni_aggiunti = 0
+        nuova_data_rinnovo = None
+
+        pacchetto_id = data.get("pacchetto_id")
+        if pacchetto_id:
+            try:
+                package = db.session.get(Package, int(pacchetto_id))
+                if package and package.duration_months:
+                    # Converti mesi in giorni (approssimazione: 1 mese = 30 giorni)
+                    giorni_aggiunti = package.duration_months * 30
+
+                    # Aggiorna durata_programma_giorni del cliente
+                    durata_attuale = cliente.durata_programma_giorni or 0
+                    cliente.durata_programma_giorni = durata_attuale + giorni_aggiunti
+
+                    # Ricalcola data_rinnovo
+                    if cliente.data_inizio_abbonamento:
+                        nuova_data_rinnovo = cliente.data_inizio_abbonamento + timedelta(days=cliente.durata_programma_giorni)
+                        cliente.data_rinnovo = nuova_data_rinnovo
+
+                    logger.info(
+                        f"Cliente {cliente_id}: aggiunta durata {giorni_aggiunti}gg "
+                        f"(pacchetto {package.name}, {package.duration_months}m). "
+                        f"Nuova durata totale: {cliente.durata_programma_giorni}gg, "
+                        f"Nuova data rinnovo: {nuova_data_rinnovo}"
+                    )
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Errore nel calcolo durata/rinnovo per pacchetto {pacchetto_id}: {e}")
+
+        db.session.commit()
+
+        # Prepara risposta con info aggiornamento
+        response_data = {
+            "success": True,
+            "message": "Pagamento salvato con successo",
+            "id": pagamento.id
+        }
+
+        if giorni_aggiunti > 0:
+            response_data["durata_aggiunta"] = giorni_aggiunti
+            response_data["nuova_durata_totale"] = cliente.durata_programma_giorni
+            if nuova_data_rinnovo:
+                response_data["nuova_data_rinnovo"] = nuova_data_rinnovo.isoformat()
+                response_data["message"] = f"Pagamento salvato. Aggiunti {giorni_aggiunti} giorni. Nuova data rinnovo: {nuova_data_rinnovo.strftime('%d/%m/%Y')}"
+
+        return jsonify(response_data), HTTPStatus.CREATED
+
+    except BadRequest as e:
+        return jsonify({"success": False, "message": str(e)}), HTTPStatus.BAD_REQUEST
+    except NotFound as e:
+        return jsonify({"success": False, "message": str(e)}), HTTPStatus.NOT_FOUND
+    except (SQLAlchemyError, ValueError) as e:
+        db.session.rollback()
+        logging.error(f"Errore creazione pagamento interno: {e}")
+        return jsonify({"success": False, "message": "Errore durante il salvataggio"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# --------------------------------------------------------------------------- #
+#  PAGAMENTI INTERNI - APPROVAZIONE                                           #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/pagamenti-interni-approvazione", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def pagamenti_interni_approvazione():
+    """Pagina di gestione approvazione pagamenti interni."""
+    query = db.session.query(PagamentoInterno, PagamentoInternoApprovazione).outerjoin(
+        PagamentoInternoApprovazione,
+        PagamentoInterno.id == PagamentoInternoApprovazione.pagamento_interno_id
+    ).order_by(PagamentoInterno.data_pagamento.desc())
+
+    pagamenti_data = []
+    for pagamento, approvazione in query.all():
+        costo_nutrizionista = 0
+        costo_coach = 0
+        costo_psicologo = 0
+        abbonamento_precedente = None
+
+        if pagamento.pacchetto_id:
+            try:
+                package = db.session.get(Package, int(pagamento.pacchetto_id))
+                if package:
+                    costo_nutrizionista = float(package.nutritionist_cost_monthly or 0)
+                    costo_coach = float(package.coach_cost_monthly or 0)
+                    costo_psicologo = float(package.psychologist_cost_monthly or 0)
+            except (ValueError, TypeError):
+                pass
+
+        # Recupera l'abbonamento precedente del cliente
+        if pagamento.cliente_id:
+            # Cerca l'ultimo pagamento interno del cliente PRIMA di questo
+            pagamento_precedente = (
+                PagamentoInterno.query
+                .filter(
+                    PagamentoInterno.cliente_id == pagamento.cliente_id,
+                    PagamentoInterno.id < pagamento.id,
+                    PagamentoInterno.pacchetto_id.isnot(None)
+                )
+                .order_by(PagamentoInterno.data_pagamento.desc())
+                .first()
+            )
+
+            if pagamento_precedente and pagamento_precedente.pacchetto_id:
+                try:
+                    pkg_prec = db.session.get(Package, int(pagamento_precedente.pacchetto_id))
+                    if pkg_prec:
+                        abbonamento_precedente = {
+                            "nome": pkg_prec.name,
+                            "prezzo": float(pkg_prec.price or 0),
+                            "durata_mesi": pkg_prec.duration_months,
+                            "data": pagamento_precedente.data_pagamento,
+                        }
+                except (ValueError, TypeError):
+                    pass
+
+            # Se non c'è pagamento precedente, cerca nella subscription attiva
+            if not abbonamento_precedente and pagamento.cliente:
+                subscriptions = getattr(pagamento.cliente, 'subscriptions', [])
+                if subscriptions:
+                    # Prendi la subscription più recente
+                    for sub in sorted(subscriptions, key=lambda s: s.start_date or date.min, reverse=True):
+                        if sub.package and sub.package_id != pagamento.pacchetto_id:
+                            abbonamento_precedente = {
+                                "nome": sub.package.name,
+                                "prezzo": float(sub.package.price or 0),
+                                "durata_mesi": sub.package.duration_months,
+                                "data": sub.start_date,
+                            }
+                            break
+
+        pagamenti_data.append({
+            "pagamento": pagamento,
+            "approvazione": approvazione,
+            "costo_nutrizionista": costo_nutrizionista,
+            "costo_coach": costo_coach,
+            "costo_psicologo": costo_psicologo,
+            "abbonamento_precedente": abbonamento_precedente,
+        })
+
+    return render_template(
+        "customers/pagamenti_interni_approvazione.html",
+        pagamenti=pagamenti_data,
+        TipoPagamentoInternoEnum=TipoPagamentoInternoEnum,
+    )
+
+
+@customers_bp.route("/api/pagamenti-interni/<int:pagamento_id>/approva", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def approva_pagamento_interno(pagamento_id: int):
+    """Approva un pagamento interno."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "Dati mancanti"}), HTTPStatus.BAD_REQUEST
+
+        pagamento = db.session.get(PagamentoInterno, pagamento_id)
+        if not pagamento:
+            return jsonify({"success": False, "message": "Pagamento non trovato"}), HTTPStatus.NOT_FOUND
+
+        approvazione = PagamentoInternoApprovazione.query.filter_by(
+            pagamento_interno_id=pagamento_id
+        ).first()
+
+        if not approvazione:
+            approvazione = PagamentoInternoApprovazione(
+                pagamento_interno_id=pagamento_id,
+                tipo_pagamento=data.get("tipo_pagamento", "rinnovo"),
+                costo_nutrizionista=data.get("costo_nutrizionista", 0),
+                costo_coach=data.get("costo_coach", 0),
+                costo_psicologo=data.get("costo_psicologo", 0),
+                costo_transazione=data.get("costo_transazione", 0),
+                stato_approvazione="in_attesa",
+            )
+            db.session.add(approvazione)
+
+        approvazione.tipo_pagamento = data.get("tipo_pagamento", approvazione.tipo_pagamento)
+        approvazione.costo_nutrizionista = data.get("costo_nutrizionista", approvazione.costo_nutrizionista)
+        approvazione.costo_coach = data.get("costo_coach", approvazione.costo_coach)
+        approvazione.costo_psicologo = data.get("costo_psicologo", approvazione.costo_psicologo)
+        approvazione.costo_transazione = data.get("costo_transazione", approvazione.costo_transazione)
+        approvazione.stato_approvazione = "approvato"
+        approvazione.note_approvazione = data.get("note_approvazione")
+        approvazione.approvato_da_id = current_user.id
+        approvazione.data_approvazione = datetime.utcnow()
+
+        pagamento.status = PagamentoInternoStatusEnum.completato
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Pagamento approvato con successo",
+            "importo_totale": str(approvazione.importo_totale),
+        }), HTTPStatus.OK
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Errore approvazione pagamento {pagamento_id}: {e}")
+        return jsonify({"success": False, "message": "Errore durante l'approvazione"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@customers_bp.route("/api/pagamenti-interni/<int:pagamento_id>/rifiuta", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def rifiuta_pagamento_interno(pagamento_id: int):
+    """Rifiuta un pagamento interno."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "Dati mancanti"}), HTTPStatus.BAD_REQUEST
+
+        pagamento = db.session.get(PagamentoInterno, pagamento_id)
+        if not pagamento:
+            return jsonify({"success": False, "message": "Pagamento non trovato"}), HTTPStatus.NOT_FOUND
+
+        approvazione = PagamentoInternoApprovazione.query.filter_by(
+            pagamento_interno_id=pagamento_id
+        ).first()
+
+        if not approvazione:
+            approvazione = PagamentoInternoApprovazione(
+                pagamento_interno_id=pagamento_id,
+                tipo_pagamento=data.get("tipo_pagamento", "rinnovo"),
+                stato_approvazione="in_attesa",
+            )
+            db.session.add(approvazione)
+
+        approvazione.stato_approvazione = "rifiutato"
+        approvazione.note_approvazione = data.get("note_approvazione", "")
+        approvazione.approvato_da_id = current_user.id
+        approvazione.data_approvazione = datetime.utcnow()
+
+        pagamento.status = PagamentoInternoStatusEnum.annullato
+
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Pagamento rifiutato"}), HTTPStatus.OK
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Errore rifiuto pagamento {pagamento_id}: {e}")
+        return jsonify({"success": False, "message": "Errore durante il rifiuto"}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# --------------------------------------------------------------------------- #
+#  API RICERCA CLIENTI (per modal pagamenti)                                  #
+# --------------------------------------------------------------------------- #
+
+@customers_bp.route("/api/search", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_search_clienti():
+    """Ricerca clienti per autocomplete.
+
+    Query params:
+        q: stringa di ricerca (min 2 caratteri)
+        limit: numero massimo risultati (default 15)
+
+    Returns:
+        JSON con lista clienti trovati (id, nome, email)
+    """
+    q = request.args.get("q", "").strip()
+    limit = request.args.get("limit", 15, type=int)
+
+    if len(q) < 2:
+        return jsonify({"success": True, "clienti": []}), HTTPStatus.OK
+
+    # Ricerca per nome, email o telefono
+    clienti = Cliente.query.filter(
+        db.or_(
+            Cliente.nome_cognome.ilike(f"%{q}%"),
+            Cliente.mail.ilike(f"%{q}%"),
+            Cliente.numero_telefono.ilike(f"%{q}%")
+        )
+    ).order_by(
+        Cliente.nome_cognome.asc()
+    ).limit(limit).all()
+
+    risultati = []
+    for c in clienti:
+        risultati.append({
+            "id": c.cliente_id,
+            "nome": c.nome_cognome or "N/D",
+            "email": c.mail or "",
+            "telefono": c.numero_telefono or "",
+            "stato": c.stato_cliente.value if c.stato_cliente else "N/D"
+        })
+
+    return jsonify({"success": True, "clienti": risultati}), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  Generate Progress Collage                                                 #
+# --------------------------------------------------------------------------- #
+@customers_bp.route("/<int:cliente_id>/generate-progress-collage", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def generate_progress_collage(cliente_id: int):
+    """
+    Genera un collage confrontando le PRIME foto disponibili con le ULTIME.
+
+    Cerca foto in ordine cronologico tra:
+    - Check iniziali della Lead (Check 1, 2, 3) tramite form_attachments
+    - TypeFormResponse (vecchio sistema)
+    - WeeklyCheckResponse (nuovo sistema)
+
+    Trova la PRIMA e l'ULTIMA foto disponibile per creare il confronto.
+    """
+    from corposostenibile.models import (
+        WeeklyCheck,
+        WeeklyCheckResponse,
+        TypeFormResponse,
+        Allegato,
+        SalesLead,
+    )
+    from corposostenibile.blueprints.customers.utils import create_progress_collage
+    from werkzeug.utils import secure_filename
+    import os
+    from datetime import datetime
+
+    try:
+        # Verifica che il cliente esista
+        cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+        # ─── RACCOLTA TUTTE LE FOTO CON DATE ─────────────────────────────────
+        # Lista di tuple: (date, photos_dict, source_type)
+        all_photo_records = []
+
+        # 1. FOTO DA LEAD INIZIALE (Check 1, 2, 3 - form_attachments)
+        if cliente.original_lead:
+            lead = cliente.original_lead
+            # form_attachments è un JSONB con lista di allegati
+            if lead.form_attachments:
+                # Raggruppa allegati per check_number
+                attachments_by_check = {}
+                for att in lead.form_attachments:
+                    check_num = att.get('check_number')
+                    if check_num:
+                        if check_num not in attachments_by_check:
+                            attachments_by_check[check_num] = {'front': None, 'side': None, 'back': None}
+
+                        field_name = (att.get('field_name') or '').lower()
+                        file_path = att.get('path')
+
+                        if file_path:
+                            if 'frontale' in field_name or 'front' in field_name:
+                                attachments_by_check[check_num]['front'] = file_path
+                            elif 'laterale' in field_name or 'side' in field_name:
+                                attachments_by_check[check_num]['side'] = file_path
+                            elif 'posteriore' in field_name or 'back' in field_name:
+                                attachments_by_check[check_num]['back'] = file_path
+
+                # Usa le date di completamento dei check
+                check_dates = {
+                    1: lead.check1_completed_at,
+                    2: lead.check2_completed_at,
+                    3: lead.check3_completed_at,
+                }
+
+                for check_num, photos in attachments_by_check.items():
+                    if any(photos.values()):
+                        check_date = check_dates.get(check_num) or lead.created_at
+                        all_photo_records.append((
+                            check_date,
+                            photos,
+                            f"Check {check_num} iniziale"
+                        ))
+
+        # 2. FOTO DA TYPEFORM RESPONSES
+        typeform_responses = (
+            db.session.query(TypeFormResponse)
+            .filter(TypeFormResponse.cliente_id == cliente_id)
+            .order_by(TypeFormResponse.submit_date.asc())
+            .all()
+        )
+
+        for tf_resp in typeform_responses:
+            photos = {
+                'front': tf_resp.photo_front,
+                'side': tf_resp.photo_side,
+                'back': tf_resp.photo_back
+            }
+            if any(photos.values()):
+                all_photo_records.append((
+                    tf_resp.submit_date or tf_resp.created_at,
+                    photos,
+                    "TypeForm"
+                ))
+
+        # 3. FOTO DA WEEKLY CHECK RESPONSES
+        weekly_responses = (
+            db.session.query(WeeklyCheckResponse)
+            .join(WeeklyCheck)
+            .filter(WeeklyCheck.cliente_id == cliente_id)
+            .order_by(WeeklyCheckResponse.submit_date.asc())
+            .all()
+        )
+
+        for wc_resp in weekly_responses:
+            photos = {
+                'front': wc_resp.photo_front,
+                'side': wc_resp.photo_side,
+                'back': wc_resp.photo_back
+            }
+            if any(photos.values()):
+                all_photo_records.append((
+                    wc_resp.submit_date or wc_resp.created_at,
+                    photos,
+                    "Check Settimanale"
+                ))
+
+        # ─── ORDINA PER DATA E TROVA PRIMA/ULTIMA ────────────────────────────
+        if not all_photo_records:
+            return jsonify({
+                "success": False,
+                "message": "Nessuna foto disponibile. Il cliente non ha foto nei check iniziali, TypeForm o check settimanali."
+            }), HTTPStatus.BAD_REQUEST
+
+        # Ordina per data (gestendo None)
+        all_photo_records.sort(key=lambda x: x[0] or datetime.min)
+
+        # PRIMA foto disponibile (la più vecchia)
+        first_record = all_photo_records[0]
+        initial_photos = first_record[1]
+        initial_date = first_record[0].strftime('%d/%m/%Y') if first_record[0] else None
+        initial_source = first_record[2]
+
+        # ULTIMA foto disponibile (la più recente)
+        last_record = all_photo_records[-1]
+        latest_photos = last_record[1]
+        latest_date = last_record[0].strftime('%d/%m/%Y') if last_record[0] else None
+        latest_source = last_record[2]
+
+        # Se abbiamo solo un record, non ha senso fare un confronto
+        if len(all_photo_records) < 2:
+            return jsonify({
+                "success": False,
+                "message": f"È disponibile solo un set di foto ({initial_source} del {initial_date}). Servono almeno due check con foto per creare un confronto."
+            }), HTTPStatus.BAD_REQUEST
+
+        # ─── GENERA COLLAGE ──────────────────────────────────────────────────
+        try:
+            collage_bytes = create_progress_collage(
+                initial_photos=initial_photos,
+                latest_photos=latest_photos,
+                initial_date=initial_date,
+                latest_date=latest_date
+            )
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "message": str(e)
+            }), HTTPStatus.BAD_REQUEST
+        except Exception as e:
+            logger.error(f"Errore generazione collage per cliente {cliente_id}: {e}", exc_info=True)
+            return jsonify({
+                "success": False,
+                "message": f"Errore durante la generazione del collage: {str(e)}"
+            }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+        # ─── SALVA COLLAGE ────────────────────────────────────────────────────
+        # Crea/recupera cartella clinica "Progresso"
+        cartella = (
+            db.session.query(CartellaClinica)
+            .filter_by(cliente_id=cliente_id, nome="Progresso")
+            .first()
+        )
+
+        if not cartella:
+            cartella = CartellaClinica(
+                cliente_id=cliente_id,
+                nome="Progresso",
+                note="Cartella per documenti di progresso del cliente"
+            )
+            db.session.add(cartella)
+            db.session.flush()  # Per ottenere l'ID
+
+        # Salva file collage
+        upload_folder = os.path.join(current_app.static_folder or 'static', 'uploads', 'collages')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        filename = secure_filename(f"collage_progresso_{cliente_id}_{timestamp}.jpg")
+        filepath = os.path.join(upload_folder, filename)
+
+        with open(filepath, 'wb') as f:
+            f.write(collage_bytes)
+
+        # Path relativo per il database (da static/)
+        relative_path = os.path.join('uploads', 'collages', filename).replace('\\', '/')
+
+        # Crea record Allegato
+        allegato = Allegato(
+            cartella_id=cartella.id,
+            file_path=relative_path,
+            file_type="image/jpeg",
+            note=f"Collage progresso: {initial_source} ({initial_date}) vs {latest_source} ({latest_date})"
+        )
+        db.session.add(allegato)
+        db.session.commit()
+
+        # URL per accedere al collage
+        collage_url = url_for('static', filename=relative_path)
+
+        return jsonify({
+            "success": True,
+            "message": "Collage generato con successo",
+            "collage_url": collage_url,
+            "allegato_id": allegato.id,
+            "initial_source": initial_source,
+            "latest_source": latest_source,
+            "initial_date": initial_date,
+            "latest_date": latest_date,
+            "total_photo_records": len(all_photo_records)
+        }), HTTPStatus.OK
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Errore generazione collage progresso per cliente {cliente_id}: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": f"Errore durante la generazione del collage: {str(e)}"
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# ============================================================================
+# SERVICE NOTES: Anamnesi & Diario
+# ============================================================================
+
+@api_bp.route("/<int:cliente_id>/anamnesi/<service_type>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_anamnesi(cliente_id: int, service_type: str):
+    """Recupera l'anamnesi per un servizio specifico."""
+    from corposostenibile.models import ServiceAnamnesi
+
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    anamnesi = ServiceAnamnesi.query.filter_by(
+        cliente_id=cliente_id,
+        service_type=service_type
+    ).first()
+
+    if not anamnesi:
+        return jsonify({"success": True, "anamnesi": None})
+
+    return jsonify({
+        "success": True,
+        "anamnesi": {
+            "id": anamnesi.id,
+            "content": anamnesi.content,
+            "created_at": anamnesi.created_at.strftime('%d/%m/%Y %H:%M') if anamnesi.created_at else None,
+            "updated_at": anamnesi.updated_at.strftime('%d/%m/%Y %H:%M') if anamnesi.updated_at else None,
+            "created_by": anamnesi.created_by.full_name if anamnesi.created_by else None,
+            "last_modified_by": anamnesi.last_modified_by.full_name if anamnesi.last_modified_by else None
+        }
+    })
+
+
+@api_bp.route("/<int:cliente_id>/anamnesi/<service_type>", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def save_anamnesi(cliente_id: int, service_type: str):
+    """Crea o aggiorna l'anamnesi per un servizio (sempre modificabile)."""
+    from corposostenibile.models import ServiceAnamnesi
+
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    data = request.get_json()
+    content = data.get('content', '').strip()
+
+    if not content:
+        return jsonify({"success": False, "error": "Il contenuto è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        anamnesi = ServiceAnamnesi.query.filter_by(
+            cliente_id=cliente_id,
+            service_type=service_type
+        ).first()
+
+        if anamnesi:
+            # Aggiorna esistente
+            anamnesi.content = content
+            anamnesi.last_modified_by_user_id = current_user.id
+            message = "Anamnesi aggiornata con successo"
+        else:
+            # Crea nuova
+            anamnesi = ServiceAnamnesi(
+                cliente_id=cliente_id,
+                service_type=service_type,
+                content=content,
+                created_by_user_id=current_user.id
+            )
+            db.session.add(anamnesi)
+            message = "Anamnesi creata con successo"
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": message,
+            "anamnesi_id": anamnesi.id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Errore salvataggio anamnesi: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@api_bp.route("/<int:cliente_id>/diary/<service_type>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_diary_entries(cliente_id: int, service_type: str):
+    """Recupera tutte le voci del diario per un servizio."""
+    from corposostenibile.models import ServiceDiaryEntry
+
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    entries = ServiceDiaryEntry.query.filter_by(
+        cliente_id=cliente_id,
+        service_type=service_type
+    ).order_by(ServiceDiaryEntry.entry_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "entries": [{
+            "id": e.id,
+            "entry_date": e.entry_date.strftime('%Y-%m-%d') if e.entry_date else None,
+            "entry_date_display": e.entry_date.strftime('%d/%m/%Y') if e.entry_date else None,
+            "content": e.content,
+            "author": e.author.full_name if e.author else 'Staff',
+            "created_at": e.created_at.strftime('%d/%m/%Y %H:%M') if e.created_at else None
+        } for e in entries]
+    })
+
+
+@csrf.exempt
+@api_bp.route("/<int:cliente_id>/diary/<service_type>", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_diary_entry(cliente_id: int, service_type: str):
+    """Crea una nuova voce del diario."""
+    from corposostenibile.models import ServiceDiaryEntry
+
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    data = request.get_json()
+    content = data.get('content', '').strip()
+    entry_date_str = data.get('entry_date')
+
+    if not content:
+        return jsonify({"success": False, "error": "Il contenuto è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        # Parse data o usa oggi
+        if entry_date_str:
+            entry_date = datetime.strptime(entry_date_str, '%Y-%m-%d').date()
+        else:
+            entry_date = date.today()
+
+        entry = ServiceDiaryEntry(
+            cliente_id=cliente_id,
+            service_type=service_type,
+            entry_date=entry_date,
+            content=content,
+            author_user_id=current_user.id
+        )
+        db.session.add(entry)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Nota del diario creata con successo",
+            "entry": {
+                "id": entry.id,
+                "entry_date": entry.entry_date.strftime('%Y-%m-%d'),
+                "entry_date_display": entry.entry_date.strftime('%d/%m/%Y'),
+                "content": entry.content,
+                "author": current_user.full_name or 'Staff'
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Errore creazione diary entry: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@csrf.exempt
+@api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_diary_entry(cliente_id: int, service_type: str, entry_id: int):
+    """Aggiorna una voce del diario esistente."""
+    from corposostenibile.models import ServiceDiaryEntry
+
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    entry = ServiceDiaryEntry.query.filter_by(
+        id=entry_id,
+        cliente_id=cliente_id,
+        service_type=service_type
+    ).first()
+
+    if not entry:
+        return jsonify({"success": False, "error": "Voce non trovata"}), HTTPStatus.NOT_FOUND
+
+    data = request.get_json()
+    content = data.get('content', '').strip()
+    entry_date_str = data.get('entry_date')
+
+    if not content:
+        return jsonify({"success": False, "error": "Il contenuto è obbligatorio"}), HTTPStatus.BAD_REQUEST
+
+    try:
+        entry.content = content
+        if entry_date_str:
+            entry.entry_date = datetime.strptime(entry_date_str, '%Y-%m-%d').date()
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Nota del diario aggiornata con successo",
+            "entry": {
+                "id": entry.id,
+                "entry_date": entry.entry_date.strftime('%Y-%m-%d'),
+                "entry_date_display": entry.entry_date.strftime('%d/%m/%Y'),
+                "content": entry.content,
+                "author": entry.author.full_name if entry.author else 'Staff'
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Errore aggiornamento diary entry: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@csrf.exempt
+@api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
+    """Elimina una voce del diario."""
+    from corposostenibile.models import ServiceDiaryEntry
+
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    entry = ServiceDiaryEntry.query.filter_by(
+        id=entry_id,
+        cliente_id=cliente_id,
+        service_type=service_type
+    ).first()
+
+    if not entry:
+        return jsonify({"success": False, "error": "Voce non trovata"}), HTTPStatus.NOT_FOUND
+
+    try:
+        db.session.delete(entry)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Nota del diario eliminata con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Errore eliminazione diary entry: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# --------------------------------------------------------------------------- #
+#  Blueprint registration helper                                              #
+# --------------------------------------------------------------------------- #
+def register_routes(app):  # noqa: D401
+    """Registra blueprint HTML + API sull'istanza Flask *app*."""
+    # Import and register service dashboard routes
+    from . import service_dashboard
+
+    app.register_blueprint(customers_bp)
+    app.register_blueprint(api_bp)

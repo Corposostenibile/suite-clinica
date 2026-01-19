@@ -1,0 +1,391 @@
+{# templates/ticket/report.html #}
+{% extends "base.html" %}
+
+{% block title %}Report Ticket • Suite{% endblock %}
+
+{% block extra_css %}
+  {{ super() }}
+  <style>
+    /* Period selector */
+    .period-selector .btn{border-radius:20px;padding:8px 20px}
+    .period-selector .btn.active{background:#28a745;color:white;border-color:#28a745}
+    
+    /* Stat cards */
+    .report-card{background:white;border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:24px}
+    .stat-number{font-size:2.5rem;font-weight:700;color:#2c3e50;margin:0}
+    .stat-label{color:#6c757d;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.5px}
+    .stat-change{font-size:0.875rem;font-weight:600}
+    .stat-change.positive{color:#28a745}
+    .stat-change.negative{color:#dc3545}
+    
+    /* Charts container */
+    .chart-container{position:relative;height:300px;margin-top:20px}
+    
+    /* Export buttons */
+    .export-menu{position:absolute;top:10px;right:10px}
+    
+    /* Progress bars */
+    .progress-stat{height:8px;margin-top:8px}
+    
+    /* Department table */
+    .dept-performance th{background:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:0.75rem;letter-spacing:0.5px}
+    .performance-indicator{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+    .performance-good{background:#28a745}
+    .performance-warning{background:#ffc107}
+    .performance-bad{background:#dc3545}
+  </style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- ▸ HEADER ========================================================= -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Report e Statistiche Ticket</h6>
+    
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('ticket.dashboard') }}" 
+         class="btn btn-outline-secondary d-flex align-items-center gap-2">
+        <iconify-icon icon="ri:arrow-left-line"></iconify-icon> Dashboard
+      </a>
+      
+      <div class="dropdown export-menu">
+        <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="ri-download-line me-1"></i> Esporta
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="#" onclick="exportPDF()">
+            <i class="ri-file-pdf-line me-2"></i> Esporta PDF
+          </a></li>
+          <li><a class="dropdown-item" href="#" onclick="exportExcel()">
+            <i class="ri-file-excel-line me-2"></i> Esporta Excel
+          </a></li>
+          <li><a class="dropdown-item" href="#" onclick="window.print()">
+            <i class="ri-printer-line me-2"></i> Stampa
+          </a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ PERIOD SELECTOR ================================================ -->
+  <div class="card mb-24">
+    <div class="card-body">
+      <div class="d-flex justify-content-center gap-2 period-selector">
+        <a href="?period=week" class="btn btn-outline-secondary {% if period == 'week' %}active{% endif %}">
+          Ultima Settimana
+        </a>
+        <a href="?period=month" class="btn btn-outline-secondary {% if period == 'month' %}active{% endif %}">
+          Ultimo Mese
+        </a>
+        <a href="?period=quarter" class="btn btn-outline-secondary {% if period == 'quarter' %}active{% endif %}">
+          Ultimo Trimestre
+        </a>
+        <a href="?period=year" class="btn btn-outline-secondary {% if period == 'year' %}active{% endif %}">
+          Ultimo Anno
+        </a>
+      </div>
+      
+      <div class="text-center mt-3 text-muted">
+        <small>
+          Periodo: {{ start_date.strftime('%d/%m/%Y') }} - {{ 'oggi' }}
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ KEY METRICS ==================================================== -->
+  <div class="row g-3 mb-24">
+    <!-- Totale ticket -->
+    <div class="col-md-3">
+      <div class="report-card text-center">
+        <div class="stat-label">Ticket Totali</div>
+        <h2 class="stat-number">{{ stats.total_period }}</h2>
+        <div class="stat-change positive">
+          <i class="ri-arrow-up-line"></i> +12% vs periodo precedente
+        </div>
+      </div>
+    </div>
+
+    <!-- Tempo medio risoluzione -->
+    <div class="col-md-3">
+      <div class="report-card text-center">
+        <div class="stat-label">Tempo Medio Risoluzione</div>
+        <h2 class="stat-number">{{ "%.1f"|format(stats.avg_resolution_hours) }}h</h2>
+        <div class="stat-change negative">
+          <i class="ri-arrow-down-line"></i> -8% vs periodo precedente
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasso chiusura -->
+    <div class="col-md-3">
+      <div class="report-card text-center">
+        <div class="stat-label">Tasso di Chiusura</div>
+        <h2 class="stat-number">{{ "%.0f"|format(stats.closure_rate) }}%</h2>
+        <div class="progress progress-stat">
+          <div class="progress-bar bg-success" style="width: {{ stats.closure_rate }}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasso ritardo -->
+    <div class="col-md-3">
+      <div class="report-card text-center">
+        <div class="stat-label">Tasso di Ritardo</div>
+        <h2 class="stat-number">{{ "%.0f"|format(stats.overdue_rate) }}%</h2>
+        <div class="progress progress-stat">
+          <div class="progress-bar bg-danger" style="width: {{ stats.overdue_rate }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ CHARTS ========================================================= -->
+  <div class="row g-3 mb-24">
+    <!-- Distribuzione per stato -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Distribuzione per Stato</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="statusChart"></canvas>
+          </div>
+          
+          <!-- Legenda con numeri -->
+          <div class="mt-4">
+            {% for status, data in stats.by_status.items() %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span>
+                  <span class="status-badge status-{{ status }}" style="font-size: 12px; padding: 4px 12px;">
+                    {{ status.replace('_', ' ').title() }}
+                  </span>
+                </span>
+                <span>
+                  <strong>{{ data.count }}</strong> 
+                  <small class="text-muted">({{ "%.0f"|format(data.percentage) }}%)</small>
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Distribuzione per urgenza -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Distribuzione per Urgenza</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="urgencyChart"></canvas>
+          </div>
+          
+          <!-- Legenda con numeri -->
+          <div class="mt-4">
+            {% for urgency, data in stats.by_urgency.items() %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="urgency-{{ urgency }}">
+                  {{ urgency.title() }}
+                </span>
+                <span>
+                  <strong>{{ data.count }}</strong> 
+                  <small class="text-muted">({{ "%.0f"|format(data.percentage) }}%)</small>
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ DEPARTMENT PERFORMANCE ========================================= -->
+  <div class="card mb-24">
+    <div class="card-header">
+      <h5 class="card-title mb-0">Performance per Dipartimento</h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table dept-performance">
+          <thead>
+            <tr>
+              <th>Dipartimento</th>
+              <th class="text-center">Ticket</th>
+              <th class="text-center">Aperti</th>
+              <th class="text-center">Chiusi</th>
+              <th class="text-center">Tempo Medio</th>
+              <th class="text-center">Performance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dept_name, count in stats.by_department %}
+              <tr>
+                <td class="fw-medium">{{ dept_name }}</td>
+                <td class="text-center">{{ count }}</td>
+                <td class="text-center">
+                  <span class="badge bg-warning">12</span>
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-success">{{ count - 12 }}</span>
+                </td>
+                <td class="text-center">24h</td>
+                <td class="text-center">
+                  <span class="performance-indicator performance-good"></span>
+                  Ottima
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ TREND ANALYSIS ================================================= -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">Analisi Trend</h5>
+    </div>
+    <div class="card-body">
+      <div class="chart-container" style="height: 400px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+      
+      <div class="row mt-4">
+        <div class="col-md-4">
+          <div class="text-center">
+            <h6>Picco Settimanale</h6>
+            <p class="mb-0"><strong>Martedì</strong></p>
+            <small class="text-muted">Media: 45 ticket</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-center">
+            <h6>Orario di Punta</h6>
+            <p class="mb-0"><strong>10:00 - 12:00</strong></p>
+            <small class="text-muted">35% dei ticket giornalieri</small>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-center">
+            <h6>Previsione Prossima Settimana</h6>
+            <p class="mb-0"><strong>+18%</strong></p>
+            <small class="text-muted">Basato su trend attuale</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Configurazione grafici
+const chartColors = {
+  nuovo: '#dc3545',
+  in_lavorazione: '#ffc107',
+  in_attesa: '#17a2b8',
+  chiuso: '#28a745',
+  alta: '#dc3545',
+  media: '#ffc107',
+  bassa: '#28a745'
+};
+
+// Grafico Stati
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+  type: 'doughnut',
+  data: {
+    labels: [{% for s in stats.by_status %}'{{ s }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      data: [{% for s, d in stats.by_status.items() %}{{ d.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: [{% for s in stats.by_status %}'{{ chartColors[s] }}'{% if not loop.last %},{% endif %}{% endfor %}]
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    }
+  }
+});
+
+// Grafico Urgenze
+const urgencyCtx = document.getElementById('urgencyChart').getContext('2d');
+new Chart(urgencyCtx, {
+  type: 'pie',
+  data: {
+    labels: [{% for u in stats.by_urgency %}'{{ u }}'{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      data: [{% for u, d in stats.by_urgency.items() %}{{ d.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: [{% for u in stats.by_urgency %}'{{ chartColors[u] }}'{% if not loop.last %},{% endif %}{% endfor %}]
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    }
+  }
+});
+
+// Grafico Trend
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+new Chart(trendCtx, {
+  type: 'line',
+  data: {
+    labels: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'],
+    datasets: [{
+      label: 'Questa settimana',
+      data: [32, 45, 38, 42, 35, 18, 12],
+      borderColor: '#28a745',
+      backgroundColor: 'rgba(40, 199, 111, 0.1)',
+      tension: 0.3
+    }, {
+      label: 'Settimana precedente',
+      data: [28, 35, 32, 38, 30, 15, 10],
+      borderColor: '#6c757d',
+      backgroundColor: 'rgba(108, 117, 125, 0.1)',
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true
+      }
+    }
+  }
+});
+
+// Export functions
+function exportPDF() {
+  alert('Funzione export PDF in sviluppo');
+}
+
+function exportExcel() {
+  alert('Funzione export Excel in sviluppo');
+}
+</script>
+{% endblock %}

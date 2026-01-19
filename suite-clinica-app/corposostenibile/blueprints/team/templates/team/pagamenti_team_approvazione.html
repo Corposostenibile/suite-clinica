@@ -1,0 +1,764 @@
+{% extends "base.html" %}
+
+{% block title %}Approvazione Pagamenti – Team{% endblock %}
+
+{% block extra_css %}
+<style>
+  .table-payments th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  .table-payments td {
+    vertical-align: middle;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .table-payments tbody tr {
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+  }
+
+  .table-payments tbody tr:hover {
+    background-color: #f8fafc;
+  }
+
+  .table-payments tbody tr.da_valutare {
+    border-left-color: #ed8936;
+  }
+
+  .table-payments tbody tr.approvato {
+    border-left-color: #48bb78;
+    background-color: #f0fff4;
+  }
+
+  .table-payments tbody tr.rifiutato {
+    border-left-color: #f56565;
+    background-color: #fff5f5;
+  }
+
+  .amount-cell {
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .amount-cell.high { color: #38a169; }
+  .amount-cell.medium { color: #3182ce; }
+  .amount-cell.low { color: #718096; }
+
+  .filter-badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: #edf2f7;
+    color: #4a5568;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-badge:hover {
+    background: #e2e8f0;
+  }
+
+  .filter-badge.active {
+    background: #4299e1;
+    color: white;
+    border-color: #3182ce;
+  }
+
+  .btn-action {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .member-link {
+    font-weight: 600;
+    color: #1a202c;
+    text-decoration: none;
+  }
+
+  .member-link:hover {
+    color: #4299e1;
+  }
+
+  .member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0">Approvazione Pagamenti Team</h6>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('team.user_list') }}">Team</a></li>
+        <li class="breadcrumb-item active">Pagamenti Team</li>
+      </ol>
+    </nav>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuovoPagamentoModal">
+      <i class="ri-add-line me-1"></i>Nuovo Pagamento
+    </button>
+    <button class="btn btn-success" onclick="approveSelected()">
+      <i class="ri-check-double-line me-1"></i>Approva Selezionati
+    </button>
+  </div>
+</div>
+
+{# ─────────────────────── FILTRI ─────────────────────── #}
+<div class="card mb-24">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Stato</label>
+        <select class="form-select" id="filterStatus" onchange="applyFilters()">
+          <option value="">Tutti gli stati</option>
+          <option value="da_valutare" selected>Da Valutare</option>
+          <option value="approvato">Approvati</option>
+          <option value="rifiutato">Rifiutati</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Membro Team</label>
+        <select class="form-select" id="filterUser" onchange="applyFilters()">
+          <option value="">Tutti</option>
+          {% for user in users %}
+          <option value="{{ user.id }}">{{ user.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Data Inizio</label>
+        <input type="date" class="form-control" id="filterDateStart">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Data Fine</label>
+        <input type="date" class="form-control" id="filterDateEnd">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Ricerca</label>
+        <input type="text" class="form-control" id="searchInput" placeholder="Nome..." onkeyup="searchPayments()">
+      </div>
+    </div>
+
+    {# Quick filters #}
+    <div class="mt-3 d-flex gap-2 flex-wrap">
+      <span class="text-muted me-2">Filtri rapidi:</span>
+      <span class="filter-badge active" onclick="setQuickFilter('da_valutare')">
+        <i class="ri-time-line me-1"></i>Da Valutare
+      </span>
+      <span class="filter-badge" onclick="setQuickFilter('tutti')">
+        <i class="ri-list-check me-1"></i>Tutti
+      </span>
+      <span class="filter-badge" onclick="setQuickFilter('today')">
+        <i class="ri-calendar-line me-1"></i>Oggi
+      </span>
+      <span class="filter-badge" onclick="setQuickFilter('this-week')">
+        <i class="ri-calendar-week-line me-1"></i>Questa Settimana
+      </span>
+      <span class="filter-badge" onclick="setQuickFilter('this-month')">
+        <i class="ri-calendar-2-line me-1"></i>Questo Mese
+      </span>
+      <span class="filter-badge" onclick="setQuickFilter('this-quarter')">
+        <i class="ri-calendar-check-line me-1"></i>Questo Trimestre
+      </span>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── STATISTICHE RAPIDE ─────────────────────── #}
+<div class="row gy-4 mb-24">
+  <div class="col-md-3 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-primary-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-money-euro-circle-line text-primary-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0" id="totalCount">{{ pagamenti|length }}</h5>
+            <span class="text-muted">Totale</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-warning-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-time-line text-warning-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0" id="pendingCount">0</h5>
+            <span class="text-muted">Da Valutare</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-success-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-check-double-line text-success-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0" id="approvedCount">0</h5>
+            <span class="text-muted">Approvati</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="w-48-px h-48-px bg-danger-100 rounded-circle d-flex justify-content-center align-items-center me-3">
+            <i class="ri-close-circle-line text-danger-600" style="font-size: 1.5rem;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0" id="rejectedCount">0</h5>
+            <span class="text-muted">Rifiutati</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── TABELLA PAGAMENTI ─────────────────────── #}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6 class="card-title mb-0">
+      <i class="ri-list-check me-2"></i>Pagamenti Team ({{ pagamenti|length }})
+    </h6>
+    <div class="d-flex gap-3 align-items-center">
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+        <label class="form-check-label small" for="selectAll">Seleziona tutti</label>
+      </div>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    {% if pagamenti %}
+    <div class="table-responsive">
+      <table class="table table-hover table-payments mb-0" id="paymentsTable">
+        <thead>
+          <tr>
+            <th style="width: 40px;"></th>
+            <th>Membro Team</th>
+            <th>Data Emissione</th>
+            <th>N. Fattura</th>
+            <th>Fisso</th>
+            <th>Bonus</th>
+            <th>Totale</th>
+            <th>Fattura</th>
+            <th>Stato</th>
+            <th style="width: 120px;">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pagamento in pagamenti %}
+          <tr class="payment-row {{ pagamento.stato.value }}"
+              data-id="{{ pagamento.id }}"
+              data-amount="{{ pagamento.totale }}"
+              data-status="{{ pagamento.stato.value }}"
+              data-user="{{ pagamento.user_id }}"
+              data-name="{{ pagamento.user.full_name|lower if pagamento.user else '' }}"
+              data-date="{{ pagamento.data_emissione.isoformat() if pagamento.data_emissione else '' }}">
+            <td>
+              <input class="form-check-input" type="checkbox" value="{{ pagamento.id }}" name="selected_payments"
+                     {% if pagamento.stato.value in ['approvato', 'rifiutato'] %}disabled{% endif %}>
+            </td>
+            <td>
+              {% if pagamento.user %}
+              <div class="d-flex align-items-center">
+                <img src="{{ pagamento.user.avatar_url }}" class="member-avatar me-2" alt="">
+                <div>
+                  <a href="{{ url_for('team.user_detail', user_id=pagamento.user_id) }}"
+                     class="member-link" target="_blank">
+                    {{ pagamento.user.full_name }}
+                    <i class="ri-external-link-line ms-1 text-muted" style="font-size: 0.7rem;"></i>
+                  </a>
+                  {% if pagamento.user.department %}
+                  <br><small class="text-muted">{{ pagamento.user.department.name }}</small>
+                  {% endif %}
+                </div>
+              </div>
+              {% else %}
+              <span class="text-muted">N/D</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="text-nowrap">{{ pagamento.data_emissione.strftime('%d/%m/%Y') if pagamento.data_emissione else '-' }}</span>
+            </td>
+            <td>
+              {% if pagamento.numero_fattura %}
+              <span class="fw-medium">{{ pagamento.numero_fattura }}</span>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="fw-semibold">€{{ "%.2f"|format(pagamento.totale_fisso) }}</span>
+            </td>
+            <td>
+              {% if pagamento.totale_bonus and pagamento.totale_bonus > 0 %}
+              <span class="text-success fw-semibold">€{{ "%.2f"|format(pagamento.totale_bonus) }}</span>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="amount-cell {% if pagamento.totale >= 2000 %}high{% elif pagamento.totale >= 1000 %}medium{% else %}low{% endif %}">
+                €{{ "%.2f"|format(pagamento.totale) }}
+              </span>
+            </td>
+            <td>
+              {% if pagamento.fattura_path %}
+              <a href="{{ url_for('team.pagamenti_team_download_fattura', pagamento_id=pagamento.id) }}"
+                 class="btn btn-sm btn-outline-primary" title="Scarica PDF">
+                <i class="ri-file-pdf-line"></i>
+              </a>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if pagamento.stato.value == 'approvato' %}
+              <span class="badge bg-success-subtle text-success-main">
+                <i class="ri-check-line me-1"></i>Approvato
+              </span>
+              {% elif pagamento.stato.value == 'rifiutato' %}
+              <span class="badge bg-danger-subtle text-danger-main">
+                <i class="ri-close-line me-1"></i>Rifiutato
+              </span>
+              {% else %}
+              <span class="badge bg-warning-subtle text-warning-main">
+                <i class="ri-time-line me-1"></i>In attesa
+              </span>
+              {% endif %}
+            </td>
+            <td>
+              {% if pagamento.stato.value not in ['approvato', 'rifiutato'] %}
+              <div class="btn-group">
+                <button class="btn btn-sm btn-success btn-action approva-btn"
+                        data-pagamento-id="{{ pagamento.id }}" title="Approva">
+                  <i class="ri-check-line"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger btn-action rifiuta-btn"
+                        data-pagamento-id="{{ pagamento.id }}" title="Rifiuta">
+                  <i class="ri-close-line"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary btn-action elimina-btn"
+                        data-pagamento-id="{{ pagamento.id }}" title="Elimina">
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+              {% else %}
+              <small class="text-muted">
+                {% if pagamento.data_approvazione %}
+                {{ pagamento.data_approvazione.strftime('%d/%m') }}
+                {% endif %}
+              </small>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="ri-money-euro-circle-line" style="font-size: 4rem; color: #e2e8f0;"></i>
+      <h5 class="mt-3">Nessun pagamento trovato</h5>
+      <p class="text-muted">Non ci sono pagamenti team da gestire</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ─────────────────────── MODAL NUOVO PAGAMENTO ─────────────────────── #}
+<div class="modal fade" id="nuovoPagamentoModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form action="{{ url_for('team.pagamenti_team_nuovo') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="ri-add-line me-2"></i>Nuovo Pagamento Team</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Membro Team <span class="text-danger">*</span></label>
+              <select class="form-select" name="user_id" required>
+                <option value="">Seleziona...</option>
+                {% for user in users %}
+                <option value="{{ user.id }}">{{ user.full_name }}{% if user.department %} ({{ user.department.name }}){% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Data Emissione <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" name="data_emissione" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Totale Fisso</label>
+              <div class="input-group">
+                <span class="input-group-text">€</span>
+                <input type="number" class="form-control" name="totale_fisso" step="0.01" min="0" value="0">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Totale Bonus</label>
+              <div class="input-group">
+                <span class="input-group-text">€</span>
+                <input type="number" class="form-control" name="totale_bonus" step="0.01" min="0" value="0">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">N. Fattura</label>
+              <input type="text" class="form-control" name="numero_fattura" placeholder="es. FT-2024-001">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">PDF Fattura</label>
+              <input type="file" class="form-control" name="fattura_pdf" accept=".pdf">
+              <small class="text-muted">Solo file PDF</small>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Note</label>
+              <textarea class="form-control" name="note" rows="2" placeholder="Note opzionali..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="ri-save-line me-1"></i>Salva Pagamento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL RIFIUTO ─────────────────────── #}
+<div class="modal fade" id="rifiutoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Rifiuta Pagamento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="rifiutoPagamentoId">
+        <div class="mb-3">
+          <label for="noteRifiuto" class="form-label">Motivo del rifiuto</label>
+          <textarea class="form-control" id="noteRifiuto" rows="3" placeholder="Inserisci il motivo del rifiuto..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-danger" id="confermaRifiuto">
+          <i class="ri-close-line me-1"></i>Conferma Rifiuto
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+  // Update counters
+  function updateCounters() {
+    let pending = 0, approved = 0, rejected = 0;
+    document.querySelectorAll('.payment-row').forEach(row => {
+      const status = row.dataset.status;
+      if (status === 'approvato') approved++;
+      else if (status === 'rifiutato') rejected++;
+      else pending++;
+    });
+    document.getElementById('pendingCount').textContent = pending;
+    document.getElementById('approvedCount').textContent = approved;
+    document.getElementById('rejectedCount').textContent = rejected;
+  }
+
+  // Apply filters
+  window.applyFilters = function() {
+    const status = document.getElementById('filterStatus').value;
+    const userId = document.getElementById('filterUser').value;
+
+    document.querySelectorAll('.payment-row').forEach(row => {
+      let visible = true;
+
+      if (status) {
+        if (status === 'da_valutare') {
+          visible = row.dataset.status === 'da_valutare';
+        } else {
+          visible = row.dataset.status === status;
+        }
+      }
+
+      if (visible && userId && row.dataset.user !== userId) {
+        visible = false;
+      }
+
+      row.style.display = visible ? '' : 'none';
+    });
+  };
+
+  // Search payments
+  window.searchPayments = function() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.payment-row').forEach(row => {
+      const name = row.dataset.name || '';
+      row.style.display = name.includes(searchTerm) ? '' : 'none';
+    });
+  };
+
+  // Quick filters
+  window.setQuickFilter = function(filter) {
+    document.querySelectorAll('.filter-badge').forEach(b => b.classList.remove('active'));
+    event.target.closest('.filter-badge').classList.add('active');
+
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterUser').value = '';
+
+    switch(filter) {
+      case 'da_valutare':
+        document.getElementById('filterStatus').value = 'da_valutare';
+        applyFilters();
+        break;
+      case 'tutti':
+        document.querySelectorAll('.payment-row').forEach(row => row.style.display = '');
+        break;
+      case 'today':
+        filterByDate('today');
+        break;
+      case 'this-week':
+        filterByDate('week');
+        break;
+      case 'this-month':
+        filterByDate('month');
+        break;
+      case 'this-quarter':
+        filterByDate('quarter');
+        break;
+      default:
+        applyFilters();
+    }
+  };
+
+  function filterByDate(period) {
+    const now = new Date();
+    document.querySelectorAll('.payment-row').forEach(row => {
+      const itemDate = new Date(row.dataset.date);
+      let visible = false;
+
+      if (period === 'today') {
+        visible = itemDate.toDateString() === now.toDateString();
+      } else if (period === 'week') {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        visible = itemDate >= weekAgo;
+      } else if (period === 'month') {
+        visible = itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+      } else if (period === 'quarter') {
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const itemQuarter = Math.floor(itemDate.getMonth() / 3);
+        visible = itemQuarter === currentQuarter && itemDate.getFullYear() === now.getFullYear();
+      }
+
+      row.style.display = visible ? '' : 'none';
+    });
+  }
+
+  // Toggle select all
+  window.toggleSelectAll = function() {
+    const selectAll = document.getElementById('selectAll').checked;
+    document.querySelectorAll('input[name="selected_payments"]:not(:disabled)').forEach(cb => {
+      const row = cb.closest('tr');
+      if (row.style.display !== 'none') {
+        cb.checked = selectAll;
+      }
+    });
+  };
+
+  // Approve payment
+  document.querySelectorAll('.approva-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const pagamentoId = this.dataset.pagamentoId;
+
+      if (!confirm('Confermi di voler approvare questo pagamento?')) return;
+
+      fetch(`/team/api/pagamenti-team/${pagamentoId}/approva`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({})
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          toastr.success('Pagamento approvato!');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          toastr.error(data.message || 'Errore');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        toastr.error('Errore di comunicazione');
+      });
+    });
+  });
+
+  // Reject payment - open modal
+  document.querySelectorAll('.rifiuta-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.getElementById('rifiutoPagamentoId').value = this.dataset.pagamentoId;
+      document.getElementById('noteRifiuto').value = '';
+      new bootstrap.Modal(document.getElementById('rifiutoModal')).show();
+    });
+  });
+
+  // Confirm reject
+  document.getElementById('confermaRifiuto')?.addEventListener('click', function() {
+    const pagamentoId = document.getElementById('rifiutoPagamentoId').value;
+    const note = document.getElementById('noteRifiuto').value;
+
+    fetch(`/team/api/pagamenti-team/${pagamentoId}/rifiuta`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ note: note })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        toastr.success('Pagamento rifiutato');
+        bootstrap.Modal.getInstance(document.getElementById('rifiutoModal')).hide();
+        setTimeout(() => location.reload(), 800);
+      } else {
+        toastr.error(data.message || 'Errore');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      toastr.error('Errore di comunicazione');
+    });
+  });
+
+  // Delete payment
+  document.querySelectorAll('.elimina-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const pagamentoId = this.dataset.pagamentoId;
+
+      if (!confirm('Sei sicuro di voler eliminare questo pagamento?')) return;
+
+      fetch(`/team/pagamenti-team/${pagamentoId}/elimina`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        }
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          toastr.success('Pagamento eliminato!');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          toastr.error(data.message || 'Errore');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        toastr.error('Errore di comunicazione');
+      });
+    });
+  });
+
+  // Approve selected
+  window.approveSelected = function() {
+    const selected = Array.from(document.querySelectorAll('input[name="selected_payments"]:checked'))
+      .map(cb => cb.value);
+
+    if (selected.length === 0) {
+      toastr.warning('Seleziona almeno un pagamento');
+      return;
+    }
+
+    if (!confirm(`Confermi di voler approvare ${selected.length} pagamenti?`)) return;
+
+    let completed = 0;
+    let errors = 0;
+
+    selected.forEach(id => {
+      fetch(`/team/api/pagamenti-team/${id}/approva`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({})
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) errors++;
+        completed++;
+        if (completed === selected.length) {
+          if (errors === 0) {
+            toastr.success(`${selected.length} pagamenti approvati!`);
+          } else {
+            toastr.warning(`${selected.length - errors} approvati, ${errors} errori`);
+          }
+          setTimeout(() => location.reload(), 800);
+        }
+      })
+      .catch(() => {
+        errors++;
+        completed++;
+      });
+    });
+  };
+
+  // Initialize
+  updateCounters();
+  applyFilters();
+});
+</script>
+{% endblock %}

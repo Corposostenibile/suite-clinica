@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Report Settimanale - Benvenuto{% endblock %}
+
+{% block extra_css %}
+{% include 'team/weekly_report/_step_base_css.html' %}
+<style>
+    .welcome-logo {
+        max-width: 200px;
+        height: auto;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-24">
+
+    <!-- Header Section -->
+    <div class="step-header">
+        <h4>Nuovo Report Settimanale</h4>
+        <p class="text-muted mb-0">Settimana {{ week_range }}</p>
+    </div>
+
+    <div class="step-container">
+        <!-- Progress Indicator -->
+        <div class="progress-indicator">
+            <div class="d-flex justify-content-between">
+                {% for i in range(1, total_steps + 1) %}
+                <div class="progress-step {% if i < step %}completed{% elif i == step %}active{% endif %}">
+                    <div class="step-number">{{ i }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Welcome Section -->
+        <div class="form-section text-center">
+            <img src="{{ url_for('static', filename='assets/immagini/corposostenibile.jpg') }}" 
+                 alt="Corposostenibile" class="welcome-logo mb-4">
+            
+            <div class="question-title justify-content-center mb-3">
+                <iconify-icon icon="ri:flag-line" class="question-icon"></iconify-icon>
+                Obiettivo Aziendale
+            </div>
+            
+            <p class="text-muted mb-4">
+                Ogni persona, libera da diete restrittive, consapevole e protagonista 
+                della propria salute, in un corpo che sente casa e che riflette con 
+                orgoglio la sua trasformazione sostenibile
+            </p>
+        </div>
+        
+        <!-- Action buttons -->
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="action-buttons">
+                <div></div> <!-- Empty div for spacing -->
+                <button type="submit" class="btn btn-success">
+                    Inizia il tuo Report Settimanale
+                    <iconify-icon icon="ri:arrow-right-line" class="ms-2"></iconify-icon>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

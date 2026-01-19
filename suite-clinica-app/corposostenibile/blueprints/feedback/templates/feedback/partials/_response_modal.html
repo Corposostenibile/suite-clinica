@@ -1,0 +1,350 @@
+<!-- Reusable Response Details Modal -->
+<div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="responseModalLabel">Dettagli Risposta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="modalContent">
+        <!-- Content will be loaded here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Reusable Modal functionality
+  document.addEventListener('DOMContentLoaded', function () {
+    // Make table rows clickable
+    const tableRows = document.querySelectorAll('.table-responsive table tbody tr');
+
+    tableRows.forEach(row => {
+      row.addEventListener('click', function () {
+        const responseId = this.getAttribute('data-response-id');
+        if (responseId) {
+          loadResponseDetails(responseId);
+        }
+      });
+    });
+
+    function loadResponseDetails(responseId) {
+      // Show loading state
+      document.getElementById('modalContent').innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p class="mt-2">Caricamento...</p></div>';
+
+      // Show modal
+      const modal = new bootstrap.Modal(document.getElementById('responseModal'));
+      modal.show();
+
+      // Fetch response details
+      fetch(`/feedback/response/${responseId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            displayResponseDetails(data.response);
+          } else {
+            document.getElementById('modalContent').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dei dettagli</div>';
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          document.getElementById('modalContent').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dei dettagli</div>';
+        });
+    }
+
+    function displayResponseDetails(response) {
+      const isDCACheck = response.response_type === 'dca_check';
+
+      // Costruisci il contenuto delle foto se disponibili (non presente nei DCA check)
+      let photosSection = '';
+      if (!isDCACheck && (response.photo_front || response.photo_side || response.photo_back)) {
+        photosSection = `
+          <div class="mb-4">
+            <h6 class="text-primary fw-bold mb-3">📸 FOTO PROGRESS</h6>
+            <div class="row g-3">
+              ${response.photo_front ? `
+                <div class="col-md-4">
+                  <div class="text-center">
+                    <img src="/${response.photo_front}" class="img-fluid rounded shadow-sm" alt="Fronte"
+                         style="max-height: 250px; cursor: pointer;"
+                         onclick="window.open('/${response.photo_front}', '_blank')">
+                    <p class="small text-muted mt-2 mb-0">Vista Frontale</p>
+                  </div>
+                </div>
+              ` : ''}
+              ${response.photo_side ? `
+                <div class="col-md-4">
+                  <div class="text-center">
+                    <img src="/${response.photo_side}" class="img-fluid rounded shadow-sm" alt="Lato"
+                         style="max-height: 250px; cursor: pointer;"
+                         onclick="window.open('/${response.photo_side}', '_blank')">
+                    <p class="small text-muted mt-2 mb-0">Vista Laterale</p>
+                  </div>
+                </div>
+              ` : ''}
+              ${response.photo_back ? `
+                <div class="col-md-4">
+                  <div class="text-center">
+                    <img src="/${response.photo_back}" class="img-fluid rounded shadow-sm" alt="Retro"
+                         style="max-height: 250px; cursor: pointer;"
+                         onclick="window.open('/${response.photo_back}', '_blank')">
+                    <p class="small text-muted mt-2 mb-0">Vista Posteriore</p>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          <hr class="my-4">
+        `;
+      }
+
+      const content = `
+        <div class="row">
+          <div class="col-12">
+            <!-- Specialist Names with Avatars -->
+            <div class="mb-3">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="d-flex align-items-center p-2 bg-light rounded">
+                    <div class="me-2">
+                      <iconify-icon icon="fluent-emoji-flat:green-salad" class="text-success" style="font-size: 1.5rem;"></iconify-icon>
+                    </div>
+                    <div class="flex-grow-1">
+                      <small class="text-muted d-block">Nutrizionista</small>
+                      ${response.nutritionists && response.nutritionists.length > 0
+                        ? response.nutritionists.map(prof => `
+                          <div class="d-flex align-items-center gap-2 mt-1">
+                            <img src="${prof.avatar_url}"
+                                 alt="${prof.full_name}"
+                                 title="${prof.full_name}"
+                                 class="rounded-circle"
+                                 style="width: 24px; height: 24px; object-fit: cover;">
+                            <strong class="text-dark" style="font-size: 0.85rem;">${prof.name}</strong>
+                          </div>
+                        `).join('')
+                        : '<strong class="text-dark">Nessuno</strong>'
+                      }
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="d-flex align-items-center p-2 bg-light rounded">
+                    <div class="me-2">
+                      <iconify-icon icon="material-icon-theme:brainfuck" class="text-info" style="font-size: 1.5rem;"></iconify-icon>
+                    </div>
+                    <div class="flex-grow-1">
+                      <small class="text-muted d-block">Psicologo/a</small>
+                      ${response.psychologists && response.psychologists.length > 0
+                        ? response.psychologists.map(prof => `
+                          <div class="d-flex align-items-center gap-2 mt-1">
+                            <img src="${prof.avatar_url}"
+                                 alt="${prof.full_name}"
+                                 title="${prof.full_name}"
+                                 class="rounded-circle"
+                                 style="width: 24px; height: 24px; object-fit: cover;">
+                            <strong class="text-dark" style="font-size: 0.85rem;">${prof.name}</strong>
+                          </div>
+                        `).join('')
+                        : '<strong class="text-dark">Nessuno</strong>'
+                      }
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="d-flex align-items-center p-2 bg-light rounded">
+                    <div class="me-2">
+                      <iconify-icon icon="emojione-v1:person-lifting-weights" class="text-warning" style="font-size: 1.5rem;"></iconify-icon>
+                    </div>
+                    <div class="flex-grow-1">
+                      <small class="text-muted d-block">Coach</small>
+                      ${response.coaches && response.coaches.length > 0
+                        ? response.coaches.map(prof => `
+                          <div class="d-flex align-items-center gap-2 mt-1">
+                            <img src="${prof.avatar_url}"
+                                 alt="${prof.full_name}"
+                                 title="${prof.full_name}"
+                                 class="rounded-circle"
+                                 style="width: 24px; height: 24px; object-fit: cover;">
+                            <strong class="text-dark" style="font-size: 0.85rem;">${prof.name}</strong>
+                          </div>
+                        `).join('')
+                        : '<strong class="text-dark">Nessuno</strong>'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Foto Progress -->
+            ${photosSection}
+
+            <!-- Response Details (matching customer detail format) -->
+            <dl class="row">
+              ${isDCACheck ? `
+                <!-- DCA Check Questions -->
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">🧠 Benessere Emotivo e Psicologico (1-5)</h6></dt>
+                <dt class="col-sm-5">Stato d'animo generale</dt>
+                <dd class="col-sm-7">${response.mood_balance_rating || '-'}</dd>
+                <dt class="col-sm-5">Serenità nel seguire il piano alimentare</dt>
+                <dd class="col-sm-7">${response.food_plan_serenity || '-'}</dd>
+                <dt class="col-sm-5">Preoccupazione per cibo/peso/corpo</dt>
+                <dd class="col-sm-7">${response.food_weight_worry || '-'}</dd>
+                <dt class="col-sm-5">Mangiare emotivo</dt>
+                <dd class="col-sm-7">${response.emotional_eating || '-'}</dd>
+                <dt class="col-sm-5">Comfort nel proprio corpo</dt>
+                <dd class="col-sm-7">${response.body_comfort || '-'}</dd>
+                <dt class="col-sm-5">Rispetto per il corpo</dt>
+                <dd class="col-sm-7">${response.body_respect || '-'}</dd>
+
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">💪 Allenamento e Movimento (1-5)</h6></dt>
+                <dt class="col-sm-5">Gestione allenamento come benessere</dt>
+                <dd class="col-sm-7">${response.exercise_wellness || '-'}</dd>
+                <dt class="col-sm-5">Senso di colpa per allenamenti saltati</dt>
+                <dd class="col-sm-7">${response.exercise_guilt || '-'}</dd>
+
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">😴 Riposo e Relazioni (1-5)</h6></dt>
+                <dt class="col-sm-5">Qualità del riposo</dt>
+                <dd class="col-sm-7">${response.sleep_satisfaction || '-'}</dd>
+                <dt class="col-sm-5">Tempo per relazioni significative</dt>
+                <dd class="col-sm-7">${response.relationship_time || '-'}</dd>
+                <dt class="col-sm-5">Tempo per attività piacevoli</dt>
+                <dd class="col-sm-7">${response.personal_time || '-'}</dd>
+
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">🎯 Gestione e Compassione (1-5)</h6></dt>
+                <dt class="col-sm-5">Interferenza con lavoro/vita sociale</dt>
+                <dd class="col-sm-7">${response.life_interference || '-'}</dd>
+                <dt class="col-sm-5">Gestione imprevisti senza colpa</dt>
+                <dd class="col-sm-7">${response.unexpected_management || '-'}</dd>
+                <dt class="col-sm-5">Compassione verso se stessi</dt>
+                <dd class="col-sm-7">${response.self_compassion || '-'}</dd>
+                <dt class="col-sm-5">Dialogo interiore gentile</dt>
+                <dd class="col-sm-7">${response.inner_dialogue || '-'}</dd>
+
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">🌱 Sostenibilità e Motivazione (1-5)</h6></dt>
+                <dt class="col-sm-5">Sostenibilità a lungo termine</dt>
+                <dd class="col-sm-7">${response.long_term_sustainability || '-'}</dd>
+                <dt class="col-sm-5">Allineamento con valori e obiettivi</dt>
+                <dd class="col-sm-7">${response.values_alignment || '-'}</dd>
+                <dt class="col-sm-5">Livello di motivazione</dt>
+                <dd class="col-sm-7">${response.motivation_level || '-'}</dd>
+
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">🍽️ Organizzazione Pasti (1-5)</h6></dt>
+                <dt class="col-sm-5">Organizzazione dei pasti</dt>
+                <dd class="col-sm-7">${response.meal_organization || '-'}</dd>
+                <dt class="col-sm-5">Stress da gestione pasti</dt>
+                <dd class="col-sm-7">${response.meal_stress || '-'}</dd>
+                <dt class="col-sm-5">Spesa consapevole</dt>
+                <dd class="col-sm-7">${response.shopping_awareness || '-'}</dd>
+                <dt class="col-sm-5">Impatto spesa su tempo/budget</dt>
+                <dd class="col-sm-7">${response.shopping_impact || '-'}</dd>
+                <dt class="col-sm-5">Chiarezza su cosa cucinare</dt>
+                <dd class="col-sm-7">${response.meal_clarity || '-'}</dd>
+
+                <dt class="col-12"><h6 class="text-primary mt-3 mb-2">📊 Parametri Fisici (1-10)</h6></dt>
+              ` : `
+                <!-- Weekly Check Questions -->
+                <dt class="col-sm-5">Cosa ha funzionato bene?</dt>
+                <dd class="col-sm-7">${response.what_worked || '-'}</dd>
+                <dt class="col-sm-5">Cosa NON ha funzionato bene?</dt>
+                <dd class="col-sm-7">${response.what_didnt_work || '-'}</dd>
+                <dt class="col-sm-5">Cosa hai imparato?</dt>
+                <dd class="col-sm-7">${response.what_learned || '-'}</dd>
+                <dt class="col-sm-5">Focalizzazione prossima settimana</dt>
+                <dd class="col-sm-7">${response.what_focus_next || '-'}</dd>
+                <dt class="col-sm-5">Infortuni o note</dt>
+                <dd class="col-sm-7">${response.injuries_notes || '-'}</dd>
+              `}
+
+              <!-- Parametri fisici comuni a tutti i check -->
+              <dt class="col-sm-5">Digestione (1-10)</dt>
+              <dd class="col-sm-7">${response.digestion_rating || '-'}</dd>
+              <dt class="col-sm-5">Energia (1-10)</dt>
+              <dd class="col-sm-7">${response.energy_rating || '-'}</dd>
+              <dt class="col-sm-5">Forza (1-10)</dt>
+              <dd class="col-sm-7">${response.strength_rating || '-'}</dd>
+              <dt class="col-sm-5">Fame (1-10)</dt>
+              <dd class="col-sm-7">${response.hunger_rating || '-'}</dd>
+              <dt class="col-sm-5">Qualità del sonno (1-10)</dt>
+              <dd class="col-sm-7">${response.sleep_rating || '-'}</dd>
+              <dt class="col-sm-5">Umore (1-10)</dt>
+              <dd class="col-sm-7">${response.mood_rating || '-'}</dd>
+              <dt class="col-sm-5">Motivazione (1-10)</dt>
+              <dd class="col-sm-7">${response.motivation_rating || '-'}</dd>
+
+              ${!isDCACheck ? `
+                <!-- Solo per Weekly Check -->
+                <dt class="col-sm-5">Peso</dt>
+                <dd class="col-sm-7">${response.weight || '-'}</dd>
+                <dt class="col-sm-5">Aderenza programma alimentare</dt>
+                <dd class="col-sm-7">${response.nutrition_program_adherence || '-'}</dd>
+                <dt class="col-sm-5">Aderenza programma sportivo</dt>
+                <dd class="col-sm-7">${response.training_program_adherence || '-'}</dd>
+                <dt class="col-sm-5">Esercizi non fatti/aggiunti</dt>
+                <dd class="col-sm-7">${response.exercise_modifications || '-'}</dd>
+                <dt class="col-sm-5">Passi medi giornalieri</dt>
+                <dd class="col-sm-7">${response.daily_steps || '-'}</dd>
+                <dt class="col-sm-5">Settimane allenamento completate</dt>
+                <dd class="col-sm-7">${response.completed_training_weeks || '-'}</dd>
+                <dt class="col-sm-5">Giorni allenamento pianificati</dt>
+                <dd class="col-sm-7">${response.planned_training_days || '-'}</dd>
+                <dt class="col-sm-5">Temi per LIVE settimanali</dt>
+                <dd class="col-sm-7">${response.live_session_topics || '-'}</dd>
+              ` : ''}
+
+              <!-- Campi comuni finali -->
+              <dt class="col-sm-5">Referral</dt>
+              <dd class="col-sm-7">${response.referral || '-'}</dd>
+              <dt class="col-sm-5">Commenti extra</dt>
+              <dd class="col-sm-7">${response.extra_comments || '-'}</dd>
+              
+              <!-- Mostra solo le valutazioni che l'utente può vedere -->
+              ${(response.can_see_nutrition || response.user_type === 'admin') && response.nutritionist_rating ? `
+                <dt class="col-sm-5">Valutazione nutrizionista (1-10)</dt>
+                <dd class="col-sm-7">${response.nutritionist_rating || '-'}</dd>
+                <dt class="col-sm-5">Feedback nutrizionista</dt>
+                <dd class="col-sm-7">${response.nutritionist_feedback || '-'}</dd>
+              ` : ''}
+              
+              ${(response.can_see_psychology || response.user_type === 'admin') && response.psychologist_rating ? `
+                <dt class="col-sm-5">Valutazione psicologa (1-10)</dt>
+                <dd class="col-sm-7">${response.psychologist_rating || '-'}</dd>
+                <dt class="col-sm-5">Feedback psicologa</dt>
+                <dd class="col-sm-7">${response.psychologist_feedback || '-'}</dd>
+              ` : ''}
+              
+              ${(response.can_see_coach || response.user_type === 'admin') && response.coach_rating ? `
+                <dt class="col-sm-5">Valutazione coach (1-10)</dt>
+                <dd class="col-sm-7">${response.coach_rating || '-'}</dd>
+                <dt class="col-sm-5">Feedback coach</dt>
+                <dd class="col-sm-7">${response.coach_feedback || '-'}</dd>
+              ` : ''}
+              
+              <!-- Valutazione percorso sempre visibile a tutti -->
+              <dt class="col-sm-5">Valutazione percorso (1-10)</dt>
+              <dd class="col-sm-7">${response.progress_rating || '-'}</dd>
+
+              <!-- Valutazione coordinatore (se presente) -->
+              ${response.coordinator_rating ? `
+                <dt class="col-sm-5">Valutazione coordinatore (1-10)</dt>
+                <dd class="col-sm-7">
+                  <span class="badge bg-primary">${response.coordinator_rating}</span>
+                </dd>
+                <dt class="col-sm-5">Note coordinatore</dt>
+                <dd class="col-sm-7">
+                  <div class="alert alert-info mb-0">
+                    <i class="ri-file-text-line"></i> ${response.coordinator_notes || '-'}
+                  </div>
+                </dd>
+              ` : ''}
+            </dl>
+          </div>
+        </div>`;
+
+      document.getElementById('modalContent').innerHTML = content;
+    }
+  });
+</script>

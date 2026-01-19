@@ -1,0 +1,748 @@
+{% extends "base.html" %}
+
+{% block title %}Richieste di Training Ricevute - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Container principale */
+    .requests-container {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 20px 0;
+    }
+    
+    /* Stats Cards Premium */
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .stat-card.warning::before {
+        background: linear-gradient(90deg, #ff9800 0%, #ffc107 100%);
+    }
+    
+    .stat-card.info::before {
+        background: linear-gradient(90deg, #2196f3 0%, #03a9f4 100%);
+    }
+    
+    .stat-card.success::before {
+        background: linear-gradient(90deg, #22c55e 0%, #10b981 100%);
+    }
+    
+    .stat-card.danger::before {
+        background: linear-gradient(90deg, #dc3545 0%, #f56565 100%);
+    }
+    
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 16px;
+    }
+    
+    .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        color: #718096;
+        font-size: 14px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Filter Pills Premium */
+    .filter-pills {
+        background: white;
+        border-radius: 16px;
+        padding: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        display: inline-flex;
+        gap: 4px;
+    }
+    
+    .filter-pill {
+        padding: 12px 24px;
+        border-radius: 12px;
+        background: transparent;
+        color: #4a5568;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-pill:hover {
+        background: #f7fafc;
+        color: #2d3748;
+    }
+    
+    .filter-pill.active {
+        background: #22c55e;
+        color: white;
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+    
+    .filter-pill .count-badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: inherit;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .filter-pill.active .count-badge {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Request Cards Ultra Premium */
+    .request-item {
+        background: white;
+        border-radius: 20px;
+        padding: 0;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .request-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    }
+    
+    .request-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 5px;
+    }
+    
+    .request-item.status-pending::before {
+        background: linear-gradient(180deg, #ff9800 0%, #ffc107 100%);
+    }
+    
+    .request-item.status-accepted::before {
+        background: linear-gradient(180deg, #2196f3 0%, #03a9f4 100%);
+    }
+    
+    .request-item.status-completed::before {
+        background: linear-gradient(180deg, #22c55e 0%, #10b981 100%);
+    }
+    
+    .request-item.status-rejected::before {
+        background: linear-gradient(180deg, #dc3545 0%, #f56565 100%);
+    }
+    
+    .request-header {
+        padding: 24px 30px;
+        border-bottom: 1px solid #f0f0f0;
+        background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+    }
+    
+    .request-body {
+        padding: 24px 30px;
+    }
+    
+    .request-footer {
+        padding: 20px 30px;
+        background: #f8f9fa;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    /* Priority Indicator */
+    .priority-indicator {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        animation: pulse 2s infinite;
+    }
+    
+    .priority-urgent {
+        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        color: white;
+    }
+    
+    .priority-high {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    /* User Info */
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        object-fit: cover;
+        border: 3px solid #f0f0f0;
+    }
+    
+    .user-avatar-placeholder {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 20px;
+    }
+    
+    /* Action Buttons */
+    .action-btn {
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+    
+    .action-btn-primary {
+        background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+        color: white;
+    }
+    
+    .action-btn-secondary {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+    }
+    
+    /* Status Badge */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-pending {
+        background: linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%);
+        color: #f57c00;
+    }
+    
+    .status-accepted {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        color: #1976d2;
+    }
+    
+    .status-completed {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        color: #388e3c;
+    }
+    
+    .status-rejected {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        color: #c62828;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    
+    .empty-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 24px;
+        background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        color: #9e9e9e;
+    }
+    
+    /* Pagination Premium */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 40px;
+    }
+    
+    .pagination {
+        background: white;
+        padding: 8px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        display: inline-flex;
+        gap: 4px;
+    }
+    
+    .page-link {
+        padding: 10px 16px;
+        border-radius: 8px;
+        color: #4a5568;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: none;
+        background: transparent;
+    }
+    
+    .page-link:hover {
+        background: #f7fafc;
+        color: #2d3748;
+    }
+    
+    .page-item.active .page-link {
+        background: #22c55e;
+        color: white;
+        box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+    }
+    
+    .page-item.disabled .page-link {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <!-- Header con breadcrumb -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <div>
+            <h4 class="fw-semibold mb-1">Richieste di Training Ricevute</h4>
+            <p class="text-muted mb-0">Gestisci le richieste di formazione del tuo team</p>
+        </div>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('welcome.index') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <i class="ri-home-4-line"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">
+                <a href="{{ url_for('review.index') }}" class="hover-text-primary">Training</a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium text-primary">Richieste Ricevute</li>
+        </ul>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-sm-6">
+            <div class="stat-card warning">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%);">
+                    <i class="ri-time-line" style="color: #ff9800;"></i>
+                </div>
+                <div class="stat-value">{{ pending_count }}</div>
+                <div class="stat-label">In Attesa</div>
+                {% if pending_count > 0 %}
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-warning" style="width: {{ (pending_count / total_count * 100) if total_count else 0 }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-sm-6">
+            <div class="stat-card info">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
+                    <i class="ri-check-line" style="color: #2196f3;"></i>
+                </div>
+                <div class="stat-value">{{ accepted_count }}</div>
+                <div class="stat-label">Accettate</div>
+                {% if accepted_count > 0 %}
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-info" style="width: {{ (accepted_count / total_count * 100) if total_count else 0 }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-sm-6">
+            <div class="stat-card success">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
+                    <i class="ri-check-double-line" style="color: #22c55e;"></i>
+                </div>
+                <div class="stat-value">{{ completed_count }}</div>
+                <div class="stat-label">Completate</div>
+                {% if completed_count > 0 %}
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-success" style="width: {{ (completed_count / total_count * 100) if total_count else 0 }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-sm-6">
+            <div class="stat-card danger">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);">
+                    <i class="ri-close-circle-line" style="color: #dc3545;"></i>
+                </div>
+                <div class="stat-value">{{ rejected_count }}</div>
+                <div class="stat-label">Rifiutate</div>
+                {% if rejected_count > 0 %}
+                <div class="progress mt-3" style="height: 4px;">
+                    <div class="progress-bar bg-danger" style="width: {{ (rejected_count / total_count * 100) if total_count else 0 }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="d-flex justify-content-center mb-4">
+        <div class="filter-pills">
+            <a href="{{ url_for('review.received_requests', status='pending') }}" 
+               class="filter-pill {% if status_filter == 'pending' %}active{% endif %}">
+                <i class="ri-time-line"></i>
+                <span>In Attesa</span>
+                {% if pending_count > 0 %}
+                <span class="count-badge">{{ pending_count }}</span>
+                {% endif %}
+            </a>
+            
+            <a href="{{ url_for('review.received_requests', status='accepted') }}" 
+               class="filter-pill {% if status_filter == 'accepted' %}active{% endif %}">
+                <i class="ri-check-line"></i>
+                <span>Accettate</span>
+                {% if accepted_count > 0 %}
+                <span class="count-badge">{{ accepted_count }}</span>
+                {% endif %}
+            </a>
+            
+            <a href="{{ url_for('review.received_requests', status='completed') }}" 
+               class="filter-pill {% if status_filter == 'completed' %}active{% endif %}">
+                <i class="ri-check-double-line"></i>
+                <span>Completate</span>
+                {% if completed_count > 0 %}
+                <span class="count-badge">{{ completed_count }}</span>
+                {% endif %}
+            </a>
+            
+            <a href="{{ url_for('review.received_requests', status='all') }}" 
+               class="filter-pill {% if status_filter == 'all' %}active{% endif %}">
+                <i class="ri-list-check"></i>
+                <span>Tutte</span>
+                <span class="count-badge">{{ total_count }}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Lista Richieste -->
+    {% if requests %}
+        <!-- Info Paginazione -->
+        {% if pagination.total > 0 %}
+        <div class="text-center text-muted mb-3">
+            Visualizzazione <strong>{{ (pagination.page - 1) * pagination.per_page + 1 }}</strong> - 
+            <strong>{% if pagination.page * pagination.per_page < pagination.total %}{{ pagination.page * pagination.per_page }}{% else %}{{ pagination.total }}{% endif %}</strong> 
+            di <strong>{{ pagination.total }}</strong> richieste
+        </div>
+        {% endif %}
+        
+        {% for req in requests %}
+        <div class="request-item status-{{ req.status }}">
+            <!-- Priority Badge -->
+            {% if req.priority == 'urgent' %}
+            <span class="priority-indicator priority-urgent">
+                🔴 Urgente
+            </span>
+            {% elif req.priority == 'high' %}
+            <span class="priority-indicator priority-high">
+                🟠 Alta Priorità
+            </span>
+            {% endif %}
+            
+            <!-- Header -->
+            <div class="request-header">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <!-- Avatar -->
+                        {% if req.requester.avatar_path %}
+                        <img src="{{ url_for('uploaded_file', filename=req.requester.avatar_path) }}" 
+                             alt="{{ req.requester.first_name }}" 
+                             class="user-avatar">
+                        {% else %}
+                        <div class="user-avatar-placeholder">
+                            {{ req.requester.first_name[0] }}{{ req.requester.last_name[0] }}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- User Info -->
+                        <div>
+                            <h5 class="mb-1">{{ req.requester.first_name }} {{ req.requester.last_name }}</h5>
+                            <p class="mb-0 text-muted">
+                                {% if req.requester.job_title %}{{ req.requester.job_title }} • {% endif %}
+                                {% if req.requester.department %}{{ req.requester.department.name }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Badge -->
+                    <div>
+                        {% if req.status == 'pending' %}
+                        <span class="status-badge status-pending">
+                            <i class="ri-time-line"></i> In Attesa
+                        </span>
+                        {% elif req.status == 'accepted' %}
+                        <span class="status-badge status-accepted">
+                            <i class="ri-check-line"></i> Accettata
+                        </span>
+                        {% elif req.status == 'completed' %}
+                        <span class="status-badge status-completed">
+                            <i class="ri-check-double-line"></i> Completata
+                        </span>
+                        {% elif req.status == 'rejected' %}
+                        <span class="status-badge status-rejected">
+                            <i class="ri-close-line"></i> Rifiutata
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Body -->
+            <div class="request-body">
+                <h4 class="mb-3 text-dark">{{ req.subject }}</h4>
+                
+                {% if req.description %}
+                <div class="mb-3">
+                    <p class="text-secondary mb-0">
+                        {{ req.description[:300] }}{% if req.description|length > 300 %}...{% endif %}
+                    </p>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex flex-wrap gap-3 text-muted small">
+                    <span>
+                        <i class="ri-calendar-line text-primary"></i> 
+                        Richiesta il {{ (req.created_at + timedelta(hours=2)).strftime('%d/%m/%Y alle %H:%M') }}
+                    </span>
+                    {% if req.responded_at %}
+                    <span>
+                        <i class="ri-reply-line text-success"></i>
+                        Risposta il {{ (req.responded_at + timedelta(hours=2)).strftime('%d/%m/%Y alle %H:%M') }}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                {% if req.status == 'rejected' and req.response_notes %}
+                <div class="alert alert-light border-danger mt-3">
+                    <h6 class="text-danger mb-2">
+                        <i class="ri-error-warning-line"></i> Motivazione Rifiuto
+                    </h6>
+                    <p class="mb-0 small">{{ req.response_notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Footer con Azioni -->
+            <div class="request-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted small">
+                        ID Richiesta: #{{ req.id }}
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        {% if req.status == 'pending' %}
+                        <a href="{{ url_for('review.respond_request', request_id=req.id) }}" 
+                           class="action-btn action-btn-primary">
+                            <i class="ri-check-line"></i>
+                            Gestisci Richiesta
+                        </a>
+                        
+                        {% elif req.status == 'accepted' %}
+                        <a href="{{ url_for('review.create_from_request', request_id=req.id) }}" 
+                           class="action-btn action-btn-secondary">
+                            <i class="ri-edit-line"></i>
+                            Scrivi Training
+                        </a>
+                        
+                        {% elif req.status == 'completed' and req.review %}
+                        <a href="{{ url_for('review.detail', user_id=req.requester_id) }}" 
+                           class="btn btn-outline-success">
+                            <i class="ri-eye-line me-1"></i>
+                            Visualizza Training
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Paginazione -->
+        {% if pagination.pages > 1 %}
+        <div class="pagination-container">
+            <nav>
+                <ul class="pagination">
+                    <!-- Prima pagina -->
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('review.received_requests', status=status_filter, page=1) }}">
+                            <i class="ri-arrow-left-double-line"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Pagina precedente -->
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('review.received_requests', status=status_filter, page=pagination.prev_num) if pagination.has_prev else '#' }}">
+                            <i class="ri-arrow-left-s-line"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Numeri pagine -->
+                    {% for page_num in pagination.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('review.received_requests', status=status_filter, page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- Pagina successiva -->
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('review.received_requests', status=status_filter, page=pagination.next_num) if pagination.has_next else '#' }}">
+                            <i class="ri-arrow-right-s-line"></i>
+                        </a>
+                    </li>
+                    
+                    <!-- Ultima pagina -->
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('review.received_requests', status=status_filter, page=pagination.pages) }}">
+                            <i class="ri-arrow-right-double-line"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="ri-inbox-line"></i>
+        </div>
+        <h3 class="mb-2">Nessuna richiesta trovata</h3>
+        <p class="text-muted mb-4">
+            {% if status_filter == 'pending' %}
+            Non hai richieste di training in attesa al momento.
+            {% elif status_filter == 'accepted' %}
+            Non hai richieste accettate da completare.
+            {% elif status_filter == 'completed' %}
+            Non hai ancora completato nessuna richiesta di training.
+            {% else %}
+            Non hai ancora ricevuto richieste di training dal tuo team.
+            {% endif %}
+        </p>
+        <a href="{{ url_for('review.index') }}" class="btn btn-primary">
+            <i class="ri-arrow-left-line me-2"></i>
+            Torna ai Training
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animazione carte al caricamento con effetto stagger
+    const cards = document.querySelectorAll('.request-item, .stat-card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 50);
+    });
+    
+    // Animazione contatori
+    const statValues = document.querySelectorAll('.stat-value');
+    statValues.forEach(stat => {
+        const finalValue = parseInt(stat.textContent);
+        let currentValue = 0;
+        const increment = finalValue / 30;
+        const timer = setInterval(() => {
+            currentValue += increment;
+            if (currentValue >= finalValue) {
+                stat.textContent = finalValue;
+                clearInterval(timer);
+            } else {
+                stat.textContent = Math.floor(currentValue);
+            }
+        }, 30);
+    });
+});
+</script>
+{% endblock %}

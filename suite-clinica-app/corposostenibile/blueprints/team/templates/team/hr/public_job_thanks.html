@@ -1,0 +1,46 @@
+{# templates/team/hr/public_job_thanks.html #}
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grazie per la candidatura • {{ opening.title }}</title>
+
+  <!-- Bootstrap • Remix-Icon -->
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}">
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='assets/css/remixicon.css') }}">
+
+  <style>
+    :root{--bs-primary:#25B36A;--bs-primary-rgb:37,179,106}
+    .btn-primary{background:var(--bs-primary);border-color:var(--bs-primary)}
+    .btn-primary:hover{background:#1e9a5b;border-color:#1e9a5b}
+  </style>
+</head>
+<body>
+
+<div class="container py-5" style="max-width:740px">
+
+  <!-- ✔ Messaggio di conferma -->
+  <div class="text-center mb-5">
+    <i class="ri-checkbox-circle-fill display-4 text-success mb-3"></i>
+    <h1 class="h3">Grazie per la tua candidatura!</h1>
+    <p class="lead">
+      Abbiamo ricevuto il tuo invio per la posizione
+      <strong class="d-block">{{ opening.title }}</strong>
+      {% if opening.department %}
+        nel dipartimento <em>{{ opening.department.name }}</em>.
+      {% endif %}
+      Il team HR esaminerà il tuo profilo e,
+      se in linea con la ricerca, ti contatterà per i prossimi passi.
+    </p>
+  </div>
+
+  
+
+</div><!-- /container -->
+
+<script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

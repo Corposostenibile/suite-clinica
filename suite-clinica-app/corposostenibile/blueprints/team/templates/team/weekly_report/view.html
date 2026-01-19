@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+
+{% block title %}Report {% if report.report_type == 'monthly' %}Mensile{% else %}Settimanale{% endif %} di {{ report.user.full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Header gradient */
+    .report-view-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    /* Section cards */
+    .section-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        height: 100%;
+        overflow: hidden;
+    }
+    
+    .section-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    
+    .section-card .card-header {
+        background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+        color: white;
+        border: none;
+        padding: 1rem 1.5rem;
+    }
+    
+    .section-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .section-content {
+        color: #495057;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+    
+    /* Metadata badges */
+    .metadata-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: white;
+        padding: 0.5rem 1rem;
+        border-radius: 24px;
+        font-size: 0.875rem;
+        color: #6c757d;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .metadata-badge iconify-icon {
+        color: #28c76f;
+        font-size: 1rem;
+    }
+    
+    /* Action buttons */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .report-view-header {
+            padding: 1.5rem;
+        }
+        
+        .report-view-header h4 {
+            font-size: 1.25rem;
+        }
+        
+        .metadata-badges {
+            gap: 0.5rem;
+        }
+        
+        .metadata-badge {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .action-buttons {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .action-buttons .btn {
+            flex: 1;
+            font-size: 0.875rem;
+            padding: 0.5rem;
+        }
+        
+        .action-buttons .btn span {
+            display: none;
+        }
+        
+        .section-card {
+            margin-bottom: 1rem;
+        }
+    }
+    
+    /* Empty state */
+    .empty-reflection {
+        text-align: center;
+        padding: 2rem;
+        color: #adb5bd;
+    }
+    
+    /* Section icons in header */
+    .section-header-icon {
+        font-size: 1.25rem;
+        margin-right: 0.5rem;
+    }
+    
+    /* User avatar */
+    .user-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e9ecef;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Collapsible sections */
+    .question-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .question-section:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .question-header {
+        padding: 1.25rem 1.5rem;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8f9fa;
+        transition: all 0.2s ease;
+    }
+    
+    .question-header:hover {
+        background: #e9ecef;
+    }
+    
+    .question-header.active {
+        background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+        color: white;
+    }
+    
+    .question-text {
+        font-weight: 600;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        flex: 1;
+        margin: 0;
+    }
+    
+    .question-icon {
+        font-size: 1.25rem;
+        margin-right: 1rem;
+        color: #28c76f;
+    }
+    
+    .question-header.active .question-icon {
+        color: white;
+    }
+    
+    .toggle-icon {
+        font-size: 1.25rem;
+        transition: transform 0.3s ease;
+        color: #6c757d;
+    }
+    
+    .question-header.active .toggle-icon {
+        color: white;
+        transform: rotate(180deg);
+    }
+    
+    .answer-content {
+        padding: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .answer-content.show {
+        padding: 1.5rem;
+        max-height: 1000px;
+    }
+    
+    .answer-text {
+        color: #495057;
+        line-height: 1.6;
+        margin: 0;
+    }
+    
+    .empty-answer {
+        color: #adb5bd;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-24">
+    <!-- Report Header -->
+    <div class="report-view-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <img src="{{ report.user.avatar_url }}" 
+                         alt="{{ report.user.full_name }}" 
+                         class="user-avatar">
+                    <h4 class="fw-bold mb-0">{{ report.user.full_name }}</h4>
+                </div>
+                <div class="d-flex flex-wrap gap-2 metadata-badges">
+                    <span class="metadata-badge">
+                        <iconify-icon icon="ri:building-line"></iconify-icon>
+                        {{ report.department.name if report.department else 'N/A' }}
+                    </span>
+                    <span class="metadata-badge">
+                        <iconify-icon icon="ri:calendar-line"></iconify-icon>
+                        {{ report.week_start.strftime('%d/%m') }} - {{ report.week_end.strftime('%d/%m/%Y') }}
+                    </span>
+                    <span class="metadata-badge">
+                        <iconify-icon icon="ri:time-line"></iconify-icon>
+                        {{ report.submission_date.strftime('%d/%m/%Y %H:%M') }}
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="action-buttons">
+                    {% if (report.user_id == current_user.id or current_user.is_admin) and report.can_be_edited %}
+                    <a href="{{ url_for('weekly_report.edit_report', report_id=report.id) }}" 
+                       class="btn btn-success">
+                        <iconify-icon icon="ri:edit-line" class="me-1"></iconify-icon>
+                        <span>Modifica</span>
+                    </a>
+                    {% endif %}
+                    {% if current_user.is_admin %}
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        <iconify-icon icon="ri:delete-bin-line" class="me-1"></iconify-icon>
+                        <span>Elimina</span>
+                    </button>
+                    {% endif %}
+                    {% set back_url_params = {} %}
+                    {% if request.args.get('from_filter') %}
+                        {% set _ = back_url_params.update({'department_id': request.args.get('from_filter')}) %}
+                    {% endif %}
+                    {% if request.args.get('week') %}
+                        {% set _ = back_url_params.update({'week': request.args.get('week')}) %}
+                    {% endif %}
+                    <a href="{{ url_for('weekly_report.index', **back_url_params) }}" 
+                       class="btn btn-outline-secondary">
+                        <iconify-icon icon="ri:arrow-left-line" class="me-1"></iconify-icon>
+                        <span>Indietro</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Content -->
+    <div class="mt-4">
+        {% if report.report_type == 'monthly' %}
+            <!-- SALES REPORT MENSILE -->
+            
+            <!-- Ostacolo principale -->
+            {% if report.main_obstacle %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:shield-cross-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Qual è il più grande ostacolo lavorativo/problema che stai affrontando?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.main_obstacle }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Suggerimenti per superare l'ostacolo -->
+            {% if report.obstacle_suggestions %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:lightbulb-flash-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Hai idee o suggerimenti per sormontare l'ostacolo/il problema?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.obstacle_suggestions }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Punti da migliorare -->
+            {% if report.work_improvements %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:focus-3-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Quali punti (più deboli e non) sul tuo lavoro vorresti migliorare?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.work_improvements }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+        {% else %}
+            <!-- REPORT SETTIMANALE NORMALE - 6 STEP -->
+            
+            <!-- Azioni intraprese (unificato) -->
+            {% if report.department_reflection or report.personal_reflection %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:target-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Quali azioni hai intrapreso, individualmente e insieme al tuo dipartimento, per avvicinarci a questi Obiettivi?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.department_reflection or report.personal_reflection }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Vittoria settimanale -->
+            {% if report.weekly_victory %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:trophy-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Qual è stata la tua più grande vittoria lavorativa questa settimana?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.weekly_victory }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Aree di miglioramento -->
+            {% if report.areas_to_improve %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:focus-3-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Su quali azioni quotidiane ti senti indietro, o sai di poter far meglio?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.areas_to_improve }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Ostacolo principale -->
+            {% if report.main_obstacle %}
+            <div class="question-section">
+                <div class="question-header" onclick="toggleAnswer(this)">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <iconify-icon icon="ri:error-warning-line" class="question-icon"></iconify-icon>
+                        <p class="question-text">Qual è il più grande ostacolo lavorativo che stai affrontando?</p>
+                    </div>
+                    <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+                </div>
+                <div class="answer-content">
+                    <p class="answer-text">{{ report.main_obstacle }}</p>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        
+        <!-- Idee e suggerimenti (comune a entrambi) -->
+        {% if report.ideas %}
+        <div class="question-section">
+            <div class="question-header" onclick="toggleAnswer(this)">
+                <div class="d-flex align-items-center flex-grow-1">
+                    <iconify-icon icon="ri:lightbulb-line" class="question-icon"></iconify-icon>
+                    <p class="question-text">Hai idee o suggerimenti per il team o l'azienda?</p>
+                </div>
+                <iconify-icon icon="ri:arrow-down-s-line" class="toggle-icon"></iconify-icon>
+            </div>
+            <div class="answer-content">
+                <p class="answer-text">{{ report.ideas }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal di conferma eliminazione -->
+{% if current_user.is_admin %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Conferma Eliminazione</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Sei sicuro di voler eliminare questo report?</p>
+                <p class="text-muted">L'utente {{ report.user.full_name }} potrà compilare nuovamente il report per questa settimana.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                <form action="{{ url_for('weekly_report.delete_report', report_id=report.id) }}" method="post" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="ri-delete-bin-line"></i> Elimina Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAnswer(header) {
+    const section = header.parentElement;
+    const content = section.querySelector('.answer-content');
+    const isOpen = header.classList.contains('active');
+    
+    // Toggle active state
+    header.classList.toggle('active');
+    content.classList.toggle('show');
+    
+    // Optional: Close other sections when opening a new one
+    // Comment out the following lines if you want multiple sections open at once
+    if (!isOpen) {
+        document.querySelectorAll('.question-header.active').forEach(otherHeader => {
+            if (otherHeader !== header) {
+                otherHeader.classList.remove('active');
+                otherHeader.parentElement.querySelector('.answer-content').classList.remove('show');
+            }
+        });
+    }
+}
+
+// Auto-open the first section on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const firstHeader = document.querySelector('.question-header');
+    if (firstHeader) {
+        toggleAnswer(firstHeader);
+    }
+});
+</script>
+{% endblock %}

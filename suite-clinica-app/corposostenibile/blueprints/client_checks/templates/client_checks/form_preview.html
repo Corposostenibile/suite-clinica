@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Anteprima Form - {{ form.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .form-preview-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    
+    .form-preview-header h1 {
+        margin-bottom: 0.5rem;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+    
+    .form-preview-header p {
+        margin-bottom: 1rem;
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+    
+    .form-meta {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        margin-top: 1rem;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .form-preview-body {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .field-preview {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        background: #f8f9fa;
+    }
+    
+    .field-preview:last-child {
+        margin-bottom: 0;
+    }
+    
+    .field-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .field-required {
+        color: #dc3545;
+        font-size: 0.8rem;
+    }
+    
+    .field-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        font-style: italic;
+    }
+    
+    .field-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 1rem;
+        background: white;
+    }
+    
+    .field-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .field-options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .field-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    
+    .field-type-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #e9ecef;
+        color: #495057;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+    
+    .action-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .btn-preview {
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-primary-preview {
+        background: #667eea;
+        color: white;
+        border: 2px solid #667eea;
+    }
+    
+    .btn-primary-preview:hover {
+        background: #5a6fd8;
+        border-color: #5a6fd8;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .btn-secondary-preview {
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+    
+    .btn-secondary-preview:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .empty-form {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    
+    .empty-form i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <h6 class="fw-semibold mb-0">
+            <i class="fas fa-eye me-2"></i>
+            Anteprima Form
+        </h6>
+        <ul class="d-flex align-items-center gap-2">
+            <li class="fw-medium">
+                <a href="{{ url_for('client_checks.dashboard') }}" class="d-flex align-items-center gap-1 hover-text-primary">
+                    <i class="fas fa-home"></i>
+                    Check Clienti
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">
+                <a href="{{ url_for('client_checks.forms_list') }}" class="hover-text-primary">
+                    Lista Form
+                </a>
+            </li>
+            <li>-</li>
+            <li class="fw-medium">Anteprima</li>
+        </ul>
+    </div>
+
+    <div class="preview-container">
+        <!-- Form Header -->
+        <div class="form-preview-header">
+            <h1>{{ form.name }}</h1>
+            {% if form.description %}
+            <p>{{ form.description }}</p>
+            {% endif %}
+            
+            <div class="form-meta">
+                <div class="meta-item">
+                    <i class="fas fa-tag"></i>
+                    <span>{{ form.form_type.value if form.form_type else 'N/A' }}</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fas fa-list-ul"></i>
+                    <span>{{ form.fields|length }} campi</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fas fa-calendar"></i>
+                    <span>{{ form.created_at.strftime('%d/%m/%Y') if form.created_at else 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Body -->
+        <div class="form-preview-body">
+            {% if form.fields and form.fields|length > 0 %}
+                {% for field in form.fields %}
+                <div class="field-preview">
+                    <div class="field-label">
+                        {{ field.label }}
+                        {% if field.required %}
+                        <span class="field-required">*</span>
+                        {% endif %}
+                        <span class="field-type-badge ms-auto">{{ field.field_type.value if field.field_type else 'text' }}</span>
+                    </div>
+                    
+                    {% if field.description %}
+                    <div class="field-description">{{ field.description }}</div>
+                    {% endif %}
+                    
+                    {% if field.field_type.value == 'text' %}
+                        <input type="text" class="field-input" placeholder="{{ field.placeholder or 'Inserisci testo...' }}" disabled>
+                    {% elif field.field_type.value == 'textarea' %}
+                        <textarea class="field-input" rows="4" placeholder="{{ field.placeholder or 'Inserisci testo...' }}" disabled></textarea>
+                    {% elif field.field_type.value == 'number' %}
+                        <input type="number" class="field-input" placeholder="{{ field.placeholder or 'Inserisci numero...' }}" disabled>
+                    {% elif field.field_type.value == 'email' %}
+                        <input type="email" class="field-input" placeholder="{{ field.placeholder or 'Inserisci email...' }}" disabled>
+                    {% elif field.field_type.value == 'date' %}
+                        <input type="date" class="field-input" disabled>
+                    {% elif field.field_type.value == 'select' %}
+                        <select class="field-input" disabled>
+                            <option>Seleziona un'opzione...</option>
+                            {% if field.options %}
+                                {% for option in field.options %}
+                                <option>{{ option }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    {% elif field.field_type.value == 'radio' %}
+                        <div class="field-options">
+                            {% if field.options %}
+                                {% for option in field.options %}
+                                <div class="field-option">
+                                    <input type="radio" name="field_{{ field.id }}" disabled>
+                                    <label>{{ option }}</label>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    {% elif field.field_type.value == 'checkbox' %}
+                        <div class="field-options">
+                            {% if field.options %}
+                                {% for option in field.options %}
+                                <div class="field-option">
+                                    <input type="checkbox" disabled>
+                                    <label>{{ option }}</label>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    {% elif field.field_type.value == 'file' %}
+                        <input type="file" class="field-input" disabled>
+                    {% else %}
+                        <input type="text" class="field-input" placeholder="{{ field.placeholder or 'Campo personalizzato...' }}" disabled>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-form">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h4>Form vuoto</h4>
+                    <p>Questo form non contiene ancora nessun campo.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <a href="{{ url_for('client_checks.edit_form', id=form.id) }}" class="btn-preview btn-primary-preview">
+                <i class="fas fa-edit"></i>
+                Modifica Form
+            </a>
+            <a href="{{ url_for('client_checks.forms_list') }}" class="btn-preview btn-secondary-preview">
+                <i class="fas fa-arrow-left"></i>
+                Torna alla Lista
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Prevent form interactions in preview mode
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('.field-input, input, textarea, select');
+        inputs.forEach(input => {
+            input.setAttribute('disabled', true);
+            input.style.cursor = 'not-allowed';
+        });
+    });
+</script>
+{% endblock %}

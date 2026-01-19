@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Minori - Corposostenibile</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/immagini/favicon.png') }}" sizes="16x16">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Remix Icon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --primary-color: #10b981;
+            --secondary-color: #059669;
+            --success-color: #10b981;
+            --dark-color: #1e293b;
+            --light-bg: #f8fafc;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            padding: 20px 0 40px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .form-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .logo-container {
+            text-align: center;
+            padding: 40px 20px 30px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+        }
+
+        .logo-container img {
+            max-width: 200px;
+            height: auto;
+            border-radius: 10px;
+            background: white;
+            padding: 10px;
+        }
+
+        .logo-container h2 {
+            margin-top: 20px;
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        .logo-container .subtitle {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .instructions {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            margin: 30px;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .instructions h5 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .instructions p {
+            color: #78350f;
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .form-body {
+            padding: 20px 40px 40px;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark-color);
+            margin: 35px 0 20px 0;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            color: var(--primary-color);
+        }
+
+        .question-card {
+            background: #fafafa;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+
+        .question-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
+
+        .question-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        .question-text {
+            font-weight: 500;
+            color: var(--dark-color);
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .scale-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .scale-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 12px 8px;
+            border: 2px solid #e2e8f0;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .scale-btn:hover {
+            border-color: var(--primary-color);
+            background: #f0f0ff;
+        }
+
+        .scale-btn.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .scale-btn .value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: block;
+        }
+
+        .scale-btn .label {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .number-input {
+            max-width: 150px;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .number-input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .final-section {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .final-section h5 {
+            color: #166534;
+            margin-bottom: 20px;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-bar-container {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e2e8f0;
+            z-index: 100;
+        }
+
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .form-body {
+                padding: 20px;
+            }
+
+            .scale-btn {
+                min-width: 40px;
+                padding: 10px 6px;
+            }
+
+            .scale-btn .label {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <!-- Logo -->
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='assets/immagini/corposostenibile.jpg') }}" alt="Corposostenibile Logo">
+                <h2>Check Minori</h2>
+                <p class="subtitle">{{ cliente.nome_cognome }}</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="progress">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%" id="progressBar"></div>
+                </div>
+                <div class="progress-text">Domande completate: <span id="progressText">0</span>/28</div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="instructions">
+                <h5><i class="ri-information-line me-2"></i>Istruzioni</h5>
+                <p>Le seguenti domande riguardano le <strong>ultime quattro settimane (28 giorni)</strong>.
+                Ti preghiamo di leggere ogni domanda attentamente e di rispondere a tutte le domande.</p>
+            </div>
+
+            <!-- Form Body -->
+            <div class="form-body">
+                <form method="POST" id="edeq6Form">
+
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- SEZIONE 1: Domande 1-12 (Scala frequenza giorni) -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <div class="section-title">
+                        <i class="ri-calendar-check-line"></i>
+                        <span>Frequenza negli ultimi 28 giorni</span>
+                    </div>
+
+                    <!-- Domanda 1 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">1</span>
+                            Hai cercato deliberatamente di limitare la quantità di cibo che mangiavi per influenzare la forma del tuo corpo o il tuo peso (indipendentemente dal fatto di esserci riuscito)?
+                        </div>
+                        <div class="scale-container" data-field="q1">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q1', 0)">
+                                <span class="value">0</span><span class="label">Mai</span>
+                            </button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q1', 1)">
+                                <span class="value">1</span><span class="label">1-5 gg</span>
+                            </button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q1', 2)">
+                                <span class="value">2</span><span class="label">6-12 gg</span>
+                            </button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q1', 3)">
+                                <span class="value">3</span><span class="label">13-15 gg</span>
+                            </button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q1', 4)">
+                                <span class="value">4</span><span class="label">16-22 gg</span>
+                            </button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q1', 5)">
+                                <span class="value">5</span><span class="label">23-27 gg</span>
+                            </button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q1', 6)">
+                                <span class="value">6</span><span class="label">Ogni giorno</span>
+                            </button>
+                        </div>
+                        <input type="hidden" name="q1" id="q1" required>
+                    </div>
+
+                    <!-- Domanda 2 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">2</span>
+                            Ci sono stati dei lunghi periodi di tempo (8 ore o più durante le ore di veglia) in cui non hai mangiato allo scopo di influenzare la forma del tuo corpo o il tuo peso?
+                        </div>
+                        <div class="scale-container" data-field="q2">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q2', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q2', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q2', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q2', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q2', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q2', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q2', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q2" id="q2" required>
+                    </div>
+
+                    <!-- Domanda 3 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">3</span>
+                            Hai cercato di escludere dalla tua dieta qualsiasi cibo che ti piaceva allo scopo di influenzare la forma del tuo corpo o il tuo peso (indipendentemente dal fatto di esserci riuscito/a)?
+                        </div>
+                        <div class="scale-container" data-field="q3">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q3', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q3', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q3', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q3', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q3', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q3', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q3', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q3" id="q3" required>
+                    </div>
+
+                    <!-- Domanda 4 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">4</span>
+                            Hai cercato di seguire regole precise che riguardano la tua alimentazione (per esempio, un limite calorico) al fine di influenzare la forma del tuo corpo o il tuo peso (indipendentemente dal fatto di esserci riuscito/a)?
+                        </div>
+                        <div class="scale-container" data-field="q4">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q4', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q4', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q4', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q4', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q4', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q4', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q4', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q4" id="q4" required>
+                    </div>
+
+                    <!-- Domanda 5 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">5</span>
+                            Hai desiderato che il tuo stomaco fosse vuoto con lo scopo di influenzare la forma del tuo corpo o il tuo peso?
+                        </div>
+                        <div class="scale-container" data-field="q5">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q5', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q5', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q5', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q5', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q5', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q5', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q5', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q5" id="q5" required>
+                    </div>
+
+                    <!-- Domanda 6 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">6</span>
+                            Hai desiderato di avere uno stomaco totalmente piatto?
+                        </div>
+                        <div class="scale-container" data-field="q6">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q6', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q6', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q6', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q6', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q6', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q6', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q6', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q6" id="q6" required>
+                    </div>
+
+                    <!-- Domanda 7 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">7</span>
+                            Il pensiero sul cibo, sul mangiare o sulle calorie ti ha reso molto difficile concentrarti sulle cose che ti interessano (per esempio, lavorare, seguire una conversazione o leggere)?
+                        </div>
+                        <div class="scale-container" data-field="q7">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q7', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q7', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q7', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q7', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q7', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q7', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q7', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q7" id="q7" required>
+                    </div>
+
+                    <!-- Domanda 8 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">8</span>
+                            Il pensiero sulla forma del tuo corpo o sul tuo peso ti ha reso molto difficile concentrarti sulle cose che ti interessano (per esempio, lavorare, seguire una conversazione o leggere)?
+                        </div>
+                        <div class="scale-container" data-field="q8">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q8', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q8', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q8', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q8', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q8', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q8', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q8', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q8" id="q8" required>
+                    </div>
+
+                    <!-- Domanda 9 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">9</span>
+                            Hai avuto paura di perdere il controllo sulla tua alimentazione?
+                        </div>
+                        <div class="scale-container" data-field="q9">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q9', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q9', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q9', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q9', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q9', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q9', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q9', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q9" id="q9" required>
+                    </div>
+
+                    <!-- Domanda 10 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">10</span>
+                            Hai avuto paura di aumentare di peso o di ingrassare?
+                        </div>
+                        <div class="scale-container" data-field="q10">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q10', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q10', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q10', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q10', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q10', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q10', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q10', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q10" id="q10" required>
+                    </div>
+
+                    <!-- Domanda 11 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">11</span>
+                            Ti sei sentito/a grasso/a?
+                        </div>
+                        <div class="scale-container" data-field="q11">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q11', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q11', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q11', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q11', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q11', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q11', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q11', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q11" id="q11" required>
+                    </div>
+
+                    <!-- Domanda 12 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">12</span>
+                            Hai avuto un forte desiderio di perdere peso?
+                        </div>
+                        <div class="scale-container" data-field="q12">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q12', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q12', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q12', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q12', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q12', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q12', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q12', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q12" id="q12" required>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- SEZIONE 2: Domande 13-18 (Valori numerici) -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <div class="section-title">
+                        <i class="ri-hashtag"></i>
+                        <span>Episodi specifici (inserisci un numero)</span>
+                    </div>
+
+                    <!-- Domanda 13 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">13</span>
+                            Negli ultimi 28 giorni, quante volte hai mangiato quello che altri considererebbero come una quantità di cibo insolitamente elevata (date le circostanze)?
+                        </div>
+                        <input type="number" class="form-control number-input" name="q13" id="q13" min="0" placeholder="0" required>
+                    </div>
+
+                    <!-- Domanda 14 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">14</span>
+                            In quante di queste volte hai avuto la sensazione di aver perso il controllo sulla tua alimentazione (nel momento in cui stavi mangiando)?
+                        </div>
+                        <input type="number" class="form-control number-input" name="q14" id="q14" min="0" placeholder="0" required>
+                    </div>
+
+                    <!-- Domanda 15 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">15</span>
+                            Negli ultimi 28 giorni, in quanti GIORNI si sono verificati tali episodi di alimentazione in eccesso (cioè, gli episodi in cui hai assunto una quantità insolitamente elevata di cibo e hai avuto un senso di perdita di controllo in quel momento)?
+                        </div>
+                        <input type="number" class="form-control number-input" name="q15" id="q15" min="0" max="28" placeholder="0" required>
+                    </div>
+
+                    <!-- Domanda 16 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">16</span>
+                            Negli ultimi 28 giorni, quante volte ti sei provocato il vomito come mezzo di controllo della forma del tuo corpo o del peso?
+                        </div>
+                        <input type="number" class="form-control number-input" name="q16" id="q16" min="0" placeholder="0" required>
+                    </div>
+
+                    <!-- Domanda 17 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">17</span>
+                            Negli ultimi 28 giorni, quante volte hai preso dei lassativi come mezzo di controllo della forma del tuo corpo o del peso?
+                        </div>
+                        <input type="number" class="form-control number-input" name="q17" id="q17" min="0" placeholder="0" required>
+                    </div>
+
+                    <!-- Domanda 18 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">18</span>
+                            Negli ultimi 28 giorni, quante volte hai fatto esercizio in modo eccessivo e compulsivo come mezzo di controllo del peso, della forma del tuo corpo o della quantità di grasso o per bruciare calorie?
+                        </div>
+                        <input type="number" class="form-control number-input" name="q18" id="q18" min="0" placeholder="0" required>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- SEZIONE 3: Domande 19-21 (Scale miste) -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <div class="section-title">
+                        <i class="ri-emotion-line"></i>
+                        <span>Comportamenti alimentari</span>
+                    </div>
+
+                    <!-- Domanda 19 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">19</span>
+                            Negli ultimi 28 giorni, in quanti giorni hai mangiato di nascosto (cioè, furtivamente)?
+                            <br><small class="text-muted">Non contare gli episodi di abbuffata</small>
+                        </div>
+                        <div class="scale-container" data-field="q19">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q19', 0)"><span class="value">0</span><span class="label">Mai</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q19', 1)"><span class="value">1</span><span class="label">1-5 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q19', 2)"><span class="value">2</span><span class="label">6-12 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q19', 3)"><span class="value">3</span><span class="label">13-15 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q19', 4)"><span class="value">4</span><span class="label">16-22 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q19', 5)"><span class="value">5</span><span class="label">23-27 gg</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q19', 6)"><span class="value">6</span><span class="label">Ogni giorno</span></button>
+                        </div>
+                        <input type="hidden" name="q19" id="q19" required>
+                    </div>
+
+                    <!-- Domanda 20 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">20</span>
+                            In che proporzione di volte in cui hai mangiato ti sei sentito/a in colpa (sentire di avere sbagliato) per gli effetti sulla forma del tuo corpo o del tuo peso?
+                            <br><small class="text-muted">Non contare gli episodi di abbuffata</small>
+                        </div>
+                        <div class="scale-container" data-field="q20">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q20', 0)"><span class="value">0</span><span class="label">Nessuna volta</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q20', 1)"><span class="value">1</span><span class="label">Poche volte</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q20', 2)"><span class="value">2</span><span class="label">&lt; metà</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q20', 3)"><span class="value">3</span><span class="label">Metà</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q20', 4)"><span class="value">4</span><span class="label">&gt; metà</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q20', 5)"><span class="value">5</span><span class="label">Maggior parte</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q20', 6)"><span class="value">6</span><span class="label">Ogni volta</span></button>
+                        </div>
+                        <input type="hidden" name="q20" id="q20" required>
+                    </div>
+
+                    <!-- Domanda 21 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">21</span>
+                            Negli ultimi 28 giorni, quanto ti sei preoccupato/a del fatto che altre persone ti potessero vedere mentre mangiavi?
+                            <br><small class="text-muted">Non contare gli episodi di abbuffata</small>
+                        </div>
+                        <div class="scale-container" data-field="q21">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q21', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q21', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q21', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q21', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q21', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q21', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q21', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q21" id="q21" required>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- SEZIONE 4: Domande 22-28 (Scala intensità) -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <div class="section-title">
+                        <i class="ri-mental-health-line"></i>
+                        <span>Autovalutazione</span>
+                    </div>
+
+                    <!-- Domanda 22 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">22</span>
+                            Il peso ha influenzato il modo in cui giudicavi te stesso/a come persona?
+                        </div>
+                        <div class="scale-container" data-field="q22">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q22', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q22', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q22', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q22', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q22', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q22', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q22', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q22" id="q22" required>
+                    </div>
+
+                    <!-- Domanda 23 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">23</span>
+                            La forma del tuo corpo ha influenzato il modo in cui giudicavi te stesso/a come persona?
+                        </div>
+                        <div class="scale-container" data-field="q23">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q23', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q23', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q23', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q23', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q23', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q23', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q23', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q23" id="q23" required>
+                    </div>
+
+                    <!-- Domanda 24 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">24</span>
+                            Quanto ti sentiresti turbato/a se ti chiedessero di pesarti una volta alla settimana (non più spesso o meno spesso) per le prossime 4 settimane?
+                        </div>
+                        <div class="scale-container" data-field="q24">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q24', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q24', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q24', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q24', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q24', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q24', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q24', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q24" id="q24" required>
+                    </div>
+
+                    <!-- Domanda 25 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">25</span>
+                            Quanto sei insoddisfatto/a del tuo peso?
+                        </div>
+                        <div class="scale-container" data-field="q25">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q25', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q25', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q25', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q25', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q25', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q25', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q25', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q25" id="q25" required>
+                    </div>
+
+                    <!-- Domanda 26 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">26</span>
+                            Quanto sei insoddisfatto/a della forma del tuo corpo?
+                        </div>
+                        <div class="scale-container" data-field="q26">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q26', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q26', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q26', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q26', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q26', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q26', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q26', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q26" id="q26" required>
+                    </div>
+
+                    <!-- Domanda 27 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">27</span>
+                            Quanto ti sei sentito/a a disagio nel vedere il tuo corpo (per esempio, vedere la forma del tuo corpo allo specchio, nei riflessi delle vetrine, mentre ti svestivi o facevi un bagno o una doccia)?
+                        </div>
+                        <div class="scale-container" data-field="q27">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q27', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q27', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q27', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q27', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q27', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q27', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q27', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q27" id="q27" required>
+                    </div>
+
+                    <!-- Domanda 28 -->
+                    <div class="question-card">
+                        <div class="question-text">
+                            <span class="question-number">28</span>
+                            Quanto ti sei sentito/a a disagio per il fatto che altri vedessero la forma del tuo corpo o la tua figura corporea (per esempio, negli spogliatoi comuni, quando nuotavi o indossavi abiti aderenti)?
+                        </div>
+                        <div class="scale-container" data-field="q28">
+                            <button type="button" class="scale-btn" data-value="0" onclick="setScale('q28', 0)"><span class="value">0</span><span class="label">Per niente</span></button>
+                            <button type="button" class="scale-btn" data-value="1" onclick="setScale('q28', 1)"><span class="value">1</span></button>
+                            <button type="button" class="scale-btn" data-value="2" onclick="setScale('q28', 2)"><span class="value">2</span><span class="label">Leggermente</span></button>
+                            <button type="button" class="scale-btn" data-value="3" onclick="setScale('q28', 3)"><span class="value">3</span></button>
+                            <button type="button" class="scale-btn" data-value="4" onclick="setScale('q28', 4)"><span class="value">4</span><span class="label">Moderatamente</span></button>
+                            <button type="button" class="scale-btn" data-value="5" onclick="setScale('q28', 5)"><span class="value">5</span></button>
+                            <button type="button" class="scale-btn" data-value="6" onclick="setScale('q28', 6)"><span class="value">6</span><span class="label">Notevolmente</span></button>
+                        </div>
+                        <input type="hidden" name="q28" id="q28" required>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- SEZIONE FINALE: Peso e Altezza -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <div class="final-section">
+                        <h5><i class="ri-ruler-line me-2"></i>Informazioni finali</h5>
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Qual è il tuo peso attuale? (kg)</label>
+                                <input type="number" class="form-control number-input" name="peso_attuale" id="peso_attuale"
+                                       min="30" max="300" step="0.1" placeholder="es. 70" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Qual è la tua altezza? (cm)</label>
+                                <input type="number" class="form-control number-input" name="altezza" id="altezza"
+                                       min="100" max="250" placeholder="es. 170" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-submit" id="submitBtn">
+                        <i class="ri-send-plane-fill me-2"></i>
+                        Invia Questionario
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Track answered questions
+        const answeredQuestions = new Set();
+        const totalScaleQuestions = 22; // q1-q12, q19-q28
+        const totalNumberQuestions = 6; // q13-q18
+        const totalFinalQuestions = 2; // peso, altezza
+        const totalQuestions = 28;
+
+        function setScale(fieldName, value) {
+            const hiddenInput = document.getElementById(fieldName);
+            if (hiddenInput) {
+                hiddenInput.value = value;
+            }
+
+            const container = document.querySelector(`[data-field="${fieldName}"]`);
+            if (container) {
+                container.querySelectorAll('.scale-btn').forEach(btn => {
+                    btn.classList.toggle('active', parseInt(btn.dataset.value) === value);
+                });
+            }
+
+            answeredQuestions.add(fieldName);
+            updateProgress();
+        }
+
+        function updateProgress() {
+            // Count scale questions answered
+            let answered = 0;
+
+            // Check scale questions (q1-q12, q19-q28)
+            for (let i = 1; i <= 28; i++) {
+                if (i >= 13 && i <= 18) continue; // Skip number questions
+                const input = document.getElementById('q' + i);
+                if (input && input.value !== '') {
+                    answered++;
+                }
+            }
+
+            // Check number questions (q13-q18)
+            for (let i = 13; i <= 18; i++) {
+                const input = document.getElementById('q' + i);
+                if (input && input.value !== '' && input.value !== '0') {
+                    answered++;
+                } else if (input && input.value === '0') {
+                    answered++; // 0 is a valid answer
+                }
+            }
+
+            const percentage = Math.round((answered / totalQuestions) * 100);
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = answered;
+        }
+
+        // Listen for number input changes
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', updateProgress);
+        });
+
+        // Form validation before submit
+        document.getElementById('edeq6Form').addEventListener('submit', function(e) {
+            let allAnswered = true;
+            let firstUnanswered = null;
+
+            // Check all hidden inputs (scale questions)
+            document.querySelectorAll('input[type="hidden"][name^="q"]').forEach(input => {
+                if (input.value === '') {
+                    allAnswered = false;
+                    if (!firstUnanswered) {
+                        firstUnanswered = input.closest('.question-card');
+                    }
+                }
+            });
+
+            // Check number inputs
+            document.querySelectorAll('.number-input[name^="q"]').forEach(input => {
+                if (input.value === '') {
+                    allAnswered = false;
+                    if (!firstUnanswered) {
+                        firstUnanswered = input.closest('.question-card');
+                    }
+                }
+            });
+
+            if (!allAnswered) {
+                e.preventDefault();
+                if (firstUnanswered) {
+                    firstUnanswered.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstUnanswered.style.border = '2px solid #ef4444';
+                    setTimeout(() => {
+                        firstUnanswered.style.border = '';
+                    }, 3000);
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Questionario incompleto',
+                    text: 'Per favore, rispondi a tutte le domande prima di inviare il questionario.',
+                    confirmButtonColor: '#10b981'
+                });
+            } else {
+                // Mostra modal di caricamento
+                Swal.fire({
+                    title: 'Invio in corso...',
+                    html: '<div style="margin-bottom: 15px;"><i class="ri-loader-4-line" style="font-size: 3rem; color: #10b981; animation: spin 1s linear infinite;"></i></div><p>Attendi mentre salviamo le tue risposte...</p><p style="font-size: 0.85rem; color: #6c757d; margin-top: 10px;">Non chiudere questa pagina</p>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        const style = document.createElement('style');
+                        style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+                        document.head.appendChild(style);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+/* ========================================
+   Recruiting Module - Custom Styles
+   ======================================== */
+
+/* Dashboard Cards */
+.dashboard-metric-card {
+  border: none;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dashboard-metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.metric-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+/* Job Offer Cards */
+.offer-card {
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  transition: all 0.3s;
+  height: 100%;
+}
+
+.offer-card:hover {
+  border-color: var(--bs-primary);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.offer-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+}
+
+.offer-stats {
+  display: flex;
+  gap: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e9ecef;
+  margin-top: 0.75rem;
+}
+
+.offer-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+/* Form Builder */
+.question-item {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  cursor: move;
+  transition: all 0.2s;
+}
+
+.question-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.question-item.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+}
+
+.question-item.drag-over {
+  border-color: var(--bs-primary);
+  background: #f0f8ff;
+}
+
+.drag-handle {
+  cursor: move;
+  color: #adb5bd;
+  margin-right: 0.5rem;
+}
+
+.drag-handle:hover {
+  color: #495057;
+}
+
+.question-weight {
+  min-width: 80px;
+}
+
+.expected-answer {
+  background: #f8f9fa;
+  border-left: 3px solid var(--bs-success);
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Application Cards */
+.application-card {
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 1.25rem;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.application-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.application-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: #e9ecef;
+}
+
+.application-card.score-high::before {
+  background: var(--bs-success);
+}
+
+.application-card.score-medium::before {
+  background: var(--bs-warning);
+}
+
+.application-card.score-low::before {
+  background: var(--bs-danger);
+}
+
+.candidate-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.score-badge {
+  min-width: 60px;
+  text-align: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.score-high {
+  background: #d4edda;
+  color: #155724;
+}
+
+.score-medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.score-low {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* ATS Screening Results */
+.screening-result-card {
+  border-left: 4px solid;
+  padding-left: 1rem;
+  margin-bottom: 1rem;
+}
+
+.screening-result-card.match-high {
+  border-color: var(--bs-success);
+  background: rgba(40, 167, 69, 0.05);
+}
+
+.screening-result-card.match-medium {
+  border-color: var(--bs-warning);
+  background: rgba(255, 193, 7, 0.05);
+}
+
+.screening-result-card.match-low {
+  border-color: var(--bs-danger);
+  background: rgba(220, 53, 69, 0.05);
+}
+
+.keyword-match {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  margin: 0.25rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.keyword-match.found {
+  background: #d4edda;
+  color: #155724;
+}
+
+.keyword-match.not-found {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Kanban Board */
+.kanban-board {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: 600px;
+}
+
+.kanban-column {
+  flex: 0 0 320px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 1rem;
+  max-height: calc(100vh - 300px);
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-column-header {
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.kanban-cards {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 100px;
+}
+
+.kanban-card {
+  background: white;
+  border-radius: 8px;
+  padding: 0.875rem;
+  margin-bottom: 0.75rem;
+  cursor: move;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s;
+}
+
+.kanban-card:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.kanban-card.dragging {
+  opacity: 0.5;
+  transform: rotate(3deg);
+}
+
+.kanban-cards.drag-over {
+  background: #e7f3ff;
+  border: 2px dashed var(--bs-primary);
+  border-radius: 8px;
+}
+
+/* Onboarding Checklist */
+.onboarding-task {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s;
+}
+
+.onboarding-task:hover {
+  background: #f8f9fa;
+}
+
+.onboarding-task.completed {
+  background: #f0fff4;
+  border-color: var(--bs-success);
+}
+
+.onboarding-task.completed .task-title {
+  text-decoration: line-through;
+  color: #6c757d;
+}
+
+.task-checkbox {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-checkbox:checked {
+  background: var(--bs-success);
+  border-color: var(--bs-success);
+}
+
+.onboarding-progress {
+  height: 30px;
+  border-radius: 15px;
+  overflow: hidden;
+  background: #e9ecef;
+}
+
+.onboarding-progress-bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  transition: width 0.5s ease;
+}
+
+/* Timeline */
+.timeline {
+  position: relative;
+  padding-left: 2rem;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #dee2e6;
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--bs-primary);
+}
+
+.timeline-item.success::before {
+  background: var(--bs-success);
+  border-color: var(--bs-success);
+}
+
+.timeline-item.warning::before {
+  background: var(--bs-warning);
+  border-color: var(--bs-warning);
+}
+
+/* Status Pills */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  gap: 0.375rem;
+}
+
+.status-pill i {
+  font-size: 1rem;
+}
+
+/* Charts */
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin-top: 1rem;
+}
+
+/* Responsive Tables */
+@media (max-width: 768px) {
+  .table-responsive table {
+    font-size: 0.875rem;
+  }
+  
+  .table-responsive .btn-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .table-responsive .btn-group .btn {
+    border-radius: 0.375rem !important;
+    margin-bottom: 0.25rem;
+  }
+}
+
+/* Loading States */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* ========================================
+   HR Metrics Dashboard Styles
+   ======================================== */
+
+.metric-card {
+  border: none;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: 1.5rem;
+}
+
+.metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.metric-value {
+  font-size: 2.5rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+
+.metric-label {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.metric-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-right: 1rem;
+}
+
+.metric-icon.click {
+  background: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+}
+
+.metric-icon.application {
+  background: rgba(25, 135, 84, 0.1);
+  color: #198754;
+}
+
+.metric-icon.conversion {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.metric-icon.time {
+  background: rgba(13, 202, 240, 0.1);
+  color: #0dcaf0;
+}
+
+.metric-icon.hire {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.metrics-table th {
+  font-weight: 500;
+  color: #6c757d;
+}
+
+.metrics-table td {
+  vertical-align: middle;
+}
+
+.metrics-table .badge {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+}

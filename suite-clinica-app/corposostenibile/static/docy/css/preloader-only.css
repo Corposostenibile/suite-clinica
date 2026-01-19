@@ -1,0 +1,77 @@
+/* Preloader Only CSS - Non interferisce con gli stili della suite */
+
+/* Preloader container */
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease;
+}
+
+#preloader.hide-preloader {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ctn-preloader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
+
+/* Spinner container */
+.round_spinner {
+    position: relative;
+    width: 100px;
+    height: 100px;
+}
+
+.round_spinner .text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Spinner animation */
+.spinner {
+    width: 100px;
+    height: 100px;
+    border: 3px solid rgba(37, 179, 106, 0.2);
+    border-top-color: #25B36A;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    position: relative;
+}
+
+.spinner::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    bottom: 5px;
+    left: 5px;
+    border: 3px solid rgba(37, 179, 106, 0.2);
+    border-top-color: #25B36A;
+    border-radius: 50%;
+    animation: spin 2s linear infinite reverse;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Hide scrollbar during preload */
+body.preloader-active {
+    overflow: hidden;
+}

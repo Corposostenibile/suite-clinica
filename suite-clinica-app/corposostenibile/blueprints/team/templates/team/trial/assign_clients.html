@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Assegna Clienti - {{ user.full_name }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-body">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h3 class="fw-semibold">Assegna Clienti a: {{ user.full_name }}</h3>
+        <a href="{{ url_for('team.trial_user_view', user_id=user.id) }}" class="btn btn-secondary">
+            <i class="ri-arrow-left-line"></i> Torna ai dettagli
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <!-- Info User -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="ri-information-line fs-3 me-3"></i>
+                    <div>
+                        <h6 class="mb-1">{{ user.full_name }} - Stage {{ user.trial_stage }}</h6>
+                        <p class="mb-0">
+                            Clienti attualmente assegnati: <strong>{{ user.trial_assigned_clients|length }}</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="">
+                        {{ form.hidden_tag() }}
+                        {{ form.user_id(type="hidden") }}
+
+                        <div class="mb-3">
+                            <label class="form-label">Seleziona Clienti da Assegnare</label>
+
+                            {% if form.cliente_ids.choices %}
+                                <!-- Filtro ricerca -->
+                                <div class="mb-3">
+                                    <input type="text" id="searchClients" class="form-control"
+                                           placeholder="Cerca clienti...">
+                                </div>
+
+                                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 10px;">
+                                    {% for value, label in form.cliente_ids.choices %}
+                                    <div class="form-check client-item mb-2">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="cliente_ids" value="{{ value }}"
+                                               id="cliente_{{ value }}">
+                                        <label class="form-check-label" for="cliente_{{ value }}">
+                                            {{ label }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="mt-2">
+                                    <button type="button" id="selectAll" class="btn btn-sm btn-outline-primary">
+                                        Seleziona Tutti
+                                    </button>
+                                    <button type="button" id="deselectAll" class="btn btn-sm btn-outline-secondary">
+                                        Deseleziona Tutti
+                                    </button>
+                                    <span class="ms-3 text-muted">
+                                        <span id="selectedCount">0</span> selezionati
+                                    </span>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="ri-alert-line"></i>
+                                    Non ci sono clienti disponibili da assegnare. Tutti i clienti attivi sono già stati assegnati a questo trial user.
+                                </div>
+                            {% endif %}
+
+                            {% if form.cliente_ids.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.cliente_ids.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.notes.label(class="form-label") }}
+                            {{ form.notes(class="form-control", rows=3, placeholder="Note sull'assegnazione (opzionale)") }}
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notes.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('team.trial_user_view', user_id=user.id) }}" class="btn btn-secondary">
+                                Annulla
+                            </a>
+                            {% if form.cliente_ids.choices %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ri-user-add-line"></i>
+                                Assegna Clienti Selezionati
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Contatore clienti selezionati
+    function updateSelectedCount() {
+        var count = $('input[name="cliente_ids"]:checked').length;
+        $('#selectedCount').text(count);
+    }
+
+    // Ricerca clienti
+    $('#searchClients').on('keyup', function() {
+        var value = $(this).val().toLowerCase();
+        $('.client-item').each(function() {
+            var text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(value) > -1);
+        });
+    });
+
+    // Seleziona tutti
+    $('#selectAll').on('click', function() {
+        $('.client-item:visible input[type="checkbox"]').prop('checked', true);
+        updateSelectedCount();
+    });
+
+    // Deseleziona tutti
+    $('#deselectAll').on('click', function() {
+        $('input[name="cliente_ids"]').prop('checked', false);
+        updateSelectedCount();
+    });
+
+    // Aggiorna contatore quando si seleziona/deseleziona
+    $('input[name="cliente_ids"]').on('change', function() {
+        updateSelectedCount();
+    });
+
+    // Inizializza contatore
+    updateSelectedCount();
+
+    // Conferma prima dell'invio
+    $('form').on('submit', function(e) {
+        var count = $('input[name="cliente_ids"]:checked').length;
+        if (count === 0) {
+            e.preventDefault();
+            alert('Seleziona almeno un cliente da assegnare');
+            return false;
+        }
+        if (!confirm('Assegnare ' + count + ' clienti a questo trial user?')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

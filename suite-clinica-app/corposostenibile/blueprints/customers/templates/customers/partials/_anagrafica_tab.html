@@ -1,0 +1,515 @@
+{#
+    TAB ANAGRAFICA - Partial Template
+
+    Contenuto interno tab Anagrafica e Obiettivi
+#}
+
+<!-- Sub-tabs Navigation -->
+<ul class="nav nav-pills mb-4" id="anagraficaTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="anagrafica-dati-tab" data-bs-toggle="pill"
+                data-bs-target="#anagrafica-dati" type="button" role="tab">
+            <i class="ri-user-line me-2"></i>Anagrafica
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="anagrafica-contatti-tab" data-bs-toggle="pill"
+                data-bs-target="#anagrafica-contatti" type="button" role="tab">
+            <i class="ri-contacts-line me-2"></i>Contatti
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="anagrafica-storia-tab" data-bs-toggle="pill"
+                data-bs-target="#anagrafica-storia" type="button" role="tab">
+            <i class="ri-file-text-line me-2"></i>Storia
+        </button>
+    </li>
+</ul>
+
+<form id="form-anagrafica" data-cliente-id="{{ cliente.cliente_id }}">
+<div class="tab-content" id="anagraficaTabsContent">
+
+    <!-- ========== TAB ANAGRAFICA ========== -->
+    <div class="tab-pane fade show active" id="anagrafica-dati" role="tabpanel">
+
+        <!-- Card: Dati Anagrafici -->
+        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); border: 2px solid rgba(59, 130, 246, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(96, 165, 250, 0.05) 100%); border-bottom: 2px solid rgba(59, 130, 246, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-user-line" style="color: #3B82F6;"></i>
+                    Dati Anagrafici
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <!-- Prima riga: Nome e Cognome -->
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-user-3-line me-1" style="color: #3B82F6;"></i>
+                            Nome e Cognome <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control modern-form-control" name="nome_cognome"
+                               value="{{ cliente.nome_cognome }}"
+                               placeholder="Es: Mario Rossi"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'"
+                               required>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Nome completo del cliente
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Seconda riga: Data di Nascita, Età, Sesso -->
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-calendar-line me-1" style="color: #3B82F6;"></i>
+                            Data di Nascita
+                        </label>
+                        <input type="date" class="form-control modern-form-control" name="data_di_nascita"
+                               id="data_di_nascita_anagrafica"
+                               value="{{ cliente.data_di_nascita.strftime('%Y-%m-%d') if cliente.data_di_nascita }}"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'"
+                               onchange="calcolaEtaAnagrafica()">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Data di nascita del cliente
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-cake-line me-1" style="color: #3B82F6;"></i>
+                            Età
+                        </label>
+                        <input type="text" class="form-control modern-form-control" id="eta_anagrafica"
+                               value=""
+                               readonly
+                               placeholder="Calcolata automaticamente"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; background-color: #f8f9fa; cursor: not-allowed;">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Calcolata automaticamente dalla data di nascita
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-genderless-line me-1" style="color: #3B82F6;"></i>
+                            Sesso
+                        </label>
+                        <select class="form-select modern-form-control" name="genere"
+                                style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                                onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                            <option value="">Seleziona...</option>
+                            <option value="M" {{ 'selected' if cliente.genere == 'M' else '' }}>Maschio</option>
+                            <option value="F" {{ 'selected' if cliente.genere == 'F' else '' }}>Femmina</option>
+                            <option value="Altro" {{ 'selected' if cliente.genere == 'Altro' else '' }}>Altro</option>
+                        </select>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Genere del cliente
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Terza riga: Origine -->
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-map-pin-line me-1" style="color: #3B82F6;"></i>
+                            Origine
+                        </label>
+                        <input type="text" class="form-control modern-form-control" name="origine"
+                               value="{{ cliente.origine or '' }}"
+                               placeholder="Es: Facebook Ads, Referral, Google"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Canale di acquisizione del cliente
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Quarta riga: Indirizzo e Paese -->
+                <div class="row g-3 mt-2">
+                    <div class="col-md-8">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-home-line me-1" style="color: #3B82F6;"></i>
+                            Indirizzo
+                        </label>
+                        <input type="text" class="form-control modern-form-control" name="indirizzo"
+                               value="{{ cliente.indirizzo or '' }}"
+                               placeholder="Es: Via Roma 123, 00100 Roma (RM)"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Indirizzo di residenza del cliente
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-global-line me-1" style="color: #3B82F6;"></i>
+                            Paese
+                        </label>
+                        <input type="text" class="form-control modern-form-control" name="paese"
+                               value="{{ cliente.paese or '' }}"
+                               placeholder="Es: Italia"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Paese di residenza
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Professione e Note -->
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-briefcase-line me-1" style="color: #3B82F6;"></i>
+                            Professione
+                        </label>
+                        <select class="form-select modern-form-control" name="professione" id="professione-select"
+                                data-professione-esistente="{{ cliente.professione or '' }}"
+                                data-professione-note-esistente="{{ cliente.professione_note or '' }}"
+                                style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 16px; font-weight: 500; transition: all 0.3s ease; background: white; height: 56px !important; line-height: 1.8 !important; display: flex; align-items: center;"
+                                onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                                onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                            <option value="">Seleziona...</option>
+                            <optgroup label="Sanità e Benessere">
+                                <option value="Medico">Medico</option>
+                                <option value="Infermiere/a">Infermiere/a</option>
+                                <option value="Farmacista">Farmacista</option>
+                                <option value="Fisioterapista">Fisioterapista</option>
+                                <option value="Odontoiatra (Dentista)">Odontoiatra (Dentista)</option>
+                                <option value="Psicologo/a">Psicologo/a</option>
+                                <option value="Veterinario/a">Veterinario/a</option>
+                                <option value="Operatore Socio-Sanitario (OSS)">Operatore Socio-Sanitario (OSS)</option>
+                                <option value="Tecnico di laboratorio">Tecnico di laboratorio</option>
+                                <option value="Nutrizionista">Nutrizionista</option>
+                            </optgroup>
+                            <optgroup label="Tecnologia e Informatica">
+                                <option value="Sviluppatore/trice software">Sviluppatore/trice software</option>
+                                <option value="Sviluppatore/trice web">Sviluppatore/trice web</option>
+                                <option value="Sistemista / Amministratore di sistema">Sistemista / Amministratore di sistema</option>
+                                <option value="Analista dati (Data Analyst)">Analista dati (Data Analyst)</option>
+                                <option value="Project Manager IT">Project Manager IT</option>
+                                <option value="Tecnico informatico">Tecnico informatico</option>
+                                <option value="Specialista Cyber Security">Specialista Cyber Security</option>
+                            </optgroup>
+                            <optgroup label="Istruzione e Formazione">
+                                <option value="Insegnante (scuola primaria/secondaria)">Insegnante (scuola primaria/secondaria)</option>
+                                <option value="Professore/essa universitario/a">Professore/essa universitario/a</option>
+                                <option value="Ricercatore/trice">Ricercatore/trice</option>
+                                <option value="Formatore/trice aziendale">Formatore/trice aziendale</option>
+                                <option value="Educatore/trice">Educatore/trice</option>
+                            </optgroup>
+                            <optgroup label="Finanza e Contabilità">
+                                <option value="Commercialista">Commercialista</option>
+                                <option value="Consulente finanziario">Consulente finanziario</option>
+                                <option value="Ragioniere/a">Ragioniere/a</option>
+                                <option value="Analista finanziario">Analista finanziario</option>
+                                <option value="Bancario/a">Bancario/a</option>
+                            </optgroup>
+                            <optgroup label="Legale">
+                                <option value="Avvocato/essa">Avvocato/essa</option>
+                                <option value="Notaio/a">Notaio/a</option>
+                                <option value="Consulente legale">Consulente legale</option>
+                            </optgroup>
+                            <optgroup label="Ingegneria e Architettura">
+                                <option value="Ingegnere civile">Ingegnere civile</option>
+                                <option value="Ingegnere meccanico">Ingegnere meccanico</option>
+                                <option value="Ingegnere elettrico/elettronico">Ingegnere elettrico/elettronico</option>
+                                <option value="Architetto/a">Architetto/a</option>
+                                <option value="Geometra">Geometra</option>
+                            </optgroup>
+                            <optgroup label="Arte, Design e Creatività">
+                                <option value="Grafico/a / Designer">Grafico/a / Designer</option>
+                                <option value="Fotografo/a">Fotografo/a</option>
+                                <option value="Artista">Artista</option>
+                                <option value="Musicista">Musicista</option>
+                                <option value="Attore/rice">Attore/rice</option>
+                                <option value="Giornalista">Giornalista</option>
+                                <option value="Scrittore/trice">Scrittore/trice</option>
+                            </optgroup>
+                            <optgroup label="Vendite, Marketing e Comunicazione">
+                                <option value="Agente di commercio / Rappresentante">Agente di commercio / Rappresentante</option>
+                                <option value="Commesso/a / Addetto/a alle vendite">Commesso/a / Addetto/a alle vendite</option>
+                                <option value="Specialista marketing">Specialista marketing</option>
+                                <option value="Social Media Manager">Social Media Manager</option>
+                                <option value="Addetto/a stampa / Specialista PR">Addetto/a stampa / Specialista PR</option>
+                                <option value="Responsabile vendite">Responsabile vendite</option>
+                            </optgroup>
+                            <optgroup label="Edilizia, Artigianato e Lavori Manuali">
+                                <option value="Muratore/a">Muratore/a</option>
+                                <option value="Elettricista">Elettricista</option>
+                                <option value="Idraulico/a">Idraulico/a</option>
+                                <option value="Falegname">Falegname</option>
+                                <option value="Meccanico/a">Meccanico/a</option>
+                                <option value="Parrucchiere/a / Estetista">Parrucchiere/a / Estetista</option>
+                            </optgroup>
+                            <optgroup label="Trasporti e Logistica">
+                                <option value="Autista / Conducente">Autista / Conducente</option>
+                                <option value="Corriere">Corriere</option>
+                                <option value="Responsabile logistica">Responsabile logistica</option>
+                                <option value="Operatore di magazzino">Operatore di magazzino</option>
+                            </optgroup>
+                            <optgroup label="Ristorazione e Turismo">
+                                <option value="Cuoco/a / Chef">Cuoco/a / Chef</option>
+                                <option value="Cameriere/a">Cameriere/a</option>
+                                <option value="Barista">Barista</option>
+                                <option value="Guida turistica">Guida turistica</option>
+                                <option value="Receptionist">Receptionist</option>
+                            </optgroup>
+                            <optgroup label="Sicurezza e Forze dell'Ordine">
+                                <option value="Poliziotto/a">Poliziotto/a</option>
+                                <option value="Carabiniere">Carabiniere</option>
+                                <option value="Vigile del fuoco">Vigile del fuoco</option>
+                                <option value="Guardia giurata / Addetto/a sicurezza">Guardia giurata / Addetto/a sicurezza</option>
+                            </optgroup>
+                            <optgroup label="Pubblica Amministrazione">
+                                <option value="Impiegato/a pubblico/a">Impiegato/a pubblico/a</option>
+                                <option value="Funzionario pubblico">Funzionario pubblico</option>
+                            </optgroup>
+                            <optgroup label="Sport e Fitness">
+                                <option value="Personal trainer">Personal trainer</option>
+                                <option value="Istruttore/trice fitness">Istruttore/trice fitness</option>
+                                <option value="Atleta professionista">Atleta professionista</option>
+                            </optgroup>
+                            <optgroup label="Servizi e Consulenza">
+                                <option value="Consulente (generico)">Consulente (generico)</option>
+                                <option value="Imprenditore/trice">Imprenditore/trice</option>
+                            </optgroup>
+                            <optgroup label="Altre Opzioni">
+                                <option value="Studente/ssa">Studente/ssa</option>
+                                <option value="Pensionato/a">Pensionato/a</option>
+                                <option value="Disoccupato/a o in cerca di occupazione">Disoccupato/a o in cerca di occupazione</option>
+                                <option value="Casalingo/a">Casalingo/a</option>
+                                <option value="__ALTRO__">Altro (da specificare)</option>
+                            </optgroup>
+                        </select>
+                        <div id="professione-altro-container" style="display: none; margin-top: 8px;">
+                            <input type="text" class="form-control modern-form-control"
+                                   id="professione-altro-input"
+                                   placeholder="Specifica la professione"
+                                   style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500;">
+                            <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">Inserisci la professione personalizzata</small>
+                        </div>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Professione del cliente
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-file-list-line me-1" style="color: #3B82F6;"></i>
+                            Note sulla Professione
+                        </label>
+                        <textarea class="form-control modern-form-control"
+                                  id="professione-note-input"
+                                  rows="3"
+                                  placeholder="Aggiungi note o dettagli sulla professione del cliente..."
+                                  style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                                  onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                                  onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'"></textarea>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Note aggiuntive sulla professione
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========== TAB CONTATTI ========== -->
+    <div class="tab-pane fade" id="anagrafica-contatti" role="tabpanel">
+
+        <!-- Card: Informazioni di Contatto -->
+        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); border: 2px solid rgba(34, 197, 94, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(74, 222, 128, 0.05) 100%); border-bottom: 2px solid rgba(34, 197, 94, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-contacts-line" style="color: #22C55E;"></i>
+                    Informazioni di Contatto
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-mail-line me-1" style="color: #22C55E;"></i>
+                            Email
+                        </label>
+                        <input type="email" class="form-control modern-form-control" name="mail"
+                               value="{{ cliente.mail or '' }}"
+                               placeholder="Es: mario.rossi@example.com"
+                               style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#22C55E'; this.style.boxShadow='0 0 0 4px rgba(34, 197, 94, 0.1)'"
+                               onblur="this.style.borderColor='rgba(34, 197, 94, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Indirizzo email del cliente
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-phone-line me-1" style="color: #22C55E;"></i>
+                            Numero di Telefono
+                        </label>
+                        <input type="tel" class="form-control modern-form-control" name="numero_telefono"
+                               value="{{ cliente.numero_telefono or '' }}"
+                               placeholder="Es: +39 333 1234567"
+                               style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#22C55E'; this.style.boxShadow='0 0 0 4px rgba(34, 197, 94, 0.1)'"
+                               onblur="this.style.borderColor='rgba(34, 197, 94, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Numero di contatto del cliente
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========== TAB STORIA ========== -->
+    <div class="tab-pane fade" id="anagrafica-storia" role="tabpanel">
+
+        <!-- Card: Storia e Contesto -->
+        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #fef3c7 100%); border: 2px solid rgba(245, 158, 11, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(251, 191, 36, 0.05) 100%); border-bottom: 2px solid rgba(245, 158, 11, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-file-text-line" style="color: #F59E0B;"></i>
+                    Storia e Contesto del Cliente
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="modern-alert-info" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border: 2px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                    <i class="ri-lightbulb-line" style="color: #F59E0B;"></i>
+                    <strong style="color: #92400E;">Background del cliente:</strong> <span style="color: #78350F;">Documenta il percorso, i problemi riscontrati e le sfide da affrontare.</span>
+                </div>
+
+                <div class="mb-4">
+                    <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                        <i class="ri-book-open-line me-1" style="color: #F59E0B;"></i>
+                        Storia Cliente
+                    </label>
+                    <textarea class="form-control modern-form-control" name="storia_cliente" rows="4"
+                              placeholder="Racconta il percorso del cliente: da dove viene, cosa ha già provato, come è arrivato qui..."
+                              style="border: 2px solid rgba(245, 158, 11, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                              onfocus="this.style.borderColor='#F59E0B'; this.style.boxShadow='0 0 0 4px rgba(245, 158, 11, 0.1)'"
+                              onblur="this.style.borderColor='rgba(245, 158, 11, 0.2)'; this.style.boxShadow='none'">{{ cliente.storia_cliente or '' }}</textarea>
+                    <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                        <i class="ri-information-line me-1"></i>
+                        Contesto storico e background del cliente
+                    </small>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-error-warning-line me-1" style="color: #DC2626;"></i>
+                            Problema Principale
+                        </label>
+                        <textarea class="form-control modern-form-control" name="problema" rows="4"
+                                  placeholder="Qual è il problema principale che il cliente vuole risolvere?"
+                                  style="border: 2px solid rgba(220, 38, 38, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                                  onfocus="this.style.borderColor='#DC2626'; this.style.boxShadow='0 0 0 4px rgba(220, 38, 38, 0.1)'"
+                                  onblur="this.style.borderColor='rgba(220, 38, 38, 0.2)'; this.style.boxShadow='none'">{{ cliente.problema or '' }}</textarea>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Il pain point principale
+                        </small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-emotion-sad-line me-1" style="color: #F97316;"></i>
+                            Paure
+                        </label>
+                        <textarea class="form-control modern-form-control" name="paure" rows="4"
+                                  placeholder="Quali sono le paure o preoccupazioni del cliente?"
+                                  style="border: 2px solid rgba(249, 115, 22, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                                  onfocus="this.style.borderColor='#F97316'; this.style.boxShadow='0 0 0 4px rgba(249, 115, 22, 0.1)'"
+                                  onblur="this.style.borderColor='rgba(249, 115, 22, 0.2)'; this.style.boxShadow='none'">{{ cliente.paure or '' }}</textarea>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Ansie e timori del cliente
+                        </small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-alert-line me-1" style="color: #7C3AED;"></i>
+                            Conseguenze
+                        </label>
+                        <textarea class="form-control modern-form-control" name="conseguenze" rows="4"
+                                  placeholder="Cosa succederebbe se non risolvesse il problema?"
+                                  style="border: 2px solid rgba(124, 58, 237, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                                  onfocus="this.style.borderColor='#7C3AED'; this.style.boxShadow='0 0 0 4px rgba(124, 58, 237, 0.1)'"
+                                  onblur="this.style.borderColor='rgba(124, 58, 237, 0.2)'; this.style.boxShadow='none'">{{ cliente.conseguenze or '' }}</textarea>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Impatti negativi se non agisce
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Action Buttons -->
+<div class="d-flex align-items-center justify-content-center gap-3 mt-4">
+    <button type="button" class="btn-modern-secondary" onclick="resetForm('form-anagrafica')">
+        <i class="ri-close-line me-1"></i> Annulla
+    </button>
+    <button type="submit" class="btn-modern-primary">
+        <i class="ri-save-line me-1"></i> Salva Modifiche
+    </button>
+</div>
+</form>
+
+<script>
+// Funzione per calcolare l'età dalla data di nascita
+function calcolaEtaAnagrafica() {
+    const dataNascitaInput = document.getElementById('data_di_nascita_anagrafica');
+    const etaInput = document.getElementById('eta_anagrafica');
+
+    if (dataNascitaInput && dataNascitaInput.value && etaInput) {
+        const dataNascita = new Date(dataNascitaInput.value);
+        const oggi = new Date();
+
+        let eta = oggi.getFullYear() - dataNascita.getFullYear();
+        const meseCorrente = oggi.getMonth();
+        const meseNascita = dataNascita.getMonth();
+
+        // Sottrai un anno se il compleanno non è ancora passato quest'anno
+        if (meseCorrente < meseNascita || (meseCorrente === meseNascita && oggi.getDate() < dataNascita.getDate())) {
+            eta--;
+        }
+
+        etaInput.value = eta >= 0 ? eta : '';
+    }
+}
+
+// Calcola l'età al caricamento della pagina se esiste già una data
+document.addEventListener('DOMContentLoaded', function() {
+    calcolaEtaAnagrafica();
+});
+</script>

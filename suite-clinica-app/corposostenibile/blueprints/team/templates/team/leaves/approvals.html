@@ -1,0 +1,536 @@
+{# blueprints/team/templates/team/leaves/approvals.html #}
+{% extends "base.html" %}
+
+{% block title %}Approvazione Ferie • Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Header verde per ferie */
+.leaves-header {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+/* Stato badge styling */
+.stato-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.stato-pending-first { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+.stato-pending-hr { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+.stato-approvata { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534; }
+.stato-rifiutata { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; }
+.stato-legacy { background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); color: #7c3aed; }
+
+/* Avatar styling */
+.avatar-circle {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.avatar-img {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* Avatar piccolo per approvatore */
+.avatar-small {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.avatar-circle-small {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border: 1px solid #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Table styling */
+.table-leaves {
+  table-layout: fixed;
+  width: 100%;
+}
+.table-leaves td {
+  vertical-align: middle;
+}
+
+/* Action buttons */
+.btn-approve {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-approve:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  color: white;
+}
+
+.btn-reject {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-reject:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  color: white;
+}
+
+/* Role info badge */
+.role-info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.role-admin { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+.role-hr { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+.role-approver { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534; }
+
+/* Approver info */
+.approver-info {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.approver-info.approved {
+  color: #16a34a;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- Header Ferie -->
+  <div class="leaves-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div>
+      <h5 class="fw-semibold mb-1 text-white">
+        <i class="ri-calendar-check-line me-2"></i>Approvazione Richieste Ferie
+      </h5>
+      <small class="opacity-75">Gestisci le richieste di ferie del tuo team</small>
+    </div>
+    <a href="{{ url_for('team.leaves_calendar') }}" class="btn btn-light btn-sm">
+      <i class="ri-calendar-line me-1"></i> Calendario Ferie
+    </a>
+  </div>
+
+  <!-- Info ruolo -->
+  <div class="mb-24">
+    {% if is_admin %}
+    <div class="role-info-badge role-admin">
+      <i class="ri-admin-line" style="font-size: 18px;"></i>
+      <span>Stai visualizzando come <strong>Amministratore</strong> - puoi vedere e approvare tutte le richieste</span>
+    </div>
+    {% elif is_hr %}
+    <div class="role-info-badge role-hr">
+      <i class="ri-user-settings-line" style="font-size: 18px;"></i>
+      <span>Stai visualizzando come <strong>HR</strong> - puoi visualizzare tutte le richieste e lo storico</span>
+    </div>
+    {% elif is_first_approver %}
+    <div class="role-info-badge role-approver">
+      <i class="ri-user-star-line" style="font-size: 18px;"></i>
+      <span>Stai visualizzando come <strong>Responsabile</strong> - puoi approvare le richieste del tuo team/dipartimento</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Filtri -->
+  <div class="card mb-24">
+    <div class="card-body">
+      <form method="GET" class="row gy-3 gx-4 align-items-end">
+        <div class="col-lg-3 col-md-4">
+          <label class="form-label fw-semibold text-primary-light text-sm mb-8">Stato</label>
+          <select name="status" class="form-select" onchange="this.form.submit()">
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>In attesa</option>
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tutte</option>
+            {% if is_admin or is_hr %}
+            <option value="{{ LeaveStatusEnum.pending_first_approval.value }}" {% if status_filter == LeaveStatusEnum.pending_first_approval.value %}selected{% endif %}>In attesa responsabile</option>
+            <option value="{{ LeaveStatusEnum.pending_hr.value }}" {% if status_filter == LeaveStatusEnum.pending_hr.value %}selected{% endif %}>In attesa HR</option>
+            {% endif %}
+            <option value="{{ LeaveStatusEnum.approvata.value }}" {% if status_filter == LeaveStatusEnum.approvata.value %}selected{% endif %}>Approvate</option>
+            <option value="{{ LeaveStatusEnum.rifiutata.value }}" {% if status_filter == LeaveStatusEnum.rifiutata.value %}selected{% endif %}>Rifiutate</option>
+          </select>
+        </div>
+        {% if is_admin or is_hr %}
+        <div class="col-lg-3 col-md-4">
+          <label class="form-label fw-semibold text-primary-light text-sm mb-8">Dipartimento</label>
+          <select name="dept" class="form-select" onchange="this.form.submit()">
+            <option value="">Tutti</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}" {% if dept_filter == dept.id %}selected{% endif %}>
+              {{ dept.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="col-lg-3 col-md-4">
+          <div class="d-flex gap-2">
+            {% if status_filter != 'pending' or dept_filter %}
+            <a href="{{ url_for('team.leave_approvals') }}" class="btn btn-outline-secondary">
+              <i class="ri-refresh-line me-1"></i> Reset
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tabella Richieste -->
+  {% if pagination.items %}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+          <i class="ri-file-list-3-line me-2 text-success"></i>
+          Richieste ({{ pagination.total }})
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table basic-border-table table-leaves mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Dipendente</th>
+                <th>Tipo</th>
+                <th>Periodo</th>
+                <th>Giorni</th>
+                <th>Richiesta il</th>
+                <th>Stato</th>
+                <th class="text-end" style="width: 180px;">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for req in pagination.items %}
+              <tr>
+                <!-- Dipendente -->
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    {% if req.user.avatar_path %}
+                    <img src="{{ url_for('team.serve_avatar', user_id=req.user.id) }}" alt="{{ req.user.full_name }}" class="avatar-img">
+                    {% else %}
+                    <div class="avatar-circle">
+                      {{ req.user.first_name[:1] }}{{ req.user.last_name[:1] }}
+                    </div>
+                    {% endif %}
+                    <div>
+                      <a href="{{ url_for('team.user_detail', user_id=req.user.id) }}" class="fw-semibold text-dark">
+                        {{ req.user.full_name }}
+                      </a>
+                      {% if req.user.department %}
+                      <div class="text-muted" style="font-size: 11px;">{{ req.user.department.name }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Tipo -->
+                <td>
+                  {% if req.leave_type.value == 'ferie' %}
+                    <span class="stato-badge stato-approvata"><i class="ri-sun-line me-1"></i>Ferie</span>
+                  {% elif req.leave_type.value == 'permesso' %}
+                    <span class="stato-badge stato-pending-hr"><i class="ri-time-line me-1"></i>Permesso</span>
+                  {% else %}
+                    <span class="stato-badge stato-rifiutata"><i class="ri-heart-pulse-line me-1"></i>Malattia</span>
+                  {% endif %}
+                </td>
+
+                <!-- Periodo -->
+                <td>
+                  <div class="fw-medium">
+                    {{ req.start_date.strftime('%d/%m/%Y') }}
+                    {% if req.start_date != req.end_date %}
+                      <span class="text-muted">→</span> {{ req.end_date.strftime('%d/%m/%Y') }}
+                    {% endif %}
+                  </div>
+                </td>
+
+                <!-- Giorni -->
+                <td>
+                  <span class="fw-semibold">
+                    {% if req.leave_type.value == 'permesso' %}
+                      {{ req.hours }} ore
+                    {% else %}
+                      {{ req.working_days }} gg
+                    {% endif %}
+                  </span>
+                </td>
+
+                <!-- Data richiesta -->
+                <td>
+                  <span class="text-muted" style="font-size: 12px;">
+                    {{ req.created_at.strftime('%d/%m/%Y') }}
+                  </span>
+                </td>
+
+                <!-- Stato -->
+                <td>
+                  {% if req.status.value == 'pending_first_approval' %}
+                    <span class="stato-badge stato-pending-first">
+                      <i class="ri-time-line"></i> In attesa responsabile
+                    </span>
+                    {% if req.first_approver %}
+                    <div class="approver-info d-flex align-items-center gap-1 mt-1">
+                      {% if req.first_approver.avatar_path %}
+                      <img src="{{ url_for('team.serve_avatar', user_id=req.first_approver.id) }}" alt="{{ req.first_approver.full_name }}" class="avatar-small">
+                      {% else %}
+                      <span class="avatar-circle-small">{{ req.first_approver.first_name[:1] }}{{ req.first_approver.last_name[:1] }}</span>
+                      {% endif %}
+                      <span>{{ req.first_approver.full_name }}</span>
+                    </div>
+                    {% endif %}
+                  {% elif req.status.value == 'pending_hr' %}
+                    <span class="stato-badge stato-pending-hr">
+                      <i class="ri-user-settings-line"></i> In attesa HR
+                    </span>
+                    {% if req.first_approver and req.first_approved_at %}
+                    <div class="approver-info approved d-flex align-items-center gap-1 mt-1">
+                      <i class="ri-check-line"></i>
+                      {% if req.first_approver.avatar_path %}
+                      <img src="{{ url_for('team.serve_avatar', user_id=req.first_approver.id) }}" alt="{{ req.first_approver.full_name }}" class="avatar-small">
+                      {% else %}
+                      <span class="avatar-circle-small">{{ req.first_approver.first_name[:1] }}{{ req.first_approver.last_name[:1] }}</span>
+                      {% endif %}
+                      <span>{{ req.first_approver.full_name }}</span>
+                    </div>
+                    {% endif %}
+                  {% elif req.status.value == 'richiesta' %}
+                    <span class="stato-badge stato-legacy">
+                      <i class="ri-time-line"></i> In attesa (legacy)
+                    </span>
+                  {% elif req.status.value == 'approvata' %}
+                    <span class="stato-badge stato-approvata">
+                      <i class="ri-check-double-line"></i> Approvata
+                    </span>
+                    {% if req.hr_approver %}
+                    <div class="approver-info d-flex align-items-center gap-1 mt-1">
+                      {% if req.hr_approver.avatar_path %}
+                      <img src="{{ url_for('team.serve_avatar', user_id=req.hr_approver.id) }}" alt="{{ req.hr_approver.full_name }}" class="avatar-small">
+                      {% else %}
+                      <span class="avatar-circle-small">{{ req.hr_approver.first_name[:1] }}{{ req.hr_approver.last_name[:1] }}</span>
+                      {% endif %}
+                      <span>HR: {{ req.hr_approver.full_name }}</span>
+                    </div>
+                    {% elif req.approved_by %}
+                    <div class="approver-info d-flex align-items-center gap-1 mt-1">
+                      {% if req.approved_by.avatar_path %}
+                      <img src="{{ url_for('team.serve_avatar', user_id=req.approved_by.id) }}" alt="{{ req.approved_by.full_name }}" class="avatar-small">
+                      {% else %}
+                      <span class="avatar-circle-small">{{ req.approved_by.first_name[:1] }}{{ req.approved_by.last_name[:1] }}</span>
+                      {% endif %}
+                      <span>{{ req.approved_by.full_name }}</span>
+                    </div>
+                    {% endif %}
+                  {% elif req.status.value == 'rifiutata' %}
+                    <span class="stato-badge stato-rifiutata">
+                      <i class="ri-close-circle-line"></i> Rifiutata
+                    </span>
+                    {% if req.approved_by %}
+                    <div class="approver-info d-flex align-items-center gap-1 mt-1">
+                      {% if req.approved_by.avatar_path %}
+                      <img src="{{ url_for('team.serve_avatar', user_id=req.approved_by.id) }}" alt="{{ req.approved_by.full_name }}" class="avatar-small">
+                      {% else %}
+                      <span class="avatar-circle-small">{{ req.approved_by.first_name[:1] }}{{ req.approved_by.last_name[:1] }}</span>
+                      {% endif %}
+                      <span>{{ req.approved_by.full_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if req.rejection_reason %}
+                    <div class="approver-info mt-1" data-bs-toggle="tooltip" title="{{ req.rejection_reason }}">
+                      <i class="ri-information-line"></i> Vedi motivo
+                    </div>
+                    {% endif %}
+                  {% endif %}
+                </td>
+
+                <!-- Azioni -->
+                <td class="text-end">
+                  {# Mostra pulsanti solo se può approvare:
+                     - Admin può sempre approvare
+                     - Per pending_first_approval: solo se è il first_approver
+                     - Per pending_hr/richiesta (legacy): admin o HR
+                  #}
+                  {% set can_approve = false %}
+                  {% if is_admin %}
+                    {% set can_approve = true %}
+                  {% elif req.status.value == 'pending_first_approval' and req.first_approver_id == current_user.id %}
+                    {% set can_approve = true %}
+                  {% elif req.status.value in ['pending_hr', 'richiesta'] and is_hr %}
+                    {% set can_approve = true %}
+                  {% endif %}
+
+                  {% if req.status.value in ['pending_first_approval', 'pending_hr', 'richiesta'] and can_approve %}
+                  <div class="d-flex gap-2 justify-content-end">
+                    <form method="POST" action="{{ url_for('team.approve_leave', request_id=req.id) }}" class="d-inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button type="submit" class="btn-approve"
+                              onclick="return confirm('Approvare questa richiesta?')">
+                        <i class="ri-check-line me-1"></i> Approva
+                      </button>
+                    </form>
+                    <button type="button" class="btn-reject"
+                            data-bs-toggle="modal"
+                            data-bs-target="#rejectModal{{ req.id }}">
+                      <i class="ri-close-line me-1"></i> Rifiuta
+                    </button>
+                  </div>
+
+                  <!-- Modal Rifiuto -->
+                  <div class="modal fade" id="rejectModal{{ req.id }}" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                      <div class="modal-content">
+                        <form method="POST" action="{{ url_for('team.reject_leave', request_id=req.id) }}">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <div class="modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                            <h5 class="modal-title text-white">
+                              <i class="ri-close-circle-line me-2"></i>Rifiuta richiesta
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                          </div>
+                          <div class="modal-body">
+                            <p>Stai rifiutando la richiesta di <strong>{{ req.user.full_name }}</strong></p>
+                            <p class="text-muted small">
+                              Periodo: {{ req.start_date.strftime('%d/%m/%Y') }} - {{ req.end_date.strftime('%d/%m/%Y') }}
+                              ({{ req.working_days }} giorni)
+                            </p>
+                            <div class="mb-3">
+                              <label class="form-label fw-semibold">
+                                <i class="ri-edit-line me-1 text-danger"></i>
+                                Motivazione del rifiuto <span class="text-danger">*</span>
+                              </label>
+                              <textarea name="reason" class="form-control" rows="3" required
+                                        placeholder="Specifica il motivo del rifiuto..."
+                                        style="border: 2px solid rgba(239, 68, 68, 0.2); border-radius: 12px;"></textarea>
+                            </div>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                              <i class="ri-close-line me-1"></i> Annulla
+                            </button>
+                            <button type="submit" class="btn-reject">
+                              <i class="ri-close-circle-line me-1"></i> Rifiuta richiesta
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <iconify-icon icon="ri:check-double-line" class="icon text-6xl text-success mb-3" style="opacity: 0.5;"></iconify-icon>
+        <h5 class="text-secondary-light">Nessuna richiesta da approvare</h5>
+        <p class="text-muted mb-0">Non ci sono richieste di ferie in attesa di approvazione.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Paginazione -->
+  {% if pagination.pages > 1 %}
+    <nav aria-label="Paginazione richieste" class="mt-24">
+      <ul class="pagination justify-content-center mb-0">
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('team.leave_approvals', page=pagination.prev_num, status=status_filter, dept=dept_filter) if pagination.has_prev else '#' }}">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if page_num %}
+            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+              <a class="page-link" href="{{ url_for('team.leave_approvals', page=page_num, status=status_filter, dept=dept_filter) }}">{{ page_num }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+        {% endfor %}
+
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('team.leave_approvals', page=pagination.next_num, status=status_filter, dept=dept_filter) if pagination.has_next else '#' }}">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  {% endif %}
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inizializza tooltip
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el); });
+});
+</script>
+{% endblock %}

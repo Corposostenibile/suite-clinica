@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}Nuovo Piano Alimentare - {{ cliente.nome_cognome }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h1 class="h3 mb-0">Nuovo Piano Alimentare</h1>
+    <ul class="d-flex align-items-center gap-2 list-unstyled mb-0">
+        <li>
+            <a href="{{ url_for('welcome.index') }}" class="text-decoration-none text-secondary-light">
+                <iconify-icon icon="solar:home-smile-outline" class="icon text-lg"></iconify-icon>
+                Dashboard
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li>
+            <a href="{{ url_for('nutrition.dashboard') }}" class="text-decoration-none text-secondary-light">
+                Nutrition
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li>
+            <a href="{{ url_for('nutrition.client_profile', cliente_id=cliente.cliente_id) }}" class="text-decoration-none text-secondary-light">
+                {{ cliente.nome_cognome }}
+            </a>
+        </li>
+        <li><span class="text-secondary-light">/</span></li>
+        <li><span class="text-primary-light">Nuovo Piano</span></li>
+    </ul>
+</div>
+
+<form method="post" action="{{ url_for('nutrition.meal_plan_create', cliente_id=cliente.cliente_id) }}">
+    {{ form.hidden_tag() }}
+    
+    <div class="row g-3">
+        <!-- Main Form -->
+        <div class="col-xxl-8">
+            <div class="card radius-8 border-0">
+                <div class="card-header border-bottom bg-base py-16 px-24">
+                    <h6 class="text-lg fw-semibold mb-0">Dettagli Piano</h6>
+                </div>
+                <div class="card-body p-24">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">{{ form.name.label }}</label>
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="es. Piano Dimagrimento Gennaio") }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">{{ form.name.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.start_date.label }}</label>
+                            {{ form.start_date(class="form-control" + (" is-invalid" if form.start_date.errors else "")) }}
+                            {% if form.start_date.errors %}
+                                <div class="invalid-feedback">{{ form.start_date.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.end_date.label }}</label>
+                            {{ form.end_date(class="form-control" + (" is-invalid" if form.end_date.errors else "")) }}
+                            {% if form.end_date.errors %}
+                                <div class="invalid-feedback">{{ form.end_date.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card radius-8 border-0 mt-24">
+                <div class="card-header border-bottom bg-base py-16 px-24">
+                    <h6 class="text-lg fw-semibold mb-0">Obiettivi Nutrizionali Giornalieri</h6>
+                </div>
+                <div class="card-body p-24">
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label">{{ form.target_calories.label }}</label>
+                            <div class="input-group">
+                                {{ form.target_calories(class="form-control" + (" is-invalid" if form.target_calories.errors else ""), placeholder="2000") }}
+                                <span class="input-group-text">kcal</span>
+                            </div>
+                            {% if form.target_calories.errors %}
+                                <div class="invalid-feedback d-block">{{ form.target_calories.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label">{{ form.target_proteins.label }}</label>
+                            <div class="input-group">
+                                {{ form.target_proteins(class="form-control" + (" is-invalid" if form.target_proteins.errors else ""), placeholder="120") }}
+                                <span class="input-group-text">g</span>
+                            </div>
+                            {% if form.target_proteins.errors %}
+                                <div class="invalid-feedback d-block">{{ form.target_proteins.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label">{{ form.target_carbohydrates.label }}</label>
+                            <div class="input-group">
+                                {{ form.target_carbohydrates(class="form-control" + (" is-invalid" if form.target_carbohydrates.errors else ""), placeholder="250") }}
+                                <span class="input-group-text">g</span>
+                            </div>
+                            {% if form.target_carbohydrates.errors %}
+                                <div class="invalid-feedback d-block">{{ form.target_carbohydrates.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label">{{ form.target_fats.label }}</label>
+                            <div class="input-group">
+                                {{ form.target_fats(class="form-control" + (" is-invalid" if form.target_fats.errors else ""), placeholder="65") }}
+                                <span class="input-group-text">g</span>
+                            </div>
+                            {% if form.target_fats.errors %}
+                                <div class="invalid-feedback d-block">{{ form.target_fats.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="calculateMacros">
+                            <iconify-icon icon="solar:calculator-linear" class="me-1"></iconify-icon>
+                            Calcola Automaticamente
+                        </button>
+                        <small class="text-secondary-light d-block mt-2">
+                            I valori vengono calcolati in base al profilo nutrizionale del cliente
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card radius-8 border-0 mt-24">
+                <div class="card-header border-bottom bg-base py-16 px-24">
+                    <h6 class="text-lg fw-semibold mb-0">Note</h6>
+                </div>
+                <div class="card-body p-24">
+                    {{ form.notes(class="form-control", rows="4", placeholder="Note aggiuntive per il piano...") }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-xxl-4">
+            <!-- Client Summary -->
+            <div class="card radius-8 border-0 mb-24">
+                <div class="card-header border-bottom bg-base py-16 px-24">
+                    <h6 class="text-lg fw-semibold mb-0">Riepilogo Cliente</h6>
+                </div>
+                <div class="card-body p-24">
+                    <div class="d-flex align-items-center gap-3 mb-16">
+                        <div class="w-48-px h-48-px bg-primary-50 radius-8 d-flex justify-content-center align-items-center">
+                            <span class="text-primary-600 fw-semibold">
+                                {{ cliente.nome_cognome[:2].upper() }}
+                            </span>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">{{ cliente.nome_cognome }}</h6>
+                            <p class="text-sm text-secondary-light mb-0">
+                                {% if cliente.date_of_birth %}
+                                    {{ cliente.age }} anni
+                                {% else %}
+                                    Età non specificata
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if profile %}
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-12 pb-12 border-bottom">
+                            <span class="text-secondary-light text-sm">Obiettivo:</span>
+                            <span class="text-primary-600 fw-medium text-sm d-block">
+                                {{ profile.nutritional_goal.value.replace('_', ' ').title() }}
+                            </span>
+                        </li>
+                        <li class="mb-12 pb-12 border-bottom">
+                            <span class="text-secondary-light text-sm">Attività:</span>
+                            <span class="fw-medium text-sm d-block">
+                                {{ profile.activity_level.value.replace('_', ' ').title() }}
+                            </span>
+                        </li>
+                        {% if profile.target_weight %}
+                        <li class="mb-12 pb-12 border-bottom">
+                            <span class="text-secondary-light text-sm">Peso Target:</span>
+                            <span class="fw-medium text-sm d-block">{{ profile.target_weight }} kg</span>
+                        </li>
+                        {% endif %}
+                        {% if profile.training_frequency %}
+                        <li>
+                            <span class="text-secondary-light text-sm">Allenamenti:</span>
+                            <span class="fw-medium text-sm d-block">{{ profile.training_frequency }}x / settimana</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-warning radius-8 mb-0">
+                        <div class="d-flex align-items-start gap-2">
+                            <iconify-icon icon="solar:danger-triangle-linear" class="text-warning-600 text-xl flex-shrink-0"></iconify-icon>
+                            <div>
+                                <p class="mb-2 fw-medium">Profilo nutrizionale mancante</p>
+                                <p class="mb-0 text-sm">Completa prima l'anamnesi per il calcolo automatico dei valori.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Calculated Values -->
+            {% if profile %}
+            <div class="card radius-8 border-0 mb-24">
+                <div class="card-header border-bottom bg-base py-16 px-24">
+                    <h6 class="text-lg fw-semibold mb-0">Valori Calcolati</h6>
+                </div>
+                <div class="card-body p-24">
+                    <div class="alert alert-info radius-8 mb-0">
+                        <div class="d-flex align-items-start gap-2">
+                            <iconify-icon icon="solar:info-circle-linear" class="text-info-600 text-xl flex-shrink-0"></iconify-icon>
+                            <div>
+                                <p class="mb-2 fw-medium">Fabbisogno Stimato</p>
+                                <p class="mb-1 text-sm" id="bmrValue">BMR: <span class="fw-medium">-</span></p>
+                                <p class="mb-0 text-sm" id="tdeeValue">TDEE: <span class="fw-medium">-</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-16">
+                        <h6 class="text-sm mb-2">Legenda:</h6>
+                        <ul class="list-unstyled text-sm text-secondary-light mb-0">
+                            <li class="mb-1">
+                                <strong>BMR:</strong> Metabolismo basale
+                            </li>
+                            <li>
+                                <strong>TDEE:</strong> Fabbisogno calorico totale
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="card radius-8 border-0">
+                <div class="card-body p-24">
+                    <button type="submit" class="btn btn-primary w-100 mb-12">
+                        <iconify-icon icon="solar:diskette-linear" class="me-1"></iconify-icon>
+                        Crea Piano
+                    </button>
+                    <a href="{{ url_for('nutrition.client_profile', cliente_id=cliente.cliente_id) }}" 
+                       class="btn btn-outline-secondary w-100">
+                        <iconify-icon icon="solar:arrow-left-linear" class="me-1"></iconify-icon>
+                        Annulla
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Calculate macros button
+    const calculateBtn = document.getElementById('calculateMacros');
+    if (calculateBtn) {
+        calculateBtn.addEventListener('click', function() {
+            {% if profile %}
+            // Client data
+            const weight = {{ latest_bio.weight if latest_bio else 70 }};
+            const height = {{ latest_bio.height if latest_bio else 170 }};
+            const age = {{ cliente.age if cliente.age else 30 }};
+            const gender = '{{ profile.gender.value }}';
+            const activityLevel = '{{ profile.activity_level.value }}';
+            const goal = '{{ profile.nutritional_goal.value }}';
+            
+            // Calculate BMR (Harris-Benedict)
+            let bmr;
+            if (gender === 'uomo') {
+                bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
+            } else {
+                bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+            }
+            
+            // Activity multipliers
+            const activityMultipliers = {
+                'sedentario': 1.2,
+                'leggermente_attivo': 1.375,
+                'moderatamente_attivo': 1.55,
+                'molto_attivo': 1.725,
+                'estremamente_attivo': 1.9
+            };
+            
+            const tdee = bmr * (activityMultipliers[activityLevel] || 1.2);
+            
+            // Update display
+            document.querySelector('#bmrValue span').textContent = Math.round(bmr) + ' kcal';
+            document.querySelector('#tdeeValue span').textContent = Math.round(tdee) + ' kcal';
+            
+            // Calculate target calories based on goal
+            let targetCalories = tdee;
+            if (goal === 'dimagrimento') {
+                targetCalories = tdee * 0.8; // -20%
+            } else if (goal === 'aumento_massa') {
+                targetCalories = tdee * 1.1; // +10%
+            } else if (goal === 'ricomposizione') {
+                targetCalories = tdee * 0.95; // -5%
+            }
+            
+            // Calculate macros distribution
+            let proteinRatio, carbRatio, fatRatio;
+            switch(goal) {
+                case 'dimagrimento':
+                    proteinRatio = 0.30;
+                    carbRatio = 0.35;
+                    fatRatio = 0.35;
+                    break;
+                case 'aumento_massa':
+                    proteinRatio = 0.25;
+                    carbRatio = 0.50;
+                    fatRatio = 0.25;
+                    break;
+                case 'ricomposizione':
+                    proteinRatio = 0.35;
+                    carbRatio = 0.35;
+                    fatRatio = 0.30;
+                    break;
+                case 'salute_generale':
+                    proteinRatio = 0.20;
+                    carbRatio = 0.50;
+                    fatRatio = 0.30;
+                    break;
+                default:
+                    proteinRatio = 0.25;
+                    carbRatio = 0.45;
+                    fatRatio = 0.30;
+            }
+            
+            // Calculate grams
+            const proteins = (targetCalories * proteinRatio) / 4;
+            const carbs = (targetCalories * carbRatio) / 4;
+            const fats = (targetCalories * fatRatio) / 9;
+            
+            // Update form fields
+            document.getElementById('target_calories').value = Math.round(targetCalories);
+            document.getElementById('target_proteins').value = Math.round(proteins);
+            document.getElementById('target_carbohydrates').value = Math.round(carbs);
+            document.getElementById('target_fats').value = Math.round(fats);
+            
+            // Show success feedback
+            this.classList.remove('btn-outline-primary');
+            this.classList.add('btn-success');
+            this.innerHTML = '<iconify-icon icon="solar:check-circle-linear" class="me-1"></iconify-icon>Calcolato!';
+            
+            setTimeout(() => {
+                this.classList.remove('btn-success');
+                this.classList.add('btn-outline-primary');
+                this.innerHTML = '<iconify-icon icon="solar:calculator-linear" class="me-1"></iconify-icon>Calcola Automaticamente';
+            }, 2000);
+            
+            {% else %}
+            alert('Profilo nutrizionale non disponibile. Completa prima l\'anamnesi del cliente.');
+            {% endif %}
+        });
+    }
+    
+    // Date validation
+    const startDate = document.getElementById('start_date');
+    const endDate = document.getElementById('end_date');
+    
+    if (startDate && endDate) {
+        // Set min date to today
+        const today = new Date().toISOString().split('T')[0];
+        startDate.min = today;
+        
+        startDate.addEventListener('change', function() {
+            endDate.min = this.value;
+            if (endDate.value && endDate.value < this.value) {
+                endDate.value = '';
+            }
+            
+            // Set max end date to 90 days from start
+            if (this.value) {
+                const maxDate = new Date(this.value);
+                maxDate.setDate(maxDate.getDate() + 90);
+                endDate.max = maxDate.toISOString().split('T')[0];
+            }
+        });
+        
+        endDate.addEventListener('change', function() {
+            const start = new Date(startDate.value);
+            const end = new Date(this.value);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays > 90) {
+                alert('Il piano non può superare i 90 giorni');
+                this.value = '';
+            }
+        });
+    }
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const calories = document.getElementById('target_calories').value;
+        const proteins = document.getElementById('target_proteins').value;
+        const carbs = document.getElementById('target_carbohydrates').value;
+        const fats = document.getElementById('target_fats').value;
+        
+        // Check if macros sum up correctly
+        const totalMacroCalories = (proteins * 4) + (carbs * 4) + (fats * 9);
+        const difference = Math.abs(totalMacroCalories - calories);
+        
+        if (difference > calories * 0.05) { // More than 5% difference
+            if (!confirm('I macronutrienti non corrispondono esattamente alle calorie totali. Vuoi continuare comunque?')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

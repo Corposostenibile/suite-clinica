@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Associa Utenti Respond.io - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-user-friends me-2"></i>Associa Utenti Respond.io
+            </h2>
+            
+            <!-- Alert per messaggi -->
+            <div id="alertContainer"></div>
+            
+            <!-- Tabella associazioni -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-link me-2"></i>Associazioni Utenti
+                        </h5>
+                        <button class="btn btn-primary btn-sm" onclick="syncUsers()">
+                            <i class="fas fa-sync me-2"></i>Sincronizza da Respond.io
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="associationsTable">
+                            <thead>
+                                <tr>
+                                    <th>Utente Respond.io</th>
+                                    <th>Email</th>
+                                    <th>Ruolo</th>
+                                    <th colspan="3">Associazione</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rio_user in respond_io_users %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ rio_user.full_name }}</strong>
+                                    </td>
+                                    <td>{{ rio_user.email }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ rio_user.role or 'agent' }}</span>
+                                    </td>
+                                    <td colspan="3">
+                                        <form method="POST" action="{{ url_for('respond_io.associate_user_form') }}" class="d-flex align-items-center gap-2">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="respond_io_user_id" value="{{ rio_user.id }}">
+                                            
+                                            <select name="system_user_id" class="form-select form-select-sm" style="flex: 1;">
+                                                <option value="">-- Non associato --</option>
+                                                {% for sys_user in system_users %}
+                                                <option value="{{ sys_user.id }}" 
+                                                        {% if rio_user.user_id == sys_user.id %}selected{% endif %}>
+                                                    {{ sys_user.full_name }} ({{ sys_user.email }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            
+                                            <button type="submit" class="btn btn-sm btn-success" title="Salva associazione">
+                                                <i class="fas fa-save me-1"></i>Salva
+                                            </button>
+                                            
+                                            {% if rio_user.user_id %}
+                                            <button type="submit" name="action" value="remove" class="btn btn-sm btn-outline-danger" title="Rimuovi associazione">
+                                                <i class="fas fa-unlink"></i>
+                                            </button>
+                                            {% endif %}
+                                            
+                                            {% if rio_user.user_id %}
+                                                <span class="badge bg-success ms-2">
+                                                    <i class="fas fa-check-circle me-1"></i>Associato
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning ms-2">
+                                                    <i class="fas fa-exclamation-circle me-1"></i>Non associato
+                                                </span>
+                                            {% endif %}
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if not respond_io_users %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nessun utente Respond.io trovato. 
+                        <a href="#" onclick="syncUsers()">Sincronizza da Respond.io</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Statistiche -->
+            <div class="row mt-4">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ respond_io_users|length }}</h3>
+                            <small class="text-muted">Utenti Respond.io</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ respond_io_users|selectattr('user_id')|list|length }}</h3>
+                            <small class="text-muted">Associati</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ respond_io_users|rejectattr('user_id')|list|length }}</h3>
+                            <small class="text-muted">Non Associati</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="mb-0">{{ system_users|length }}</h3>
+                            <small class="text-muted">Utenti Sistema</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Semplice funzione per DataTable
+function initDataTable() {
+
+    if (typeof $ !== 'undefined' && $.fn.DataTable) {
+        $('#associationsTable').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json'
+            },
+            pageLength: 25,
+            order: [[0, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: [3] }
+            ]
+        });
+    }
+}
+
+// Inizializza quando DOM è pronto
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDataTable);
+} else {
+    initDataTable();
+}
+</script>
+{% endblock %}

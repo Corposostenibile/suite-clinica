@@ -1,0 +1,643 @@
+{% extends "base.html" %}
+
+{% block title %}{{ communication.title }} • Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Stesso stile dei report settimanali */
+    .px-24 {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+    
+    /* Back button section */
+    .back-section {
+        margin-bottom: 2rem;
+    }
+    
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: white;
+        border: 1px solid #e0e6ed;
+        border-radius: 12px;
+        color: #2c3e50;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .btn-back:hover {
+        background: #f8f9fa;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        color: #2c3e50;
+    }
+    
+    /* Main detail card */
+    .detail-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    
+    /* Card header with gradient */
+    .detail-header {
+        background: linear-gradient(135deg, #28c76f 0%, #20bf6b 100%);
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .detail-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    
+    .header-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .header-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .author-avatar-large {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid rgba(255,255,255,0.3);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        flex-shrink: 0;
+    }
+    
+    .header-info {
+        flex: 1;
+    }
+    
+    .detail-title {
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .author-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: rgba(255,255,255,0.9);
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .detail-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        color: rgba(255,255,255,0.85);
+        font-size: 0.9rem;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    /* Content section */
+    .detail-content {
+        padding: 2.5rem;
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: #374151;
+    }
+    
+    .detail-content h1, .detail-content h2, .detail-content h3,
+    .detail-content h4, .detail-content h5, .detail-content h6 {
+        margin-top: 1.5em;
+        margin-bottom: 0.75em;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    
+    .detail-content p {
+        margin-bottom: 1.25em;
+    }
+    
+    .detail-content a {
+        color: #28c76f;
+        text-decoration: underline;
+    }
+    
+    .detail-content a:hover {
+        color: #20bf6b;
+    }
+    
+    .detail-content ul, .detail-content ol {
+        margin-bottom: 1.25em;
+        padding-left: 1.5em;
+    }
+    
+    .detail-content li {
+        margin-bottom: 0.5em;
+    }
+    
+    /* Read confirmation section */
+    .confirmation-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-top: 1px solid #e5e7eb;
+        padding: 2rem;
+    }
+    
+    .confirmation-box {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.05);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .confirmation-box.confirmed {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border: 1px solid rgba(40, 199, 111, 0.2);
+    }
+    
+    .confirmation-box.unconfirmed {
+        background: white;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    
+    .confirmation-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+    }
+    
+    .confirmation-icon.read {
+        background: rgba(40, 199, 111, 0.1);
+        color: #28c76f;
+    }
+    
+    .confirmation-icon.unread {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+    
+    .confirmation-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+    
+    .confirmation-text {
+        color: #6b7280;
+        margin-bottom: 1.5rem;
+    }
+    
+    .btn-confirm {
+        background: linear-gradient(135deg, #28c76f 0%, #20bf6b 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(40, 199, 111, 0.2);
+    }
+    
+    .btn-confirm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(40, 199, 111, 0.3);
+    }
+    
+    /* Statistics section */
+    .stats-section {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    
+    .stats-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .stats-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #f3f4f6 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-value.success {
+        color: #28c76f;
+    }
+    
+    .stat-value.warning {
+        color: #f59e0b;
+    }
+    
+    .stat-value.primary {
+        color: #2c3e50;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+    
+    /* Progress bar */
+    .progress-container {
+        margin-bottom: 2rem;
+    }
+    
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+    
+    .progress-bar-wrapper {
+        background: #e5e7eb;
+        height: 10px;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .progress-bar-fill {
+        background: linear-gradient(135deg, #28c76f 0%, #20bf6b 100%);
+        height: 100%;
+        transition: width 1s ease-out;
+        border-radius: 5px;
+    }
+    
+    /* Users list modal */
+    .user-list-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        transition: background 0.2s;
+    }
+    
+    .user-list-item:hover {
+        background: #f9fafb;
+    }
+    
+    .user-list-item:last-child {
+        border-bottom: none;
+    }
+    
+    .user-avatar-small {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+    
+    .user-details {
+        flex: 1;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+    }
+    
+    .user-dept {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+    
+    /* Button to view unread users */
+    .btn-view-users {
+        background: white;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 500;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-view-users:hover {
+        background: #f9fafb;
+        color: #374151;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .px-24 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        .detail-header {
+            padding: 1.5rem;
+        }
+        
+        .header-top {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .author-avatar-large {
+            margin: 0 auto;
+        }
+        
+        .detail-title {
+            font-size: 0.85rem;
+        }
+        
+        .detail-content {
+            padding: 1.5rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-24">
+    <!-- Back Button -->
+    <div class="back-section">
+        <a href="{{ url_for('communications.index') }}" class="btn-back">
+            <iconify-icon icon="ri:arrow-left-line"></iconify-icon>
+            Torna alle Comunicazioni
+        </a>
+    </div>
+
+    <!-- Main Detail Card -->
+    <div class="detail-card">
+        <!-- Header with gradient -->
+        <div class="detail-header">
+            <div class="header-content">
+                <div class="header-top">
+                    <img src="{{ communication.author.avatar_url }}" 
+                         alt="{{ communication.author.full_name }}" 
+                         class="author-avatar-large">
+                    <div class="header-info">
+                        <h1 class="detail-title">{{ communication.title }}</h1>
+                        <div class="author-info">
+                            <iconify-icon icon="ri:user-3-line"></iconify-icon>
+                            <span>{{ communication.author.full_name }}</span>
+                        </div>
+                        {% if communication.author_id == current_user.id or current_user.is_admin %}
+                            <div style="margin-top: 1rem;">
+                                <form method="POST" action="{{ url_for('communications.delete', communication_id=communication.id) }}" 
+                                      onsubmit="return confirm('Sei sicuro di voler eliminare questa comunicazione?');"
+                                      style="display: inline-block;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm" style="background: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                        <iconify-icon icon="ri:delete-bin-line"></iconify-icon>
+                                        Elimina Comunicazione
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                        <div class="detail-meta">
+                            <div class="meta-item">
+                                <iconify-icon icon="ri:calendar-line"></iconify-icon>
+                                <span>{{ communication.created_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+                            </div>
+                            {% if communication.is_for_all_departments %}
+                                <div class="meta-item">
+                                    <iconify-icon icon="ri:global-line"></iconify-icon>
+                                    <span>Comunicazione globale</span>
+                                </div>
+                            {% else %}
+                                <div class="meta-item">
+                                    <iconify-icon icon="ri:building-2-line"></iconify-icon>
+                                    <span>{{ communication.departments|length }} dipartimento/i</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="detail-content">
+            {{ communication.content|safe }}
+        </div>
+
+        <!-- Read Confirmation -->
+        {% set is_recipient = current_user in communication.get_recipients() %}
+        {% set is_author = communication.author_id == current_user.id %}
+        
+        {% if is_recipient and not is_author %}
+            <div class="confirmation-section">
+                <div class="confirmation-box {% if has_read %}confirmed{% else %}unconfirmed{% endif %}">
+                    {% if has_read %}
+                        <div class="confirmation-icon read">
+                            <iconify-icon icon="ri:checkbox-circle-fill"></iconify-icon>
+                        </div>
+                        <h3 class="confirmation-title">Lettura Confermata</h3>
+                        <p class="confirmation-text">Hai confermato la lettura di questa comunicazione.</p>
+                    {% else %}
+                        <div class="confirmation-icon unread">
+                            <iconify-icon icon="ri:alert-fill"></iconify-icon>
+                        </div>
+                        <h3 class="confirmation-title">Conferma Lettura Richiesta</h3>
+                        <p class="confirmation-text">Per favore, conferma di aver letto questa comunicazione.</p>
+                        <form method="POST" action="{{ url_for('communications.mark_read', communication_id=communication.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-confirm">
+                                <iconify-icon icon="ri:checkbox-circle-line"></iconify-icon>
+                                Conferma Lettura
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Statistics (for authorized users) -->
+    {% if show_stats %}
+        <div class="stats-section">
+            <div class="stats-header">
+                <h3 class="stats-title">
+                    <iconify-icon icon="ri:bar-chart-2-line"></iconify-icon>
+                    Statistiche di Lettura
+                </h3>
+                {% if stats.unread_count > 0 %}
+                    <button class="btn-view-users" data-bs-toggle="modal" data-bs-target="#unreadUsersModal">
+                        <iconify-icon icon="ri:user-unfollow-line"></iconify-icon>
+                        Chi non ha letto ({{ stats.unread_count }})
+                    </button>
+                {% endif %}
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>Progresso letture</span>
+                    <span><strong>{{ "%.0f"|format(stats.read_percentage) }}%</strong></span>
+                </div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" style="width: {{ stats.read_percentage }}%"></div>
+                </div>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value primary">{{ stats.total_recipients }}</div>
+                    <div class="stat-label">Destinatari Totali</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value success">{{ stats.read_count }}</div>
+                    <div class="stat-label">Hanno Letto</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">{{ stats.unread_count }}</div>
+                    <div class="stat-label">Da Leggere</div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Unread Users Modal -->
+{% if show_stats and stats.unread_count > 0 %}
+    <div class="modal fade" id="unreadUsersModal" tabindex="-1" aria-labelledby="unreadUsersModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="unreadUsersModalLabel">
+                        <iconify-icon icon="ri:user-unfollow-line"></iconify-icon>
+                        Utenti che non hanno confermato la lettura
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="unreadUsersList">
+                        {% for user in stats.unread_users %}
+                            <div class="user-list-item">
+                                <img src="{{ user.avatar_url if user.avatar_url else url_for('static', filename='assets/immagini/logo_user.png') }}" 
+                                     alt="{{ user.full_name }}" 
+                                     class="user-avatar-small">
+                                <div class="user-details">
+                                    <div class="user-name">{{ user.full_name }}</div>
+                                    <div class="user-dept">
+                                        {{ user.department if user.department else 'Nessun dipartimento' }} • {{ user.email }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block inline_scripts %}
+<script>
+// Animate progress bar on load
+window.addEventListener('load', function() {
+    const progressBar = document.querySelector('.progress-bar-fill');
+    if (progressBar) {
+        // Force reflow to ensure animation plays
+        const targetWidth = progressBar.style.width;
+        progressBar.style.width = '0%';
+        setTimeout(() => {
+            progressBar.style.width = targetWidth;
+        }, 100);
+    }
+});
+</script>
+{% endblock %}

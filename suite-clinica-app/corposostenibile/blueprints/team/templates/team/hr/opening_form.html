@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{# --------------------------------------------------------------------- #}
+{#  HR • Job Opening – Form semplice (niente wizard)                     #}
+{# --------------------------------------------------------------------- #}
+{% block title %}{{ 'Nuova offerta' if mode == 'create' else 'Modifica offerta' }} • HR{% endblock %}
+
+{% block extra_css %}
+<style>
+  /*‒‒ List-builder domande extra ‒‒*/
+  #questions li            { cursor: grab }
+  #questions .handle       { font-size:1.2rem; line-height:1 }
+  #questions input[type=text] { flex:1 1 auto }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+  <div class="max-w-1280-px mx-auto">
+    <h4 class="mb-24">{{ 'Nuova offerta' if mode == 'create' else 'Modifica offerta' }}</h4>
+
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      {#──────────────────────────── Dettagli offerta ───────────────────────#}
+      <div class="card mb-32">
+        <div class="card-body">
+          <h6 class="text-md text-neutral-500 mb-16">Dettagli dell'offerta</h6>
+          <div class="row g-4">
+            {% for fld in [form.title, form.department_id, form.status] %}
+              <div class="col-lg-4">
+                {{ fld.label(class="form-label") }}
+                {{ fld(class=("form-control" if fld.type!='SelectField' else "form-select") + (" is-invalid" if fld.errors else "")) }}
+                {% for err in fld.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              </div>
+            {% endfor %}
+
+            <div class="col-12">
+              {{ form.description.label(class="form-label") }}
+              {{ form.description(class="form-control", style="height:6rem") }}
+              {% for err in form.description.errors %}<div class="invalid-feedback">{{ err }}</div>{% endfor %}
+              <small class="form-text text-muted">Markdown o HTML consentito.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {#──────────────────────────── Domande extra ─────────────────────────#}
+      <div class="card mb-32">
+        <div class="card-body">
+          <h6 class="text-md text-neutral-500 mb-16">Domande extra per il modulo candidatura</h6>
+          <p class="small text-muted mb-20">Campi fissi (non modificabili): Nome, Cognome, Email, Telefono, Curriculum.</p>
+
+          {{ form.form_schema(id="form_schema") }}
+
+          <ol id="questions" class="list-group list-group-numbered mb-3"></ol>
+
+          <div class="d-flex gap-2 mb-16">
+            <button type="button" class="btn btn-outline-success" id="btnAdd">
+              <i class="ri-add-line"></i> Aggiungi domanda
+            </button>
+            <button type="button" class="btn btn-outline-danger d-none" id="btnClear">
+              Svuota
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {#──────────────────────────── Azioni bottom ─────────────────────────#}
+      <div class="text-end">
+        <a href="{{ url_for('hr.openings_list') }}" class="btn btn-outline-secondary">Annulla</a>
+        <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block inline_scripts %}
+<script>
+/* ===============================================================
+ *  Mini-builder domande extra (vanilla JS) – versione flat form   
+ * ============================================================= */
+(function(){
+  const $list   = document.getElementById('questions');
+  const $btnAdd = document.getElementById('btnAdd');
+  const $btnClr = document.getElementById('btnClear');
+  const $store  = document.getElementById('form_schema');
+
+  // init: ricostruisci da JSON (anche se double-encoded string)
+  rebuildFromStore();
+
+  /* ----- drag & drop (native) --------------------------------- */
+  let dragEl=null;
+  $list.addEventListener('dragstart', e => { dragEl = e.target; });
+  $list.addEventListener('dragover', e => e.preventDefault());
+  $list.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('li');
+    if (target && dragEl !== target) target.after(dragEl);
+    renumber();
+    syncStore();
+  });
+
+  /* ----- Add / Clear handlers --------------------------------- */
+  $btnAdd.addEventListener('click', () => addQuestion(''));
+  $btnClr.addEventListener('click', () => { $list.innerHTML = ''; toggleClear(); syncStore(); });
+
+  /* ----- submit ensure store is up-to-date --------------------- */
+  document.querySelector('form').addEventListener('submit', syncStore);
+
+  /* ===== helper ============================================== */
+  function addQuestion(label) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex align-items-start gap-2';
+    li.draggable = true;
+    li.innerHTML = `
+      <span class="handle text-muted ri-drag-move-2-fill pt-1"></span>
+      <input type="text" class="form-control form-control-sm" placeholder="Testo della domanda…" required>
+      <button type="button" class="btn btn-sm btn-outline-danger"><i class="ri-close-line"></i></button>
+    `;
+    const $inp = li.querySelector('input');
+    $inp.value = label;
+    li.querySelector('button').onclick = () => { li.remove(); renumber(); toggleClear(); syncStore(); };
+    $inp.oninput = syncStore;
+    $list.appendChild(li);
+    renumber(); toggleClear(); syncStore();
+  }
+
+  function renumber() {
+    [...$list.children].forEach((li, i) => li.dataset.order = i + 1);
+  }
+  function toggleClear() {
+    $btnClr.classList.toggle('d-none', $list.children.length === 0);
+  }
+
+  function syncStore() {
+    const extras = [...$list.querySelectorAll('input')]
+      .map(x => x.value.trim())
+      .filter(Boolean);
+    const fields = extras.map((label, i) => ({ name: `q${i+1}`, label, type: 'text', required: false }));
+    $store.value = JSON.stringify({ fields });
+  }
+
+  function rebuildFromStore() {
+    let raw = $store.value || '{}';
+    try { raw = JSON.parse(raw); } catch (_) { /* keep as string */ }
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (_) { raw = {}; }
+    }
+    (raw.fields || []).forEach(f => addQuestion(f.label));
+  }
+})();
+</script>
+{% endblock %}

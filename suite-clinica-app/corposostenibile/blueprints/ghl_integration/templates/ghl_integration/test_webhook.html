@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Test Webhook GHL{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Test Webhook GHL Integration</h1>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Invia Webhook di Test</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('ghl_integration.send_test_webhook') }}">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="type" class="form-label">Tipo Webhook</label>
+                            <select class="form-control" id="type" name="type" required>
+                                <option value="acconto_open">Acconto Open</option>
+                                <option value="chiuso_won">Chiuso Won</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">Nome Cliente</label>
+                            <input type="text" class="form-control" id="nome" name="nome"
+                                   value="Test Cliente {{ range(1000, 9999) | random }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   value="test{{ range(1000, 9999) | random }}@example.com" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="telefono" class="form-label">Telefono</label>
+                            <input type="text" class="form-control" id="telefono" name="telefono"
+                                   value="+39 {{ range(300, 399) | random }} {{ range(100, 999) | random }} {{ range(1000, 9999) | random }}">
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="acconto" class="form-label">Acconto Pagato (€)</label>
+                            <input type="number" class="form-control" id="acconto" name="acconto"
+                                   value="500" step="0.01" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="totale" class="form-label">Importo Totale (€)</label>
+                            <input type="number" class="form-control" id="totale" name="totale"
+                                   value="1500" step="0.01" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="pacchetto" class="form-label">Pacchetto</label>
+                            <select class="form-control" id="pacchetto" name="pacchetto">
+                                <option value="3 Mesi Base">3 Mesi Base</option>
+                                <option value="6 Mesi Premium">6 Mesi Premium</option>
+                                <option value="12 Mesi VIP">12 Mesi VIP</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="pagamento" class="form-label">Modalità Pagamento</label>
+                            <select class="form-control" id="pagamento" name="pagamento">
+                                <option value="bonifico">Bonifico</option>
+                                <option value="stripe">Stripe</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="klarna">Klarna</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="note" class="form-label">Note</label>
+                    <textarea class="form-control" id="note" name="note" rows="3">Note di test per webhook GHL</textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Invia Webhook di Test</button>
+                <a href="{{ url_for('ghl_integration.webhook_status') }}" class="btn btn-secondary">Visualizza Status</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Endpoint Webhook</h3>
+        </div>
+        <div class="card-body">
+            <p>Configura questi endpoint in GoHighLevel:</p>
+            <div class="alert alert-info">
+                <strong>Acconto Open:</strong><br>
+                <code>{{ url_for('ghl_integration.webhook_acconto_open', _external=True) }}</code><br><br>
+
+                <strong>Chiuso Won:</strong><br>
+                <code>{{ url_for('ghl_integration.webhook_chiuso_won', _external=True) }}</code>
+            </div>
+
+            <p><strong>Headers richiesti:</strong></p>
+            <ul>
+                <li><code>Content-Type: application/json</code></li>
+                <li><code>X-GHL-Signature: [firma HMAC]</code> (se configurato)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

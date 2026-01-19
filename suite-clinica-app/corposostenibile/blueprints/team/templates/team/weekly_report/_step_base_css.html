@@ -1,0 +1,308 @@
+{# CSS base per tutti gli step del weekly report #}
+<style>
+    /* Header gradient */
+    .step-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .step-header h4 {
+        color: #000;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Container */
+    .step-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    /* Progress indicator */
+    .progress-indicator {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        position: relative;
+    }
+    
+    .progress-indicator::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 60px;
+        right: 60px;
+        height: 2px;
+        background: #e9ecef;
+        transform: translateY(-50%);
+        z-index: 0;
+    }
+    
+    .progress-step {
+        width: 14.285%;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        margin: 0 auto;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .progress-step.active .step-number {
+        background: #28c76f;
+        color: white;
+        border-color: #28c76f;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(40,199,111,0.3);
+    }
+    
+    .progress-step.completed .step-number {
+        background: #28c76f;
+        color: white;
+        border-color: #28c76f;
+    }
+    
+    .progress-step.completed .step-number::after {
+        content: '✓';
+        position: absolute;
+        font-size: 1.25rem;
+    }
+    
+    /* Form styling migliorato */
+    .form-section {
+        background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+        border: 1px solid #e9ecef;
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .form-section:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+    }
+    
+    .form-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+    }
+    
+    .form-section h6 {
+        color: #212529;
+        font-weight: 700;
+        font-size: 1.125rem;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-section h6 iconify-icon {
+        font-size: 1.5rem;
+        margin-right: 12px;
+        color: #28c76f;
+    }
+    
+    /* Question icon animato */
+    .question-icon {
+        font-size: 4rem;
+        color: #28c76f;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .question-icon.warning {
+        color: #ff9800;
+    }
+    .question-icon.danger {
+        color: #dc3545;
+    }
+    .question-icon.info {
+        color: #17a2b8;
+    }
+    
+    /* Character counter migliorato */
+    .char-counter {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-align: right;
+        margin-top: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    .char-counter.warning {
+        color: #ff9800;
+        font-weight: 600;
+    }
+    .char-counter.danger {
+        color: #dc3545;
+        font-weight: 700;
+    }
+    
+    /* Pulsanti migliorati */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 24px;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+    
+    .btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+    
+    .btn iconify-icon {
+        font-size: 1.25rem;
+        line-height: 1;
+        transition: transform 0.3s ease;
+    }
+    
+    .btn:hover iconify-icon {
+        transform: translateX(2px);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #28c76f 0%, #24b662 100%);
+        border: none;
+        box-shadow: 0 4px 8px rgba(40,199,111,0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(40,199,111,0.4);
+    }
+    
+    /* Form controls migliorati */
+    .form-control, .form-select {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #28c76f;
+        box-shadow: 0 0 0 0.2rem rgba(40,199,111,0.15);
+        background: white;
+    }
+    
+    textarea.form-control {
+        min-height: 120px;
+        resize: vertical;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    /* Helper text */
+    .form-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 4px;
+    }
+    
+    /* Hero section per gli step */
+    .step-hero {
+        text-align: center;
+        margin-bottom: 48px;
+        padding: 40px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f8f9fa 100%);
+        border-radius: 20px;
+        position: relative;
+    }
+    
+    .step-hero h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 16px;
+    }
+    
+    .step-hero p {
+        font-size: 1.125rem;
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .step-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .form-section {
+            padding: 1.25rem;
+        }
+        
+        .question-title {
+            font-size: 0.95rem;
+        }
+        
+        .question-icon {
+            font-size: 1.25rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+        }
+    }
+</style>

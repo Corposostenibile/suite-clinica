@@ -1,0 +1,101 @@
+{# -------------------------------------------------------------------------
+    reports/customers_monthly_kpi.html
+    -------------------------------------------------------------------------
+    Template HTML (stampabile) del report KPI mensile clienti.
+ 
+    Variabili in ingresso (inviate dal task Celery):
+      • year  – anno del report (int)
+      • month – mese (1-12)
+      • kpi   – dict { stato_cliente:str -> totale:int }
+      • ltv   – dict con chiavi 'ltv_totale' e 'ltv_<n>_giorni'
+    ---------------------------------------------------------------------- #}
+ <!DOCTYPE html>
+ <html lang="it">
+ <head>
+   <meta charset="utf-8">
+   <title>Report KPI Clienti — {{ "%02d" | format(month) }}/{{ year }}</title>
+ 
+   {# --- stylesheet minimale (inline) pensato per PDF --- #}
+   <style>
+     @page { margin: 2cm 2cm 2.5cm 2cm; font-family: "Helvetica", sans-serif; }
+     body  { font-size: 12px; line-height: 1.45; color: #333; }
+     h1,h2,h3 { margin: 0 0 .5em; }
+     h1   { font-size: 20px; }
+     h2   { font-size: 16px; border-bottom: 1px solid #999; padding-bottom: .15em; }
+     table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+     th, td { padding: .35em .6em; border: 1px solid #bbb; }
+     th { background: #f5f5f5; text-align: left; }
+     tfoot td { font-weight: bold; }
+     .text-right { text-align: right; }
+     .small { font-size: 10px; color: #777; }
+   </style>
+ </head>
+ 
+ <body>
+ 
+   <header>
+     <h1>Report KPI Clienti</h1>
+     <p class="small">Periodo: {{ "%02d" | format(month) }}/{{ year }}</p>
+   </header>
+ 
+   <section>
+     <h2>Stato Clienti</h2>
+     <table>
+       <thead>
+         <tr>
+           <th>Stato</th>
+           <th class="text-right">Totale</th>
+         </tr>
+       </thead>
+       <tbody>
+         {% for stato, totale in kpi|dictsort %}
+           <tr>
+             <td>{{ stato.replace('_', ' ').title() if stato else '—' }}</td>
+             <td class="text-right">{{ '{:,}'.format(totale) }}</td>
+           </tr>
+         {% endfor %}
+       </tbody>
+       <tfoot>
+         <tr>
+           <td>Totale clienti</td>
+           <td class="text-right">
+             {{ '{:,}'.format(kpi.values()|sum) }}
+           </td>
+         </tr>
+       </tfoot>
+     </table>
+   </section>
+ 
+   <section>
+     <h2>Lifetime Value (LTV)</h2>
+     <table>
+       <thead>
+         <tr>
+           <th>Indicatore</th>
+           <th class="text-right">€</th>
+         </tr>
+       </thead>
+       <tbody>
+         <tr>
+           <td>LTV complessivo</td>
+           <td class="text-right">{{ '{:,.2f}'.format(ltv['ltv_totale']) }}</td>
+         </tr>
+         {# individuiamo chiave rolling (es. ltv_90_giorni) #}
+         {% for key, value in ltv.items() if key != 'ltv_totale' %}
+           <tr>
+             <td>{{ key|replace('_', ' ')|upper }}</td>
+             <td class="text-right">{{ '{:,.2f}'.format(value) }}</td>
+           </tr>
+         {% endfor %}
+       </tbody>
+     </table>
+   </section>
+ 
+   <footer class="small">
+     Generato automaticamente il {{ (now() if callable(now) else macros.clock())|default('%d/%m/%Y') }}
+     • Corpo Sostenibile &copy; {{ year }}
+   </footer>
+ 
+ </body>
+ </html>
+ 

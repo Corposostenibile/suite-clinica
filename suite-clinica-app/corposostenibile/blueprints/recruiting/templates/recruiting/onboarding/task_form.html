@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Nuovo Task' if action == 'add' else 'Modifica Task' }} – Onboarding{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --success-color: #45CB85;
+        --dark-color: #1A3366;
+    }
+
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .form-control, .form-select {
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #45CB85;
+        box-shadow: 0 0 0 0.2rem rgba(69, 203, 133, 0.15);
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: var(--dark-color);
+        margin-bottom: 8px;
+    }
+
+    .form-check-input:checked {
+        background-color: #45CB85;
+        border-color: #45CB85;
+    }
+
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-outline-success {
+        color: #45CB85;
+        border: 1px solid #45CB85;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">{{ 'Nuovo Task Onboarding' if action == 'add' else 'Modifica Task' }}</h6>
+            <p class="text-muted mb-0">{{ template.name if template else task.template.name }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('recruiting.onboarding_template_detail', template_id=template.id if template else task.template_id) }}"
+               class="btn btn-sm btn-outline-success">
+                <i class="ri-arrow-left-line"></i>
+                Torna al Template
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control", placeholder="Es. Configurazione workstation") }}
+                            {% if form.name.errors %}
+                                <div class="text-danger small mt-1">{{ form.name.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows=4, placeholder="Descrizione del task...") }}
+                            {% if form.description.errors %}
+                                <div class="text-danger small mt-1">{{ form.description.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.task_type.label(class="form-label") }}
+                                {{ form.task_type(class="form-select") }}
+                                {% if form.task_type.errors %}
+                                    <div class="text-danger small mt-1">{{ form.task_type.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                {{ form.due_after_days.label(class="form-label") }}
+                                {{ form.due_after_days(class="form-control", placeholder="Es. 1") }}
+                                {% if form.due_after_days.errors %}
+                                    <div class="text-danger small mt-1">{{ form.due_after_days.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.order.label(class="form-label") }}
+                                {{ form.order(class="form-control", placeholder="Es. 1") }}
+                                {% if form.order.errors %}
+                                    <div class="text-danger small mt-1">{{ form.order.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                {{ form.assigned_role.label(class="form-label") }}
+                                {{ form.assigned_role(class="form-select") }}
+                                {% if form.assigned_role.errors %}
+                                    <div class="text-danger small mt-1">{{ form.assigned_role.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.is_required(class="form-check-input") }}
+                                {{ form.is_required.label(class="form-check-label") }}
+                            </div>
+                            {% if form.is_required.errors %}
+                                <div class="text-danger small mt-1">{{ form.is_required.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-success">
+                                <i class="ri-save-line me-1"></i>Salva Task
+                            </button>
+                            <a href="{{ url_for('recruiting.onboarding_template_detail', template_id=template.id if template else task.template_id) }}"
+                               class="btn btn-outline-secondary">
+                                Annulla
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="ri-information-line me-2"></i>Informazioni
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Configura un task per il template di onboarding.
+                    </p>
+                    <ul class="text-muted small ps-3">
+                        <li class="mb-2"><strong>Nome:</strong> Titolo del task</li>
+                        <li class="mb-2"><strong>Tipo:</strong> Categoria del task</li>
+                        <li class="mb-2"><strong>Scadenza:</strong> Giorni dall'inizio per completare il task</li>
+                        <li class="mb-2"><strong>Ordine:</strong> Sequenza di esecuzione</li>
+                        <li class="mb-2"><strong>Ruolo:</strong> Chi è responsabile</li>
+                        <li><strong>Obbligatorio:</strong> Se deve essere completato necessariamente</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

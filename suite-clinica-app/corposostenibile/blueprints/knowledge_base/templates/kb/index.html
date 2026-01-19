@@ -1,0 +1,413 @@
+{% extends "kb/base.html" %}
+
+{% block title %}Knowledge Base - Centro Documentazione Aziendale{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Remove blue overlay from banner */
+    .doc_banner_area::before,
+    .doc_banner_area::after,
+    .banner_creative1::before,
+    .banner_creative1::after {
+        display: none !important;
+        background: none !important;
+    }
+    
+    .doc_banner_area {
+        background: transparent !important;
+        background-image: none !important;
+    }
+    
+    .banner_creative1 {
+        background: transparent !important;
+        background-image: none !important;
+    }
+    
+    /* Docy Topic Box Styles */
+    .doc_topic_box {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        margin-bottom: 30px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        height: 100%;
+        position: relative;
+    }
+    
+    .doc_topic_box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .doc_topic_box .d_t_icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        font-size: 24px;
+        color: white;
+    }
+    
+    .doc_topic_box .d_t_content h5 {
+        font-size: 20px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+    
+    .doc_topic_box .d_t_content h5 a {
+        color: #2c3e50;
+        text-decoration: none;
+        transition: color 0.3s;
+    }
+    
+    .doc_topic_box .d_t_content h5 a:hover {
+        color: var(--primary-green);
+    }
+    
+    .doc_topic_box .d_t_content p {
+        color: #6c757d;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 15px;
+    }
+    
+    .doc_topic_box .d_t_meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 15px;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .doc_topic_box .learn_btn {
+        color: var(--primary-green);
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+    
+    .doc_topic_box .learn_btn:hover {
+        padding-left: 5px;
+    }
+    
+    .doc_topic_box .date,
+    .doc_topic_box .views {
+        font-size: 13px;
+        color: #8b92a3;
+    }
+    
+    .doc_sec_title {
+        margin-bottom: 50px;
+    }
+    
+    .doc_sec_title h2 {
+        font-size: 36px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+    
+    .doc_sec_title p {
+        font-size: 16px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Banner Area -->
+<section class="doc_banner_area banner_creative1" style="position: relative; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <!-- Video Background -->
+    <video autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+        <source src="/static/assets/video/knowledge_base.mp4" type="video/mp4">
+    </video>
+    
+    <!-- Dark Overlay -->
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1;"></div>
+    
+    <div class="container" style="position: relative; z-index: 2;">
+        <div class="doc_banner_content">
+            <h2 class="wow fadeInUp">Digital Knowledge Base</h2>
+            <p class="wow fadeInUp" data-wow-delay="0.2s">Documenti, procedure e best practice in un unico ecosistema digitale</p>
+            
+            <form action="{{ url_for('kb.search') }}" method="get" class="header_search_form">
+                <div class="header_search_form_info">
+                    <div class="form-group">
+                        <div class="input-wrapper">
+                            <i class="icon_search"></i>
+                            <input type='search' 
+                                   id="searchbox" 
+                                   autocomplete="off" 
+                                   name="q"
+                                   placeholder="Cerca nella knowledge base..." />
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- Departments Section -->
+<section class="doc_features_area">
+    <img class="doc_features_shap" src="{{ url_for('static', filename='docy/img/new/shap_white.png') }}" alt="">
+    <div class="container">
+        <div class="doc_features_inner">
+            {% for dept in departments %}
+                <div class="media doc_features_item wow fadeInUp" data-wow-delay="0.{{ loop.index }}s" data-wow-duration="0.{{ loop.index + 4 }}s">
+                    <div style="font-size: 48px; margin-right: 20px; min-width: 60px; text-align: center;">
+                        {% if dept.name == 'IT' %}
+                            💻
+                        {% elif dept.name == 'CEO' %}
+                            👔
+                        {% elif dept.name == 'Coach' %}
+                            🎯
+                        {% elif dept.name == 'Nutrizione' %}
+                            🥗
+                        {% elif dept.name == 'Psicologia' %}
+                            🧠
+                        {% elif dept.name == 'Co-Founder' %}
+                            🚀
+                        {% elif dept.name == 'Appointment Setter' %}
+                            📅
+                        {% elif dept.name == 'HR' or dept.name == 'Risorse Umane' %}
+                            👥
+                        {% elif dept.name == 'Finance' %}
+                            💰
+                        {% elif dept.name == 'Marketing' %}
+                            📢
+                        {% elif 'Sales' in dept.name or 'Consulenti' in dept.name %}
+                            💼
+                        {% elif dept.name == 'Customer Success' %}
+                            🤝
+                        {% elif dept.name == 'Test' %}
+                            🧪
+                        {% else %}
+                            📁
+                        {% endif %}
+                    </div>
+                    <div class="media-body">
+                        <a href="{{ url_for('kb.department_view', department_id=dept.id) }}">
+                            <h4>{{ dept.name }}</h4>
+                        </a>
+                        <p>{{ dept.articles_count }} Documenti</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Quick Stats -->
+<section class="doc_subscribe_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 offset-lg-1">
+                <div class="doc_subscribe_inner wow fadeInUp" data-wow-delay="0.2s">
+                    <div class="row">
+                        <div class="col-sm-6 col-md-3">
+                            <div class="doc_subscribe_item text-center">
+                                <div class="doc_subscribe_icon">
+                                    <i class="icon_documents_alt"></i>
+                                </div>
+                                <h4>{{ stats.total_articles }}</h4>
+                                <p>Documenti Totali</p>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="doc_subscribe_item text-center">
+                                <div class="doc_subscribe_icon">
+                                    <i class="icon_folder-alt"></i>
+                                </div>
+                                <h4>{{ stats.total_categories }}</h4>
+                                <p>Categorie</p>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="doc_subscribe_item text-center">
+                                <div class="doc_subscribe_icon">
+                                    <i class="icon_building"></i>
+                                </div>
+                                <h4>{{ stats.departments_count }}</h4>
+                                <p>Dipartimenti</p>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="doc_subscribe_item text-center">
+                                <div class="doc_subscribe_icon">
+                                    <i class="icon_star"></i>
+                                </div>
+                                <h4>{{ my_bookmarks|length }}</h4>
+                                <p>I tuoi Preferiti</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured & Recent Articles -->
+{% if featured_articles or stats.recent_articles %}
+<section class="doc_topic_area sec_pad">
+    <div class="container">
+        {% if featured_articles %}
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="doc_sec_title text-center">
+                    <h2 class="wow fadeInUp">Articoli in Evidenza</h2>
+                    <p class="wow fadeInUp" data-wow-delay="0.2s">I documenti più importanti selezionati per te</p>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            {% for article in featured_articles[:6] %}
+            <div class="col-lg-4 col-sm-6">
+                <div class="doc_topic_box wow fadeInUp" data-wow-delay="0.{{ loop.index }}s">
+                    <div class="d_t_icon">
+                        <i class="icon_document_alt"></i>
+                    </div>
+                    <div class="d_t_content">
+                        <h5><a href="{{ url_for('kb.article_view', article_id=article.id) }}">{{ article.title }}</a></h5>
+                        <p>{{ article.summary[:100] if article.summary else article.content[:100]|striptags }}...</p>
+                        <div class="d_t_meta">
+                            <a href="{{ url_for('kb.article_view', article_id=article.id) }}" class="learn_btn">Leggi <i class="arrow_right"></i></a>
+                            <span class="date">{{ article.updated_at|rome_datetime('%d/%m/%Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% if stats.recent_articles %}
+        <div class="row mt-5">
+            <div class="col-lg-12">
+                <div class="doc_sec_title text-center">
+                    <h2 class="wow fadeInUp">Documenti Recenti</h2>
+                    <p class="wow fadeInUp" data-wow-delay="0.2s">Gli ultimi aggiornamenti dalla Knowledge Base</p>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            {% for article in stats.recent_articles[:6] %}
+            <div class="col-lg-4 col-sm-6">
+                <div class="doc_topic_box wow fadeInUp" data-wow-delay="0.{{ loop.index }}s">
+                    <div class="d_t_icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="icon_clock_alt"></i>
+                    </div>
+                    <div class="d_t_content">
+                        <h5><a href="{{ url_for('kb.article_view', article_id=article.id) }}">{{ article.title }}</a></h5>
+                        <p>{{ article.summary[:100] if article.summary else article.content[:100]|striptags }}...</p>
+                        <div class="d_t_meta">
+                            <a href="{{ url_for('kb.article_view', article_id=article.id) }}" class="learn_btn">Leggi <i class="arrow_right"></i></a>
+                            <span class="views"><i class="icon_eye"></i> {{ article.views_count }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Recommended Articles -->
+        {% if stats.popular_articles %}
+        {% set recommended_articles = [] %}
+        {% for article in stats.popular_articles %}
+            {% if article.can_view(current_user) %}
+                {% if recommended_articles.append(article) %}{% endif %}
+            {% endif %}
+        {% endfor %}
+        
+        {% if recommended_articles %}
+        <div class="col-lg-12 mt-5">
+            <div class="doc_section_title text-center">
+                <h3><i class="fa fa-star text-warning"></i> Ti Consigliamo</h3>
+                <p>Articoli suggeriti in base alla tua attività</p>
+            </div>
+            <div class="row">
+            {% for article in recommended_articles[:6] %}
+                <div class="col-lg-4 col-sm-6 mb-4">
+                    <div class="doc_tag_item">
+                        <div class="doc_tag_icon">
+                            <i class="fa fa-star text-warning"></i>
+                        </div>
+                        <h5><a href="{{ url_for('kb.article_view', article_id=article.id) }}">{{ article.title|truncate(40) }}</a></h5>
+                        <p class="text-muted small">
+                            <i class="fa fa-building"></i> {{ article.department.name }}
+                            {% if article.category %}
+                            | <i class="fa fa-folder"></i> {{ article.category.name }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Call to Action -->
+<section class="doc_action_area">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8 col-md-7">
+                <div class="doc_action_content">
+                    <h2 class="wow fadeInUp">Non trovi quello che cerchi?</h2>
+                    <p class="wow fadeInUp" data-wow-delay="0.2s">
+                        Contatta il responsabile del tuo dipartimento per richiedere l'aggiunta di nuova documentazione
+                    </p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-5">
+                <div class="doc_action_btn text-right">
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('kb.department_view', department_id=departments[0].id if departments else 1) }}" class="action_btn wow fadeInUp">
+                            <i class="fa fa-plus"></i> Crea Nuovo Documento
+                        </a>
+                    {% elif current_user.department_id %}
+                        <a href="{{ url_for('kb.article_create', department_id=current_user.department_id) }}" class="action_btn wow fadeInUp">
+                            <i class="fa fa-plus"></i> Crea Nuovo Documento
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('public_ticket.new_ticket') }}" class="action_btn wow fadeInUp">
+                            <i class="fa fa-ticket"></i> Apri un Ticket
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize search autocomplete
+$(document).ready(function() {
+    $('#searchbox').on('input', function() {
+        const query = $(this).val();
+        if (query.length >= 3) {
+            $.get('/kb/api/search/suggestions', {q: query}, function(data) {
+                // Handle search suggestions
+                console.log(data);
+            });
+        }
+    });
+    
+    // Initialize animations
+    new WOW().init();
+});
+</script>
+{% endblock %}

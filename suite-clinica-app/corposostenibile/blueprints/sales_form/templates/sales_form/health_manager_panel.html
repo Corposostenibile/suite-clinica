@@ -1,0 +1,1818 @@
+{% extends "base.html" %}
+
+{% block title %}Pannello Health Manager - Assegnazione Professionisti – Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<!-- SweetAlert2 CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+<style>
+  /* Root Variables */
+  :root {
+    --primary-color: #487FFF;
+    --success-color: #45CB85;
+    --danger-color: #DC3545;
+    --warning-color: #F0AD4E;
+    --info-color: #5BC0DE;
+    --light-color: #F8FAFC;
+    --dark-color: #1A3366;
+  }
+
+  /* Card Styles */
+  .card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: white;
+    transition: all 0.3s ease;
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+    border-bottom: 1px solid #E2E8F0;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 20px 24px;
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  /* Page Header */
+  .page-header {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .page-header h4 {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .page-header p {
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 0;
+  }
+
+  /* Stats Badge */
+  .stat-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Table Styles */
+  .table-modern {
+    margin-bottom: 0;
+  }
+
+  .table-modern thead th {
+    background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+    color: var(--dark-color);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px;
+    border-bottom: 2px solid #E2E8F0;
+  }
+
+  .table-modern tbody tr {
+    border-bottom: 1px solid #F1F5F9;
+    transition: all 0.2s;
+  }
+
+  .table-modern tbody tr:hover {
+    background-color: #F8FAFC;
+  }
+
+  .table-modern tbody td {
+    padding: 16px;
+    vertical-align: middle;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .empty-state i {
+    font-size: 4rem;
+    color: #45CB85;
+    margin-bottom: 20px;
+  }
+
+  .empty-state h5 {
+    color: #64748B;
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    color: #94A3B8;
+  }
+
+  /* Buttons */
+  .btn-success {
+    background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    border: none;
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-success:hover {
+    background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+    color: white;
+  }
+
+  /* Check Link Badges */
+  .badge.bg-warning a,
+  a.badge.bg-warning {
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+  }
+
+  a.badge.bg-warning:hover {
+    background: #FFB547 !important;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(240, 173, 78, 0.4);
+  }
+
+  a.badge.bg-warning::after {
+    content: ' 📋';
+    font-size: 0.7em;
+    opacity: 0.7;
+  }
+
+  a.badge.bg-warning:hover::after {
+    opacity: 1;
+  }
+
+  /* Onboarding Date Input */
+  .onboarding-date-input {
+    transition: all 0.2s ease;
+  }
+
+  .onboarding-date-input:focus {
+    border-color: #45CB85;
+    box-shadow: 0 0 0 0.2rem rgba(69, 203, 133, 0.25);
+  }
+
+  /* Health Manager Selector */
+  .hm-select {
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .hm-select:focus {
+    border-color: #45CB85;
+    box-shadow: 0 0 0 0.2rem rgba(69, 203, 133, 0.25);
+  }
+
+  .hm-select:hover {
+    border-color: #45CB85;
+  }
+
+  /* Onboarding Time Input */
+  .onboarding-time-input {
+    transition: all 0.2s ease;
+    font-size: 0.85rem !important;
+    text-align: center;
+  }
+
+  .onboarding-time-input:focus {
+    border-color: #45CB85;
+    box-shadow: 0 0 0 0.2rem rgba(69, 203, 133, 0.25);
+  }
+
+  /* Rimuove spinner/frecce su alcuni browser */
+  .onboarding-time-input::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+
+  .onboarding-time-input::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h4><i class="ri-user-heart-line me-2"></i>Pannello Health Manager</h4>
+        <p>Assegnazione professionisti alle lead approvate</p>
+      </div>
+      <div class="col-md-4 text-end">
+        <div class="d-flex gap-2 justify-content-end align-items-center">
+          <a href="{{ url_for('sales_form.health_manager_history') }}" class="btn btn-light">
+            <i class="ri-history-line me-1"></i> Storico
+          </a>
+          <div class="stat-badge">
+            <i class="ri-user-add-line me-1"></i>
+            {{ pending_leads|length }} da assegnare
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtri di Ricerca -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="GET" action="{{ url_for('sales_form.health_manager_panel') }}" id="filterForm">
+        <!-- Prima riga filtri -->
+        <div class="row g-3 mb-3">
+          <!-- Ricerca Testuale -->
+          <div class="col-md-2">
+            <label class="form-label fw-medium">
+              <i class="ri-search-line me-1"></i>Cerca Lead
+            </label>
+            <input type="text"
+                   name="search"
+                   class="form-control"
+                   placeholder="Nome, email, telefono..."
+                   value="{{ current_search or '' }}">
+          </div>
+
+          <!-- Filtro Health Manager -->
+          <div class="col-md-2">
+            <label class="form-label fw-medium">
+              <i class="ri-user-heart-line me-1"></i>Health Manager
+            </label>
+            <select name="health_manager_id" class="form-select">
+              <option value="">Tutti</option>
+              {% for hm in health_managers %}
+              <option value="{{ hm.id }}" {% if current_hm_filter == hm.id %}selected{% endif %}>
+                {{ hm.full_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Data Onboarding Dal -->
+          <div class="col-md-2">
+            <label class="form-label fw-medium">
+              <i class="ri-calendar-line me-1"></i>Onb. Dal
+            </label>
+            <input type="date"
+                   name="onboarding_date_from"
+                   class="form-control"
+                   value="{{ onboarding_date_from or '' }}">
+          </div>
+
+          <!-- Data Onboarding Al -->
+          <div class="col-md-2">
+            <label class="form-label fw-medium">
+              <i class="ri-calendar-line me-1"></i>Onb. Al
+            </label>
+            <input type="date"
+                   name="onboarding_date_to"
+                   class="form-control"
+                   value="{{ onboarding_date_to or '' }}">
+          </div>
+
+          <!-- Filtro Messaggio Presentazione -->
+          <div class="col-md-2">
+            <label class="form-label fw-medium">
+              <i class="ri-mail-send-line me-1"></i>Msg Presentazione
+            </label>
+            <select name="presentation_message_filter" class="form-select">
+              <option value="">Tutti</option>
+              <option value="sent" {% if current_presentation_filter == 'sent' %}selected{% endif %}>Inviati</option>
+              <option value="not_sent" {% if current_presentation_filter == 'not_sent' %}selected{% endif %}>Non inviati</option>
+            </select>
+          </div>
+
+          <!-- Pulsanti Azione -->
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-success flex-grow-1 me-2">
+              <i class="ri-filter-3-line me-1"></i>Filtra
+            </button>
+            <a href="{{ url_for('sales_form.health_manager_panel') }}"
+               class="btn btn-outline-secondary"
+               title="Reset filtri">
+              <i class="ri-refresh-line"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Seconda riga filtri - Check -->
+        <div class="row g-3">
+          <!-- Check 1 Mancante -->
+          <div class="col-md-2">
+            <div class="form-check">
+              <input class="form-check-input"
+                     type="checkbox"
+                     name="missing_check1"
+                     id="missingCheck1"
+                     value="1"
+                     {% if request.args.get('missing_check1') %}checked{% endif %}>
+              <label class="form-check-label fw-medium" for="missingCheck1">
+                Check 1 mancante
+              </label>
+            </div>
+          </div>
+
+          <!-- Check 2 Mancante -->
+          <div class="col-md-2">
+            <div class="form-check">
+              <input class="form-check-input"
+                     type="checkbox"
+                     name="missing_check2"
+                     id="missingCheck2"
+                     value="1"
+                     {% if request.args.get('missing_check2') %}checked{% endif %}>
+              <label class="form-check-label fw-medium" for="missingCheck2">
+                Check 2 mancante
+              </label>
+            </div>
+          </div>
+
+          <!-- Check 3 Mancante -->
+          <div class="col-md-2">
+            <div class="form-check">
+              <input class="form-check-input"
+                     type="checkbox"
+                     name="missing_check3"
+                     id="missingCheck3"
+                     value="1"
+                     {% if request.args.get('missing_check3') %}checked{% endif %}>
+              <label class="form-check-label fw-medium" for="missingCheck3">
+                Check 3 mancante
+              </label>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Panoramica Professionisti Necessari -->
+  {% if onboarding_date_from or onboarding_date_to %}
+  <div class="card mb-4" style="background: linear-gradient(135deg, #5CB85C 0%, #4CAF50 100%); border: none; box-shadow: 0 10px 30px rgba(76, 175, 80, 0.3);">
+    <div class="card-body">
+      <h5 class="card-title text-white mb-4" style="font-weight: 600;">
+        <i class="ri-team-line me-2"></i>Professionisti Necessari nel Periodo
+        {% if onboarding_date_from and onboarding_date_to %}
+          <span style="opacity: 0.95;">({{ onboarding_date_from }} - {{ onboarding_date_to }})</span>
+        {% elif onboarding_date_from %}
+          <span style="opacity: 0.95;">(dal {{ onboarding_date_from }})</span>
+        {% elif onboarding_date_to %}
+          <span style="opacity: 0.95;">(fino al {{ onboarding_date_to }})</span>
+        {% endif %}
+      </h5>
+      <div class="row text-center g-3">
+        <div class="col-md-3">
+          <div style="background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border-radius: 12px; padding: 1.5rem; border: 2px solid rgba(255,255,255,0.4);">
+            <h2 class="mb-1 text-white" style="font-weight: 700; font-size: 2.5rem;">{{ professionals_needed.total_leads }}</h2>
+            <p class="mb-0 text-white" style="font-weight: 500;">Lead Totali</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div style="background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border-radius: 12px; padding: 1.5rem; border: 2px solid rgba(255,255,255,0.4);">
+            <h2 class="mb-1 text-white" style="font-weight: 700; font-size: 2.5rem;">{{ professionals_needed.nutritionist }}</h2>
+            <p class="mb-0 text-white" style="font-weight: 500;">
+              <i class="ri-restaurant-line me-1"></i>Nutrizionisti
+            </p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div style="background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border-radius: 12px; padding: 1.5rem; border: 2px solid rgba(255,255,255,0.4);">
+            <h2 class="mb-1 text-white" style="font-weight: 700; font-size: 2.5rem;">{{ professionals_needed.coach }}</h2>
+            <p class="mb-0 text-white" style="font-weight: 500;">
+              <i class="ri-run-line me-1"></i>Coach
+            </p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div style="background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border-radius: 12px; padding: 1.5rem; border: 2px solid rgba(255,255,255,0.4);">
+            <h2 class="mb-1 text-white" style="font-weight: 700; font-size: 2.5rem;">{{ professionals_needed.psychologist }}</h2>
+            <p class="mb-0 text-white" style="font-weight: 500;">
+              <i class="ri-mental-health-line me-1"></i>Psicologi
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Lead da Assegnare -->
+  <div class="card">
+    <div class="card-header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">
+          <i class="ri-file-list-3-line me-2"></i>Lead Approvate - In Attesa di Assegnazione Professionisti
+        </h6>
+        {% if current_search or onboarding_date_from or onboarding_date_to or request.args.get('missing_check1') or request.args.get('missing_check2') or request.args.get('missing_check3') %}
+        <span class="badge bg-info">
+          Filtri attivi: {{ pending_leads|length }} risultati
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      {% if pending_leads %}
+      <div class="table-responsive">
+        <table class="table table-modern">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Età</th>
+              <th>Check</th>
+              <th>Tipo</th>
+              <th>Storia</th>
+              <th>Pacchetto</th>
+              <th>HM</th>
+              <th>Data Onb.</th>
+              <th>Ora</th>
+              <th>Msg Pres.</th>
+              <th>Sales</th>
+              <th style="width: 100px;">Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lead in pending_leads %}
+            <tr>
+              <td>
+                <div>
+                  <h6 class="mb-0 fw-medium">{{ lead.full_name }}</h6>
+                  <small class="text-muted">{{ lead.email }}</small><br>
+                  <small class="text-muted">
+                    <i class="ri-phone-line me-1"></i>{{ lead.phone }}
+                  </small>
+                </div>
+              </td>
+              <td>
+                {% if lead.birth_date %}
+                  {% set today = now.date() %}
+                  {% set age = today.year - lead.birth_date.year - ((today.month, today.day) < (lead.birth_date.month, lead.birth_date.day))|int %}
+                  <span class="fw-medium">{{ age }}</span>
+                  <small class="text-muted d-block">anni</small>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <!-- Check 1 -->
+                  {% if lead.check1_completed_at %}
+                  <span class="badge bg-success" title="Check 1 completato il {{ lead.check1_completed_at.strftime('%d/%m/%Y') }}">
+                    <i class="ri-checkbox-circle-fill"></i> 1
+                  </span>
+                  {% else %}
+                    {% set check1_link = lead.completion_links|selectattr('check_number', 'equalto', 1)|first %}
+                    {% if check1_link %}
+                    <a href="{{ url_for('welcome_form', unique_code=check1_link.unique_code, _external=True) }}"
+                       class="badge bg-warning text-dark"
+                       title="Clicca per copiare e aprire il link Check 1"
+                       onclick="copyCheckLink(event, this.href, 1); return false;">
+                      <i class="ri-edit-line"></i> 1
+                    </a>
+                    {% else %}
+                    <span class="badge bg-secondary" title="Check 1 non completato - Link non generato">
+                      <i class="ri-checkbox-blank-circle-line"></i> 1
+                    </span>
+                    {% endif %}
+                  {% endif %}
+
+                  <!-- Check 2 -->
+                  {% if lead.check2_completed_at %}
+                  <span class="badge bg-success" title="Check 2 completato il {{ lead.check2_completed_at.strftime('%d/%m/%Y') }}">
+                    <i class="ri-checkbox-circle-fill"></i> 2
+                  </span>
+                  {% else %}
+                    {% set check2_link = lead.completion_links|selectattr('check_number', 'equalto', 2)|first %}
+                    {% if check2_link %}
+                    <a href="{{ url_for('welcome_form', unique_code=check2_link.unique_code, _external=True) }}"
+                       class="badge bg-warning text-dark"
+                       title="Clicca per copiare e aprire il link Check 2"
+                       onclick="copyCheckLink(event, this.href, 2); return false;">
+                      <i class="ri-edit-line"></i> 2
+                    </a>
+                    {% else %}
+                    <span class="badge bg-secondary" title="Check 2 non completato - Link non generato">
+                      <i class="ri-checkbox-blank-circle-line"></i> 2
+                    </span>
+                    {% endif %}
+                  {% endif %}
+
+                  <!-- Check 3 -->
+                  {% if lead.check3_completed_at %}
+                  <span class="badge bg-success" title="Check 3 completato il {{ lead.check3_completed_at.strftime('%d/%m/%Y') }}">
+                    <i class="ri-checkbox-circle-fill"></i> 3
+                  </span>
+                  {% else %}
+                    {% set check3_link = lead.completion_links|selectattr('check_number', 'equalto', 3)|first %}
+                    {% if check3_link %}
+                    <a href="{{ url_for('welcome_form', unique_code=check3_link.unique_code, _external=True) }}"
+                       class="badge bg-warning text-dark"
+                       title="Clicca per copiare e aprire il link Check 3"
+                       onclick="copyCheckLink(event, this.href, 3); return false;">
+                      <i class="ri-edit-line"></i> 3
+                    </a>
+                    {% else %}
+                    <span class="badge bg-secondary" title="Check 3 non completato - Link non generato">
+                      <i class="ri-checkbox-blank-circle-line"></i> 3
+                    </span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                {% if lead.check3_completed_at and lead.check3_type %}
+                  {% if lead.check3_type == 1 %}
+                  <span class="badge bg-success" title="Tipo 1 - Calcolato dal Check 3">
+                    <i class="ri-line-chart-line me-1"></i>Tipo 1
+                  </span>
+                  {% elif lead.check3_type == 2 %}
+                  <span class="badge bg-warning text-dark" title="Tipo 2 - Calcolato dal Check 3">
+                    <i class="ri-line-chart-line me-1"></i>Tipo 2
+                  </span>
+                  {% elif lead.check3_type == 3 %}
+                  <span class="badge bg-danger" title="Tipo 3 - Calcolato dal Check 3">
+                    <i class="ri-line-chart-line me-1"></i>Tipo 3
+                  </span>
+                  {% else %}
+                  <span class="badge bg-info" title="Tipo {{ lead.check3_type }} - Calcolato dal Check 3">
+                    <i class="ri-line-chart-line me-1"></i>Tipo {{ lead.check3_type }}
+                  </span>
+                  {% endif %}
+                {% else %}
+                <span class="text-muted" title="Check 3 non completato">-</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if lead.client_story %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-info"
+                        onclick="showStoryModal({{ lead.id }}, '{{ lead.full_name }}', `{{ lead.client_story|replace('`', '\\`')|replace('\n', '\\n') }}`)"
+                        title="Visualizza storia cliente">
+                  <i class="ri-file-text-line"></i>
+                </button>
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if lead.package %}
+                <span class="badge bg-primary">{{ lead.package.name }}</span>
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="health-manager-selector d-flex align-items-center gap-2">
+                  <img src="{{ lead.health_manager.avatar_url if lead.health_manager else url_for('static', filename='assets/immagini/logo_user.png') }}"
+                       alt="HM"
+                       class="rounded-circle object-fit-cover hm-avatar"
+                       data-lead-id="{{ lead.id }}"
+                       style="width: 32px; height: 32px; {% if not lead.health_manager %}opacity: 0.4;{% endif %}">
+                  <select class="form-select form-select-sm hm-select"
+                          data-lead-id="{{ lead.id }}"
+                          onchange="updateHealthManager({{ lead.id }}, this.value)"
+                          style="max-width: 130px; font-size: 0.85rem;">
+                    <option value="" data-avatar="{{ url_for('static', filename='assets/immagini/logo_user.png') }}">-- Nessuno --</option>
+                    {% for hm in health_managers %}
+                    <option value="{{ hm.id }}"
+                            {% if lead.health_manager and lead.health_manager.id == hm.id %}selected{% endif %}
+                            data-avatar="{{ hm.avatar_url }}">
+                      {{ hm.full_name }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </td>
+              <td>
+                <div class="onboarding-date-wrapper">
+                  <input type="date"
+                         class="form-control form-control-sm onboarding-date-input"
+                         value="{{ lead.onboarding_date.strftime('%Y-%m-%d') if lead.onboarding_date else '' }}"
+                         data-lead-id="{{ lead.id }}"
+                         onchange="updateOnboardingDate({{ lead.id }}, this.value)"
+                         style="max-width: 150px;">
+                </div>
+              </td>
+              <td>
+                <div class="onboarding-time-wrapper">
+                  <input type="time"
+                         class="form-control form-control-sm onboarding-time-input"
+                         value="{{ lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else '' }}"
+                         data-lead-id="{{ lead.id }}"
+                         onchange="updateOnboardingTime({{ lead.id }}, this.value)"
+                         style="width: 90px; min-width: 90px; padding: 4px 6px;">
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="form-check d-inline-block">
+                  <input class="form-check-input presentation-checkbox"
+                         type="checkbox"
+                         id="presentation_{{ lead.id }}"
+                         data-lead-id="{{ lead.id }}"
+                         {% if lead.presentation_message_sent %}checked{% endif %}
+                         onchange="togglePresentationMessage({{ lead.id }}, this.checked)"
+                         title="{% if lead.presentation_message_sent %}Messaggio inviato{% else %}Messaggio non inviato{% endif %}"
+                         style="cursor: pointer; width: 20px; height: 20px;">
+                </div>
+              </td>
+              <td>
+                {% if lead.sales_user %}
+                <div class="d-flex align-items-center">
+                  <img src="{{ lead.sales_user.avatar_url }}"
+                       alt="{{ lead.sales_user.name }}"
+                       class="rounded-circle object-fit-cover me-2"
+                       style="width: 32px; height: 32px;">
+                  <span class="fw-medium">{{ lead.sales_user.name }}</span>
+                </div>
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <a href="{{ url_for('sales_form.lead_detail', lead_id=lead.id) }}"
+                     class="btn btn-xs btn-outline-primary"
+                     title="Dettagli"
+                     style="padding: 4px 8px; font-size: 0.75rem;">
+                    <i class="ri-eye-line"></i>
+                  </a>
+                  <button class="btn btn-xs btn-success"
+                          onclick="assignProfessionals({{ lead.id }})"
+                          title="Assegna professionisti"
+                          style="padding: 4px 8px; font-size: 0.75rem;">
+                    <i class="ri-user-add-line"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="ri-checkbox-circle-line"></i>
+        <h5>Nessuna lead in attesa</h5>
+        <p>Tutte le lead sono state assegnate</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal Storia Cliente -->
+<div class="modal fade" id="storyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #5BC0DE 0%, #3A9AB5 100%);">
+        <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+          <i class="ri-file-text-line me-2"></i>Storia Cliente: <span id="storyClientName"></span>
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 rounded" style="background: #F8FAFC; border: 1px solid #E2E8F0; max-height: 500px; overflow-y: auto;">
+          <div id="storyContent" style="white-space: pre-wrap; line-height: 1.6; color: #1A3366;">
+            <!-- Story content will be inserted here -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i>Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Assegna Professionisti -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="assignForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%);">
+          <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+            <i class="ri-user-add-line me-2"></i>Assegna Professionisti
+          </h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info mb-3">
+            <i class="ri-information-line me-2"></i>
+            <strong>Importante:</strong> Assegna almeno un professionista per creare automaticamente il cliente
+          </div>
+
+          <div id="leadInfo" class="mb-3">
+            <!-- Info lead dinamiche -->
+          </div>
+
+          <hr>
+
+          <div class="row g-3">
+            <!-- Nutrizionista -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="ri-restaurant-line me-2" style="color: #45CB85;"></i>
+                Nutrizionista
+              </label>
+              <div class="row g-2">
+                <div class="col-md-8">
+                  <select name="nutritionist_id" id="nutritionist-select" class="form-select" onchange="onProfessionalChange('nutritionist', this.value)">
+                    <option value="">-- Seleziona Nutrizionista --</option>
+                    {% for nutritionist in nutritionists %}
+                    <option value="{{ nutritionist.id }}">
+                      {{ nutritionist.name }}
+                      {% if nutritionist.workload_count %}
+                      ({{ nutritionist.workload_count }} clienti)
+                      {% endif %}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <button type="button"
+                          class="btn btn-success w-100 d-flex align-items-center justify-content-center"
+                          onclick="getSuggestionAI(2, 'Nutrizionista', 'nutritionist-select')"
+                          title="Chiedi consiglio a SuiteMind basato sulla storia della lead">
+                    <img src="{{ url_for('static', filename='assets/icone/suitemind.png') }}" alt="SuiteMind" style="height: 36px; width: auto; margin-right: 8px;">
+                    <span>Chiedi a SuiteMind</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Link calendario e data call nutrizionista (nascosto di default) -->
+              <div id="nutritionist-calendar-section" class="mt-2" style="display: none;">
+                <div class="p-3 rounded" style="background: #F0FDF4; border: 1px solid #45CB85;">
+                  <div class="mb-2">
+                    <small class="text-muted d-block"><i class="ri-calendar-line me-1"></i>Link Calendario:</small>
+                    <a id="nutritionist-calendar-link" href="#" target="_blank" class="fw-medium text-success">
+                      <i class="ri-external-link-line me-1"></i><span id="nutritionist-calendar-text">-</span>
+                    </a>
+                  </div>
+                  <div class="mt-2">
+                    <label class="form-label fw-medium mb-1">
+                      <i class="ri-phone-line me-1"></i>Data Call Iniziale
+                    </label>
+                    <input type="date" name="data_call_iniziale_nutrizionista" class="form-control form-control-sm" placeholder="Seleziona data...">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coach -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="ri-run-line me-2" style="color: #487FFF;"></i>
+                Coach
+              </label>
+              <div class="row g-2">
+                <div class="col-md-8">
+                  <select name="coach_id" id="coach-select" class="form-select" onchange="onProfessionalChange('coach', this.value)">
+                    <option value="">-- Seleziona Coach --</option>
+                    {% for coach in coaches %}
+                    <option value="{{ coach.id }}">
+                      {{ coach.name }}
+                      {% if coach.workload_count %}
+                      ({{ coach.workload_count }} clienti)
+                      {% endif %}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <button type="button"
+                          class="btn btn-success w-100 d-flex align-items-center justify-content-center"
+                          onclick="getSuggestionAI(3, 'Coach', 'coach-select')"
+                          title="Chiedi consiglio a SuiteMind basato sulla storia della lead">
+                    <img src="{{ url_for('static', filename='assets/icone/suitemind.png') }}" alt="SuiteMind" style="height: 36px; width: auto; margin-right: 8px;">
+                    <span>Chiedi a SuiteMind</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Link calendario e data call coach (nascosto di default) -->
+              <div id="coach-calendar-section" class="mt-2" style="display: none;">
+                <div class="p-3 rounded" style="background: #F0F9FF; border: 1px solid #487FFF;">
+                  <div class="mb-2">
+                    <small class="text-muted d-block"><i class="ri-calendar-line me-1"></i>Link Calendario:</small>
+                    <a id="coach-calendar-link" href="#" target="_blank" class="fw-medium text-primary">
+                      <i class="ri-external-link-line me-1"></i><span id="coach-calendar-text">-</span>
+                    </a>
+                  </div>
+                  <div class="mt-2">
+                    <label class="form-label fw-medium mb-1">
+                      <i class="ri-phone-line me-1"></i>Data Call Iniziale
+                    </label>
+                    <input type="date" name="data_call_iniziale_coach" class="form-control form-control-sm" placeholder="Seleziona data...">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Psicologo -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="ri-mental-health-line me-2" style="color: #F0AD4E;"></i>
+                Psicologo
+              </label>
+              <div class="row g-2">
+                <div class="col-md-8">
+                  <select name="psychologist_id" id="psychologist-select" class="form-select" onchange="onProfessionalChange('psychologist', this.value)">
+                    <option value="">-- Seleziona Psicologo --</option>
+                    {% for psychologist in psychologists %}
+                    <option value="{{ psychologist.id }}">
+                      {{ psychologist.name }}
+                      {% if psychologist.workload_count %}
+                      ({{ psychologist.workload_count }} clienti)
+                      {% endif %}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <button type="button"
+                          class="btn btn-success w-100 d-flex align-items-center justify-content-center"
+                          onclick="getSuggestionAI(4, 'Psicologo', 'psychologist-select')"
+                          title="Chiedi consiglio a SuiteMind basato sulla storia della lead">
+                    <img src="{{ url_for('static', filename='assets/icone/suitemind.png') }}" alt="SuiteMind" style="height: 36px; width: auto; margin-right: 8px;">
+                    <span>Chiedi a SuiteMind</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Link calendario e data call psicologo (nascosto di default) -->
+              <div id="psychologist-calendar-section" class="mt-2" style="display: none;">
+                <div class="p-3 rounded" style="background: #FFFBEB; border: 1px solid #F0AD4E;">
+                  <div class="mb-2">
+                    <small class="text-muted d-block"><i class="ri-calendar-line me-1"></i>Link Calendario:</small>
+                    <a id="psychologist-calendar-link" href="#" target="_blank" class="fw-medium text-warning">
+                      <i class="ri-external-link-line me-1"></i><span id="psychologist-calendar-text">-</span>
+                    </a>
+                  </div>
+                  <div class="mt-2">
+                    <label class="form-label fw-medium mb-1">
+                      <i class="ri-phone-line me-1"></i>Data Call Iniziale
+                    </label>
+                    <input type="date" name="data_call_iniziale_psicologia" class="form-control form-control-sm" placeholder="Seleziona data...">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Data Inizio Abbonamento -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="ri-calendar-check-line me-2" style="color: #45CB85;"></i>
+                Data Inizio Abbonamento <span class="text-danger">*</span>
+              </label>
+              <input type="date"
+                     name="onboarding_date"
+                     id="onboarding_date"
+                     class="form-control"
+                     required
+                     value="{{ now.strftime('%Y-%m-%d') }}">
+              <small class="text-muted">Data di inizio del programma per il cliente</small>
+            </div>
+
+            <!-- Note Onboarding -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="ri-alert-line me-2" style="color: #DC3545;"></i>Note Onboarding / Criticità Iniziali
+              </label>
+              <textarea name="note_onboarding" class="form-control" rows="3"
+                        placeholder="Note importanti sull'onboarding del cliente, criticità iniziali rilevate..."></textarea>
+              <small class="text-muted">Queste note saranno visibili nella tab Health Manager del cliente</small>
+            </div>
+
+            <!-- Note -->
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="ri-file-text-line me-2"></i>Note per i Professionisti
+              </label>
+              <textarea name="notes" class="form-control" rows="3"
+                        placeholder="Note importanti da condividere con i professionisti assegnati..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn btn-success">
+            <i class="ri-check-line me-1"></i> Assegna e Crea Cliente
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- SweetAlert2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+let currentLeadId = null;
+
+function assignProfessionals(leadId) {
+  currentLeadId = leadId;
+
+  Swal.fire({
+    html: `
+      <div class="text-center">
+        <img src="/static/assets/immagini/logo_user.png" alt="Suite" style="height: 60px; width: auto; margin-bottom: 20px;">
+        <div style="white-space: nowrap;">Caricamento...</div>
+      </div>
+    `,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  // Carica info lead
+  fetch(`/sales-form/api/lead/${leadId}/details`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+      Swal.close();
+      console.log('Lead details data:', data); // Debug
+
+      if (data.success && data.lead) {
+        const lead = data.lead;
+
+        // Popola i dati dei professionisti con i link calendario
+        if (data.professionals) {
+          professionalsData.nutritionists = data.professionals.nutritionists || {};
+          professionalsData.coaches = data.professionals.coaches || {};
+          professionalsData.psychologists = data.professionals.psychologists || {};
+        }
+
+        document.getElementById('leadInfo').innerHTML = `
+          <div class="p-3 rounded" style="background: #F8FAFC; border: 1px solid #E2E8F0;">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-2">
+                  <small class="text-muted d-block">Cliente</small>
+                  <strong>${lead.full_name}</strong>
+                </div>
+                <div class="mb-2">
+                  <small class="text-muted d-block">Email</small>
+                  <strong>${lead.email}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-2">
+                  <small class="text-muted d-block">Telefono</small>
+                  <strong>${lead.phone}</strong>
+                </div>
+                <div class="mb-2">
+                  <small class="text-muted d-block">Pacchetto</small>
+                  <span class="badge bg-primary">${lead.package_name || '-'}</span>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Sales</small>
+                  <strong>${lead.sales_user_name || '-'}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Imposta action del form
+        document.getElementById('assignForm').action = `/sales-form/health-manager/assign/${leadId}`;
+
+        // Reset delle sezioni calendario (nascondile tutte)
+        document.getElementById('nutritionist-calendar-section').style.display = 'none';
+        document.getElementById('coach-calendar-section').style.display = 'none';
+        document.getElementById('psychologist-calendar-section').style.display = 'none';
+
+        // Reset dei select
+        document.getElementById('nutritionist-select').value = '';
+        document.getElementById('coach-select').value = '';
+        document.getElementById('psychologist-select').value = '';
+
+        // Mostra modal
+        const modal = new bootstrap.Modal(document.getElementById('assignModal'));
+        modal.show();
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Errore',
+          text: data.error || 'Impossibile caricare i dettagli'
+        });
+      }
+    })
+    .catch(error => {
+      Swal.close();
+      console.error('Error loading lead details:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore di connessione',
+        text: 'Impossibile caricare i dettagli: ' + error.message
+      });
+    });
+}
+
+// Form validation
+document.getElementById('assignForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const nutritionist = document.querySelector('[name="nutritionist_id"]').value;
+  const coach = document.querySelector('[name="coach_id"]').value;
+  const psychologist = document.querySelector('[name="psychologist_id"]').value;
+
+  // CHECK VALIDAZIONE DATE CALL OBBLIGATORIE
+  // Se un professionista è selezionato, la data call iniziale è OBBLIGATORIA
+
+  // 1. Nutrizionista
+  const nutritionistDate = document.querySelector('[name="data_call_iniziale_nutrizionista"]').value;
+  if (nutritionist && !nutritionistDate) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Data Mancante',
+      text: 'Hai assegnato un Nutrizionista ma non hai inserito la Data Call Iniziale. È obbligatoria!'
+    });
+    return false;
+  }
+
+  // 2. Coach
+  const coachDate = document.querySelector('[name="data_call_iniziale_coach"]').value;
+  if (coach && !coachDate) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Data Mancante',
+      text: 'Hai assegnato un Coach ma non hai inserito la Data Call Iniziale. È obbligatoria!'
+    });
+    return false;
+  }
+
+  // 3. Psicologo
+  const psychologistDate = document.querySelector('[name="data_call_iniziale_psicologia"]').value;
+  if (psychologist && !psychologistDate) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Data Mancante',
+      text: 'Hai assegnato uno Psicologo ma non hai inserito la Data Call Iniziale. È obbligatoria!'
+    });
+    return false;
+  }
+
+  if (!nutritionist && !coach && !psychologist) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Attenzione',
+      text: 'Devi assegnare almeno un professionista!'
+    });
+    return false;
+  }
+
+  Swal.fire({
+    title: 'Assegnazione in corso...',
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  fetch(this.action, {
+    method: 'POST',
+    body: new FormData(this)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Cliente Creato!',
+        text: 'I professionisti sono stati assegnati e il cliente è stato creato con successo',
+        confirmButtonColor: '#45CB85'
+      }).then(() => {
+        location.reload();
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore',
+        text: data.message || 'Si è verificato un errore durante l\'assegnazione'
+      });
+    }
+  })
+  .catch(error => {
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore di connessione',
+      text: 'Impossibile completare l\'operazione'
+    });
+  });
+});
+
+// Submit form automaticamente quando cambia il filtro health manager
+document.querySelector('select[name="health_manager_id"]')?.addEventListener('change', function() {
+  document.getElementById('filterForm').submit();
+});
+
+// Submit form con Enter nella ricerca
+document.querySelector('input[name="search"]')?.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('filterForm').submit();
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE ONBOARDING DATE
+// ═══════════════════════════════════════════════════════
+function updateOnboardingDate(leadId, newDate) {
+  if (!newDate) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore',
+      text: 'Devi selezionare una data valida'
+    });
+    return;
+  }
+
+  const input = document.querySelector(`input[data-lead-id="${leadId}"]`);
+  const originalValue = input.dataset.originalValue || input.value;
+
+  // Salva il valore originale se non esiste
+  if (!input.dataset.originalValue) {
+    input.dataset.originalValue = originalValue;
+  }
+
+  // Visual feedback: loading state
+  input.style.opacity = '0.5';
+  input.disabled = true;
+
+  fetch(`/sales-form/lead/${leadId}/update-onboarding-date`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({ onboarding_date: newDate })
+  })
+  .then(response => response.json())
+  .then(data => {
+    input.style.opacity = '1';
+    input.disabled = false;
+
+    if (data.success) {
+      // Aggiorna il valore originale
+      input.dataset.originalValue = newDate;
+
+      // Feedback visivo di successo
+      input.style.border = '2px solid #45CB85';
+      setTimeout(() => {
+        input.style.border = '';
+      }, 1500);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Aggiornato!',
+        text: 'Data di onboarding aggiornata con successo',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } else {
+      // Ripristina il valore originale
+      input.value = originalValue;
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore',
+        text: data.message || 'Errore durante l\'aggiornamento'
+      });
+    }
+  })
+  .catch(error => {
+    input.style.opacity = '1';
+    input.disabled = false;
+    input.value = originalValue;
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore',
+      text: 'Errore di connessione al server'
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE ONBOARDING TIME
+// ═══════════════════════════════════════════════════════
+function updateOnboardingTime(leadId, newTime) {
+  const input = document.querySelector(`input.onboarding-time-input[data-lead-id="${leadId}"]`);
+  const originalValue = input.dataset.originalValue || input.value;
+
+  // Salva il valore originale se non esiste
+  if (!input.dataset.originalValue) {
+    input.dataset.originalValue = originalValue;
+  }
+
+  // Visual feedback: loading state
+  input.style.opacity = '0.5';
+  input.disabled = true;
+
+  fetch(`/sales-form/lead/${leadId}/update-onboarding-time`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({ onboarding_time: newTime || null })
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Errore HTTP ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    input.style.opacity = '1';
+    input.disabled = false;
+
+    if (data.success) {
+      // Aggiorna il valore originale
+      input.dataset.originalValue = newTime;
+
+      // Feedback visivo di successo
+      input.style.border = '2px solid #45CB85';
+      setTimeout(() => {
+        input.style.border = '';
+      }, 1500);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Aggiornato!',
+        text: data.message || 'Orario aggiornato con successo',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } else {
+      // Ripristina il valore originale
+      input.value = originalValue;
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore',
+        text: data.message || 'Errore durante l\'aggiornamento'
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Update Time Error:', error);
+    input.style.opacity = '1';
+    input.disabled = false;
+    input.value = originalValue;
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore',
+      text: error.message || 'Errore di connessione al server'
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE HEALTH MANAGER
+// ═══════════════════════════════════════════════════════
+function updateHealthManager(leadId, newHealthManagerId) {
+  const select = document.querySelector(`select[data-lead-id="${leadId}"].hm-select`);
+  const avatar = document.querySelector(`img[data-lead-id="${leadId}"].hm-avatar`);
+  const originalValue = select.dataset.originalValue || select.value;
+
+  // Salva il valore originale se non esiste
+  if (!select.dataset.originalValue) {
+    select.dataset.originalValue = originalValue;
+  }
+
+  // Se selezionato "Nessuno", mostra avviso
+  if (!newHealthManagerId) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Attenzione',
+      text: 'Devi selezionare un Health Manager',
+      confirmButtonColor: '#45CB85'
+    });
+    select.value = originalValue;
+    return;
+  }
+
+  // Visual feedback: loading state
+  select.style.opacity = '0.5';
+  select.disabled = true;
+
+  console.log('Sending request to update HM:', leadId, newHealthManagerId);
+
+  fetch(`/sales-form/lead/${leadId}/change-health-manager`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': '{{ csrf_token() }}',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({ health_manager_id: parseInt(newHealthManagerId) })
+  })
+  .then(response => {
+    console.log('Response status:', response.status, response.statusText);
+    if (!response.ok) {
+      if (response.status === 400) {
+        return response.json().then(data => { throw new Error(data.message || 'Errore 400'); });
+      }
+      throw new Error(`Errore HTTP ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    select.style.opacity = '1';
+    select.disabled = false;
+
+    if (data.success) {
+      // Aggiorna il valore originale
+      select.dataset.originalValue = newHealthManagerId;
+
+      // Aggiorna l'avatar con la nuova immagine
+      if (avatar && data.health_manager_avatar) {
+        avatar.src = data.health_manager_avatar;
+        avatar.style.opacity = '1';
+      }
+
+      // Feedback visivo di successo
+      select.style.border = '2px solid #45CB85';
+      setTimeout(() => {
+        select.style.border = '';
+      }, 1500);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Aggiornato!',
+        text: data.message,
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } else {
+      // Ripristina il valore originale
+      select.value = originalValue;
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore',
+        text: data.message || 'Errore durante l\'aggiornamento'
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Update HM Error:', error);
+    select.style.opacity = '1';
+    select.disabled = false;
+    select.value = originalValue;
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore',
+      text: error.message || 'Errore di connessione al server'
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  COPY CHECK LINK TO CLIPBOARD
+// ═══════════════════════════════════════════════════════
+function copyCheckLink(event, url, checkNumber) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  navigator.clipboard.writeText(url).then(function() {
+    // Toast di successo
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true,
+      didOpen: (toast) => {
+        toast.addEventListener('mouseenter', Swal.stopTimer)
+        toast.addEventListener('mouseleave', Swal.resumeTimer)
+      }
+    });
+
+    Toast.fire({
+      icon: 'success',
+      title: `Link Check ${checkNumber} copiato!`,
+      text: 'Puoi incollarlo ovunque'
+    });
+
+    // Apri in nuova tab
+    window.open(url, '_blank');
+  }).catch(function(err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore',
+      text: 'Impossibile copiare il link'
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  SHOW STORY MODAL
+// ═══════════════════════════════════════════════════════
+function showStoryModal(leadId, leadName, clientStory) {
+  // Imposta il nome del cliente nel titolo
+  document.getElementById('storyClientName').textContent = leadName;
+
+  // Imposta il contenuto della storia
+  const storyContent = document.getElementById('storyContent');
+
+  if (clientStory && clientStory.trim() !== '') {
+    storyContent.innerHTML = clientStory;
+  } else {
+    storyContent.innerHTML = '<em class="text-muted">Nessuna storia disponibile per questo cliente.</em>';
+  }
+
+  // Mostra il modal
+  const modal = new bootstrap.Modal(document.getElementById('storyModal'));
+  modal.show();
+}
+
+// ═══════════════════════════════════════════════════════
+//  PROFESSIONAL CALENDAR LINK MANAGEMENT
+// ═══════════════════════════════════════════════════════
+
+// Oggetto globale per memorizzare i dati dei professionisti (popolato quando si carica il modal)
+let professionalsData = {
+  nutritionists: {},
+  coaches: {},
+  psychologists: {}
+};
+
+function onProfessionalChange(type, professionalId) {
+  // Nascondi la sezione se non è selezionato nessun professionista
+  const section = document.getElementById(`${type}-calendar-section`);
+
+  if (!professionalId || professionalId === '') {
+    section.style.display = 'none';
+    return;
+  }
+
+  // Mappa il tipo al gruppo corretto
+  const typeMap = {
+    'nutritionist': 'nutritionists',
+    'coach': 'coaches',
+    'psychologist': 'psychologists'
+  };
+
+  const groupKey = typeMap[type];
+  const professional = professionalsData[groupKey][professionalId];
+
+  if (professional && professional.calendar_link) {
+    // Mostra la sezione
+    section.style.display = 'block';
+
+    // Popola il link
+    const linkElement = document.getElementById(`${type}-calendar-link`);
+    const textElement = document.getElementById(`${type}-calendar-text`);
+
+    linkElement.href = professional.calendar_link;
+    textElement.textContent = professional.calendar_link;
+  } else {
+    // Nessun link disponibile, mostra comunque la sezione ma senza link
+    section.style.display = 'block';
+
+    const linkElement = document.getElementById(`${type}-calendar-link`);
+    const textElement = document.getElementById(`${type}-calendar-text`);
+
+    linkElement.href = '#';
+    linkElement.style.pointerEvents = 'none';
+    linkElement.style.opacity = '0.5';
+    textElement.textContent = 'Link calendario non disponibile';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI PROFESSIONAL SUGGESTION - Suggerimento AI
+// ═══════════════════════════════════════════════════════
+
+// Helper function per selezionare un professionista nel dropdown
+function selectProfessional(professionalId, professionalName, selectId) {
+  const selectElement = document.getElementById(selectId);
+  if (selectElement) {
+    selectElement.value = professionalId;
+
+    // Triggera l'evento onchange per aprire la sezione calendario
+    // Mappa selectId al tipo di professionista
+    const typeMap = {
+      'nutritionist-select': 'nutritionist',
+      'coach-select': 'coach',
+      'psychologist-select': 'psychologist'
+    };
+    const professionalType = typeMap[selectId];
+    if (professionalType) {
+      onProfessionalChange(professionalType, professionalId);
+    }
+
+    // Highlight temporaneo
+    selectElement.style.border = '2px solid #45CB85';
+    selectElement.style.backgroundColor = '#e8f5e9';
+
+    setTimeout(() => {
+      selectElement.style.border = '';
+      selectElement.style.backgroundColor = '';
+    }, 2000);
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Professionista Selezionato!',
+      text: `${professionalName} è stato selezionato`,
+      timer: 2000,
+      showConfirmButton: false
+    });
+  }
+}
+
+// Helper function per selezionare un'alternativa
+function selectAlternative(alternativeId, alternativeName, selectId) {
+  Swal.close();  // Chiudi modal corrente
+  selectProfessional(alternativeId, alternativeName, selectId);
+}
+
+function getSuggestionAI(departmentId, departmentName, selectId) {
+  if (!currentLeadId) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore',
+      text: 'Nessuna lead selezionata'
+    });
+    return;
+  }
+
+  Swal.fire({
+    html: `
+      <div class="text-center">
+        <img src="/static/assets/icone/suitemind.png" alt="SuiteMind" style="height: 80px; width: auto; margin-bottom: 20px;">
+        <div style="white-space: nowrap; font-size: 1.2em; font-weight: 600; margin-bottom: 15px;">SuiteMind sta pensando...</div>
+        <div style="color: #6c757d; font-size: 0.9em;">Sto analizzando la storia della lead e le note AI di tutti i ${departmentName}i per trovare il match migliore.</div>
+        <div style="color: #6c757d; font-size: 0.85em; margin-top: 10px;"><small>Questo potrebbe richiedere fino a 90 secondi...</small></div>
+      </div>
+    `,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  // Chiamata API per suggerimento AI
+  fetch(`/sales-form/api/leads/${currentLeadId}/ai-suggest-professional`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('[name="csrf_token"]').value
+    },
+    body: JSON.stringify({
+      department_id: departmentId,
+      session_id: `hm_${currentLeadId}_${departmentId}`
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.suggestion) {
+      const suggestion = data.suggestion;
+
+      // Costruisci HTML per alternative con avatar e motivazioni separate
+      let alternativesHTML = '';
+      if (suggestion.alternatives && suggestion.alternatives.length > 0) {
+        alternativesHTML = `
+          <div style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #e9ecef;">
+            <h6 style="color: #495057; font-weight: 600; margin-bottom: 20px; text-align: center;">
+              <i class="ri-group-line me-2"></i>Alternative Consigliate
+            </h6>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+              ${suggestion.alternatives.map((alt, index) => {
+                const avatarUrl = alt.avatar ? alt.avatar : '/static/assets/immagini/logo_user.png';
+                return `
+                <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; border: 2px solid #e9ecef;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <img src="${avatarUrl}"
+                           alt="${alt.name}"
+                           style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #6c757d;">
+                      <div>
+                        <span style="font-weight: 600; color: #2c3e50; display: block; font-size: 1em;">${alt.name}</span>
+                        <small style="color: #6c757d; font-size: 0.8em;"><i class="ri-user-received-line me-1"></i>${alt.daily_assignments_count || 0} assegnazioni oggi</small>
+                      </div>
+                    </div>
+                    <button class="btn btn-outline-success btn-sm"
+                            onclick="selectAlternative(${alt.id}, '${alt.name.replace(/'/g, "\\'")}', '${selectId}')"
+                            style="border-radius: 8px;">
+                      <i class="ri-check-line me-1"></i>Seleziona
+                    </button>
+                  </div>
+                  ${alt.reasoning ? `
+                  <div style="background: white; border-radius: 8px; padding: 10px 12px; border-left: 3px solid #6c757d;">
+                    <small style="color: #495057; font-size: 0.85em; line-height: 1.5;">
+                      <i class="ri-lightbulb-line me-1" style="color: #ffc107;"></i>
+                      ${alt.reasoning.replace(/\n/g, '<br>')}
+                    </small>
+                  </div>
+                  ` : ''}
+                </div>
+              `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // Mostra suggerimento in un modal personalizzato con design migliorato
+      Swal.fire({
+        html: `
+          <div style="text-align: center; padding: 20px;">
+            <!-- Header con logo SuiteMind -->
+            <div style="margin-bottom: 25px;">
+              <img src="/static/assets/icone/suitemind.png" alt="SuiteMind" style="height: 60px; width: auto; margin-bottom: 15px;">
+              <h4 style="font-weight: 700; color: #2c3e50; margin: 0;">SuiteMind Suggerisce</h4>
+            </div>
+
+            <!-- Professionista consigliato -->
+            <div style="background: linear-gradient(135deg, #45CB85 0%, #3db872 100%);
+                        border-radius: 16px;
+                        padding: 30px;
+                        margin-bottom: 25px;
+                        box-shadow: 0 4px 15px rgba(69, 203, 133, 0.2);">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                <img src="${suggestion.avatar || '/static/assets/immagini/logo_user.png'}"
+                     alt="${suggestion.professional_name}"
+                     style="width: 80px;
+                            height: 80px;
+                            border-radius: 50%;
+                            border: 4px solid white;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                            object-fit: cover;">
+                <div style="text-align: left; color: white;">
+                  <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">${departmentName} Consigliato</div>
+                  <div style="font-size: 1.5em; font-weight: 700;">${suggestion.professional_name}</div>
+                  <div style="font-size: 0.85em; opacity: 0.9; margin-top: 5px;">
+                    <i class="ri-user-received-line me-1"></i>${suggestion.daily_assignments_count || 0} assegnazioni oggi
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Motivazione -->
+            <div style="text-align: left;
+                        background: #f8f9fa;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 20px;">
+              <h6 style="color: #495057; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center;">
+                <i class="ri-lightbulb-line me-2" style="color: #ffc107;"></i>
+                Motivazione
+              </h6>
+              <div style="color: #6c757d; font-size: 0.95em; line-height: 1.6;">
+                ${suggestion.reasoning.replace(/\n/g, '<br>')}
+              </div>
+            </div>
+
+            ${alternativesHTML}
+          </div>
+        `,
+        width: '750px',
+        showCancelButton: true,
+        confirmButtonText: '<i class="ri-check-line me-2"></i>Seleziona Questo Professionista',
+        cancelButtonText: '<i class="ri-close-line me-2"></i>Chiudi',
+        confirmButtonColor: '#45CB85',
+        cancelButtonColor: '#6c757d',
+        customClass: {
+          actions: 'swal2-actions-custom',
+          confirmButton: 'btn btn-success btn-lg px-5 py-3',
+          cancelButton: 'btn btn-secondary btn-lg px-5 py-3'
+        },
+        buttonsStyling: false,
+        didOpen: () => {
+          // Aggiungi stili custom per distanziare i pulsanti
+          const actionsDiv = document.querySelector('.swal2-actions');
+          if (actionsDiv) {
+            actionsDiv.style.gap = '20px';
+            actionsDiv.style.width = '100%';
+            actionsDiv.style.justifyContent = 'center';
+            actionsDiv.style.paddingTop = '20px';
+          }
+        }
+      }).then((result) => {
+        if (result.isConfirmed && suggestion.professional_id) {
+          selectProfessional(suggestion.professional_id, suggestion.professional_name, selectId);
+        }
+      });
+
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore',
+        html: `
+          <p>${data.error || 'Impossibile ottenere il suggerimento AI'}</p>
+          <small class="text-muted">Verifica che ci siano professionisti con Note AI configurate per questo dipartimento.</small>
+        `
+      });
+    }
+  })
+  .catch(error => {
+    console.error('AI Suggestion error:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore di connessione',
+      text: 'Impossibile contattare il servizio AI. Riprova tra qualche istante.'
+    });
+  });
+}
+
+// Toggle messaggio di presentazione
+function togglePresentationMessage(leadId, isChecked) {
+  const checkbox = document.getElementById(`presentation_${leadId}`);
+
+  // Ottieni CSRF token
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+  fetch(`{{ url_for('sales_form.toggle_presentation_message', lead_id=0) }}`.replace('0', leadId), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': csrfToken
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Aggiorna il titolo del checkbox
+      checkbox.title = data.presentation_message_sent ? 'Messaggio inviato' : 'Messaggio non inviato';
+
+      // Feedback visivo con animazione
+      checkbox.parentElement.style.transition = 'transform 0.2s';
+      checkbox.parentElement.style.transform = 'scale(1.2)';
+      setTimeout(() => {
+        checkbox.parentElement.style.transform = 'scale(1)';
+      }, 200);
+
+      // Notifica toast sottile
+      const toast = document.createElement('div');
+      toast.className = 'position-fixed bottom-0 end-0 p-3';
+      toast.style.zIndex = '9999';
+      toast.innerHTML = `
+        <div class="toast show" role="alert">
+          <div class="toast-body bg-success text-white rounded">
+            <i class="ri-checkbox-circle-line me-2"></i>${data.message}
+          </div>
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    } else {
+      // Ripristina checkbox in caso di errore
+      checkbox.checked = !isChecked;
+      Swal.fire({
+        icon: 'error',
+        title: 'Errore',
+        text: data.message,
+        confirmButtonColor: '#45CB85'
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Toggle presentation error:', error);
+    // Ripristina checkbox in caso di errore
+    checkbox.checked = !isChecked;
+    Swal.fire({
+      icon: 'error',
+      title: 'Errore di connessione',
+      text: 'Impossibile aggiornare lo stato. Riprova.',
+      confirmButtonColor: '#45CB85'
+    });
+  });
+}
+</script>
+{% endblock %}

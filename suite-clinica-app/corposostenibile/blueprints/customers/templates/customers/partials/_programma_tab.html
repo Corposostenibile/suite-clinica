@@ -1,0 +1,324 @@
+{#
+    TAB PROGRAMMA E STATO - Partial Template
+
+    Contenuto interno tab Programma e Stato
+#}
+
+<!-- Sub-tabs Navigation -->
+<ul class="nav nav-pills mb-4" id="programmaTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="programma-stato-tab" data-bs-toggle="pill"
+                data-bs-target="#programma-stato" type="button" role="tab">
+            <i class="ri-signal-tower-line me-2"></i>Stato
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="programma-cliente-tab" data-bs-toggle="pill"
+                data-bs-target="#programma-cliente" type="button" role="tab">
+            <i class="ri-book-open-line me-2"></i>Programma Cliente
+        </button>
+    </li>
+</ul>
+
+<form id="form-programma" data-cliente-id="{{ cliente.cliente_id }}">
+<div class="tab-content" id="programmaTabsContent">
+
+    <!-- ========== TAB STATO ========== -->
+    <div class="tab-pane fade show active" id="programma-stato" role="tabpanel">
+
+        <!-- Card: Stato Cliente -->
+        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%); border: 2px solid rgba(239, 68, 68, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(248, 113, 113, 0.05) 100%); border-bottom: 2px solid rgba(239, 68, 68, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-signal-tower-line" style="color: #EF4444;"></i>
+                    Stato Cliente
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="modern-alert-info" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(248, 113, 113, 0.08) 100%); border: 2px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                    <i class="ri-information-line" style="color: #EF4444;"></i>
+                    <strong style="color: #991B1B;">Stato Cliente Globale:</strong>
+                    <span class="badge bg-{{ 'danger' if cliente.stato_cliente and cliente.stato_cliente.value == 'ghost' else 'success' }}">
+                        {{ cliente.stato_cliente.value|upper if cliente.stato_cliente else 'N/D' }}
+                    </span>
+                    {% if cliente.stato_cliente_data %}
+                        <small class="ms-2">(dal {{ cliente.stato_cliente_data.strftime('%d/%m/%Y %H:%M') }})</small>
+                    {% endif %}
+                    <br>
+                    <small style="color: #7F1D1D;">Lo stato globale diventa GHOST automaticamente quando tutti i servizi attivi sono in ghost.</small>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-signal-tower-line me-1" style="color: #EF4444;"></i>
+                            Stato Cliente <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-control modern-form-control" name="stato_cliente"
+                                style="border: 2px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                onfocus="this.style.borderColor='#EF4444'; this.style.boxShadow='0 0 0 4px rgba(239, 68, 68, 0.1)'"
+                                onblur="this.style.borderColor='rgba(239, 68, 68, 0.2)'; this.style.boxShadow='none'">
+                            <option value="">Seleziona stato</option>
+                            {% for stato in ['attivo', 'ghost', 'pausa', 'stop', 'insoluto'] %}
+                                <option value="{{ stato }}"
+                                    {% if cliente.stato_cliente and cliente.stato_cliente.value == stato %}selected{% endif %}>
+                                    {{ stato|upper }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Stato attuale del cliente nel sistema
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========== TAB PROGRAMMA CLIENTE ========== -->
+    <div class="tab-pane fade" id="programma-cliente" role="tabpanel">
+
+        <!-- Card: Programma Attuale e Tipologia -->
+        <div class="modern-card" style="margin-top: 3rem; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); border: 2px solid rgba(34, 197, 94, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(74, 222, 128, 0.05) 100%); border-bottom: 2px solid rgba(34, 197, 94, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-book-open-line" style="color: #22C55E;"></i>
+                    Programma Attuale e Tipologia
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-book-open-line me-1" style="color: #22C55E;"></i>
+                            Programma Attuale
+                        </label>
+                        <input type="text" class="form-control modern-form-control" name="programma_attuale"
+                               value="{{ cliente.programma_attuale or '' }}"
+                               placeholder="Es: Transform 90"
+                               style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#22C55E'; this.style.boxShadow='0 0 0 4px rgba(34, 197, 94, 0.1)'"
+                               onblur="this.style.borderColor='rgba(34, 197, 94, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Nome del programma corrente
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-user-star-line me-1" style="color: #22C55E;"></i>
+                            Tipologia Cliente
+                        </label>
+                        <select class="form-control modern-form-control" name="tipologia_cliente"
+                                style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                onfocus="this.style.borderColor='#22C55E'; this.style.boxShadow='0 0 0 4px rgba(34, 197, 94, 0.1)'"
+                                onblur="this.style.borderColor='rgba(34, 197, 94, 0.2)'; this.style.boxShadow='none'">
+                            <option value="">Seleziona tipo</option>
+                            {% for tipo in ['a', 'b', 'c', 'stop', 'recupero', 'pausa_gt_30'] %}
+                                <option value="{{ tipo }}"
+                                    {% if cliente.tipologia_cliente and cliente.tipologia_cliente.value == tipo %}selected{% endif %}>
+                                    {{ tipo|upper }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Classificazione del cliente
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Date e Abbonamento -->
+        <div class="modern-card" style="background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%); border: 2px solid rgba(59, 130, 246, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(96, 165, 250, 0.05) 100%); border-bottom: 2px solid rgba(59, 130, 246, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-calendar-line" style="color: #3B82F6;"></i>
+                    Date e Abbonamento
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="modern-alert-info" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(96, 165, 250, 0.08) 100%); border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                    <i class="ri-lightbulb-line" style="color: #3B82F6;"></i>
+                    <strong style="color: #1E3A8A;">Calcolo automatico:</strong> <span style="color: #1E40AF;">La data di rinnovo viene calcolata automaticamente sommando la durata del programma alla data di inizio.</span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-calendar-line me-1" style="color: #3B82F6;"></i>
+                            Data Inizio Abbonamento
+                        </label>
+                        <input type="date" class="form-control modern-form-control" name="data_inizio_abbonamento"
+                               id="data_inizio_abbonamento"
+                               onchange="calcolaDataRinnovo()"
+                               value="{{ cliente.data_inizio_abbonamento.strftime('%Y-%m-%d') if cliente.data_inizio_abbonamento }}"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Data di avvio del programma
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-time-line me-1" style="color: #3B82F6;"></i>
+                            Durata Programma (giorni)
+                        </label>
+                        <input type="number" class="form-control modern-form-control" name="durata_programma_giorni"
+                               id="durata_programma_giorni"
+                               onchange="calcolaDataRinnovo()"
+                               oninput="calcolaDataRinnovo()"
+                               value="{{ cliente.durata_programma_giorni or '' }}"
+                               placeholder="Es: 90"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Durata totale in giorni del programma
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-refresh-line me-1" style="color: #3B82F6;"></i>
+                            Data Rinnovo <small class="text-muted" id="data_rinnovo_info">(calcolata)</small>
+                        </label>
+                        <input type="date" class="form-control modern-form-control" name="data_rinnovo"
+                               id="data_rinnovo"
+                               value="{{ cliente.data_rinnovo.strftime('%Y-%m-%d') if cliente.data_rinnovo }}"
+                               style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#3B82F6'; this.style.boxShadow='0 0 0 4px rgba(59, 130, 246, 0.1)'"
+                               onblur="this.style.borderColor='rgba(59, 130, 246, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Data prevista per il rinnovo
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Informazioni di Pagamento -->
+        <div class="modern-card" style="background: linear-gradient(135deg, #ffffff 0%, #fefce8 100%); border: 2px solid rgba(234, 179, 8, 0.1);">
+            <div class="modern-card-header" style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.05) 0%, rgba(250, 204, 21, 0.05) 100%); border-bottom: 2px solid rgba(234, 179, 8, 0.15);">
+                <h5 class="modern-card-title mb-0">
+                    <i class="ri-bank-card-line" style="color: #EAB308;"></i>
+                    Informazioni di Pagamento
+                </h5>
+            </div>
+            <div class="modern-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-bank-card-line me-1" style="color: #EAB308;"></i>
+                            Modalità Pagamento
+                        </label>
+                        <select class="form-control modern-form-control" name="modalita_pagamento"
+                                style="border: 2px solid rgba(234, 179, 8, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease; background: white; min-height: 52px; line-height: 1.5;"
+                                onfocus="this.style.borderColor='#EAB308'; this.style.boxShadow='0 0 0 4px rgba(234, 179, 8, 0.1)'"
+                                onblur="this.style.borderColor='rgba(234, 179, 8, 0.2)'; this.style.boxShadow='none'">
+                            <option value="">Seleziona modalità</option>
+                            {% for mod in ['bonifico', 'klarna', 'stripe', 'paypal', 'carta', 'contanti'] %}
+                                <option value="{{ mod }}"
+                                    {% if cliente.modalita_pagamento and cliente.modalita_pagamento.value == mod %}selected{% endif %}>
+                                    {{ mod|upper }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Metodo di pagamento utilizzato
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-money-euro-circle-line me-1" style="color: #EAB308;"></i>
+                            Rate Cliente Sales (€)
+                        </label>
+                        <input type="number" step="0.01" class="form-control modern-form-control" name="rate_cliente_sales"
+                               value="{{ cliente.rate_cliente_sales or '' }}"
+                               placeholder="0.00"
+                               style="border: 2px solid rgba(234, 179, 8, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                               onfocus="this.style.borderColor='#EAB308'; this.style.boxShadow='0 0 0 4px rgba(234, 179, 8, 0.1)'"
+                               onblur="this.style.borderColor='rgba(234, 179, 8, 0.2)'; this.style.boxShadow='none'">
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Importo delle rate concordate
+                        </small>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="modern-form-label fw-semibold" style="color: #1e293b; font-size: 14px;">
+                            <i class="ri-sticky-note-line me-1" style="color: #EAB308;"></i>
+                            Note Rinnovo
+                        </label>
+                        <textarea class="form-control modern-form-control" name="note_rinnovo" rows="3"
+                                  placeholder="Informazioni importanti per il rinnovo del contratto..."
+                                  style="border: 2px solid rgba(234, 179, 8, 0.2); border-radius: 12px; padding: 14px 16px; font-weight: 500; transition: all 0.3s ease;"
+                                  onfocus="this.style.borderColor='#EAB308'; this.style.boxShadow='0 0 0 4px rgba(234, 179, 8, 0.1)'"
+                                  onblur="this.style.borderColor='rgba(234, 179, 8, 0.2)'; this.style.boxShadow='none'">{{ cliente.note_rinnovo or '' }}</textarea>
+                        <small class="modern-form-hint" style="display: block; margin-top: 8px; color: #64748b; font-size: 13px;">
+                            <i class="ri-information-line me-1"></i>
+                            Annotazioni per il processo di rinnovo
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Action Buttons -->
+<div class="d-flex align-items-center justify-content-center gap-3 mt-4">
+    <button type="button" class="btn-modern-secondary" onclick="resetForm('form-programma')">
+        <i class="ri-close-line me-1"></i> Annulla
+    </button>
+    <button type="submit" class="btn-modern-primary">
+        <i class="ri-save-line me-1"></i> Salva Modifiche
+    </button>
+</div>
+</form>
+
+<script>
+// Funzione per calcolare la data di rinnovo
+function calcolaDataRinnovo() {
+    const dataInizioInput = document.getElementById('data_inizio_abbonamento');
+    const durataInput = document.getElementById('durata_programma_giorni');
+    const dataRinnovoInput = document.getElementById('data_rinnovo');
+    const dataRinnovoInfo = document.getElementById('data_rinnovo_info');
+
+    if (dataInizioInput && dataInizioInput.value && durataInput && durataInput.value && dataRinnovoInput) {
+        const dataInizio = new Date(dataInizioInput.value);
+        const durata = parseInt(durataInput.value);
+
+        if (!isNaN(durata) && durata > 0) {
+            // Calcola data rinnovo = data inizio + durata giorni
+            const dataRinnovo = new Date(dataInizio);
+            dataRinnovo.setDate(dataRinnovo.getDate() + durata);
+
+            // Formatta la data in YYYY-MM-DD per l'input date
+            const anno = dataRinnovo.getFullYear();
+            const mese = String(dataRinnovo.getMonth() + 1).padStart(2, '0');
+            const giorno = String(dataRinnovo.getDate()).padStart(2, '0');
+
+            dataRinnovoInput.value = `${anno}-${mese}-${giorno}`;
+
+            if (dataRinnovoInfo) {
+                dataRinnovoInfo.textContent = '(calcolata automaticamente)';
+                dataRinnovoInfo.style.color = '#22C55E';
+            }
+        }
+    }
+}
+
+// Calcola al caricamento se i dati sono già presenti
+document.addEventListener('DOMContentLoaded', function() {
+    calcolaDataRinnovo();
+});
+</script>

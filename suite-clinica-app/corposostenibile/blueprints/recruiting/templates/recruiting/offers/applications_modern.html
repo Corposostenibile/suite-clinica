@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Candidature - {{ offer.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .card-title {
+        color: var(--dark-color);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Application Card */
+    .application-card .card {
+        height: 100%;
+    }
+
+    .application-card .card-footer {
+        background: transparent;
+        border-top: 1px solid #E2E8F0;
+        padding: 16px 24px;
+    }
+
+    /* Score Badge */
+    .score-badge {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    /* Source Badges */
+    .badge-linkedin {
+        background: linear-gradient(135deg, #0077B5 0%, #005885 100%);
+    }
+
+    .badge-facebook {
+        background: linear-gradient(135deg, #1877F2 0%, #0C5EC5 100%);
+    }
+
+    .badge-instagram {
+        background: linear-gradient(135deg, #E4405F 0%, #C13584 100%);
+    }
+
+    /* Status Badges */
+    .badge-new {
+        background: linear-gradient(135deg, #5BC0DE 0%, #31B0D5 100%);
+    }
+
+    .badge-screening {
+        background: linear-gradient(135deg, #F0AD4E 0%, #EC971F 100%);
+    }
+
+    .badge-reviewed {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+    }
+
+    .badge-hired {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+    }
+
+    .badge-rejected {
+        background: linear-gradient(135deg, #DC3545 0%, #C82333 100%);
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-outline-success {
+        color: #45CB85;
+        border: 1px solid #45CB85;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    /* Form Styles */
+    .form-control, .form-select {
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--secondary-color);
+        box-shadow: 0 0 0 0.2rem rgba(78, 202, 194, 0.15);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 5rem;
+        color: #E2E8F0;
+        margin-bottom: 24px;
+    }
+
+    /* Info Box */
+    .info-box {
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .info-box small {
+        display: block;
+        color: #64748B;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+    }
+
+    .info-box strong {
+        color: var(--dark-color);
+        font-size: 0.95rem;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Candidature</h6>
+            <p class="text-muted mb-0">{{ offer.title }} - {{ applications|length }} candidature ricevute</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('recruiting.offers_list') }}" class="btn btn-sm btn-outline-success">
+                <i class="ri-arrow-left-line"></i>
+                Torna alle Offerte
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card mb-24">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label">Ordina per:</label>
+                    <select class="form-select" onchange="window.location.href='?sort=' + this.value">
+                        <option value="date" {% if request.args.get('sort') == 'date' %}selected{% endif %}>
+                            Data candidatura
+                        </option>
+                        <option value="score" {% if request.args.get('sort', 'score') == 'score' %}selected{% endif %}>
+                            Punteggio
+                        </option>
+                        <option value="name" {% if request.args.get('sort') == 'name' %}selected{% endif %}>
+                            Nome
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Filtra per fonte:</label>
+                    <select class="form-select" id="sourceFilter">
+                        <option value="">Tutte le fonti</option>
+                        <option value="linkedin">LinkedIn</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="instagram">Instagram</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Applications Grid -->
+    {% if applications %}
+    <div class="row" id="applicationsContainer">
+        {% for application in applications %}
+        <div class="col-lg-6 mb-4 application-card"
+             data-status="{{ application.status.value if application.status else 'new' }}"
+             data-source="{{ application.source.value if application.source else 'unknown' }}">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">{{ application.first_name }} {{ application.last_name }}</h6>
+                            <small class="text-muted">
+                                <i class="ri-calendar-line me-1"></i>
+                                {{ application.created_at.strftime('%d/%m/%Y %H:%M') if application.created_at else 'N/D' }}
+                            </small>
+                        </div>
+                        {% if application.total_score is not none %}
+                        <div class="score-badge">
+                            <i class="ri-star-line me-1"></i>{{ application.total_score|round(1) }}%
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <div class="info-box">
+                                <small>Email</small>
+                                <strong>{{ application.email }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="info-box">
+                                <small>Telefono</small>
+                                <strong>{{ application.phone or 'Non fornito' }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Score ATS Section -->
+                    {% if application.screened_at %}
+                    <div class="row g-3 mb-3">
+                        <div class="col-4">
+                            <div class="info-box" style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); border-color: #90CAF9;">
+                                <small style="color: #1976D2;">Score ATS CV</small>
+                                <strong style="color: #0D47A1; font-size: 1.1rem;">
+                                    {% if application.cv_score is not none and application.cv_score is not false %}
+                                        {{ application.cv_score|round(1) }}%
+                                    {% else %}
+                                        N/D
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="info-box">
+                                <small>Score Form</small>
+                                <strong>
+                                    {% if application.form_score is not none and application.form_score is not false %}
+                                        {{ application.form_score|round(1) }}%
+                                    {% else %}
+                                        N/D
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="info-box" style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); border-color: #81C784;">
+                                <small style="color: #388E3C;">Score Totale</small>
+                                <strong style="color: #1B5E20; font-size: 1.1rem;">
+                                    {% if application.total_score is not none and application.total_score is not false %}
+                                        {{ application.total_score|round(1) }}%
+                                    {% else %}
+                                        N/D
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <small class="text-muted d-block mb-1">Fonte</small>
+                            {% if application.source %}
+                                {% if application.source.value == 'linkedin' %}
+                                    <span class="badge badge-linkedin">
+                                        <i class="ri-linkedin-box-fill me-1"></i>LinkedIn
+                                    </span>
+                                {% elif application.source.value == 'facebook' %}
+                                    <span class="badge badge-facebook">
+                                        <i class="ri-facebook-box-fill me-1"></i>Facebook
+                                    </span>
+                                {% elif application.source.value == 'instagram' %}
+                                    <span class="badge badge-instagram">
+                                        <i class="ri-instagram-fill me-1"></i>Instagram
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ application.source.value|title }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">Sconosciuta</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block mb-1">Stato</small>
+                            {% if application.status %}
+                                {% if application.status.value == 'new' %}
+                                    <span class="badge badge-new">Nuova</span>
+                                {% elif application.status.value == 'screening' %}
+                                    <span class="badge badge-screening">Screening</span>
+                                {% elif application.status.value == 'reviewed' %}
+                                    <span class="badge badge-reviewed">Revisionata</span>
+                                {% elif application.status.value == 'hired' %}
+                                    <span class="badge badge-hired">Assunta</span>
+                                {% elif application.status.value == 'rejected' %}
+                                    <span class="badge badge-rejected">Rifiutata</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ application.status.value|title }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge badge-new">Nuova</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if application.cv_file_path %}
+                    <div class="mb-3">
+                        <a href="{{ url_for('recruiting.download_cv', application_id=application.id) }}"
+                           class="btn btn-sm btn-outline-success w-100">
+                            <i class="ri-file-download-line me-1"></i>Scarica CV
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('recruiting.application_detail', application_id=application.id) }}"
+                       class="btn btn-success btn-sm w-100">
+                        <i class="ri-eye-line me-1"></i>Dettagli
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="ri-user-search-line empty-state-icon"></i>
+        <h5>Nessuna candidatura ricevuta</h5>
+        <p class="text-muted">Le candidature per questa offerta appariranno qui.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Filtri
+document.getElementById('sourceFilter')?.addEventListener('change', filterApplications);
+
+function filterApplications() {
+    const sourceFilter = document.getElementById('sourceFilter').value;
+
+    document.querySelectorAll('.application-card').forEach(card => {
+        let show = true;
+
+        if (sourceFilter && card.dataset.source !== sourceFilter) {
+            show = false;
+        }
+
+        card.style.display = show ? 'block' : 'none';
+    });
+}
+</script>
+{% endblock %}

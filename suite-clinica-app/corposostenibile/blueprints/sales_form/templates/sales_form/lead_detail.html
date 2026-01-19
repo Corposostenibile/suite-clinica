@@ -1,0 +1,1954 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lead.full_name }} – Dettaglio Lead{% endblock %}
+
+{% block extra_css %}
+<!-- CSRF Token for JavaScript -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Hero Header */
+    .hero-header {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+    }
+
+    .hero-header .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .hero-header .info-item i {
+        width: 24px;
+        text-align: center;
+        margin-right: 12px;
+        opacity: 0.9;
+    }
+
+    .hero-header h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        color: white !important;
+    }
+
+    /* Tabs */
+    .nav-tabs {
+        border-bottom: 2px solid #E2E8F0;
+        margin-bottom: 24px;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #64748B;
+        padding: 12px 24px;
+        font-weight: 500;
+        transition: all 0.3s;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: #487FFF;
+        border-bottom-color: #E2E8F0;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #487FFF;
+        background: transparent;
+        border-bottom-color: #487FFF;
+    }
+
+    /* Stats Cards */
+    .stat-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--dark-color);
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.875rem;
+        color: #64748B;
+        font-weight: 500;
+    }
+
+    .stat-card.success .stat-value { color: #45CB85; }
+    .stat-card.info .stat-value { color: #487FFF; }
+    .stat-card.warning .stat-value { color: #F0AD4E; }
+
+    /* Info Box */
+    .info-box {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .info-box-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748B;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .info-box-value {
+        color: var(--dark-color);
+        font-size: 1rem;
+        font-weight: 500;
+    }
+
+    /* Timeline */
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #E2E8F0;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -1.375rem;
+        top: 0.25rem;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background: #4ECAC2;
+        border: 2px solid white;
+        box-shadow: 0 0 0 4px #E2E8F0;
+    }
+
+    .timeline-item.success::before {
+        background: #45CB85;
+        box-shadow: 0 0 0 4px #C6F6D5;
+    }
+
+    /* Action Button */
+    .action-btn {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s;
+        border: none;
+        margin-bottom: 12px;
+    }
+
+    .action-btn.primary {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+    }
+
+    .action-btn.primary:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .action-btn.secondary {
+        background: white;
+        color: #45CB85;
+        border: 1px solid #45CB85;
+    }
+
+    .action-btn.secondary:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+    }
+
+    /* Badge */
+    .custom-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    /* Package Cards */
+    .package-card {
+        border: 2px solid #E2E8F0;
+        transition: all 0.3s;
+    }
+
+    .package-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .package-card.selected {
+        border-color: #45CB85 !important;
+        background: linear-gradient(135deg, #F0FDF4 0%, white 100%);
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+    .text-white-80 { color: rgba(255,255,255,0.8); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Back Button -->
+    <div class="mb-3">
+        {% if current_user.department_id == 13 %}
+        {# Health Manager #}
+        <a href="{{ url_for('sales_form.health_manager_panel') }}" class="btn btn-sm btn-outline-success">
+            <i class="ri-arrow-left-line"></i> Torna al Pannello
+        </a>
+        {% elif current_user.department_id in [5, 18] %}
+        {# Sales e Finance #}
+        <a href="{{ url_for('sales_form.dashboard') }}" class="btn btn-sm btn-outline-success">
+            <i class="ri-arrow-left-line"></i> Torna all'elenco
+        </a>
+        {% else %}
+        {# Admin #}
+        <a href="{{ url_for('sales_form.admin_leads') }}" class="btn btn-sm btn-outline-success">
+            <i class="ri-arrow-left-line"></i> Torna all'elenco
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Hero Header -->
+    <div class="hero-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2>{{ lead.full_name }}</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        {% if lead.company %}
+                        <div class="info-item">
+                            <i class="ri-building-line"></i>
+                            <span>{{ lead.company }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <i class="ri-mail-line"></i>
+                            <span>{{ lead.email }}</span>
+                        </div>
+                        {% if lead.phone %}
+                        <div class="info-item">
+                            <i class="ri-phone-line"></i>
+                            <span>{{ lead.phone }}</span>
+                        </div>
+                        {% endif %}
+                        {% if lead.birth_date %}
+                        <div class="info-item">
+                            <i class="ri-cake-line"></i>
+                            <span>{{ lead.birth_date.strftime('%d/%m/%Y') }} ({{ (today.year - lead.birth_date.year - ((today.month, today.day) < (lead.birth_date.month, lead.birth_date.day))|int) }} anni)</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <div class="info-item">
+                            <i class="ri-calendar-line"></i>
+                            <span>{{ lead.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                        </div>
+                        {% if lead.origin %}
+                        <div class="info-item">
+                            <i class="ri-compass-line"></i>
+                            <span>{{ lead.origin }}</span>
+                        </div>
+                        {% endif %}
+                        {% if lead.gender %}
+                        <div class="info-item">
+                            <i class="ri-user-line"></i>
+                            <span>{{ 'Maschio' if lead.gender == 'M' else 'Femmina' if lead.gender == 'F' else lead.gender }}</span>
+                        </div>
+                        {% endif %}
+                        {% if lead.professione %}
+                        <div class="info-item">
+                            <i class="ri-briefcase-line"></i>
+                            <span>{{ lead.professione }}</span>
+                        </div>
+                        {% endif %}
+                        {% if lead.indirizzo %}
+                        <div class="info-item">
+                            <i class="ri-home-line"></i>
+                            <span>{{ lead.indirizzo }}{% if lead.paese %}, {{ lead.paese }}{% endif %}</span>
+                        </div>
+                        {% endif %}
+                        {% if lead.source %}
+                        <div class="info-item">
+                            <i class="ri-link"></i>
+                            <span>Fonte: {{ lead.source }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <i class="ri-user-line"></i>
+                            <span>Sales: {{ lead.sales_user.name if lead.sales_user else 'Non assegnato' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 10px; color: white;">
+                    Stato Lead
+                </div>
+                <div>
+                    <span class="badge" style="font-size: 1.1rem; padding: 10px 20px;
+                        {% if lead.status.value == 'NEW' %}background: #6C757D;
+                        {% elif lead.status.value == 'CONTACTED' %}background: #5BC0DE;
+                        {% elif lead.status.value == 'QUALIFIED' %}background: #487FFF;
+                        {% elif lead.status.value == 'CONVERTED' %}background: #45CB85;
+                        {% elif lead.status.value == 'LOST' %}background: #DC3545;
+                        {% else %}background: #F0AD4E;{% endif %}">
+                        {{ lead.status.value|replace('_', ' ')|title }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <div class="col-lg-9">
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs" id="leadTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                        <i class="ri-dashboard-line me-2"></i>Overview
+                    </button>
+                </li>
+                {% if lead.client_story %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="storia-tab" data-bs-toggle="tab" data-bs-target="#storia" type="button" role="tab">
+                        <i class="ri-file-text-line me-2"></i>Storia Cliente
+                    </button>
+                </li>
+                {% endif %}
+                {% if lead.form_responses %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="risposte-tab" data-bs-toggle="tab" data-bs-target="#risposte" type="button" role="tab">
+                        <i class="ri-questionnaire-line me-2"></i>Risposte Form
+                    </button>
+                </li>
+                {% endif %}
+                {% if payments %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="pagamenti-tab" data-bs-toggle="tab" data-bs-target="#pagamenti" type="button" role="tab">
+                        <i class="ri-money-euro-circle-line me-2"></i>Pagamenti ({{ payments|length }})
+                    </button>
+                </li>
+                {% endif %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="attivita-tab" data-bs-toggle="tab" data-bs-target="#attivita" type="button" role="tab">
+                        <i class="ri-time-line me-2"></i>Cronologia
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tabs Content -->
+            <div class="tab-content" id="leadTabsContent">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                    <!-- Stats Row -->
+                    {% if lead.final_amount %}
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="stat-card success">
+                                <div class="stat-value">€{{ "{:,.0f}".format(lead.final_amount) }}</div>
+                                <div class="stat-label">Importo Totale</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card info">
+                                <div class="stat-value">€{{ "{:,.0f}".format(lead.paid_amount|default(0)) }}</div>
+                                <div class="stat-label">Pagato</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card warning">
+                                <div class="stat-value">€{{ "{:,.0f}".format(lead.remaining_amount if lead.remaining_amount else 0) }}</div>
+                                <div class="stat-label">Rimanente</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Pacchetto e Pagamento -->
+                    {% if lead.package or lead.final_amount %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-shopping-bag-line me-2"></i>Dettagli Commerciali
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if lead.package %}
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="info-box-label">Pacchetto Selezionato</div>
+                                                <div class="info-box-value">{{ lead.package.name }}</div>
+                                                <small class="text-muted">{{ lead.package.description[:100] }}...</small>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#packageModal" title="Cambia pacchetto">
+                                                <i class="ri-refresh-line"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Stato Pagamento</div>
+                                        <div class="info-box-value">
+                                            {% if lead.payment_status == 'PAID' %}
+                                                <span class="badge bg-success">Pagato</span>
+                                            {% elif lead.payment_status == 'PARTIAL' %}
+                                                <span class="badge bg-warning">Parziale</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">In attesa</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if lead.discount_amount and lead.discount_amount > 0 %}
+                            <div class="alert alert-info mt-3">
+                                <i class="ri-coupon-line me-2"></i>
+                                <strong>Sconto applicato:</strong> €{{ "{:,.2f}".format(lead.discount_amount) }}
+                                {% if lead.discount_reason %}- {{ lead.discount_reason }}{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Check 3 Scoring - Profilo Psico-Alimentare -->
+                    {% if lead.check3_completed_at and lead.check3_type %}
+                    <div class="card mb-4">
+                        <div class="card-header" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);">
+                            <h6 class="card-title mb-0" style="color: white;">
+                                <i class="ri-psychotherapy-line me-2"></i>Profilo Psico-Alimentare (Check 3)
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <div class="mb-2">
+                                            <i class="ri-medal-line" style="font-size: 3rem; color:
+                                                {% if lead.check3_type == 'A' %}#10B981
+                                                {% elif lead.check3_type == 'B' %}#F59E0B
+                                                {% else %}#EF4444{% endif %};"></i>
+                                        </div>
+                                        <h2 class="mb-0" style="color:
+                                            {% if lead.check3_type == 'A' %}#10B981
+                                            {% elif lead.check3_type == 'B' %}#F59E0B
+                                            {% else %}#EF4444{% endif %};">
+                                            Tipo {{ lead.check3_type }}
+                                        </h2>
+                                        <small class="text-muted">Categoria</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h3 class="mb-0 fw-bold" style="color: #6D28D9;">{{ lead.check3_score }}/78</h3>
+                                        <small class="text-muted">Punteggio Totale</small>
+                                        <div class="progress mt-2" style="height: 8px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                 style="width: {{ (lead.check3_score / 78 * 100)|round }}%; background:
+                                                 {% if lead.check3_type == 'A' %}#10B981
+                                                 {% elif lead.check3_type == 'B' %}#F59E0B
+                                                 {% else %}#EF4444{% endif %};"
+                                                 aria-valuenow="{{ lead.check3_score }}" aria-valuemin="0" aria-valuemax="78">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="alert mb-0" style="border-left: 4px solid
+                                        {% if lead.check3_type == 'A' %}#10B981
+                                        {% elif lead.check3_type == 'B' %}#F59E0B
+                                        {% else %}#EF4444{% endif %}; background: rgba(
+                                        {% if lead.check3_type == 'A' %}16, 185, 129
+                                        {% elif lead.check3_type == 'B' %}245, 158, 11
+                                        {% else %}239, 68, 68{% endif %}, 0.1);">
+                                        <strong>
+                                            {% if lead.check3_type == 'A' %}
+                                                <i class="ri-checkbox-circle-line me-1" style="color: #10B981;"></i>Rapporto equilibrato
+                                            {% elif lead.check3_type == 'B' %}
+                                                <i class="ri-alert-line me-1" style="color: #F59E0B;"></i>Attenzione moderata
+                                            {% else %}
+                                                <i class="ri-error-warning-line me-1" style="color: #EF4444;"></i>Necessita supporto
+                                            {% endif %}
+                                        </strong>
+                                        <p class="mb-0 small mt-1" style="color: #64748B;">
+                                            {% if lead.check3_type == 'A' %}
+                                                Punteggio 0-15: Rapporto sano con il cibo
+                                            {% elif lead.check3_type == 'B' %}
+                                                Punteggio 16-25: Alcuni pattern da monitorare
+                                            {% else %}
+                                                Punteggio 26+: Richiede attenzione specialistica
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-center">
+                                <small class="text-muted">
+                                    <i class="ri-calendar-check-line me-1"></i>
+                                    Completato il {{ lead.check3_completed_at.strftime('%d/%m/%Y alle %H:%M') }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Link per Check Form -->
+                    {% if check_links %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-link me-2"></i>Link Form Check
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3">
+                                <i class="ri-information-line me-1"></i>
+                                Invia questi link al prospect per raccogliere informazioni aggiuntive. Ogni check ha il suo form separato.
+                            </p>
+                            <div class="row g-3">
+                                {% for check_key in ['check1', 'check2', 'check3'] %}
+                                {% set link = check_links[check_key] %}
+                                {% set check_num = check_key[-1] %}
+                                {% set completed = lead['check' ~ check_num ~ '_completed_at'] %}
+                                <div class="col-md-4">
+                                    <div class="card border {% if completed %}border-success{% else %}border-secondary{% endif %}" style="height: 100%;">
+                                        <div class="card-body">
+                                            <h6 class="mb-2">
+                                                <i class="ri-file-list-line me-1"></i>Check {{ check_num }}
+                                                {% if completed %}
+                                                    <span class="badge bg-success ms-2">
+                                                        <i class="ri-checkbox-circle-line me-1"></i>Completato
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary ms-2">
+                                                        <i class="ri-time-line me-1"></i>Da compilare
+                                                    </span>
+                                                {% endif %}
+                                            </h6>
+                                            {% if completed %}
+                                                <small class="text-success d-block mb-2">
+                                                    <i class="ri-calendar-check-line me-1"></i>{{ completed.strftime('%d/%m/%Y %H:%M') }}
+                                                </small>
+                                            {% else %}
+                                                {# Mostra il link SOLO se NON è completato #}
+                                                {% if link %}
+                                                    <div class="input-group input-group-sm mt-2">
+                                                        <input type="text" class="form-control" value="{{ check_urls[check_key] }}" id="check{{ check_num }}Link" readonly>
+                                                        <button class="btn btn-outline-primary" type="button" onclick="copyToClipboard('check{{ check_num }}Link', this)">
+                                                            <i class="ri-file-copy-line"></i>
+                                                        </button>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="alert alert-warning alert-sm mt-2 mb-0">
+                                                        <i class="ri-alert-line me-1"></i>Link non generato
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Messaggio da Inviare -->
+                    <div class="card mt-3">
+                        <div class="card-header" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%);">
+                            <h6 class="card-title mb-0" style="color: white;">
+                                <i class="ri-message-3-line me-2"></i>Messaggio da Inviare al Prospect
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3">
+                                <i class="ri-information-line me-1"></i>
+                                Copia questo messaggio e invialo al prospect via WhatsApp, email o SMS. I link dei check sono già inseriti.
+                            </p>
+                            <div class="position-relative">
+                                <textarea
+                                    id="welcomeMessage"
+                                    class="form-control"
+                                    rows="20"
+                                    readonly
+                                    style="background-color: #f8f9fa; font-family: inherit; white-space: pre-wrap;">Congratulazioni!
+Da oggi entri ufficialmente nella famiglia di CorpoSostenibile.
+Per iniziare al meglio il tuo percorso ci sono alcuni passaggi importanti da completare entro 48 ore, così potremo preparare il tuo protocollo in modo preciso e personalizzato.
+{% if not lead.check1_completed_at %}
+
+Check-up iniziale
+{{ check_urls['check1'] or '[Link Check 1 non ancora generato]' }}
+{% endif %}
+
+Check-up fisico & alimentare – durata 12 minuti
+Richiede foto del fisico e peso per procedere
+{{ check_urls['check2'] or '[Link Check 2 non ancora generato]' }}
+
+Check-up psico-alimentare – durata 5 minuti
+{{ check_urls['check3'] or '[Link Check 3 non ancora generato]' }}
+
+A presto,
+Team CorpoSostenibile</textarea>
+                                <button
+                                    class="btn btn-success position-absolute"
+                                    style="top: 10px; right: 10px;"
+                                    onclick="copyWelcomeMessage()"
+                                    title="Copia messaggio completo">
+                                    <i class="ri-file-copy-line me-1"></i>Copia Messaggio
+                                </button>
+                            </div>
+                            <div class="alert alert-success mt-3 d-none" id="copySuccessAlert">
+                                <i class="ri-checkbox-circle-line me-1"></i>
+                                <strong>Messaggio copiato!</strong> Ora puoi incollarlo dove preferisci.
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Info Base -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="card-title mb-0">
+                                    <i class="ri-information-line me-2"></i>Informazioni Base
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="editAnagraficaBtn">
+                                    <i class="ri-edit-line me-1"></i>Modifica
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Vista Solo Lettura -->
+                            <div id="anagraficaView">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="info-box">
+                                            <div class="info-box-label">Nome</div>
+                                            <div class="info-box-value">{{ lead.first_name }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="info-box">
+                                            <div class="info-box-label">Cognome</div>
+                                            <div class="info-box-value">{{ lead.last_name }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="info-box">
+                                            <div class="info-box-label">Email</div>
+                                            <div class="info-box-value">{{ lead.email }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="info-box">
+                                            <div class="info-box-label">Telefono</div>
+                                            <div class="info-box-value">{{ lead.phone or '-' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="info-box">
+                                            <div class="info-box-label">Indirizzo</div>
+                                            <div class="info-box-value">{{ lead.indirizzo or '-' }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="info-box">
+                                            <div class="info-box-label">Paese</div>
+                                            <div class="info-box-value">{{ lead.paese or '-' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Form Modifica (nascosto di default) -->
+                            <form method="POST" action="{{ url_for('sales_form.update_anagrafica', lead_id=lead.id) }}" id="anagraficaForm" style="display: none;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-medium">Nome <span class="text-danger">*</span></label>
+                                        <input type="text" name="first_name" class="form-control" value="{{ lead.first_name }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-medium">Cognome <span class="text-danger">*</span></label>
+                                        <input type="text" name="last_name" class="form-control" value="{{ lead.last_name }}" required>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-medium">Email <span class="text-danger">*</span></label>
+                                        <input type="email" name="email" class="form-control" value="{{ lead.email }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-medium">Telefono</label>
+                                        <input type="tel" name="phone" class="form-control" value="{{ lead.phone or '' }}">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-8">
+                                        <label class="form-label fw-medium">Indirizzo</label>
+                                        <input type="text" name="indirizzo" class="form-control" value="{{ lead.indirizzo or '' }}" placeholder="Es: Via Roma 123, 00100 Roma (RM)">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-medium">Paese</label>
+                                        <input type="text" name="paese" class="form-control" value="{{ lead.paese or '' }}" placeholder="Es: Italia">
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="ri-save-line me-1"></i>Salva Modifiche
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" id="cancelAnagraficaBtn">
+                                        <i class="ri-close-line me-1"></i>Annulla
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Sesso</div>
+                                        <div class="info-box-value">
+                                            {% if lead.gender == 'M' %}
+                                                Maschio
+                                            {% elif lead.gender == 'F' %}
+                                                Femmina
+                                            {% else %}
+                                                <span class="text-muted">Non specificato</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Origine</div>
+                                        <div class="info-box-value">
+                                            {% if lead.origin %}
+                                                {{ lead.origin }}
+                                            {% else %}
+                                                <span class="text-muted">Non specificata</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                {% if lead.birth_date %}
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Data di Nascita</div>
+                                        <div class="info-box-value">{{ lead.birth_date.strftime('%d/%m/%Y') if lead.birth_date else '-' }}</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% if lead.company %}
+                                <div class="col-md-6">
+                                    <div class="info-box">
+                                        <div class="info-box-label">Azienda</div>
+                                        <div class="info-box-value">{{ lead.company }}</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Storia Cliente Tab -->
+                {% if lead.client_story %}
+                <div class="tab-pane fade" id="storia" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-file-text-line me-2"></i>Storia Cliente
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="prose" style="white-space: pre-wrap;">
+                                {{ lead.client_story }}
+                            </div>
+                            {% if lead.story_updated_at %}
+                            <div class="mt-3 text-muted small">
+                                <i class="ri-time-line me-1"></i>
+                                Ultima modifica: {{ lead.story_updated_at.strftime('%d/%m/%Y %H:%M') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Risposte Form Tab -->
+                {% if lead.form_responses %}
+                <div class="tab-pane fade" id="risposte" role="tabpanel">
+                    <!-- Sub-tabs per i 3 check -->
+                    <ul class="nav nav-pills mb-3" id="checkTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if lead.check1_responses %}active{% endif %}" id="check1-tab" data-bs-toggle="pill" data-bs-target="#check1" type="button" role="tab">
+                                <i class="ri-file-list-line me-1"></i>Check 1
+                                {% if lead.check1_completed_at %}
+                                    <i class="ri-checkbox-circle-fill text-success ms-1"></i>
+                                {% endif %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if not lead.check1_responses and lead.check2_responses %}active{% endif %}" id="check2-tab" data-bs-toggle="pill" data-bs-target="#check2" type="button" role="tab">
+                                <i class="ri-file-list-2-line me-1"></i>Check 2
+                                {% if lead.check2_completed_at %}
+                                    <i class="ri-checkbox-circle-fill text-success ms-1"></i>
+                                {% endif %}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if not lead.check1_responses and not lead.check2_responses and lead.check3_responses %}active{% endif %}" id="check3-tab" data-bs-toggle="pill" data-bs-target="#check3" type="button" role="tab">
+                                <i class="ri-file-list-3-line me-1"></i>Check 3
+                                {% if lead.check3_completed_at %}
+                                    <i class="ri-checkbox-circle-fill text-success ms-1"></i>
+                                {% endif %}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="checkTabsContent">
+                        {% for check_num in [1, 2, 3] %}
+                        {% set check_responses = lead['check' ~ check_num ~ '_responses'] %}
+                        {% set completed_at = lead['check' ~ check_num ~ '_completed_at'] %}
+                        <div class="tab-pane fade {% if (check_num == 1 and check_responses) or (check_num == 2 and not lead.check1_responses and check_responses) or (check_num == 3 and not lead.check1_responses and not lead.check2_responses and check_responses) %}show active{% endif %}" id="check{{ check_num }}" role="tabpanel">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="card-title mb-0">
+                                        <i class="ri-questionnaire-line me-2"></i>Risposte Check {{ check_num }}
+                                        {% if completed_at %}
+                                            <span class="badge bg-success ms-2">
+                                                <i class="ri-calendar-check-line me-1"></i>{{ completed_at.strftime('%d/%m/%Y %H:%M') }}
+                                            </span>
+                                        {% endif %}
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if check_responses and check_responses|length > 0 %}
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width: 40%;">
+                                                            <i class="ri-question-line me-1 text-primary"></i>Domanda
+                                                        </th>
+                                                        <th style="width: 60%;">
+                                                            <i class="ri-chat-check-line me-1 text-success"></i>Risposta
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {# Campi anagrafici standard (mostrati per primi) #}
+                                                    {% set standard_fields = [
+                                                        {'key': 'first_name', 'label': 'Nome'},
+                                                        {'key': 'last_name', 'label': 'Cognome'},
+                                                        {'key': 'email', 'label': 'Email'},
+                                                        {'key': 'phone', 'label': 'Telefono'},
+                                                        {'key': 'birth_date', 'label': 'Data di Nascita'},
+                                                        {'key': 'gender', 'label': 'Sesso'}
+                                                    ] %}
+
+                                                    {# Mostra campi standard se presenti nelle risposte #}
+                                                    {% for field in standard_fields %}
+                                                        {% if check_responses.get(field.key) %}
+                                                        <tr>
+                                                            <td class="fw-semibold text-dark">{{ field.label }}</td>
+                                                            <td>
+                                                                {% set value = check_responses[field.key] %}
+                                                                {% if value is none or value == '' %}
+                                                                    <span class="text-muted fst-italic">Nessuna risposta</span>
+                                                                {% else %}
+                                                                    <span class="text-dark">{{ value }}</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                    {% endfor %}
+
+                                                    {# NUOVO: Itera sui campi configurati IN ORDINE (per position) #}
+                                                    {% set fields_list = check_fields_ordered.get('check' ~ check_num, []) %}
+                                                    {% for field in fields_list %}
+                                                        {# Salta campi di layout (heading, paragraph, divider) #}
+                                                        {% if field.field_type.value not in ['heading', 'paragraph', 'divider'] %}
+                                                        <tr>
+                                                            <td class="fw-semibold text-dark">
+                                                                {{ field.field_label }}
+                                                                {% if field.is_required %}
+                                                                    <span class="text-danger">*</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                {# Cerca valore con o senza [] (checkbox potrebbero avere []) #}
+                                                                {% set value = check_responses.get(field.field_name) or check_responses.get(field.field_name ~ '[]') %}
+
+                                                                {# Se campo FILE: verifica se esiste file caricato in form_attachments #}
+                                                                {% if field.field_type.value == 'file' %}
+                                                                    {% set file_found = namespace(found=false, attachment=none) %}
+                                                                    {% if lead.form_attachments %}
+                                                                        {% for attachment in lead.form_attachments %}
+                                                                            {% if attachment.field_name == field.field_name and attachment.check_number == check_num %}
+                                                                                {% set file_found.found = true %}
+                                                                                {% set file_found.attachment = attachment %}
+                                                                            {% endif %}
+                                                                        {% endfor %}
+                                                                    {% endif %}
+                                                                    {% if file_found.found %}
+                                                                        {% set file_ext = file_found.attachment.path.split('.')[-1]|lower %}
+                                                                        {% set download_url = url_for('sales_form.download_attachment', lead_id=lead.id, filename=file_found.attachment.path.split('/')[-1]) %}
+
+                                                                        {# Se è un'immagine, mostra thumbnail #}
+                                                                        {% if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif'] %}
+                                                                            <div class="d-flex align-items-center gap-2">
+                                                                                <a href="{{ download_url }}" target="_blank" class="text-decoration-none">
+                                                                                    <img src="{{ download_url }}"
+                                                                                         alt="{{ file_found.attachment.filename }}"
+                                                                                         class="img-thumbnail"
+                                                                                         style="max-width: 150px; max-height: 150px; object-fit: cover; cursor: pointer;"
+                                                                                         onclick="window.open(this.src, '_blank')"
+                                                                                         title="Click per aprire in nuova tab">
+                                                                                </a>
+                                                                                <div class="flex-grow-1">
+                                                                                    <div class="text-success fw-semibold">
+                                                                                        <i class="ri-image-line me-1"></i>Immagine caricata
+                                                                                    </div>
+                                                                                    <small class="text-muted d-block">{{ file_found.attachment.filename }}</small>
+                                                                                    <small class="text-muted">{{ (file_found.attachment.size / 1024)|round(1) }} KB</small>
+                                                                                </div>
+                                                                            </div>
+                                                                        {# Altrimenti mostra icona file con link download #}
+                                                                        {% else %}
+                                                                            <div class="d-flex align-items-center gap-2">
+                                                                                <i class="ri-file-pdf-line ri-2x text-danger"></i>
+                                                                                <div>
+                                                                                    <div class="text-success fw-semibold">
+                                                                                        <i class="ri-check-line me-1"></i>File caricato
+                                                                                    </div>
+                                                                                    <small class="text-muted d-block">{{ file_found.attachment.filename }}</small>
+                                                                                    <a href="{{ download_url }}" class="btn btn-sm btn-outline-primary mt-1" target="_blank">
+                                                                                        <i class="ri-download-line me-1"></i>Scarica
+                                                                                    </a>
+                                                                                </div>
+                                                                            </div>
+                                                                        {% endif %}
+                                                                    {% else %}
+                                                                        <span class="text-muted fst-italic">Nessun file caricato</span>
+                                                                    {% endif %}
+                                                                {# Altrimenti mostra risposta testuale normale #}
+                                                                {% elif value is none or value == '' %}
+                                                                    <span class="text-muted fst-italic">Nessuna risposta</span>
+                                                                {% elif value is string and value|length > 150 %}
+                                                                    <div style="white-space: pre-wrap; max-height: 200px; overflow-y: auto;" class="p-2 bg-light rounded">{{ value }}</div>
+                                                                {% elif value is iterable and value is not string %}
+                                                                    {# Gestione array (checkbox multipli) #}
+                                                                    <span class="text-dark">{{ value|join(', ') }}</span>
+                                                                {% else %}
+                                                                    <span class="text-dark">{{ value }}</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {# ========== SEZIONE FILE CARICATI ========== #}
+                                        {% if lead.form_attachments and lead.form_attachments|length > 0 %}
+                                        {% set check_files = [] %}
+                                        {% for attachment in lead.form_attachments %}
+                                            {% if attachment.check_number == check_num %}
+                                                {% set _ = check_files.append(attachment) %}
+                                            {% endif %}
+                                        {% endfor %}
+
+                                        {% if check_files|length > 0 %}
+                                        <div class="mt-4">
+                                            <h6 class="fw-bold mb-3">
+                                                <i class="ri-attachment-line me-2 text-primary"></i>File Allegati ({{ check_files|length }})
+                                            </h6>
+                                            <div class="row g-3">
+                                                {% for attachment in check_files %}
+                                                <div class="col-md-6">
+                                                    <div class="card border">
+                                                        <div class="card-body">
+                                                            <div class="d-flex align-items-start">
+                                                                <div class="flex-shrink-0 me-3">
+                                                                    {% set file_ext = attachment.path.split('.')[-1]|lower %}
+                                                                    {% if file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
+                                                                        <i class="ri-image-line ri-2x text-primary"></i>
+                                                                    {% elif file_ext == 'pdf' %}
+                                                                        <i class="ri-file-pdf-line ri-2x text-danger"></i>
+                                                                    {% else %}
+                                                                        <i class="ri-file-line ri-2x text-secondary"></i>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="flex-grow-1">
+                                                                    <h6 class="mb-1">
+                                                                        {% set field_config = check_configs.get('check' ~ check_num, {}) %}
+                                                                        {{ field_config.get(attachment.field_name, attachment.field_name|replace('_', ' ')|title) }}
+                                                                    </h6>
+                                                                    <p class="text-muted small mb-2">
+                                                                        <i class="ri-file-text-line me-1"></i>{{ attachment.filename }}
+                                                                        <br>
+                                                                        <i class="ri-file-info-line me-1"></i>{{ (attachment.size / 1024)|round(1) }} KB
+                                                                        <br>
+                                                                        <i class="ri-time-line me-1"></i>{{ attachment.uploaded_at[:10] }}
+                                                                    </p>
+                                                                    <a href="{{ url_for('sales_form.download_attachment', lead_id=lead.id, filename=attachment.path.split('/')[-1]) }}"
+                                                                       class="btn btn-sm btn-outline-primary">
+                                                                        <i class="ri-download-line me-1"></i>Scarica
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            <i class="ri-information-line me-2"></i>
+                                            <strong>Check {{ check_num }} non ancora compilato</strong>
+                                            <p class="mb-0 mt-2">Il prospect non ha ancora compilato questo questionario. Invia il link dalla tab "Overview".</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Pagamenti Tab -->
+                {% if payments %}
+                <div class="tab-pane fade" id="pagamenti" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-money-euro-circle-line me-2"></i>Storico Pagamenti
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Tipo</th>
+                                            <th>Metodo</th>
+                                            <th>Importo</th>
+                                            <th>Stato</th>
+                                            <th class="text-end">Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in payments %}
+                                        <tr>
+                                            <td>{{ payment.payment_date.strftime('%d/%m/%Y') }}</td>
+                                            <td>
+                                                <span class="badge {% if payment.payment_type.value == 'saldo' %}bg-success{% else %}bg-warning{% endif %}">
+                                                    {{ payment.payment_type.value|title }}
+                                                </span>
+                                            </td>
+                                            <td>{{ payment.payment_method.value|title if payment.payment_method else '-' }}</td>
+                                            <td class="fw-semibold">€{{ "{:,.2f}".format(payment.amount) }}</td>
+                                            <td>
+                                                {% if payment.is_verified %}
+                                                    <span class="badge bg-success">Verificato</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">Da verificare</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                {% if payment.receipt_url %}
+                                                <a href="{{ url_for('sales_form.download_receipt', lead_id=lead.id, payment_id=payment.id) }}"
+                                                   class="btn btn-sm btn-outline-success"
+                                                   title="Scarica ricevuta"
+                                                   target="_blank">
+                                                    <i class="ri-file-download-line"></i>
+                                                </a>
+                                                {% endif %}
+                                                <a href="{{ url_for('sales_form.edit_payment', lead_id=lead.id, payment_id=payment.id) }}"
+                                                   class="btn btn-sm btn-outline-primary"
+                                                   title="Modifica pagamento">
+                                                    <i class="ri-edit-line"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        onclick="deletePayment({{ payment.id }}, {{ payment.amount }})"
+                                                        title="Elimina pagamento">
+                                                    <i class="ri-delete-bin-line"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="fw-bold">
+                                            <td colspan="3">Totale Pagato</td>
+                                            <td>€{{ "{:,.2f}".format(payments|sum(attribute='amount')) }}</td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Attività Tab -->
+                <div class="tab-pane fade" id="attivita" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="ri-time-line me-2"></i>Cronologia Attività
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                {% for activity in activities %}
+                                <div class="timeline-item {% if loop.first %}success{% endif %}">
+                                    <small class="text-muted">{{ activity.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    <div class="fw-medium">{{ activity.description }}</div>
+                                    {% if activity.user %}
+                                    <small class="text-muted">{{ activity.user.name }}</small>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <p class="text-center text-muted">Nessuna attività registrata</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-3">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-flashlight-line me-2"></i>Azioni Rapide
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if lead.status.value not in ['CONVERTED', 'LOST'] %}
+                    <button class="action-btn primary" onclick="showStoryModal()">
+                        <i class="ri-file-text-line me-2"></i>{{ 'Modifica' if lead.client_story else 'Aggiungi' }} Storia
+                    </button>
+
+                    <button class="action-btn primary" onclick="showGenderModal()">
+                        <i class="ri-user-line me-2"></i>Seleziona Sesso
+                    </button>
+
+                    <button class="action-btn primary" onclick="showOriginModal()">
+                        <i class="ri-compass-line me-2"></i>Seleziona Origine
+                    </button>
+
+                    {% if not lead.package %}
+                    <button class="action-btn primary" onclick="showPackageModal()">
+                        <i class="ri-shopping-bag-line me-2"></i>Seleziona Pacchetto
+                    </button>
+                    {% endif %}
+
+                    {% if lead.package and lead.payment_status != 'PAID' %}
+                    <a href="{{ url_for('sales_form.add_payment', lead_id=lead.id) }}" class="action-btn primary">
+                        <i class="ri-money-euro-circle-line me-2"></i>Aggiungi Pagamento
+                    </a>
+                    {% endif %}
+                    {% endif %}
+
+                    {# Archiviazione #}
+                    <div class="dropdown-divider my-3"></div>
+                    {% if lead.is_archived %}
+                    <div class="alert alert-warning mb-3 py-2 small">
+                        <i class="ri-archive-line me-1"></i>
+                        <strong>Lead Archiviata</strong><br>
+                        <small class="text-muted">
+                            {{ lead.archived_at.strftime('%d/%m/%Y %H:%M') if lead.archived_at }}
+                        </small>
+                    </div>
+                    <form method="POST" action="{{ url_for('sales_form.restore_lead', lead_id=lead.id) }}" class="d-inline w-100">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="action-btn success w-100">
+                            <i class="ri-refresh-line me-2"></i>Ripristina Lead
+                        </button>
+                    </form>
+                    {% elif lead.status.value != 'CONVERTED' %}
+                    <form method="POST" action="{{ url_for('sales_form.archive_lead', lead_id=lead.id) }}" class="d-inline w-100" onsubmit="return confirm('Archiviare questa lead?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="action-btn secondary w-100">
+                            <i class="ri-archive-line me-2"></i>Archivia Lead
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    {# Eliminazione (SOLO ADMIN) #}
+                    {% if current_user.is_admin %}
+                    <div class="dropdown-divider my-3"></div>
+                    <form method="POST" action="{{ url_for('sales_form.delete_lead', lead_id=lead.id) }}" class="d-inline w-100" onsubmit="return confirm('⚠️ ATTENZIONE: Eliminare DEFINITIVAMENTE questa lead?\n\nLead: {{ lead.full_name }}\n\nQuesta operazione è IRREVERSIBILE!');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="ri-delete-bin-line me-2"></i>Elimina Lead (ADMIN)
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Health Manager Assignment Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-user-heart-line me-2"></i>Health Manager
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if lead.health_manager_id %}
+                    <!-- Health Manager già assegnato -->
+                    <div class="alert alert-success mb-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="ri-checkbox-circle-line me-2"></i>
+                            <strong>Health Manager Assegnato</strong>
+                        </div>
+                        {% if lead.status.value not in ['CONVERTED', 'LOST'] %}
+                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#editHealthManagerModal">
+                            <i class="ri-edit-line me-1"></i>Modifica
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Info Health Manager Assegnato (sempre visibile) -->
+                    <div class="info-box">
+                        <div class="info-box-label">Health Manager</div>
+                        <div class="info-box-value">{{ lead.health_manager.full_name }}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-box-label">Data Onboarding</div>
+                        <div class="info-box-value">
+                            {{ lead.onboarding_date.strftime('%d/%m/%Y') if lead.onboarding_date else '-' }}
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-box-label">Orario Call</div>
+                        <div class="info-box-value">
+                            {{ lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else '-' }}
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-box-label">Assegnato da</div>
+                        <div class="info-box-value">
+                            {{ lead.health_manager_assigned_by_user.full_name if lead.health_manager_assigned_by_user else '-' }}
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        <i class="ri-time-line me-1"></i>
+                        {{ lead.health_manager_assigned_at.strftime('%d/%m/%Y %H:%M') if lead.health_manager_assigned_at else '-' }}
+                    </small>
+                    {% else %}
+                    <!-- Form per assegnare Health Manager (SOLO se pagamento completo) -->
+                    {% if lead.status.value not in ['CONVERTED', 'LOST'] and lead.package %}
+
+                    {% if lead.paid_amount and lead.final_amount and lead.paid_amount >= lead.final_amount %}
+                    <!-- Pagamento COMPLETO - Mostra form -->
+                    <div class="alert alert-success mb-3">
+                        <i class="ri-checkbox-circle-line me-2"></i>
+                        <small><strong>Pagamento completato!</strong> Puoi assegnare l'Health Manager</small>
+                    </div>
+                    <form method="POST" action="{{ url_for('sales_form.assign_health_manager', lead_id=lead.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Health Manager <span class="text-danger">*</span></label>
+                            <select name="health_manager_id" class="form-select" required>
+                                <option value="">Seleziona Health Manager...</option>
+                                {% for hm in health_managers %}
+                                <option value="{{ hm.id }}">{{ hm.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Data Onboarding <span class="text-danger">*</span></label>
+                            <input type="date" name="onboarding_date" class="form-control" required
+                                   min="{{ (lead.created_at.date()).isoformat() }}">
+                            <small class="text-muted">Data prevista per l'onboarding del cliente</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Orario Call Onboarding</label>
+                            <input type="time" name="onboarding_time" class="form-control">
+                            <small class="text-muted">Orario previsto per la call di onboarding</small>
+                        </div>
+
+                        <button type="submit" class="action-btn primary">
+                            <i class="ri-user-add-line me-2"></i>Assegna Health Manager
+                        </button>
+                    </form>
+                    {% else %}
+                    <!-- Pagamento INCOMPLETO - Solo messaggio -->
+                    <div class="alert alert-warning mb-3">
+                        <i class="ri-alert-line me-2"></i>
+                        <small>
+                            <strong>Pagamento incompleto</strong><br>
+                            Pagato: €{{ "%.2f"|format(lead.paid_amount or 0) }} su €{{ "%.2f"|format(lead.final_amount) }}<br>
+                            Mancano: <strong>€{{ "%.2f"|format(lead.final_amount - (lead.paid_amount or 0)) }}</strong><br>
+                            <em>Completa il pagamento per poter assegnare l'Health Manager.</em>
+                        </small>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="ri-alert-line me-2"></i>
+                        <small>
+                            {% if not lead.package %}
+                            Seleziona prima un pacchetto per procedere con l'assegnazione.
+                            {% else %}
+                            Lead non disponibile per assegnazione Health Manager.
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Finance Status Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-money-euro-circle-line me-2"></i>Stato Finance
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <div class="info-box-label">Approvazione Finance</div>
+                        <div class="info-box-value">
+                            {% if lead.finance_approved %}
+                                <span class="badge bg-success">Approvato</span>
+                            {% else %}
+                                <span class="badge bg-secondary">In attesa</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if lead.finance_approved %}
+                    <div class="info-box">
+                        <div class="info-box-label">Approvato da</div>
+                        <div class="info-box-value">
+                            {{ lead.finance_approved_by_user.full_name if lead.finance_approved_by_user else '-' }}
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        <i class="ri-time-line me-1"></i>
+                        {{ lead.finance_approved_at.strftime('%d/%m/%Y %H:%M') if lead.finance_approved_at else '-' }}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Lead Info Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="ri-information-line me-2"></i>Info Lead
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <div class="info-box-label">Codice Univoco</div>
+                        <div class="info-box-value">#{{ lead.id }}</div>
+                    </div>
+                    {% if lead.sales_user %}
+                    <div class="info-box">
+                        <div class="info-box-label">Sales Assegnato</div>
+                        <div class="info-box-value">{{ lead.sales_user.name }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="info-box">
+                        <div class="info-box-label">Data Creazione</div>
+                        <div class="info-box-value">{{ lead.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                    </div>
+                    {% if lead.check3_type %}
+                    <div class="info-box">
+                        <div class="info-box-label">Profilo Psico-Alimentare</div>
+                        <div class="info-box-value">
+                            <span class="badge" style="font-size: 0.95rem; padding: 6px 12px; background:
+                                {% if lead.check3_type == 'A' %}#10B981
+                                {% elif lead.check3_type == 'B' %}#F59E0B
+                                {% else %}#EF4444{% endif %};">
+                                <i class="ri-psychology-line me-1"></i>Tipo {{ lead.check3_type }}
+                            </span>
+                            <small class="d-block mt-1 text-muted">Score: {{ lead.check3_score }}/78</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Storia -->
+<div class="modal fade" id="storyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('sales_form.add_story', lead_id=lead.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%);">
+                    <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+                        <i class="ri-file-text-line me-2"></i>{{ 'Modifica' if lead.client_story else 'Aggiungi' }} Storia Cliente
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Storia del Cliente</label>
+                        <textarea name="client_story" class="form-control" rows="10" required>{{ lead.client_story or '' }}</textarea>
+                        <small class="text-muted">Descrivi la situazione del cliente, i suoi obiettivi e le sue necessità</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="ri-save-line me-1"></i> Salva Storia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Seleziona Sesso -->
+<div class="modal fade" id="genderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('sales_form.update_gender', lead_id=lead.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%);">
+                    <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+                        <i class="ri-user-line me-2"></i>Seleziona Sesso
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        <strong>Attuale:</strong>
+                        {% if lead.gender == 'M' %}
+                            Maschio
+                        {% elif lead.gender == 'F' %}
+                            Femmina
+                        {% else %}
+                            Non specificato
+                        {% endif %}
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Seleziona il sesso</label>
+                        <select name="gender" class="form-select" required>
+                            <option value="">- Non specificato -</option>
+                            <option value="M" {% if lead.gender == 'M' %}selected{% endif %}>Maschio</option>
+                            <option value="F" {% if lead.gender == 'F' %}selected{% endif %}>Femmina</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="ri-check-line me-1"></i> Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Seleziona Origine -->
+<div class="modal fade" id="originModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('sales_form.update_origin', lead_id=lead.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%);">
+                    <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+                        <i class="ri-compass-line me-2"></i>Seleziona Origine
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        <strong>Attuale:</strong>
+                        {% if lead.origin %}
+                            {{ lead.origin }}
+                        {% else %}
+                            Non specificata
+                        {% endif %}
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Seleziona l'origine / canale di acquisizione</label>
+                        <select name="origin" class="form-select" required>
+                            <option value="">- Non specificata -</option>
+                            {% for origin in LeadOriginEnum %}
+                            <option value="{{ origin.value }}" {% if lead.origin == origin.value %}selected{% endif %}>
+                                {{ origin.value }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="ri-check-line me-1"></i> Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Modifica Health Manager -->
+<div class="modal fade" id="editHealthManagerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('sales_form.update_health_manager', lead_id=lead.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header" style="background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);">
+                    <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+                        <i class="ri-edit-2-line me-2"></i>Modifica Health Manager
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        <i class="ri-information-line me-1"></i>
+                        Modifica l'Health Manager assegnato e/o la data di onboarding
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Health Manager <span class="text-danger">*</span></label>
+                        <select name="health_manager_id" class="form-select" required>
+                            <option value="">Seleziona Health Manager...</option>
+                            {% for hm in health_managers %}
+                            <option value="{{ hm.id }}" {% if lead.health_manager_id and hm.id == lead.health_manager_id %}selected{% endif %}>
+                                {{ hm.full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">
+                            Attuale: <strong>{{ lead.health_manager.full_name if lead.health_manager else 'N/A' }}</strong>
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Data Onboarding <span class="text-danger">*</span></label>
+                        <input type="date" name="onboarding_date" class="form-control" required
+                               value="{{ lead.onboarding_date.isoformat() if lead.onboarding_date else '' }}"
+                               min="{{ (lead.created_at.date()).isoformat() }}">
+                        <small class="text-muted">
+                            Attuale: <strong>{{ lead.onboarding_date.strftime('%d/%m/%Y') if lead.onboarding_date else 'N/A' }}</strong>
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Orario Call Onboarding</label>
+                        <input type="time" name="onboarding_time" class="form-control"
+                               value="{{ lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else '' }}">
+                        <small class="text-muted">
+                            Attuale: <strong>{{ lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else 'N/A' }}</strong>
+                        </small>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="ri-alert-line me-2"></i>
+                        <small><strong>Attenzione:</strong> La modifica verrà registrata nel log delle attività della lead.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="ri-close-line me-1"></i>Annulla
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ri-save-line me-1"></i>Salva Modifiche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Seleziona Pacchetto -->
+<div class="modal fade" id="packageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #45CB85 0%, #239957 100%);">
+                <h6 class="modal-title mb-0 fw-semibold" style="color: white !important;">
+                    <i class="ri-shopping-bag-line me-2"></i>Seleziona Pacchetto
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Campo ricerca pacchetti -->
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light">
+                            <i class="ri-search-line"></i>
+                        </span>
+                        <input type="text"
+                               class="form-control"
+                               id="packageSearchInput"
+                               placeholder="Cerca pacchetto per nome o descrizione..."
+                               onkeyup="filterPackages()">
+                    </div>
+                    <small class="text-muted">
+                        <i class="ri-information-line me-1"></i>Digita per filtrare i pacchetti disponibili
+                    </small>
+                </div>
+
+                <!-- Griglia pacchetti -->
+                <div class="row g-3" id="packagesGrid">
+                    {% for package in packages %}
+                    <div class="col-md-6 package-item"
+                         data-package-name="{{ package.name|lower }}"
+                         data-package-desc="{{ package.description|lower }}">
+                        <div class="card h-100 package-card" data-package-id="{{ package.id }}" data-price="{{ package.price }}">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ package.name }}</h5>
+                                <p class="text-muted">{{ package.description[:100] }}...</p>
+                                <h4 class="text-success">€{{ "{:,.2f}".format(package.price) }}</h4>
+                                <button class="btn btn-success btn-sm w-100 mt-2"
+                                        onclick="selectPackage({{ package.id }}, {{ package.price }}, '{{ package.name }}')">
+                                    <i class="ri-check-line me-1"></i> Seleziona Questo Pacchetto
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Messaggio nessun risultato -->
+                <div id="noPackagesMessage" class="text-center py-4 d-none">
+                    <i class="ri-search-line" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="text-muted mt-2">Nessun pacchetto trovato con i criteri di ricerca</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showStoryModal() {
+    const modal = new bootstrap.Modal(document.getElementById('storyModal'));
+    modal.show();
+}
+
+function showGenderModal() {
+    const modal = new bootstrap.Modal(document.getElementById('genderModal'));
+    modal.show();
+}
+
+function showOriginModal() {
+    const modal = new bootstrap.Modal(document.getElementById('originModal'));
+    modal.show();
+}
+
+function showPackageModal() {
+    const modal = new bootstrap.Modal(document.getElementById('packageModal'));
+    modal.show();
+}
+
+function selectPackage(packageId, price, name) {
+    // Evidenzia il pacchetto selezionato
+    document.querySelectorAll('.package-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    document.querySelector(`[data-package-id="${packageId}"]`).classList.add('selected');
+
+    // Chiudi il modal Bootstrap
+    const packageModal = bootstrap.Modal.getInstance(document.getElementById('packageModal'));
+    if (packageModal) {
+        packageModal.hide();
+    }
+
+    // Delay per permettere al modal di chiudersi
+    setTimeout(() => {
+        const confirmMessage = `Vuoi selezionare il pacchetto:\n\n${name}\nPrezzo: €${price.toFixed(2)}\n\nConfermi?`;
+
+        if (confirm(confirmMessage)) {
+            toastr.info('Salvataggio in corso...', 'Attendere');
+
+            const data = {
+                package_id: parseInt(packageId),
+                total_amount: parseFloat(price),
+                discount_amount: 0,
+                discount_reason: null
+            };
+
+            const csrfToken = getCsrfToken();
+
+            fetch(`/sales-form/lead/{{ lead.id }}/package`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                toastr.clear();
+                if (data.success) {
+                    toastr.success(data.message || 'Pacchetto associato con successo!');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    toastr.error(data.error || 'Errore nella selezione');
+                }
+            })
+            .catch(error => {
+                toastr.clear();
+                toastr.error('Si è verificato un errore di connessione');
+            });
+        }
+    }, 300);
+}
+
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content ||
+           document.querySelector('input[name="csrf_token"]')?.value || '';
+}
+
+// Funzione per copiare link negli appunti
+function copyToClipboard(inputId, button) {
+    const input = document.getElementById(inputId);
+    input.select();
+    input.setSelectionRange(0, 99999); // Per mobile
+
+    try {
+        document.execCommand('copy');
+        // Feedback visivo
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="ri-check-line"></i>';
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-success');
+
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-primary');
+        }, 2000);
+
+        toastr.success('Link copiato negli appunti!', '', {timeOut: 2000});
+    } catch (err) {
+        toastr.error('Errore nella copia');
+        console.error('Errore copia:', err);
+    }
+
+    // Deseleziona il testo
+    window.getSelection().removeAllRanges();
+}
+
+// Copia messaggio di benvenuto completo
+function copyWelcomeMessage() {
+    const textarea = document.getElementById('welcomeMessage');
+    const alert = document.getElementById('copySuccessAlert');
+
+    textarea.select();
+    textarea.setSelectionRange(0, 99999);
+
+    try {
+        // Copia negli appunti
+        const successful = document.execCommand('copy');
+
+        if (successful) {
+            // Mostra alert di successo
+            alert.classList.remove('d-none');
+
+            // Nasconde dopo 3 secondi
+            setTimeout(() => {
+                alert.classList.add('d-none');
+            }, 3000);
+
+            toastr.success('Messaggio copiato negli appunti!', '', {timeOut: 2000});
+        } else {
+            throw new Error('Copy command failed');
+        }
+    } catch (err) {
+        // Fallback con API moderna
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            alert.classList.remove('d-none');
+            setTimeout(() => {
+                alert.classList.add('d-none');
+            }, 3000);
+            toastr.success('Messaggio copiato negli appunti!', '', {timeOut: 2000});
+        }).catch(err => {
+            toastr.error('Errore nella copia del messaggio');
+            console.error('Errore copia:', err);
+        });
+    }
+
+    // Deseleziona il testo
+    window.getSelection().removeAllRanges();
+}
+
+// Gestione modifica anagrafica
+document.getElementById('editAnagraficaBtn')?.addEventListener('click', function() {
+    document.getElementById('anagraficaView').style.display = 'none';
+    document.getElementById('anagraficaForm').style.display = 'block';
+    this.style.display = 'none';
+});
+
+document.getElementById('cancelAnagraficaBtn')?.addEventListener('click', function() {
+    document.getElementById('anagraficaView').style.display = 'block';
+    document.getElementById('anagraficaForm').style.display = 'none';
+    document.getElementById('editAnagraficaBtn').style.display = 'block';
+});
+
+// Filtra pacchetti in base alla ricerca
+function filterPackages() {
+    const searchInput = document.getElementById('packageSearchInput');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const packageItems = document.querySelectorAll('.package-item');
+    const noResultsMsg = document.getElementById('noPackagesMessage');
+
+    let visibleCount = 0;
+
+    packageItems.forEach(item => {
+        const name = item.getAttribute('data-package-name') || '';
+        const desc = item.getAttribute('data-package-desc') || '';
+
+        // Cerca nel nome o nella descrizione
+        if (name.includes(searchTerm) || desc.includes(searchTerm)) {
+            item.style.display = '';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Mostra/nascondi messaggio "nessun risultato"
+    if (visibleCount === 0 && searchTerm.length > 0) {
+        noResultsMsg.classList.remove('d-none');
+        document.getElementById('packagesGrid').style.display = 'none';
+    } else {
+        noResultsMsg.classList.add('d-none');
+        document.getElementById('packagesGrid').style.display = '';
+    }
+}
+
+// Reset ricerca quando si apre il modal
+document.getElementById('packageModal')?.addEventListener('show.bs.modal', function () {
+    const searchInput = document.getElementById('packageSearchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        filterPackages(); // Reset filtro
+    }
+});
+
+// Elimina pagamento
+function deletePayment(paymentId, amount) {
+    if (confirm(`Sei sicuro di voler eliminare questo pagamento di €${amount.toFixed(2)}?\n\nQuesta azione è irreversibile.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/sales-form/lead/{{ lead.id }}/payment/${paymentId}/delete`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = getCsrfToken();
+
+        form.appendChild(csrfInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

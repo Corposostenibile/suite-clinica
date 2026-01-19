@@ -1,0 +1,1127 @@
+{% extends "base.html" %}
+
+{% block title %}Manuale Recruiting HR - Guida Completa{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables - Platform Green */
+    :root {
+        --primary-green: #28a745;
+        --primary-green-dark: #218838;
+        --primary-green-light: #e6f7e9;
+        --primary-green-lighter: #f4fbf5;
+    }
+
+    /* Global Reading Progress Bar */
+    .global-reading-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 9999;
+    }
+
+    .global-reading-progress-fill {
+        height: 100%;
+        background: var(--primary-green);
+        width: 0%;
+        transition: width 0.1s ease-out;
+    }
+
+    /* Floating TOC Styles */
+    #tocFloatingPanel .toc-link:hover {
+        background: var(--primary-green-lighter) !important;
+        color: var(--primary-green-dark) !important;
+        border-left-color: var(--primary-green) !important;
+    }
+
+    #tocFloatingPanel .toc-link:hover .toc-bullet {
+        background: var(--primary-green) !important;
+        transform: scale(1.2);
+    }
+
+    #tocFloatingPanel .toc-link.active {
+        background: var(--primary-green-light) !important;
+        color: var(--primary-green-dark) !important;
+        font-weight: 600;
+        border-left-color: var(--primary-green) !important;
+    }
+
+    #tocFloatingPanel .toc-link.active .toc-bullet {
+        background: var(--primary-green) !important;
+        transform: scale(1.3);
+    }
+
+    #tocFloatingBtn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(40, 167, 69, 0.5);
+    }
+
+    /* Manual Container */
+    .manual-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+    }
+
+    /* Manual Header */
+    .manual-header {
+        background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-dark) 100%);
+        color: white;
+        padding: 48px 20px;
+        margin-bottom: 40px;
+        border-radius: 0;
+        text-align: center;
+    }
+
+    .manual-header h1 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: white !important;
+    }
+
+    .manual-header p {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin: 0;
+        color: white !important;
+    }
+
+    /* Sections */
+    .manual-section {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .manual-section h2 {
+        color: var(--primary-green);
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--primary-green-light);
+    }
+
+    .manual-section h3 {
+        color: #2c3e50;
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-top: 32px;
+        margin-bottom: 16px;
+    }
+
+    .manual-section h4 {
+        color: #495057;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 24px;
+        margin-bottom: 12px;
+    }
+
+    .manual-section p {
+        line-height: 1.7;
+        color: #212529;
+        margin-bottom: 16px;
+    }
+
+    .manual-section ul,
+    .manual-section ol {
+        line-height: 1.8;
+        margin-bottom: 16px;
+        padding-left: 24px;
+    }
+
+    .manual-section li {
+        margin-bottom: 8px;
+        color: #212529;
+    }
+
+    /* Step Box */
+    .step-box {
+        background: #f8f9fa;
+        border-left: 4px solid var(--primary-green);
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .step-box ol {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    /* Alert Boxes */
+    .alert-tip {
+        background: var(--primary-green-lighter);
+        border-left: 4px solid var(--primary-green);
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-tip h5 {
+        color: var(--primary-green-dark);
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-warning-custom {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-warning-custom h5 {
+        color: #856404;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-important {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-important h5 {
+        color: #721c24;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    /* Tables */
+    .manual-table {
+        width: 100%;
+        margin: 20px 0;
+        border-collapse: collapse;
+        background: white;
+        font-size: 0.95rem;
+    }
+
+    .manual-table thead {
+        background: var(--primary-green);
+        color: white;
+    }
+
+    .manual-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .manual-table td {
+        padding: 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .manual-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .manual-table code {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+        color: #e83e8c;
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background: var(--primary-green);
+        color: white;
+    }
+
+    .badge-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .badge-warning {
+        background: #ffc107;
+        color: #212529;
+    }
+
+    .badge-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .badge-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .badge-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    /* Code Snippet */
+    .code-snippet {
+        background: #2d3748;
+        color: #f7fafc;
+        padding: 16px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        margin: 16px 0;
+        overflow-x: auto;
+    }
+
+    /* Example Box */
+    .example-box {
+        background: #fff9e6;
+        border: 1px solid #ffe066;
+        border-radius: 4px;
+        padding: 16px;
+        margin: 20px 0;
+    }
+
+    .example-box h5 {
+        color: #b8860b;
+        font-weight: 600;
+        margin-bottom: 12px;
+        font-size: 1rem;
+    }
+
+    /* Back to Top */
+    .back-to-top {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        width: 50px;
+        height: 50px;
+        background: var(--primary-green);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .back-to-top.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .back-to-top:hover {
+        background: var(--primary-green-dark);
+        transform: translateY(-4px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .manual-section {
+            padding: 24px 20px;
+        }
+
+        .manual-header h1 {
+            font-size: 1.75rem;
+        }
+
+        #tocFloatingPanel {
+            width: 90% !important;
+            right: -90% !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Global Reading Progress Bar -->
+<div class="global-reading-progress">
+    <div class="global-reading-progress-fill" id="globalProgressBar"></div>
+</div>
+
+<!-- Floating TOC Button -->
+<button id="tocFloatingBtn" style="position: fixed; bottom: 110px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-green); color: white; border: none; box-shadow: 0 4px 20px rgba(40, 167, 69, 0.4); cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.3s ease;">
+    <i class="ri-list-unordered"></i>
+</button>
+
+<!-- Floating TOC Panel -->
+<div id="tocFloatingPanel" style="position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 10002; transition: right 0.3s ease; overflow-y: auto;">
+    <div style="position: sticky; top: 0; background: var(--primary-green); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+        <h5 style="margin: 0; font-size: 18px; font-weight: 600;">
+            <i class="ri-list-unordered"></i> Indice
+        </h5>
+        <button id="tocCloseBtn" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+            <i class="ri-close-line"></i>
+        </button>
+    </div>
+
+    <!-- Reading Progress -->
+    <div style="padding: 20px; border-bottom: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase;">Progresso</span>
+            <span id="progressPercent" style="font-size: 12px; font-weight: 600; color: var(--primary-green);">0%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
+            <div class="progress-bar" id="readingProgressBar" style="width: 0%; background: var(--primary-green); border-radius: 10px; transition: width 0.3s ease;"></div>
+        </div>
+    </div>
+
+    <!-- TOC Navigation -->
+    <div style="padding: 20px;">
+        <nav class="toc-nav" id="tocNav"></nav>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="tocOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; opacity: 0; visibility: hidden; transition: all 0.3s ease;"></div>
+
+<!-- Back to Top Button -->
+<button class="back-to-top" id="backToTop">
+    <i class="ri-arrow-up-line"></i>
+</button>
+
+<!-- Manual Header -->
+<div class="manual-header">
+    <h1>📘 Manuale Recruiting HR</h1>
+    <p>Guida completa per la gestione del modulo Recruiting ATS</p>
+</div>
+
+<div class="manual-container" id="articleContent">
+
+    <!-- Introduzione -->
+    <section id="introduzione" class="manual-section">
+        <h2>Introduzione</h2>
+
+        <p>Benvenuti nel manuale completo del modulo <strong>Recruiting</strong> di Corpo Sostenibile Suite. Questo sistema ATS (Applicant Tracking System) automatizza l'intero processo di selezione del personale.</p>
+
+        <h3>Cos'è un ATS?</h3>
+        <p>Un <strong>Applicant Tracking System (ATS)</strong> è un software che permette di:</p>
+        <ul>
+            <li>Pubblicare offerte di lavoro su più canali</li>
+            <li>Ricevere e centralizzare le candidature</li>
+            <li>Screening automatico con Intelligenza Artificiale</li>
+            <li>Gestire i candidati attraverso pipeline visuali</li>
+            <li>Tracciare metriche e KPI del recruiting</li>
+        </ul>
+
+        <h3>Workflow del Sistema</h3>
+        <div class="step-box">
+            <ol>
+                <li><strong>Creazione Pipeline</strong>: Definisci gli stage del processo di selezione</li>
+                <li><strong>Creazione Offerta</strong>: Configura posizione, requisiti e domande</li>
+                <li><strong>Pubblicazione</strong>: Genera link per LinkedIn, Facebook, Instagram</li>
+                <li><strong>Ricezione Candidature</strong>: I candidati compilano il form e caricano il CV</li>
+                <li><strong>Screening AI</strong>: Google Gemini analizza CV e risposte</li>
+                <li><strong>Gestione Kanban</strong>: Muovi i candidati attraverso gli stage</li>
+                <li><strong>Assunzione</strong>: Completa il processo</li>
+            </ol>
+        </div>
+
+        <h3>Requisiti di Accesso</h3>
+        <p>Per accedere al modulo Recruiting è necessario:</p>
+        <ul>
+            <li><strong>Essere Admin</strong> (accesso completo) OPPURE</li>
+            <li><strong>Appartenere al Dipartimento HR</strong> (department_id = 17) OPPURE</li>
+            <li><strong>Avere permesso specifico</strong> (user_id = 59)</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>📌 Nota Importante</h5>
+            <p>Questo manuale copre esclusivamente le funzionalità <strong>operative HR</strong>. Non include aspetti economici, budgeting o advertising.</p>
+        </div>
+    </section>
+
+    <!-- 1. Pipeline Kanban -->
+    <section id="pipeline-kanban" class="manual-section">
+        <h2>1. Creare e Configurare Pipeline Kanban</h2>
+
+        <p>Le <strong>Pipeline Kanban</strong> sono flussi di lavoro visuali che rappresentano gli stage del processo di selezione.</p>
+
+        <h3>1.1 Creare una Nuova Pipeline</h3>
+        <div class="step-box">
+            <ol>
+                <li>Vai a <code>/recruiting/kanban</code></li>
+                <li>Clicca <span class="badge badge-success">+ Crea Nuova Pipeline</span></li>
+                <li>Compila i campi:
+                    <ul>
+                        <li><strong>Nome</strong>: Nome identificativo (es. "Pipeline Sviluppatori")</li>
+                        <li><strong>Descrizione</strong>: Breve descrizione dello scopo</li>
+                    </ul>
+                </li>
+                <li>Clicca <span class="badge badge-success">Salva Pipeline</span></li>
+            </ol>
+        </div>
+
+        <h3>1.2 Configurare gli Stage</h3>
+        <p>Una volta creata la pipeline, aggiungi e configura gli <strong>stage</strong> (fasi del processo).</p>
+
+        <div class="step-box">
+            <ol>
+                <li>Dalla lista pipeline, clicca <span class="badge badge-info">Configura</span></li>
+                <li>Clicca <span class="badge badge-success">+ Aggiungi Stage</span></li>
+                <li>Compila:
+                    <ul>
+                        <li><strong>Nome</strong>: Nome dello stage (es. "Colloquio HR")</li>
+                        <li><strong>Tipo Stage</strong>: Seleziona dal menu</li>
+                        <li><strong>Ordine</strong>: Posizione numerica (1, 2, 3...)</li>
+                        <li><strong>Stage Finale?</strong>: Spunta se terminale</li>
+                    </ul>
+                </li>
+                <li>Salva e ripeti per tutti gli stage necessari</li>
+            </ol>
+        </div>
+
+        <h4>Tipi di Stage Disponibili</h4>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Tipo Stage</th>
+                    <th>Codice</th>
+                    <th>Finale?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Candidato</td>
+                    <td><code>applied</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>Screening</td>
+                    <td><code>screening</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>Colloquio Telefonico</td>
+                    <td><code>phone_interview</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>Colloquio HR</td>
+                    <td><code>hr_interview</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>Colloquio Tecnico</td>
+                    <td><code>technical_interview</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>Colloquio Finale</td>
+                    <td><code>final_interview</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td>Proposta Offerta</td>
+                    <td><code>offer</code></td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td><strong>Assunto</strong></td>
+                    <td><code>hired</code></td>
+                    <td><strong>Sì</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>Rifiutato</strong></td>
+                    <td><code>rejected</code></td>
+                    <td><strong>Sì</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>Ritirato</strong></td>
+                    <td><code>withdrawn</code></td>
+                    <td><strong>Sì</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-important">
+            <h5>⚠️ Importante</h5>
+            <p>Gli stage marcati come "finale" rappresentano la conclusione del processo. Una volta raggiunto uno stage finale, il candidato non può più essere spostato.</p>
+        </div>
+
+        <h3>1.3 Sistema Semaforo nel Kanban</h3>
+        <p>Il <strong>Sistema Semaforo</strong> permette di spostare rapidamente i candidati con un click:</p>
+
+        <div class="alert-tip">
+            <h5>✅ Pulsante Verde</h5>
+            <p><strong>Funzione</strong>: Sposta il candidato allo stage successivo nella pipeline</p>
+            <p><strong>Comportamento</strong>: Il pulsante mostra dinamicamente il nome dello stage di destinazione</p>
+            <p><strong>Visibilità</strong>: Non appare se lo stage successivo è finale</p>
+        </div>
+
+        <div class="alert-important">
+            <h5>❌ Pulsante Rosso</h5>
+            <p><strong>Funzione</strong>: Rifiuta il candidato e lo sposta a "Rejected"</p>
+            <p><strong>Comportamento</strong>: Richiede conferma prima di procedere</p>
+        </div>
+    </section>
+
+    <!-- 2. Offerte di Lavoro -->
+    <section id="offerte-lavoro" class="manual-section">
+        <h2>2. Creare e Configurare Offerte di Lavoro</h2>
+
+        <p>Le <strong>Offerte di Lavoro</strong> rappresentano le posizioni aperte che pubblichi.</p>
+
+        <h3>2.1 Creare una Nuova Offerta</h3>
+        <div class="step-box">
+            <ol>
+                <li>Vai a <code>/recruiting/offers</code></li>
+                <li>Clicca <span class="badge badge-success">+ Nuova Offerta</span></li>
+                <li>Compila i campi base:
+                    <ul>
+                        <li><strong>Titolo</strong> (obbligatorio)</li>
+                        <li><strong>Dipartimento</strong> (consigliato)</li>
+                        <li><strong>Descrizione</strong> (obbligatorio)</li>
+                        <li><strong>Requisiti</strong> (consigliato)</li>
+                        <li><strong>Pipeline Kanban</strong> (obbligatorio)</li>
+                    </ul>
+                </li>
+                <li>Salva l'offerta</li>
+            </ol>
+        </div>
+
+        <h3>2.2 Configurare lo Screening ATS</h3>
+        <p>Lo screening utilizza <strong>Google Gemini AI</strong> per analizzare CV e risposte.</p>
+
+        <h4>Keywords per Analisi CV</h4>
+        <p>Nel campo "Cosa Cerchiamo" inserisci le keywords che l'AI deve cercare nei CV.</p>
+
+        <div class="example-box">
+            <h5>Esempio Keywords per Sviluppatore Full Stack</h5>
+            <div class="code-snippet">- Linguaggi: Python, JavaScript, TypeScript
+- Framework: React, Vue.js, Flask, Django
+- Database: PostgreSQL, MongoDB
+- DevOps: Docker, Kubernetes, Git
+- Esperienza: Almeno 3 anni</div>
+        </div>
+
+        <h4>Pesi Form vs CV</h4>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Campo</th>
+                    <th>Range</th>
+                    <th>Default</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Peso Form</td>
+                    <td>0% - 100%</td>
+                    <td>60%</td>
+                </tr>
+                <tr>
+                    <td>Peso CV</td>
+                    <td>0% - 100%</td>
+                    <td>40%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-important">
+            <h5>⚠️ Importante</h5>
+            <p>I due pesi devono sommare <strong>100%</strong>. Formula: <code>Punteggio Finale = (Form Score × Peso Form) + (CV Score × Peso CV)</code></p>
+        </div>
+    </section>
+
+    <!-- 3. Form Builder -->
+    <section id="form-builder" class="manual-section">
+        <h2>3. Form Builder - Domande Personalizzate</h2>
+
+        <p>Il <strong>Form Builder</strong> permette di creare domande personalizzate per il form di candidatura.</p>
+
+        <h3>3.1 Tipi di Domande Disponibili</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Codice</th>
+                    <th>Uso</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Testo Breve</td>
+                    <td><code>text</code></td>
+                    <td>Nome, città</td>
+                </tr>
+                <tr>
+                    <td>Testo Lungo</td>
+                    <td><code>textarea</code></td>
+                    <td>Motivazione</td>
+                </tr>
+                <tr>
+                    <td>Scelta Singola</td>
+                    <td><code>radio</code></td>
+                    <td>Disponibilità</td>
+                </tr>
+                <tr>
+                    <td>Scelta Multipla</td>
+                    <td><code>checkbox</code></td>
+                    <td>Competenze</td>
+                </tr>
+                <tr>
+                    <td>Menu a Tendina</td>
+                    <td><code>select</code></td>
+                    <td>Regione</td>
+                </tr>
+                <tr>
+                    <td>Numero</td>
+                    <td><code>number</code></td>
+                    <td>Anni esperienza</td>
+                </tr>
+                <tr>
+                    <td>Data</td>
+                    <td><code>date</code></td>
+                    <td>Disponibilità inizio</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-important">
+            <h5>⚠️ Peso Totale</h5>
+            <p>La somma dei pesi di tutte le domande deve essere <strong>100%</strong>.</p>
+        </div>
+    </section>
+
+    <!-- 4. Pubblicazione -->
+    <section id="pubblicazione" class="manual-section">
+        <h2>4. Pubblicazione e Ricezione Candidature</h2>
+
+        <h3>4.1 Pubblicare un'Offerta</h3>
+        <div class="step-box">
+            <ol>
+                <li>Apri l'offerta</li>
+                <li>Verifica che sia configurata almeno 1 domanda</li>
+                <li>Verifica che la somma dei pesi sia 100%</li>
+                <li>Clicca <span class="badge badge-success">Pubblica Offerta</span></li>
+            </ol>
+        </div>
+
+        <h3>4.2 Link Pubblici Tracciabili</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Fonte</th>
+                    <th>Parametro</th>
+                    <th>Utilizzo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>LinkedIn</td>
+                    <td><code>?source=linkedin</code></td>
+                    <td>Post, annunci</td>
+                </tr>
+                <tr>
+                    <td>Facebook</td>
+                    <td><code>?source=facebook</code></td>
+                    <td>Gruppi, post</td>
+                </tr>
+                <tr>
+                    <td>Instagram</td>
+                    <td><code>?source=instagram</code></td>
+                    <td>Stories, link bio</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-tip">
+            <h5>💡 Suggerimento</h5>
+            <p>Usa i pulsanti "Copia Link" per ottenere i link già tracciati con il parametro source corretto.</p>
+        </div>
+    </section>
+
+    <!-- 5. Screening AI -->
+    <section id="screening-ai" class="manual-section">
+        <h2>5. Screening Automatico con AI</h2>
+
+        <p>Lo screening utilizza <strong>Google Gemini AI</strong> (modello gemini-2.0-flash-lite).</p>
+
+        <h3>5.1 Processo di Screening (4 Fasi)</h3>
+
+        <h4>📝 Fase 1: Analisi Form</h4>
+        <p>Confronta le risposte del candidato con quelle attese usando gli algoritmi di matching configurati.</p>
+
+        <h4>📄 Fase 2: Estrazione CV</h4>
+        <ul>
+            <li><strong>PDF</strong>: Usa pdfplumber</li>
+            <li><strong>Immagine</strong>: Usa Tesseract OCR</li>
+        </ul>
+
+        <h4>🧠 Fase 3: Analisi AI</h4>
+        <p>Gemini analizza il CV confrontandolo con le keywords e restituisce:</p>
+        <ul>
+            <li>Punteggio CV (0-100)</li>
+            <li>Reasoning (motivazione)</li>
+            <li>Keywords trovate</li>
+            <li>Punti di forza e debolezza</li>
+        </ul>
+
+        <h4>🎯 Fase 4: Punteggio Finale</h4>
+        <div class="code-snippet">Final Score = (Form Score × Form Weight) + (CV Score × CV Weight)
+
+Esempio:
+- Form Score: 85/100
+- CV Score: 72/100
+- Form Weight: 60%
+- CV Weight: 40%
+
+Final Score = (85 × 0.6) + (72 × 0.4) = 79.8/100</div>
+
+        <h3>5.2 Interpretazione Punteggi</h3>
+        <ul>
+            <li><strong>80-100</strong>: Eccellente - Match perfetto</li>
+            <li><strong>60-79</strong>: Buono - Merita approfondimento</li>
+            <li><strong>40-59</strong>: Sufficiente - Valutare caso per caso</li>
+            <li><strong>0-39</strong>: Scarso - Probabilmente non idoneo</li>
+        </ul>
+
+        <div class="alert-tip">
+            <h5>💡 Suggerimento</h5>
+            <p>Non basarti solo sul punteggio! Leggi sempre l'AI Reasoning per capire il perché.</p>
+        </div>
+    </section>
+
+    <!-- 6. Gestione Candidati -->
+    <section id="gestione-candidati" class="manual-section">
+        <h2>6. Gestione Candidati nella Pipeline Kanban</h2>
+
+        <h3>6.1 Accedere alla Board Kanban</h3>
+        <div class="step-box">
+            <ol>
+                <li>Vai a <code>/recruiting/kanban</code></li>
+                <li>Clicca <span class="badge badge-success">Apri Board</span></li>
+            </ol>
+        </div>
+
+        <h3>6.2 Spostare i Candidati (3 modi)</h3>
+
+        <h4>1. Drag & Drop</h4>
+        <p>Clicca, trascina e rilascia la card nella colonna desiderata.</p>
+
+        <h4>2. Pulsante Verde (Sistema Semaforo)</h4>
+        <p>Sposta automaticamente allo stage successivo. Il pulsante mostra il nome dello stage di destinazione.</p>
+
+        <h4>3. Pulsante Rosso (Rifiuto Rapido)</h4>
+        <p>Sposta direttamente a "Rejected". Richiede conferma.</p>
+
+        <h3>6.3 Timeline e Tracking</h3>
+        <p>Il sistema traccia automaticamente:</p>
+        <ul>
+            <li>Stage di origine e destinazione</li>
+            <li>Data/ora di ogni movimento</li>
+            <li>Durata in ogni stage</li>
+            <li>Utente che ha effettuato lo spostamento</li>
+        </ul>
+    </section>
+
+    <!-- 7. Best Practices -->
+    <section id="best-practices" class="manual-section">
+        <h2>7. Best Practices</h2>
+
+        <h3>Pipeline</h3>
+        <div class="alert-tip">
+            <h5>✅ Do's</h5>
+            <ul>
+                <li>Mantieni 5-8 stage massimo</li>
+                <li>Usa nomi chiari e auto-esplicativi</li>
+                <li>Definisci sempre stage finali (hired, rejected)</li>
+            </ul>
+        </div>
+
+        <div class="alert-important">
+            <h5>❌ Don'ts</h5>
+            <ul>
+                <li>Non creare troppi stage (max 10)</li>
+                <li>Non duplicare stage simili</li>
+                <li>Non saltare l'ordine numerico</li>
+            </ul>
+        </div>
+
+        <h3>Screening ATS</h3>
+        <div class="alert-tip">
+            <h5>✅ Do's</h5>
+            <ul>
+                <li>Usa keywords specifiche e tecniche</li>
+                <li>Aggiorna le keywords periodicamente</li>
+                <li>Leggi sempre l'AI Reasoning</li>
+                <li>Combina AI + valutazione umana</li>
+            </ul>
+        </div>
+
+        <h3>Gestione Kanban</h3>
+        <div class="alert-tip">
+            <h5>✅ Do's</h5>
+            <ul>
+                <li>Muovi i candidati rapidamente</li>
+                <li>Usa le note per condividere feedback</li>
+                <li>Monitora i tempi medi per stage</li>
+                <li>Sfrutta i filtri per efficienza</li>
+            </ul>
+        </div>
+    </section>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class ManualTOC {
+    constructor() {
+        this.headings = Array.from(document.querySelectorAll('#articleContent h2, #articleContent h3'));
+        this.tocNav = document.getElementById('tocNav');
+        this.tocLinks = [];
+        this.init();
+    }
+
+    init() {
+        this.setupHeadingIds();
+        this.generateTOC();
+        this.setupFloatingTOC();
+        this.setupScrollSpy();
+        this.setupBackToTop();
+        this.updateReadingProgress();
+        this.setupEventListeners();
+    }
+
+    setupHeadingIds() {
+        this.headings.forEach((heading, index) => {
+            if (!heading.id) {
+                const section = heading.closest('section');
+                if (section && section.id) {
+                    heading.id = section.id;
+                } else {
+                    const text = heading.textContent.trim();
+                    const id = text.toLowerCase()
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                    heading.id = id || `heading-${index}`;
+                }
+            }
+        });
+    }
+
+    generateTOC() {
+        if (!this.tocNav) return;
+        this.tocNav.innerHTML = '';
+
+        this.headings.forEach((heading) => {
+            const level = heading.tagName.toLowerCase() === 'h2' ? 1 : 2;
+            const text = heading.textContent.trim();
+            const id = heading.id;
+
+            const tocItem = document.createElement('div');
+            tocItem.className = `toc-item toc-level-${level}`;
+            tocItem.style.marginBottom = '4px';
+
+            const link = document.createElement('a');
+            link.href = `#${id}`;
+            link.className = 'toc-link';
+            link.setAttribute('data-target', id);
+            link.style.display = 'block';
+            link.style.padding = level === 1 ? '12px 16px' : '10px 16px 10px 32px';
+            link.style.color = '#2d3748';
+            link.style.textDecoration = 'none';
+            link.style.borderRadius = '8px';
+            link.style.fontSize = level === 1 ? '14px' : '13px';
+            link.style.lineHeight = '1.5';
+            link.style.transition = 'all 0.2s ease';
+            link.style.borderLeft = '3px solid transparent';
+            link.style.fontWeight = level === 1 ? '600' : '500';
+
+            const bullet = document.createElement('span');
+            bullet.className = 'toc-bullet';
+            bullet.style.display = 'inline-block';
+            bullet.style.width = '8px';
+            bullet.style.height = '8px';
+            bullet.style.background = '#cbd5e0';
+            bullet.style.borderRadius = '50%';
+            bullet.style.marginRight = '12px';
+            bullet.style.transition = 'all 0.2s';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'toc-text';
+            textSpan.textContent = text;
+
+            link.appendChild(bullet);
+            link.appendChild(textSpan);
+            tocItem.appendChild(link);
+            this.tocNav.appendChild(tocItem);
+
+            this.tocLinks.push(link);
+
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.scrollToHeading(id);
+            });
+        });
+    }
+
+    scrollToHeading(id) {
+        const element = document.getElementById(id);
+        if (element) {
+            const targetTop = element.getBoundingClientRect().top + window.pageYOffset - 100;
+            window.scrollTo({
+                top: targetTop,
+                behavior: 'smooth'
+            });
+            if (window.innerWidth < 768) {
+                this.closePanel();
+            }
+        }
+    }
+
+    setupFloatingTOC() {
+        const floatingBtn = document.getElementById('tocFloatingBtn');
+        const floatingPanel = document.getElementById('tocFloatingPanel');
+        const closeBtn = document.getElementById('tocCloseBtn');
+        const overlay = document.getElementById('tocOverlay');
+
+        if (!floatingBtn || !floatingPanel || !closeBtn || !overlay) return;
+
+        floatingBtn.addEventListener('click', () => {
+            floatingPanel.style.right = '0';
+            overlay.style.opacity = '1';
+            overlay.style.visibility = 'visible';
+            document.body.style.overflow = 'hidden';
+        });
+
+        const closePanel = () => {
+            floatingPanel.style.right = '-400px';
+            overlay.style.opacity = '0';
+            overlay.style.visibility = 'hidden';
+            document.body.style.overflow = 'auto';
+        };
+        this.closePanel = closePanel;
+
+        closeBtn.addEventListener('click', closePanel);
+        overlay.addEventListener('click', closePanel);
+    }
+
+    setupScrollSpy() {
+        this.updateScrollSpy();
+    }
+
+    updateScrollSpy() {
+        if (this.headings.length === 0) return;
+
+        const scrollPosition = window.scrollY + 150;
+        let activeHeading = null;
+
+        for (let i = this.headings.length - 1; i >= 0; i--) {
+            const heading = this.headings[i];
+            if (heading.offsetTop <= scrollPosition) {
+                activeHeading = heading;
+                break;
+            }
+        }
+
+        this.tocLinks.forEach(link => {
+            link.classList.remove('active');
+            link.style.background = '';
+            link.style.borderLeftColor = 'transparent';
+            link.style.color = '#2d3748';
+
+            const bullet = link.querySelector('.toc-bullet');
+            if (bullet) {
+                bullet.style.background = '#cbd5e0';
+                bullet.style.transform = 'scale(1)';
+            }
+
+            if (activeHeading && link.getAttribute('href') === `#${activeHeading.id}`) {
+                link.classList.add('active');
+                link.style.background = 'var(--primary-green-light)';
+                link.style.borderLeftColor = 'var(--primary-green)';
+                link.style.color = 'var(--primary-green-dark)';
+                link.style.fontWeight = '600';
+
+                if (bullet) {
+                    bullet.style.background = 'var(--primary-green)';
+                    bullet.style.transform = 'scale(1.3)';
+                }
+            }
+        });
+    }
+
+    setupBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (!backToTopBtn) return;
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    updateReadingProgress() {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+
+        const progressBar = document.getElementById('readingProgressBar');
+        const globalProgressBar = document.getElementById('globalProgressBar');
+        const progressPercent = document.getElementById('progressPercent');
+
+        if (progressBar) progressBar.style.width = scrolled + '%';
+        if (globalProgressBar) globalProgressBar.style.width = scrolled + '%';
+        if (progressPercent) progressPercent.textContent = Math.round(scrolled) + '%';
+    }
+
+    setupEventListeners() {
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    this.updateScrollSpy();
+                    this.updateReadingProgress();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new ManualTOC();
+});
+</script>
+{% endblock %}

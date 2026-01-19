@@ -1,0 +1,413 @@
+{# templates/department/form.html #}
+{% extends "base.html" %}
+
+{% block title %}
+  {{ 'Nuovo Dipartimento' if mode == 'create' else 'Modifica Dipartimento' }} • Corposostenibile
+{% endblock %}
+
+{# -------------------------------------------------------------------- #}
+{#  Extra CSS – mantiene il wrapper upload coerente con Wowdash       #}
+{# -------------------------------------------------------------------- #}
+{% block extra_css %}
+  {{ super() }}
+  <style>
+    /* File‑upload wrapper (coerente con componenti Wowdash) */
+    .file-upload-wrapper {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+    }
+    .file-upload-wrapper input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .file-upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 12px 24px;
+      background-color: var(--bs-neutral-50, #f8f9fa);
+      border: 1px solid var(--bs-neutral-200, #dee2e6);
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all .15s ease;
+      color: var(--bs-primary-light, #495057);
+    }
+    .file-upload-label:hover {
+      background-color: var(--bs-neutral-100, #e9ecef);
+      border-color: var(--bs-neutral-300, #adb5bd);
+    }
+    .current-file-info {
+      margin-left: 1rem;
+      font-size: .875rem;
+      color: var(--bs-secondary-light, #6c757d);
+    }
+    .remove-file-btn {
+      color: var(--bs-danger-main, #dc3545);
+      cursor: pointer;
+      margin-left: .5rem;
+      transition: color .15s ease;
+    }
+    .remove-file-btn:hover { 
+      color: #bd2130; 
+    }
+    .document-section {
+      background-color: var(--bs-neutral-50, #f8f9fa);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid var(--bs-neutral-200, #e9ecef);
+    }
+    .section-icon { 
+      font-size: 1.25rem; 
+      margin-right: .75rem;
+      color: var(--bs-primary, #28a745);
+    }
+    .section-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+    }
+    .info-text {
+      color: var(--bs-secondary-light, #6c757d);
+      font-size: .875rem;
+      margin-bottom: 1rem;
+    }
+    /* Textarea styling */
+    .form-control {
+      font-size: .875rem;
+    }
+    textarea.form-control {
+      resize: vertical;
+      min-height: 120px;
+    }
+    /* Alert styling improvements */
+    .alert-info {
+      background-color: #e3f2fd;
+      border-color: #bbdefb;
+      color: #0d47a1;
+    }
+    .alert-info iconify-icon {
+      font-size: 1.25rem;
+      color: #1976d2;
+    }
+  </style>
+{% endblock %}
+
+{# -------------------------------------------------------------------- #}
+{#  Contenuto principale                                                #}
+{# -------------------------------------------------------------------- #}
+{% block content %}
+
+<!-- ▸ Breadcrumb & Heading -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24 px-24">
+  <h6 class="fw-semibold mb-0">
+    {{ 'Nuovo Dipartimento' if mode == 'create' else 'Modifica Dipartimento' }}
+  </h6>
+  
+</div>
+
+<!-- ▸ Form card -->
+<div class="card radius-12 mx-24">
+  <div class="card-body p-32">
+
+    {# Flash messages #}
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='warning' else 'success' if cat=='success' else cat }} alert-dismissible fade show mb-24" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row justify-content-center">
+      <div class="col-xl-10 col-lg-12">
+
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {{ form.hidden_tag() }}
+
+          {# ───────────────────────── Informazioni base ──────────────────────── #}
+          <div class="mb-32">
+            <h5 class="mb-24 d-flex align-items-center">
+              <iconify-icon icon="ri:information-line" class="section-icon"></iconify-icon>
+              Informazioni Base
+            </h5>
+
+            <!-- Nome -->
+            <div class="mb-24">
+              {{ form.name.label(class="form-label fw-semibold text-primary-light mb-8") }}
+              {{ form.name(class="form-control radius-8{% if form.name.errors %} is-invalid{% endif %}", placeholder="Es. Amministrazione") }}
+              {% for err in form.name.errors %}
+                <div class="invalid-feedback">{{ err }}</div>
+              {% endfor %}
+            </div>
+
+            <!-- Head -->
+            <div class="mb-0">
+              {{ form.head_id.label(class="form-label fw-semibold text-primary-light mb-8") }}
+              {{ form.head_id(class="form-select radius-8{% if form.head_id.errors %} is-invalid{% endif %}") }}
+              {% for err in form.head_id.errors %}
+                <div class="invalid-feedback">{{ err }}</div>
+              {% endfor %}
+              <small class="text-sm text-secondary-light mt-4 d-block">Seleziona il manager del dipartimento.</small>
+            </div>
+          </div>
+
+          {# ───────────────────────── Documenti dipartimento ────────────────── #}
+          <div id="documents" class="mb-32">
+            <h5 class="mb-24 d-flex align-items-center">
+              <iconify-icon icon="ri:file-text-line" class="section-icon"></iconify-icon>
+              Documenti Dipartimento
+            </h5>
+
+            <!-- Linee guida -->
+            <div class="document-section">
+              <div class="section-title">
+                <iconify-icon icon="ri:file-list-3-line" class="me-2"></iconify-icon>
+                Linee Guida
+              </div>
+              <p class="info-text">Inserisci un testo oppure carica un PDF; entrambi verranno mostrati.</p>
+
+              <!-- Testo -->
+              <div class="mb-20">
+                {{ form.guidelines_text.label(class="form-label fw-semibold text-primary-light mb-8") }}
+                {{ form.guidelines_text(class="form-control radius-8{% if form.guidelines_text.errors %} is-invalid{% endif %}", 
+                  rows=6, 
+                  placeholder="Inserisci le linee guida testuali del dipartimento... Puoi usare markdown per la formattazione.") }}
+                {% for err in form.guidelines_text.errors %}
+                  <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+                <small class="text-sm text-secondary-light mt-4 d-block">Supporta Markdown.</small>
+              </div>
+
+              <!-- PDF -->
+              <div class="mb-0">
+                {{ form.guidelines_pdf.label(class="form-label fw-semibold text-primary-light mb-8") }}
+                <div class="d-flex align-items-center">
+                  <div class="file-upload-wrapper">
+                    <label for="{{ form.guidelines_pdf.id }}" class="file-upload-label">
+                      <iconify-icon icon="ri:upload-cloud-2-line"></iconify-icon>
+                      Scegli file PDF
+                    </label>
+                    {{ form.guidelines_pdf(accept=".pdf") }}
+                  </div>
+                  <span id="guidelines-pdf-filename" class="current-file-info"></span>
+                </div>
+
+                {% if mode=='edit' and dept.guidelines_pdf %}
+                  <div class="mt-12">
+                    <small class="text-muted">
+                      File attuale: <strong>{{ dept.guidelines_pdf.split('/')[-1] }}</strong>
+                      <span class="remove-file-btn" data-field="guidelines_pdf">
+                        <iconify-icon icon="ri:close-circle-line"></iconify-icon> Rimuovi
+                      </span>
+                    </small>
+                    {{ form.remove_guidelines_pdf(id="remove_guidelines_pdf") }}
+                  </div>
+                {% endif %}
+
+                {% for err in form.guidelines_pdf.errors %}
+                  <div class="text-danger small mt-4">{{ err }}</div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- SOP -->
+            <div class="document-section">
+              <div class="section-title">
+                <iconify-icon icon="ri:file-shield-2-line" class="me-2"></iconify-icon>
+                Standard Operating Procedures (SOP)
+              </div>
+              <p class="info-text">Carica i documenti SOP per membri e manager.</p>
+
+              <div class="row">
+                <!-- Membri -->
+                <div class="col-md-6 mb-20">
+                  {{ form.sop_members_pdf.label(class="form-label fw-semibold text-primary-light mb-8") }}
+                  <div class="mb-8">
+                    <div class="file-upload-wrapper">
+                      <label for="{{ form.sop_members_pdf.id }}" class="file-upload-label">
+                        <iconify-icon icon="ri:team-line"></iconify-icon>
+                        Carica SOP Membri
+                      </label>
+                      {{ form.sop_members_pdf(accept=".pdf") }}
+                    </div>
+                    <span id="sop-members-filename" class="current-file-info"></span>
+                  </div>
+                  <small class="text-sm text-secondary-light d-block">Procedure operative per i membri del team.</small>
+
+                  {% if mode=='edit' and dept.sop_members_pdf %}
+                    <div class="mt-12">
+                      <small class="text-muted">
+                        File attuale: <strong>{{ dept.sop_members_pdf.split('/')[-1] }}</strong>
+                        <span class="remove-file-btn" data-field="sop_members_pdf">
+                          <iconify-icon icon="ri:close-circle-line"></iconify-icon> Rimuovi
+                        </span>
+                      </small>
+                      {{ form.remove_sop_members_pdf(id="remove_sop_members_pdf") }}
+                    </div>
+                  {% endif %}
+
+                  {% for err in form.sop_members_pdf.errors %}
+                    <div class="text-danger small mt-4">{{ err }}</div>
+                  {% endfor %}
+                </div>
+
+                <!-- Manager -->
+                <div class="col-md-6 mb-20">
+                  {{ form.sop_managers_pdf.label(class="form-label fw-semibold text-primary-light mb-8") }}
+                  <div class="mb-8">
+                    <div class="file-upload-wrapper">
+                      <label for="{{ form.sop_managers_pdf.id }}" class="file-upload-label">
+                        <iconify-icon icon="ri:user-star-line"></iconify-icon>
+                        Carica SOP Manager
+                      </label>
+                      {{ form.sop_managers_pdf(accept=".pdf") }}
+                    </div>
+                    <span id="sop-managers-filename" class="current-file-info"></span>
+                  </div>
+                  <small class="text-sm text-secondary-light d-block">Procedure riservate ai responsabili.</small>
+
+                  {% if mode=='edit' and dept.sop_managers_pdf %}
+                    <div class="mt-12">
+                      <small class="text-muted">
+                        File attuale: <strong>{{ dept.sop_managers_pdf.split('/')[-1] }}</strong>
+                        <span class="remove-file-btn" data-field="sop_managers_pdf">
+                          <iconify-icon icon="ri:close-circle-line"></iconify-icon> Rimuovi
+                        </span>
+                      </small>
+                      {{ form.remove_sop_managers_pdf(id="remove_sop_managers_pdf") }}
+                    </div>
+                  {% endif %}
+
+                  {% for err in form.sop_managers_pdf.errors %}
+                    <div class="text-danger small mt-4">{{ err }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Note documenti -->
+            <div class="alert alert-info d-flex align-items-start gap-3 radius-8 mb-0">
+              <iconify-icon icon="ri:information-line" class="flex-shrink-0"></iconify-icon>
+              <div>
+                <strong>Note importanti:</strong>
+                <ul class="mb-0 mt-8 ps-20">
+                  <li>Solo file PDF (dimensione massima: 10 MB)</li>
+                  <li>I documenti sono visibili ai membri del dipartimento</li>
+                  <li>Le SOP Manager sono accessibili solo ai responsabili</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {# ───────────────────────── Bottoni azione ───────────────────────── #}
+          <div class="d-flex justify-content-center gap-3 mt-40">
+            <a href="{{ url_for('department.department_list') }}" class="btn border border-danger-600 text-danger-600 bg-hover-danger-200 px-32 py-12 radius-8 d-inline-flex align-items-center">
+              <iconify-icon icon="ri:close-line" class="me-2"></iconify-icon>
+              Annulla
+            </a>
+            <button type="submit" class="btn btn-primary text-white px-32 py-12 radius-8 d-inline-flex align-items-center">
+              <iconify-icon icon="ri:save-line" class="me-2"></iconify-icon>
+              {{ 'Crea Dipartimento' if mode == 'create' else 'Salva Modifiche' }}
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{# -------------------------------------------------------------------- #}
+{#  Inline scripts                                                      #}
+{# -------------------------------------------------------------------- #}
+{% block inline_scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Update filename preview
+      const fileInputMapping = [
+        {input: 'guidelines_pdf',  label: 'guidelines-pdf-filename'},
+        {input: 'sop_members_pdf', label: 'sop-members-filename'},
+        {input: 'sop_managers_pdf', label: 'sop-managers-filename'}
+      ];
+      
+      fileInputMapping.forEach(({input, label}) => {
+        const inputEl = document.getElementById(input);
+        const labelEl = document.getElementById(label);
+        
+        if (inputEl && labelEl) {
+          inputEl.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              labelEl.innerHTML = `<iconify-icon icon="ri:file-pdf-line" class="text-danger"></iconify-icon> ${file.name}`;
+            } else {
+              labelEl.textContent = '';
+            }
+          });
+        }
+      });
+
+      // Remove current file functionality
+      document.querySelectorAll('.remove-file-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const field = this.dataset.field;
+          const hiddenInput = document.getElementById(`remove_${field}`);
+          
+          if (hiddenInput) {
+            hiddenInput.value = 'true';
+            this.closest('div').classList.add('text-decoration-line-through', 'opacity-50');
+            this.style.pointerEvents = 'none';
+          }
+        });
+      });
+
+      // Client-side file size validation (10 MB)
+      document.querySelector('form').addEventListener('submit', (e) => {
+        const maxSize = 10 * 1024 * 1024; // 10 MB in bytes
+        let hasError = false;
+        
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+          if (input.files[0] && input.files[0].size > maxSize) {
+            e.preventDefault();
+            hasError = true;
+            
+            // Show error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+            errorDiv.innerHTML = `
+              <strong>Errore:</strong> Il file "${input.files[0].name}" supera la dimensione massima consentita di 10MB.
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            input.closest('.document-section').appendChild(errorDiv);
+          }
+        });
+        
+        if (hasError) {
+          // Scroll to top to show errors
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+
+      // Initialize Select2 if available
+      if (typeof $.fn.select2 !== 'undefined') {
+        $('#head_id').select2({
+          placeholder: '— Nessuno —',
+          allowClear: true,
+          width: '100%',
+          theme: 'bootstrap-5'
+        });
+      }
+    });
+  </script>
+{% endblock %}

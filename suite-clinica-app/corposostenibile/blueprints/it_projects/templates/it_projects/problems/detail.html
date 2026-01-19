@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}{{ problem.title }} - Problemi IT{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.problems_list') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <div>
+      <h6 class="fw-semibold mb-0">
+        {% if problem.criticality == 'blocking' %}<i class="ri-fire-fill text-danger me-2"></i>{% endif %}
+        {{ problem.title }}
+      </h6>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.index') }}">Progetti IT</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('it_projects.problems_list') }}">Problemi</a></li>
+          <li class="breadcrumb-item active">Dettaglio</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('it_projects.problems_edit', problem_id=problem.id) }}" class="btn btn-sm btn-primary-600">
+      <i class="ri-edit-line me-1"></i> Modifica
+    </a>
+    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+      <i class="ri-delete-bin-line"></i>
+    </button>
+  </div>
+</div>
+
+{# ─────────────────────── HEADER INFO ─────────────────────── #}
+<div class="row gy-4 mb-4">
+  <div class="col-12">
+    <div class="card {% if problem.criticality == 'blocking' %}border-danger{% endif %}">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <span class="w-64-px h-64-px bg-{{ problem.criticality_color }}-100 text-{{ problem.criticality_color }}-main d-flex justify-content-center align-items-center rounded-circle">
+              <iconify-icon icon="mdi:bug" style="font-size: 2rem;"></iconify-icon>
+            </span>
+            <div>
+              <h4 class="fw-semibold mb-1">{{ problem.title }}</h4>
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="badge bg-{{ problem.criticality_color }}-subtle text-{{ problem.criticality_color }}-main">
+                  {{ problem.criticality_label }}
+                </span>
+                <span class="badge bg-secondary-subtle text-secondary-main">
+                  <i class="{{ problem.tool_icon }} me-1"></i>{{ problem.tool_label }}
+                </span>
+                <span class="badge bg-{{ problem.status_color }}-subtle text-{{ problem.status_color }}-main">
+                  {{ problem.status_label }}
+                </span>
+                {% if problem.is_overdue %}
+                <span class="badge bg-danger">
+                  <i class="ri-alarm-warning-line me-1"></i>In Ritardo
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            {# Dropdown cambio stato rapido #}
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="ri-refresh-line me-1"></i>Stato
+              </button>
+              <ul class="dropdown-menu">
+                {% for value, label in status_choices %}
+                <li>
+                  <a class="dropdown-item {% if problem.status == value %}active{% endif %}" href="#" onclick="updateStatus('{{ value }}')">
+                    {{ label }}
+                  </a>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            {# Dropdown assegnazione rapida #}
+            <div class="dropdown">
+              <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="ri-user-add-line me-1"></i>Assegna
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="assignTo(null)">Non assegnato</a></li>
+                <li><hr class="dropdown-divider"></li>
+                {% for member in it_members %}
+                <li>
+                  <a class="dropdown-item {% if problem.assigned_to_id == member.id %}active{% endif %}" href="#" onclick="assignTo({{ member.id }})">
+                    {{ member.full_name }}
+                  </a>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── STATS ─────────────────────── #}
+<div class="row gy-4 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="card p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <span class="w-40-px h-40-px bg-info-100 text-info-main d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-time-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-muted d-block">Aperto da</span>
+          <span class="fw-semibold">{{ problem.time_open_hours|int }}h</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="card p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <span class="w-40-px h-40-px bg-primary-100 text-primary-600 d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-user-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-muted d-block">Segnalato da</span>
+          <span class="fw-semibold">{{ problem.reported_by.full_name if problem.reported_by else 'N/D' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="card p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <span class="w-40-px h-40-px bg-warning-100 text-warning-main d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-user-settings-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-muted d-block">Assegnato a</span>
+          <span class="fw-semibold" id="assignedToLabel">{{ problem.assigned_to.full_name if problem.assigned_to else 'Non assegnato' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-6">
+    <div class="card p-3 h-100">
+      <div class="d-flex align-items-center gap-3">
+        <span class="w-40-px h-40-px bg-success-100 text-success-main d-flex justify-content-center align-items-center rounded-circle">
+          <i class="ri-check-double-line"></i>
+        </span>
+        <div>
+          <span class="text-sm text-muted d-block">Tempo Risoluzione</span>
+          <span class="fw-semibold" id="resolutionTimeLabel">
+            {% if problem.resolution_time_hours %}
+            {{ problem.resolution_time_hours }}h
+            {% else %}
+            -
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row gy-4">
+  {# ─────────────────────── DESCRIZIONE ─────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-file-text-line text-primary-600 me-2"></i>Descrizione
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ problem.description }}</p>
+      </div>
+    </div>
+
+    {% if problem.resolution_notes %}
+    <div class="card">
+      <div class="card-header bg-success-50">
+        <h6 class="card-title mb-0 text-success-main">
+          <i class="ri-check-double-line me-2"></i>Note Risoluzione
+        </h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ problem.resolution_notes }}</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─────────────────────── SIDEBAR INFO ─────────────────────── #}
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="card-title mb-0">
+          <i class="ri-information-line text-secondary me-2"></i>Informazioni
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">ID Problema</span>
+          <span class="fw-medium">#{{ problem.id }}</span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">Strumento</span>
+          <span class="fw-medium">
+            <i class="{{ problem.tool_icon }} me-1"></i>{{ problem.tool_label }}
+          </span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">Criticita</span>
+          <span class="badge bg-{{ problem.criticality_color }}-subtle text-{{ problem.criticality_color }}-main">
+            {{ problem.criticality_label }}
+          </span>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">Data Segnalazione</span>
+          <span class="fw-medium">{{ problem.created_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+
+        {% if problem.resolved_at %}
+        <div class="mb-3">
+          <span class="text-sm text-muted d-block">Data Risoluzione</span>
+          <span class="fw-medium text-success">{{ problem.resolved_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+        {% endif %}
+
+        <div class="mb-0">
+          <span class="text-sm text-muted d-block">Ultimo Aggiornamento</span>
+          <span class="fw-medium">{{ problem.updated_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── MODAL ELIMINA ─────────────────────── #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Elimina Problema</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Sei sicuro di voler eliminare il problema <strong>{{ problem.title }}</strong>?</p>
+        <p class="text-danger mb-0">Questa azione non puo essere annullata.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <form action="{{ url_for('it_projects.problems_delete', problem_id=problem.id) }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-danger">Elimina</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateStatus(status) {
+    fetch('{{ url_for("it_projects.problems_update_status", problem_id=problem.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Errore: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        alert('Errore nel salvataggio');
+    });
+}
+
+function assignTo(userId) {
+    fetch('{{ url_for("it_projects.problems_assign", problem_id=problem.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ assigned_to_id: userId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('assignedToLabel').textContent = data.assigned_to || 'Non assegnato';
+            location.reload();
+        } else {
+            alert('Errore: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Errore:', error);
+        alert('Errore nel salvataggio');
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,2034 @@
+{# blueprints/customers/templates/customers/list_coach.html #}
+{% extends "base.html" %}
+
+{% block title %}Visuale Coach • Suite{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Avatar Team nella lista clienti */
+.avatar-team {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.avatar-team .avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.avatar-team .avatar-initials {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.avatar-team .avatar-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 7px;
+  font-weight: 700;
+  color: #fff;
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+/* Colors */
+.bg-purple-subtle { background-color: #f3e8ff !important; }
+.text-purple { color: #9333ea !important; }
+.bg-purple { background-color: #9333ea !important; }
+
+/* Stato badge styling */
+.stato-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.stato-attivo { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534; }
+.stato-pausa { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+.stato-ghost { background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #3730a3; }
+.stato-stop { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; }
+.stato-insoluto { background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); color: #7c3aed; }
+.stato-freeze { background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0369a1; }
+
+/* Storia button */
+.btn-storia {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-storia:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  color: white;
+}
+.btn-storia.has-content {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+.btn-storia.no-content {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+}
+
+/* Check day badge */
+.check-day-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+}
+
+/* Luogo allenamento badge */
+.luogo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.luogo-casa { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+.luogo-palestra { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+.luogo-ibrido { background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); color: #7c3aed; }
+
+/* Piano allenamento button */
+.btn-piano-allenamento {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-piano-allenamento:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  color: white;
+}
+.btn-piano-allenamento.has-piano {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+.btn-piano-allenamento.no-piano {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+}
+
+/* Note Extra button */
+.btn-note-extra {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-note-extra:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  color: white;
+}
+.btn-note-extra.has-content {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+.btn-note-extra.no-content {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+}
+
+/* Header arancione per coach */
+.coach-header {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+/* Reach Out badge */
+.reach-out-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+/* Larghezze colonne tabella */
+.table-coach th:nth-child(1),
+.table-coach td:nth-child(1) { width: 13%; min-width: 110px; } /* Cliente */
+.table-coach th:nth-child(2),
+.table-coach td:nth-child(2) { width: 8%; min-width: 65px; }  /* Team */
+.table-coach th:nth-child(3),
+.table-coach td:nth-child(3) { width: 9%; min-width: 80px; } /* Stato Coach */
+.table-coach th:nth-child(4),
+.table-coach td:nth-child(4) { width: 9%; min-width: 80px; }  /* Stato Chat */
+.table-coach th:nth-child(5),
+.table-coach td:nth-child(5) { width: 8%; min-width: 65px; }  /* Check Day */
+.table-coach th:nth-child(6),
+.table-coach td:nth-child(6) { width: 8%; min-width: 65px; }  /* Reach Out */
+.table-coach th:nth-child(7),
+.table-coach td:nth-child(7) { width: 9%; min-width: 75px; text-align: center; }  /* Piano Allenamento */
+.table-coach th:nth-child(8),
+.table-coach td:nth-child(8) { width: 9%; min-width: 75px; text-align: center; }  /* Luogo */
+.table-coach th:nth-child(9),
+.table-coach td:nth-child(9) { width: 8%; min-width: 65px; text-align: center; }  /* Storia */
+.table-coach th:nth-child(10),
+.table-coach td:nth-child(10) { width: 8%; min-width: 65px; text-align: center; }  /* Note Extra */
+.table-coach th:nth-child(11),
+.table-coach td:nth-child(11) { width: 5%; min-width: 45px; text-align: right; }   /* Azioni */
+
+/* Edit inline button */
+.btn-edit-inline {
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.05);
+  color: #64748b;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.btn-edit-inline:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+/* Stato cell with edit */
+.stato-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.table-coach {
+  table-layout: fixed;
+  width: 100%;
+}
+.table-coach td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- Header Coach -->
+  <div class="coach-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div>
+      <h5 class="fw-semibold mb-1 text-white">
+        <i class="ri-run-line me-2"></i>Visuale Coach
+      </h5>
+      <small class="opacity-75">Vista ottimizzata per il team coaching</small>
+    </div>
+    <a href="{{ url_for('customers.list_view') }}" class="btn btn-light btn-sm">
+      <i class="ri-arrow-left-line me-1"></i> Torna alla Lista
+    </a>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="row g-3 mb-24">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="ri-run-line" style="font-size: 18px; color: #f97316;"></i>
+            <span class="fw-semibold text-dark">Stato Coach</span>
+          </div>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-attivo"><i class="ri-circle-fill" style="font-size: 6px;"></i> Attivo</span>
+              <span class="fw-bold text-dark">{{ kpi.stato_attivo }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-ghost"><i class="ri-circle-fill" style="font-size: 6px;"></i> Ghost</span>
+              <span class="fw-bold text-dark">{{ kpi.stato_ghost }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-pausa"><i class="ri-circle-fill" style="font-size: 6px;"></i> Pausa</span>
+              <span class="fw-bold text-dark">{{ kpi.stato_pausa }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-stop"><i class="ri-circle-fill" style="font-size: 6px;"></i> Stop</span>
+              <span class="fw-bold text-dark">{{ kpi.stato_stop }}</span>
+            </div>
+            <div class="border-start ps-3 d-flex align-items-center gap-2">
+              <i class="ri-chat-3-line text-primary" style="font-size: 16px;"></i>
+              <span class="fw-semibold text-muted">Chat:</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-attivo"><i class="ri-chat-3-line" style="font-size: 10px;"></i> Attivo</span>
+              <span class="fw-bold text-dark">{{ kpi.chat_attivo }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-ghost"><i class="ri-chat-3-line" style="font-size: 10px;"></i> Ghost</span>
+              <span class="fw-bold text-dark">{{ kpi.chat_ghost }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-pausa"><i class="ri-chat-3-line" style="font-size: 10px;"></i> Pausa</span>
+              <span class="fw-bold text-dark">{{ kpi.chat_pausa }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="stato-badge stato-stop"><i class="ri-chat-3-line" style="font-size: 10px;"></i> Stop</span>
+              <span class="fw-bold text-dark">{{ kpi.chat_stop }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtri semplificati -->
+  <div class="card mb-24">
+    <div class="card-body">
+      <form method="get" class="row gy-3 gx-4 align-items-end">
+        <!-- Ricerca -->
+        <div class="col-lg-4 col-md-6">
+          <label for="{{ form.q.id }}" class="form-label fw-semibold text-primary-light text-sm mb-8">
+            Ricerca Cliente
+          </label>
+          {{ form.q(class="form-control", placeholder="Nome cliente...") }}
+        </div>
+
+        <!-- Coach -->
+        {% if is_admin or is_cco or is_department_head %}
+        <div class="col-lg-3 col-md-4">
+          <label for="{{ form.coach_id.id }}" class="form-label fw-semibold text-primary-light text-sm mb-8">Coach</label>
+          {{ form.coach_id(class="form-select") }}
+        </div>
+        {% endif %}
+
+        <!-- Stato Coach -->
+        <div class="col-lg-2 col-md-3">
+          <label class="form-label fw-semibold text-primary-light text-sm mb-8">Stato Coach</label>
+          <select name="stato_coach" class="form-select">
+            <option value="">Tutti</option>
+            <option value="attivo" {% if request.args.get('stato_coach') == 'attivo' %}selected{% endif %}>Attivo</option>
+            <option value="pausa" {% if request.args.get('stato_coach') == 'pausa' %}selected{% endif %}>Pausa</option>
+            <option value="ghost" {% if request.args.get('stato_coach') == 'ghost' %}selected{% endif %}>Ghost</option>
+            <option value="stop" {% if request.args.get('stato_coach') == 'stop' %}selected{% endif %}>Stop</option>
+          </select>
+        </div>
+
+        <!-- Check Day -->
+        <div class="col-lg-2 col-md-3">
+          <label class="form-label fw-semibold text-primary-light text-sm mb-8">Check Day</label>
+          <select name="check_day" class="form-select">
+            <option value="">Tutti</option>
+            <option value="lunedi" {% if request.args.get('check_day') == 'lunedi' %}selected{% endif %}>Lunedì</option>
+            <option value="martedi" {% if request.args.get('check_day') == 'martedi' %}selected{% endif %}>Martedì</option>
+            <option value="mercoledi" {% if request.args.get('check_day') == 'mercoledi' %}selected{% endif %}>Mercoledì</option>
+            <option value="giovedi" {% if request.args.get('check_day') == 'giovedi' %}selected{% endif %}>Giovedì</option>
+            <option value="venerdi" {% if request.args.get('check_day') == 'venerdi' %}selected{% endif %}>Venerdì</option>
+            <option value="sabato" {% if request.args.get('check_day') == 'sabato' %}selected{% endif %}>Sabato</option>
+            <option value="domenica" {% if request.args.get('check_day') == 'domenica' %}selected{% endif %}>Domenica</option>
+          </select>
+        </div>
+
+        <!-- Reach Out Coaching -->
+        <div class="col-lg-2 col-md-3">
+          <label class="form-label fw-semibold text-primary-light text-sm mb-8">Reach Out</label>
+          <select name="reach_out_coaching" class="form-select">
+            <option value="">Tutti</option>
+            <option value="lunedi" {% if request.args.get('reach_out_coaching') == 'lunedi' %}selected{% endif %}>Lunedì</option>
+            <option value="martedi" {% if request.args.get('reach_out_coaching') == 'martedi' %}selected{% endif %}>Martedì</option>
+            <option value="mercoledi" {% if request.args.get('reach_out_coaching') == 'mercoledi' %}selected{% endif %}>Mercoledì</option>
+            <option value="giovedi" {% if request.args.get('reach_out_coaching') == 'giovedi' %}selected{% endif %}>Giovedì</option>
+            <option value="venerdi" {% if request.args.get('reach_out_coaching') == 'venerdi' %}selected{% endif %}>Venerdì</option>
+            <option value="sabato" {% if request.args.get('reach_out_coaching') == 'sabato' %}selected{% endif %}>Sabato</option>
+            <option value="domenica" {% if request.args.get('reach_out_coaching') == 'domenica' %}selected{% endif %}>Domenica</option>
+          </select>
+        </div>
+
+        <!-- Pulsanti -->
+        <div class="col-lg-2 col-md-3">
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn text-white" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+              <i class="ri-filter-line me-1"></i> Filtra
+            </button>
+            <a href="{{ url_for('customers.list_coach') }}" class="btn btn-outline-secondary">
+              <i class="ri-refresh-line"></i>
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tabella Clienti -->
+  {% if pagination.items %}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+          <i class="ri-run-line me-2 text-primary"></i>
+          Clienti ({{ pagination.total }})
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table basic-border-table table-coach mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Cliente</th>
+                <th>Team</th>
+                <th>Stato Coach</th>
+                <th>Stato Chat</th>
+                <th>Check Day</th>
+                <th>Reach Out</th>
+                <th class="text-center">Piano Allenamento</th>
+                <th class="text-center">Luogo</th>
+                <th class="text-center">Storia</th>
+                <th class="text-center">Note Extra</th>
+                <th class="text-end">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cl in pagination.items %}
+                <tr>
+                  <!-- Nome Cliente -->
+                  <td>
+                    <a href="{{ url_for('customers.detail_view', cliente_id=cl.cliente_id) }}" class="fw-semibold text-dark">
+                      {{ cl.nome_cognome }}
+                    </a>
+                  </td>
+
+                  <!-- Team Professionisti -->
+                  <td>
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                      {# Health Manager #}
+                      {% if cl.health_manager_user %}
+                        <span class="avatar-team" title="HM: {{ cl.health_manager_user.full_name }}" data-bs-toggle="tooltip">
+                          {% if cl.health_manager_user.avatar_url %}
+                            <img src="{{ cl.health_manager_user.avatar_url }}" alt="{{ cl.health_manager_user.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-purple-subtle text-purple">{{ cl.health_manager_user.first_name[:1] }}{{ cl.health_manager_user.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-purple">HM</span>
+                        </span>
+                      {% endif %}
+                      {# Coach #}
+                      {% for c in cl.coaches_multipli %}
+                        <span class="avatar-team" title="Coach: {{ c.full_name }}" data-bs-toggle="tooltip">
+                          {% if c.avatar_url %}
+                            <img src="{{ c.avatar_url }}" alt="{{ c.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-primary-subtle text-primary">{{ c.first_name[:1] }}{{ c.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-primary">C</span>
+                        </span>
+                      {% endfor %}
+                      {# Nutrizionisti #}
+                      {% for n in cl.nutrizionisti_multipli %}
+                        <span class="avatar-team" title="Nutri: {{ n.full_name }}" data-bs-toggle="tooltip">
+                          {% if n.avatar_url %}
+                            <img src="{{ n.avatar_url }}" alt="{{ n.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-success-subtle text-success">{{ n.first_name[:1] }}{{ n.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-success">N</span>
+                        </span>
+                      {% endfor %}
+                      {# Psicologi #}
+                      {% for p in cl.psicologi_multipli %}
+                        <span class="avatar-team" title="Psico: {{ p.full_name }}" data-bs-toggle="tooltip">
+                          {% if p.avatar_url %}
+                            <img src="{{ p.avatar_url }}" alt="{{ p.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-info-subtle text-info">{{ p.first_name[:1] }}{{ p.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-info">P</span>
+                        </span>
+                      {% endfor %}
+                      {# Consulenti Alimentari #}
+                      {% for ca in cl.consulenti_multipli %}
+                        <span class="avatar-team" title="Cons: {{ ca.full_name }}" data-bs-toggle="tooltip">
+                          {% if ca.avatar_url %}
+                            <img src="{{ ca.avatar_url }}" alt="{{ ca.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-warning-subtle text-warning">{{ ca.first_name[:1] }}{{ ca.last_name[:1] }}</span>
+                          {% endif %}
+                          <span class="avatar-badge bg-warning">CA</span>
+                        </span>
+                      {% endfor %}
+                      {% if not cl.health_manager_user and not cl.nutrizionisti_multipli and not cl.coaches_multipli and not cl.psicologi_multipli and not cl.consulenti_multipli %}
+                        <em class="text-muted">-</em>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                  <!-- Stato Coach -->
+                  <td>
+                    <div class="stato-cell">
+                      {% if cl.stato_coach %}
+                        <span class="stato-badge stato-{{ cl.stato_coach.value }}" id="stato-coach-badge-{{ cl.cliente_id }}">
+                          <i class="ri-circle-fill" style="font-size: 6px;"></i>
+                          <span class="stato-text">{{ cl.stato_coach.value }}</span>
+                        </span>
+                      {% else %}
+                        <span class="stato-badge" id="stato-coach-badge-{{ cl.cliente_id }}">
+                          <em class="text-muted stato-text">-</em>
+                        </span>
+                      {% endif %}
+                      <button type="button" class="btn-edit-inline"
+                              data-bs-toggle="modal"
+                              data-bs-target="#editStatoCoachModal"
+                              data-cliente-id="{{ cl.cliente_id }}"
+                              data-cliente-nome="{{ cl.nome_cognome }}"
+                              data-valore="{{ cl.stato_coach.value if cl.stato_coach else '' }}"
+                              title="Modifica stato coach">
+                        <i class="ri-pencil-line"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Stato Chat Coach -->
+                  <td>
+                    <div class="stato-cell">
+                      {% if cl.stato_cliente_chat_coaching %}
+                        <span class="stato-badge stato-{{ cl.stato_cliente_chat_coaching.value }}" id="stato-chat-coach-badge-{{ cl.cliente_id }}">
+                          <i class="ri-chat-3-line" style="font-size: 10px;"></i>
+                          <span class="stato-text">{{ cl.stato_cliente_chat_coaching.value }}</span>
+                        </span>
+                      {% else %}
+                        <span class="stato-badge" id="stato-chat-coach-badge-{{ cl.cliente_id }}">
+                          <em class="text-muted stato-text">-</em>
+                        </span>
+                      {% endif %}
+                      <button type="button" class="btn-edit-inline"
+                              data-bs-toggle="modal"
+                              data-bs-target="#editStatoChatCoachModal"
+                              data-cliente-id="{{ cl.cliente_id }}"
+                              data-cliente-nome="{{ cl.nome_cognome }}"
+                              data-valore="{{ cl.stato_cliente_chat_coaching.value if cl.stato_cliente_chat_coaching else '' }}"
+                              title="Modifica stato chat">
+                        <i class="ri-pencil-line"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Check Day -->
+                  <td>
+                    <div class="stato-cell">
+                      {% if cl.check_day %}
+                        <span class="check-day-badge" id="check-day-badge-{{ cl.cliente_id }}">
+                          <i class="ri-calendar-check-line"></i>
+                          <span class="check-day-text">{{ cl.check_day.value|capitalize }}</span>
+                        </span>
+                      {% else %}
+                        <span class="check-day-badge" id="check-day-badge-{{ cl.cliente_id }}" style="background: #f1f5f9; color: #64748b;">
+                          <em class="check-day-text">-</em>
+                        </span>
+                      {% endif %}
+                      <button type="button" class="btn-edit-inline"
+                              data-bs-toggle="modal"
+                              data-bs-target="#editCheckDayModal"
+                              data-cliente-id="{{ cl.cliente_id }}"
+                              data-cliente-nome="{{ cl.nome_cognome }}"
+                              data-valore="{{ cl.check_day.value if cl.check_day else '' }}"
+                              title="Modifica check day">
+                        <i class="ri-pencil-line"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Reach Out Coaching -->
+                  <td>
+                    <div class="stato-cell">
+                      {% if cl.reach_out_coaching %}
+                        <span class="reach-out-badge" id="reach-out-badge-{{ cl.cliente_id }}">
+                          <i class="ri-calendar-event-line"></i>
+                          <span class="reach-out-text">{{ cl.reach_out_coaching.value|capitalize }}</span>
+                        </span>
+                      {% else %}
+                        <span class="reach-out-badge" id="reach-out-badge-{{ cl.cliente_id }}" style="background: #f1f5f9; color: #64748b;">
+                          <em class="reach-out-text">-</em>
+                        </span>
+                      {% endif %}
+                      <button type="button" class="btn-edit-inline"
+                              data-bs-toggle="modal"
+                              data-bs-target="#editReachOutModal"
+                              data-cliente-id="{{ cl.cliente_id }}"
+                              data-cliente-nome="{{ cl.nome_cognome }}"
+                              data-valore="{{ cl.reach_out_coaching.value if cl.reach_out_coaching else '' }}"
+                              title="Modifica reach out">
+                        <i class="ri-pencil-line"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Piano Allenamento -->
+                  <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-piano-allenamento"
+                            data-cliente-id="{{ cl.cliente_id }}"
+                            data-cliente-nome="{{ cl.nome_cognome }}"
+                            onclick="loadPianoAllenamento({{ cl.cliente_id }}, '{{ cl.nome_cognome|e }}')">
+                      <i class="ri-run-line me-1"></i>
+                      <span class="piano-status" id="piano-allen-status-{{ cl.cliente_id }}">
+                        <i class="ri-loader-4-line spin" style="font-size: 10px;"></i>
+                      </span>
+                    </button>
+                  </td>
+
+                  <!-- Luogo Allenamento -->
+                  <td class="text-center">
+                    <div class="stato-cell justify-content-center">
+                      {% if cl.luogo_di_allenamento %}
+                        <span class="luogo-badge luogo-{{ cl.luogo_di_allenamento.value }}" id="luogo-badge-{{ cl.cliente_id }}">
+                          {% if cl.luogo_di_allenamento.value == 'casa' %}
+                            <i class="ri-home-4-line"></i>
+                          {% elif cl.luogo_di_allenamento.value == 'palestra' %}
+                            <i class="ri-building-line"></i>
+                          {% else %}
+                            <i class="ri-arrow-left-right-line"></i>
+                          {% endif %}
+                          <span class="luogo-text">{{ cl.luogo_di_allenamento.value|capitalize }}</span>
+                        </span>
+                      {% else %}
+                        <span class="luogo-badge" id="luogo-badge-{{ cl.cliente_id }}" style="background: #f1f5f9; color: #64748b;">
+                          <em class="luogo-text">-</em>
+                        </span>
+                      {% endif %}
+                      <button type="button" class="btn-edit-inline"
+                              data-bs-toggle="modal"
+                              data-bs-target="#editLuogoModal"
+                              data-cliente-id="{{ cl.cliente_id }}"
+                              data-cliente-nome="{{ cl.nome_cognome }}"
+                              data-valore="{{ cl.luogo_di_allenamento.value if cl.luogo_di_allenamento else '' }}"
+                              title="Modifica luogo allenamento">
+                        <i class="ri-pencil-line"></i>
+                      </button>
+                    </div>
+                  </td>
+
+                  <!-- Storia Coach (Modal Button) -->
+                  <td class="text-center">
+                    <button type="button"
+                            class="btn btn-storia {{ 'has-content' if cl.storia_coach else 'no-content' }}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#storiaCoachModal"
+                            data-cliente-id="{{ cl.cliente_id }}"
+                            data-cliente-nome="{{ cl.nome_cognome }}"
+                            data-storia="{{ cl.storia_coach or '' }}">
+                      <i class="ri-file-text-line me-1"></i>
+                      {% if cl.storia_coach %}Vedi{% else %}Aggiungi{% endif %}
+                    </button>
+                  </td>
+
+                  <!-- Note Extra Coach (Modal Button) -->
+                  <td class="text-center">
+                    <button type="button"
+                            class="btn btn-note-extra {{ 'has-content' if cl.note_extra_coach else 'no-content' }}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#noteExtraCoachModal"
+                            data-cliente-id="{{ cl.cliente_id }}"
+                            data-cliente-nome="{{ cl.nome_cognome }}"
+                            data-note-extra="{{ cl.note_extra_coach or '' }}">
+                      <i class="ri-sticky-note-line me-1"></i>
+                      {% if cl.note_extra_coach %}Vedi{% else %}Aggiungi{% endif %}
+                    </button>
+                  </td>
+
+                  <!-- Azioni -->
+                  <td class="text-end">
+                    <a href="{{ url_for('customers.detail_view', cliente_id=cl.cliente_id) }}#pills-coaching"
+                       class="btn btn-sm btn-outline-primary"
+                       title="Vai a Tab Coaching">
+                      <i class="ri-run-line"></i>
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <iconify-icon icon="ri:run-line" class="icon text-6xl text-secondary-light mb-3"></iconify-icon>
+        <h5 class="text-secondary-light">Nessun cliente trovato</h5>
+        <p class="text-muted mb-0">Non ci sono clienti che corrispondono ai criteri di ricerca.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Paginazione -->
+  {% if pagination.pages > 1 %}
+    <nav aria-label="Paginazione clienti" class="mt-24">
+      <ul class="pagination justify-content-center mb-0">
+        {% set args = request.args.to_dict(flat=True) %}
+        {% set _ = args.pop('page', None) %}
+
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('customers.list_coach', page=pagination.prev_num, **args) if pagination.has_prev else '#' }}">
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if p %}
+            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+              <a class="page-link" href="{{ url_for('customers.list_coach', page=p, **args) }}">{{ p }}</a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+        {% endfor %}
+
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('customers.list_coach', page=pagination.next_num, **args) if pagination.has_next else '#' }}">
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  {% endif %}
+
+</section>
+
+<!-- Modal Storia Coach -->
+<div class="modal fade" id="storiaCoachModal" tabindex="-1" aria-labelledby="storiaCoachModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+        <h5 class="modal-title text-white" id="storiaCoachModalLabel">
+          <i class="ri-file-text-line me-2"></i>
+          Storia Coach - <span id="modal-storia-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modal-storia-cliente-id">
+        <div class="mb-3">
+          <label for="modal-storia-text" class="form-label fw-semibold">
+            <i class="ri-edit-line me-1 text-primary"></i>
+            Storia Cliente Coach
+          </label>
+          <textarea class="form-control" id="modal-storia-text" rows="12"
+                    placeholder="Inserisci la storia del cliente per il coaching..."
+                    style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;"></textarea>
+          <small class="text-muted mt-2 d-block">
+            <i class="ri-information-line me-1"></i>
+            Diario del percorso di coaching, progressi e note importanti
+          </small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-salva-storia-coach">
+          <i class="ri-save-line me-1"></i> Salva Modifiche
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Note Extra Coach -->
+<div class="modal fade" id="noteExtraCoachModal" tabindex="-1" aria-labelledby="noteExtraCoachModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+        <h5 class="modal-title text-white" id="noteExtraCoachModalLabel">
+          <i class="ri-sticky-note-line me-2"></i>
+          Note Extra - <span id="modal-note-extra-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modal-note-extra-cliente-id">
+        <div class="mb-3">
+          <label for="modal-note-extra-text" class="form-label fw-semibold">
+            <i class="ri-edit-line me-1 text-purple"></i>
+            Note Extra Coach
+          </label>
+          <textarea class="form-control" id="modal-note-extra-text" rows="12"
+                    placeholder="Inserisci note aggiuntive del coach..."
+                    style="border: 2px solid rgba(139, 92, 246, 0.2); border-radius: 12px;"></textarea>
+          <small class="text-muted mt-2 d-block">
+            <i class="ri-information-line me-1"></i>
+            Note importanti e osservazioni aggiuntive del coach
+          </small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn text-white" id="btn-salva-note-extra-coach" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+          <i class="ri-save-line me-1"></i> Salva Modifiche
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Modifica Stato Coach -->
+<div class="modal fade" id="editStatoCoachModal" tabindex="-1" aria-labelledby="editStatoCoachModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+        <h5 class="modal-title text-white" id="editStatoCoachModalLabel">
+          <i class="ri-circle-fill me-2"></i>
+          Stato Coach - <span id="edit-stato-coach-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-stato-coach-cliente-id">
+        <div class="mb-3">
+          <label for="edit-stato-coach-select" class="form-label fw-semibold">
+            <i class="ri-pulse-line me-1 text-primary"></i>
+            Seleziona Stato Coach
+          </label>
+          <select class="form-select" id="edit-stato-coach-select" style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;">
+            <option value="">-- Nessuno stato --</option>
+            <option value="attivo">Attivo</option>
+            <option value="pausa">Pausa</option>
+            <option value="ghost">Ghost</option>
+            <option value="stop">Stop</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-salva-stato-coach">
+          <i class="ri-save-line me-1"></i> Salva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Modifica Stato Chat Coach -->
+<div class="modal fade" id="editStatoChatCoachModal" tabindex="-1" aria-labelledby="editStatoChatCoachModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+        <h5 class="modal-title text-white" id="editStatoChatCoachModalLabel">
+          <i class="ri-chat-3-line me-2"></i>
+          Stato Chat - <span id="edit-stato-chat-coach-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-stato-chat-coach-cliente-id">
+        <div class="mb-3">
+          <label for="edit-stato-chat-coach-select" class="form-label fw-semibold">
+            <i class="ri-chat-settings-line me-1 text-purple"></i>
+            Seleziona Stato Chat Coach
+          </label>
+          <select class="form-select" id="edit-stato-chat-coach-select" style="border: 2px solid rgba(139, 92, 246, 0.2); border-radius: 12px;">
+            <option value="">-- Nessuno stato --</option>
+            <option value="attivo">Attivo</option>
+            <option value="pausa">Pausa</option>
+            <option value="ghost">Ghost</option>
+            <option value="stop">Stop</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn text-white" id="btn-salva-stato-chat-coach" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+          <i class="ri-save-line me-1"></i> Salva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Modifica Check Day -->
+<div class="modal fade" id="editCheckDayModal" tabindex="-1" aria-labelledby="editCheckDayModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+        <h5 class="modal-title text-white" id="editCheckDayModalLabel">
+          <i class="ri-calendar-check-line me-2"></i>
+          Check Day - <span id="edit-check-day-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-check-day-cliente-id">
+        <div class="mb-3">
+          <label for="edit-check-day-select" class="form-label fw-semibold">
+            <i class="ri-calendar-line me-1 text-primary"></i>
+            Seleziona Giorno Check
+          </label>
+          <select class="form-select" id="edit-check-day-select" style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;">
+            <option value="">-- Nessun giorno --</option>
+            <option value="lun">Lunedì</option>
+            <option value="mar">Martedì</option>
+            <option value="mer">Mercoledì</option>
+            <option value="gio">Giovedì</option>
+            <option value="ven">Venerdì</option>
+            <option value="sab">Sabato</option>
+            <option value="dom">Domenica</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-salva-check-day">
+          <i class="ri-save-line me-1"></i> Salva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Modifica Reach Out Coaching -->
+<div class="modal fade" id="editReachOutModal" tabindex="-1" aria-labelledby="editReachOutModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+        <h5 class="modal-title text-white" id="editReachOutModalLabel">
+          <i class="ri-calendar-event-line me-2"></i>
+          Reach Out - <span id="edit-reach-out-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-reach-out-cliente-id">
+        <div class="mb-3">
+          <label for="edit-reach-out-select" class="form-label fw-semibold">
+            <i class="ri-calendar-event-line me-1" style="color: #f59e0b;"></i>
+            Seleziona Giorno Reach Out
+          </label>
+          <select class="form-select" id="edit-reach-out-select" style="border: 2px solid rgba(245, 158, 11, 0.2); border-radius: 12px;">
+            <option value="">-- Nessun giorno --</option>
+            <option value="lunedi">Lunedì</option>
+            <option value="martedi">Martedì</option>
+            <option value="mercoledi">Mercoledì</option>
+            <option value="giovedi">Giovedì</option>
+            <option value="venerdi">Venerdì</option>
+            <option value="sabato">Sabato</option>
+            <option value="domenica">Domenica</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn text-white" id="btn-salva-reach-out" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+          <i class="ri-save-line me-1"></i> Salva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Visualizza Luogo Allenamento -->
+<div class="modal fade" id="editLuogoModal" tabindex="-1" aria-labelledby="editLuogoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+        <h5 class="modal-title text-white" id="editLuogoModalLabel">
+          <i class="ri-map-pin-line me-2"></i>
+          Luogo Allenamento - <span id="view-luogo-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="view-luogo-body">
+        <input type="hidden" id="view-luogo-cliente-id">
+        <div class="text-center py-4">
+          <i class="ri-loader-4-line spin" style="font-size: 2rem; color: #f97316;"></i>
+          <p class="mt-2 text-muted">Caricamento dati luogo...</p>
+        </div>
+      </div>
+      <div class="modal-footer" id="view-luogo-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cambia Luogo Allenamento (Nuovo) -->
+<div class="modal fade" id="addLuogoModal" tabindex="-1" aria-labelledby="addLuogoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+        <h5 class="modal-title text-white" id="addLuogoModalLabel">
+          <i class="ri-add-circle-line me-2"></i>
+          Cambia Luogo - <span id="add-luogo-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="add-luogo-cliente-id">
+        <div class="alert alert-info mb-3" style="border-radius: 10px;">
+          <i class="ri-information-line me-1"></i>
+          Il luogo attuale verrà chiuso e ne verrà creato uno nuovo.
+        </div>
+        <div class="mb-3">
+          <label for="add-luogo-select" class="form-label fw-semibold">
+            <i class="ri-map-pin-line me-1" style="color: #22c55e;"></i>
+            Nuovo Luogo *
+          </label>
+          <select class="form-select" id="add-luogo-select" style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px;" required>
+            <option value="">-- Seleziona luogo --</option>
+            <option value="casa">Casa</option>
+            <option value="palestra">Palestra</option>
+            <option value="ibrido">Ibrido</option>
+          </select>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label for="add-luogo-start" class="form-label fw-semibold">
+              <i class="ri-calendar-line me-1" style="color: #22c55e;"></i>
+              Data Inizio *
+            </label>
+            <input type="date" class="form-control" id="add-luogo-start" style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px;" required>
+          </div>
+          <div class="col-6">
+            <label for="add-luogo-end" class="form-label fw-semibold">
+              <i class="ri-calendar-check-line me-1" style="color: #22c55e;"></i>
+              Data Fine
+            </label>
+            <input type="date" class="form-control" id="add-luogo-end" style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px;">
+            <small class="text-muted">Lascia vuoto se in corso</small>
+          </div>
+        </div>
+        <div class="mb-3 mt-3">
+          <label for="add-luogo-notes" class="form-label fw-semibold">
+            <i class="ri-sticky-note-line me-1" style="color: #22c55e;"></i>
+            Note
+          </label>
+          <textarea class="form-control" id="add-luogo-notes" rows="3" placeholder="Note opzionali..." style="border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 12px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Annulla
+        </button>
+        <button type="button" class="btn btn-success" id="btn-conferma-add-luogo">
+          <i class="ri-check-line me-1"></i> Conferma Cambio
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Modifica Luogo Attuale -->
+<div class="modal fade" id="changeLuogoModal" tabindex="-1" aria-labelledby="changeLuogoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+        <h5 class="modal-title text-white" id="changeLuogoModalLabel">
+          <i class="ri-edit-2-line me-2"></i>
+          Modifica Luogo Attuale - <span id="change-luogo-cliente-nome"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="change-luogo-cliente-id">
+        <input type="hidden" id="change-luogo-id">
+        <div class="mb-3">
+          <label for="change-luogo-select" class="form-label fw-semibold">
+            <i class="ri-map-pin-line me-1" style="color: #3b82f6;"></i>
+            Luogo *
+          </label>
+          <select class="form-select" id="change-luogo-select" style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;" required>
+            <option value="">-- Seleziona luogo --</option>
+            <option value="casa">Casa</option>
+            <option value="palestra">Palestra</option>
+            <option value="ibrido">Ibrido</option>
+          </select>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label for="change-luogo-start" class="form-label fw-semibold">
+              <i class="ri-calendar-line me-1" style="color: #3b82f6;"></i>
+              Data Inizio *
+            </label>
+            <input type="date" class="form-control" id="change-luogo-start" style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;" required>
+          </div>
+          <div class="col-6">
+            <label for="change-luogo-end" class="form-label fw-semibold">
+              <i class="ri-calendar-check-line me-1" style="color: #3b82f6;"></i>
+              Data Fine
+            </label>
+            <input type="date" class="form-control" id="change-luogo-end" style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;">
+            <small class="text-muted">Lascia vuoto se in corso</small>
+          </div>
+        </div>
+        <div class="mb-3 mt-3">
+          <label for="change-luogo-notes" class="form-label fw-semibold">
+            <i class="ri-sticky-note-line me-1" style="color: #3b82f6;"></i>
+            Note
+          </label>
+          <textarea class="form-control" id="change-luogo-notes" rows="3" placeholder="Note opzionali..." style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;"></textarea>
+        </div>
+        <div class="mb-3">
+          <label for="change-luogo-reason" class="form-label fw-semibold">
+            <i class="ri-question-line me-1" style="color: #3b82f6;"></i>
+            Motivo Modifica
+          </label>
+          <input type="text" class="form-control" id="change-luogo-reason" placeholder="Es: Correzione data..." style="border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 12px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Annulla
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-conferma-change-luogo">
+          <i class="ri-save-line me-1"></i> Salva Modifiche
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Piano Allenamento -->
+<div class="modal fade" id="pianoAllenamentoModal" tabindex="-1" aria-labelledby="pianoAllenamentoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+        <h5 class="modal-title text-white" id="pianoAllenamentoModalLabel">
+          <i class="ri-run-line me-2"></i>
+          Piano Allenamento - <span id="modal-piano-allen-cliente"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="modal-piano-allen-body">
+        <div class="text-center py-4">
+          <i class="ri-loader-4-line spin" style="font-size: 2rem;"></i>
+          <p class="mt-2 text-muted">Caricamento piano allenamento...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <a href="#" id="btn-vai-coaching" class="btn text-white" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+          <i class="ri-external-link-line me-1"></i> Vai a Tab Coaching
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inizializza tooltip
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el); });
+
+    // Modal Storia Coach
+    const storiaCoachModal = document.getElementById('storiaCoachModal');
+    if (storiaCoachModal) {
+        storiaCoachModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNome = button.getAttribute('data-cliente-nome');
+            const storia = button.getAttribute('data-storia');
+
+            document.getElementById('modal-storia-cliente-id').value = clienteId;
+            document.getElementById('modal-storia-cliente-nome').textContent = clienteNome;
+            document.getElementById('modal-storia-text').value = storia;
+        });
+    }
+
+    // Salva Storia Coach
+    document.getElementById('btn-salva-storia-coach').addEventListener('click', function() {
+        const clienteId = document.getElementById('modal-storia-cliente-id').value;
+        const storia = document.getElementById('modal-storia-text').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ storia_coach: storia })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok || data.success) {
+                const tableBtn = document.querySelector(`button[data-bs-target="#storiaCoachModal"][data-cliente-id="${clienteId}"]`);
+                if (tableBtn) {
+                    tableBtn.setAttribute('data-storia', storia);
+                    if (storia.trim()) {
+                        tableBtn.classList.remove('no-content');
+                        tableBtn.classList.add('has-content');
+                        tableBtn.innerHTML = '<i class="ri-file-text-line me-1"></i>Vedi';
+                    } else {
+                        tableBtn.classList.remove('has-content');
+                        tableBtn.classList.add('no-content');
+                        tableBtn.innerHTML = '<i class="ri-file-text-line me-1"></i>Aggiungi';
+                    }
+                }
+                bootstrap.Modal.getInstance(storiaCoachModal).hide();
+                showToast('Storia coach salvata con successo!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva Modifiche';
+        });
+    });
+
+    // Toast helper
+    function showToast(message, type) {
+        const toastContainer = document.getElementById('toast-container') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        toastContainer.appendChild(toast);
+        new bootstrap.Toast(toast, { delay: 3000 }).show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    // Modal Note Extra Coach
+    const noteExtraCoachModal = document.getElementById('noteExtraCoachModal');
+    if (noteExtraCoachModal) {
+        noteExtraCoachModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNome = button.getAttribute('data-cliente-nome');
+            const noteExtra = button.getAttribute('data-note-extra');
+
+            document.getElementById('modal-note-extra-cliente-id').value = clienteId;
+            document.getElementById('modal-note-extra-cliente-nome').textContent = clienteNome;
+            document.getElementById('modal-note-extra-text').value = noteExtra;
+        });
+    }
+
+    // Salva Note Extra Coach
+    document.getElementById('btn-salva-note-extra-coach').addEventListener('click', function() {
+        const clienteId = document.getElementById('modal-note-extra-cliente-id').value;
+        const noteExtra = document.getElementById('modal-note-extra-text').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ note_extra_coach: noteExtra })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok || data.success) {
+                const tableBtn = document.querySelector(`button[data-bs-target="#noteExtraCoachModal"][data-cliente-id="${clienteId}"]`);
+                if (tableBtn) {
+                    tableBtn.setAttribute('data-note-extra', noteExtra);
+                    if (noteExtra.trim()) {
+                        tableBtn.classList.remove('no-content');
+                        tableBtn.classList.add('has-content');
+                        tableBtn.innerHTML = '<i class="ri-sticky-note-line me-1"></i>Vedi';
+                    } else {
+                        tableBtn.classList.remove('has-content');
+                        tableBtn.classList.add('no-content');
+                        tableBtn.innerHTML = '<i class="ri-sticky-note-line me-1"></i>Aggiungi';
+                    }
+                }
+                bootstrap.Modal.getInstance(noteExtraCoachModal).hide();
+                showToast('Note extra salvate con successo!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva Modifiche';
+        });
+    });
+
+    // =========================================================================
+    // Modal Modifica Stato Coach
+    // =========================================================================
+    const editStatoCoachModal = document.getElementById('editStatoCoachModal');
+    if (editStatoCoachModal) {
+        editStatoCoachModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNome = button.getAttribute('data-cliente-nome');
+            const valore = button.getAttribute('data-valore');
+
+            document.getElementById('edit-stato-coach-cliente-id').value = clienteId;
+            document.getElementById('edit-stato-coach-cliente-nome').textContent = clienteNome;
+            document.getElementById('edit-stato-coach-select').value = valore;
+        });
+    }
+
+    document.getElementById('btn-salva-stato-coach').addEventListener('click', function() {
+        const clienteId = document.getElementById('edit-stato-coach-cliente-id').value;
+        const nuovoStato = document.getElementById('edit-stato-coach-select').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ stato_coach: nuovoStato || null })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok || data.success) {
+                const badge = document.getElementById(`stato-coach-badge-${clienteId}`);
+                if (badge) {
+                    badge.className = badge.className.replace(/stato-\w+/g, '').trim();
+                    if (nuovoStato) {
+                        badge.classList.add('stato-badge', `stato-${nuovoStato}`);
+                        badge.querySelector('.stato-text').textContent = nuovoStato;
+                    } else {
+                        badge.classList.add('stato-badge');
+                        badge.querySelector('.stato-text').innerHTML = '<em class="text-muted">-</em>';
+                    }
+                }
+                const editBtn = document.querySelector(`button[data-bs-target="#editStatoCoachModal"][data-cliente-id="${clienteId}"]`);
+                if (editBtn) editBtn.setAttribute('data-valore', nuovoStato);
+
+                bootstrap.Modal.getInstance(editStatoCoachModal).hide();
+                showToast('Stato coach aggiornato!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+        });
+    });
+
+    // =========================================================================
+    // Modal Modifica Stato Chat Coach
+    // =========================================================================
+    const editStatoChatCoachModal = document.getElementById('editStatoChatCoachModal');
+    if (editStatoChatCoachModal) {
+        editStatoChatCoachModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNome = button.getAttribute('data-cliente-nome');
+            const valore = button.getAttribute('data-valore');
+
+            document.getElementById('edit-stato-chat-coach-cliente-id').value = clienteId;
+            document.getElementById('edit-stato-chat-coach-cliente-nome').textContent = clienteNome;
+            document.getElementById('edit-stato-chat-coach-select').value = valore;
+        });
+    }
+
+    document.getElementById('btn-salva-stato-chat-coach').addEventListener('click', function() {
+        const clienteId = document.getElementById('edit-stato-chat-coach-cliente-id').value;
+        const nuovoStato = document.getElementById('edit-stato-chat-coach-select').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ stato_cliente_chat_coaching: nuovoStato || null })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok || data.success) {
+                const badge = document.getElementById(`stato-chat-coach-badge-${clienteId}`);
+                if (badge) {
+                    badge.className = badge.className.replace(/stato-\w+/g, '').trim();
+                    if (nuovoStato) {
+                        badge.classList.add('stato-badge', `stato-${nuovoStato}`);
+                        badge.querySelector('.stato-text').textContent = nuovoStato;
+                    } else {
+                        badge.classList.add('stato-badge');
+                        badge.querySelector('.stato-text').innerHTML = '<em class="text-muted">-</em>';
+                    }
+                }
+                const editBtn = document.querySelector(`button[data-bs-target="#editStatoChatCoachModal"][data-cliente-id="${clienteId}"]`);
+                if (editBtn) editBtn.setAttribute('data-valore', nuovoStato);
+
+                bootstrap.Modal.getInstance(editStatoChatCoachModal).hide();
+                showToast('Stato chat aggiornato!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+        });
+    });
+
+    // =========================================================================
+    // Modal Modifica Check Day
+    // =========================================================================
+    const editCheckDayModal = document.getElementById('editCheckDayModal');
+    if (editCheckDayModal) {
+        editCheckDayModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNome = button.getAttribute('data-cliente-nome');
+            const valore = button.getAttribute('data-valore');
+
+            document.getElementById('edit-check-day-cliente-id').value = clienteId;
+            document.getElementById('edit-check-day-cliente-nome').textContent = clienteNome;
+            document.getElementById('edit-check-day-select').value = valore;
+        });
+    }
+
+    document.getElementById('btn-salva-check-day').addEventListener('click', function() {
+        const clienteId = document.getElementById('edit-check-day-cliente-id').value;
+        const nuovoGiorno = document.getElementById('edit-check-day-select').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ check_day: nuovoGiorno || null })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok || data.success) {
+                const giorniMap = {
+                    'lun': 'Lun', 'mar': 'Mar', 'mer': 'Mer',
+                    'gio': 'Gio', 'ven': 'Ven', 'sab': 'Sab', 'dom': 'Dom'
+                };
+                const badge = document.getElementById(`check-day-badge-${clienteId}`);
+                if (badge) {
+                    if (nuovoGiorno) {
+                        badge.style.background = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+                        badge.style.color = '#1e40af';
+                        badge.querySelector('.check-day-text').textContent = giorniMap[nuovoGiorno] || nuovoGiorno;
+                    } else {
+                        badge.style.background = '#f1f5f9';
+                        badge.style.color = '#64748b';
+                        badge.querySelector('.check-day-text').innerHTML = '-';
+                    }
+                }
+                const editBtn = document.querySelector(`button[data-bs-target="#editCheckDayModal"][data-cliente-id="${clienteId}"]`);
+                if (editBtn) editBtn.setAttribute('data-valore', nuovoGiorno);
+
+                bootstrap.Modal.getInstance(editCheckDayModal).hide();
+                showToast('Check day aggiornato!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+        });
+    });
+
+    // =========================================================================
+    // Modal Modifica Reach Out Coaching
+    // =========================================================================
+    const editReachOutModal = document.getElementById('editReachOutModal');
+    if (editReachOutModal) {
+        editReachOutModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNome = button.getAttribute('data-cliente-nome');
+            const valore = button.getAttribute('data-valore');
+
+            document.getElementById('edit-reach-out-cliente-id').value = clienteId;
+            document.getElementById('edit-reach-out-cliente-nome').textContent = clienteNome;
+            document.getElementById('edit-reach-out-select').value = valore;
+        });
+    }
+
+    document.getElementById('btn-salva-reach-out').addEventListener('click', function() {
+        const clienteId = document.getElementById('edit-reach-out-cliente-id').value;
+        const nuovoGiorno = document.getElementById('edit-reach-out-select').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({ reach_out_coaching: nuovoGiorno || null })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok || data.success) {
+                const giorniMap = {
+                    'lunedi': 'Lunedì', 'martedi': 'Martedì', 'mercoledi': 'Mercoledì',
+                    'giovedi': 'Giovedì', 'venerdi': 'Venerdì', 'sabato': 'Sabato', 'domenica': 'Domenica'
+                };
+                const badge = document.getElementById(`reach-out-badge-${clienteId}`);
+                if (badge) {
+                    if (nuovoGiorno) {
+                        badge.style.background = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+                        badge.style.color = '#92400e';
+                        badge.querySelector('.reach-out-text').textContent = giorniMap[nuovoGiorno] || nuovoGiorno;
+                    } else {
+                        badge.style.background = '#f1f5f9';
+                        badge.style.color = '#64748b';
+                        badge.querySelector('.reach-out-text').innerHTML = '-';
+                    }
+                }
+                const editBtn = document.querySelector(`button[data-bs-target="#editReachOutModal"][data-cliente-id="${clienteId}"]`);
+                if (editBtn) editBtn.setAttribute('data-valore', nuovoGiorno);
+
+                bootstrap.Modal.getInstance(editReachOutModal).hide();
+                showToast('Reach out aggiornato!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+        });
+    });
+
+    // =========================================================================
+    // Modal Visualizza Luogo Allenamento
+    // =========================================================================
+    const editLuogoModal = document.getElementById('editLuogoModal');
+    let currentLuogoClienteId = null;
+    let currentLuogoClienteNome = null;
+    let currentActiveLuogo = null;
+
+    if (editLuogoModal) {
+        editLuogoModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            currentLuogoClienteId = button.getAttribute('data-cliente-id');
+            currentLuogoClienteNome = button.getAttribute('data-cliente-nome');
+
+            document.getElementById('view-luogo-cliente-id').value = currentLuogoClienteId;
+            document.getElementById('view-luogo-cliente-nome').textContent = currentLuogoClienteNome;
+
+            // Carica i dati del luogo
+            loadLuogoData(currentLuogoClienteId);
+        });
+    }
+
+    function loadLuogoData(clienteId) {
+        const bodyContainer = document.getElementById('view-luogo-body');
+        const footerContainer = document.getElementById('view-luogo-footer');
+
+        bodyContainer.innerHTML = `
+            <div class="text-center py-4">
+                <i class="ri-loader-4-line spin" style="font-size: 2rem; color: #f97316;"></i>
+                <p class="mt-2 text-muted">Caricamento dati luogo...</p>
+            </div>
+        `;
+
+        fetch(`/customers/${clienteId}/location/history`)
+            .then(response => response.json())
+            .then(data => {
+                const activeLoc = data.history?.find(l => l.is_active);
+                currentActiveLuogo = activeLoc;
+
+                if (activeLoc && !activeLoc.is_legacy) {
+                    const startDate = activeLoc.start_date ? new Date(activeLoc.start_date).toLocaleDateString('it-IT') : '-';
+                    const endDate = activeLoc.end_date ? new Date(activeLoc.end_date).toLocaleDateString('it-IT') : 'In corso';
+                    let icon = 'ri-arrow-left-right-line';
+                    if (activeLoc.location === 'casa') icon = 'ri-home-4-line';
+                    else if (activeLoc.location === 'palestra') icon = 'ri-building-line';
+
+                    bodyContainer.innerHTML = `
+                        <div class="card border-0 mb-3" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-radius: 12px;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="p-2 rounded-circle me-3" style="background: rgba(249, 115, 22, 0.2);">
+                                        <i class="${icon}" style="font-size: 24px; color: #ea580c;"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="mb-0" style="color: #ea580c;">${activeLoc.location.charAt(0).toUpperCase() + activeLoc.location.slice(1)}</h5>
+                                        <span class="badge bg-success">Attivo</span>
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="ri-calendar-line me-1"></i>Dal</small>
+                                        <strong>${startDate}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="ri-calendar-check-line me-1"></i>Al</small>
+                                        <strong>${endDate}</strong>
+                                    </div>
+                                </div>
+                                ${activeLoc.notes ? `
+                                    <div class="mt-3 pt-3" style="border-top: 1px dashed rgba(249, 115, 22, 0.3);">
+                                        <small class="text-muted d-block mb-1"><i class="ri-sticky-note-line me-1"></i>Note</small>
+                                        <p class="mb-0">${activeLoc.notes}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    footerContainer.innerHTML = `
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="ri-close-line me-1"></i> Chiudi
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="openChangeLuogoModal()">
+                            <i class="ri-edit-2-line me-1"></i> Modifica Attuale
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="openAddLuogoModal()">
+                            <i class="ri-add-line me-1"></i> Cambia Luogo
+                        </button>
+                    `;
+                } else {
+                    // Nessun luogo attivo o solo legacy
+                    const legacyLoc = data.legacy_location;
+                    if (legacyLoc) {
+                        bodyContainer.innerHTML = `
+                            <div class="alert alert-warning mb-3" style="border-radius: 10px;">
+                                <i class="ri-alert-line me-2"></i>
+                                <strong>Dati Legacy</strong> - Nessun periodo configurato
+                            </div>
+                            <div class="text-center py-3">
+                                <div class="p-3 rounded-circle d-inline-flex mb-3" style="background: rgba(249, 115, 22, 0.1);">
+                                    <i class="ri-map-pin-line" style="font-size: 32px; color: #f97316;"></i>
+                                </div>
+                                <h5 style="color: #ea580c;">${legacyLoc.location || '-'}</h5>
+                            </div>
+                        `;
+                    } else {
+                        bodyContainer.innerHTML = `
+                            <div class="text-center py-4">
+                                <i class="ri-map-pin-line text-muted" style="font-size: 48px;"></i>
+                                <h5 class="mt-3 text-muted">Nessun Luogo Configurato</h5>
+                                <p class="text-muted mb-0">Questo cliente non ha un luogo di allenamento impostato.</p>
+                            </div>
+                        `;
+                    }
+
+                    footerContainer.innerHTML = `
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="ri-close-line me-1"></i> Chiudi
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="openAddLuogoModal()">
+                            <i class="ri-add-line me-1"></i> Aggiungi Luogo
+                        </button>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Errore:', error);
+                bodyContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="ri-error-warning-line me-2"></i>
+                        Errore durante il caricamento dei dati
+                    </div>
+                `;
+            });
+    }
+
+    // Apri modal Cambia Luogo
+    window.openAddLuogoModal = function() {
+        bootstrap.Modal.getInstance(editLuogoModal).hide();
+
+        document.getElementById('add-luogo-cliente-id').value = currentLuogoClienteId;
+        document.getElementById('add-luogo-cliente-nome').textContent = currentLuogoClienteNome;
+        document.getElementById('add-luogo-select').value = '';
+        document.getElementById('add-luogo-start').value = new Date().toISOString().split('T')[0];
+        document.getElementById('add-luogo-end').value = '';
+        document.getElementById('add-luogo-notes').value = '';
+
+        setTimeout(() => {
+            new bootstrap.Modal(document.getElementById('addLuogoModal')).show();
+        }, 300);
+    };
+
+    // Apri modal Modifica Attuale
+    window.openChangeLuogoModal = function() {
+        if (!currentActiveLuogo || currentActiveLuogo.is_legacy) {
+            showToast('Nessun luogo attivo da modificare', 'warning');
+            return;
+        }
+
+        bootstrap.Modal.getInstance(editLuogoModal).hide();
+
+        document.getElementById('change-luogo-cliente-id').value = currentLuogoClienteId;
+        document.getElementById('change-luogo-cliente-nome').textContent = currentLuogoClienteNome;
+        document.getElementById('change-luogo-id').value = currentActiveLuogo.id;
+        document.getElementById('change-luogo-select').value = currentActiveLuogo.location;
+        document.getElementById('change-luogo-start').value = currentActiveLuogo.start_date || '';
+        document.getElementById('change-luogo-end').value = currentActiveLuogo.end_date || '';
+        document.getElementById('change-luogo-notes').value = currentActiveLuogo.notes || '';
+        document.getElementById('change-luogo-reason').value = '';
+
+        setTimeout(() => {
+            new bootstrap.Modal(document.getElementById('changeLuogoModal')).show();
+        }, 300);
+    };
+
+    // Conferma Cambia Luogo (Nuovo)
+    document.getElementById('btn-conferma-add-luogo').addEventListener('click', function() {
+        const clienteId = document.getElementById('add-luogo-cliente-id').value;
+        const location = document.getElementById('add-luogo-select').value;
+        const startDate = document.getElementById('add-luogo-start').value;
+        const endDate = document.getElementById('add-luogo-end').value;
+        const notes = document.getElementById('add-luogo-notes').value;
+        const btn = this;
+
+        if (!location) {
+            showToast('Seleziona un luogo', 'warning');
+            return;
+        }
+        if (!startDate) {
+            showToast('Inserisci la data di inizio', 'warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/location/add`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({
+                location: location,
+                start_date: startDate,
+                end_date: endDate || null,
+                notes: notes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                // Aggiorna badge nella tabella
+                updateLuogoBadge(clienteId, location);
+                bootstrap.Modal.getInstance(document.getElementById('addLuogoModal')).hide();
+                showToast('Luogo allenamento aggiornato!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-check-line me-1"></i> Conferma Cambio';
+        });
+    });
+
+    // Conferma Modifica Attuale
+    document.getElementById('btn-conferma-change-luogo').addEventListener('click', function() {
+        const clienteId = document.getElementById('change-luogo-cliente-id').value;
+        const locId = document.getElementById('change-luogo-id').value;
+        const location = document.getElementById('change-luogo-select').value;
+        const startDate = document.getElementById('change-luogo-start').value;
+        const endDate = document.getElementById('change-luogo-end').value;
+        const notes = document.getElementById('change-luogo-notes').value;
+        const changeReason = document.getElementById('change-luogo-reason').value;
+        const btn = this;
+
+        if (!location) {
+            showToast('Seleziona un luogo', 'warning');
+            return;
+        }
+        if (!startDate) {
+            showToast('Inserisci la data di inizio', 'warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        fetch(`/customers/${clienteId}/location/change/${locId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({
+                location: location,
+                start_date: startDate,
+                end_date: endDate || null,
+                notes: notes,
+                change_reason: changeReason
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                // Aggiorna badge nella tabella
+                updateLuogoBadge(clienteId, location);
+                bootstrap.Modal.getInstance(document.getElementById('changeLuogoModal')).hide();
+                showToast('Luogo allenamento modificato!', 'success');
+            } else {
+                showToast(data.error || 'Errore durante il salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            showToast('Errore di connessione', 'danger');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva Modifiche';
+        });
+    });
+
+    // Helper per aggiornare il badge nella tabella
+    function updateLuogoBadge(clienteId, nuovoLuogo) {
+        const badge = document.getElementById(`luogo-badge-${clienteId}`);
+        if (badge) {
+            badge.className = badge.className.replace(/luogo-\w+/g, '').trim();
+            if (nuovoLuogo) {
+                badge.classList.add('luogo-badge', `luogo-${nuovoLuogo}`);
+                let icon = 'ri-arrow-left-right-line';
+                if (nuovoLuogo === 'casa') icon = 'ri-home-4-line';
+                else if (nuovoLuogo === 'palestra') icon = 'ri-building-line';
+                badge.innerHTML = `<i class="${icon}"></i><span class="luogo-text">${nuovoLuogo.charAt(0).toUpperCase() + nuovoLuogo.slice(1)}</span>`;
+                badge.style.background = '';
+                badge.style.color = '';
+            } else {
+                badge.classList.add('luogo-badge');
+                badge.style.background = '#f1f5f9';
+                badge.style.color = '#64748b';
+                badge.innerHTML = '<em class="luogo-text">-</em>';
+            }
+        }
+        const editBtn = document.querySelector(`button[data-bs-target="#editLuogoModal"][data-cliente-id="${clienteId}"]`);
+        if (editBtn) editBtn.setAttribute('data-valore', nuovoLuogo);
+    }
+
+    // Carica stato piani allenamento all'avvio
+    loadAllPianiAllenamentoStatus();
+});
+
+// Carica lo stato di tutti i piani allenamento
+function loadAllPianiAllenamentoStatus() {
+    document.querySelectorAll('.btn-piano-allenamento').forEach(btn => {
+        const clienteId = btn.getAttribute('data-cliente-id');
+        fetch(`/customers/${clienteId}/training/history`)
+            .then(response => response.json())
+            .then(data => {
+                const statusSpan = document.getElementById(`piano-allen-status-${clienteId}`);
+                const activePlan = data.plans?.find(p => p.is_active);
+
+                if (activePlan) {
+                    btn.classList.add('has-piano');
+                    btn.classList.remove('no-piano');
+                    statusSpan.innerHTML = '<i class="ri-check-line"></i>';
+                } else {
+                    btn.classList.add('no-piano');
+                    btn.classList.remove('has-piano');
+                    statusSpan.innerHTML = '<i class="ri-close-line"></i>';
+                }
+            })
+            .catch(() => {
+                const statusSpan = document.getElementById(`piano-allen-status-${clienteId}`);
+                statusSpan.innerHTML = '<i class="ri-error-warning-line text-danger"></i>';
+            });
+    });
+}
+
+// Carica e mostra piano allenamento nel modal
+function loadPianoAllenamento(clienteId, clienteNome) {
+    const modal = new bootstrap.Modal(document.getElementById('pianoAllenamentoModal'));
+    document.getElementById('modal-piano-allen-cliente').textContent = clienteNome;
+    document.getElementById('btn-vai-coaching').href = `/customers/${clienteId}#pills-coaching`;
+
+    const bodyContainer = document.getElementById('modal-piano-allen-body');
+    bodyContainer.innerHTML = `
+        <div class="text-center py-4">
+            <i class="ri-loader-4-line spin" style="font-size: 2rem;"></i>
+            <p class="mt-2 text-muted">Caricamento piano allenamento...</p>
+        </div>
+    `;
+
+    modal.show();
+
+    fetch(`/customers/${clienteId}/training/history`)
+        .then(response => response.json())
+        .then(data => {
+            const activePlan = data.plans?.find(p => p.is_active);
+
+            if (activePlan) {
+                bodyContainer.innerHTML = `
+                    <div class="card border-0" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h5 class="mb-0" style="color: #ea580c;">
+                                    <i class="ri-check-circle-fill me-2"></i>
+                                    Piano Attivo
+                                </h5>
+                                <span class="badge" style="background: #f97316; color: white;">${activePlan.name || 'Piano Allenamento'}</span>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="ri-calendar-line text-muted"></i>
+                                        <div>
+                                            <small class="text-muted d-block">Data Inizio</small>
+                                            <strong>${activePlan.start_date || '-'}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="ri-calendar-check-line text-muted"></i>
+                                        <div>
+                                            <small class="text-muted d-block">Prossimo Piano</small>
+                                            <strong>${activePlan.next_plan_date || '-'}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${activePlan.has_file && activePlan.piano_allenamento_file_path ? `
+                                <div class="mt-4 pt-3 border-top">
+                                    <a href="/uploads/${activePlan.piano_allenamento_file_path}"
+                                       target="_blank"
+                                       class="btn w-100 text-white" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+                                        <i class="ri-file-pdf-line me-2"></i>
+                                        Scarica Piano Allenamento PDF
+                                    </a>
+                                </div>
+                            ` : ''}
+
+                            ${activePlan.notes ? `
+                                <div class="mt-3 p-3 bg-white rounded">
+                                    <small class="text-muted d-block mb-1"><i class="ri-sticky-note-line me-1"></i>Note:</small>
+                                    <p class="mb-0">${activePlan.notes}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            } else {
+                bodyContainer.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="ri-run-line text-muted" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3 text-muted">Nessun Piano Allenamento Attivo</h5>
+                        <p class="text-muted mb-0">Questo cliente non ha un piano allenamento attivo.</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Errore caricamento piano:', error);
+            bodyContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="ri-error-warning-line me-2"></i>
+                    Errore durante il caricamento del piano allenamento
+                </div>
+            `;
+        });
+}
+</script>
+{% endblock %}

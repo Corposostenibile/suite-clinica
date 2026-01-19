@@ -1,0 +1,219 @@
+{# ====================================================================== #}
+{#  templates/team/hr/campaign_form.html                                  #}
+{#  Form creazione / modifica RecruitingCampaign                          #}
+{# ====================================================================== #}
+{% extends "base.html" %}
+
+{% block title %}{{ "Nuova campagna" if mode == "create" else "Modifica campagna" }} • HR{% endblock %}
+
+{# ---------------------------------------------------------------------- #}
+{#  Extra CSS per migliorare il form                                      #}
+{# ---------------------------------------------------------------------- #}
+{% block extra_css %}
+<style>
+  .max-w-640-px { max-width: 640px; }
+  .form-label { margin-bottom: 0.5rem; }
+  .invalid-feedback { display: block; }
+</style>
+{% endblock %}
+
+{# ---------------------------------------------------------------------- #}
+{#  Contenuto principale                                                  #}
+{# ---------------------------------------------------------------------- #}
+{% block content %}
+<section class="p-24">
+  <div class="max-w-640-px mx-auto">
+
+    <!-- ▸ HEADER ---------------------------------------------------- -->
+    <div class="d-flex align-items-center gap-3 mb-24">
+      <a href="{{ url_for('hr.campaigns_list') }}" 
+         class="btn btn-sm btn-outline-secondary rounded-circle">
+        <i class="ri-arrow-left-line"></i>
+      </a>
+      <h4 class="mb-0 fw-semibold">
+        {{ "Nuova campagna recruiting" if mode == "create" else "Modifica campagna recruiting" }}
+      </h4>
+    </div>
+
+    <!-- ▸ FORM ------------------------------------------------------ -->
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      <div class="card mb-32 shadow-sm">
+        <div class="card-header bg-light">
+          <h6 class="mb-0 fw-semibold">
+            <i class="ri-information-line me-2"></i>
+            Informazioni campagna
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-4">
+
+            <!-- Titolo -->
+            <div class="col-12">
+              {{ form.title.label(class="form-label fw-semibold") }}
+              <span class="text-danger">*</span>
+              {{ form.title(
+                   class="form-control" + (" is-invalid" if form.title.errors else ""),
+                   placeholder="Es. Campagna LinkedIn Q1 2024 – Developer Ads",
+                   autofocus=true
+                 ) }}
+              {% if form.title.errors %}
+                {% for err in form.title.errors %}
+                  <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+              {% else %}
+                <small class="form-text text-muted">
+                  Inserisci un titolo descrittivo per identificare la campagna
+                </small>
+              {% endif %}
+            </div>
+
+            <!-- Descrizione -->
+            <div class="col-12">
+              {{ form.description.label(class="form-label fw-semibold") }}
+              {{ form.description(
+                   class="form-control" + (" is-invalid" if form.description.errors else ""),
+                   rows="3",
+                   placeholder="Note aggiuntive sulla campagna, target, obiettivi..."
+                 ) }}
+              {% if form.description.errors %}
+                {% for err in form.description.errors %}
+                  <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+              {% else %}
+                <small class="form-text text-muted">
+                  Facoltativo - Dettagli aggiuntivi sulla campagna
+                </small>
+              {% endif %}
+            </div>
+
+            <!-- Piattaforma -->
+            <div class="col-md-6">
+              {{ form.platform.label(class="form-label fw-semibold") }}
+              <span class="text-danger">*</span>
+              <div class="input-group">
+                <span class="input-group-text">
+                  <i class="ri-global-line"></i>
+                </span>
+                {{ form.platform(
+                     class="form-select" + (" is-invalid" if form.platform.errors else "")
+                   ) }}
+              </div>
+              {% if form.platform.errors %}
+                {% for err in form.platform.errors %}
+                  <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+              {% else %}
+                <small class="form-text text-muted">
+                  Seleziona il canale di provenienza
+                </small>
+              {% endif %}
+            </div>
+
+            <!-- Costo -->
+            <div class="col-md-6">
+              {{ form.cost_eur.label(class="form-label fw-semibold") }}
+              <span class="text-danger">*</span>
+              <div class="input-group">
+                <span class="input-group-text">€</span>
+                {{ form.cost_eur(
+                     class="form-control text-end" + (" is-invalid" if form.cost_eur.errors else ""),
+                     placeholder="0.00",
+                     step="0.01",
+                     min="0"
+                   ) }}
+              </div>
+              {% if form.cost_eur.errors %}
+                {% for err in form.cost_eur.errors %}
+                  <div class="invalid-feedback d-block">{{ err }}</div>
+                {% endfor %}
+              {% else %}
+                <small class="form-text text-muted">
+                  Budget totale speso per questa campagna
+                </small>
+              {% endif %}
+            </div>
+
+          </div><!-- /.row -->
+        </div><!-- /.card-body -->
+
+        {% if mode == "edit" and campaign %}
+          <div class="card-footer bg-light">
+            <small class="text-muted">
+              <i class="ri-time-line me-1"></i>
+              Creata il {{ campaign.created_at.strftime('%d/%m/%Y alle %H:%M') if campaign.created_at else 'N/D' }}
+              {% if campaign.updated_at and campaign.updated_at != campaign.created_at %}
+                • Ultima modifica: {{ campaign.updated_at.strftime('%d/%m/%Y alle %H:%M') }}
+              {% endif %}
+            </small>
+          </div>
+        {% endif %}
+      </div><!-- /.card -->
+
+      <!-- ▸ ACTIONS -------------------------------------------------- -->
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <span class="text-danger">*</span>
+          <small class="text-muted">Campi obbligatori</small>
+        </div>
+        <div>
+          <a href="{{ url_for('hr.campaigns_list') }}"
+             class="btn btn-outline-secondary me-2">
+            <i class="ri-close-line me-1"></i>
+            Annulla
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="ri-{{ 'add' if mode == 'create' else 'edit' }}-line me-1"></i>
+            {{ form.submit.label.text }}
+          </button>
+        </div>
+      </div>
+    </form>
+
+  </div><!-- /.max-w -->
+</section>
+{% endblock %}
+
+{# ---------------------------------------------------------------------- #}
+{#  JavaScript aggiuntivo                                                 #}
+{# ---------------------------------------------------------------------- #}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-format del campo costo mentre si digita
+  const costInput = document.getElementById('cost_eur');
+  if (costInput) {
+    costInput.addEventListener('blur', function() {
+      if (this.value && !isNaN(this.value)) {
+        this.value = parseFloat(this.value).toFixed(2);
+      }
+    });
+  }
+  
+  // Conferma se si lascia la pagina con modifiche non salvate
+  let formChanged = false;
+  const form = document.querySelector('form');
+  
+  if (form) {
+    // Monitora cambiamenti nel form
+    form.addEventListener('change', function() {
+      formChanged = true;
+    });
+    
+    // Reset flag quando si invia il form
+    form.addEventListener('submit', function() {
+      formChanged = false;
+    });
+    
+    // Avvisa se si tenta di lasciare con modifiche non salvate
+    window.addEventListener('beforeunload', function(e) {
+      if (formChanged) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

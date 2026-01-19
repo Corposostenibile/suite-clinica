@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Quality Score - {{ professionista.first_name }} {{ professionista.last_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header professionista -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2">
+                        {{ professionista.first_name }} {{ professionista.last_name }}
+                    </h1>
+                    <p class="text-muted mb-0">
+                        {{ professionista.department.name if professionista.department else 'N/A' }}
+                    </p>
+                    <p class="text-muted small">
+                        Settimana {{ week_start.strftime('%d/%m/%Y') }} - {{ week_end.strftime('%d/%m/%Y') }}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('quality.professionista_detail', user_id=professionista.id) }}?week={{ (week_start - timedelta(days=7)).strftime('%Y-%m-%d') }}"
+                           class="btn btn-outline-secondary btn-sm">
+                            ← Precedente
+                        </a>
+                        <a href="{{ url_for('quality.professionista_detail', user_id=professionista.id) }}"
+                           class="btn btn-outline-primary btn-sm">
+                            Oggi
+                        </a>
+                        <a href="{{ url_for('quality.professionista_detail', user_id=professionista.id) }}?week={{ (week_start + timedelta(days=7)).strftime('%Y-%m-%d') }}"
+                           class="btn btn-outline-secondary btn-sm">
+                            Successiva →
+                        </a>
+                    </div>
+                    <a href="{{ url_for('quality.dashboard') }}" class="btn btn-secondary btn-sm">
+                        ← Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiche correnti -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Quality Settimana</h6>
+                    <h3 class="mb-0">
+                        {{ "%.2f"|format(professionista.quality_score_current_week) if professionista.quality_score_current_week else 'N/A' }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Quality Mese (4w)</h6>
+                    <h3 class="mb-0">
+                        {{ "%.2f"|format(professionista.quality_score_current_month) if professionista.quality_score_current_month else 'N/A' }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Quality Trimestre (12w)</h6>
+                    <h3 class="mb-0">
+                        {{ "%.2f"|format(professionista.quality_score_current_quarter) if professionista.quality_score_current_quarter else 'N/A' }}
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Bonus Band</h6>
+                    <h3 class="mb-0">
+                        {% if professionista.bonus_band_current %}
+                            <span class="badge bg-{{ 'success' if professionista.bonus_band_current.value == '100%' else 'primary' if professionista.bonus_band_current.value == '60%' else 'warning' if professionista.bonus_band_current.value == '30%' else 'secondary' }}">
+                                {{ professionista.bonus_band_current.value }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settimana corrente dettaglio -->
+    {% if current_week_score %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📊 Settimana Corrente ({{ week_start.strftime('%d/%m') }} - {{ week_end.strftime('%d/%m') }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Clienti Eleggibili</th>
+                                    <td>{{ current_week_score.n_clients_eligible }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Check Effettuati</th>
+                                    <td>{{ current_week_score.n_checks_done }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Miss Rate</th>
+                                    <td>{{ "%.1f"|format(current_week_score.miss_rate * 100) }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Quality Raw</th>
+                                    <td>{{ "%.2f"|format(current_week_score.quality_raw) if current_week_score.quality_raw else 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Bonus BRec Medio</th>
+                                    <td>+{{ "%.4f"|format(current_week_score.avg_brec_week) }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Penalty Miss Rate</th>
+                                    <td class="text-danger">{{ "%.4f"|format(current_week_score.penalty_week) }}</td>
+                                </tr>
+                                <tr>
+                                    <th><strong>Quality Final</strong></th>
+                                    <td><strong>{{ "%.2f"|format(current_week_score.quality_final) if current_week_score.quality_final else 'N/A' }}</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Grafico trend ultime 12 settimane -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📈 Trend Ultime 12 Settimane</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabella score settimanali -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Storico Settimane</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Settimana</th>
+                                <th>Quality Final</th>
+                                <th>Quality Mese</th>
+                                <th>Quality Trim</th>
+                                <th>Clienti</th>
+                                <th>Check</th>
+                                <th>Miss Rate</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for score in scores %}
+                            <tr>
+                                <td>{{ score.week_start_date.strftime('%d/%m/%Y') }}</td>
+                                <td><strong>{{ "%.2f"|format(score.quality_final) if score.quality_final else 'N/A' }}</strong></td>
+                                <td>{{ "%.2f"|format(score.quality_month) if score.quality_month else 'N/A' }}</td>
+                                <td>{{ "%.2f"|format(score.quality_trim) if score.quality_trim else 'N/A' }}</td>
+                                <td>{{ score.n_clients_eligible }}</td>
+                                <td>{{ score.n_checks_done }}</td>
+                                <td>{{ "%.1f"|format(score.miss_rate * 100) }}%</td>
+                                <td>
+                                    {% if score.trend_indicator == 'up' %}
+                                        <span class="text-success">↑ {{ "%.2f"|format(score.delta_vs_last_week) if score.delta_vs_last_week else '' }}</span>
+                                    {% elif score.trend_indicator == 'down' %}
+                                        <span class="text-danger">↓ {{ "%.2f"|format(score.delta_vs_last_week) if score.delta_vs_last_week else '' }}</span>
+                                    {% else %}
+                                        <span class="text-muted">→</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Score clienti settimana corrente -->
+    {% if client_scores %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">👥 Score Clienti Settimana Corrente</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>V. Prof</th>
+                                <th>V. Percorso</th>
+                                <th>V. Coordinatore</th>
+                                <th>BRec</th>
+                                <th>Quality</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cs in client_scores %}
+                            <tr>
+                                <td>{{ cs.cliente.nome_cognome if cs.cliente else 'N/A' }}</td>
+                                <td>{{ "%.1f"|format(cs.voto_professionista) if cs.voto_professionista else 'N/A' }}</td>
+                                <td>{{ "%.1f"|format(cs.voto_percorso) if cs.voto_percorso else 'N/A' }}</td>
+                                <td>{{ "%.1f"|format(cs.voto_coordinatore) if cs.voto_coordinatore else '-' }}</td>
+                                <td>+{{ "%.4f"|format(cs.brec_value) }}</td>
+                                <td><strong>{{ "%.2f"|format(cs.quality_score) }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recensioni trimestre -->
+    {% if reviews %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⭐ Recensioni Trimestre Corrente</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Stelle</th>
+                                <th>Data Pubbl.</th>
+                                <th>Bonus Ricevuto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rev in reviews %}
+                            <tr>
+                                <td>{{ rev.cliente.nome_cognome if rev.cliente else 'N/A' }}</td>
+                                <td>{{ '⭐' * rev.stelle if rev.stelle else 'N/A' }}</td>
+                                <td>{{ rev.data_pubblicazione.strftime('%d/%m/%Y') if rev.data_pubblicazione else 'N/A' }}</td>
+                                <td>
+                                    {% if rev.bonus_distribution %}
+                                        {% if rev.bonus_distribution.richiedente_id == professionista.id %}
+                                            +{{ "%.3f"|format(rev.bonus_distribution.richiedente_bonus) }} (richiedente)
+                                        {% elif professionista.id in rev.bonus_distribution.team_ids %}
+                                            +{{ "%.3f"|format(rev.bonus_distribution.team_bonus_each) }} (team)
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Chart.js per il grafico -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// Carica dati trend via API
+fetch('/quality/api/professionista/{{ professionista.id }}/trend')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Quality Settimana',
+                        data: data.quality_final,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Quality Mese',
+                        data: data.quality_month,
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Quality Trimestre',
+                        data: data.quality_trim,
+                        borderColor: 'rgb(153, 102, 255)',
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 7,
+                        max: 10
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

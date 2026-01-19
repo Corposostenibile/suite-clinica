@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% from "feedback/partials/_rating_badge.html" import rating_badge %}
+{% from "feedback/partials/_stats_card.html" import stats_card %}
+
+{% block title %}Check Health Manager{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="page-title-box d-flex align-items-center justify-content-between mb-3">
+      <h4 class="mb-0">Check Health Manager</h4>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb m-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('welcome.index') }}">Home</a></li>
+          <li class="breadcrumb-item"><a href="#">Check</a></li>
+          <li class="breadcrumb-item active">Health Manager</li>
+        </ol>
+      </nav>
+    </div>
+
+    <!-- Reusable Temporal Filter -->
+    {% include 'feedback/partials/_temporal_filter.html' %}
+
+    <!-- Health Manager Filter -->
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-body">
+            <label for="healthManagerFilter" class="form-label">Filtra per Health Manager</label>
+            <select id="healthManagerFilter" class="form-select" onchange="filterByHealthManager(this.value)">
+              <option value="">Tutti gli Health Manager</option>
+              {% for hm in health_managers_list %}
+              <option value="{{ hm.id }}" {% if selected_health_manager_id == hm.id %}selected{% endif %}>
+                {{ hm.full_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-3">
+      {{ stats_card(avg_ratings.nutritionist, "Nutrizionista", "fluent-emoji-flat:green-salad") }}
+      {{ stats_card(avg_ratings.psychologist, "Psicologo/a", "material-icon-theme:brainfuck") }}
+      {{ stats_card(avg_ratings.coach, "Coach", "emojione-v1:person-lifting-weights") }}
+      {{ stats_card(avg_ratings.progress, "Progresso", url_for('static', filename='assets/immagini/logo_mini.png'),
+      "image") }}
+      {{ stats_card(avg_ratings.quality, "Quality", "mdi:star-check") }}
+    </div>
+
+    <!-- Responses Table -->
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Risposte ({{ total_responses }} totali)</h5>
+            {% if pagination and pagination.pages > 1 %}
+            <small class="text-muted">
+              Pagina {{ pagination.page }} di {{ pagination.pages }}
+            </small>
+            {% endif %}
+          </div>
+          <div class="card-body">
+            {% if responses %}
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0" data-response-table>
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Data</th>
+                    <th class="text-center">Health Manager</th>
+                    <th class="text-center">Nutrizionista</th>
+                    <th class="text-center">Psicologo/a</th>
+                    <th class="text-center">Coach</th>
+                    <th class="text-center">Progresso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for response in responses %}
+                  {% set is_weekly_check = response.__class__.__name__ == 'WeeklyCheckResponse' %}
+                  {% set is_dca_check = response.__class__.__name__ == 'DCACheckResponse' %}
+                  <tr data-response-id="{{ response.id }}">
+                    <td>
+                      {% if response.cliente %}
+                        <div class="d-flex flex-column">
+                          <div class="d-flex align-items-center gap-2">
+                            <span>{{ response.cliente.nome_cognome }}</span>
+                            {% if is_dca_check %}
+                              <span class="badge bg-info text-dark" style="font-size: 0.65rem;">DCA</span>
+                            {% endif %}
+                          </div>
+                          {% if response.cliente.programma_attuale %}
+                            <small class="text-muted" style="font-size: 0.75rem;">{{ response.cliente.programma_attuale }}</small>
+                          {% endif %}
+                        </div>
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>{{ response.submit_date.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-center">
+                      {% if response.cliente and response.cliente.health_manager_user %}
+                        <div class="d-flex flex-column align-items-center gap-1">
+                          <img src="{{ response.cliente.health_manager_user.avatar_url }}"
+                               alt="{{ response.cliente.health_manager_user.full_name }}"
+                               title="{{ response.cliente.health_manager_user.full_name }}"
+                               class="rounded-circle"
+                               style="width: 32px; height: 32px; object-fit: cover;">
+                          <small class="text-muted" style="font-size: 0.7rem; line-height: 1;">{{ response.cliente.health_manager_user.full_name }}</small>
+                        </div>
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td class="text-center">{{ rating_badge(response.nutritionist_rating | default(None)) }}</td>
+                    <td class="text-center">{{ rating_badge(response.psychologist_rating | default(None)) }}</td>
+                    <td class="text-center">{{ rating_badge(response.coach_rating | default(None)) }}</td>
+                    <td class="text-center">{{ rating_badge(response.progress_rating | default(None)) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination and pagination.pages > 1 %}
+            <nav aria-label="Navigazione pagine" class="mt-4">
+              <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{{ url_for(current_route, page=pagination.prev_num, period=period, offset=offset, **other_params) }}">
+                    <i class="ri-arrow-left-s-line"></i>
+                  </a>
+                </li>
+                {% endif %}
+
+                {% for page_num in pagination.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+                {% if page_num %}
+                <li class="page-item {{ 'active' if page_num == pagination.page else '' }}">
+                  <a class="page-link"
+                    href="{{ url_for(current_route, page=page_num, period=period, offset=offset, **other_params) }}">
+                    {{ page_num }}
+                  </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">...</span>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <li class="page-item">
+                  <a class="page-link"
+                    href="{{ url_for(current_route, page=pagination.next_num, period=period, offset=offset, **other_params) }}">
+                    <i class="ri-arrow-right-s-line"></i>
+                  </a>
+                </li>
+                {% endif %}
+              </ul>
+            </nav>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-4">
+              <i class="ri-file-list-3-line display-4 text-muted mb-3"></i>
+              <h5>Nessuna risposta per questo periodo</h5>
+              <p class="text-muted mb-0">Non ci sono risposte disponibili per il periodo selezionato.</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reusable Response Modal -->
+{% include 'feedback/partials/_response_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Health Manager filter
+  function filterByHealthManager(healthManagerId) {
+    const url = new URL(window.location.href);
+    if (healthManagerId) {
+      url.searchParams.set('health_manager_id', healthManagerId);
+    } else {
+      url.searchParams.delete('health_manager_id');
+    }
+    url.searchParams.set('page', '1'); // Reset to page 1
+    window.location.href = url.toString();
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowLeft' && !e.target.matches('input, textarea, select')) {
+      const prevPeriod = document.querySelector('a[href*="offset={{ offset-1 }}"]');
+      if (prevPeriod) prevPeriod.click();
+    } else if (e.key === 'ArrowRight' && !e.target.matches('input, textarea, select')) {
+      const nextPeriod = document.querySelector('a[href*="offset={{ offset+1 }}"]');
+      if (nextPeriod) nextPeriod.click();
+    }
+  });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-responsive table tbody tr[data-response-id]:hover {
+  cursor: pointer;
+  background-color: #f5f5f5;
+}
+</style>
+{% endblock %}

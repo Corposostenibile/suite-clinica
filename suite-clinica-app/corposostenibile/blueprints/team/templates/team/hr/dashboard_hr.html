@@ -1,0 +1,270 @@
+{# templates/team/hr/dashboard_hr.html #}
+{% extends "base.html" %}
+
+{% block title %}Dashboard HR • Recruiting{% endblock %}
+
+{# ------------------------------------------------------------------ #
+   Extra CSS – ritocchi KPI + icone “info” + grafici                  #
+# ------------------------------------------------------------------ #}
+{% block extra_css %}
+<style>
+  /* ---- KPI card ------------------------------------------------- */
+  .kpi-card        {min-width:160px;position:relative}
+  .kpi-card h3     {font-size:1.75rem;font-weight:700}
+  .kpi-icon        {width:44px;height:44px;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center}
+  .info-btn        {position:absolute;top:8px;right:8px;
+                    color:#27AE60;cursor:pointer;font-size:1.15rem}
+
+  /* ---- chart section ------------------------------------------- */
+  .chart-info-btn  {color:#27AE60;cursor:pointer;font-size:1.15rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- ─────────────── Header ─────────────── -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h4 class="mb-0 fw-semibold">Dashboard HR</h4>
+    <a href="{{ url_for('hr.hr_dashboard_export') }}" class="btn btn-outline-primary">
+      <i class="ri-download-line me-1"></i> Export CSV
+    </a>
+  </div>
+
+  {# ======================== KPI ========================= #}
+  {% set kpi_items = [
+    ('open_positions',   'Posizioni aperte',             'ri-briefcase-line',
+     'Numero di vacancy pubblicate e ancora attive.',     'bg-success-subtle text-success-main'),
+    ('total_candidates', 'Candidati totali',             'ri-user-3-line',
+     'Totale candidati presenti in database.',            'bg-info-subtle text-info-main'),
+    ('hires',            'Assunzioni',                   'ri-user-follow-line',
+     'Persone assunte (stage = hired_signed).',           'bg-primary-subtle text-primary-main'),
+    ('headcount',        'Headcount',                    'ri-team-line',
+     'Dipendenti attivi registrati in anagrafica utenti.', 'bg-warning-subtle text-warning-main'),
+    ('interviews_today', 'Colloqui oggi',                'ri-discuss-line',
+     'Numero di colloqui pianificati per la giornata.',   'bg-danger-subtle text-danger-main'),
+    ('tth_avg',          'Avg Time-to-Hire (gg)',        'ri-timer-line',
+     'Media giorni tra candidatura e firma contratto.',   'bg-purple-subtle text-purple'),
+    ('avg_cv_cost',      'Costo medio CV (€)',           'ri-money-euro-circle-line',
+     'Spesa campagne ÷ CV ricevuti (tutti i canali).',    'bg-teal-subtle text-teal')
+  ] %}
+
+  {% for row in kpi_items|batch(3, fill_with=None) %}
+    <div class="row g-4{% if not loop.first %} mt-0{% endif %}">
+      {% for itm in row if itm %}
+        {% set key,label,icon,desc,cls = itm %}
+        <div class="col-6 col-md-4">
+          <div class="kpi-card shadow-7 p-20 radius-12 bg-base d-flex align-items-center gap-16">
+            <span class="kpi-icon {{ cls }}"><i class="{{ icon }}"></i></span>
+
+            <div>
+              <h3 id="kpi_{{ key }}">—</h3>
+              <span class="text-secondary-light fw-medium text-sm">{{ label }}</span>
+            </div>
+
+            <span class="info-btn" data-bs-toggle="modal" data-bs-target="#info_{{ key }}">
+              <i class="ri-information-line"></i>
+            </span>
+          </div>
+        </div>
+
+        {# Modal info KPI ----------------------------------------- #}
+        <div class="modal fade" id="info_{{ key }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">{{ label }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body"><p class="mb-0">{{ desc }}</p></div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+
+  {# ======================= CHARTS ======================= #}
+  {% set chart_items = [
+    ('chart_funnel',      'Funnel candidature',
+     'Distribuzione candidature per stage del processo di selezione.'),
+    ('chart_conv',        'Conversione step-by-step',
+     'Percentuale di conversione tra gli step principali del funnel.'),
+    ('chart_inflow',      'Inflow candidature (ultimi 30 gg)',
+     'Numero di candidature ricevute giorno per giorno negli ultimi 30 giorni.'),
+    ('chart_tth',         'Trend Time-to-Hire (mesi)',
+     'Evoluzione mensile della media giorni necessari a completare un hiring.'),
+    ('chart_hires',       'Assunzioni per mese',
+     'Conteggio assunzioni concluse per ciascun mese dell’anno corrente.'),
+    ('chart_cv_cost_chan','Costo CV per canale',
+     'Confronto del costo medio per curriculum nei vari canali.'),
+    ('chart_hires_chan',  'Assunzioni per canale',
+     'Numero di assunzioni finali attribuite a ciascun canale.')
+  ] %}
+
+  <div class="row g-4 mt-24">
+    {% for cid,title,desc in chart_items %}
+      {% if cid == 'chart_funnel' %}
+        <div class="col-xl-4">
+      {% elif cid in ['chart_conv','chart_inflow'] %}
+        <div class="col-xl-8">
+      {% else %}
+        <div class="col-xl-6">
+      {% endif %}
+          <div class="shadow-7 p-20 radius-12 bg-base h-100">
+            <div class="d-flex align-items-start justify-content-between mb-16">
+              <h6 class="fw-semibold mb-0">{{ title }}</h6>
+              <span class="chart-info-btn" data-bs-toggle="modal" data-bs-target="#info_{{ cid }}">
+                <i class="ri-information-line"></i>
+              </span>
+            </div>
+            <div id="{{ cid }}" style="height:{% if cid in ['chart_funnel','chart_inflow','chart_conv'] %}300{% else %}260{% endif %}px"></div>
+          </div>
+        </div>
+
+        {# Modal info grafico ------------------------------------- #}
+        <div class="modal fade" id="info_{{ cid }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">{{ title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body"><p class="mb-0">{{ desc }}</p></div>
+            </div>
+          </div>
+        </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
+{# ------------------------------------------------------------------ #
+   JS – ApexCharts + fetch KPI                                        #
+# ------------------------------------------------------------------ #}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='assets/js/lib/apexcharts.min.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  /* ----------- fetch dati dal backend ----------- */
+  fetch('{{ url_for("hr.hr_dashboard_data") }}')
+    .then(r => r.json())
+    .then(data => {
+      /* ---- KPI quick ------------------------------------------------ */
+      const kpiMap = {
+        open_positions   : data.open_positions_breakdown?.published ?? 0,
+        total_candidates : data.funnel ? Object.values(data.funnel).reduce((a,b)=>a+b,0) : 0,
+        hires            : data.funnel?.hired_signed ?? 0,
+        headcount        : {{ kpi.headcount|default(0) }},
+        interviews_today : {{ kpi.interviews_today|default(0) }},
+        tth_avg          : data.tth_avg ? data.tth_avg.toFixed(1) : '—',
+        avg_cv_cost      : data.avg_cv_cost ? data.avg_cv_cost.toFixed(2) : '—'
+      };
+      for (const [k,v] of Object.entries(kpiMap)) {
+        const el = document.getElementById('kpi_'+k);
+        if (el) el.textContent = v;
+      }
+
+      /* ---- Funnel – donut ------------------------------------------ */
+      new ApexCharts(
+        document.querySelector("#chart_funnel"),
+        {
+          chart:{type:'donut',height:300},
+          series:Object.values(data.funnel),
+          labels:Object.keys(data.funnel).map(s => s.replace(/_/g,' ')),
+          legend:{position:'bottom'}
+        }
+      ).render();
+
+      /* ---- Conversion – horizontal bar ----------------------------- */
+      const convCats  = data.conversion.map(o => (o.from + '→' + o.to).replace(/_/g,' '));
+      const convRates = data.conversion.map(o => o.rate ?? 0);
+      new ApexCharts(
+        document.querySelector("#chart_conv"),
+        {
+          chart:{type:'bar',height:300,toolbar:{show:false}},
+          series:[{name:'Conversione %',data:convRates}],
+          xaxis:{categories:convCats},
+          plotOptions:{bar:{horizontal:true,barHeight:'65%',borderRadius:4}},
+          dataLabels:{enabled:true,formatter:(val)=>val ? val+'%' : '—'}
+        }
+      ).render();
+
+      /* ---- Inflow – area ------------------------------------------- */
+      const inflowDates  = data.candidate_inflow.map(o => o.date);
+      const inflowCounts = data.candidate_inflow.map(o => o.qty);
+      new ApexCharts(
+        document.querySelector("#chart_inflow"),
+        {
+          chart:{type:'area',height:300,toolbar:{show:false}},
+          series:[{name:'CV',data:inflowCounts}],
+          xaxis:{categories:inflowDates,type:'datetime',labels:{rotate:-45}},
+          stroke:{curve:'smooth',width:3},
+          dataLabels:{enabled:false},
+          fill:{type:'gradient',gradient:{shadeIntensity:.4,opacityFrom:.5,opacityTo:0}}
+        }
+      ).render();
+
+      /* ---- TtH trend – line ---------------------------------------- */
+      const tthMonths = data.tth_trend.map(o => o.month);
+      const tthAvg    = data.tth_trend.map(o => o.avg_days);
+      new ApexCharts(
+        document.querySelector("#chart_tth"),
+        {
+          chart:{type:'line',height:260,toolbar:{show:false}},
+          series:[{name:'Giorni',data:tthAvg}],
+          xaxis:{categories:tthMonths,labels:{rotate:-45}},
+          stroke:{curve:'smooth',width:3},
+          markers:{size:4},
+          dataLabels:{enabled:false}
+        }
+      ).render();
+
+      /* ---- Hires / mese – column ----------------------------------- */
+      const hireMonths = data.hires_per_month.map(o => o.month);
+      const hireVals   = data.hires_per_month.map(o => o.hires);
+      new ApexCharts(
+        document.querySelector("#chart_hires"),
+        {
+          chart:{type:'bar',height:260,toolbar:{show:false}},
+          series:[{name:'Assunzioni',data:hireVals}],
+          xaxis:{categories:hireMonths,labels:{rotate:-45}},
+          plotOptions:{bar:{borderRadius:4,columnWidth:'45%'}},
+          dataLabels:{enabled:false}
+        }
+      ).render();
+
+      /* ---- Costo CV per canale – bar ------------------------------- */
+      const costChanCats = Object.keys(data.avg_cv_cost_by_channel);
+      const costChanVals = Object.values(data.avg_cv_cost_by_channel);
+      new ApexCharts(
+        document.querySelector("#chart_cv_cost_chan"),
+        {
+          chart:{type:'bar',height:260,toolbar:{show:false}},
+          series:[{name:'Costo medio €',data:costChanVals}],
+          xaxis:{categories:costChanCats},
+          plotOptions:{bar:{borderRadius:4,columnWidth:'45%'}},
+          dataLabels:{enabled:true,formatter:(v)=>'€'+v.toFixed(2)}
+        }
+      ).render();
+
+      /* ---- Hires per canale – bar ---------------------------------- */
+      const hiresChanCats = Object.keys(data.hires_by_channel);
+      const hiresChanVals = Object.values(data.hires_by_channel);
+      new ApexCharts(
+        document.querySelector("#chart_hires_chan"),
+        {
+          chart:{type:'bar',height:260,toolbar:{show:false}},
+          series:[{name:'Assunzioni',data:hiresChanVals}],
+          xaxis:{categories:hiresChanCats},
+          plotOptions:{bar:{borderRadius:4,columnWidth:'45%'}},
+          dataLabels:{enabled:false}
+        }
+      ).render();
+    })
+    .catch(console.error);
+});
+</script>
+{% endblock %}

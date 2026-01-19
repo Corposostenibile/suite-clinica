@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Verifica Pagamento - {{ cliente.nome_cognome }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>🔍 Verifica Pagamento</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('finance.ghl_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">{{ cliente.nome_cognome }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Colonna Sinistra: Dati Cliente e Opportunità -->
+        <div class="col-md-6">
+            <!-- Card Cliente -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5>👤 Dati Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Nome:</th>
+                            <td><strong>{{ cliente.nome_cognome }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ cliente.mail }}</td>
+                        </tr>
+                        <tr>
+                            <th>Telefono:</th>
+                            <td>{{ cliente.cellulare or 'Non disponibile' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Origine:</th>
+                            <td>{{ cliente.acquisition_source or 'N/D' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Canale:</th>
+                            <td>{{ cliente.acquisition_channel or 'N/D' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Data Creazione:</th>
+                            <td>{{ cliente.created_at.strftime('%d/%m/%Y %H:%M') if cliente.created_at else '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Card Opportunità GHL -->
+            {% if opportunity %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5>💰 Dati Opportunità GHL</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">ID GHL:</th>
+                            <td><code>{{ opportunity.ghl_opportunity_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                <span class="badge bg-{{ 'success' if opportunity.status == 'chiuso_won' else 'info' }}">
+                                    {{ opportunity.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Pacchetto:</th>
+                            <td><strong>{{ opportunity.pacchetto_comprato or 'N/D' }}</strong></td>
+                        </tr>
+                        <tr class="table-warning">
+                            <th>Acconto Dichiarato:</th>
+                            <td><strong>€{{ "%.2f"|format(opportunity.acconto_pagato or 0) }}</strong></td>
+                        </tr>
+                        <tr class="table-info">
+                            <th>Totale Dichiarato:</th>
+                            <td><strong>€{{ "%.2f"|format(opportunity.importo_totale or 0) }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Saldo Residuo:</th>
+                            <td>€{{ "%.2f"|format(opportunity.saldo_residuo or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <th>Modalità Pagamento:</th>
+                            <td>{{ opportunity.modalita_pagamento or 'N/D' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Sales Consultant:</th>
+                            <td>{{ opportunity.sales_consultant or 'N/D' }}</td>
+                        </tr>
+                    </table>
+
+                    {% if opportunity.note_cliente %}
+                    <div class="alert alert-light">
+                        <strong>Note Cliente:</strong><br>
+                        {{ opportunity.note_cliente }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Suggerimenti Automatici -->
+            {% if suggestions %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h5>💡 Suggerimenti Automatici</h5>
+                </div>
+                <div class="card-body">
+                    {% for suggestion in suggestions %}
+                    <div class="alert alert-{{ 'success' if suggestion.confidence == 'high' else 'info' }} mb-2">
+                        <strong>{{ suggestion.type|title }}:</strong> {{ suggestion.message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Colonna Destra: Verifica e Azioni -->
+        <div class="col-md-6">
+            <!-- Form Verifica -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5>✅ Verifica Pagamento</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('finance.approve_payment', assignment_id=assignment.id) }}">
+                        <div class="mb-3">
+                            <label class="form-label">Acconto Verificato (€)</label>
+                            <input type="number"
+                                   name="acconto_verificato"
+                                   class="form-control form-control-lg"
+                                   step="0.01"
+                                   value="{{ opportunity.acconto_pagato if opportunity else '' }}"
+                                   placeholder="0.00">
+                            <small class="text-muted">Inserisci l'importo effettivamente ricevuto</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Totale Verificato (€)</label>
+                            <input type="number"
+                                   name="totale_verificato"
+                                   class="form-control"
+                                   step="0.01"
+                                   value="{{ opportunity.importo_totale if opportunity else '' }}"
+                                   placeholder="0.00">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Metodo di Pagamento</label>
+                            <select name="payment_method" class="form-control">
+                                <option value="bonifico">Bonifico</option>
+                                <option value="stripe">Stripe</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="klarna">Klarna</option>
+                                <option value="carta">Carta</option>
+                                <option value="contanti">Contanti</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Riferimento Transazione</label>
+                            <input type="text"
+                                   name="reference"
+                                   class="form-control"
+                                   placeholder="es. CRO bonifico, ID Stripe, etc.">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Note Verifica</label>
+                            <textarea name="notes"
+                                      class="form-control"
+                                      rows="3"
+                                      placeholder="Note sulla verifica..."></textarea>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input type="checkbox"
+                                   class="form-check-input"
+                                   id="createTransaction"
+                                   name="create_transaction"
+                                   value="true"
+                                   checked>
+                            <label class="form-check-label" for="createTransaction">
+                                Crea transazione di pagamento nel sistema
+                            </label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                ✅ Approva Pagamento
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Form Rigetto -->
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5>❌ Rigetta Pagamento</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('finance.reject_payment', assignment_id=assignment.id) }}"
+                          onsubmit="return confirm('Sei sicuro di voler rigettare questo pagamento? Il cliente verrà bloccato.')">
+                        <div class="mb-3">
+                            <label class="form-label">Motivo del Rigetto</label>
+                            <textarea name="rejection_reason"
+                                      class="form-control"
+                                      rows="3"
+                                      required
+                                      placeholder="Specifica il motivo del rigetto..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger">
+                            Rigetta e Blocca Cliente
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storico Pagamenti -->
+    {% if existing_payments %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📋 Storico Pagamenti Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Importo</th>
+                                <th>Metodo</th>
+                                <th>Riferimento</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in existing_payments %}
+                            <tr>
+                                <td>{{ payment.payment_date.strftime('%d/%m/%Y') if payment.payment_date else '-' }}</td>
+                                <td>{{ payment.payment_type }}</td>
+                                <td>€{{ "%.2f"|format(payment.amount) }}</td>
+                                <td>{{ payment.payment_method }}</td>
+                                <td>{{ payment.reference or '-' }}</td>
+                                <td>{{ payment.notes or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Note Assignment -->
+    {% if notes %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📝 Note e Comunicazioni</h5>
+                </div>
+                <div class="card-body">
+                    {% for note in notes %}
+                    <div class="alert alert-{{ 'warning' if note.note_type == 'warning' else 'light' }} mb-2">
+                        <small class="text-muted">
+                            {{ note.created_at.strftime('%d/%m/%Y %H:%M') }} -
+                            {{ note.created_by_user.nome_cognome if note.created_by_user else 'Sistema' }}
+                        </small><br>
+                        {{ note.note_text }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Calcola automaticamente il saldo residuo
+document.querySelector('input[name="acconto_verificato"]').addEventListener('input', function() {
+    const acconto = parseFloat(this.value) || 0;
+    const totale = parseFloat(document.querySelector('input[name="totale_verificato"]').value) || 0;
+    const saldo = totale - acconto;
+
+    if (saldo > 0) {
+        console.log(`Saldo residuo: €${saldo.toFixed(2)}`);
+    }
+});
+
+// Evidenzia discrepanze
+function checkDiscrepancies() {
+    const accontoGHL = {{ opportunity.acconto_pagato or 0 }};
+    const accontoVerificato = parseFloat(document.querySelector('input[name="acconto_verificato"]').value) || 0;
+
+    if (Math.abs(accontoGHL - accontoVerificato) > 0.01) {
+        if (!confirm('ATTENZIONE: L\'importo verificato differisce da quello dichiarato in GHL. Continuare?')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Aggiungi check prima del submit
+document.querySelector('form').addEventListener('submit', function(e) {
+    if (e.target.action.includes('approve')) {
+        if (!checkDiscrepancies()) {
+            e.preventDefault();
+        }
+    }
+});
+</script>
+{% endblock %}

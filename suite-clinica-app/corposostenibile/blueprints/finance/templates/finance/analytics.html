@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Finance Analytics{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+        <h6 class="fw-semibold mb-0">Finance Analytics</h6>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ url_for('welcome.index') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Finance Analytics</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Contenuto Placeholder -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <div class="mb-4">
+                <i class="ri-bar-chart-box-line" style="font-size: 4rem; color: var(--brand-green);"></i>
+            </div>
+            <h4 class="fw-semibold mb-3">Finance Analytics</h4>
+            <p class="text-muted mb-0" style="max-width: 600px; margin: 0 auto;">
+                Qui ci saranno tutte le analytics relative a pagamenti interni, esterni e team,
+                con una panoramica totale finanziaria ispirata al foglio Excel "Contabilità 2.0".
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

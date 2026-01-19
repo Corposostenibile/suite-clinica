@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Accedi • Corposostenibile</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='assets/immagini/favicon.png') }}" sizes="16x16">
+
+  <!-- Remix Icon font -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/remixicon.css') }}" />
+  <!-- Bootstrap core -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/bootstrap.min.css') }}" />
+  <!-- Wowdash main style -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}" />
+
+  {# Override palette: brand green #25B36A #}
+  <style>
+    :root {
+      --bs-primary: #25B36A;         /* principale */
+      --bs-primary-rgb: 37,179,106;
+    }
+    .btn-primary {
+      background-color: var(--bs-primary) !important;
+      border-color: var(--bs-primary) !important;
+    }
+    .btn-primary:hover,
+    .btn-primary:focus {
+      background-color: #1e9a5b !important;
+      border-color: #1e9a5b !important;
+    }
+    .text-primary-600 { color: var(--bs-primary) !important; }
+    .bg-hover-primary-50:hover { background-color: rgba(var(--bs-primary-rgb), 0.05) !important; }
+    .border-primary { border-color: var(--bs-primary) !important; }
+
+    /* ==================== MODAL RESPONSIVE ==================== */
+
+    @media (max-width: 576px) {
+      /* Modal generale - margine laterale più ampio per effetto popup */
+      .modal-dialog {
+        margin: 1rem !important;
+        max-width: calc(100% - 2rem) !important;
+      }
+
+      .modal-content {
+        border-radius: 16px !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+      }
+
+      /* MODAL CONTATTA TEAM IT - Header */
+      #contactITModal .modal-header {
+        padding: 20px 16px 16px !important;
+      }
+
+      #contactITModal .modal-header > div > div:first-child {
+        width: 44px !important;
+        height: 44px !important;
+        margin-bottom: 12px !important;
+      }
+
+      #contactITModal .modal-header iconify-icon {
+        font-size: 22px !important;
+      }
+
+      #contactITModal .modal-title {
+        font-size: 20px !important;
+        margin-bottom: 4px !important;
+      }
+
+      #contactITModal .modal-header p {
+        font-size: 13px !important;
+      }
+
+      /* MODAL CONTATTA TEAM IT - Body */
+      #contactITModal .modal-body {
+        padding: 20px 16px 20px !important;
+      }
+
+      #contactITModal .modal-body > p:first-child {
+        font-size: 14px !important;
+        margin-bottom: 20px !important;
+      }
+
+      /* Email Card compatta */
+      #contactITModal .modal-body > div:nth-child(2) {
+        padding: 16px 16px !important;
+        margin-bottom: 20px !important;
+      }
+
+      #contactITModal .modal-body > div:nth-child(2) a {
+        font-size: 15px !important;
+        word-break: break-all;
+      }
+
+      /* Icona email più piccola */
+      #contactITModal .modal-body > div:nth-child(2) > div > div > div:first-child {
+        width: 36px !important;
+        height: 36px !important;
+      }
+
+      #contactITModal .modal-body > div:nth-child(2) > div > div > div iconify-icon {
+        font-size: 18px !important;
+      }
+
+      /* Lista info compatta */
+      #contactITModal .modal-body > div:nth-child(3) {
+        margin-bottom: 20px !important;
+      }
+
+      #contactITModal .modal-body > div:nth-child(3) > p {
+        font-size: 13px !important;
+        margin-bottom: 12px !important;
+      }
+
+      #contactITModal .modal-body > div:nth-child(3) iconify-icon {
+        font-size: 18px !important;
+      }
+
+      /* Item lista più compatti */
+      #contactITModal .modal-body > div:nth-child(3) > div > div {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+      }
+
+      #contactITModal .modal-body > div:nth-child(3) > div > div span {
+        font-size: 13px !important;
+      }
+
+      #contactITModal .modal-body > div:nth-child(3) > div > div > div {
+        width: 6px !important;
+        height: 6px !important;
+      }
+
+      /* Info box tempi */
+      #contactITModal .modal-body > div:last-child {
+        padding: 12px 14px !important;
+      }
+
+      #contactITModal .modal-body > div:last-child iconify-icon {
+        font-size: 18px !important;
+      }
+
+      #contactITModal .modal-body > div:last-child p {
+        font-size: 12px !important;
+      }
+
+      /* MODAL FLASH MESSAGES */
+      #flashMessageModal .modal-header {
+        padding: 20px 16px 16px !important;
+      }
+
+      #flashMessageModal .modal-body {
+        padding: 20px 16px 20px !important;
+      }
+
+      #flashModalIconBox {
+        width: 44px !important;
+        height: 44px !important;
+        margin-bottom: 12px !important;
+      }
+
+      #flashModalIcon {
+        font-size: 22px !important;
+      }
+
+      #flashModalTitle {
+        font-size: 20px !important;
+      }
+
+      #flashModalSubtitle {
+        font-size: 13px !important;
+      }
+
+      #flashModalMessageBox {
+        padding: 16px 16px !important;
+        margin-bottom: 16px !important;
+      }
+
+      #flashModalMessage {
+        font-size: 14px !important;
+      }
+
+      #flashModalHelpBox {
+        padding: 12px 14px !important;
+      }
+
+      #flashModalHelpBox p {
+        font-size: 12px !important;
+      }
+
+      #flashModalHelpBox a {
+        font-size: 12px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<section class="auth bg-base d-flex flex-wrap">
+  <div class="auth-left d-lg-block d-none">
+    <div class="d-flex align-items-center flex-column h-100 justify-content-center">
+      <img src="{{ url_for('static', filename='assets/immagini/auth/login_img.png') }}" alt="login" />
+    </div>
+  </div>
+
+  <div class="auth-right py-32 px-24 d-flex flex-column justify-content-center">
+    <div class="max-w-464-px mx-auto w-100">
+      <div class="text-center text-lg-start">
+        <a href="#" class="d-inline-block mb-40 max-w-290-px">
+          <img src="{{ url_for('static', filename='assets/immagini/Suite.png') }}" alt="logo" />
+        </a>
+        <h4 class="mb-12">Accedi alla Suite</h4>
+        <p class="mb-32 text-secondary-light text-lg">Il Nostro Ufficio Virtuale</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <!-- Flash message nascosto, verrà mostrato nel modal -->
+            <div class="d-none flash-message" data-category="{{ category }}" data-message="{{ message }}"></div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="icon-field mb-16 position-relative">
+          <span class="icon top-50 translate-middle-y"><iconify-icon icon="mage:email"></iconify-icon></span>
+          {{ form.email(class="form-control h-56-px bg-neutral-50 radius-12{% if form.email.errors %} is-invalid{% endif %}", placeholder="Email", autocomplete="username") }}
+          {% for err in form.email.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+        </div>
+
+        <div class="position-relative mb-20">
+          <div class="icon-field">
+            <span class="icon top-50 translate-middle-y"><iconify-icon icon="solar:lock-password-outline"></iconify-icon></span>
+            {{ form.password(class="form-control h-56-px bg-neutral-50 radius-12{% if form.password.errors %} is-invalid{% endif %}", placeholder="Password", id="your-password", autocomplete="current-password") }}
+            {% for err in form.password.errors %}<div class="invalid-feedback d-block">{{ err }}</div>{% endfor %}
+          </div>
+          <span class="toggle-password ri-eye-line cursor-pointer position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light" data-toggle="#your-password"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary text-sm btn-sm px-12 py-16 w-100 radius-12 mt-32">Entra</button>
+
+        <div class="mt-20 text-center text-sm">
+          <a href="{{ url_for('auth.forgot_password') }}" class="text-primary-600 fw-medium">Password dimenticata?</a>
+        </div>
+
+        <hr class="my-24" style="border-top: 1px solid #e5e7eb; opacity: 1;">
+
+        <div class="text-center text-sm">
+          <p class="mb-0">Non hai un account? <a href="#" class="text-primary-600 fw-semibold" id="contactITBtn">Contatta Team IT</a></p>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</section>
+
+<!-- Modal Contatta Team IT -->
+<div class="modal fade" id="contactITModal" tabindex="-1" aria-labelledby="contactITModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+    <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12); overflow: hidden;">
+
+      <!-- Header con gradiente verde -->
+      <div class="modal-header" style="background: linear-gradient(135deg, #25B36A 0%, #1e9a5b 100%); border: none; padding: 32px 32px 28px;">
+        <div style="width: 100%;">
+          <div style="width: 56px; height: 56px; background: rgba(255, 255, 255, 0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; backdrop-filter: blur(10px);">
+            <iconify-icon icon="solar:letter-bold" style="font-size: 28px; color: #ffffff;"></iconify-icon>
+          </div>
+          <h5 class="modal-title mb-2" style="color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
+            Richiedi Accesso
+          </h5>
+          <p class="mb-0" style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 400;">
+            Ottieni il tuo account Corposostenibile Suite
+          </p>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter: brightness(0) invert(1); opacity: 0.8;"></button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body" style="padding: 36px 32px 32px; background: #ffffff;">
+
+        <!-- Testo introduttivo -->
+        <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin-bottom: 28px; text-align: center;">
+          Per ottenere le credenziali di accesso, invia una richiesta al Team IT con i tuoi dati
+        </p>
+
+        <!-- Email Card -->
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #bbf7d0; padding: 20px 24px; border-radius: 16px; margin-bottom: 32px; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(37, 179, 106, 0.08); border-radius: 50%;"></div>
+          <div style="position: relative; z-index: 1;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: #25B36A; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <iconify-icon icon="mage:email" style="font-size: 20px; color: #ffffff;"></iconify-icon>
+              </div>
+              <span style="color: #166534; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Invia a</span>
+            </div>
+            <a href="mailto:volpara.corposostenibile@gmail.com" style="color: #25B36A; font-size: 18px; font-weight: 700; text-decoration: none; word-break: break-all; display: block;">
+              volpara.corposostenibile@gmail.com
+            </a>
+          </div>
+        </div>
+
+        <!-- Info richieste -->
+        <div style="margin-bottom: 28px;">
+          <p style="color: #334155; font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <iconify-icon icon="solar:checklist-bold" style="font-size: 20px; color: #25B36A;"></iconify-icon>
+            Informazioni da includere
+          </p>
+
+          <div style="display: grid; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="width: 8px; height: 8px; background: #25B36A; border-radius: 50%; flex-shrink: 0;"></div>
+              <span style="color: #475569; font-size: 14px;">Nome e Cognome</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="width: 8px; height: 8px; background: #25B36A; border-radius: 50%; flex-shrink: 0;"></div>
+              <span style="color: #475569; font-size: 14px;">Email aziendale</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="width: 8px; height: 8px; background: #25B36A; border-radius: 50%; flex-shrink: 0;"></div>
+              <span style="color: #475569; font-size: 14px;">Numero di telefono</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="width: 8px; height: 8px; background: #25B36A; border-radius: 50%; flex-shrink: 0;"></div>
+              <span style="color: #475569; font-size: 14px;">Dipartimento</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="width: 8px; height: 8px; background: #25B36A; border-radius: 50%; flex-shrink: 0;"></div>
+              <span style="color: #475569; font-size: 14px;">Responsabile di dipartimento</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info box -->
+        <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 12px;">
+          <div style="display: flex; gap: 12px; align-items: start;">
+            <iconify-icon icon="solar:clock-circle-bold" style="font-size: 20px; color: #d97706; flex-shrink: 0; margin-top: 2px;"></iconify-icon>
+            <p class="mb-0" style="color: #92400e; font-size: 13px; line-height: 1.6;">
+              <strong>Tempi di attivazione:</strong> Riceverai le credenziali entro 24-48 ore lavorative dalla richiesta
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Flash Messages -->
+<div class="modal fade" id="flashMessageModal" tabindex="-1" aria-labelledby="flashMessageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
+    <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12); overflow: hidden;">
+
+      <!-- Header dinamico (success/danger) -->
+      <div class="modal-header" id="flashModalHeader" style="border: none; padding: 32px 32px 28px;">
+        <div style="width: 100%;">
+          <div id="flashModalIconBox" style="width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; backdrop-filter: blur(10px);">
+            <iconify-icon id="flashModalIcon" style="font-size: 28px; color: #ffffff;"></iconify-icon>
+          </div>
+          <h5 class="modal-title mb-2" id="flashModalTitle" style="color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
+            <!-- Titolo dinamico -->
+          </h5>
+          <p class="mb-0" id="flashModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 400;">
+            <!-- Sottotitolo dinamico -->
+          </p>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="filter: brightness(0) invert(1); opacity: 0.8;"></button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body" style="padding: 36px 32px 32px; background: #ffffff;">
+        <!-- Messaggio -->
+        <div id="flashModalMessageBox" style="padding: 20px 24px; border-radius: 16px; margin-bottom: 24px;">
+          <p class="mb-0" id="flashModalMessage" style="font-size: 15px; line-height: 1.7; text-align: center;">
+            <!-- Messaggio dinamico -->
+          </p>
+        </div>
+
+        <!-- Help box - mostrato solo per errori -->
+        <div id="flashModalHelpBox" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px 20px; border-radius: 12px; display: none;">
+          <div style="display: flex; gap: 12px; align-items: start;">
+            <iconify-icon icon="solar:help-bold" style="font-size: 20px; color: #64748b; flex-shrink: 0; margin-top: 2px;"></iconify-icon>
+            <div>
+              <p class="mb-2" style="color: #334155; font-size: 13px; line-height: 1.6; font-weight: 600;">
+                Hai bisogno di assistenza?
+              </p>
+              <p class="mb-2" style="color: #64748b; font-size: 13px; line-height: 1.5;">
+                Se il problema persiste, contatta il Team IT per ricevere supporto immediato.
+              </p>
+              <a href="mailto:volpara.corposostenibile@gmail.com?subject=Richiesta%20Supporto%20-%20Errore%20Login&body=Gentile%20Team%20IT%2C%0A%0Aho%20riscontrato%20un%20errore%20durante%20l'accesso%20alla%20piattaforma%20Corposostenibile%20Suite.%0A%0ADescrizione%20del%20problema%3A%0A%0A%0A%0ARestando%20in%20attesa%20di%20riscontro%2C%20porgo%20cordiali%20saluti.%0A"
+                 style="color: #25B36A; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <iconify-icon icon="mage:email" style="font-size: 16px;"></iconify-icon>
+                volpara.corposostenibile@gmail.com
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='assets/js/lib/jquery-3.7.1.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/lib/iconify-icon.min.js') }}"></script>
+<script>
+  function initializePasswordToggle(selector) {
+    $(selector).on('click', function () {
+      $(this).toggleClass('ri-eye-off-line');
+      const input = $($(this).attr('data-toggle'));
+      input.attr('type', input.attr('type') === 'password' ? 'text' : 'password');
+    });
+  }
+  initializePasswordToggle('.toggle-password');
+
+  // Modal Contatta Team IT
+  $('#contactITBtn').on('click', function(e) {
+    e.preventDefault();
+    $('#contactITModal').modal('show');
+  });
+
+  // Flash Messages Modal
+  $(document).ready(function() {
+    const flashMessages = $('.flash-message');
+
+    if (flashMessages.length > 0) {
+      // Prendi il primo messaggio flash
+      const firstFlash = flashMessages.first();
+      const category = firstFlash.data('category');
+      const message = firstFlash.data('message');
+
+      // Ignora i messaggi di successo (success) - non mostrare modal
+      if (category === 'success') {
+        return;
+      }
+
+      // Configurazioni per tipo di messaggio
+      const config = {
+        'success': {
+          headerBg: 'linear-gradient(135deg, #25B36A 0%, #1e9a5b 100%)',
+          iconBoxBg: 'rgba(255, 255, 255, 0.2)',
+          icon: 'solar:check-circle-bold',
+          title: 'Operazione Riuscita',
+          subtitle: 'La tua richiesta è stata completata con successo',
+          messageBoxBg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+          messageBoxBorder: '2px solid #bbf7d0',
+          messageColor: '#166534'
+        },
+        'danger': {
+          headerBg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+          iconBoxBg: 'rgba(255, 255, 255, 0.2)',
+          icon: 'solar:close-circle-bold',
+          title: 'Errore',
+          subtitle: 'Si è verificato un problema',
+          messageBoxBg: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+          messageBoxBorder: '2px solid #fecaca',
+          messageColor: '#991b1b'
+        },
+        'warning': {
+          headerBg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+          iconBoxBg: 'rgba(255, 255, 255, 0.2)',
+          icon: 'solar:danger-triangle-bold',
+          title: 'Attenzione',
+          subtitle: 'Questa operazione richiede la tua attenzione',
+          messageBoxBg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          messageBoxBorder: '2px solid #fde68a',
+          messageColor: '#92400e'
+        },
+        'info': {
+          headerBg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+          iconBoxBg: 'rgba(255, 255, 255, 0.2)',
+          icon: 'solar:info-circle-bold',
+          title: 'Informazione',
+          subtitle: 'Un messaggio importante per te',
+          messageBoxBg: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+          messageBoxBorder: '2px solid #bfdbfe',
+          messageColor: '#1e40af'
+        }
+      };
+
+      // Usa 'info' come fallback se categoria non riconosciuta
+      const style = config[category] || config['info'];
+
+      // Applica gli stili al modal
+      $('#flashModalHeader').css('background', style.headerBg);
+      $('#flashModalIconBox').css('background', style.iconBoxBg);
+      $('#flashModalIcon').attr('icon', style.icon);
+      $('#flashModalTitle').text(style.title);
+      $('#flashModalSubtitle').text(style.subtitle);
+      $('#flashModalMessageBox').css({
+        'background': style.messageBoxBg,
+        'border': style.messageBoxBorder
+      });
+      $('#flashModalMessage').css('color', style.messageColor).text(message);
+
+      // Mostra l'help box solo per errori (danger)
+      if (category === 'danger') {
+        $('#flashModalHelpBox').show();
+      } else {
+        $('#flashModalHelpBox').hide();
+      }
+
+      // Mostra il modal
+      $('#flashMessageModal').modal('show');
+    }
+  });
+</script>
+</body>
+</html>

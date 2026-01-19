@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Report Settimanale - Idee e Suggerimenti{% endblock %}
+
+{% block extra_css %}
+{% include 'team/weekly_report/_step_base_css_improved.html' %}
+<style>
+    .completion-hint {
+        background: #f0f9ff;
+        border-left: 3px solid #28c76f;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .completion-hint .hint-title {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .completion-hint .hint-text {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-24">
+
+    <!-- Header Section -->
+    <div class="step-header">
+        <h4>Report Settimanale - Idee e Suggerimenti</h4>
+        <p class="text-muted mb-0">Ultimo passaggio (facoltativo)</p>
+    </div>
+
+    <div class="step-container">
+        <!-- Progress Indicator -->
+        <div class="progress-indicator">
+            <div class="d-flex justify-content-between">
+                {% for i in range(1, total_steps + 1) %}
+                <div class="progress-step {% if i < step %}completed{% elif i == step %}active{% endif %}">
+                    <div class="step-number">{{ i }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Completion hint -->
+        <div class="completion-hint">
+            <div class="hint-title">
+                <iconify-icon icon="ri:lightbulb-line"></iconify-icon>
+                Sei quasi alla fine!
+            </div>
+            <p class="hint-text">
+                Questa è l'ultima domanda ed è facoltativa. Se hai idee da condividere, questo è il momento giusto.
+                Altrimenti, puoi completare il report senza compilare questo campo.
+            </p>
+        </div>
+
+        <!-- FORM -->
+        <form method="post" novalidate id="step-form">
+            {{ form.hidden_tag() }}
+            
+            <!-- Campo principale -->
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:lightbulb-flash-line" class="question-icon"></iconify-icon>
+                    Quali idee hai che potremmo implementare?
+                </div>
+                <small class="text-muted mb-3 d-block">
+                    Questo campo è facoltativo. Condividi qualsiasi idea per migliorare processi, prodotti o l'ambiente di lavoro.
+                </small>
+                {{ form.ideas(class="form-control", placeholder="Rispondi qui... (facoltativo)") }}
+                {% if form.ideas.errors %}
+                    <div class="text-danger mt-2">
+                        {% for error in form.ideas.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Action buttons -->
+            <div class="action-buttons">
+                <button type="submit" name="action" value="back" class="btn btn-cancel">
+                    <iconify-icon icon="ri:arrow-left-line" class="me-1"></iconify-icon>
+                    Indietro
+                </button>
+                <button type="submit" name="action" value="complete" class="btn btn-success btn-lg">
+                    <iconify-icon icon="ri:check-line" class="me-2"></iconify-icon>
+                    Completa Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textareas
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+    }
+    
+    document.querySelectorAll('textarea').forEach(textarea => {
+        // Set initial height
+        autoResize(textarea);
+        
+        // Auto-resize on input
+        textarea.addEventListener('input', function() {
+            autoResize(this);
+        });
+        
+        // Also resize on focus
+        textarea.addEventListener('focus', function() {
+            autoResize(this);
+        });
+    });
+});
+</script>
+{% endblock %}

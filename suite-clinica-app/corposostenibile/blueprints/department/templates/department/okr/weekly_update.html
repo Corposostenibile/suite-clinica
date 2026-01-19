@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+
+{% block title %}Aggiornamento Settimanale Team - {{ objective.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .objective-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+  .kr-update-card {
+    border-left: 3px solid var(--bs-primary);
+    transition: all 0.3s ease;
+  }
+  .kr-update-card:hover {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  }
+  .confidence-selector {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  .confidence-option {
+    text-align: center;
+    cursor: pointer;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+  }
+  .confidence-option input[type="radio"] {
+    display: none;
+  }
+  .confidence-option:hover {
+    border-color: var(--bs-primary);
+  }
+  .confidence-option input[type="radio"]:checked + .confidence-content {
+    border-color: var(--bs-primary);
+    background: rgba(13, 110, 253, 0.1);
+  }
+  .confidence-content {
+    border-radius: 6px;
+    padding: 0.5rem;
+  }
+  .emoji-large {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .update-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .team-metric-input {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .assignee-kr-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24 px-24">
+  <h6 class="fw-semibold mb-0">Aggiornamento Settimanale del Team</h6>
+  <ul class="d-flex align-items-center gap-2">
+    <li class="fw-medium">
+      <a href="{{ url_for('department.okr_dashboard', dept_id=dept.id) }}" class="d-flex align-items-center gap-1 hover-text-primary">
+        <iconify-icon icon="solar:target-bold" class="icon text-lg"></iconify-icon>Dashboard OKR
+      </a>
+    </li>
+    <li>-</li>
+    <li class="fw-medium">Update Team</li>
+  </ul>
+</div>
+
+<div class="px-24">
+  <!-- Objective Summary -->
+  <div class="objective-header">
+    <h4 class="mb-3">{{ objective.title }}</h4>
+    <p class="text-muted mb-0">Dipartimento: <strong>{{ dept.name }}</strong></p>
+    {% if objective.description %}
+    <p class="text-muted mb-3 mt-2">{{ objective.description }}</p>
+    {% endif %}
+    
+    <div class="row g-3 mt-3">
+      <div class="col-md-3">
+        <div class="text-center">
+          <div class="h1 mb-0 text-success">{{ objective.progress }}%</div>
+          <div class="text-muted">Progress Totale</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-center">
+          <div class="h1 mb-0 text-success">W{{ request.args.get('week', date.today().isocalendar()[1]) }}</div>
+          <div class="text-muted">Settimana {{ date.today().year }}</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-center">
+          <div class="h1 mb-0 text-success">{{ objective.days_remaining }}</div>
+          <div class="text-muted">Giorni Rimanenti</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-center">
+          <div class="h1 mb-0 text-success">{{ assigned_krs|length }}</div>
+          <div class="text-muted">KR Assegnati</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if existing_update %}
+  <div class="alert alert-info d-flex align-items-center mb-4">
+    <i class="ri-information-line me-2" style="font-size: 1.5rem;"></i>
+    <div>
+      <strong>Il team ha già inviato un aggiornamento per questa settimana.</strong><br>
+      Puoi visualizzarlo nella dashboard OKR del dipartimento.
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <!-- Key Results Progress by Member -->
+    <div class="col-lg-5">
+      <div class="card radius-16">
+        <div class="card-header">
+          <h6 class="card-title mb-0">Progress Key Results del Team</h6>
+        </div>
+        <div class="card-body p-24">
+          <!-- KR non assegnati (Team) -->
+          {% set team_krs = objective.key_results|selectattr('assignee_id', 'none')|list %}
+          {% if team_krs %}
+            <h6 class="text-muted small mb-3">
+              <i class="ri-team-line me-1"></i> Responsabilità del Team
+            </h6>
+            {% for kr in team_krs %}
+              <div class="kr-update-card p-3 mb-3 border rounded">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <h6 class="mb-0">{{ kr.title }}</h6>
+                  <span class="badge bg-success-subtle text-success">{{ kr.progress }}%</span>
+                </div>
+                <div class="mb-2">
+                  <div class="d-flex justify-content-between text-muted small mb-1">
+                    <span>{{ kr.display_value }}</span>
+                    <span>Target: {{ kr.target_value }}{{ kr.unit }}</span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success" style="width: {{ kr.progress }}%"></div>
+                  </div>
+                </div>
+                <div class="text-center mt-3">
+                  <button type="button" class="btn btn-sm btn-outline-primary" 
+                          onclick="updateKRValue({{ kr.id }}, '{{ kr.current_value }}', '{{ kr.unit }}')">
+                    <i class="ri-refresh-line me-1"></i>Aggiorna Valore
+                  </button>
+                </div>
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <!-- KR assegnati raggruppati per membro -->
+          {% if assigned_krs %}
+            <h6 class="text-muted small mb-3 mt-4">
+              <i class="ri-user-3-line me-1"></i> Responsabilità Individuali
+            </h6>
+            {% set members = assigned_krs|map(attribute='assignee')|unique|list %}
+            {% for member in members %}
+              <div class="assignee-kr-card">
+                <div class="d-flex align-items-center mb-2">
+                  <img src="{{ member.avatar_url }}" class="rounded-circle me-2" width="24" height="24" alt="">
+                  <strong class="small">{{ member.full_name }}</strong>
+                </div>
+                {% for kr in assigned_krs|selectattr('assignee', 'equalto', member)|list %}
+                  <div class="ms-4 mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <small>{{ kr.title }}</small>
+                      <span class="badge bg-success-subtle text-success">{{ kr.progress }}%</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 4px;">
+                      <div class="progress-bar bg-success" style="width: {{ kr.progress }}%"></div>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Update Form -->
+    <div class="col-lg-7">
+      <form method="POST">
+        {{ form.csrf_token }}
+        
+        <div class="card radius-16">
+          <div class="card-header">
+            <h6 class="card-title mb-0">Aggiornamento del Team</h6>
+          </div>
+          <div class="card-body p-24">
+            <div class="update-section">
+              <h6 class="mb-3">
+                <i class="ri-checkbox-circle-line text-success me-2"></i>
+                Cosa ha raggiunto il team questa settimana?
+              </h6>
+              {{ form.achievements(class="form-control", placeholder="Risultati ottenuti, traguardi raggiunti, milestone completate...") }}
+            </div>
+
+            <div class="update-section">
+              <h6 class="mb-3">
+                <i class="ri-alert-line text-warning me-2"></i>
+                Quali ostacoli sta affrontando il dipartimento?
+              </h6>
+              {{ form.blockers(class="form-control", placeholder="Problemi tecnici, dipendenze esterne, risorse mancanti...") }}
+            </div>
+
+            <div class="update-section">
+              <h6 class="mb-3">
+                <i class="ri-arrow-right-line text-primary me-2"></i>
+                Quali sono i prossimi passi del team?
+              </h6>
+              {{ form.next_steps(class="form-control", placeholder="Priorità per la prossima settimana, azioni pianificate...") }}
+            </div>
+
+            <div class="update-section">
+              <h6 class="mb-3">
+                <i class="ri-file-text-line text-info me-2"></i>
+                Note aggiuntive del team
+              </h6>
+              {{ form.notes(class="form-control", placeholder="Altri commenti, osservazioni, aggiornamenti importanti...") }}
+            </div>
+
+           
+
+            <div class="mt-4">
+              <h6 class="text-center mb-3">Valutazione del Team</h6>
+              <div class="mb-4">
+                <p class="text-center mb-2">Come si sente il team?</p>
+                <div class="confidence-selector">
+                  {% for value, label in form.team_morale.choices %}
+                  {% if value %}
+                  <label class="confidence-option">
+                    <input type="radio" name="team_morale" value="{{ value }}" 
+                           {% if form.team_morale.data == value|int %}checked{% endif %}>
+                    <div class="confidence-content">
+                      <span class="emoji-large">{{ label.split()[0] }}</span>
+                      <small>{{ ' '.join(label.split()[1:]) }}</small>
+                    </div>
+                  </label>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              <div>
+                <p class="text-center mb-2">Quanto il team è fiducioso nel raggiungimento dell'obiettivo?</p>
+                <div class="confidence-selector">
+                  {% for value, label in form.confidence_level.choices %}
+                  {% if value %}
+                  <label class="confidence-option">
+                    <input type="radio" name="confidence_level" value="{{ value }}" 
+                           {% if form.confidence_level.data == value|int %}checked{% endif %}>
+                    <div class="confidence-content">
+                      <span class="emoji-large">{{ label.split()[0] }}</span>
+                      <small>{{ ' '.join(label.split()[1:]) }}</small>
+                    </div>
+                  </label>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+          {{ form.submit(class="btn btn-primary btn-lg") }}
+          <a href="{{ url_for('department.okr_dashboard', dept_id=dept.id) }}" 
+             class="btn btn-outline-secondary btn-lg">Annulla</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block inline_scripts %}
+<script>
+function updateKRValue(krId, currentValue, unit) {
+  const newValue = prompt(`Inserisci il nuovo valore (attuale: ${currentValue}${unit || ''})`, currentValue);
+  
+  if (newValue !== null && newValue !== '') {
+    fetch(`/departments/api/okr/key-result/${krId}/update-progress`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify({
+        current_value: parseFloat(newValue),
+        notes: 'Aggiornato durante weekly update del team'
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert(`Valore aggiornato con successo da ${data.updated_by}!`);
+        window.location.reload();
+      } else {
+        alert('Errore: ' + data.error);
+      }
+    })
+    .catch(error => {
+      alert('Errore durante l\'aggiornamento');
+      console.error(error);
+    });
+  }
+}
+
+let autoSaveTimer;
+const formInputs = document.querySelectorAll('textarea, input[type="number"]');
+
+formInputs.forEach(input => {
+  input.addEventListener('input', function() {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      const formData = new FormData(document.querySelector('form'));
+      const data = {};
+      formData.forEach((value, key) => {
+        data[key] = value;
+      });
+      localStorage.setItem('dept_okr_update_draft_{{ objective.id }}', JSON.stringify(data));
+      showSaveIndicator();
+    }, 2000);
+  });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const savedDraft = localStorage.getItem('dept_okr_update_draft_{{ objective.id }}');
+  if (savedDraft && !{{ 'true' if existing_update else 'false' }}) {
+    if (confirm('È stata trovata una bozza salvata. Vuoi ripristinarla?')) {
+      const data = JSON.parse(savedDraft);
+      Object.keys(data).forEach(key => {
+        const input = document.querySelector(`[name="${key}"]`);
+        if (input) {
+          input.value = data[key];
+          if (input.type === 'radio') {
+            input.checked = true;
+          }
+        }
+      });
+    }
+  }
+});
+
+document.querySelector('form').addEventListener('submit', function() {
+  localStorage.removeItem('dept_okr_update_draft_{{ objective.id }}');
+});
+
+function showSaveIndicator() {
+  const indicator = document.createElement('div');
+  indicator.className = 'position-fixed bottom-0 end-0 m-3 badge bg-success';
+  indicator.textContent = 'Bozza salvata';
+  document.body.appendChild(indicator);
+  setTimeout(() => {
+    indicator.remove();
+  }, 2000);
+}
+
+document.getElementById('customer_satisfaction').addEventListener('input', function() {
+  const value = parseFloat(this.value);
+  if (value < 0 || value > 100) {
+    this.setCustomValidity('Il valore deve essere tra 0 e 100');
+  } else {
+    this.setCustomValidity('');
+  }
+});
+</script>
+{% endblock %}

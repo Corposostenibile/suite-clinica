@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Monitor Conferme Lettura - Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="page-title-box d-flex align-items-center justify-content-between mb-3">
+      <h4 class="mb-0">Monitor Conferme Lettura</h4>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb m-0">
+          <li class="breadcrumb-item"><a href="{{ url_for('welcome.index') }}">Home</a></li>
+          <li class="breadcrumb-item"><a href="{{ url_for('team.user_list') }}">Team</a></li>
+          <li class="breadcrumb-item active">Monitor Conferme</li>
+        </ol>
+      </nav>
+    </div>
+
+    <!-- Statistiche -->
+    <div class="row g-3 mb-3">
+      {% if 'codice_condotta' in stats %}
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="card-title mb-0">
+                <i class="ri-shield-check-line me-2 text-success"></i>
+                Codice di Condotta
+              </h5>
+              <span class="badge bg-success fs-6">{{ stats.codice_condotta.percentage }}%</span>
+            </div>
+            <div class="progress mb-3" style="height: 8px;">
+              <div class="progress-bar bg-success"
+                   role="progressbar"
+                   style="width: {{ stats.codice_condotta.percentage }}%"
+                   aria-valuenow="{{ stats.codice_condotta.percentage }}"
+                   aria-valuemin="0"
+                   aria-valuemax="100">
+              </div>
+            </div>
+            <div class="row text-center">
+              <div class="col-6">
+                <div class="text-success">
+                  <div class="fw-bold fs-4">{{ stats.codice_condotta.confirmed }}</div>
+                  <small class="text-muted">Confermati</small>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="text-danger">
+                  <div class="fw-bold fs-4">{{ stats.codice_condotta.pending }}</div>
+                  <small class="text-muted">In attesa</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if 'regolamento_remoto' in stats %}
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="card-title mb-0">
+                <i class="ri-home-wifi-line me-2 text-warning"></i>
+                Regolamento Lavoro Remoto
+              </h5>
+              <span class="badge bg-warning text-dark fs-6">{{ stats.regolamento_remoto.percentage }}%</span>
+            </div>
+            <div class="progress mb-3" style="height: 8px;">
+              <div class="progress-bar bg-warning"
+                   role="progressbar"
+                   style="width: {{ stats.regolamento_remoto.percentage }}%"
+                   aria-valuenow="{{ stats.regolamento_remoto.percentage }}"
+                   aria-valuemin="0"
+                   aria-valuemax="100">
+              </div>
+            </div>
+            <div class="row text-center">
+              <div class="col-6">
+                <div class="text-success">
+                  <div class="fw-bold fs-4">{{ stats.regolamento_remoto.confirmed }}</div>
+                  <small class="text-muted">Confermati</small>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="text-danger">
+                  <div class="fw-bold fs-4">{{ stats.regolamento_remoto.pending }}</div>
+                  <small class="text-muted">In attesa</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Filtri -->
+    <div class="row mb-3">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <form method="get" action="{{ url_for('team.admin_document_acknowledgments') }}" class="row g-3 align-items-end">
+              <div class="col-md-3">
+                <label for="dept" class="form-label">
+                  <i class="ri-building-line me-1"></i>
+                  Dipartimento
+                </label>
+                <select name="dept" id="dept" class="form-select">
+                  <option value="">Tutti i dipartimenti</option>
+                  {% for dept in departments %}
+                  <option value="{{ dept.id }}" {% if dept_filter == dept.id %}selected{% endif %}>
+                    {{ dept.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label for="doc" class="form-label">
+                  <i class="ri-file-line me-1"></i>
+                  Documento
+                </label>
+                <select name="doc" id="doc" class="form-select">
+                  <option value="">Tutti i documenti</option>
+                  <option value="codice_condotta" {% if doc_filter == 'codice_condotta' %}selected{% endif %}>
+                    Codice di Condotta
+                  </option>
+                  <option value="regolamento_remoto" {% if doc_filter == 'regolamento_remoto' %}selected{% endif %}>
+                    Regolamento Remoto
+                  </option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label for="status" class="form-label">
+                  <i class="ri-filter-line me-1"></i>
+                  Stato
+                </label>
+                <select name="status" id="status" class="form-select">
+                  <option value="">Tutti</option>
+                  <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>
+                    Solo confermati
+                  </option>
+                  <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>
+                    Solo in attesa
+                  </option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                  <i class="ri-search-line me-2"></i>
+                  Filtra
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabella Utenti -->
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Dettaglio Conferme</h5>
+            <small class="text-muted">{{ user_data|length }} utenti trovati (su {{ total_users }} totali)</small>
+          </div>
+          <div class="card-body">
+            {% if user_data %}
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Utente</th>
+                    <th>Dipartimento</th>
+                    <th class="text-center">Codice di Condotta</th>
+                    <th class="text-center">Regolamento Remoto</th>
+                    <th class="text-center">Completamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in user_data %}
+                  <tr>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        {% if item.user.avatar_path %}
+                        <img src="{{ url_for('team.serve_avatar', user_id=item.user.id) }}"
+                             alt="{{ item.user.full_name }}"
+                             class="rounded-circle"
+                             style="width: 32px; height: 32px; object-fit: cover;">
+                        {% else %}
+                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                             style="width: 32px; height: 32px; font-size: 0.75rem;">
+                          {{ item.user.first_name[0] }}{{ item.user.last_name[0] }}
+                        </div>
+                        {% endif %}
+                        <div class="d-flex flex-column">
+                          <span>{{ item.user.full_name }}</span>
+                          <small class="text-muted" style="font-size: 0.75rem;">{{ item.user.email }}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {% if item.user.department %}
+                      <span class="badge bg-info">{{ item.user.department.name }}</span>
+                      {% else %}
+                      <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+
+                    <!-- Codice di Condotta -->
+                    <td class="text-center">
+                      {% if 'codice_condotta' in item.acknowledgments %}
+                        {% if item.acknowledgments.codice_condotta %}
+                        <div class="d-flex flex-column align-items-center gap-1">
+                          <span class="badge bg-success">
+                            <i class="ri-checkbox-circle-line"></i>
+                            Confermato
+                          </span>
+                          <small class="text-muted" style="font-size: 0.7rem;">
+                            {{ item.acknowledgments.codice_condotta.acknowledged_at.strftime('%d/%m/%Y') }}
+                          </small>
+                        </div>
+                        {% else %}
+                        <span class="badge bg-danger">
+                          <i class="ri-time-line"></i>
+                          In attesa
+                        </span>
+                        {% endif %}
+                      {% else %}
+                      <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+
+                    <!-- Regolamento Remoto -->
+                    <td class="text-center">
+                      {% if 'regolamento_remoto' in item.acknowledgments %}
+                        {% if item.acknowledgments.regolamento_remoto %}
+                        <div class="d-flex flex-column align-items-center gap-1">
+                          <span class="badge bg-success">
+                            <i class="ri-checkbox-circle-line"></i>
+                            Confermato
+                          </span>
+                          <small class="text-muted" style="font-size: 0.7rem;">
+                            {{ item.acknowledgments.regolamento_remoto.acknowledged_at.strftime('%d/%m/%Y') }}
+                          </small>
+                        </div>
+                        {% else %}
+                        <span class="badge bg-danger">
+                          <i class="ri-time-line"></i>
+                          In attesa
+                        </span>
+                        {% endif %}
+                      {% else %}
+                      <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+
+                    <!-- Progress -->
+                    <td class="text-center">
+                      {% set total_docs = item.acknowledgments|length %}
+                      {% set confirmed_docs = item.acknowledgments.values()|select()|list|length %}
+                      {% if total_docs > 0 %}
+                        {% set percentage = (confirmed_docs / total_docs * 100)|int %}
+                        <div class="d-flex flex-column align-items-center gap-1">
+                          <div class="progress" style="width: 100px; height: 8px;">
+                            <div class="progress-bar {% if percentage == 100 %}bg-success{% elif percentage > 0 %}bg-warning{% else %}bg-danger{% endif %}"
+                                 role="progressbar"
+                                 style="width: {{ percentage }}%"
+                                 aria-valuenow="{{ percentage }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                            </div>
+                          </div>
+                          <small class="text-muted" style="font-size: 0.75rem;">{{ confirmed_docs }}/{{ total_docs }}</small>
+                        </div>
+                      {% else %}
+                      <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+              <i class="ri-inbox-line fs-1 text-muted"></i>
+              <p class="text-muted mt-2">Nessun utente trovato con i filtri selezionati</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

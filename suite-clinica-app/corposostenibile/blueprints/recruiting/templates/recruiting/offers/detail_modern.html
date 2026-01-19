@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+
+{% block title %}{{ offer.title }} - Dettaglio Offerta{% endblock %}
+
+{% block extra_css %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .card-title {
+        color: var(--dark-color);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-outline-success {
+        color: #45CB85;
+        border: 1px solid #45CB85;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    .badge-published {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        color: white;
+    }
+
+    .badge-draft {
+        background: linear-gradient(135deg, #6C757D 0%, #495057 100%);
+        color: white;
+    }
+
+    .badge-closed {
+        background: linear-gradient(135deg, #DC3545 0%, #C82333 100%);
+        color: white;
+    }
+
+    /* Stats Card */
+    .stat-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--dark-color);
+        margin: 8px 0;
+    }
+
+    .stat-label {
+        color: #6C757D;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Progress Bar */
+    .progress {
+        height: 25px;
+        border-radius: 10px;
+        background: #F8FAFC;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        transition: width 0.3s ease;
+    }
+
+    .progress-bar.form-weight {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+    }
+
+    .progress-bar.cv-weight {
+        background: linear-gradient(135deg, #4ECAC2 0%, #3CA59D 100%);
+    }
+
+    /* Question Card */
+    .question-item {
+        background: #F8FAFC;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        border: 1px solid #E2E8F0;
+    }
+
+    .question-type {
+        display: inline-block;
+        padding: 4px 8px;
+        background: white;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: #6C757D;
+        border: 1px solid #E2E8F0;
+    }
+
+    .weight-badge {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    /* Info Box */
+    .info-box {
+        background: linear-gradient(135deg, #FFF9E6 0%, #FFF3CC 100%);
+        border: 1px solid #FFE082;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .keywords-box {
+        background: linear-gradient(135deg, #F0F4FF 0%, #E6ECFF 100%);
+        border: 1px solid #C5D4FF;
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    /* Public Links */
+    .link-card {
+        background: #F8FAFC;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid #E2E8F0;
+        transition: all 0.3s ease;
+    }
+
+    .link-card:hover {
+        background: white;
+        border-color: #4ECAC2;
+    }
+
+    .social-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
+    .social-icon.linkedin {
+        background: linear-gradient(135deg, #E5F3FF 0%, #CCE7FF 100%);
+        color: #0A66C2;
+    }
+
+    .social-icon.facebook {
+        background: linear-gradient(135deg, #E5EBFF 0%, #CCDAFF 100%);
+        color: #1877F2;
+    }
+
+    .social-icon.instagram {
+        background: linear-gradient(135deg, #FFE5EB 0%, #FFCCDA 100%);
+        color: #E4405F;
+    }
+
+    /* Utilities */
+    .mb-8 { margin-bottom: 8px !important; }
+    .mb-12 { margin-bottom: 12px !important; }
+    .mb-16 { margin-bottom: 16px !important; }
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">Dettaglio Offerta</h6>
+            <p class="text-muted mb-0">{{ offer.title }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('recruiting.offers_list') }}" class="btn btn-sm btn-outline-success">
+                <i class="ri-arrow-left-line"></i>
+                Torna alle Offerte
+            </a>
+            <a href="{{ url_for('recruiting.offer_edit', offer_id=offer.id) }}" class="btn btn-sm btn-success">
+                <i class="ri-edit-line me-1"></i>
+                Modifica
+            </a>
+            {% if offer.status.value == 'published' %}
+            <a href="{{ url_for('recruiting.offer_applications', offer_id=offer.id) }}" class="btn btn-sm btn-primary">
+                <i class="ri-group-line me-1"></i>
+                Candidature ({{ offer.applications_count or 0 }})
+            </a>
+            {% if offer.kanban_id %}
+            <a href="{{ url_for('recruiting.offer_kanban_view', offer_id=offer.id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="ri-kanban-view me-1"></i>
+                Pipeline
+            </a>
+            {% endif %}
+            <a href="{{ url_for('recruiting.offer_metrics_dashboard', offer_id=offer.id) }}" class="btn btn-sm btn-outline-info">
+                <i class="ri-bar-chart-line me-1"></i>
+                Metriche
+            </a>
+            <a href="{{ url_for('recruiting.offer_advertising', offer_id=offer.id) }}" class="btn btn-sm btn-outline-warning">
+                <i class="ri-funds-line me-1"></i>
+                Advertising
+            </a>
+            <a href="{{ url_for('recruiting.offer_screening', offer_id=offer.id) }}" class="btn btn-sm btn-outline-success">
+                <i class="ri-robot-line me-1"></i>
+                Screening ATS
+            </a>
+            {% elif questions_list and questions_list|length > 0 %}
+            <form action="{{ url_for('recruiting.offer_publish', offer_id=offer.id) }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="ri-send-plane-line me-1"></i>
+                    Pubblica Offerta
+                </button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('recruiting.offer_questions', offer_id=offer.id) }}" class="btn btn-sm btn-warning">
+                <i class="ri-questionnaire-line me-1"></i>
+                Configura Domande
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Position Details Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-16">
+                        <div>
+                            <h5 class="mb-12">{{ offer.title }}</h5>
+                            <div class="d-flex flex-wrap gap-3 text-muted">
+                                {% if offer.department %}
+                                <span><i class="ri-building-line me-1"></i>{{ offer.department.name }}</span>
+                                {% endif %}
+                                {% if offer.employment_type %}
+                                <span><i class="ri-briefcase-line me-1"></i>{{ offer.employment_type|title }}</span>
+                                {% endif %}
+                                {% if offer.salary_range %}
+                                <span><i class="ri-money-euro-circle-line me-1"></i>{{ offer.salary_range }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            {% if offer.status.value == 'published' %}
+                            <span class="badge badge-published">
+                                <i class="ri-checkbox-circle-line me-1"></i>Pubblicata
+                            </span>
+                            {% elif offer.status.value == 'draft' %}
+                            <span class="badge badge-draft">
+                                <i class="ri-draft-line me-1"></i>Bozza
+                            </span>
+                            {% elif offer.status.value == 'closed' %}
+                            <span class="badge badge-closed">
+                                <i class="ri-close-circle-line me-1"></i>Chiusa
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div class="mb-16">
+                        <h6 class="mb-12">
+                            <i class="ri-file-text-line me-2 text-primary"></i>
+                            Descrizione
+                        </h6>
+                        <div class="text-muted">{{ offer.description|nl2br|safe }}</div>
+                    </div>
+
+                    {% if offer.requirements %}
+                    <div class="mb-16">
+                        <h6 class="mb-12">
+                            <i class="ri-checkbox-circle-line me-2 text-primary"></i>
+                            Requisiti
+                        </h6>
+                        <div class="text-muted">{{ offer.requirements|nl2br|safe }}</div>
+                    </div>
+                    {% endif %}
+
+                    {% if offer.benefits %}
+                    <div class="mb-16">
+                        <h6 class="mb-12">
+                            <i class="ri-gift-line me-2 text-primary"></i>
+                            Benefits
+                        </h6>
+                        <div class="text-muted">{{ offer.benefits|nl2br|safe }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ATS Configuration Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="ri-robot-line me-2 text-primary"></i>
+                        Configurazione Screening ATS
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-16">
+                        <h6 class="mb-12">Keywords per Analisi CV</h6>
+                        <div class="keywords-box">
+                            {{ offer.what_we_search|nl2br|safe if offer.what_we_search else 'Non configurato' }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-8">
+                                <span class="text-muted">Peso Form Domande</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar form-weight" style="width: {{ offer.form_weight }}%;">
+                                    {{ offer.form_weight }}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-8">
+                                <span class="text-muted">Peso Analisi CV</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar cv-weight" style="width: {{ offer.cv_weight }}%;">
+                                    {{ offer.cv_weight }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions Card -->
+            {% set questions_list = offer.questions|list %}
+            {% if questions_list and questions_list|length > 0 %}
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title">
+                        <i class="ri-questionnaire-line me-2 text-primary"></i>
+                        Domande Personalizzate ({{ questions_list|length }})
+                    </h5>
+                    <a href="{{ url_for('recruiting.offer_questions', offer_id=offer.id) }}" class="btn btn-sm btn-outline-success">
+                        <i class="ri-edit-line me-1"></i>
+                        Modifica
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="info-box mb-16">
+                        <i class="ri-information-line me-1"></i>
+                        <strong>Nota:</strong> Oltre a queste domande personalizzate, il form include automaticamente i campi base (Nome, Cognome, Email, Telefono, CV, etc.)
+                    </div>
+
+                    {% for q in questions_list|sort(attribute='order') %}
+                    <div class="question-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="d-flex align-items-center mb-8">
+                                    <span class="me-2 text-muted">#{{ loop.index }}</span>
+                                    <strong>{{ q.question_text }}</strong>
+                                    {% if q.is_required %}
+                                    <span class="text-danger ms-2">*</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <span class="question-type">
+                                        <i class="ri-text me-1"></i>{{ q.question_type.value }}
+                                    </span>
+                                    {% if q.expected_answer %}
+                                    <span class="question-type">
+                                        <i class="ri-check-line me-1 text-success"></i>Risposta attesa configurata
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <span class="weight-badge">
+                                {{ q.weight }}%
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <div class="mt-16 text-center">
+                        <small class="text-muted">
+                            Peso totale domande:
+                            <strong class="{% if offer.total_questions_weight == 100 %}text-success{% else %}text-danger{% endif %}">
+                                {{ offer.total_questions_weight }}%
+                            </strong>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-body text-center py-4">
+                    <i class="ri-questionnaire-line" style="font-size: 3rem; color: #E2E8F0;"></i>
+                    <h6 class="mt-3">Nessuna domanda configurata</h6>
+                    <p class="text-muted">Configura le domande per personalizzare il form di candidatura</p>
+                    <a href="{{ url_for('recruiting.offer_questions', offer_id=offer.id) }}" class="btn btn-success">
+                        <i class="ri-add-line me-1"></i>
+                        Configura Domande
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Stats Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="ri-bar-chart-line me-2 text-primary"></i>
+                        Statistiche
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-label">Visualizzazioni</div>
+                                <div class="stat-number">{{ offer.views_count or 0 }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-label">Candidature</div>
+                                <div class="stat-number">{{ offer.applications_count or 0 }}</div>
+                            </div>
+                        </div>
+                        {% if offer.views_count and offer.views_count > 0 %}
+                        <div class="col-12">
+                            <div class="stat-card">
+                                <div class="stat-label">Tasso Conversione</div>
+                                <div class="stat-number">
+                                    {{ "%.1f"|format((offer.applications_count / offer.views_count * 100) if offer.views_count else 0) }}%
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="ri-information-line me-2 text-primary"></i>
+                        Informazioni
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-12">
+                        <small class="text-muted">Pipeline</small>
+                        <div>
+                            {% if offer.kanban %}
+                            <strong>{{ offer.kanban.name }}</strong>
+                            {% else %}
+                            <span class="text-muted">Non configurata</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-12">
+                        <small class="text-muted">Creata da</small>
+                        <div>{{ offer.created_by.full_name if offer.created_by else 'Sistema' }}</div>
+                    </div>
+
+                    <div class="mb-12">
+                        <small class="text-muted">Data creazione</small>
+                        <div>{{ offer.created_at.strftime('%d/%m/%Y %H:%M') if offer.created_at else 'N/A' }}</div>
+                    </div>
+
+                    {% if offer.published_at %}
+                    <div class="mb-12">
+                        <small class="text-muted">Data pubblicazione</small>
+                        <div>{{ offer.published_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                    </div>
+                    {% endif %}
+
+                    {% if offer.closed_at %}
+                    <div>
+                        <small class="text-muted">Data chiusura</small>
+                        <div>{{ offer.closed_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Public Links Card -->
+            {% if offer.status.value == 'published' %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="ri-share-line me-2 text-primary"></i>
+                        Link Pubblici
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="link-card">
+                        <div class="d-flex align-items-center">
+                            <div class="social-icon linkedin me-3">
+                                <i class="ri-linkedin-box-fill"></i>
+                            </div>
+                            <span>LinkedIn</span>
+                        </div>
+                        <button class="btn btn-sm btn-light" onclick="copyLink('{{ offer.get_public_url('linkedin') }}')">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
+
+                    <div class="link-card">
+                        <div class="d-flex align-items-center">
+                            <div class="social-icon facebook me-3">
+                                <i class="ri-facebook-circle-fill"></i>
+                            </div>
+                            <span>Facebook</span>
+                        </div>
+                        <button class="btn btn-sm btn-light" onclick="copyLink('{{ offer.get_public_url('facebook') }}')">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
+
+                    <div class="link-card">
+                        <div class="d-flex align-items-center">
+                            <div class="social-icon instagram me-3">
+                                <i class="ri-instagram-line"></i>
+                            </div>
+                            <span>Instagram</span>
+                        </div>
+                        <button class="btn btn-sm btn-light" onclick="copyLink('{{ offer.get_public_url('instagram') }}')">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Copy link to clipboard
+function copyLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        // Show notification
+        showNotification('Link copiato negli appunti', 'success');
+    }).catch(() => {
+        showNotification('Errore durante la copia del link', 'danger');
+    });
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

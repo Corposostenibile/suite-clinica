@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+
+{% block title %}Configura Pipeline - {{ kanban.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('recruiting.kanban_list') }}">Pipeline Kanban</a></li>
+                <li class="breadcrumb-item active">Configura {{ kanban.name }}</li>
+            </ol>
+        </nav>
+        <h2>
+            <i class="ri-settings-3-line me-2"></i>Configura Pipeline: {{ kanban.name }}
+        </h2>
+        <p class="text-muted">Gestisci le fasi della pipeline e personalizza il flusso di lavoro</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('recruiting.kanban_view', kanban_id=kanban.id) }}" class="btn btn-outline-primary">
+            <i class="ri-eye-line me-1"></i>Visualizza Kanban
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="ri-stack-line me-2"></i>Fasi della Pipeline
+                </h5>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addStageModal">
+                    <i class="ri-add-line me-1"></i>Aggiungi Fase
+                </button>
+            </div>
+            <div class="card-body">
+                {% if stages %}
+                <div class="alert alert-info mb-3">
+                    <i class="ri-drag-move-2-line me-2"></i>
+                    Trascina le fasi per riordinarle. Le modifiche vengono salvate automaticamente.
+                </div>
+                
+                <div id="stagesList" class="list-group">
+                    {% for stage in stages|sort(attribute='order') %}
+                    <div class="list-group-item stage-item" data-stage-id="{{ stage.id }}" data-order="{{ stage.order }}">
+                        <div class="d-flex align-items-center">
+                            <div class="drag-handle me-3" style="cursor: move;">
+                                <i class="ri-drag-move-2-fill text-muted fs-4"></i>
+                            </div>
+                            
+                            <div class="stage-color me-3" style="width: 30px; height: 30px; background-color: {{ stage.color or '#6c757d' }}; border-radius: 5px;"></div>
+                            
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center">
+                                    {% if stage.icon %}
+                                    <i class="{{ stage.icon }} me-2 fs-5"></i>
+                                    {% endif %}
+                                    <h6 class="mb-0">{{ stage.name }}</h6>
+                                    {% if stage.is_final %}
+                                    <span class="badge bg-success ms-2">Finale</span>
+                                    {% endif %}
+                                    {% if not stage.is_active %}
+                                    <span class="badge bg-secondary ms-2">Inattiva</span>
+                                    {% endif %}
+                                </div>
+                                {% if stage.description %}
+                                <small class="text-muted">{{ stage.description }}</small>
+                                {% endif %}
+                                <div class="mt-1">
+                                    <span class="badge bg-light text-dark">
+                                        Tipo: {{ stage.stage_type.value|replace('_', ' ')|title }}
+                                    </span>
+                                    {% if stage.auto_email_template %}
+                                    <span class="badge bg-info ms-1">
+                                        <i class="ri-mail-line me-1"></i>Email automatica
+                                    </span>
+                                    {% endif %}
+                                    {% if stage.required_fields %}
+                                    <span class="badge bg-warning ms-1">
+                                        <i class="ri-checkbox-circle-line me-1"></i>Campi obbligatori
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="stage-actions">
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="editStage({{ stage.id }})" title="Modifica">
+                                    <i class="ri-edit-line"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteStage({{ stage.id }})" title="Elimina">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="ri-alert-line me-2"></i>
+                    Nessuna fase configurata. Aggiungi la prima fase per iniziare.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="ri-settings-line me-2"></i>Opzioni Avanzate
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Auto-rifiuto</h6>
+                        <p class="text-muted">
+                            {% if kanban.auto_reject_days %}
+                            I candidati vengono rifiutati automaticamente dopo <strong>{{ kanban.auto_reject_days }} giorni</strong> di inattività.
+                            {% else %}
+                            Auto-rifiuto disabilitato.
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Stato Pipeline</h6>
+                        <p>
+                            {% if kanban.is_active %}
+                            <span class="badge bg-success">Attiva</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inattiva</span>
+                            {% endif %}
+                            {% if kanban.is_default %}
+                            <span class="badge bg-primary ms-1">Default</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{{ url_for('recruiting.kanban_edit', kanban_id=kanban.id) }}" class="btn btn-outline-primary">
+                        <i class="ri-edit-line me-1"></i>Modifica Impostazioni Pipeline
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="ri-pie-chart-line me-2"></i>Statistiche Pipeline
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Totale fasi</small>
+                    <h4>{{ stages|length }}</h4>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Candidati in pipeline</small>
+                    <h4>{{ kanban.get_active_applications_count() if kanban.get_active_applications_count else 0 }}</h4>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Tempo medio completamento</small>
+                    <h4>{{ kanban.get_average_completion_time() if kanban.get_average_completion_time else 'N/D' }}</h4>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="ri-lightbulb-line me-2"></i>Suggerimenti
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="small text-muted">
+                    <li>Mantieni il numero di fasi tra 5 e 10 per una gestione ottimale</li>
+                    <li>Usa colori diversi per distinguere facilmente le fasi</li>
+                    <li>Configura email automatiche per informare i candidati</li>
+                    <li>Definisci campi obbligatori per garantire dati completi</li>
+                    <li>Usa le fasi "finali" per chiudere automaticamente le candidature</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Fase -->
+<div class="modal fade" id="addStageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="addStageForm" action="{{ url_for('recruiting.stage_add', kanban_id=kanban.id) }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Aggiungi Nuova Fase</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome Fase <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tipo Fase <span class="text-danger">*</span></label>
+                        <select class="form-select" name="stage_type" required>
+                            <option value="applied">Candidatura</option>
+                            <option value="screening">Screening</option>
+                            <option value="phone_interview">Colloquio Telefonico</option>
+                            <option value="technical_test">Test Tecnico</option>
+                            <option value="hr_interview">Colloquio HR</option>
+                            <option value="technical_interview">Colloquio Tecnico</option>
+                            <option value="final_interview">Colloquio Finale</option>
+                            <option value="reference_check">Verifica Referenze</option>
+                            <option value="offer">Offerta</option>
+                            <option value="hired">Assunto</option>
+                            <option value="rejected">Rifiutato</option>
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Colore</label>
+                                <input type="color" class="form-control form-control-color" name="color" value="#6c757d">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Icona (Remix Icon)</label>
+                                <input type="text" class="form-control" name="icon" placeholder="ri-user-line">
+                                <small class="text-muted">
+                                    <a href="https://remixicon.com/" target="_blank">Cerca icone</a>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Descrizione</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_final" id="isFinal">
+                                <label class="form-check-label" for="isFinal">
+                                    Fase finale (chiude la candidatura)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="isActive" checked>
+                                <label class="form-check-label" for="isActive">
+                                    Fase attiva
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Aggiungi Fase</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stage-item {
+    transition: all 0.3s;
+    margin-bottom: 0.5rem;
+}
+.stage-item:hover {
+    background-color: #f8f9fa;
+}
+.stage-item.dragging {
+    opacity: 0.5;
+}
+.stage-item.drag-over {
+    border-top: 3px solid #007bff;
+}
+.stage-color {
+    border: 2px solid #dee2e6;
+}
+.stage-actions {
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.stage-item:hover .stage-actions {
+    opacity: 1;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+// Drag and drop per riordinare le fasi
+const stagesList = document.getElementById('stagesList');
+if (stagesList) {
+    const sortable = Sortable.create(stagesList, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'dragging',
+        onEnd: function(evt) {
+            // Prepara i dati per l'aggiornamento
+            const stage_ids = [];
+            document.querySelectorAll('.stage-item').forEach((item) => {
+                stage_ids.push(parseInt(item.dataset.stageId));
+            });
+            
+            // Invia aggiornamento al server
+            fetch('{{ url_for("recruiting.api_stages_reorder") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    stage_ids: stage_ids
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostra notifica di successo
+                    showNotification('Ordine aggiornato', 'success');
+                } else {
+                    showNotification('Errore nell\'aggiornamento', 'danger');
+                    // Ricarica la pagina per ripristinare l'ordine
+                    setTimeout(() => location.reload(), 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Errore di rete', 'danger');
+            });
+        }
+    });
+}
+
+// Funzione per modificare una fase
+function editStage(stageId) {
+    window.location.href = `/recruiting/kanban/stages/${stageId}/edit`;
+}
+
+// Funzione per eliminare una fase
+function deleteStage(stageId) {
+    if (confirm('Sei sicuro di voler eliminare questa fase? I candidati in questa fase dovranno essere spostati.')) {
+        fetch(`/recruiting/kanban/stages/${stageId}/delete`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || 'Errore durante l\'eliminazione');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Errore di rete');
+        });
+    }
+}
+
+// Funzione per mostrare notifiche
+function showNotification(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    // Rimuovi automaticamente dopo 3 secondi
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+
+// Form di aggiunta fase
+const addStageForm = document.getElementById('addStageForm');
+if (addStageForm) {
+    addStageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || 'Errore durante l\'aggiunta');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Errore di rete');
+        });
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Clienti 360° - Corpo Sostenibile{% endblock %}
+
+{% block extra_css %}
+<!-- Apex Chart css -->
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/lib/apexcharts.css') }}">
+<style>
+    /* Custom styles for dashboard */
+    .card {
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+    .radius-8 {
+        border-radius: 8px !important;
+    }
+    .group-hover\:bg-primary-600:hover {
+        background-color: #007bff !important;
+        color: white !important;
+    }
+    .group-hover\:text-white:hover {
+        color: white !important;
+    }
+    .br-hover-primary:hover {
+        border-color: #007bff !important;
+    }
+    .bg-gradient-end-1 {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .bg-gradient-end-2 {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .bg-gradient-end-3 {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .bg-gradient-end-4 {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    .bg-gradient-end-5 {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    .bg-gradient-end-6 {
+        background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+    }
+    .text-xxl {
+        font-size: 1.75rem;
+    }
+    .w-44-px {
+        width: 44px;
+    }
+    .h-44-px {
+        height: 44px;
+    }
+    .w-48-px {
+        width: 48px;
+    }
+    .h-48-px {
+        height: 48px;
+    }
+    .shadow-2 {
+        box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;
+    }
+    .p-24 {
+        padding: 24px;
+    }
+    .mt-28 {
+        margin-top: 28px;
+    }
+    .pe-36 {
+        padding-right: 36px;
+    }
+    .mb-12 {
+        margin-bottom: 12px;
+    }
+    .ps-12 {
+        padding-left: 12px;
+    }
+    .pe-12 {
+        padding-right: 12px;
+    }
+    .pt-2 {
+        padding-top: .5rem;
+    }
+    .pb-2 {
+        padding-bottom: .5rem;
+    }
+    .max-w-66 {
+        max-width: 66%;
+    }
+    .bg-yellow {
+        background-color: #ffc107;
+    }
+    .bg-purple {
+        background-color: #6f42c1;
+    }
+    .bg-pink {
+        background-color: #e83e8c;
+    }
+    .bg-cyan {
+        background-color: #17a2b8;
+    }
+    .bg-orange {
+        background-color: #fd7e14;
+    }
+    .text-orange {
+        color: #fd7e14;
+    }
+    .bg-neutral-100 {
+        background-color: #f8f9fa;
+    }
+    .text-primary-light {
+        color: #6c757d;
+    }
+    .text-secondary-light {
+        color: #868e96;
+    }
+    .bg-success-focus {
+        background-color: #d4edda;
+    }
+    .bg-danger-focus {
+        background-color: #f8d7da;
+    }
+    .text-success-main {
+        color: #28a745;
+    }
+    .text-danger-main {
+        color: #dc3545;
+    }
+    /* Fix chart heights */
+    #barChart {
+        height: 350px !important;
+    }
+    #donutChart {
+        height: 280px !important;
+    }
+    #revenue-chart {
+        height: 200px !important;
+    }
+    #paymentStatusChart {
+        height: 250px !important;
+    }
+    .small-chart {
+        height: 60px !important;
+        width: 100px !important;
+    }
+    /* Tab styles */
+    .nav-pills .nav-link {
+        border-radius: 8px;
+        padding: 10px 20px;
+        color: #6c757d;
+        background: #f8f9fa;
+        margin-right: 10px;
+    }
+    .nav-pills .nav-link.active {
+        background: #007bff;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-2 fw-bold">Dashboard Clienti 360°</h4>
+                    <span class="text-sm fw-medium text-secondary-light">Analisi completa del portfolio clienti</span>
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="location.reload()">
+                        <i class="fas fa-sync-alt me-2"></i>Aggiorna
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-pills mb-4" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview" type="button">
+                <i class="fas fa-dashboard me-2"></i>Panoramica
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="health-tab" data-bs-toggle="pill" data-bs-target="#health" type="button">
+                <i class="fas fa-heartbeat me-2"></i>Health Score
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="temporal-tab" data-bs-toggle="pill" data-bs-target="#temporal" type="button">
+                <i class="fas fa-clock me-2"></i>Analisi Temporale
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="segments-tab" data-bs-toggle="pill" data-bs-target="#segments" type="button">
+                <i class="fas fa-users me-2"></i>Segmentazione
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="dashboardTabContent">
+        <!-- PANORAMICA TAB -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <!-- KPI Cards Row 1 -->
+            <div class="row g-3 mb-4">
+                <div class="col-xxl-3 col-sm-6">
+                    <div class="card p-3 shadow-2 radius-8 h-100 bg-gradient-end-1">
+                        <div class="card-body p-0">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="mb-0 w-48-px h-48-px bg-white text-primary flex-shrink-0 d-flex justify-content-center align-items-center rounded-circle">
+                                        <i class="fas fa-users fs-5"></i>
+                                    </span>
+                                    <div class="text-white">
+                                        <span class="mb-2 fw-medium text-sm opacity-75">Clienti Attivi</span>
+                                        <h4 class="fw-semibold mb-0">{{ kpi.clienti_attivi|default(0) }}</h4>
+                                    </div>
+                                </div>
+                                <div id="activeClientsChart" class="small-chart"></div>
+                            </div>
+                            <p class="text-sm mb-0 text-white">
+                                <span class="badge bg-white text-success">+12%</span> rispetto al mese scorso
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-sm-6">
+                    <div class="card p-3 shadow-2 radius-8 h-100 bg-gradient-end-2">
+                        <div class="card-body p-0">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="mb-0 w-48-px h-48-px bg-white text-danger flex-shrink-0 d-flex justify-content-center align-items-center rounded-circle">
+                                        <i class="fas fa-percentage fs-5"></i>
+                                    </span>
+                                    <div class="text-white">
+                                        <span class="mb-2 fw-medium text-sm opacity-75">Retention Rate</span>
+                                        <h4 class="fw-semibold mb-0">{{ kpi.retention_rate|default(0) }}%</h4>
+                                    </div>
+                                </div>
+                                <div id="retentionChart" class="small-chart"></div>
+                            </div>
+                            <p class="text-sm mb-0 text-white">
+                                <span class="badge bg-white text-success">+5%</span> miglioramento
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-sm-6">
+                    <div class="card p-3 shadow-2 radius-8 h-100 bg-gradient-end-3">
+                        <div class="card-body p-0">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="mb-0 w-48-px h-48-px bg-white text-info flex-shrink-0 d-flex justify-content-center align-items-center rounded-circle">
+                                        <i class="fas fa-heartbeat fs-5"></i>
+                                    </span>
+                                    <div class="text-white">
+                                        <span class="mb-2 fw-medium text-sm opacity-75">Health Score</span>
+                                        <h4 class="fw-semibold mb-0">{{ kpi.health_score_avg|default(0) }}</h4>
+                                    </div>
+                                </div>
+                                <div id="healthScoreChart" class="small-chart"></div>
+                            </div>
+                            <p class="text-sm mb-0 text-white">
+                                <span class="badge bg-white text-warning">-2%</span> da monitorare
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-sm-6">
+                    <div class="card p-3 shadow-2 radius-8 h-100 bg-gradient-end-4">
+                        <div class="card-body p-0">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="mb-0 w-48-px h-48-px bg-white text-success flex-shrink-0 d-flex justify-content-center align-items-center rounded-circle">
+                                        <i class="fas fa-calendar-check fs-5"></i>
+                                    </span>
+                                    <div class="text-white">
+                                        <span class="mb-2 fw-medium text-sm opacity-75">Permanenza Media</span>
+                                        <h4 class="fw-semibold mb-0">{{ kpi.avg_permanenza|default(0) }}m</h4>
+                                    </div>
+                                </div>
+                                <div id="permanenzaChart" class="small-chart"></div>
+                            </div>
+                            <p class="text-sm mb-0 text-white">
+                                <span class="badge bg-white text-success">+0.5m</span> incremento
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Cards Row -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card radius-8 h-100">
+                        <div class="card-body p-24">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold">Alert Critici</h6>
+                                <span class="badge bg-danger">{{ kpi.alert_critici|default(0) }}</span>
+                            </div>
+                            <div class="progress mb-2" style="height: 10px;">
+                                <div class="progress-bar bg-danger" style="width: {{ (kpi.alert_critici|default(0) / kpi.clienti_attivi * 100) if kpi.clienti_attivi else 0 }}%"></div>
+                            </div>
+                            <small class="text-muted">Clienti che richiedono attenzione immediata</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card radius-8 h-100">
+                        <div class="card-body p-24">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold">In Scadenza</h6>
+                                <div>
+                                    <span class="badge bg-warning">{{ kpi.in_scadenza|default(0) }}</span>
+                                    <small class="text-muted">< 7gg</small>
+                                    <span class="badge bg-info ms-2">{{ kpi.in_scadenza_30|default(0) }}</span>
+                                    <small class="text-muted">< 30gg</small>
+                                </div>
+                            </div>
+                            <div class="progress mb-2" style="height: 10px;">
+                                <div class="progress-bar bg-warning" style="width: {{ (kpi.in_scadenza|default(0) / kpi.clienti_attivi * 100) if kpi.clienti_attivi else 0 }}%"></div>
+                                <div class="progress-bar bg-info" style="width: {{ ((kpi.in_scadenza_30|default(0) - kpi.in_scadenza|default(0)) / kpi.clienti_attivi * 100) if kpi.clienti_attivi else 0 }}%"></div>
+                            </div>
+                            <small class="text-muted">Rinnovi imminenti da gestire</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row g-3">
+                <div class="col-xxl-8">
+                    <div class="card radius-8">
+                        <div class="card-body p-24">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div>
+                                    <h6 class="mb-2 fw-bold">Distribuzione Stati Cliente</h6>
+                                    <span class="text-sm fw-medium text-secondary-light">Overview completo portfolio</span>
+                                </div>
+                                <select class="form-select form-select-sm w-auto">
+                                    <option>Ultimo mese</option>
+                                    <option>Ultimi 3 mesi</option>
+                                    <option>Ultimo anno</option>
+                                </select>
+                            </div>
+                            <div id="barChart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-4">
+                    <div class="card radius-8">
+                        <div class="card-body p-24">
+                            <h6 class="mb-3 fw-bold">Tipologia Clienti</h6>
+                            <div id="donutChart"></div>
+                            <div class="mt-3">
+                                <ul class="list-unstyled">
+                                    <li class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="w-12-px h-12-px rounded-circle bg-primary"></span>
+                                        <span class="text-secondary-light text-sm">A - Premium</span>
+                                    </li>
+                                    <li class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="w-12-px h-12-px rounded-circle bg-warning"></span>
+                                        <span class="text-secondary-light text-sm">B - Standard</span>
+                                    </li>
+                                    <li class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="w-12-px h-12-px rounded-circle bg-info"></span>
+                                        <span class="text-secondary-light text-sm">C - Base</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEALTH SCORE TAB -->
+        <div class="tab-pane fade" id="health" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card radius-8">
+                        <div class="card-body text-center p-24">
+                            <h6 class="fw-bold mb-3">Health Score Globale</h6>
+                            <div id="healthGauge" style="height: 200px;"></div>
+                            <h2 class="fw-bold text-primary">{{ health.global_score|default(0) }}</h2>
+                            <p class="text-muted mb-0">Su {{ health.total_clients|default(0) }} clienti attivi</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card radius-8">
+                        <div class="card-body p-24">
+                            <h6 class="fw-bold mb-4">Metriche Wellness</h6>
+                            <div class="row g-3">
+                                {% set wellness_items = [
+                                    {'name': 'Energy', 'value': wellness.energy|default(0), 'color': 'success'},
+                                    {'name': 'Mood', 'value': wellness.mood|default(0), 'color': 'info'},
+                                    {'name': 'Sleep', 'value': wellness.sleep|default(0), 'color': 'primary'},
+                                    {'name': 'Motivation', 'value': wellness.motivation|default(0), 'color': 'warning'},
+                                    {'name': 'Digestion', 'value': wellness.digestion|default(0), 'color': 'danger'},
+                                    {'name': 'Strength', 'value': wellness.strength|default(0), 'color': 'secondary'}
+                                ] %}
+                                {% for item in wellness_items %}
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-sm">{{ item.name }}</span>
+                                            <span class="fw-bold">{{ item.value }}/10</span>
+                                        </div>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-{{ item.color }}" style="width: {{ item.value * 10 }}%">
+                                                {{ item.value }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TEMPORAL ANALYSIS TAB -->
+        <div class="tab-pane fade" id="temporal" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <div class="card radius-8">
+                        <div class="card-body p-24">
+                            <h6 class="fw-bold mb-4">Ciclo di Vita Cliente</h6>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="text-primary">Onboarding (0-30gg)</h6>
+                                            <h3 class="fw-bold">{{ temporal.onboarding_count|default(0) }}</h3>
+                                            <p class="mb-0 text-muted">clienti</p>
+                                            <div class="progress mt-2" style="height: 5px;">
+                                                <div class="progress-bar bg-primary" style="width: {{ temporal.onboarding_calls|default(0) }}%"></div>
+                                            </div>
+                                            <small>{{ temporal.onboarding_calls|default(0) }}% call completate</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="text-info">Attivazione (30-90gg)</h6>
+                                            <h3 class="fw-bold">{{ temporal.activation_count|default(0) }}</h3>
+                                            <p class="mb-0 text-muted">clienti</p>
+                                            <div class="progress mt-2" style="height: 5px;">
+                                                <div class="progress-bar bg-info" style="width: {{ temporal.activation_plans|default(0) }}%"></div>
+                                            </div>
+                                            <small>{{ temporal.activation_plans|default(0) }}% piani attivi</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="text-warning">Crescita (90-180gg)</h6>
+                                            <h3 class="fw-bold">{{ temporal.growth_count|default(0) }}</h3>
+                                            <p class="mb-0 text-muted">clienti</p>
+                                            <div class="progress mt-2" style="height: 5px;">
+                                                <div class="progress-bar bg-warning" style="width: {{ temporal.growth_transformations|default(0) }}%"></div>
+                                            </div>
+                                            <small>{{ temporal.growth_transformations|default(0) }}% trasformazioni</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="text-success">Maturità (180+gg)</h6>
+                                            <h3 class="fw-bold">{{ temporal.maturity_count|default(0) }}</h3>
+                                            <p class="mb-0 text-muted">clienti</p>
+                                            <div class="progress mt-2" style="height: 5px;">
+                                                <div class="progress-bar bg-success" style="width: {{ temporal.maturity_retention|default(0) }}%"></div>
+                                            </div>
+                                            <small>{{ temporal.maturity_retention|default(0) }}% retention</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEGMENTATION TAB -->
+        <div class="tab-pane fade" id="segments" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card radius-8">
+                        <div class="card-body p-24">
+                            <h6 class="fw-bold mb-4">Segmenti Comportamentali</h6>
+                            <div class="list-group">
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-trophy text-warning me-2"></i>
+                                        <strong>Champions</strong>
+                                        <small class="d-block text-muted">Health Score >85%, Zero check saltati</small>
+                                    </div>
+                                    <span class="badge bg-warning rounded-pill fs-5">{{ segments.champions|default(0) }}</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-star text-primary me-2"></i>
+                                        <strong>Potenziali</strong>
+                                        <small class="d-block text-muted">Health Score 70-85%, engagement alto</small>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill fs-5">{{ segments.potenziali|default(0) }}</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                        <strong>A Rischio</strong>
+                                        <small class="d-block text-muted">Check saltati >1, ratings in calo</small>
+                                    </div>
+                                    <span class="badge bg-warning rounded-pill fs-5">{{ segments.rischio|default(0) }}</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-times-circle text-danger me-2"></i>
+                                        <strong>Critici</strong>
+                                        <small class="d-block text-muted">Ghost/Ghosting, multiple alert</small>
+                                    </div>
+                                    <span class="badge bg-danger rounded-pill fs-5">{{ segments.critici|default(0) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card radius-8">
+                        <div class="card-body p-24">
+                            <h6 class="fw-bold mb-4">Distribuzione Segmenti</h6>
+                            <div id="segmentChart" style="height: 320px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Apex Chart js -->
+<script src="{{ url_for('static', filename='assets/js/lib/apexcharts.min.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Small sparkline charts for KPI cards
+    const sparklineOptions = {
+        chart: {
+            type: 'line',
+            height: 60,
+            width: 100,
+            sparkline: {
+                enabled: true
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 2
+        },
+        colors: ['#ffffff'],
+        tooltip: {
+            enabled: false
+        }
+    };
+
+    // Active Clients Sparkline
+    new ApexCharts(document.querySelector("#activeClientsChart"), {
+        ...sparklineOptions,
+        series: [{
+            data: [30, 40, 35, 50, 49, 60, 70, 65]
+        }]
+    }).render();
+
+    // Retention Sparkline
+    new ApexCharts(document.querySelector("#retentionChart"), {
+        ...sparklineOptions,
+        series: [{
+            data: [70, 72, 71, 75, 74, 78, 80, 82]
+        }]
+    }).render();
+
+    // Health Score Sparkline
+    new ApexCharts(document.querySelector("#healthScoreChart"), {
+        ...sparklineOptions,
+        series: [{
+            data: [75, 78, 76, 74, 73, 72, 75, 74]
+        }]
+    }).render();
+
+    // Permanenza Sparkline
+    new ApexCharts(document.querySelector("#permanenzaChart"), {
+        ...sparklineOptions,
+        series: [{
+            data: [3.0, 3.1, 3.2, 3.1, 3.2, 3.3, 3.3, 3.3]
+        }]
+    }).render();
+
+    // Main Bar Chart - Stati Cliente
+    const barChart = new ApexCharts(document.querySelector("#barChart"), {
+        series: [{
+            name: 'Clienti',
+            data: {{ chart_data.stati_cliente|tojson if chart_data else [0] }}
+        }],
+        chart: {
+            type: 'bar',
+            height: 350,
+            toolbar: {
+                show: false
+            }
+        },
+        plotOptions: {
+            bar: {
+                horizontal: false,
+                columnWidth: '55%',
+                borderRadius: 8,
+                dataLabels: {
+                    position: 'top'
+                }
+            }
+        },
+        dataLabels: {
+            enabled: true,
+            offsetY: -20,
+            style: {
+                fontSize: '12px',
+                colors: ["#304758"]
+            }
+        },
+        colors: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6c757d', '#17a2b8'],
+        xaxis: {
+            categories: ['Attivo', 'Pausa', 'Ghost', 'Ghosting', 'Insoluto', 'Ex Cliente'],
+            position: 'bottom',
+            labels: {
+                offsetY: -5,
+            },
+            axisBorder: {
+                show: false
+            },
+            axisTicks: {
+                show: false
+            },
+            tooltip: {
+                enabled: true,
+            }
+        },
+        yaxis: {
+            axisBorder: {
+                show: false
+            },
+            axisTicks: {
+                show: false,
+            },
+            labels: {
+                show: true
+            }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            strokeDashArray: 5,
+            xaxis: {
+                lines: {
+                    show: false
+                }
+            }
+        }
+    });
+    barChart.render();
+
+    // Donut Chart - Tipologia
+    const donutChart = new ApexCharts(document.querySelector("#donutChart"), {
+        series: {{ chart_data.tipologia|tojson if chart_data else [0] }},
+        chart: {
+            type: 'donut',
+            height: 280
+        },
+        labels: ['A - Premium', 'B - Standard', 'C - Base', 'Stop', 'Recupero', 'Pausa >30gg'],
+        colors: ['#007bff', '#ffc107', '#17a2b8', '#dc3545', '#6c757d', '#28a745'],
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '65%',
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true,
+                            label: 'Totale',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: '#333'
+                        }
+                    }
+                }
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        legend: {
+            show: false
+        },
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: {
+                    width: 200
+                }
+            }
+        }]
+    });
+    donutChart.render();
+
+    // Health Gauge
+    const healthGauge = new ApexCharts(document.querySelector("#healthGauge"), {
+        series: [{{ health.global_score|default(0) }}],
+        chart: {
+            type: 'radialBar',
+            height: 200
+        },
+        plotOptions: {
+            radialBar: {
+                hollow: {
+                    size: '70%',
+                },
+                dataLabels: {
+                    show: false
+                }
+            },
+        },
+        colors: ['#007bff'],
+        labels: ['Health Score'],
+    });
+    healthGauge.render();
+
+    // Segment Chart
+    const segmentChart = new ApexCharts(document.querySelector("#segmentChart"), {
+        series: [
+            {{ segments.champions|default(0) }},
+            {{ segments.potenziali|default(0) }},
+            {{ segments.rischio|default(0) }},
+            {{ segments.critici|default(0) }}
+        ],
+        chart: {
+            type: 'pie',
+            height: 320
+        },
+        labels: ['Champions', 'Potenziali', 'A Rischio', 'Critici'],
+        colors: ['#ffc107', '#007bff', '#fd7e14', '#dc3545'],
+        legend: {
+            position: 'bottom'
+        },
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: {
+                    width: 300
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }]
+    });
+    segmentChart.render();
+});
+</script>
+{% endblock %}

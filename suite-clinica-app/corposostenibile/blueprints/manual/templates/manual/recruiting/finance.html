@@ -1,0 +1,1173 @@
+{% extends "base.html" %}
+
+{% block title %}Manuale Recruiting Finance - Guida Completa{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables - Platform Green */
+    :root {
+        --primary-green: #28a745;
+        --primary-green-dark: #218838;
+        --primary-green-light: #e6f7e9;
+        --primary-green-lighter: #f4fbf5;
+    }
+
+    /* Global Reading Progress Bar */
+    .global-reading-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 9999;
+    }
+
+    .global-reading-progress-fill {
+        height: 100%;
+        background: var(--primary-green);
+        width: 0%;
+        transition: width 0.1s ease-out;
+    }
+
+    /* Floating TOC Styles */
+    #tocFloatingPanel .toc-link:hover {
+        background: var(--primary-green-lighter) !important;
+        color: var(--primary-green-dark) !important;
+        border-left-color: var(--primary-green) !important;
+    }
+
+    #tocFloatingPanel .toc-link:hover .toc-bullet {
+        background: var(--primary-green) !important;
+        transform: scale(1.2);
+    }
+
+    #tocFloatingPanel .toc-link.active {
+        background: var(--primary-green-light) !important;
+        color: var(--primary-green-dark) !important;
+        font-weight: 600;
+        border-left-color: var(--primary-green) !important;
+    }
+
+    #tocFloatingPanel .toc-link.active .toc-bullet {
+        background: var(--primary-green) !important;
+        transform: scale(1.3);
+    }
+
+    #tocFloatingBtn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(40, 167, 69, 0.5);
+    }
+
+    /* Manual Container */
+    .manual-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+    }
+
+    /* Manual Header */
+    .manual-header {
+        background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-dark) 100%);
+        color: white;
+        padding: 48px 20px;
+        margin-bottom: 40px;
+        border-radius: 0;
+        text-align: center;
+    }
+
+    .manual-header h1 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: white !important;
+    }
+
+    .manual-header p {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin: 0;
+        color: white !important;
+    }
+
+    /* Sections */
+    .manual-section {
+        background: white;
+        border-radius: 8px;
+        padding: 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .manual-section h2 {
+        color: var(--primary-green);
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--primary-green-light);
+    }
+
+    .manual-section h3 {
+        color: #2c3e50;
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-top: 32px;
+        margin-bottom: 16px;
+    }
+
+    .manual-section h4 {
+        color: #495057;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 24px;
+        margin-bottom: 12px;
+    }
+
+    .manual-section p {
+        line-height: 1.7;
+        color: #212529;
+        margin-bottom: 16px;
+    }
+
+    .manual-section ul,
+    .manual-section ol {
+        line-height: 1.8;
+        margin-bottom: 16px;
+        padding-left: 24px;
+    }
+
+    .manual-section li {
+        margin-bottom: 8px;
+        color: #212529;
+    }
+
+    /* Step Box */
+    .step-box {
+        background: #f8f9fa;
+        border-left: 4px solid var(--primary-green);
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .step-box ol {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    /* Alert Boxes */
+    .alert-tip {
+        background: var(--primary-green-lighter);
+        border-left: 4px solid var(--primary-green);
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-tip h5 {
+        color: var(--primary-green-dark);
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-warning-custom {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-warning-custom h5 {
+        color: #856404;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    .alert-important {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 16px 20px;
+        margin: 20px 0;
+        border-radius: 4px;
+    }
+
+    .alert-important h5 {
+        color: #721c24;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 1rem;
+    }
+
+    /* Tables */
+    .manual-table {
+        width: 100%;
+        margin: 20px 0;
+        border-collapse: collapse;
+        background: white;
+        font-size: 0.95rem;
+    }
+
+    .manual-table thead {
+        background: var(--primary-green);
+        color: white;
+    }
+
+    .manual-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .manual-table td {
+        padding: 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .manual-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .manual-table code {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+        color: #e83e8c;
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background: var(--primary-green);
+        color: white;
+    }
+
+    .badge-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .badge-warning {
+        background: #ffc107;
+        color: #212529;
+    }
+
+    .badge-danger {
+        background: #dc3545;
+        color: white;
+    }
+
+    .badge-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    /* Code Snippet */
+    .code-snippet {
+        background: #2d3748;
+        color: #f7fafc;
+        padding: 16px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        margin: 16px 0;
+        overflow-x: auto;
+    }
+
+    /* Example Box */
+    .example-box {
+        background: #fff9e6;
+        border: 1px solid #ffe066;
+        border-radius: 4px;
+        padding: 16px;
+        margin: 20px 0;
+    }
+
+    .example-box h5 {
+        color: #b8860b;
+        font-weight: 600;
+        margin-bottom: 12px;
+        font-size: 1rem;
+    }
+
+    /* Highlight Box */
+    .highlight-box {
+        background: linear-gradient(135deg, #e6f7e9 0%, #d4f4dd 100%);
+        border: 2px solid var(--primary-green);
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+
+    /* Back to Top */
+    .back-to-top {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        width: 50px;
+        height: 50px;
+        background: var(--primary-green);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .back-to-top.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .back-to-top:hover {
+        background: var(--primary-green-dark);
+        transform: translateY(-4px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .manual-section {
+            padding: 24px 20px;
+        }
+
+        .manual-header h1 {
+            font-size: 1.75rem;
+        }
+
+        #tocFloatingPanel {
+            width: 90% !important;
+            right: -90% !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Global Reading Progress Bar -->
+<div class="global-reading-progress">
+    <div class="global-reading-progress-fill" id="globalProgressBar"></div>
+</div>
+
+<!-- Floating TOC Button -->
+<button id="tocFloatingBtn" style="position: fixed; bottom: 110px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-green); color: white; border: none; box-shadow: 0 4px 20px rgba(40, 167, 69, 0.4); cursor: pointer; z-index: 1000; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.3s ease;">
+    <i class="ri-list-unordered"></i>
+</button>
+
+<!-- Floating TOC Panel -->
+<div id="tocFloatingPanel" style="position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 10002; transition: right 0.3s ease; overflow-y: auto;">
+    <div style="position: sticky; top: 0; background: var(--primary-green); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+        <h5 style="margin: 0; font-size: 18px; font-weight: 600;">
+            <i class="ri-list-unordered"></i> Indice
+        </h5>
+        <button id="tocCloseBtn" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+            <i class="ri-close-line"></i>
+        </button>
+    </div>
+
+    <!-- Reading Progress -->
+    <div style="padding: 20px; border-bottom: 1px solid #e2e8f0;">
+        <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase;">Progresso</span>
+            <span id="progressPercent" style="font-size: 12px; font-weight: 600; color: var(--primary-green);">0%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 10px; background: #e2e8f0;">
+            <div class="progress-bar" id="readingProgressBar" style="width: 0%; background: var(--primary-green); border-radius: 10px; transition: width 0.3s ease;"></div>
+        </div>
+    </div>
+
+    <!-- TOC Navigation -->
+    <div style="padding: 20px;">
+        <nav class="toc-nav" id="tocNav"></nav>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div id="tocOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10001; opacity: 0; visibility: hidden; transition: all 0.3s ease;"></div>
+
+<!-- Back to Top Button -->
+<button class="back-to-top" id="backToTop">
+    <i class="ri-arrow-up-line"></i>
+</button>
+
+<!-- Manual Header -->
+<div class="manual-header">
+    <h1>💰 Manuale Recruiting Finance</h1>
+    <p>Guida completa alla gestione costi advertising e analytics finanziarie</p>
+</div>
+
+<div class="manual-container" id="articleContent">
+
+    <!-- Introduzione -->
+    <section id="introduzione" class="manual-section">
+        <h2>Introduzione</h2>
+
+        <p>Il modulo recruiting permette di <strong>tracciare accuratamente i costi di advertising</strong> per ogni offerta di lavoro e fonte (LinkedIn, Facebook, Instagram), calcolare il ROI e analizzare l'efficacia delle campagne di recruiting.</p>
+
+        <h3>Cosa Puoi Fare</h3>
+        <div class="alert-tip">
+            <h5>💡 Funzionalità Principali</h5>
+            <ul style="margin: 0;">
+                <li><strong>Inserire costi</strong> advertising per ogni fonte e offerta</li>
+                <li><strong>Tracciare</strong> spese totali e per fonte</li>
+                <li><strong>Calcolare</strong> Cost per Hire automaticamente</li>
+                <li><strong>Analizzare ROI</strong> per fonte (quale canale performa meglio)</li>
+                <li><strong>Visualizzare dashboard</strong> con metriche finanziarie</li>
+                <li><strong>Esportare report</strong> per budget e forecast</li>
+            </ul>
+        </div>
+
+        <h3>Accessi Rapidi</h3>
+        <ul>
+            <li><strong>Dashboard globale</strong>: <code>/recruiting/metrics</code></li>
+            <li><strong>Dashboard per offerta</strong>: <code>/recruiting/offers/&lt;id&gt;/metrics</code></li>
+            <li><strong>Modifica costi</strong>: <code>/recruiting/offers/&lt;id&gt;/edit</code></li>
+        </ul>
+    </section>
+
+    <!-- Inserimento Costi -->
+    <section id="inserimento-costi" class="manual-section">
+        <h2>1. Inserimento Costi Advertising</h2>
+
+        <h3>1.1 Dove Inserire i Costi</h3>
+        <p>I costi advertising vengono inseriti direttamente nell'offerta di lavoro.</p>
+
+        <div class="step-box">
+            <h5>📍 Procedura</h5>
+            <ol>
+                <li>Vai a <code>/recruiting/offers</code></li>
+                <li>Seleziona l'offerta desiderata</li>
+                <li>Clicca <span class="badge badge-success">Modifica</span></li>
+                <li>Scorri fino alla sezione <strong>"Costi Advertising"</strong></li>
+                <li>Inserisci i costi per ogni fonte</li>
+                <li>Salva le modifiche</li>
+            </ol>
+        </div>
+
+        <h3>1.2 Campi Disponibili</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Campo</th>
+                    <th>Descrizione</th>
+                    <th>Formato</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Costo LinkedIn (€)</strong></td>
+                    <td>Totale speso su campagne LinkedIn</td>
+                    <td>Decimale (es. 1250.50)</td>
+                </tr>
+                <tr>
+                    <td><strong>Costo Facebook (€)</strong></td>
+                    <td>Totale speso su campagne Facebook</td>
+                    <td>Decimale (es. 850.00)</td>
+                </tr>
+                <tr>
+                    <td><strong>Costo Instagram (€)</strong></td>
+                    <td>Totale speso su campagne Instagram</td>
+                    <td>Decimale (es. 650.75)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-tip">
+            <h5>🧮 Calcolo Automatico</h5>
+            <p>Il sistema calcola automaticamente:</p>
+            <ul style="margin: 0;">
+                <li><strong>Costo Totale</strong> = LinkedIn + Facebook + Instagram</li>
+                <li><strong>Cost per Application</strong> = Costo Totale / Numero Candidature</li>
+                <li><strong>Cost per Hire</strong> = Costo Totale / Numero Assunti</li>
+            </ul>
+        </div>
+
+        <h3>1.3 Quando Aggiornare i Costi</h3>
+        <p>Best practices per l'aggiornamento:</p>
+        <ul>
+            <li>✅ <strong>Settimanale</strong>: aggiorna i costi ogni venerdì</li>
+            <li>✅ <strong>Campagna conclusa</strong>: inserisci costi finali quando chiudi la campagna</li>
+            <li>✅ <strong>Prima del report mensile</strong>: assicurati che tutti i costi siano aggiornati</li>
+            <li>✅ <strong>Dopo fatture ricevute</strong>: riconcilia i costi con le fatture effettive</li>
+        </ul>
+
+        <h3>1.4 Esempio Pratico</h3>
+        <div class="highlight-box">
+            <h5 style="color: var(--primary-green); margin-bottom: 16px;">📊 Esempio: Offerta "Senior Developer Python"</h5>
+            <table class="manual-table">
+                <tbody>
+                    <tr>
+                        <td><strong>LinkedIn Ads:</strong></td>
+                        <td style="text-align: right;">€ 1.500,00</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Facebook Ads:</strong></td>
+                        <td style="text-align: right;">€ 800,00</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Instagram Ads:</strong></td>
+                        <td style="text-align: right;">€ 450,00</td>
+                    </tr>
+                    <tr style="background: var(--primary-green-light); font-weight: 600;">
+                        <td><strong>TOTALE SPESO:</strong></td>
+                        <td style="text-align: right;"><strong>€ 2.750,00</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Candidature ricevute:</td>
+                        <td style="text-align: right;">85</td>
+                    </tr>
+                    <tr>
+                        <td>Assunti:</td>
+                        <td style="text-align: right;">2</td>
+                    </tr>
+                    <tr style="background: #e3f2fd;">
+                        <td><strong>Cost per Application:</strong></td>
+                        <td style="text-align: right;"><strong>€ 32,35</strong></td>
+                    </tr>
+                    <tr style="background: #fff9e6;">
+                        <td><strong>Cost per Hire:</strong></td>
+                        <td style="text-align: right;"><strong>€ 1.375,00</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Tracking per Fonte -->
+    <section id="tracking-fonte" class="manual-section">
+        <h2>2. Tracking per Fonte</h2>
+
+        <p>Ogni offerta ha <strong>3 link univoci</strong> (uno per LinkedIn, Facebook, Instagram). Il sistema traccia automaticamente le metriche per ogni fonte.</p>
+
+        <h3>2.1 Metriche Tracciate</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Metrica</th>
+                    <th>Descrizione</th>
+                    <th>Formula</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Views</strong></td>
+                    <td>Visualizzazioni pagina offerta</td>
+                    <td>Incremento automatico ad ogni visita</td>
+                </tr>
+                <tr>
+                    <td><strong>Applications</strong></td>
+                    <td>Candidature ricevute</td>
+                    <td>Tracciato da campo <code>source</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Conversion Rate</strong></td>
+                    <td>% views → applications</td>
+                    <td>(Applications / Views) × 100</td>
+                </tr>
+                <tr>
+                    <td><strong>Cost per View</strong></td>
+                    <td>Costo per visualizzazione</td>
+                    <td>Costo Fonte / Views Fonte</td>
+                </tr>
+                <tr>
+                    <td><strong>Cost per Application</strong></td>
+                    <td>Costo per candidatura</td>
+                    <td>Costo Fonte / Applications Fonte</td>
+                </tr>
+                <tr>
+                    <td><strong>Cost per Hire</strong></td>
+                    <td>Costo per assunzione</td>
+                    <td>Costo Fonte / Hired Fonte</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>2.2 Esempio Comparativo Fonti</h3>
+        <div class="example-box">
+            <h5>📈 Confronto Performance</h5>
+            <table class="manual-table" style="margin-top: 12px;">
+                <thead>
+                    <tr>
+                        <th>Fonte</th>
+                        <th>Views</th>
+                        <th>Applications</th>
+                        <th>Conv. Rate</th>
+                        <th>Costo</th>
+                        <th>Cost/App</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>LinkedIn</strong></td>
+                        <td>450</td>
+                        <td>45</td>
+                        <td><strong>10%</strong></td>
+                        <td>€ 1.500</td>
+                        <td><strong>€ 33,33</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Facebook</strong></td>
+                        <td>650</td>
+                        <td>30</td>
+                        <td>4.6%</td>
+                        <td>€ 800</td>
+                        <td><strong>€ 26,67</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Instagram</strong></td>
+                        <td>380</td>
+                        <td>10</td>
+                        <td>2.6%</td>
+                        <td>€ 450</td>
+                        <td><strong>€ 45,00</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="alert-tip">
+            <h5>💡 Analisi</h5>
+            <p>In questo esempio: <strong>LinkedIn</strong> ha il miglior conversion rate (10%), ma <strong>Facebook</strong> ha il cost per application più basso (€ 26,67). Instagram ha performance inferiori su entrambi i fronti.</p>
+        </div>
+    </section>
+
+    <!-- Metriche Finanziarie -->
+    <section id="metriche-finanziarie" class="manual-section">
+        <h2>3. Metriche Finanziarie Chiave</h2>
+
+        <h3>3.1 Cost per Application</h3>
+        <div class="code-snippet">Cost per Application = Costo Totale Advertising / Numero Candidature</div>
+        <p><strong>Cosa indica</strong>: Quanto costa in media ricevere una candidatura.</p>
+        <p><strong>Target ideale</strong>: € 20-50 (varia per seniority e settore)</p>
+        <p><strong>Come migliorarlo</strong>:</p>
+        <ul>
+            <li>Ottimizza targeting campagne (pubblico più preciso)</li>
+            <li>Migliora copy annuncio (aumenta click-through rate)</li>
+            <li>A/B test creatività diverse</li>
+        </ul>
+
+        <h3>3.2 Cost per Hire</h3>
+        <div class="code-snippet">Cost per Hire = Costo Totale Advertising / Numero Assunti</div>
+        <p><strong>Cosa indica</strong>: Quanto costa in media assumere una persona.</p>
+        <p><strong>Target ideale</strong>: € 1.000-3.000 (varia per ruolo)</p>
+        <p><strong>Come migliorarlo</strong>:</p>
+        <ul>
+            <li>Migliora qualità candidature (screening ATS)</li>
+            <li>Riduci tempo di hiring (velocizza processo)</li>
+            <li>Ottimizza conversion funnel (meno drop-off)</li>
+        </ul>
+
+        <h3>3.3 ROI (Return on Investment)</h3>
+        <div class="code-snippet">ROI = ((Valore Assunzioni - Costi) / Costi) × 100</div>
+
+        <h4>Esempio Calcolo ROI</h4>
+        <div class="highlight-box">
+            <p style="margin: 0;"><strong>Costo campagna</strong>: € 2.750</p>
+            <p style="margin: 0;"><strong>Assunti</strong>: 2 developer</p>
+            <p style="margin: 0;"><strong>Valore stimato per developer</strong>: € 5.000 (risparmio costo agenzia)</p>
+            <p style="margin: 0;"><strong>Valore totale</strong>: 2 × € 5.000 = € 10.000</p>
+            <p style="margin: 16px 0 0; font-size: 1.1rem; color: var(--primary-green);"><strong>ROI = ((€ 10.000 - € 2.750) / € 2.750) × 100 = 263%</strong></p>
+        </div>
+        <p style="color: var(--primary-green); font-weight: 600;">Un ROI di 263% significa che per ogni euro speso hai ricevuto € 3,63 di valore!</p>
+
+        <h3>3.4 Time to Fill vs Cost</h3>
+        <p>Correlazione tra tempo e costo:</p>
+        <ul>
+            <li><strong>Time to Fill &lt; 30 giorni</strong> → Costi contenuti, processo efficiente</li>
+            <li><strong>Time to Fill 30-60 giorni</strong> → Costi medi, revisione processo consigliata</li>
+            <li><strong>Time to Fill &gt; 60 giorni</strong> → Costi elevati, intervento necessario</li>
+        </ul>
+    </section>
+
+    <!-- ROI Analysis -->
+    <section id="roi-analysis" class="manual-section">
+        <h2>4. ROI Analysis per Fonte</h2>
+
+        <p>Il sistema calcola automaticamente il ROI per ogni fonte, permettendoti di capire quale canale advertising è più efficace.</p>
+
+        <h3>4.1 Configurare il Valore Medio Assunzione</h3>
+        <p>Nell'offerta di lavoro, puoi impostare il campo <strong>"Avg Hire Value (€)"</strong>: valore medio stimato per ogni assunzione.</p>
+        <div class="alert-tip">
+            <h5>📌 Nota</h5>
+            <p style="margin: 0;">Questo valore viene usato per calcolare il ROI. Tipicamente corrisponde al costo che avresti sostenuto usando un'agenzia (es. 20% RAL annua).</p>
+        </div>
+
+        <h3>4.2 Esempio ROI per Fonte</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>Fonte</th>
+                    <th>Costo</th>
+                    <th>Assunti</th>
+                    <th>Valore</th>
+                    <th>ROI</th>
+                    <th>Valutazione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background: var(--primary-green-lighter);">
+                    <td><strong>LinkedIn</strong></td>
+                    <td>€ 1.500</td>
+                    <td>2</td>
+                    <td>€ 10.000</td>
+                    <td><strong>567%</strong></td>
+                    <td><span class="badge badge-success">Eccellente</span></td>
+                </tr>
+                <tr style="background: #fff9e6;">
+                    <td><strong>Facebook</strong></td>
+                    <td>€ 800</td>
+                    <td>0</td>
+                    <td>€ 0</td>
+                    <td><strong>-100%</strong></td>
+                    <td><span class="badge badge-danger">Inefficace</span></td>
+                </tr>
+                <tr style="background: #f8d7da;">
+                    <td><strong>Instagram</strong></td>
+                    <td>€ 450</td>
+                    <td>0</td>
+                    <td>€ 0</td>
+                    <td><strong>-100%</strong></td>
+                    <td><span class="badge badge-danger">Inefficace</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert-warning-custom">
+            <h5>💡 Insight</h5>
+            <p>In questo esempio, <strong>LinkedIn</strong> è l'unico canale che ha prodotto assunzioni, con un ROI eccellente del 567%. Facebook e Instagram non hanno convertito assunzioni, quindi hanno ROI negativo (-100%).</p>
+            <p style="margin: 0;"><strong>Azione suggerita</strong>: Concentrare budget su LinkedIn.</p>
+        </div>
+
+        <h3>4.3 Decision Matrix</h3>
+        <table class="manual-table">
+            <thead>
+                <tr>
+                    <th>ROI</th>
+                    <th>Cost per Hire</th>
+                    <th>Decisione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background: var(--primary-green-lighter);">
+                    <td>Alto (&gt; 300%)</td>
+                    <td>Basso (&lt; € 1.500)</td>
+                    <td><strong>🚀 Aumenta budget</strong></td>
+                </tr>
+                <tr style="background: #e3f2fd;">
+                    <td>Medio (100-300%)</td>
+                    <td>Medio (€ 1.500-3.000)</td>
+                    <td><strong>✅ Mantieni</strong></td>
+                </tr>
+                <tr style="background: #fff3cd;">
+                    <td>Basso (0-100%)</td>
+                    <td>Alto (&gt; € 3.000)</td>
+                    <td><strong>⚠️ Ottimizza</strong></td>
+                </tr>
+                <tr style="background: #f8d7da;">
+                    <td>Negativo (&lt; 0%)</td>
+                    <td>Qualsiasi</td>
+                    <td><strong>🛑 Sospendi</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Dashboard Analytics -->
+    <section id="dashboard-analytics" class="manual-section">
+        <h2>5. Dashboard Analytics</h2>
+
+        <h3>5.1 Accesso Dashboard</h3>
+        <ul>
+            <li><strong>Dashboard globale</strong>: <code>/recruiting/metrics</code></li>
+            <li><strong>Dashboard per offerta</strong>: <code>/recruiting/offers/&lt;id&gt;/metrics</code></li>
+        </ul>
+
+        <h3>5.2 Metriche Dashboard Globale</h3>
+        <ul>
+            <li><strong>Total Spent</strong>: Totale speso su tutte le offerte</li>
+            <li><strong>Total Applications</strong>: Candidature totali ricevute</li>
+            <li><strong>Total Hires</strong>: Assunzioni totali</li>
+            <li><strong>Avg Cost per Application</strong>: Costo medio per candidatura (globale)</li>
+            <li><strong>Avg Cost per Hire</strong>: Costo medio per assunzione (globale)</li>
+            <li><strong>ROI per fonte</strong>: Confronto LinkedIn vs Facebook vs Instagram</li>
+            <li><strong>Trend mensile</strong>: Andamento costi e assunzioni</li>
+        </ul>
+
+        <h3>5.3 Metriche Dashboard per Offerta</h3>
+        <ul>
+            <li><strong>Breakdown costi per fonte</strong></li>
+            <li><strong>Conversion funnel</strong> (applications → hired)</li>
+            <li><strong>Cost per stage</strong></li>
+            <li><strong>Time to hire vs Cost</strong> (correlazione)</li>
+            <li><strong>Comparison</strong> con altre offerte dello stesso dipartimento</li>
+        </ul>
+
+        <h3>5.4 Grafici Disponibili</h3>
+        <ul>
+            <li>📊 <strong>Pie Chart</strong>: Distribuzione costi per fonte</li>
+            <li>📈 <strong>Line Chart</strong>: Trend temporale costi vs assunzioni</li>
+            <li>📊 <strong>Bar Chart</strong>: Confronto ROI per fonte</li>
+            <li>🔥 <strong>Funnel Chart</strong>: Conversion funnel con costi per stage</li>
+        </ul>
+    </section>
+
+    <!-- Report e Export -->
+    <section id="report-export" class="manual-section">
+        <h2>6. Report e Export</h2>
+
+        <h3>6.1 Formati di Export</h3>
+        <p>Puoi esportare i dati finanziari in:</p>
+        <ul>
+            <li><strong>CSV</strong>: per analisi in Excel/Google Sheets</li>
+            <li><strong>PDF</strong>: report formattato per presentazioni</li>
+            <li><strong>JSON</strong>: per integrazioni custom</li>
+        </ul>
+
+        <h3>6.2 Struttura Report Mensile</h3>
+        <div class="highlight-box">
+            <h5 style="color: var(--primary-green);">📄 Report Recruiting - [Mese Anno]</h5>
+
+            <h6 style="margin-top: 16px;">📊 Executive Summary</h6>
+            <ul>
+                <li>Totale speso: € X.XXX</li>
+                <li>Candidature ricevute: XX</li>
+                <li>Assunzioni: X</li>
+                <li>Cost per Hire: € X.XXX</li>
+                <li>ROI medio: XX%</li>
+            </ul>
+
+            <h6>📈 Performance per Fonte</h6>
+            <p style="margin: 0;">Tabella con LinkedIn, Facebook, Instagram (costi, candidature, ROI)</p>
+
+            <h6 style="margin-top: 12px;">🎯 Offerte Attive</h6>
+            <p style="margin: 0;">Lista offerte con metriche individuali</p>
+
+            <h6 style="margin-top: 12px;">💡 Insights & Raccomandazioni</h6>
+            <ul style="margin: 8px 0 0;">
+                <li>Fonte best performer</li>
+                <li>Aree di miglioramento</li>
+                <li>Budget recommendation per prossimo mese</li>
+            </ul>
+        </div>
+
+        <h3>6.3 Budget Forecast</h3>
+        <p>Usa i dati storici per prevedere budget futuro:</p>
+        <div class="code-snippet">Budget Previsto = (Avg Cost per Hire × Assunzioni Pianificate) × 1.2</div>
+        <p style="font-size: 0.9rem; color: #6c757d;">Il moltiplicatore 1.2 (20%) serve come buffer per imprevisti e variazioni di mercato.</p>
+    </section>
+
+    <!-- Best Practices -->
+    <section id="best-practices" class="manual-section">
+        <h2>7. Best Practices Finance</h2>
+
+        <h3>Gestione Budget</h3>
+        <div class="alert-tip">
+            <h5>✅ Do's</h5>
+            <ul style="margin: 0;">
+                <li>Definisci budget mensile per recruiting (es. 10% costo del lavoro)</li>
+                <li>Alloca budget per fonte in base a ROI storico</li>
+                <li>Mantieni buffer 20% per opportunità impreviste</li>
+                <li>Rivedi budget trimestralmente in base a risultati</li>
+            </ul>
+        </div>
+
+        <div class="alert-important">
+            <h5>❌ Don'ts</h5>
+            <ul style="margin: 0;">
+                <li>Non superare budget senza approval esplicita</li>
+                <li>Non allocare budget senza dati storici</li>
+            </ul>
+        </div>
+
+        <h3>Tracking Costi</h3>
+        <ul>
+            <li>✅ Aggiorna costi <strong>settimanalmente</strong> (ogni venerdì)</li>
+            <li>✅ Mantieni evidenza fatture/screenshot spese</li>
+            <li>✅ Riconcilia costi sistema vs fatture mensili</li>
+            <li>✅ Traccia anche costi "nascosti" (tempo HR, tools, etc.)</li>
+        </ul>
+
+        <h3>Ottimizzazione ROI</h3>
+        <ul>
+            <li>✅ Concentra 70% budget su fonte con ROI migliore</li>
+            <li>✅ Testa nuove fonti con budget limitato (10-15%)</li>
+            <li>✅ Sospendi fonti con ROI &lt; 0% per 2 mesi consecutivi</li>
+            <li>✅ Monitora seasonality (ROI varia per mese/settore)</li>
+            <li>✅ A/B test creatività per ridurre cost per application</li>
+        </ul>
+
+        <h3>Reporting</h3>
+        <ul>
+            <li>✅ Report mensile a CFO/Finance team</li>
+            <li>✅ Dashboard accessibile in tempo reale per stakeholder</li>
+            <li>✅ Presenta insights actionable, non solo numeri</li>
+            <li>✅ Confronta con benchmark di settore quando possibile</li>
+            <li>✅ Includi forecast per trimestre successivo</li>
+        </ul>
+
+        <h3>Collaborazione con HR</h3>
+        <ul>
+            <li>✅ Sync settimanale con HR per aggiornamento costi</li>
+            <li>✅ Condividi dashboard metriche per decisioni data-driven</li>
+            <li>✅ Alert automatico se cost per hire &gt; target</li>
+            <li>✅ Collabora su ottimizzazione processo (riduce tempo = riduce costi)</li>
+        </ul>
+    </section>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class ManualTOC {
+    constructor() {
+        this.headings = Array.from(document.querySelectorAll('#articleContent h2, #articleContent h3'));
+        this.tocNav = document.getElementById('tocNav');
+        this.tocLinks = [];
+        this.init();
+    }
+
+    init() {
+        this.setupHeadingIds();
+        this.generateTOC();
+        this.setupFloatingTOC();
+        this.setupScrollSpy();
+        this.setupBackToTop();
+        this.updateReadingProgress();
+        this.setupEventListeners();
+    }
+
+    setupHeadingIds() {
+        this.headings.forEach((heading, index) => {
+            if (!heading.id) {
+                const section = heading.closest('section');
+                if (section && section.id) {
+                    heading.id = section.id;
+                } else {
+                    const text = heading.textContent.trim();
+                    const id = text.toLowerCase()
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                    heading.id = id || `heading-${index}`;
+                }
+            }
+        });
+    }
+
+    generateTOC() {
+        if (!this.tocNav) return;
+        this.tocNav.innerHTML = '';
+
+        this.headings.forEach((heading) => {
+            const level = heading.tagName.toLowerCase() === 'h2' ? 1 : 2;
+            const text = heading.textContent.trim();
+            const id = heading.id;
+
+            const tocItem = document.createElement('div');
+            tocItem.className = `toc-item toc-level-${level}`;
+            tocItem.style.marginBottom = '4px';
+
+            const link = document.createElement('a');
+            link.href = `#${id}`;
+            link.className = 'toc-link';
+            link.setAttribute('data-target', id);
+            link.style.display = 'block';
+            link.style.padding = level === 1 ? '12px 16px' : '10px 16px 10px 32px';
+            link.style.color = '#2d3748';
+            link.style.textDecoration = 'none';
+            link.style.borderRadius = '8px';
+            link.style.fontSize = level === 1 ? '14px' : '13px';
+            link.style.lineHeight = '1.5';
+            link.style.transition = 'all 0.2s ease';
+            link.style.borderLeft = '3px solid transparent';
+            link.style.fontWeight = level === 1 ? '600' : '500';
+
+            const bullet = document.createElement('span');
+            bullet.className = 'toc-bullet';
+            bullet.style.display = 'inline-block';
+            bullet.style.width = '8px';
+            bullet.style.height = '8px';
+            bullet.style.background = '#cbd5e0';
+            bullet.style.borderRadius = '50%';
+            bullet.style.marginRight = '12px';
+            bullet.style.transition = 'all 0.2s';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'toc-text';
+            textSpan.textContent = text;
+
+            link.appendChild(bullet);
+            link.appendChild(textSpan);
+            tocItem.appendChild(link);
+            this.tocNav.appendChild(tocItem);
+
+            this.tocLinks.push(link);
+
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.scrollToHeading(id);
+            });
+        });
+    }
+
+    scrollToHeading(id) {
+        const element = document.getElementById(id);
+        if (element) {
+            const targetTop = element.getBoundingClientRect().top + window.pageYOffset - 100;
+            window.scrollTo({
+                top: targetTop,
+                behavior: 'smooth'
+            });
+            if (window.innerWidth < 768) {
+                this.closePanel();
+            }
+        }
+    }
+
+    setupFloatingTOC() {
+        const floatingBtn = document.getElementById('tocFloatingBtn');
+        const floatingPanel = document.getElementById('tocFloatingPanel');
+        const closeBtn = document.getElementById('tocCloseBtn');
+        const overlay = document.getElementById('tocOverlay');
+
+        if (!floatingBtn || !floatingPanel || !closeBtn || !overlay) return;
+
+        floatingBtn.addEventListener('click', () => {
+            floatingPanel.style.right = '0';
+            overlay.style.opacity = '1';
+            overlay.style.visibility = 'visible';
+            document.body.style.overflow = 'hidden';
+        });
+
+        const closePanel = () => {
+            floatingPanel.style.right = '-400px';
+            overlay.style.opacity = '0';
+            overlay.style.visibility = 'hidden';
+            document.body.style.overflow = 'auto';
+        };
+        this.closePanel = closePanel;
+
+        closeBtn.addEventListener('click', closePanel);
+        overlay.addEventListener('click', closePanel);
+    }
+
+    setupScrollSpy() {
+        this.updateScrollSpy();
+    }
+
+    updateScrollSpy() {
+        if (this.headings.length === 0) return;
+
+        const scrollPosition = window.scrollY + 150;
+        let activeHeading = null;
+
+        for (let i = this.headings.length - 1; i >= 0; i--) {
+            const heading = this.headings[i];
+            if (heading.offsetTop <= scrollPosition) {
+                activeHeading = heading;
+                break;
+            }
+        }
+
+        this.tocLinks.forEach(link => {
+            link.classList.remove('active');
+            link.style.background = '';
+            link.style.borderLeftColor = 'transparent';
+            link.style.color = '#2d3748';
+
+            const bullet = link.querySelector('.toc-bullet');
+            if (bullet) {
+                bullet.style.background = '#cbd5e0';
+                bullet.style.transform = 'scale(1)';
+            }
+
+            if (activeHeading && link.getAttribute('href') === `#${activeHeading.id}`) {
+                link.classList.add('active');
+                link.style.background = 'var(--primary-green-light)';
+                link.style.borderLeftColor = 'var(--primary-green)';
+                link.style.color = 'var(--primary-green-dark)';
+                link.style.fontWeight = '600';
+
+                if (bullet) {
+                    bullet.style.background = 'var(--primary-green)';
+                    bullet.style.transform = 'scale(1.3)';
+                }
+            }
+        });
+    }
+
+    setupBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (!backToTopBtn) return;
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTopBtn.classList.add('visible');
+            } else {
+                backToTopBtn.classList.remove('visible');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    updateReadingProgress() {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+
+        const progressBar = document.getElementById('readingProgressBar');
+        const globalProgressBar = document.getElementById('globalProgressBar');
+        const progressPercent = document.getElementById('progressPercent');
+
+        if (progressBar) progressBar.style.width = scrolled + '%';
+        if (globalProgressBar) globalProgressBar.style.width = scrolled + '%';
+        if (progressPercent) progressPercent.textContent = Math.round(scrolled) + '%';
+    }
+
+    setupEventListeners() {
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    this.updateScrollSpy();
+                    this.updateReadingProgress();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new ManualTOC();
+});
+</script>
+{% endblock %}

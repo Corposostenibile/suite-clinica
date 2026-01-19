@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+
+{% block title %}Advertising - {{ offer.title }}{% endblock %}
+
+{% block extra_css %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    .card-title {
+        color: var(--dark-color);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    }
+
+    .btn-outline-secondary {
+        color: #6C757D;
+        border: 1px solid #6C757D;
+        background: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6C757D;
+        border-color: #6C757D;
+        color: white;
+    }
+
+    .btn-outline-danger {
+        color: #DC3545;
+        border: 1px solid #DC3545;
+        background: transparent;
+    }
+
+    .btn-outline-danger:hover {
+        background: linear-gradient(135deg, #DC3545 0%, #C82333 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    /* Stats Card */
+    .stat-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 8px 0;
+    }
+
+    .stat-label {
+        color: #6C757D;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+
+    /* Platform Badges */
+    .platform-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .platform-linkedin {
+        background: linear-gradient(135deg, #0077B5 0%, #005885 100%);
+        color: white;
+    }
+
+    .platform-facebook {
+        background: linear-gradient(135deg, #1877F2 0%, #0C63D4 100%);
+        color: white;
+    }
+
+    .platform-instagram {
+        background: linear-gradient(45deg, #F58529, #DD2A7B, #8134AF);
+        color: white;
+    }
+
+    /* Period Badge */
+    .period-badge {
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        background: linear-gradient(135deg, #E9ECEF 0%, #DEE2E6 100%);
+        color: #495057;
+        font-weight: 500;
+    }
+
+    /* Page Header */
+    .page-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #E2E8F0;
+    }
+
+    .page-title {
+        color: var(--dark-color);
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .page-subtitle {
+        color: #6C757D;
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    /* Table Styles */
+    .table {
+        color: var(--dark-color);
+    }
+
+    .table thead th {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        color: var(--dark-color);
+        font-weight: 600;
+        border-bottom: 2px solid #E2E8F0;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background-color: #F8FAFC;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6C757D;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: #CBD5E0;
+        margin-bottom: 20px;
+    }
+
+    /* Modal */
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0;
+        padding: 20px 24px;
+    }
+
+    .modal-title {
+        color: var(--dark-color);
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+
+    .modal-body {
+        padding: 24px;
+    }
+
+    .modal-footer {
+        border-top: 1px solid #E2E8F0;
+        padding: 20px 24px;
+    }
+
+    /* Form Controls */
+    .form-label {
+        color: var(--dark-color);
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .form-select,
+    .form-control {
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+        padding: 10px 16px;
+    }
+
+    .form-select:focus,
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(72, 127, 255, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">💰 Advertising Costs</h1>
+                <p class="page-subtitle">{{ offer.title }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('recruiting.offer_detail', offer_id=offer.id) }}" class="btn btn-outline-secondary">
+                    <i class="ri-arrow-left-line me-1"></i> Torna all'Offerta
+                </a>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCostModal">
+                    <i class="ri-add-line me-1"></i> Aggiungi Costo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">LinkedIn</div>
+                <div class="stat-number" style="color: #0077B5;">
+                    €{{ "%.2f"|format(totals_by_platform.get('linkedin', 0)) }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Facebook</div>
+                <div class="stat-number" style="color: #1877F2;">
+                    €{{ "%.2f"|format(totals_by_platform.get('facebook', 0)) }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Instagram</div>
+                <div class="stat-number" style="color: #E1306C;">
+                    €{{ "%.2f"|format(totals_by_platform.get('instagram', 0)) }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-label">Totale</div>
+                <div class="stat-number" style="color: var(--success-color);">
+                    €{{ "%.2f"|format(grand_total) }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtri -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title">
+                <i class="ri-filter-line me-2"></i>Filtri
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Piattaforma</label>
+                    <select name="platform" class="form-select">
+                        <option value="">Tutte</option>
+                        {% for platform in platforms %}
+                        <option value="{{ platform.value }}" {% if platform_filter == platform.value %}selected{% endif %}>
+                            {{ platform.value.title() }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Anno</label>
+                    <select name="year" class="form-select">
+                        <option value="">Tutti</option>
+                        {% for year in available_years %}
+                        <option value="{{ year }}" {% if year_filter == year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Mese</label>
+                    <select name="month" class="form-select">
+                        <option value="">Tutti</option>
+                        {% for month_num, month_name in months_it.items() %}
+                        <option value="{{ month_num }}" {% if month_filter == month_num %}selected{% endif %}>
+                            {{ month_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        <i class="ri-filter-line me-1"></i> Filtra
+                    </button>
+                    <a href="{{ url_for('recruiting.offer_advertising', offer_id=offer.id) }}" class="btn btn-outline-secondary">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabella Costi -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title">
+                <i class="ri-funds-line me-2"></i>Storico Costi
+                <span class="badge bg-primary">{{ costs|length }}</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if costs %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Piattaforma</th>
+                            <th>Data</th>
+                            <th>Periodo</th>
+                            <th>Importo</th>
+                            <th>Note</th>
+                            <th style="width: 80px;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cost in costs %}
+                        <tr>
+                            <td>
+                                <span class="platform-badge platform-{{ cost.platform }}">
+                                    {{ cost.platform.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ months_it[cost.month] }} {{ cost.year }}</strong>
+                            </td>
+                            <td><span class="period-badge">{{ cost.period }}</span></td>
+                            <td>
+                                <strong style="color: var(--success-color);">€{{ "%.2f"|format(cost.amount) }}</strong>
+                            </td>
+                            <td>{{ cost.notes or '-' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteCost({{ cost.id }})" title="Elimina">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="ri-file-list-line"></i>
+                <p class="mb-0"><strong>Nessun costo registrato</strong></p>
+                <p class="text-muted">Aggiungi il primo costo advertising per questa offerta</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiungi Costo -->
+<div class="modal fade" id="addCostModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ri-add-circle-line me-2"></i>Aggiungi Costo Advertising
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addCostForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Piattaforma *</label>
+                        <select name="platform" class="form-select" required>
+                            <option value="">Seleziona...</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="instagram">Instagram</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Anno *</label>
+                            <select name="year" class="form-select" required>
+                                {% for year in available_years %}
+                                <option value="{{ year }}" {% if year == available_years[-2] %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Mese *</label>
+                            <select name="month" class="form-select" required>
+                                {% for month_num, month_name in months_it.items() %}
+                                <option value="{{ month_num }}">{{ month_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Periodo *</label>
+                        <select name="period" class="form-select" required>
+                            <option value="1-10">1-10 del mese</option>
+                            <option value="11-20">11-20 del mese</option>
+                            <option value="21-30">21-30 del mese</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Importo (€) *</label>
+                        <input type="number" name="amount" class="form-control" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Note</label>
+                        <textarea name="notes" class="form-control" rows="3" placeholder="Note opzionali..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ri-save-line me-1"></i>Salva Costo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF Token
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+// Form Submit
+document.getElementById('addCostForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const response = await fetch('/recruiting/api/offers/{{ offer.id }}/advertising', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Errore: ' + (error.error || 'Si è verificato un errore'));
+        }
+    } catch (error) {
+        alert('Errore di connessione');
+    }
+});
+
+// Delete Cost
+async function deleteCost(costId) {
+    if (!confirm('Sei sicuro di voler eliminare questo costo?')) return;
+
+    try {
+        const response = await fetch(`/recruiting/api/advertising/${costId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('Errore durante l\'eliminazione');
+        }
+    } catch (error) {
+        alert('Errore di connessione');
+    }
+}
+</script>
+{% endblock %}

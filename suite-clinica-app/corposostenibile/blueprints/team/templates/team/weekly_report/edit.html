@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Modifica Report Settimanale{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Header gradient */
+    .edit-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .edit-header h4 {
+        color: #000;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Container */
+    .edit-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    /* Form sections */
+    .form-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .form-section:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    /* Question title */
+    .question-title {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .question-icon {
+        font-size: 1.5rem;
+        color: #28c76f;
+    }
+    
+    /* Form controls */
+    .form-control {
+        border: 1px solid #e0e6ed;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        resize: none;
+        min-height: 120px;
+    }
+    
+    .form-control:focus {
+        border-color: #28c76f;
+        box-shadow: 0 0 0 0.2rem rgba(40,199,111,0.15);
+    }
+    
+    /* Week info badge */
+    .week-info {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+    }
+    
+    .week-info iconify-icon {
+        color: #28c76f;
+        font-size: 1.25rem;
+    }
+    
+    /* Optional badge */
+    .optional-badge {
+        background: rgba(40,199,111,0.1);
+        color: #28c76f;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    /* Action buttons */
+    .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn-cancel {
+        background: white;
+        color: #6c757d;
+        border: 1px solid #dee2e6;
+    }
+    
+    .btn-cancel:hover {
+        background: #f8f9fa;
+        color: #495057;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .edit-header {
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .form-section {
+            padding: 1.25rem;
+        }
+        
+        .question-title {
+            font-size: 0.95rem;
+        }
+        
+        .question-icon {
+            font-size: 1.25rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-24">
+
+    <!-- Header Section -->
+    <div class="edit-header">
+        <h4>Modifica Report Settimanale</h4>
+        <p class="text-muted mb-0">Aggiorna le tue riflessioni per la settimana</p>
+    </div>
+
+    <div class="edit-container">
+        <!-- Week Info -->
+        <div class="week-info">
+            <iconify-icon icon="ri:calendar-line"></iconify-icon>
+            <span>Settimana <strong>{{ report.week_start.strftime('%d/%m') }} - {{ report.week_end.strftime('%d/%m/%Y') }}</strong></span>
+        </div>
+                    
+        <form method="post">
+            {{ form.hidden_tag() }}
+            
+            <!-- Riflessione OKR Dipartimento -->
+            {% if form.department_reflection %}
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:team-line" class="question-icon"></iconify-icon>
+                    Cosa ha fatto il mio dipartimento per avvicinarsi a questi obiettivi?
+                </div>
+                {{ form.department_reflection(class="form-control" + (" is-invalid" if form.department_reflection.errors else "")) }}
+                {% for error in form.department_reflection.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Riflessione OKR Personali -->
+            {% if form.personal_reflection %}
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:user-star-line" class="question-icon"></iconify-icon>
+                    Cosa ho fatto io per avvicinarci a questo obiettivo della nostra azienda?
+                </div>
+                {{ form.personal_reflection(class="form-control" + (" is-invalid" if form.personal_reflection.errors else "")) }}
+                {% for error in form.personal_reflection.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- Vittoria settimanale -->
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:trophy-line" class="question-icon"></iconify-icon>
+                    Qual è stata la tua più grande vittoria lavorativa questa settimana?
+                </div>
+                {{ form.weekly_victory(class="form-control" + (" is-invalid" if form.weekly_victory.errors else "")) }}
+                {% for error in form.weekly_victory.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Aree di miglioramento -->
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:focus-3-line" class="question-icon"></iconify-icon>
+                    Su quali azioni quotidiane ti senti indietro, o sai di poter far meglio?
+                </div>
+                {{ form.areas_to_improve(class="form-control" + (" is-invalid" if form.areas_to_improve.errors else "")) }}
+                {% for error in form.areas_to_improve.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Ostacolo principale -->
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:shield-cross-line" class="question-icon"></iconify-icon>
+                    Qual è il più grande ostacolo lavorativo che stai affrontando?
+                </div>
+                {{ form.main_obstacle(class="form-control" + (" is-invalid" if form.main_obstacle.errors else "")) }}
+                {% for error in form.main_obstacle.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Idee (facoltativo) -->
+            <div class="form-section">
+                <div class="question-title">
+                    <iconify-icon icon="ri:lightbulb-line" class="question-icon"></iconify-icon>
+                    Hai idee o suggerimenti per il team o l'azienda?
+                    <span class="optional-badge">Facoltativo</span>
+                </div>
+                {{ form.ideas(class="form-control") }}
+                {% for error in form.ideas.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            
+            <!-- Action buttons -->
+            <div class="action-buttons">
+                <a href="{{ url_for('weekly_report.view_report', report_id=report.id) }}" 
+                   class="btn btn-cancel">
+                    <iconify-icon icon="ri:close-line" class="me-1"></iconify-icon>
+                    Annulla
+                </a>
+                <button type="submit" class="btn btn-success">
+                    <iconify-icon icon="ri:save-line" class="me-1"></iconify-icon>
+                    Salva Modifiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textareas
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+    }
+    
+    document.querySelectorAll('textarea').forEach(textarea => {
+        // Set initial height
+        autoResize(textarea);
+        
+        // Auto-resize on input
+        textarea.addEventListener('input', function() {
+            autoResize(this);
+        });
+        
+        // Also resize on focus (in case content was changed programmatically)
+        textarea.addEventListener('focus', function() {
+            autoResize(this);
+        });
+    });
+    
+    // Smooth scroll to first error if any
+    const firstError = document.querySelector('.is-invalid');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstError.focus();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,768 @@
+{# blueprints/team/templates/team/assignments_dashboard.html #}
+{% extends "base.html" %}
+
+{% block title %}Assegnazioni AI • Corposostenibile{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Avatar Team */
+.avatar-team {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.avatar-team .avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.avatar-team .avatar-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+/* Header per assegnazioni */
+.assegnazioni-header {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+/* Bottoni campo */
+.btn-campo {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+  border: none;
+  transition: all 0.2s ease;
+  min-width: 70px;
+}
+.btn-campo:hover {
+  transform: translateY(-1px);
+}
+.btn-campo.presente {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+.btn-campo.presente:hover {
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  color: white;
+}
+.btn-campo.assente {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+.btn-campo.assente:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  color: white;
+}
+
+/* Btn modifica */
+.btn-modifica {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-modifica:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  color: white;
+}
+
+/* Row non disponibile */
+.row-non-disponibile {
+  background-color: rgba(254, 226, 226, 0.3) !important;
+}
+
+/* Tabella */
+.table-assegnazioni {
+  width: 100%;
+}
+.table-assegnazioni td {
+  vertical-align: middle;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- Header Assegnazioni -->
+  <div class="assegnazioni-header d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div>
+      <h5 class="fw-semibold mb-1 text-white">
+        <i class="ri-magic-line me-2"></i>Assegnazioni AI - Professionisti
+      </h5>
+      <small class="opacity-75">Gestione note e disponibilità per assegnazione automatica</small>
+    </div>
+    <a href="{{ url_for('team.user_list') }}" class="btn btn-light btn-sm">
+      <i class="ri-arrow-left-line me-1"></i> Torna al Team
+    </a>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="row g-3 mb-24">
+    <!-- Nutrizione -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="w-48-px h-48-px rounded-circle d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);">
+              <i class="ri-leaf-line text-success" style="font-size: 24px;"></i>
+            </div>
+            <div>
+              <h6 class="mb-0 fw-semibold">Nutrizione</h6>
+              <small class="text-muted">{{ stats.nutrizione.total }} professionisti</small>
+            </div>
+          </div>
+          <div class="d-flex gap-3">
+            <div class="flex-grow-1">
+              <small class="text-muted d-block">Disponibili</small>
+              <span class="fw-semibold text-success">{{ stats.nutrizione.available }}</span>
+              <span class="text-muted">/{{ stats.nutrizione.total }}</span>
+            </div>
+            <div class="flex-grow-1">
+              <small class="text-muted d-block">Configurati</small>
+              <span class="fw-semibold text-primary">{{ stats.nutrizione.configured }}</span>
+              <span class="text-muted">/{{ stats.nutrizione.total }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coach -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="w-48-px h-48-px rounded-circle d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);">
+              <i class="ri-run-line text-warning" style="font-size: 24px;"></i>
+            </div>
+            <div>
+              <h6 class="mb-0 fw-semibold">Coach</h6>
+              <small class="text-muted">{{ stats.coach.total }} professionisti</small>
+            </div>
+          </div>
+          <div class="d-flex gap-3">
+            <div class="flex-grow-1">
+              <small class="text-muted d-block">Disponibili</small>
+              <span class="fw-semibold text-success">{{ stats.coach.available }}</span>
+              <span class="text-muted">/{{ stats.coach.total }}</span>
+            </div>
+            <div class="flex-grow-1">
+              <small class="text-muted d-block">Configurati</small>
+              <span class="fw-semibold text-primary">{{ stats.coach.configured }}</span>
+              <span class="text-muted">/{{ stats.coach.total }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Psicologia -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="w-48-px h-48-px rounded-circle d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);">
+              <i class="ri-mental-health-line text-info" style="font-size: 24px;"></i>
+            </div>
+            <div>
+              <h6 class="mb-0 fw-semibold">Psicologia</h6>
+              <small class="text-muted">{{ stats.psicologia.total }} professionisti</small>
+            </div>
+          </div>
+          <div class="d-flex gap-3">
+            <div class="flex-grow-1">
+              <small class="text-muted d-block">Disponibili</small>
+              <span class="fw-semibold text-success">{{ stats.psicologia.available }}</span>
+              <span class="text-muted">/{{ stats.psicologia.total }}</span>
+            </div>
+            <div class="flex-grow-1">
+              <small class="text-muted d-block">Configurati</small>
+              <span class="fw-semibold text-primary">{{ stats.psicologia.configured }}</span>
+              <span class="text-muted">/{{ stats.psicologia.total }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs Dipartimenti -->
+  <div class="card">
+    <div class="card-header">
+      <ul class="nav nav-tabs card-header-tabs" id="deptTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="nutrizione-tab" data-bs-toggle="tab" data-bs-target="#nutrizione" type="button" role="tab">
+            <i class="ri-leaf-line me-1 text-success"></i>
+            Nutrizione <span class="badge bg-success ms-1">{{ nutrizionisti|length }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="coach-tab" data-bs-toggle="tab" data-bs-target="#coach" type="button" role="tab">
+            <i class="ri-run-line me-1 text-warning"></i>
+            Coach <span class="badge bg-warning ms-1">{{ coaches|length }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="psicologia-tab" data-bs-toggle="tab" data-bs-target="#psicologia" type="button" role="tab">
+            <i class="ri-mental-health-line me-1 text-info"></i>
+            Psicologia <span class="badge bg-info ms-1">{{ psicologi|length }}</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="tab-content" id="deptTabsContent">
+
+        <!-- TAB NUTRIZIONE -->
+        <div class="tab-pane fade show active" id="nutrizione" role="tabpanel">
+          {% if nutrizionisti %}
+          <div class="table-responsive">
+            <table class="table basic-border-table table-assegnazioni mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Professionista</th>
+                  <th class="text-center">Disponibile</th>
+                  <th class="text-center">Specializzazione</th>
+                  <th class="text-center">Target Ideale</th>
+                  <th class="text-center">Problematiche</th>
+                  <th class="text-center">Target NO</th>
+                  <th class="text-center">Calendario</th>
+                  <th class="text-center">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in nutrizionisti %}
+                  {% set ai_notes = user.assignment_ai_notes if user.assignment_ai_notes and user.assignment_ai_notes is mapping else {} %}
+                  {% set is_available = ai_notes.get('disponibile_assegnazioni', true) if ai_notes else true %}
+                  <tr id="row-{{ user.id }}" class="{{ 'row-non-disponibile' if not is_available else '' }}">
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="avatar-team">
+                          {% if user.avatar_path %}
+                            <img src="{{ url_for('team.serve_avatar', user_id=user.id) }}" alt="{{ user.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-success-subtle text-success">{{ user.first_name[:1] if user.first_name else '' }}{{ user.last_name[:1] if user.last_name else '' }}</span>
+                          {% endif %}
+                        </span>
+                        <div>
+                          <a href="{{ url_for('team.user_detail', user_id=user.id) }}" class="fw-semibold text-dark">{{ user.full_name }}</a>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <div class="form-check form-switch d-flex justify-content-center">
+                        <input class="form-check-input toggle-disponibile" type="checkbox" role="switch"
+                               data-user-id="{{ user.id }}" {{ 'checked' if is_available else '' }}>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('specializzazione') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="specializzazione"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('specializzazione') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_ideale') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_ideale"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('target_ideale') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('problematiche_efficaci') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="problematiche_efficaci"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('problematiche_efficaci') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_non_ideale') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_non_ideale"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('target_non_ideale') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('link_calendario') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="link_calendario"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('link_calendario') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('note_aggiuntive') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="note_aggiuntive"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('note_aggiuntive') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-5">
+            <i class="ri-user-line text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">Nessun nutrizionista attivo trovato</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- TAB COACH -->
+        <div class="tab-pane fade" id="coach" role="tabpanel">
+          {% if coaches %}
+          <div class="table-responsive">
+            <table class="table basic-border-table table-assegnazioni mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Professionista</th>
+                  <th class="text-center">Disponibile</th>
+                  <th class="text-center">Specializzazione</th>
+                  <th class="text-center">Target Ideale</th>
+                  <th class="text-center">Problematiche</th>
+                  <th class="text-center">Target NO</th>
+                  <th class="text-center">Calendario</th>
+                  <th class="text-center">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in coaches %}
+                  {% set ai_notes = user.assignment_ai_notes if user.assignment_ai_notes and user.assignment_ai_notes is mapping else {} %}
+                  {% set is_available = ai_notes.get('disponibile_assegnazioni', true) if ai_notes else true %}
+                  <tr id="row-{{ user.id }}" class="{{ 'row-non-disponibile' if not is_available else '' }}">
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="avatar-team">
+                          {% if user.avatar_path %}
+                            <img src="{{ url_for('team.serve_avatar', user_id=user.id) }}" alt="{{ user.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-warning-subtle text-warning">{{ user.first_name[:1] if user.first_name else '' }}{{ user.last_name[:1] if user.last_name else '' }}</span>
+                          {% endif %}
+                        </span>
+                        <div>
+                          <a href="{{ url_for('team.user_detail', user_id=user.id) }}" class="fw-semibold text-dark">{{ user.full_name }}</a>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <div class="form-check form-switch d-flex justify-content-center">
+                        <input class="form-check-input toggle-disponibile" type="checkbox" role="switch"
+                               data-user-id="{{ user.id }}" {{ 'checked' if is_available else '' }}>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('specializzazione') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="specializzazione"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('specializzazione') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_ideale') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_ideale"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('target_ideale') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('problematiche_efficaci') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="problematiche_efficaci"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('problematiche_efficaci') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_non_ideale') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_non_ideale"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('target_non_ideale') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('link_calendario') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="link_calendario"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('link_calendario') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('note_aggiuntive') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="note_aggiuntive"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('note_aggiuntive') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-5">
+            <i class="ri-user-line text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">Nessun coach attivo trovato</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- TAB PSICOLOGIA -->
+        <div class="tab-pane fade" id="psicologia" role="tabpanel">
+          {% if psicologi %}
+          <div class="table-responsive">
+            <table class="table basic-border-table table-assegnazioni mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Professionista</th>
+                  <th class="text-center">Disponibile</th>
+                  <th class="text-center">Specializzazione</th>
+                  <th class="text-center">Target Ideale</th>
+                  <th class="text-center">Problematiche</th>
+                  <th class="text-center">Target NO</th>
+                  <th class="text-center">Calendario</th>
+                  <th class="text-center">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in psicologi %}
+                  {% set ai_notes = user.assignment_ai_notes if user.assignment_ai_notes and user.assignment_ai_notes is mapping else {} %}
+                  {% set is_available = ai_notes.get('disponibile_assegnazioni', true) if ai_notes else true %}
+                  <tr id="row-{{ user.id }}" class="{{ 'row-non-disponibile' if not is_available else '' }}">
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="avatar-team">
+                          {% if user.avatar_path %}
+                            <img src="{{ url_for('team.serve_avatar', user_id=user.id) }}" alt="{{ user.full_name }}" class="avatar-img">
+                          {% else %}
+                            <span class="avatar-initials bg-info-subtle text-info">{{ user.first_name[:1] if user.first_name else '' }}{{ user.last_name[:1] if user.last_name else '' }}</span>
+                          {% endif %}
+                        </span>
+                        <div>
+                          <a href="{{ url_for('team.user_detail', user_id=user.id) }}" class="fw-semibold text-dark">{{ user.full_name }}</a>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <div class="form-check form-switch d-flex justify-content-center">
+                        <input class="form-check-input toggle-disponibile" type="checkbox" role="switch"
+                               data-user-id="{{ user.id }}" {{ 'checked' if is_available else '' }}>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('specializzazione') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="specializzazione"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('specializzazione') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_ideale') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_ideale"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('target_ideale') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('problematiche_efficaci') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="problematiche_efficaci"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('problematiche_efficaci') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('target_non_ideale') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="target_non_ideale"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('target_non_ideale') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('link_calendario') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="link_calendario"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('link_calendario') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                    <td class="text-center">
+                      <button class="btn btn-campo {{ 'presente' if ai_notes.get('note_aggiuntive') else 'assente' }} btn-edit-field"
+                              data-user-id="{{ user.id }}" data-user-name="{{ user.full_name }}" data-field="note_aggiuntive"
+                              data-bs-toggle="modal" data-bs-target="#editFieldModal">
+                        <i class="ri-{{ 'check-line' if ai_notes.get('note_aggiuntive') else 'add-line' }}"></i>
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-5">
+            <i class="ri-user-line text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">Nessun psicologo attivo trovato</p>
+          </div>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- Modal Modifica Campo Singolo -->
+<div class="modal fade" id="editFieldModal" tabindex="-1" aria-labelledby="editFieldModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" id="editFieldModalHeader" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+        <h5 class="modal-title text-white" id="editFieldModalLabel">
+          <i class="ri-edit-line me-2"></i>
+          <span id="modal-field-title"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="modal-user-id">
+        <input type="hidden" id="modal-field-name">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            <i class="ri-user-line me-1"></i>
+            Professionista
+          </label>
+          <p class="form-control-plaintext fw-semibold" id="modal-user-name-display"></p>
+        </div>
+
+        <div class="mb-0">
+          <label for="modal-field-value" class="form-label fw-semibold" id="modal-field-label"></label>
+          <textarea class="form-control" id="modal-field-value" rows="5"
+                    style="border: 2px solid rgba(139, 92, 246, 0.2); border-radius: 12px;"></textarea>
+          <small class="text-muted" id="modal-field-help"></small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="ri-close-line me-1"></i> Chiudi
+        </button>
+        <button type="button" class="btn btn-modifica" id="btnSaveField">
+          <i class="ri-save-line me-1"></i> Salva
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Configurazione campi
+    const fieldConfig = {
+        'specializzazione': {
+            title: 'Specializzazione',
+            label: 'Specializzazione',
+            help: 'Descrivi le competenze e specialità del professionista',
+            placeholder: 'Es: Nutrizionista sportivo con focus su atleti endurance, gestione peso corporeo...'
+        },
+        'target_ideale': {
+            title: 'Target Ideale',
+            label: 'Target Ideale di Paziente',
+            help: 'Descrivi il tipo di paziente ideale per questo professionista',
+            placeholder: 'Es: Adulti 25-45 anni, sportivi amatoriali, persone motivate...'
+        },
+        'problematiche_efficaci': {
+            title: 'Problematiche Gestite',
+            label: 'Problematiche Gestite con Efficacia',
+            help: 'Motivazioni o problematiche che il professionista gestisce con maggiore efficacia',
+            placeholder: 'Es: Gestione peso, alimentazione per performance sportive, intolleranze...'
+        },
+        'target_non_ideale': {
+            title: 'Target NON Ideale',
+            label: 'Target NON Ideale (Esclusioni)',
+            help: 'Tipologie di pazienti che NON dovrebbero essere assegnati a questo professionista',
+            placeholder: 'Es: Minori di 18 anni, over 70, patologie oncologiche in fase attiva...'
+        },
+        'link_calendario': {
+            title: 'Link Calendario',
+            label: 'Link Calendario Prenotazioni',
+            help: 'Link per la prenotazione appuntamenti (Calendly, Cal.com, ecc.)',
+            placeholder: 'https://calendly.com/...'
+        },
+        'note_aggiuntive': {
+            title: 'Note Aggiuntive',
+            label: 'Note Aggiuntive',
+            help: 'Altre note utili per l\'assegnazione AI',
+            placeholder: 'Altre informazioni utili...'
+        }
+    };
+
+    // Toggle disponibilità rapido
+    document.querySelectorAll('.toggle-disponibile').forEach(function(toggle) {
+        toggle.addEventListener('change', function() {
+            const userId = this.dataset.userId;
+            const isChecked = this.checked;
+            const row = document.getElementById('row-' + userId);
+
+            fetch(`/team/api/assegnazioni/${userId}/toggle-disponibile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.disponibile) {
+                        row.classList.remove('row-non-disponibile');
+                    } else {
+                        row.classList.add('row-non-disponibile');
+                    }
+                    showToast(data.message, 'success');
+                } else {
+                    toggle.checked = !isChecked;
+                    showToast(data.message || 'Errore', 'danger');
+                }
+            })
+            .catch(error => {
+                toggle.checked = !isChecked;
+                showToast('Errore di connessione', 'danger');
+            });
+        });
+    });
+
+    // Apertura modal per campo singolo
+    document.querySelectorAll('.btn-edit-field').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const fieldName = this.dataset.field;
+            const config = fieldConfig[fieldName];
+
+            document.getElementById('modal-user-id').value = userId;
+            document.getElementById('modal-field-name').value = fieldName;
+            document.getElementById('modal-user-name-display').textContent = userName;
+            document.getElementById('modal-field-title').textContent = config.title + ' - ' + userName;
+            document.getElementById('modal-field-label').innerHTML = '<i class="ri-file-text-line me-1"></i>' + config.label;
+            document.getElementById('modal-field-help').textContent = config.help;
+            document.getElementById('modal-field-value').placeholder = config.placeholder;
+            document.getElementById('modal-field-value').value = '';
+
+            // Carica valore esistente
+            fetch(`/team/api/assegnazioni/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('modal-field-value').value = data.assignment_ai_notes[fieldName] || '';
+                    }
+                })
+                .catch(error => console.error('Errore caricamento:', error));
+        });
+    });
+
+    // Salva campo singolo
+    document.getElementById('btnSaveField').addEventListener('click', function() {
+        const userId = document.getElementById('modal-user-id').value;
+        const fieldName = document.getElementById('modal-field-name').value;
+        const fieldValue = document.getElementById('modal-field-value').value;
+        const btn = this;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line spin me-1"></i> Salvando...';
+
+        const data = {};
+        data[fieldName] = fieldValue;
+
+        fetch(`/team/api/assegnazioni/${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+
+            if (result.success) {
+                showToast('Campo salvato con successo!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editFieldModal')).hide();
+
+                // Aggiorna il bottone nella tabella
+                const tableBtn = document.querySelector(`button[data-user-id="${userId}"][data-field="${fieldName}"]`);
+                if (tableBtn) {
+                    if (fieldValue && fieldValue.trim()) {
+                        tableBtn.classList.remove('assente');
+                        tableBtn.classList.add('presente');
+                        tableBtn.innerHTML = '<i class="ri-check-line"></i>';
+                    } else {
+                        tableBtn.classList.remove('presente');
+                        tableBtn.classList.add('assente');
+                        tableBtn.innerHTML = '<i class="ri-add-line"></i>';
+                    }
+                }
+            } else {
+                showToast(result.message || 'Errore nel salvataggio', 'danger');
+            }
+        })
+        .catch(error => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva';
+            showToast('Errore di connessione', 'danger');
+        });
+    });
+
+    // Toast helper
+    function showToast(message, type) {
+        const toastContainer = document.getElementById('toast-container') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        toastContainer.appendChild(toast);
+        new bootstrap.Toast(toast, { delay: 3000 }).show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+        return container;
+    }
+});
+</script>
+{% endblock %}

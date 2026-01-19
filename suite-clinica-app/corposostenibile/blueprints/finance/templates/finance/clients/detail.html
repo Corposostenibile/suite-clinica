@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}{{ cliente.nome_cognome }} - Dettaglio Finanziario{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-user-tie"></i> {{ cliente.nome_cognome }}
+                    <small class="text-muted">- Dettaglio Finanziario</small>
+                </h1>
+                <div>
+                    <a href="{{ url_for('finance.client_subscription_create', cliente_id=cliente.cliente_id) }}" 
+                       class="btn btn-success">
+                        <i class="fas fa-plus"></i> Nuovo Abbonamento
+                    </a>
+                    <a href="{{ url_for('customers.detail_test_view', cliente_id=cliente.cliente_id) }}" 
+                       class="btn btn-info">
+                        <i class="fas fa-user"></i> Scheda Cliente
+                    </a>
+                    <a href="{{ url_for('finance.clients_list') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Torna alla Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metriche principali -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">LTV Totale</div>
+                    <div class="h5 mb-0 font-weight-bold">€ {{ "%.2f"|format(total_ltv) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">LTV 90gg</div>
+                    <div class="h5 mb-0 font-weight-bold">€ {{ "%.2f"|format(ltv_90) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">LTGP</div>
+                    <div class="h5 mb-0 font-weight-bold">€ {{ "%.2f"|format(ltgp) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Media Mensile</div>
+                    <div class="h5 mb-0 font-weight-bold">€ {{ "%.2f"|format(avg_monthly) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Mesi Totali</div>
+                    <div class="h5 mb-0 font-weight-bold">{{ total_months }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-left-dark shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">Abbonamenti</div>
+                    <div class="h5 mb-0 font-weight-bold">{{ subscriptions|length }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" role="tablist" id="financeTabs">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="subscriptions-tab" data-bs-toggle="tab" data-bs-target="#subscriptions" type="button" role="tab">
+                <i class="fas fa-file-contract"></i> Abbonamenti
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly" type="button" role="tab">
+                <i class="fas fa-calendar-alt"></i> Storico Mensile
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="changes-tab" data-bs-toggle="tab" data-bs-target="#changes" type="button" role="tab">
+                <i class="fas fa-exchange-alt"></i> Cambi Pacchetto
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                <i class="fas fa-chart-line"></i> Analytics
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab content -->
+    <div class="tab-content mt-3" id="financeTabContent">
+        <!-- Tab Abbonamenti -->
+        <div class="tab-pane fade show active" id="subscriptions" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Storia Abbonamenti</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Periodo</th>
+                                    <th>Pacchetto</th>
+                                    <th>Durata</th>
+                                    <th>Deposito</th>
+                                    <th>Totale</th>
+                                    <th>Mensile</th>
+                                    <th>Stato</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sub in subscriptions %}
+                                <tr>
+                                    <td>
+                                        {{ sub.start_date.strftime('%d/%m/%Y') }} - 
+                                        {{ sub.end_date.strftime('%d/%m/%Y') }}
+                                    </td>
+                                    <td>
+                                        {% if sub.package %}
+                                            <strong>{{ sub.package.name }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ sub.duration_months }} mesi</td>
+                                    <td class="text-right">
+                                        {% if sub.initial_payment %}
+                                            € {{ "%.2f"|format(sub.initial_payment) }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right font-weight-bold">
+                                        € {{ "%.2f"|format(sub.total_amount or 0) }}
+                                    </td>
+                                    <td class="text-right">
+                                        € {{ "%.2f"|format(sub.monthly_amount or 0) }}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if sub.status == 'active' %}
+                                            <span class="badge badge-success">Attivo</span>
+                                        {% elif sub.status == 'expired' %}
+                                            <span class="badge badge-secondary">Scaduto</span>
+                                        {% elif sub.status == 'renewed' %}
+                                            <span class="badge badge-info">Rinnovato</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-info" onclick="viewSnapshots({{ sub.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Storico Mensile -->
+        <div class="tab-pane fade" id="monthly" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Dettaglio Mensile</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" id="monthlyTable">
+                            <thead>
+                                <tr>
+                                    <th>Mese</th>
+                                    <th>#</th>
+                                    <th>Pacchetto</th>
+                                    <th>Ricavo</th>
+                                    <th>Comm.Pay</th>
+                                    <th>Sales</th>
+                                    <th>Setter</th>
+                                    <th>Coach</th>
+                                    <th>Nutriz</th>
+                                    <th>Psic</th>
+                                    <th>Tot.Costi</th>
+                                    <th>Profitto</th>
+                                    <th>LTV Cum.</th>
+                                    <th>LTGP Cum.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for snapshot in snapshots %}
+                                <tr class="{% if snapshot.monthly_profit < 0 %}table-danger{% endif %}">
+                                    <td>{{ snapshot.month.strftime('%m/%Y') }}</td>
+                                    <td class="text-center">{{ snapshot.month_number }}</td>
+                                    <td>
+                                        {% if snapshot.package %}
+                                            <small>{{ snapshot.package.name }}</small>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">€ {{ "%.2f"|format(snapshot.monthly_revenue or 0) }}</td>
+                                    <td class="text-right">
+                                        {% if snapshot.comm_payment %}
+                                            € {{ "%.2f"|format(snapshot.comm_payment) }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        {% if snapshot.comm_sales %}
+                                            € {{ "%.2f"|format(snapshot.comm_sales) }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        {% if snapshot.comm_setter %}
+                                            € {{ "%.2f"|format(snapshot.comm_setter) }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">€ {{ "%.2f"|format(snapshot.comm_coach or 0) }}</td>
+                                    <td class="text-right">€ {{ "%.2f"|format(snapshot.comm_nutriz or 0) }}</td>
+                                    <td class="text-right">€ {{ "%.2f"|format(snapshot.comm_psic or 0) }}</td>
+                                    <td class="text-right font-weight-bold">€ {{ "%.2f"|format(snapshot.monthly_cost or 0) }}</td>
+                                    <td class="text-right {% if snapshot.monthly_profit > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        € {{ "%.2f"|format(snapshot.monthly_profit or 0) }}
+                                    </td>
+                                    <td class="text-right font-weight-bold">€ {{ "%.2f"|format(snapshot.ltv_cumulative or 0) }}</td>
+                                    <td class="text-right font-weight-bold">€ {{ "%.2f"|format(snapshot.ltgp_cumulative or 0) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Cambi Pacchetto -->
+        <div class="tab-pane fade" id="changes" role="tabpanel">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Storia Cambi Pacchetto</h6>
+                </div>
+                <div class="card-body">
+                    {% if package_changes %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Data Cambio</th>
+                                        <th>Da Pacchetto</th>
+                                        <th>A Pacchetto</th>
+                                        <th>Motivo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for change in package_changes %}
+                                    <tr>
+                                        <td>{{ change.change_date.strftime('%d/%m/%Y') }}</td>
+                                        <td>
+                                            {% if change.from_package %}
+                                                {{ change.from_package.name }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if change.to_package %}
+                                                <strong>{{ change.to_package.name }}</strong>
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ change.change_reason or '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Nessun cambio pacchetto registrato.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Analytics -->
+        <div class="tab-pane fade" id="analytics" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header">
+                            <h6 class="m-0 font-weight-bold text-primary">Evoluzione LTV</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="ltvChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-header">
+                            <h6 class="m-0 font-weight-bold text-primary">Distribuzione Costi</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="costsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Gestione hash URL per Bootstrap 5
+    var hash = window.location.hash;
+    if (hash) {
+        var tabTrigger = document.querySelector('button[data-bs-target="' + hash + '"]');
+        if (tabTrigger) {
+            var tab = new bootstrap.Tab(tabTrigger);
+            tab.show();
+        }
+    }
+    
+    // Aggiorna URL quando cambia tab
+    var tabElms = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabElms.forEach(function(tabElm) {
+        tabElm.addEventListener('shown.bs.tab', function (event) {
+            window.location.hash = event.target.getAttribute('data-bs-target');
+        });
+    });
+    
+    // Gestisci navigazione browser (back/forward)
+    window.addEventListener('hashchange', function() {
+        var hash = window.location.hash;
+        if (hash) {
+            var tabTrigger = document.querySelector('button[data-bs-target="' + hash + '"]');
+            if (tabTrigger) {
+                var tab = new bootstrap.Tab(tabTrigger);
+                tab.show();
+            }
+        }
+    });
+    
+    // Inizializza DataTable quando la tab monthly viene mostrata
+    document.getElementById('monthly-tab').addEventListener('shown.bs.tab', function (e) {
+        if (!$.fn.DataTable.isDataTable('#monthlyTable')) {
+            $('#monthlyTable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json"
+                },
+                "order": [[1, "asc"]],
+                "pageLength": 25
+            });
+        }
+    });
+    
+    // Inizializza grafici quando la tab analytics viene mostrata
+    document.getElementById('analytics-tab').addEventListener('shown.bs.tab', function (e) {
+        initCharts();
+    });
+    
+    // Se la tab monthly è già attiva, inizializza subito DataTable
+    if (window.location.hash === '#monthly' || $('#monthly').hasClass('active show')) {
+        if (!$.fn.DataTable.isDataTable('#monthlyTable')) {
+            $('#monthlyTable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Italian.json"
+                },
+                "order": [[1, "asc"]],
+                "pageLength": 25
+            });
+        }
+    }
+    
+    // Inizializza grafici solo quando la tab Analytics è mostrata
+    var chartsInitialized = false;
+    
+    function initCharts() {
+        if (chartsInitialized) return;
+        chartsInitialized = true;
+        
+        // Grafico LTV
+        var ltvData = {
+            labels: [{% for s in snapshots %}'{{ s.month.strftime("%m/%y") }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'LTV Cumulativo',
+                data: [{% for s in snapshots %}{{ s.ltv_cumulative or 0 }}{% if not loop.last %},{% endif %}{% endfor %}],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'LTGP Cumulativo',
+                data: [{% for s in snapshots %}{{ s.ltgp_cumulative or 0 }}{% if not loop.last %},{% endif %}{% endfor %}],
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.1
+            }]
+        };
+        
+        if (document.getElementById('ltvChart')) {
+            new Chart(document.getElementById('ltvChart'), {
+                type: 'line',
+                data: ltvData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Grafico costi
+        var totalCoach = {{ snapshots|map(attribute='comm_coach')|select|sum|default(0) }};
+        var totalNutriz = {{ snapshots|map(attribute='comm_nutriz')|select|sum|default(0) }};
+        var totalPsic = {{ snapshots|map(attribute='comm_psic')|select|sum|default(0) }};
+        var totalSales = {{ snapshots|map(attribute='comm_sales')|select|sum|default(0) }};
+        var totalSetter = {{ snapshots|map(attribute='comm_setter')|select|sum|default(0) }};
+        
+        if (document.getElementById('costsChart')) {
+            new Chart(document.getElementById('costsChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Coach', 'Nutrizionista', 'Psicologa', 'Sales', 'Setter'],
+                    datasets: [{
+                        data: [totalCoach, totalNutriz, totalPsic, totalSales, totalSetter],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // Se la tab Analytics è già attiva all'apertura
+    if (window.location.hash === '#analytics') {
+        setTimeout(initCharts, 100);
+    }
+});
+</script>
+{% endblock %}

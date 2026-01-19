@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Gestione Categorie - Manuali{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.manuals_admin') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <h6 class="fw-semibold mb-0">Gestione Categorie</h6>
+  </div>
+  <a href="{{ url_for('it_projects.manuals_admin_category_new') }}" class="btn btn-sm btn-primary-600">
+    <i class="ri-add-line me-1"></i> Nuova Categoria
+  </a>
+</div>
+
+{# ─────────────────────── FILTERS ─────────────────────── #}
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label">Piattaforma</label>
+        <select name="platform" class="form-select" onchange="this.form.submit()">
+          <option value="">Tutte le piattaforme</option>
+          {% for key, platform in platforms.items() %}
+          <option value="{{ key }}" {% if current_platform == key %}selected{% endif %}>
+            {{ platform.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <a href="{{ url_for('it_projects.manuals_admin_categories') }}" class="btn btn-outline-secondary">
+          Reset
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ─────────────────────── CATEGORIES TABLE ─────────────────────── #}
+<div class="card">
+  <div class="card-body p-0">
+    {% if categories %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th style="width: 40px;"></th>
+            <th>Nome</th>
+            <th>Piattaforma</th>
+            <th>Articoli</th>
+            <th>Stato</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for category in categories %}
+          <tr>
+            <td>
+              <span class="w-32-px h-32-px d-flex justify-content-center align-items-center rounded-circle"
+                    style="background-color: {{ category.color }}20;">
+                <i class="{{ category.icon or 'ri-folder-line' }}" style="color: {{ category.color }};"></i>
+              </span>
+            </td>
+            <td>
+              <div class="fw-medium">{{ category.name }}</div>
+              {% if category.description %}
+              <small class="text-secondary-light">{{ category.description[:60] }}{% if category.description|length > 60 %}...{% endif %}</small>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge" style="background-color: {{ platforms[category.platform].color }}20; color: {{ platforms[category.platform].color }};">
+                {{ platforms[category.platform].name }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-secondary-subtle text-secondary-main">{{ category.articles_count }} articoli</span>
+            </td>
+            <td>
+              {% if category.is_active %}
+              <span class="badge bg-success-subtle text-success-main">Attiva</span>
+              {% else %}
+              <span class="badge bg-danger-subtle text-danger-main">Disattivata</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="btn-group">
+                <a href="{{ url_for('it_projects.manuals_admin_category_edit', category_id=category.id) }}"
+                   class="btn btn-sm btn-outline-primary" title="Modifica">
+                  <i class="ri-edit-line"></i>
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="confirmDelete({{ category.id }}, '{{ category.name|e }}')" title="Elimina">
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-secondary-light">
+      <i class="ri-folder-line text-4xl mb-3"></i>
+      <h5>Nessuna categoria trovata</h5>
+      <p>Crea una categoria per organizzare i tuoi manuali</p>
+      <a href="{{ url_for('it_projects.manuals_admin_category_new') }}" class="btn btn-primary-600">
+        <i class="ri-add-line me-1"></i> Nuova Categoria
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# Delete confirmation modal #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Conferma eliminazione</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Sei sicuro di voler eliminare la categoria "<strong id="deleteCategoryTitle"></strong>"?</p>
+        <p class="text-warning mb-0"><small>Gli articoli associati non verranno eliminati ma perderanno la categoria.</small></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <form id="deleteForm" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-danger">Elimina</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function confirmDelete(categoryId, categoryName) {
+  document.getElementById('deleteCategoryTitle').textContent = categoryName;
+  document.getElementById('deleteForm').action = `/it-projects/manuals/admin/categories/${categoryId}/delete`;
+  new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

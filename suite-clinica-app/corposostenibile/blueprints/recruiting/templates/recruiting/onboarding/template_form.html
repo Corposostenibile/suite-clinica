@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Nuovo Template' if not template else 'Modifica Template' }} – Onboarding{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --success-color: #45CB85;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Form Styles */
+    .form-control, .form-select {
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #45CB85;
+        box-shadow: 0 0 0 0.2rem rgba(69, 203, 133, 0.15);
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: var(--dark-color);
+        margin-bottom: 8px;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-outline-success {
+        color: #45CB85;
+        border: 1px solid #45CB85;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border-color: transparent;
+        color: white;
+    }
+
+    /* Utilities */
+    .mb-24 { margin-bottom: 24px !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-24">
+        <div>
+            <h6 class="fw-semibold mb-0">{{ 'Nuovo Template Onboarding' if not template else 'Modifica Template' }}</h6>
+            <p class="text-muted mb-0">Configura il template per nuovi assunti</p>
+        </div>
+        <div>
+            <a href="{{ url_for('recruiting.onboarding_templates') }}" class="btn btn-sm btn-outline-success">
+                <i class="ri-arrow-left-line"></i>
+                Torna ai Template
+            </a>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control", placeholder="Es. Onboarding Sviluppatore") }}
+                            {% if form.name.errors %}
+                                <div class="text-danger small mt-1">{{ form.name.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.department_id.label(class="form-label") }}
+                            {{ form.department_id(class="form-select") }}
+                            {% if form.department_id.errors %}
+                                <div class="text-danger small mt-1">{{ form.department_id.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows=4, placeholder="Descrizione del template...") }}
+                            {% if form.description.errors %}
+                                <div class="text-danger small mt-1">{{ form.description.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.duration_days.label(class="form-label") }}
+                            {{ form.duration_days(class="form-control", placeholder="Es. 30") }}
+                            {% if form.duration_days.errors %}
+                                <div class="text-danger small mt-1">{{ form.duration_days.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-success">
+                                <i class="ri-save-line me-1"></i>Salva Template
+                            </button>
+                            <a href="{{ url_for('recruiting.onboarding_templates') }}" class="btn btn-outline-secondary">
+                                Annulla
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="ri-information-line me-2"></i>Informazioni
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Crea un template di onboarding personalizzato per i nuovi assunti.
+                    </p>
+                    <ul class="text-muted small ps-3">
+                        <li class="mb-2">Il nome identifica il template</li>
+                        <li class="mb-2">Seleziona il dipartimento di riferimento</li>
+                        <li class="mb-2">La durata indica i giorni previsti per completare l'onboarding</li>
+                        <li>Dopo la creazione potrai aggiungere i task specifici</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

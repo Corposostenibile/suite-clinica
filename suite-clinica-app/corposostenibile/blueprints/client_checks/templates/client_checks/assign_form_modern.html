@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}Assegna Form - Check Clienti{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Root Variables */
+    :root {
+        --primary-color: #487FFF;
+        --primary-dark: #3867E5;
+        --secondary-color: #4ECAC2;
+        --success-color: #45CB85;
+        --danger-color: #DC3545;
+        --warning-color: #F0AD4E;
+        --info-color: #5BC0DE;
+        --light-color: #F8FAFC;
+        --dark-color: #1A3366;
+    }
+
+    /* Card Styles */
+    .card {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        background: white;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-bottom: 1px solid #E2E8F0;
+        border-radius: 16px 16px 0 0 !important;
+        padding: 20px 24px;
+    }
+
+    .card-body {
+        padding: 24px;
+    }
+
+    /* Form Controls */
+    .form-label {
+        font-weight: 600;
+        color: var(--dark-color);
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+
+    .form-control, .form-select {
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(72, 127, 255, 0.1);
+        outline: none;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: 10px;
+        padding: 12px 24px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #45CB85 0%, #239957 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #239957 0%, #1A7340 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(69, 203, 133, 0.3);
+        color: white;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #487FFF 0%, #3867E5 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3867E5 0%, #2856D4 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    }
+
+    /* Client Selection */
+    .client-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 12px;
+        background: #F8FAFC;
+    }
+
+    .client-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        background: white;
+        border-radius: 10px;
+        margin-bottom: 8px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .client-item:hover {
+        background: #F0F7FF;
+        transform: translateX(4px);
+    }
+
+    .client-item.selected {
+        background: linear-gradient(135deg, #E5F3FF 0%, #CCE7FF 100%);
+        border: 1px solid var(--primary-color);
+    }
+
+    .client-checkbox {
+        width: 20px;
+        height: 20px;
+        margin-right: 16px;
+    }
+
+    .client-info {
+        flex: 1;
+    }
+
+    .client-name {
+        font-weight: 600;
+        color: var(--dark-color);
+        margin-bottom: 2px;
+    }
+
+    .client-email {
+        color: #6C757D;
+        font-size: 0.875rem;
+    }
+
+    .client-badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .client-badge.active {
+        background: linear-gradient(135deg, #CFF3E1 0%, #E7F9F0 100%);
+        color: #239957;
+    }
+
+    /* Search Box */
+    .search-box {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .search-box input {
+        padding-left: 44px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94A3B8;
+    }
+
+    /* Stats Cards */
+    .stat-card {
+        background: linear-gradient(135deg, #F8FAFC 0%, white 100%);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #E2E8F0;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 4px;
+    }
+
+    .stat-label {
+        color: #6C757D;
+        font-size: 0.875rem;
+    }
+
+    /* Alert Box */
+    .alert-custom {
+        border-radius: 12px;
+        padding: 16px 20px;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .alert-custom.info {
+        background: linear-gradient(135deg, #E5F3FF 0%, #CCE7FF 100%);
+        color: var(--primary-color);
+    }
+
+    .alert-custom.success {
+        background: linear-gradient(135deg, #CFF3E1 0%, #E7F9F0 100%);
+        color: #239957;
+    }
+
+    /* Icon Box */
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+        font-size: 1.5rem;
+    }
+
+    .icon-box.primary {
+        background: linear-gradient(135deg, #D6E7FF 0%, #EBF3FF 100%);
+        color: var(--primary-color);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        color: #E2E8F0;
+        margin-bottom: 16px;
+    }
+
+    .empty-state-title {
+        font-size: 1.125rem;
+        color: var(--dark-color);
+        margin-bottom: 8px;
+    }
+
+    .empty-state-text {
+        color: #6C757D;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-32">
+        <div>
+            <h4 class="fw-semibold mb-0">Assegna Form ai Clienti</h4>
+            <p class="text-muted mb-0">Seleziona i clienti e il form da assegnare</p>
+        </div>
+        <div>
+            <a href="{{ url_for('client_checks.dashboard') }}" class="btn btn-light">
+                <i class="ri-arrow-left-line me-1"></i>
+                Torna al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('client_checks.assign_form') }}" id="assignForm">
+        {{ form.hidden_tag() }}
+        {{ form.send_notification(type="hidden", value="1") }}
+
+        <div class="row">
+            <!-- Left Column - Form Selection -->
+            <div class="col-lg-4">
+                <!-- Form Selection Card -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="fw-semibold mb-0">1. Seleziona Form</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="icon-box primary mx-auto">
+                            <i class="ri-file-list-3-line"></i>
+                        </div>
+
+                        <label class="form-label">Form da Assegnare <span class="text-danger">*</span></label>
+                        {{ form.check_form_id(class="form-select mb-3", id="form_id") }}
+                        {% if form.check_form_id.errors %}
+                            <div class="text-danger small">{{ form.check_form_id.errors[0] }}</div>
+                        {% endif %}
+
+                        <div id="formInfo" class="alert-custom info" style="display: none;">
+                            <i class="ri-information-line"></i>
+                            <div>
+                                <div class="fw-semibold" id="formName"></div>
+                                <div class="small" id="formFields"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Card -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="selectedCount">0</div>
+                                    <div class="stat-label">Selezionati</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="totalCount">{{ clients.total if clients else 0 }}</div>
+                                    <div class="stat-label">Totali</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Client Selection -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="fw-semibold mb-0">2. Seleziona Clienti</h6>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                                    <i class="ri-checkbox-multiple-line me-1"></i>Seleziona Tutti
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll()">
+                                    <i class="ri-checkbox-blank-line me-1"></i>Deseleziona
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Search Box -->
+                        <div class="search-box">
+                            <i class="ri-search-line search-icon"></i>
+                            <input type="text" class="form-control" id="searchClients"
+                                   placeholder="Cerca clienti per nome o email..."
+                                   onkeyup="filterClients()">
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <select class="form-select" id="filterStatus" onchange="filterClients()">
+                                    <option value="">Tutti gli stati</option>
+                                    <option value="attivo">Attivi</option>
+                                    <option value="pausa">In Pausa</option>
+                                    <option value="stop">Fermati</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Client List -->
+                        <div class="client-list">
+                            {% if clients %}
+                                {% for client in clients.items %}
+                                <div class="client-item" data-name="{{ client.nome_cognome|lower }}"
+                                     data-email="{{ client.email|lower }}"
+                                     data-status="{{ client.stato_cliente.value if client.stato_cliente else '' }}"
+                                     onclick="toggleClient(this)">
+                                    <input type="checkbox" class="client-checkbox" name="client_ids"
+                                           value="{{ client.cliente_id }}"
+                                           onchange="updateSelectedCount()"
+                                           onclick="event.stopPropagation()">
+                                    <div class="client-info">
+                                        <div class="client-name">{{ client.nome_cognome }}</div>
+                                        <div class="client-email">{{ client.email or client.consulente_alimentare }}</div>
+                                    </div>
+                                    {% if client.stato_cliente %}
+                                    <span class="client-badge active">
+                                        {{ client.stato_cliente.value|title }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-state">
+                                    <i class="ri-user-line empty-state-icon"></i>
+                                    <h6 class="empty-state-title">Nessun cliente trovato</h6>
+                                    <p class="empty-state-text">Non ci sono clienti disponibili per l'assegnazione</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if clients and clients.pages > 1 %}
+                        <nav class="mt-3">
+                            <ul class="pagination justify-content-center">
+                                {% for page in clients.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                                    {% if page %}
+                                        <li class="page-item {% if page == clients.page %}active{% endif %}">
+                                            <a class="page-link" href="?page={{ page }}">{{ page }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="alert-custom info mb-0">
+                                <i class="ri-information-line"></i>
+                                <div>
+                                    <div class="fw-semibold">Pronto per l'invio</div>
+                                    <div class="small">I clienti selezionati riceveranno il link al form via email</div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-light" onclick="window.history.back()">
+                                    Annulla
+                                </button>
+                                <button type="submit" class="btn btn-success" id="submitBtn" disabled>
+                                    <i class="ri-send-plane-line me-1"></i>
+                                    Assegna Form (<span id="submitCount">0</span> clienti)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle client selection
+function toggleClient(element) {
+    const checkbox = element.querySelector('.client-checkbox');
+    checkbox.checked = !checkbox.checked;
+    element.classList.toggle('selected', checkbox.checked);
+    updateSelectedCount();
+}
+
+// Update selected count
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.client-checkbox:checked');
+    const count = checkboxes.length;
+
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('submitCount').textContent = count;
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = count === 0 || !document.getElementById('form_id').value;
+
+    // Update visual state
+    document.querySelectorAll('.client-item').forEach(item => {
+        const checkbox = item.querySelector('.client-checkbox');
+        item.classList.toggle('selected', checkbox.checked);
+    });
+}
+
+// Select all clients
+function selectAll() {
+    document.querySelectorAll('.client-item:not([style*="display: none"]) .client-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    updateSelectedCount();
+}
+
+// Deselect all clients
+function deselectAll() {
+    document.querySelectorAll('.client-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateSelectedCount();
+}
+
+// Filter clients
+function filterClients() {
+    const searchTerm = document.getElementById('searchClients').value.toLowerCase();
+    const statusFilter = document.getElementById('filterStatus').value;
+
+    document.querySelectorAll('.client-item').forEach(item => {
+        const name = item.dataset.name || '';
+        const email = item.dataset.email || '';
+        const status = item.dataset.status || '';
+
+        const matchSearch = name.includes(searchTerm) || email.includes(searchTerm);
+        const matchStatus = !statusFilter || status === statusFilter;
+
+        item.style.display = matchSearch && matchStatus ? '' : 'none';
+    });
+}
+
+// Handle form selection
+document.getElementById('form_id').addEventListener('change', function() {
+    const formInfo = document.getElementById('formInfo');
+    if (this.value) {
+        // Show form info (in real app, fetch from API)
+        formInfo.style.display = '';
+        document.getElementById('formName').textContent = this.options[this.selectedIndex].text;
+        document.getElementById('formFields').textContent = 'Form con X campi';
+    } else {
+        formInfo.style.display = 'none';
+    }
+    updateSelectedCount();
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateSelectedCount();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block title %}Checklist Onboarding – Recruiting{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('recruiting.static', filename='css/recruiting.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div>
+    <h6 class="fw-semibold mb-0">Checklist Onboarding</h6>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.index') }}">Recruiting</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('recruiting.onboarding_templates') }}">Onboarding</a></li>
+        <li class="breadcrumb-item active">Checklist</li>
+      </ol>
+    </nav>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+      <i class="ri-filter-line me-1"></i>Filtri
+    </button>
+    <a href="{{ url_for('recruiting.onboarding_templates') }}" class="btn btn-outline-primary">
+      <i class="ri-file-list-3-line me-1"></i>Template
+    </a>
+  </div>
+</div>
+
+{# ─────────────────────── STATISTICHE ─────────────────────── #}
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card border-0 bg-primary bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">Checklist Attive</p>
+            <h4 class="mb-0">{{ active_checklists|length }}</h4>
+          </div>
+          <div class="bg-primary bg-opacity-25 rounded-circle p-3">
+            <i class="ri-user-follow-line fs-4 text-primary"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-0 bg-success bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">Completate</p>
+            <h4 class="mb-0">{{ completed_checklists|length }}</h4>
+            <small class="text-muted">Ultime 30</small>
+          </div>
+          <div class="bg-success bg-opacity-25 rounded-circle p-3">
+            <i class="ri-checkbox-circle-line fs-4 text-success"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-0 bg-warning bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">In Scadenza</p>
+            <h4 class="mb-0">
+              {% set expiring = active_checklists|selectattr('is_expiring')|list %}
+              {{ expiring|length }}
+            </h4>
+          </div>
+          <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+            <i class="ri-alarm-warning-line fs-4 text-warning"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3">
+    <div class="card border-0 bg-info bg-opacity-10">
+      <div class="card-body">
+        <div class="d-flex align-items-center">
+          <div class="flex-grow-1">
+            <p class="text-muted mb-1">Progresso Medio</p>
+            <h4 class="mb-0">
+              {% if active_checklists %}
+                {% set total_progress = active_checklists|sum(attribute='progress_percentage') %}
+                {{ (total_progress / active_checklists|length)|round|int }}%
+              {% else %}
+                0%
+              {% endif %}
+            </h4>
+          </div>
+          <div class="bg-info bg-opacity-25 rounded-circle p-3">
+            <i class="ri-pie-chart-line fs-4 text-info"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── TABS ─────────────────────── #}
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#active-tab" type="button">
+      <i class="ri-user-follow-line me-1"></i>
+      Checklist Attive ({{ active_checklists|length }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#completed-tab" type="button">
+      <i class="ri-checkbox-circle-line me-1"></i>
+      Completate ({{ completed_checklists|length }})
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  {# ─────────────────────── CHECKLIST ATTIVE ─────────────────────── #}
+  <div class="tab-pane fade show active" id="active-tab">
+    {% if active_checklists %}
+      <div class="row">
+        {% for checklist in active_checklists %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+          <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 pb-0">
+              <div class="d-flex align-items-start justify-content-between">
+                <div class="flex-grow-1">
+                  <h6 class="card-title mb-1">
+                    <a href="{{ url_for('recruiting.onboarding_checklist_detail', checklist_id=checklist.id) }}" 
+                       class="text-decoration-none">
+                      {{ checklist.application.full_name }}
+                    </a>
+                  </h6>
+                  <p class="text-muted small mb-0">
+                    {{ checklist.template.name }}
+                  </p>
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                    <i class="ri-more-2-line"></i>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li>
+                      <a class="dropdown-item" href="{{ url_for('recruiting.onboarding_checklist_detail', checklist_id=checklist.id) }}">
+                        <i class="ri-eye-line me-2"></i>Visualizza
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{{ url_for('recruiting.application_detail', application_id=checklist.application_id) }}">
+                        <i class="ri-user-line me-2"></i>Candidato
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <div class="card-body pt-2">
+              {# Progress Bar #}
+              <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <small class="text-muted">Progresso</small>
+                  <small class="fw-semibold">{{ checklist.progress_percentage }}%</small>
+                </div>
+                <div class="onboarding-progress">
+                  <div class="onboarding-progress-bar bg-primary" 
+                       style="width: {{ checklist.progress_percentage }}%"></div>
+                </div>
+              </div>
+              
+              {# Info #}
+              <div class="row text-center">
+                <div class="col-4">
+                  <div class="border-end">
+                    <div class="fw-semibold text-primary">{{ checklist.progress_items|selectattr('status.value', 'equalto', 'completed')|list|length }}</div>
+                    <small class="text-muted">Completati</small>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="border-end">
+                    <div class="fw-semibold text-warning">{{ checklist.progress_items|selectattr('status.value', 'equalto', 'in_progress')|list|length }}</div>
+                    <small class="text-muted">In Corso</small>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="fw-semibold text-muted">{{ checklist.progress_items|selectattr('status.value', 'equalto', 'pending')|list|length }}</div>
+                  <small class="text-muted">Da Fare</small>
+                </div>
+              </div>
+              
+              {# Date Info #}
+              <div class="mt-3 pt-3 border-top">
+                <div class="d-flex justify-content-between text-sm">
+                  <span class="text-muted">
+                    <i class="ri-calendar-line me-1"></i>
+                    Iniziato: {{ checklist.start_date.strftime('%d/%m/%Y') if checklist.start_date }}
+                  </span>
+                  {% if checklist.expected_end_date %}
+                  <span class="text-muted">
+                    <i class="ri-calendar-check-line me-1"></i>
+                    Scadenza: {{ checklist.expected_end_date.strftime('%d/%m/%Y') }}
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+              
+              {# Status Badge #}
+              {% if checklist.is_expiring %}
+              <div class="mt-2">
+                <span class="badge bg-warning">
+                  <i class="ri-alarm-warning-line me-1"></i>In Scadenza
+                </span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-center py-5">
+        <div class="mb-3">
+          <i class="ri-user-follow-line fs-1 text-muted"></i>
+        </div>
+        <h5 class="text-muted">Nessuna checklist attiva</h5>
+        <p class="text-muted">
+          Non ci sono checklist di onboarding in corso al momento.
+        </p>
+        <a href="{{ url_for('recruiting.onboarding_templates') }}" class="btn btn-primary">
+          <i class="ri-add-line me-1"></i>Inizia Nuovo Onboarding
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ─────────────────────── CHECKLIST COMPLETATE ─────────────────────── #}
+  <div class="tab-pane fade" id="completed-tab">
+    {% if completed_checklists %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>Candidato</th>
+              <th>Template</th>
+              <th>Dipartimento</th>
+              <th>Data Inizio</th>
+              <th>Data Completamento</th>
+              <th>Durata</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for checklist in completed_checklists %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="avatar-sm bg-primary bg-opacity-10 rounded-circle me-2 d-flex align-items-center justify-content-center">
+                    <i class="ri-user-line text-primary"></i>
+                  </div>
+                  <div>
+                    <div class="fw-semibold">{{ checklist.application.full_name }}</div>
+                    <small class="text-muted">{{ checklist.application.email }}</small>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="fw-semibold">{{ checklist.template.name }}</div>
+                <small class="text-muted">{{ checklist.template.duration_days }} giorni</small>
+              </td>
+              <td>
+                {% if checklist.template.department %}
+                  <span class="badge bg-light text-dark">{{ checklist.template.department.name }}</span>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if checklist.start_date %}
+                  {{ checklist.start_date.strftime('%d/%m/%Y') }}
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if checklist.completed_at %}
+                  <div class="text-success fw-semibold">
+                    {{ checklist.completed_at.strftime('%d/%m/%Y') }}
+                  </div>
+                  <small class="text-muted">{{ checklist.completed_at.strftime('%H:%M') }}</small>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if checklist.start_date and checklist.completed_at %}
+                  {% set duration = (checklist.completed_at.date() - checklist.start_date).days %}
+                  <span class="fw-semibold">{{ duration }} giorni</span>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <a href="{{ url_for('recruiting.onboarding_checklist_detail', checklist_id=checklist.id) }}" 
+                     class="btn btn-sm btn-outline-primary" title="Visualizza">
+                    <i class="ri-eye-line"></i>
+                  </a>
+                  <a href="{{ url_for('recruiting.application_detail', application_id=checklist.application_id) }}" 
+                     class="btn btn-sm btn-outline-secondary" title="Candidato">
+                    <i class="ri-user-line"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-5">
+        <div class="mb-3">
+          <i class="ri-checkbox-circle-line fs-1 text-muted"></i>
+        </div>
+        <h5 class="text-muted">Nessuna checklist completata</h5>
+        <p class="text-muted">
+          Non ci sono checklist di onboarding completate negli ultimi 30 giorni.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ─────────────────────── MODAL FILTRI ─────────────────────── #}
+<div class="modal fade" id="filterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Filtri Checklist</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="filterForm">
+          <div class="mb-3">
+            <label class="form-label">Dipartimento</label>
+            <select class="form-select" name="department">
+              <option value="">Tutti i dipartimenti</option>
+              {# Qui andrebbero i dipartimenti disponibili #}
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Template</label>
+            <select class="form-select" name="template">
+              <option value="">Tutti i template</option>
+              {# Qui andrebbero i template disponibili #}
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Stato Progresso</label>
+            <select class="form-select" name="progress">
+              <option value="">Tutti</option>
+              <option value="0-25">0-25%</option>
+              <option value="26-50">26-50%</option>
+              <option value="51-75">51-75%</option>
+              <option value="76-100">76-100%</option>
+            </select>
+          </div>
+          
+          <div class="row">
+            <div class="col-6">
+              <label class="form-label">Data Inizio Da</label>
+              <input type="date" class="form-control" name="start_date_from">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Data Inizio A</label>
+              <input type="date" class="form-control" name="start_date_to">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" onclick="applyFilters()">Applica Filtri</button>
+        <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('recruiting.static', filename='js/recruiting.js') }}"></script>
+<script>
+// Funzioni per i filtri
+function applyFilters() {
+  const form = document.getElementById('filterForm');
+  const formData = new FormData(form);
+  const params = new URLSearchParams();
+  
+  for (let [key, value] of formData.entries()) {
+    if (value) {
+      params.append(key, value);
+    }
+  }
+  
+  const url = new URL(window.location);
+  url.search = params.toString();
+  window.location.href = url.toString();
+}
+
+function clearFilters() {
+  document.getElementById('filterForm').reset();
+  window.location.href = window.location.pathname;
+}
+
+// Inizializza il modulo recruiting
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.RecruitingModule) {
+    window.RecruitingModule.init();
+  }
+});
+</script>
+{% endblock %}

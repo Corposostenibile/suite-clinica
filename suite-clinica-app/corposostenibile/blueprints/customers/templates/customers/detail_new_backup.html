@@ -1,0 +1,1788 @@
+{# blueprints/customers/templates/customers/detail.html #}
+{% extends "base.html" %}
+{% from "feedback/partials/_rating_badge.html" import rating_badge %}
+
+{# ------------------------------------------------------------------- #}
+{#  Flags di utilità                                                  #}
+{# ------------------------------------------------------------------- #}
+{% set readonly = readonly|default(False) %}
+
+{# ------------------------------------------------------------------- #}
+{#  Titolo pagina                                                     #}
+{# ------------------------------------------------------------------- #}
+{% block title %}{{ cliente.nome_cognome }} • Dettaglio cliente{% endblock %}
+
+{# ------------------------------------------------------------------- #}
+{#  CSS extra                                                         #}
+{# ------------------------------------------------------------------- #}
+{% block extra_css %}
+<style>
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+
+  /* Tab navigation moderna */
+  .nav-tabs-modern {
+    border: none;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 24px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .nav-tabs-modern .nav-link {
+    color: #6c757d;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    margin-right: 8px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+  }
+
+  .nav-tabs-modern .nav-link:hover {
+    background: white;
+    color: #667eea;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .nav-tabs-modern .nav-link.active {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  /* Card moderna */
+  .modern-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    overflow: hidden;
+  }
+
+  .modern-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+
+  .modern-card-header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 16px 20px;
+    font-weight: 600;
+    border: none;
+  }
+
+  .modern-card-header.success {
+    background: var(--success-gradient);
+  }
+
+  .modern-card-header.warning {
+    background: var(--warning-gradient);
+  }
+
+  .modern-card-header.info {
+    background: var(--info-gradient);
+  }
+
+  /* Info items */
+  .info-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f3f5;
+  }
+
+  .info-item:last-child {
+    border-bottom: none;
+  }
+
+  .info-label {
+    font-weight: 600;
+    color: #495057;
+    min-width: 140px;
+    font-size: 0.875rem;
+  }
+
+  .info-value {
+    color: #212529;
+    flex: 1;
+  }
+
+  /* Status badges moderni */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-badge.success {
+    background: rgba(40, 199, 111, 0.1);
+    color: #28c76f;
+  }
+
+  .status-badge.warning {
+    background: rgba(255, 159, 67, 0.1);
+    color: #ff9f43;
+  }
+
+  .status-badge.danger {
+    background: rgba(234, 84, 85, 0.1);
+    color: #ea5455;
+  }
+
+  .status-badge.info {
+    background: rgba(0, 207, 232, 0.1);
+    color: #00cfe8;
+  }
+
+  /* Progress bars */
+  .progress-modern {
+    height: 8px;
+    border-radius: 10px;
+    background: #f1f3f5;
+    overflow: visible;
+  }
+
+  .progress-modern .progress-bar {
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  /* Metric cards */
+  .metric-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #f1f3f5;
+    transition: all 0.3s ease;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .metric-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .metric-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #667eea;
+  }
+
+  /* Avatar più grande */
+  .client-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 20px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 auto 20px;
+  }
+
+  /* Quick stats */
+  .quick-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .quick-stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+  }
+
+  .quick-stat-value {
+    font-weight: 600;
+    color: #212529;
+  }
+
+  /* Feedback item moderno */
+  .feedback-card {
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+  }
+
+  .feedback-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .feedback-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f3f5;
+  }
+
+  .feedback-ratings {
+    display: flex;
+    gap: 16px;
+  }
+
+  .rating-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rating-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Note box stilizzato */
+  .notes-box-modern {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .notes-box-modern::before {
+    content: '"';
+    position: absolute;
+    top: -20px;
+    left: 10px;
+    font-size: 80px;
+    opacity: 0.1;
+    font-family: serif;
+  }
+
+  /* Grid responsive */
+  @media (max-width: 768px) {
+    .nav-tabs-modern {
+      padding: 4px;
+    }
+    
+    .nav-tabs-modern .nav-link {
+      padding: 8px 12px;
+      font-size: 0.875rem;
+    }
+    
+    .info-label {
+      min-width: 100px;
+    }
+  }
+</style>
+{% endblock %}
+
+{# ------------------------------------------------------------------- #}
+{#  Helper macros                                                     #}
+{# ------------------------------------------------------------------- #}
+{% macro format_date(dt) -%}
+  {{ dt.strftime('%d/%m/%Y') if dt else '—' }}
+{%- endmacro %}
+
+{% macro format_datetime(dt) -%}
+  {{ dt.strftime('%d/%m/%Y %H:%M') if dt else '—' }}
+{%- endmacro %}
+
+{% macro format_bool(val) -%}
+  {% if val is none %}
+    <span class="text-muted">—</span>
+  {% elif val %}
+    <span class="status-badge success">✓ Sì</span>
+  {% else %}
+    <span class="status-badge danger">✗ No</span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro render_metric(value, label, color="primary") -%}
+  <div class="metric-card">
+    <div class="metric-value text-{{ color }}">{{ value|default('—') }}</div>
+    <div class="metric-label">{{ label }}</div>
+  </div>
+{%- endmacro %}
+
+{# ------------------------------------------------------------------- #}
+{#  Contenuto principale                                              #}
+{# ------------------------------------------------------------------- #}
+{% block content %}
+
+<!-- Header con breadcrumb -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 px-3">
+  <div>
+    <h4 class="mb-1">{{ cliente.nome_cognome }}</h4>
+    <p class="text-muted mb-0">
+      {% if cliente.professione %}{{ cliente.professione }} • {% endif %}
+      Cliente #{{ cliente.cliente_id }}
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    {% if not readonly %}
+    <a href="{{ url_for('customers.edit_view', cliente_id=cliente.cliente_id) }}" class="btn btn-primary">
+      <i class="ri-pencil-line me-1"></i>Modifica
+    </a>
+    <a href="{{ url_for('customers.history_view', cliente_id=cliente.cliente_id) }}" class="btn btn-outline-secondary">
+      <i class="ri-history-line me-1"></i>Storico
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Flash messages -->
+{% for cat,msg in get_flashed_messages(with_categories=true) %}
+<div class="alert alert-{{ cat }} alert-dismissible fade show mx-3">
+  {{ msg }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+
+<div class="px-3">
+  <!-- Tab Navigation -->
+  <ul class="nav nav-tabs-modern" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-overview">
+        📊 Panoramica
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-program">
+        🎯 Programma
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-team">
+        👥 Team & Call
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-health">
+        💪 Salute & Allenamento
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-feedback">
+        💬 Feedback
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-notes">
+        📝 Note
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-media">
+        📱 Media & Social
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-admin">
+        ⚙️ Amministrazione
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-documents">
+        📁 Documenti
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+    
+    <!-- PANORAMICA TAB -->
+    <div class="tab-pane fade show active" id="tab-overview">
+      <div class="row g-4">
+        
+        <!-- Colonna sinistra - Info cliente -->
+        <div class="col-lg-4">
+          <div class="modern-card">
+            <div class="card-body">
+              <!-- Avatar -->
+              <div class="client-avatar">
+                {{ cliente.nome_cognome[:2].upper() }}
+              </div>
+              
+              <!-- Info base -->
+              <h5 class="text-center mb-3">{{ cliente.nome_cognome }}</h5>
+              
+              <!-- Quick stats -->
+              <div class="mb-3">
+                {% if cliente.data_di_nascita %}
+                <div class="quick-stat">
+                  <span class="quick-stat-label">Età</span>
+                  <span class="quick-stat-value">
+                    {{ (datetime.now().date() - cliente.data_di_nascita).days // 365 }} anni
+                  </span>
+                </div>
+                {% endif %}
+                
+                <div class="quick-stat">
+                  <span class="quick-stat-label">Stato</span>
+                  <span class="quick-stat-value">
+                    {% if cliente.stato_cliente %}
+                      {% if cliente.stato_cliente.value == 'attivo' %}
+                        <span class="status-badge success">{{ cliente.stato_cliente.value }}</span>
+                      {% elif cliente.stato_cliente.value == 'pausa' %}
+                        <span class="status-badge warning">{{ cliente.stato_cliente.value }}</span>
+                      {% elif cliente.stato_cliente.value == 'insoluto' %}
+                        <span class="status-badge danger">{{ cliente.stato_cliente.value }}</span>
+                      {% else %}
+                        <span class="status-badge info">{{ cliente.stato_cliente.value }}</span>
+                      {% endif %}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </span>
+                </div>
+                
+                {% if cliente.tipologia_cliente %}
+                <div class="quick-stat">
+                  <span class="quick-stat-label">Tipologia</span>
+                  <span class="quick-stat-value">{{ cliente.tipologia_cliente.value }}</span>
+                </div>
+                {% endif %}
+                
+                {% if cliente.professione %}
+                <div class="quick-stat">
+                  <span class="quick-stat-label">Professione</span>
+                  <span class="quick-stat-value">{{ cliente.professione }}</span>
+                </div>
+                {% endif %}
+              </div>
+              
+              <!-- Abbonamento timeline -->
+              <h6 class="mb-3">📅 Timeline Abbonamento</h6>
+              <div class="timeline">
+                {% if cliente.data_inizio_abbonamento %}
+                <div class="timeline-item">
+                  <strong>Inizio</strong><br>
+                  <small class="text-muted">{{ format_date(cliente.data_inizio_abbonamento) }}</small>
+                </div>
+                {% endif %}
+                
+                {% if cliente.data_rinnovo %}
+                <div class="timeline-item">
+                  <strong>Prossimo rinnovo</strong><br>
+                  <small class="text-muted">{{ format_date(cliente.data_rinnovo) }}</small>
+                  {% if cliente.giorni_rimanenti is not none %}
+                    <br>
+                    {% if cliente.giorni_rimanenti < 0 %}
+                      <span class="status-badge danger">Scaduto da {{ -cliente.giorni_rimanenti }} giorni</span>
+                    {% elif cliente.giorni_rimanenti <= 7 %}
+                      <span class="status-badge danger">{{ cliente.giorni_rimanenti }} giorni rimanenti</span>
+                    {% elif cliente.giorni_rimanenti <= 30 %}
+                      <span class="status-badge warning">{{ cliente.giorni_rimanenti }} giorni rimanenti</span>
+                    {% else %}
+                      <span class="status-badge success">{{ cliente.giorni_rimanenti }} giorni rimanenti</span>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Colonna centrale - Programma e obiettivi -->
+        <div class="col-lg-4">
+          <div class="modern-card mb-4">
+            <div class="modern-card-header">
+              🎯 Programma Attuale
+            </div>
+            <div class="card-body">
+              {% if cliente.programma_attuale %}
+                <h5 class="text-primary mb-2">{{ cliente.programma_attuale }}</h5>
+                {% if cliente.programma_attuale_dettaglio %}
+                  <p class="text-muted small mb-0">{{ cliente.programma_attuale_dettaglio }}</p>
+                {% endif %}
+              {% else %}
+                <p class="text-muted mb-0">Nessun programma specificato</p>
+              {% endif %}
+              
+              {% if cliente.macrocategoria %}
+                <hr>
+                <small class="text-muted">Macrocategoria:</small>
+                <p class="mb-0">{{ cliente.macrocategoria }}</p>
+              {% endif %}
+              
+              {% if cliente.durata_programma_giorni %}
+                <hr>
+                <small class="text-muted">Durata:</small>
+                <p class="mb-0"><strong>{{ cliente.durata_programma_giorni }} giorni</strong></p>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="modern-card">
+            <div class="modern-card-header success">
+              🎯 Obiettivo
+            </div>
+            <div class="card-body">
+              {% if cliente.obiettivo_semplicato %}
+                <p class="mb-0">{{ cliente.obiettivo_semplicato }}</p>
+              {% elif cliente.obiettivo_cliente %}
+                <p class="mb-0">{{ cliente.obiettivo_cliente }}</p>
+              {% else %}
+                <p class="text-muted mb-0">Nessun obiettivo specificato</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Colonna destra - Team e metriche -->
+        <div class="col-lg-4">
+          <div class="modern-card mb-4">
+            <div class="modern-card-header info">
+              👥 Team Assegnato
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <div class="d-flex align-items-center mb-2">
+                  <iconify-icon icon="fluent-emoji-flat:green-salad" style="font-size:1.5rem;" class="me-2"></iconify-icon>
+                  <div>
+                    <small class="text-muted d-block">Nutrizionista</small>
+                    <strong>{{ cliente.nutrizionista or '—' }}</strong>
+                  </div>
+                </div>
+                
+                <div class="d-flex align-items-center mb-2">
+                  <iconify-icon icon="material-icon-theme:brainfuck" style="font-size:1.5rem;" class="me-2"></iconify-icon>
+                  <div>
+                    <small class="text-muted d-block">Psicologa</small>
+                    <strong>{{ cliente.psicologa or '—' }}</strong>
+                  </div>
+                </div>
+                
+                <div class="d-flex align-items-center">
+                  <iconify-icon icon="emojione-v1:person-lifting-weights" style="font-size:1.5rem;" class="me-2"></iconify-icon>
+                  <div>
+                    <small class="text-muted d-block">Coach</small>
+                    <strong>{{ cliente.coach or '—' }}</strong>
+                  </div>
+                </div>
+              </div>
+              
+              {% if cliente.consulente_alimentare %}
+                <hr>
+                <small class="text-muted">Consulente alimentare:</small>
+                <p class="mb-0"><strong>{{ cliente.consulente_alimentare }}</strong></p>
+              {% endif %}
+              
+              {% if cliente.figura_di_riferimento %}
+                <hr>
+                <small class="text-muted">Figura di riferimento:</small>
+                <p class="mb-0"><strong>{{ cliente.figura_di_riferimento.value }}</strong></p>
+              {% endif %}
+            </div>
+          </div>
+          
+          <!-- Metriche veloci -->
+          <div class="row g-3">
+            <div class="col-6">
+              {{ render_metric(cliente.check_day.value if cliente.check_day else '—', 'Check Day', 'primary') }}
+            </div>
+            <div class="col-6">
+              {{ render_metric(cliente.check_saltati.value if cliente.check_saltati else '0', 'Check Saltati', 'warning') }}
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- PROGRAMMA TAB -->
+    <div class="tab-pane fade" id="tab-program">
+      <div class="row g-4">
+        
+        <!-- Programma e abbonamento -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              📋 Dettagli Programma
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Programma attuale:</span>
+                <span class="info-value">{{ cliente.programma_attuale or '—' }}</span>
+              </div>
+              
+              {% if cliente.programma_attuale_dettaglio %}
+              <div class="info-item">
+                <span class="info-label">Dettaglio:</span>
+                <span class="info-value">{{ cliente.programma_attuale_dettaglio }}</span>
+              </div>
+              {% endif %}
+              
+              {% if cliente.storico_programma %}
+              <div class="info-item">
+                <span class="info-label">Storico:</span>
+                <span class="info-value">{{ cliente.storico_programma }}</span>
+              </div>
+              {% endif %}
+              
+              {% if cliente.macrocategoria %}
+              <div class="info-item">
+                <span class="info-label">Macrocategoria:</span>
+                <span class="info-value">{{ cliente.macrocategoria }}</span>
+              </div>
+              {% endif %}
+              
+              <div class="info-item">
+                <span class="info-label">Inizio abbonamento:</span>
+                <span class="info-value">{{ format_date(cliente.data_inizio_abbonamento) }}</span>
+              </div>
+              
+              {% if cliente.durata_programma_giorni %}
+              <div class="info-item">
+                <span class="info-label">Durata:</span>
+                <span class="info-value">{{ cliente.durata_programma_giorni }} giorni</span>
+              </div>
+              {% endif %}
+              
+              {% if cliente.rate_cliente_sales %}
+              <div class="info-item">
+                <span class="info-label">Rate cliente:</span>
+                <span class="info-value">€ {{ '{:,.2f}'.format(cliente.rate_cliente_sales) }}</span>
+              </div>
+              {% endif %}
+              
+              {% if cliente.rate_cliente_sales_dettaglio %}
+              <div class="info-item">
+                <span class="info-label">Dettaglio pagamenti:</span>
+                <span class="info-value">{{ cliente.rate_cliente_sales_dettaglio }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Obiettivi e problematiche -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header success">
+              🎯 Obiettivi & Problematiche
+            </div>
+            <div class="card-body">
+              {% if cliente.obiettivo_semplicato %}
+              <h6>Obiettivo semplificato</h6>
+              <div class="notes-box-modern mb-3">
+                {{ cliente.obiettivo_semplicato }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.obiettivo_cliente %}
+              <h6>Obiettivo dettagliato</h6>
+              <div class="notes-box-modern mb-3">
+                {{ cliente.obiettivo_cliente }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.problema %}
+              <h6>Problema</h6>
+              <div class="alert alert-warning">
+                {{ cliente.problema }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.paure %}
+              <h6>Paure</h6>
+              <div class="alert alert-info">
+                {{ cliente.paure }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.conseguenze %}
+              <h6>Conseguenze</h6>
+              <div class="alert alert-danger">
+                {{ cliente.conseguenze }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.storia_cliente %}
+              <h6>Storia cliente</h6>
+              <div class="notes-box-modern">
+                {{ cliente.storia_cliente }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- TEAM & CALL TAB -->
+    <div class="tab-pane fade" id="tab-team">
+      <div class="row g-4">
+        
+        <!-- Team assegnato -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header info">
+              👥 Staff Assegnato
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Nutrizionista:</span>
+                <span class="info-value">{{ cliente.nutrizionista or '—' }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Psicologa:</span>
+                <span class="info-value">{{ cliente.psicologa or '—' }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Coach:</span>
+                <span class="info-value">{{ cliente.coach or '—' }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Consulente alimentare:</span>
+                <span class="info-value">{{ cliente.consulente_alimentare or '—' }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Figura di riferimento:</span>
+                <span class="info-value">{{ cliente.figura_di_riferimento.value if cliente.figura_di_riferimento else '—' }}</span>
+              </div>
+              
+              {% if cliente.di_team %}
+              <div class="info-item">
+                <span class="info-label">Team:</span>
+                <span class="info-value">{{ cliente.di_team.value }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Call iniziali -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              📞 Call Iniziali
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Call nutrizionista:</span>
+                <span class="info-value">
+                  {{ format_bool(cliente.call_iniziale_nutrizionista) }}
+                  {% if cliente.data_call_iniziale_nutrizionista %}
+                    <small class="text-muted ms-2">{{ format_date(cliente.data_call_iniziale_nutrizionista) }}</small>
+                  {% endif %}
+                </span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Call psicologa:</span>
+                <span class="info-value">
+                  {{ format_bool(cliente.call_iniziale_psicologa) }}
+                  {% if cliente.data_call_iniziale_psicologia %}
+                    <small class="text-muted ms-2">{{ format_date(cliente.data_call_iniziale_psicologia) }}</small>
+                  {% endif %}
+                </span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Call coach:</span>
+                <span class="info-value">
+                  {{ format_bool(cliente.call_iniziale_coach) }}
+                  {% if cliente.data_call_iniziale_coach %}
+                    <small class="text-muted ms-2">{{ format_date(cliente.data_call_iniziale_coach) }}</small>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Test e piani -->
+          <div class="modern-card mt-4">
+            <div class="modern-card-header warning">
+              🧪 Test e Valutazioni
+            </div>
+            <div class="card-body">
+              {% if cliente.data_test_alim %}
+              <div class="info-item">
+                <span class="info-label">Data test alimentare:</span>
+                <span class="info-value">{{ format_date(cliente.data_test_alim) }}</span>
+              </div>
+              {% endif %}
+              
+              <div class="info-item">
+                <span class="info-label">Tipo iniziale:</span>
+                <span class="info-value">{{ cliente.tipo_iniziale or '—' }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Tipo attuale:</span>
+                <span class="info-value">{{ cliente.tipo_attuale or '—' }}</span>
+              </div>
+              
+              {% if cliente.piano_alimentare %}
+              <div class="info-item">
+                <span class="info-label">Piano alimentare:</span>
+                <span class="info-value">{{ cliente.piano_alimentare }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- SALUTE & ALLENAMENTO TAB -->
+    <div class="tab-pane fade" id="tab-health">
+      <div class="row g-4">
+        
+        <!-- Allenamento -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              🏋️ Allenamento
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Allenamento dal:</span>
+                <span class="info-value">{{ format_date(cliente.allenamento_dal) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Nuovo allenamento il:</span>
+                <span class="info-value">{{ format_date(cliente.nuovo_allenamento_il) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Luogo allenamento:</span>
+                <span class="info-value">{{ cliente.luogo_di_allenamento.value if cliente.luogo_di_allenamento else '—' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Dieta -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header success">
+              🥗 Alimentazione
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Dieta dal:</span>
+                <span class="info-value">{{ format_date(cliente.dieta_dal) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Nuova dieta dal:</span>
+                <span class="info-value">{{ format_date(cliente.nuova_dieta_dal) }}</span>
+              </div>
+              
+              {% if cliente.piano_alimentare %}
+              <div class="info-item">
+                <span class="info-label">Piano alimentare:</span>
+                <span class="info-value">{{ cliente.piano_alimentare }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Check e stati -->
+        <div class="col-lg-12">
+          <div class="modern-card">
+            <div class="modern-card-header info">
+              📊 Stati e Monitoraggio
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Stato cliente:</span>
+                    <span class="info-value">
+                      {% if cliente.stato_cliente %}
+                        <span class="status-badge {{ 'success' if cliente.stato_cliente.value == 'attivo' else 'warning' }}">
+                          {{ cliente.stato_cliente.value }}
+                        </span>
+                      {% else %}—{% endif %}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Stato chat:</span>
+                    <span class="info-value">{{ cliente.stato_cliente_chat.value if cliente.stato_cliente_chat else '—' }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Stato sedute psico:</span>
+                    <span class="info-value">{{ cliente.stato_cliente_sedute_psico.value if cliente.stato_cliente_sedute_psico else '—' }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Check day:</span>
+                    <span class="info-value">{{ cliente.check_day.value if cliente.check_day else '—' }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Check saltati:</span>
+                    <span class="info-value">
+                      {% if cliente.check_saltati %}
+                        <span class="status-badge {{ 'danger' if cliente.check_saltati.value != 'zero' else 'success' }}">
+                          {{ cliente.check_saltati.value }}
+                        </span>
+                      {% else %}—{% endif %}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Reach out:</span>
+                    <span class="info-value">{{ cliente.reach_out|format_giorno if cliente.reach_out else '—' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- FEEDBACK TAB -->
+    <div class="tab-pane fade" id="tab-feedback">
+      {% if cliente.typeform_responses and cliente.typeform_responses|length > 0 %}
+        <div class="row">
+          <div class="col-12">
+            {% for response in cliente.typeform_responses|sort(attribute='submit_date', reverse=True) %}
+              <div class="feedback-card">
+                <div class="feedback-header">
+                  <div>
+                    <h6 class="mb-1">{{ format_date(response.submit_date) if response.submit_date else 'Data sconosciuta' }}</h6>
+                    {% if response.weight or response.energy_rating %}
+                      <small class="text-muted">
+                        {% if response.weight %}Peso: {{ response.weight }}kg{% endif %}
+                        {% if response.energy_rating %}{% if response.weight %} • {% endif %}Energia: {{ response.energy_rating }}/10{% endif %}
+                      </small>
+                    {% endif %}
+                  </div>
+                  
+                  <div class="feedback-ratings">
+                    {% if response.nutritionist_rating %}
+                    <div class="rating-item">
+                      <iconify-icon icon="fluent-emoji-flat:green-salad" class="rating-icon"></iconify-icon>
+                      {{ rating_badge(response.nutritionist_rating, false) }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if response.psychologist_rating %}
+                    <div class="rating-item">
+                      <iconify-icon icon="material-icon-theme:brainfuck" class="rating-icon"></iconify-icon>
+                      {{ rating_badge(response.psychologist_rating, false) }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if response.coach_rating %}
+                    <div class="rating-item">
+                      <iconify-icon icon="emojione-v1:person-lifting-weights" class="rating-icon"></iconify-icon>
+                      {{ rating_badge(response.coach_rating, false) }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if response.progress_rating %}
+                    <div class="rating-item">
+                      <img src="/static/assets/immagini/logo_mini.png" alt="Percorso" class="rating-icon">
+                      {{ rating_badge(response.progress_rating, false) }}
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+                
+                <div class="accordion" id="feedbackAccordion{{ response.id }}">
+                  <div class="accordion-item border-0">
+                    <h2 class="accordion-header">
+                      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                              data-bs-target="#feedbackDetail{{ response.id }}" aria-expanded="false">
+                        Visualizza dettagli completi
+                      </button>
+                    </h2>
+                    <div id="feedbackDetail{{ response.id }}" class="accordion-collapse collapse" 
+                         data-bs-parent="#feedbackAccordion{{ response.id }}">
+                      <div class="accordion-body">
+                        <div class="row g-3">
+                          
+                          <!-- Metriche fisiche -->
+                          <div class="col-md-6">
+                            <h6 class="text-muted mb-3">📊 Metriche Fisiche</h6>
+                            <div class="row g-2">
+                              <div class="col-6">
+                                <small class="text-muted d-block">Peso</small>
+                                <strong>{{ response.weight or '—' }} kg</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Digestione</small>
+                                <strong>{{ response.digestion_rating or '—' }}/10</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Energia</small>
+                                <strong>{{ response.energy_rating or '—' }}/10</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Forza</small>
+                                <strong>{{ response.strength_rating or '—' }}/10</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Fame</small>
+                                <strong>{{ response.hunger_rating or '—' }}/10</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Sonno</small>
+                                <strong>{{ response.sleep_rating or '—' }}/10</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Umore</small>
+                                <strong>{{ response.mood_rating or '—' }}/10</strong>
+                              </div>
+                              <div class="col-6">
+                                <small class="text-muted d-block">Motivazione</small>
+                                <strong>{{ response.motivation_rating or '—' }}/10</strong>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <!-- Aderenza programma -->
+                          <div class="col-md-6">
+                            <h6 class="text-muted mb-3">🎯 Aderenza Programma</h6>
+                            
+                            {% if response.daily_steps %}
+                            <div class="mb-2">
+                              <small class="text-muted">Passi giornalieri:</small>
+                              <strong class="d-block">{{ response.daily_steps }}</strong>
+                            </div>
+                            {% endif %}
+                            
+                            {% if response.completed_training_weeks %}
+                            <div class="mb-2">
+                              <small class="text-muted">Settimane completate:</small>
+                              <strong class="d-block">{{ response.completed_training_weeks }}</strong>
+                            </div>
+                            {% endif %}
+                            
+                            {% if response.planned_training_days %}
+                            <div class="mb-2">
+                              <small class="text-muted">Giorni pianificati:</small>
+                              <strong class="d-block">{{ response.planned_training_days }}</strong>
+                            </div>
+                            {% endif %}
+                            
+                            {% if response.nutrition_program_adherence %}
+                            <div class="alert alert-light p-2 mb-2">
+                              <small><strong>Aderenza alimentare:</strong><br>{{ response.nutrition_program_adherence }}</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if response.training_program_adherence %}
+                            <div class="alert alert-light p-2">
+                              <small><strong>Aderenza sportiva:</strong><br>{{ response.training_program_adherence }}</small>
+                            </div>
+                            {% endif %}
+                          </div>
+                          
+                          <!-- Riflessioni -->
+                          {% if response.what_worked or response.what_didnt_work or response.what_learned or response.what_focus_next %}
+                          <div class="col-12">
+                            <h6 class="text-muted mb-3">💭 Riflessioni Settimanali</h6>
+                            <div class="row g-2">
+                              {% if response.what_worked %}
+                              <div class="col-md-6">
+                                <div class="alert alert-success p-2">
+                                  <small><strong>✅ Cosa ha funzionato:</strong><br>{{ response.what_worked }}</small>
+                                </div>
+                              </div>
+                              {% endif %}
+                              
+                              {% if response.what_didnt_work %}
+                              <div class="col-md-6">
+                                <div class="alert alert-danger p-2">
+                                  <small><strong>❌ Cosa non ha funzionato:</strong><br>{{ response.what_didnt_work }}</small>
+                                </div>
+                              </div>
+                              {% endif %}
+                              
+                              {% if response.what_learned %}
+                              <div class="col-md-6">
+                                <div class="alert alert-info p-2">
+                                  <small><strong>💡 Cosa hai imparato:</strong><br>{{ response.what_learned }}</small>
+                                </div>
+                              </div>
+                              {% endif %}
+                              
+                              {% if response.what_focus_next %}
+                              <div class="col-md-6">
+                                <div class="alert alert-warning p-2">
+                                  <small><strong>🎯 Focus prossima settimana:</strong><br>{{ response.what_focus_next }}</small>
+                                </div>
+                              </div>
+                              {% endif %}
+                            </div>
+                          </div>
+                          {% endif %}
+                          
+                          <!-- Feedback professionisti -->
+                          {% if response.nutritionist_feedback or response.psychologist_feedback or response.coach_feedback %}
+                          <div class="col-12">
+                            <h6 class="text-muted mb-3">💬 Feedback Professionisti</h6>
+                            
+                            {% if response.nutritionist_feedback %}
+                            <div class="alert alert-success p-2 mb-2">
+                              <small>
+                                <iconify-icon icon="fluent-emoji-flat:green-salad"></iconify-icon>
+                                <strong>Nutrizionista:</strong><br>
+                                {{ response.nutritionist_feedback }}
+                              </small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if response.psychologist_feedback %}
+                            <div class="alert alert-info p-2 mb-2">
+                              <small>
+                                <iconify-icon icon="material-icon-theme:brainfuck"></iconify-icon>
+                                <strong>Psicologo/a:</strong><br>
+                                {{ response.psychologist_feedback }}
+                              </small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if response.coach_feedback %}
+                            <div class="alert alert-primary p-2">
+                              <small>
+                                <iconify-icon icon="emojione-v1:person-lifting-weights"></iconify-icon>
+                                <strong>Coach:</strong><br>
+                                {{ response.coach_feedback }}
+                              </small>
+                            </div>
+                            {% endif %}
+                          </div>
+                          {% endif %}
+                          
+                          <!-- Note e infortuni -->
+                          {% if response.injuries_notes %}
+                          <div class="col-12">
+                            <div class="alert alert-warning">
+                              <strong>⚠️ Infortuni/Note:</strong><br>
+                              {{ response.injuries_notes }}
+                            </div>
+                          </div>
+                          {% endif %}
+                          
+                          <!-- Extra -->
+                          {% if response.exercise_modifications %}
+                          <div class="col-12">
+                            <small class="text-muted">Modifiche esercizi:</small>
+                            <p>{{ response.exercise_modifications }}</p>
+                          </div>
+                          {% endif %}
+                          
+                          {% if response.live_session_topics %}
+                          <div class="col-12">
+                            <small class="text-muted">Temi per LIVE:</small>
+                            <p>{{ response.live_session_topics }}</p>
+                          </div>
+                          {% endif %}
+                          
+                          {% if response.referral %}
+                          <div class="col-12">
+                            <small class="text-muted">Referral:</small>
+                            <p>{{ response.referral }}</p>
+                          </div>
+                          {% endif %}
+                          
+                          {% if response.extra_comments %}
+                          <div class="col-12">
+                            <small class="text-muted">Commenti extra:</small>
+                            <p>{{ response.extra_comments }}</p>
+                          </div>
+                          {% endif %}
+                          
+                          <!-- Foto -->
+                          {% if response.photo_front or response.photo_side or response.photo_back %}
+                          <div class="col-12">
+                            <h6 class="text-muted mb-2">📷 Foto</h6>
+                            <div class="d-flex gap-2">
+                              {% if response.photo_front %}
+                              <a href="{{ response.photo_front }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="ri-image-line me-1"></i>Frontale
+                              </a>
+                              {% endif %}
+                              {% if response.photo_side %}
+                              <a href="{{ response.photo_side }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="ri-image-line me-1"></i>Laterale
+                              </a>
+                              {% endif %}
+                              {% if response.photo_back %}
+                              <a href="{{ response.photo_back }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="ri-image-line me-1"></i>Posteriore
+                              </a>
+                              {% endif %}
+                            </div>
+                          </div>
+                          {% endif %}
+                          
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="alert alert-info">
+          <i class="ri-information-line me-2"></i>
+          Nessun feedback settimanale disponibile per questo cliente.
+        </div>
+      {% endif %}
+    </div>
+    
+    <!-- NOTE TAB -->
+    <div class="tab-pane fade" id="tab-notes">
+      <div class="row g-4">
+        
+        {% if cliente.storia_coach or cliente.note_extra_coach %}
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              🏋️ Note Coach
+            </div>
+            <div class="card-body">
+              {% if cliente.storia_coach %}
+              <h6>Storia</h6>
+              <div class="notes-box-modern">
+                {{ cliente.storia_coach }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.note_extra_coach %}
+              <h6>Note extra</h6>
+              <div class="notes-box-modern">
+                {{ cliente.note_extra_coach }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        {% if cliente.storia_nutrizione or cliente.note_extra_nutrizione %}
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header success">
+              🥗 Note Nutrizione
+            </div>
+            <div class="card-body">
+              {% if cliente.storia_nutrizione %}
+              <h6>Storia</h6>
+              <div class="notes-box-modern">
+                {{ cliente.storia_nutrizione }}
+              </div>
+              {% endif %}
+              
+              {% if cliente.note_extra_nutrizione %}
+              <h6>Note extra</h6>
+              <div class="notes-box-modern">
+                {{ cliente.note_extra_nutrizione }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        {% if cliente.storia_psicologica %}
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header info">
+              🧠 Note Psicologiche
+            </div>
+            <div class="card-body">
+              <div class="notes-box-modern">
+                {{ cliente.storia_psicologica }}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        {% if not (cliente.storia_coach or cliente.note_extra_coach or cliente.storia_nutrizione or cliente.note_extra_nutrizione or cliente.storia_psicologica) %}
+        <div class="col-12">
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            Nessuna nota specialista disponibile per questo cliente.
+          </div>
+        </div>
+        {% endif %}
+        
+      </div>
+    </div>
+    
+    <!-- MEDIA & SOCIAL TAB -->
+    <div class="tab-pane fade" id="tab-media">
+      <div class="row g-4">
+        
+        <!-- Social settings -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              📱 Impostazioni Social
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">No social:</span>
+                <span class="info-value">{{ format_bool(cliente.no_social) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Video feedback:</span>
+                <span class="info-value">{{ format_bool(cliente.video_feedback) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Video richiesto:</span>
+                <span class="info-value">{{ format_bool(cliente.video_feedback_richiesto) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Video svolto:</span>
+                <span class="info-value">{{ format_bool(cliente.video_feedback_svolto) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Video condiviso:</span>
+                <span class="info-value">{{ format_bool(cliente.video_feedback_condiviso) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Training e trasformazione -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header success">
+              🎯 Training e Trasformazione
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Proposta live training:</span>
+                <span class="info-value">{{ format_bool(cliente.proposta_live_training) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Live training proposte:</span>
+                <span class="info-value">{{ format_bool(cliente.live_training_proposte) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Trasformazione fisica:</span>
+                <span class="info-value">{{ format_bool(cliente.trasformazione_fisica) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Trasformazione condivisa:</span>
+                <span class="info-value">{{ format_bool(cliente.trasformazione_fisica_condivisa) }}</span>
+              </div>
+              
+              {% if cliente.trasformazione %}
+              <div class="info-item">
+                <span class="info-label">Tipo trasformazione:</span>
+                <span class="info-value">{{ cliente.trasformazione.value }}</span>
+              </div>
+              {% endif %}
+              
+              <div class="info-item">
+                <span class="info-label">Reach out:</span>
+                <span class="info-value">{{ cliente.reach_out|format_giorno if cliente.reach_out else '—' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Exit call -->
+        <div class="col-lg-12">
+          <div class="modern-card">
+            <div class="modern-card-header warning">
+              📞 Exit Call
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Richiesta:</span>
+                    <span class="info-value">{{ format_bool(cliente.exit_call_richiesta) }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Svolta:</span>
+                    <span class="info-value">{{ format_bool(cliente.exit_call_svolta) }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-4">
+                  <div class="info-item">
+                    <span class="info-label">Condivisa:</span>
+                    <span class="info-value">{{ format_bool(cliente.exit_call_condivisa) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- AMMINISTRAZIONE TAB -->
+    <div class="tab-pane fade" id="tab-admin">
+      <div class="row g-4">
+        
+        <!-- Pagamenti e rinnovi -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              💰 Pagamenti e Rinnovi
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Data rinnovo:</span>
+                <span class="info-value">
+                  {{ format_date(cliente.data_rinnovo) }}
+                  {% if cliente.giorni_rimanenti is not none %}
+                    {% if cliente.giorni_rimanenti < 0 %}
+                      <span class="status-badge danger ms-2">Scaduto</span>
+                    {% elif cliente.giorni_rimanenti <= 30 %}
+                      <span class="status-badge warning ms-2">{{ cliente.giorni_rimanenti }} giorni</span>
+                    {% else %}
+                      <span class="status-badge success ms-2">{{ cliente.giorni_rimanenti }} giorni</span>
+                    {% endif %}
+                  {% endif %}
+                </span>
+              </div>
+              
+              {% if cliente.in_scadenza %}
+              <div class="info-item">
+                <span class="info-label">In scadenza:</span>
+                <span class="info-value">{{ cliente.in_scadenza }}</span>
+              </div>
+              {% endif %}
+              
+              <div class="info-item">
+                <span class="info-label">Modalità pagamento:</span>
+                <span class="info-value">{{ cliente.modalita_pagamento.value if cliente.modalita_pagamento else '—' }}</span>
+              </div>
+              
+              {% if cliente.rate_cliente_sales %}
+              <div class="info-item">
+                <span class="info-label">Rate cliente:</span>
+                <span class="info-value">€ {{ '{:,.2f}'.format(cliente.rate_cliente_sales) }}</span>
+              </div>
+              {% endif %}
+              
+              {% if cliente.rate_cliente_sales_dettaglio %}
+              <div class="info-item">
+                <span class="info-label">Dettaglio rate:</span>
+                <span class="info-value">{{ cliente.rate_cliente_sales_dettaglio }}</span>
+              </div>
+              {% endif %}
+              
+              {% if cliente.note_rinnovo %}
+              <hr>
+              <h6>Note rinnovo</h6>
+              <div class="alert alert-warning">
+                {{ cliente.note_rinnovo }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Bonus e alert -->
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header warning">
+              ⚠️ Bonus e Alert
+            </div>
+            <div class="card-body">
+              <div class="info-item">
+                <span class="info-label">Bonus:</span>
+                <span class="info-value">{{ format_bool(cliente.bonus) }}</span>
+              </div>
+              
+              <div class="info-item">
+                <span class="info-label">Alert:</span>
+                <span class="info-value">{{ format_bool(cliente.alert) }}</span>
+              </div>
+              
+              {% if cliente.alert_storia %}
+              <hr>
+              <h6>Storia alert</h6>
+              <div class="alert alert-danger">
+                {{ cliente.alert_storia }}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Info sistema -->
+        <div class="col-lg-12">
+          <div class="modern-card">
+            <div class="modern-card-header info">
+              ℹ️ Informazioni Sistema
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="info-item">
+                    <span class="info-label">ID Cliente:</span>
+                    <span class="info-value">{{ cliente.cliente_id }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-3">
+                  <div class="info-item">
+                    <span class="info-label">Creato il:</span>
+                    <span class="info-value">{{ format_datetime(cliente.created_at) }}</span>
+                  </div>
+                </div>
+                
+                <div class="col-md-3">
+                  <div class="info-item">
+                    <span class="info-label">Aggiornato il:</span>
+                    <span class="info-value">{{ format_datetime(cliente.updated_at) }}</span>
+                  </div>
+                </div>
+                
+                {% if cliente.created_by_user %}
+                <div class="col-md-3">
+                  <div class="info-item">
+                    <span class="info-label">Creato da:</span>
+                    <span class="info-value">{{ cliente.created_by_user.full_name }}</span>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- DOCUMENTI TAB -->
+    <div class="tab-pane fade" id="tab-documents">
+      <div class="row g-4">
+        
+        <!-- Cartelle cliniche -->
+        {% if cartelle %}
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header">
+              📁 Cartelle Cliniche
+            </div>
+            <div class="card-body">
+              {% for c in cartelle %}
+              <div class="d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
+                <div>
+                  <i class="ri-folder-line text-primary me-2"></i>
+                  <strong>{{ c.nome }}</strong>
+                  {% if c.allegati %}
+                    <small class="text-muted ms-2">({{ c.allegati|length }} allegati)</small>
+                  {% endif %}
+                  {% if c.note %}
+                    <br><small class="text-secondary">{{ c.note }}</small>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Meeting -->
+        {% if meetings %}
+        <div class="col-lg-6">
+          <div class="modern-card">
+            <div class="modern-card-header success">
+              📅 Meeting
+            </div>
+            <div class="card-body">
+              {% for m in meetings %}
+              <div class="d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
+                <div>
+                  <i class="ri-calendar-line text-success me-2"></i>
+                  <strong>{{ format_datetime(m.start) }}</strong>
+                  {% if m.title %}
+                    <br><span>{{ m.title }}</span>
+                  {% endif %}
+                </div>
+                {% if m.meet_url %}
+                  <a href="{{ m.meet_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <i class="ri-video-line"></i>
+                  </a>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- Task -->
+        {% if tasks %}
+        <div class="col-lg-12">
+          <div class="modern-card">
+            <div class="modern-card-header info">
+              ✅ Task
+            </div>
+            <div class="card-body">
+              <div class="row g-2">
+                {% for t in tasks %}
+                <div class="col-md-6">
+                  <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                    <div>
+                      <i class="ri-task-line text-info me-2"></i>
+                      <strong>{{ t.title }}</strong>
+                      {% if t.description %}
+                        <br><small class="text-secondary">{{ t.description }}</small>
+                      {% endif %}
+                    </div>
+                    <span class="status-badge {{ 'success' if t.status and t.status.value == 'done' else 'warning' }}">
+                      {{ t.status.value if t.status else 'todo' }}
+                    </span>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        
+        {% if not cartelle and not meetings and not tasks %}
+        <div class="col-12">
+          <div class="alert alert-info">
+            <i class="ri-information-line me-2"></i>
+            Nessun documento, meeting o task disponibile per questo cliente.
+          </div>
+        </div>
+        {% endif %}
+        
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+{% endblock %}
+
+{# ------------------------------------------------------------------- #}
+{#  Script inline                                                      #}
+{# ------------------------------------------------------------------- #}
+{% block inline_scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Gestione hash URL per i tab
+    if (window.location.hash) {
+      const trigger = document.querySelector(`button[data-bs-target="${window.location.hash}"]`);
+      if (trigger) {
+        new bootstrap.Tab(trigger).show();
+      }
+    }
+    
+    // Aggiorna hash quando si cambia tab
+    document.querySelectorAll('button[data-bs-toggle="pill"]').forEach(function(tabEl) {
+      tabEl.addEventListener('shown.bs.tab', function (event) {
+        const hash = event.target.getAttribute('data-bs-target');
+        history.pushState(null, null, hash);
+      });
+    });
+  });
+</script>
+{% endblock %}

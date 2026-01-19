@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+
+{% block title %}Crea Training da Richiesta - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<style>
+    /* CSS Variables - Coerente con dashboard */
+    :root {
+        --review-primary: #25B36A;
+        --review-primary-dark: #1e8d5a;
+        --review-primary-light: #A6E09D;
+        --review-danger: #ef4444;
+        --review-warning: #f59e0b;
+        --review-info: #3b82f6;
+        --review-success: #10b981;
+    }
+
+    /* Background */
+    body {
+        background: #f8fafb;
+    }
+    
+    /* Container */
+    .create-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    /* Form Card - Stile dashboard */
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+        margin-bottom: 2rem;
+    }
+    
+    .form-card-header {
+        background: linear-gradient(to bottom, #ffffff, #fafbfc);
+        padding: 24px 32px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .form-card-body {
+        padding: 32px;
+    }
+    
+    /* Form sections */
+    .form-section {
+        margin-bottom: 28px;
+        position: relative;
+    }
+    
+    .form-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Labels */
+    .form-label {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #4b5563;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    /* Form controls - Stile dashboard */
+    .form-control, .form-select {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        background: #fafbfc;
+        width: 100%;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--review-primary);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.1);
+        outline: none;
+    }
+    
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 20px;
+        padding-right: 40px;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 120px;
+        line-height: 1.5;
+    }
+    
+    /* Member info badge */
+    .member-info-badge {
+        background: linear-gradient(135deg, var(--review-primary), var(--review-primary-dark));
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        border: none;
+        color: white;
+    }
+    
+    .member-info-badge .d-flex {
+        gap: 20px;
+    }
+    
+    .member-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid rgba(255, 255, 255, 0.9);
+    }
+    
+    .member-avatar-placeholder {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    
+    .member-info-text h6 {
+        margin: 0 0 4px 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: white;
+    }
+    
+    .member-info-text p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    /* Request info alert */
+    .request-info-alert {
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        border: 1px solid var(--review-success);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        color: #14532d;
+    }
+    
+    .request-info-alert i {
+        color: var(--review-success);
+    }
+    
+    /* Sections accordion */
+    .optional-section {
+        background: #fafbfc;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+    
+    .optional-section-header {
+        padding: 16px 20px;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .optional-section-header:hover {
+        background: #f9fafb;
+    }
+    
+    .optional-section-header h6 {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .optional-section-header .icon {
+        font-size: 20px;
+    }
+    
+    .optional-section-body {
+        padding: 20px;
+        display: none;
+    }
+    
+    .optional-section.active .optional-section-body {
+        display: block;
+    }
+    
+    .optional-section.active .optional-section-header {
+        background: #f0fdf4;
+        border-bottom-color: var(--review-primary-light);
+    }
+    
+    /* Checkboxes */
+    .form-check {
+        padding: 12px 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        transition: all 0.2s;
+    }
+    
+    .form-check:hover {
+        border-color: var(--review-primary);
+        background: #f0fdf4;
+    }
+    
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        margin-top: 0;
+        border: 2px solid #d1d5db;
+        border-radius: 4px;
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--review-primary);
+        border-color: var(--review-primary);
+    }
+    
+    .form-check-label {
+        margin-left: 8px;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    
+    .form-check small {
+        display: block;
+        margin-left: 28px;
+        margin-top: 4px;
+        color: #6b7280;
+        font-size: 0.75rem;
+    }
+    
+    /* Buttons - Stile dashboard */
+    .btn-modern {
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    
+    .btn-modern-primary {
+        background: var(--review-primary);
+        color: white;
+    }
+    
+    .btn-modern-primary:hover {
+        background: var(--review-primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(37, 179, 106, 0.25);
+        color: white;
+    }
+    
+    .btn-modern-secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    
+    .btn-modern-secondary:hover {
+        background: #e5e7eb;
+        color: #1f2937;
+    }
+    
+    /* Footer buttons */
+    .form-footer {
+        background: #fafbfc;
+        padding: 24px 32px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    
+    /* Help text */
+    .form-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    
+    /* Validation feedback */
+    .invalid-feedback {
+        font-size: 0.75rem;
+        color: var(--review-danger);
+        margin-top: 4px;
+        display: block;
+    }
+    
+    .is-invalid {
+        border-color: var(--review-danger) !important;
+    }
+    
+    /* Mobile */
+    @media (max-width: 768px) {
+        .form-card-header,
+        .form-card-body,
+        .form-footer {
+            padding: 20px;
+        }
+        
+        .form-footer {
+            flex-direction: column-reverse;
+        }
+        
+        .form-footer .btn-modern {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-5">
+        <h1 class="h3 mb-1 fw-bold text-dark">Crea Training da Richiesta</h1>
+        <p class="text-muted mb-0">Rispondi alla richiesta di training per {{ member.first_name }} {{ member.last_name }}</p>
+    </div>
+
+    <div class="create-container">
+        <!-- Info Richiesta -->
+        <div class="request-info-alert">
+            <div class="d-flex align-items-center">
+                <i class="ri-information-line fs-4 me-3"></i>
+                <div>
+                    <strong>Stai creando un training per la richiesta:</strong> {{ request.subject }}<br>
+                    <small>Richiesto da {{ request.requester.first_name }} {{ request.requester.last_name }} 
+                    il {{ (request.created_at + timedelta(hours=2)).strftime('%d/%m/%Y') }}</small>
+                    {% if request.description %}
+                    <br><small><strong>Dettagli:</strong> {{ request.description }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Card -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="ri-file-text-line me-2"></i>
+                    Dettagli Training
+                </h5>
+            </div>
+            
+            <div class="form-card-body">
+                <!-- Member Info Badge -->
+                <div class="member-info-badge">
+                    <div class="d-flex align-items-center">
+                        {% if member.avatar_path %}
+                        <img src="{{ url_for('uploaded_file', filename=member.avatar_path) }}" 
+                             alt="{{ member.first_name }}" 
+                             class="member-avatar">
+                        {% else %}
+                        <div class="member-avatar-placeholder">
+                            {{ member.first_name[0] }}{{ member.last_name[0] }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="member-info-text">
+                            <h6>{{ member.first_name }} {{ member.last_name }}</h6>
+                            <p>{{ member.job_title or 'Membro del team' }}</p>
+                            {% if member.department %}
+                            <p><i class="ri-building-line me-1"></i>{{ member.department.name }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form method="post" action="{{ url_for('review.create_from_request', request_id=request.id) }}" id="review-form" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Row per Titolo e Tipo -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-section">
+                                <label class="form-label">Titolo Training *</label>
+                                {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                                {% if form.title.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.title.errors[0] }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-section">
+                                <label class="form-label">Tipo Training</label>
+                                {{ form.review_type(class="form-select") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row per Periodo (OPZIONALE) -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-section">
+                                <label class="form-label">
+                                    Periodo - Dal 
+                                    <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">OPZIONALE</span>
+                                </label>
+                                {{ form.period_start(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-section">
+                                <label class="form-label">
+                                    Periodo - Al 
+                                    <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">OPZIONALE</span>
+                                </label>
+                                {{ form.period_end(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contenuto Principale -->
+                    <div class="form-section">
+                        <label class="form-label">Contenuto Training *</label>
+                        {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""), rows="6") }}
+                        {% if form.content.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.content.errors[0] }}
+                        </div>
+                        {% endif %}
+                        <small class="form-text">Descrivi la performance, i risultati e le osservazioni generali.</small>
+                    </div>
+
+                    <!-- Sezioni Opzionali -->
+                    <div class="alert alert-info mb-3" style="background: #e0f2fe; border: 1px solid #0ea5e9; color: #0c4a6e;">
+                        <i class="ri-information-line me-1"></i>
+                        <strong>Le seguenti sezioni sono FACOLTATIVE</strong> - Compilale solo se pertinenti al training
+                    </div>
+                    <div class="mb-4">
+                        <!-- Punti di Forza -->
+                        <div class="optional-section" id="strengths-section">
+                            <div class="optional-section-header" onclick="toggleSection('strengths-section')">
+                                <h6>
+                                    <span class="icon text-success">
+                                        <i class="ri-thumb-up-line"></i>
+                                    </span>
+                                    Punti di Forza
+                                    <span class="badge bg-secondary ms-2" style="font-size: 0.65rem;">FACOLTATIVO</span>
+                                    <span class="ms-auto">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </span>
+                                </h6>
+                            </div>
+                            <div class="optional-section-body">
+                                {{ form.strengths(class="form-control", rows="4") }}
+                            </div>
+                        </div>
+
+                        <!-- Aree di Miglioramento -->
+                        <div class="optional-section" id="improvements-section">
+                            <div class="optional-section-header" onclick="toggleSection('improvements-section')">
+                                <h6>
+                                    <span class="icon text-warning">
+                                        <i class="ri-lightbulb-line"></i>
+                                    </span>
+                                    Aree di Miglioramento
+                                    <span class="badge bg-secondary ms-2" style="font-size: 0.65rem;">FACOLTATIVO</span>
+                                    <span class="ms-auto">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </span>
+                                </h6>
+                            </div>
+                            <div class="optional-section-body">
+                                {{ form.improvements(class="form-control", rows="4") }}
+                            </div>
+                        </div>
+
+                        <!-- Obiettivi -->
+                        <div class="optional-section" id="goals-section">
+                            <div class="optional-section-header" onclick="toggleSection('goals-section')">
+                                <h6>
+                                    <span class="icon text-info">
+                                        <i class="ri-target-line"></i>
+                                    </span>
+                                    Obiettivi per il Prossimo Periodo
+                                    <span class="badge bg-secondary ms-2" style="font-size: 0.65rem;">FACOLTATIVO</span>
+                                    <span class="ms-auto">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </span>
+                                </h6>
+                            </div>
+                            <div class="optional-section-body">
+                                {{ form.goals(class="form-control", rows="4") }}
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            
+            <!-- Footer buttons -->
+            <div class="form-footer">
+                <a href="{{ url_for('review.received_requests') }}" 
+                   class="btn-modern btn-modern-secondary">
+                    <i class="ri-arrow-left-line"></i>
+                    Annulla
+                </a>
+                <button type="submit" form="review-form" class="btn-modern btn-modern-primary">
+                    <i class="ri-save-line"></i>
+                    Crea Training e Completa Richiesta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle sezioni opzionali
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    section.classList.toggle('active');
+    
+    const icon = section.querySelector('.optional-section-header .ms-auto i');
+    if (section.classList.contains('active')) {
+        icon.className = 'ri-arrow-up-s-line';
+    } else {
+        icon.className = 'ri-arrow-down-s-line';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textareas
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+    }
+    
+    document.querySelectorAll('textarea').forEach(textarea => {
+        autoResize(textarea);
+        
+        textarea.addEventListener('input', function() {
+            autoResize(this);
+        });
+        
+        textarea.addEventListener('focus', function() {
+            autoResize(this);
+        });
+    });
+    
+    // Smooth scroll to first error if any
+    const firstError = document.querySelector('.is-invalid');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstError.focus();
+    }
+});
+</script>
+{% endblock %}

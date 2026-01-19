@@ -1,0 +1,1249 @@
+{% extends "base.html" %}
+
+{% block title %}Nuovo Ticket{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+<style>
+    /* CSS Variables - Coerente con dashboard */
+    :root {
+        --ticket-primary: #25B36A;
+        --ticket-primary-dark: #1e8d5a;
+        --ticket-primary-light: #A6E09D;
+        --ticket-danger: #ef4444;
+        --ticket-warning: #f59e0b;
+        --ticket-info: #3b82f6;
+        --ticket-success: #10b981;
+    }
+
+    /* Background */
+    body {
+        background: #f8fafb;
+    }
+    
+    /* Container */
+    .create-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    /* Form Card - Stile dashboard */
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+        margin-bottom: 2rem;
+    }
+    
+    .form-card-header {
+        background: linear-gradient(to bottom, #ffffff, #fafbfc);
+        padding: 24px 32px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .form-card-body {
+        padding: 32px;
+    }
+    
+    /* Form sections */
+    .form-section {
+        margin-bottom: 28px;
+        position: relative;
+    }
+    
+    .form-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Labels */
+    .form-label {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #4b5563;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    /* Form controls - Stile dashboard */
+    .form-control, .form-select {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        background: #fafbfc;
+        width: 100%;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--ticket-primary);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.1);
+        outline: none;
+    }
+    
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 20px;
+        padding-right: 40px;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 120px;
+        line-height: 1.5;
+    }
+    
+    /* User info badge */
+    .user-info-badge {
+        background: var(--ticket-primary);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        border: none;
+    }
+    
+    .user-info-badge .d-flex {
+        gap: 24px;
+    }
+    
+    .user-info-item {
+        flex: 1;
+    }
+    
+    .user-info-label {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.8);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+    }
+    
+    .user-info-value {
+        font-weight: 600;
+        color: white;
+        font-size: 0.875rem;
+    }
+    
+    /* Urgency cards */
+    .urgency-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .urgency-option {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 16px 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        background: white;
+    }
+    
+    .urgency-option:hover {
+        border-color: var(--ticket-primary);
+        background: linear-gradient(to right, rgba(37, 179, 106, 0.04), rgba(37, 179, 106, 0.02));
+    }
+    
+    .urgency-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .urgency-option.selected {
+        border-color: var(--ticket-primary);
+        background: linear-gradient(to right, rgba(37, 179, 106, 0.08), rgba(37, 179, 106, 0.04));
+        box-shadow: inset 3px 0 0 var(--ticket-primary);
+    }
+    
+    .urgency-content {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .urgency-icon {
+        font-size: 24px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        flex-shrink: 0;
+    }
+    
+    .urgency-alta .urgency-icon { 
+        background: #fee2e2; 
+        color: #ef4444;
+    }
+    .urgency-media .urgency-icon { 
+        background: #fef3c7; 
+        color: #f59e0b;
+    }
+    .urgency-bassa .urgency-icon { 
+        background: #d1fae5; 
+        color: #10b981;
+    }
+    
+    .urgency-text h6 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #1f2937;
+    }
+    
+    .urgency-text p {
+        margin: 0;
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    
+    /* Buttons - Stile dashboard */
+    .btn-modern {
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .btn-modern-primary {
+        background: var(--ticket-primary);
+        color: white;
+    }
+    
+    .btn-modern-primary:hover {
+        background: var(--ticket-primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(37, 179, 106, 0.25);
+    }
+    
+    .btn-modern-secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    
+    .btn-modern-secondary:hover {
+        background: #e5e7eb;
+        color: #1f2937;
+    }
+    
+    /* Footer buttons */
+    .form-footer {
+        background: #fafbfc;
+        padding: 24px 32px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    
+    /* Help text */
+    .form-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    
+    /* Validation feedback */
+    .invalid-feedback {
+        font-size: 0.75rem;
+        color: var(--ticket-danger);
+        margin-top: 4px;
+        display: block;
+    }
+    
+    .is-invalid {
+        border-color: var(--ticket-danger) !important;
+    }
+    
+    /* Mobile */
+    @media (max-width: 768px) {
+        .form-card-header,
+        .form-card-body,
+        .form-footer {
+            padding: 20px;
+        }
+        
+        .form-footer {
+            flex-direction: column-reverse;
+        }
+        
+        .form-footer .btn-modern {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    /* Form check styling */
+    .form-check-inline {
+        margin-right: 1.5rem;
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--ticket-primary);
+        border-color: var(--ticket-primary);
+    }
+    
+    /* Autocomplete styles */
+    .autocomplete-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        margin-top: 4px;
+    }
+    
+    .autocomplete-results.show {
+        display: block;
+    }
+    
+    .autocomplete-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #f3f4f6;
+        transition: background 0.2s;
+    }
+    
+    .autocomplete-item:hover {
+        background: #f9fafb;
+    }
+    
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    
+    .autocomplete-item-name {
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 2px;
+    }
+    
+    .autocomplete-item-info {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    
+    .selected-cliente-badge {
+        background: #ecfdf5;
+        border: 1px solid #86efac;
+        border-radius: 8px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .selected-cliente-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .selected-cliente-icon {
+        color: #10b981;
+        font-size: 20px;
+    }
+    
+    .selected-cliente-name {
+        font-weight: 600;
+        color: #065f46;
+    }
+    
+    .btn-remove-cliente {
+        background: transparent;
+        border: none;
+        color: #dc2626;
+        cursor: pointer;
+        padding: 4px;
+        font-size: 18px;
+    }
+    
+    .btn-remove-cliente:hover {
+        background: #fee2e2;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-5">
+        <h1 class="h3 mb-1 fw-bold text-dark">Nuovo Ticket</h1>
+        <p class="text-muted mb-0">Compila il form per aprire una richiesta di supporto</p>
+    </div>
+
+    <div class="create-container">
+        <!-- Form Card -->
+        <div class="form-card">
+            <div class="form-card-header">
+                <h5 class="mb-0 fw-bold text-dark">Dettagli Richiesta</h5>
+            </div>
+            
+            <div class="form-card-body">
+                <!-- User Info Badge -->
+                <div class="user-info-badge">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            {% if user.avatar_path %}
+                                <img src="{{ url_for('team.serve_avatar', user_id=user.id, filename=user.avatar_path) }}" 
+                                     alt="{{ user.full_name }}" 
+                                     class="rounded-circle" 
+                                     style="width: 48px; height: 48px; object-fit: cover; border: 2px solid rgba(255, 255, 255, 0.9);">
+                            {% else %}
+                                <div class="rounded-circle d-flex align-items-center justify-content-center" 
+                                     style="width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); color: white; font-weight: bold; font-size: 18px; border: 2px solid rgba(255, 255, 255, 0.3);">
+                                    {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex">
+                                <div class="user-info-item">
+                                    <div class="user-info-label">Richiedente</div>
+                                    <div class="user-info-value">{{ user.full_name }}</div>
+                                </div>
+                                <div class="user-info-item">
+                                    <div class="user-info-label">Dipartimento</div>
+                                    <div class="user-info-value">{{ user.department.name if user.department else 'N/A' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form method="post" action="{{ url_for('ticket.create') }}" id="ticket-form" enctype="multipart/form-data" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Dipartimento Destinatario -->
+                    <div class="form-section">
+                        <label class="form-label">Dipartimento Destinatario *</label>
+                        <small class="text-muted d-block mb-2">
+                            <i class="ri-information-line"></i>
+                            Puoi aprire ticket a qualsiasi dipartimento, incluso il tuo
+                        </small>
+                        {{ form.department_id(class="form-select" + (" is-invalid" if form.department_id.errors else "")) }}
+                        {% if form.department_id.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.department_id.errors[0] }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Membro del Dipartimento -->
+                    <div class="form-section" id="member-selection" style="display: none;">
+                        <label class="form-label">Assegna a *</label>
+                        {{ form.assigned_to_id(class="form-select" + (" is-invalid" if form.assigned_to_id.errors else "")) }}
+                        {% if form.assigned_to_id.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.assigned_to_id.errors[0] }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Categoria (solo per Dipartimento ID 13) -->
+                    <div class="form-section" id="category-section" style="display: none;">
+                        <label class="form-label">Categoria ticket *</label>
+                        <small class="text-muted d-block mb-2">
+                            <i class="ri-information-line"></i>
+                            Seleziona la categoria più appropriata per questo ticket
+                        </small>
+                        <div class="urgency-grid">
+                            {% set category_info = {
+                                'problema': {'icon': 'ri:error-warning-line', 'title': 'Problema', 'desc': 'Segnalazione di un problema o bug', 'class': 'urgency-alta'},
+                                'upgrade': {'icon': 'ri:arrow-up-circle-line', 'title': 'Upgrade', 'desc': 'Richiesta di aggiornamento o miglioramento', 'class': 'urgency-media'},
+                                'review': {'icon': 'ri:eye-line', 'title': 'Review', 'desc': 'Richiesta di revisione o verifica', 'class': 'urgency-bassa'}
+                            } %}
+
+                            {% for subfield in form.category %}
+                                <label class="urgency-option category-option {{ category_info[subfield.data].class }}{{ ' selected' if subfield.checked else '' }}" data-category="{{ subfield.data }}">
+                                    {{ subfield(style="position: absolute; opacity: 0;") }}
+                                    <div class="urgency-content">
+                                        <div class="urgency-icon">
+                                            <iconify-icon icon="{{ category_info[subfield.data].icon }}"></iconify-icon>
+                                        </div>
+                                        <div class="urgency-text">
+                                            <h6>{{ category_info[subfield.data].title }}</h6>
+                                            <p>{{ category_info[subfield.data].desc }}</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            {% endfor %}
+
+                            {% if form.category.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.category.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Cliente/Lead -->
+                    <div class="form-section">
+                        <label class="form-label">Riferimento Cliente/Lead</label>
+                        
+                        <!-- Radio buttons per tipo riferimento -->
+                        <div class="reference-type-wrapper mb-3">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="reference_type" id="ref_none" value="none" checked>
+                                <label class="form-check-label" for="ref_none">
+                                    Nessun riferimento
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="reference_type" id="ref_lead" value="lead">
+                                <label class="form-check-label" for="ref_lead">
+                                    Lead (non ancora cliente)
+                                </label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="reference_type" id="ref_cliente" value="cliente">
+                                <label class="form-check-label" for="ref_cliente">
+                                    Cliente esistente
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Campo per Lead (nascosto di default) -->
+                        <div id="lead-field" style="display: none;">
+                            {{ form.related_client_name(class="form-control", placeholder="Nome del lead") }}
+                            {% if form.related_client_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.related_client_name.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Campo per Cliente con autocomplete (nascosto di default) -->
+                        <div id="cliente-field" style="display: none;">
+                            {{ form.cliente_id() }}
+                            <div class="position-relative">
+                                {{ form.cliente_search(class="form-control", placeholder="Inizia a digitare il nome del cliente...") }}
+                                <div id="cliente-autocomplete-results" class="autocomplete-results"></div>
+                            </div>
+                            <div id="selected-cliente" class="mt-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Titolo -->
+                    <div class="form-section">
+                        <label class="form-label">Oggetto *</label>
+                        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""), placeholder="Inserisci un titolo breve e descrittivo") }}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.title.errors[0] }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Descrizione -->
+                    <div class="form-section">
+                        <label class="form-label">Descrizione *</label>
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), placeholder="Descrivi in dettaglio la tua richiesta...") }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.description.errors[0] }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Urgenza -->
+                    <div class="form-section">
+                        <label class="form-label">Urgenza *</label>
+                        <div class="urgency-grid">
+                            {% set urgency_info = {
+                                '1': {'icon': 'ri:error-warning-fill', 'title': 'Alta', 'desc': 'Bloccante o critico per il business', 'class': 'urgency-alta'},
+                                '2': {'icon': 'ri:alert-fill', 'title': 'Media', 'desc': 'Importante ma non bloccante', 'class': 'urgency-media'},
+                                '3': {'icon': 'ri:checkbox-circle-fill', 'title': 'Bassa', 'desc': 'Può attendere o è un miglioramento', 'class': 'urgency-bassa'}
+                            } %}
+                            
+                            {% for subfield in form.urgency %}
+                                <label class="urgency-option {{ urgency_info[subfield.data].class }}{{ ' selected' if subfield.checked else '' }}">
+                                    {{ subfield(style="position: absolute; opacity: 0;") }}
+                                    <div class="urgency-content">
+                                        <div class="urgency-icon">
+                                            <iconify-icon icon="{{ urgency_info[subfield.data].icon }}"></iconify-icon>
+                                        </div>
+                                        <div class="urgency-text">
+                                            <h6>{{ urgency_info[subfield.data].title }}</h6>
+                                            <p>{{ urgency_info[subfield.data].desc }}</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            {% endfor %}
+                            
+                            {% if form.urgency.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.urgency.errors[0] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Allegati multipli (opzionale) -->
+                    <div class="form-section">
+                        <label class="form-label">Allegati (max 5 file, 5MB ciascuno)</label>
+                        <div class="attachment-upload">
+                            <!-- File input nascosto per selezione singola -->
+                            <input type="file" 
+                                   id="single-file-input" 
+                                   accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                                   style="display: none;">
+                            
+                            <!-- Lista file selezionati -->
+                            <div id="selected-files-list" class="mb-3"></div>
+                            
+                            <!-- Bottone per aggiungere file -->
+                            <button type="button" 
+                                    id="add-file-btn" 
+                                    class="btn btn-outline-primary btn-sm">
+                                <iconify-icon icon="ri:add-line"></iconify-icon>
+                                Aggiungi Allegato
+                            </button>
+                            
+                            <!-- Input nascosti per i file da inviare -->
+                            <div id="hidden-files-container"></div>
+                            
+                            {% if form.attachments.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.attachments.errors[0] }}
+                                </div>
+                            {% endif %}
+                            
+                            <small class="form-text text-muted mt-2 d-block">
+                                <iconify-icon icon="ri:information-line"></iconify-icon>
+                                Formati accettati: PDF, JPG, PNG, GIF, WEBP (Max 5MB per file)
+                            </small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Footer buttons -->
+            <div class="form-footer">
+                <a href="{{ url_for('ticket.dashboard') }}" class="btn-modern btn-modern-secondary">
+                    <iconify-icon icon="ri:arrow-left-line"></iconify-icon>
+                    Annulla
+                </a>
+                <button type="submit" form="ticket-form" class="btn-modern btn-modern-primary">
+                    <iconify-icon icon="ri:add-circle-line"></iconify-icon>
+                    Crea Ticket
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Funzione per caricare i membri del dipartimento
+function loadDepartmentMembers(departmentId) {
+    const memberSection = document.getElementById('member-selection');
+    const memberSelect = document.getElementById('assigned_to_id');
+    const categorySection = document.getElementById('category-section');
+
+    if (!departmentId || departmentId === '0') {
+        // Nascondi la sezione se nessun dipartimento è selezionato
+        memberSection.style.display = 'none';
+        memberSelect.disabled = true;
+        memberSelect.innerHTML = '<option value="">-- Seleziona prima un dipartimento --</option>';
+
+        // Nascondi anche la categoria
+        categorySection.style.display = 'none';
+        return;
+    }
+
+    // Mostra/nascondi categoria in base al dipartimento (solo ID 13)
+    if (departmentId === '13' || parseInt(departmentId) === 13) {
+        categorySection.style.display = 'block';
+
+        // Se c'è già un cliente selezionato, auto-assegna l'health manager
+        const clienteIdField = document.getElementById('cliente_id');
+        if (clienteIdField && clienteIdField.value) {
+            // Recupera il nome del cliente dal badge
+            const clienteNameElement = document.querySelector('.selected-cliente-name');
+            const clienteNome = clienteNameElement ? clienteNameElement.textContent : 'Cliente selezionato';
+
+            console.log('🔄 Dipartimento 13 selezionato con cliente già presente - auto-assegnazione health manager');
+            autoAssignHealthManager(clienteIdField.value, clienteNome);
+        }
+    } else if (departmentId === '5' || parseInt(departmentId) === 5) {
+        // Sales Team (Consulenti Sales 1 e 2) - auto-assegna consulente alimentare
+        categorySection.style.display = 'none';
+
+        // Se c'è già un cliente selezionato, auto-assegna il consulente alimentare
+        const clienteIdField = document.getElementById('cliente_id');
+        if (clienteIdField && clienteIdField.value) {
+            // Recupera il nome del cliente dal badge
+            const clienteNameElement = document.querySelector('.selected-cliente-name');
+            const clienteNome = clienteNameElement ? clienteNameElement.textContent : 'Cliente selezionato';
+
+            console.log('🔄 Sales Team selezionato con cliente già presente - auto-assegnazione consulente alimentare');
+            autoAssignConsulenteAlimentare(clienteIdField.value, clienteNome);
+        }
+    } else {
+        categorySection.style.display = 'none';
+        // Deseleziona la categoria se il dipartimento cambia
+        document.querySelectorAll('#category-section input[type="radio"]').forEach(radio => {
+            radio.checked = false;
+        });
+        document.querySelectorAll('#category-section .category-option').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+
+        // Rimuovi eventuali messaggi health manager se si cambia dipartimento
+        const oldMsg = document.getElementById('health-manager-message');
+        if (oldMsg) oldMsg.remove();
+    }
+
+    // Mostra loading
+    memberSection.style.display = 'block';
+    memberSelect.disabled = true;
+    memberSelect.innerHTML = '<option value="">Caricamento...</option>';
+
+    // Fetch membri del dipartimento
+    fetch(`/tickets/api/department/${departmentId}/members`)
+        .then(response => response.json())
+        .then(data => {
+            // Popola la select con i membri
+            memberSelect.innerHTML = '<option value="">-- Seleziona un membro --</option>';
+
+            data.members.forEach(member => {
+                const option = document.createElement('option');
+                option.value = member.id;
+                option.textContent = member.name;
+                // Non mostriamo più l'indicazione di responsabile
+                memberSelect.appendChild(option);
+            });
+
+            memberSelect.disabled = false;
+        })
+        .catch(error => {
+            console.error('Errore caricamento membri:', error);
+            memberSelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-resize textareas
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+    }
+    
+    document.querySelectorAll('textarea').forEach(textarea => {
+        // Set initial height
+        autoResize(textarea);
+        
+        // Auto-resize on input
+        textarea.addEventListener('input', function() {
+            autoResize(this);
+        });
+        
+        // Also resize on focus
+        textarea.addEventListener('focus', function() {
+            autoResize(this);
+        });
+    });
+    
+    // Migliora UX radio buttons urgenza
+    document.querySelectorAll('.urgency-option').forEach(option => {
+        option.addEventListener('click', function(e) {
+            // Previeni il doppio trigger se si clicca direttamente sul radio
+            if (e.target.type === 'radio') return;
+
+            const radio = this.querySelector('input[type="radio"]');
+            if (radio && !radio.checked) {
+                radio.checked = true;
+
+                // Rimuovi la classe selected da tutte le opzioni
+                document.querySelectorAll('.urgency-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+
+                // Aggiungi la classe selected all'opzione cliccata
+                this.classList.add('selected');
+            }
+        });
+    });
+
+    // Migliora UX radio buttons categoria (stessa logica dell'urgenza)
+    document.querySelectorAll('.category-option').forEach(option => {
+        option.addEventListener('click', function(e) {
+            // Previeni il doppio trigger se si clicca direttamente sul radio
+            if (e.target.type === 'radio') return;
+
+            const radio = this.querySelector('input[type="radio"]');
+            if (radio && !radio.checked) {
+                radio.checked = true;
+
+                // Rimuovi la classe selected da tutte le opzioni categoria
+                document.querySelectorAll('.category-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+
+                // Aggiungi la classe selected all'opzione cliccata
+                this.classList.add('selected');
+            }
+        });
+    });
+    
+    // Gestione cambio dipartimento
+    const departmentSelect = document.getElementById('department_id');
+    if (departmentSelect) {
+        // Carica membri al cambio dipartimento
+        departmentSelect.addEventListener('change', function() {
+            loadDepartmentMembers(this.value);
+        });
+        
+        // Se c'è già un dipartimento selezionato al caricamento
+        if (departmentSelect.value && departmentSelect.value !== '0') {
+            loadDepartmentMembers(departmentSelect.value);
+        }
+    }
+    
+    // Aggiungi classe selected all'opzione già selezionata al caricamento
+    document.querySelectorAll('.urgency-option input[type="radio"]:checked').forEach(radio => {
+        radio.closest('.urgency-option').classList.add('selected');
+    });
+    
+    // Smooth scroll to first error if any
+    const firstError = document.querySelector('.is-invalid');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstError.focus();
+    }
+    
+    // ===== GESTIONE RADIO BUTTON LEAD/CLIENTE =====
+    const referenceRadios = document.querySelectorAll('input[name="reference_type"]');
+    const leadField = document.getElementById('lead-field');
+    const clienteField = document.getElementById('cliente-field');
+    
+    referenceRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Nascondi tutti i campi
+            leadField.style.display = 'none';
+            clienteField.style.display = 'none';
+            
+            // Mostra il campo appropriato
+            if (this.value === 'lead') {
+                leadField.style.display = 'block';
+            } else if (this.value === 'cliente') {
+                clienteField.style.display = 'block';
+            }
+            
+            // Pulisci i campi non utilizzati
+            if (this.value !== 'lead') {
+                document.getElementById('related_client_name').value = '';
+            }
+            if (this.value !== 'cliente') {
+                document.getElementById('cliente_id').value = '';
+                document.getElementById('cliente_search').value = '';
+                document.getElementById('selected-cliente').innerHTML = '';
+            }
+        });
+    });
+    
+    // ===== AUTOCOMPLETE CLIENTI =====
+    const clienteSearch = document.getElementById('cliente_search');
+    const clienteIdField = document.getElementById('cliente_id');
+    const autocompleteResults = document.getElementById('cliente-autocomplete-results');
+    const selectedClienteDiv = document.getElementById('selected-cliente');
+    let searchTimeout;
+    
+    if (clienteSearch) {
+        // Gestione input di ricerca
+        clienteSearch.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                autocompleteResults.classList.remove('show');
+                autocompleteResults.innerHTML = '';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                fetch(`/tickets/api/search-clients?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length === 0) {
+                            autocompleteResults.innerHTML = '<div class="autocomplete-item">Nessun cliente trovato</div>';
+                        } else {
+                            autocompleteResults.innerHTML = data.map(cliente => `
+                                <div class="autocomplete-item" data-id="${cliente.id}" data-nome="${cliente.nome}">
+                                    <div class="autocomplete-item-name">${cliente.nome}</div>
+                                    <div class="autocomplete-item-info">
+                                        Programma: ${cliente.programma} | Stato: ${cliente.stato}
+                                    </div>
+                                </div>
+                            `).join('');
+                        }
+                        autocompleteResults.classList.add('show');
+                    })
+                    .catch(error => {
+                        console.error('Errore ricerca clienti:', error);
+                        autocompleteResults.innerHTML = '<div class="autocomplete-item">Errore nella ricerca</div>';
+                        autocompleteResults.classList.add('show');
+                    });
+            }, 300);
+        });
+        
+        // Gestione click su risultato
+        autocompleteResults.addEventListener('click', function(e) {
+            const item = e.target.closest('.autocomplete-item');
+            if (item && item.dataset.id) {
+                selectCliente(item.dataset.id, item.dataset.nome);
+            }
+        });
+        
+        // Nascondi risultati quando si clicca fuori
+        document.addEventListener('click', function(e) {
+            if (!clienteSearch.contains(e.target) && !autocompleteResults.contains(e.target)) {
+                autocompleteResults.classList.remove('show');
+            }
+        });
+    }
+    
+    function selectCliente(id, nome) {
+        // Imposta l'ID nel campo nascosto
+        clienteIdField.value = id;
+
+        // Pulisci il campo di ricerca
+        clienteSearch.value = '';
+        clienteSearch.style.display = 'none';
+
+        // Nascondi i risultati
+        autocompleteResults.classList.remove('show');
+        autocompleteResults.innerHTML = '';
+
+        // Mostra il cliente selezionato
+        selectedClienteDiv.innerHTML = `
+            <div class="selected-cliente-badge">
+                <div class="selected-cliente-info">
+                    <iconify-icon icon="ri:user-3-fill" class="selected-cliente-icon"></iconify-icon>
+                    <span class="selected-cliente-name">${nome}</span>
+                </div>
+                <button type="button" class="btn-remove-cliente" onclick="removeCliente()">
+                    <iconify-icon icon="ri:close-line"></iconify-icon>
+                </button>
+            </div>
+        `;
+
+        // AUTO-ASSEGNAZIONE HEALTH MANAGER per dipartimento 13
+        // AUTO-ASSEGNAZIONE CONSULENTE ALIMENTARE per dipartimento 5 (Sales Team)
+        const departmentSelect = document.getElementById('department_id');
+        const selectedDeptId = departmentSelect ? departmentSelect.value : null;
+
+        if (selectedDeptId === '13' || parseInt(selectedDeptId) === 13) {
+            // Carica l'health manager del cliente e auto-assegna
+            autoAssignHealthManager(id, nome);
+        } else if (selectedDeptId === '5' || parseInt(selectedDeptId) === 5) {
+            // Sales Team - Carica il consulente alimentare del cliente e auto-assegna
+            autoAssignConsulenteAlimentare(id, nome);
+        }
+    }
+
+    // Funzione per auto-assegnare l'health manager del cliente
+    function autoAssignHealthManager(clienteId, clienteNome) {
+        fetch(`/tickets/api/cliente/${clienteId}/health-manager`)
+            .then(response => response.json())
+            .then(data => {
+                const memberSelect = document.getElementById('assigned_to_id');
+
+                if (data.has_health_manager && data.health_manager_id) {
+                    // Il cliente HA un health manager - auto-assegna
+                    console.log(`✅ Health Manager trovato: ${data.health_manager_name} (ID: ${data.health_manager_id})`);
+
+                    // Pre-seleziona l'health manager nel dropdown
+                    if (memberSelect) {
+                        memberSelect.value = data.health_manager_id;
+
+                        // Mostra messaggio di successo
+                        showHealthManagerMessage(
+                            'success',
+                            `✅ Ticket auto-assegnato a <strong>${data.health_manager_name}</strong> (Health Manager di ${clienteNome})`
+                        );
+                    }
+                } else {
+                    // Il cliente NON ha un health manager
+                    console.log('⚠️ Cliente senza Health Manager');
+
+                    // Assegna automaticamente a Daniela Mastropasqua (ID: 64)
+                    if (memberSelect) {
+                        memberSelect.value = '64';  // ID di Daniela Mastropasqua
+                    }
+
+                    // Mostra messaggio di warning
+                    showHealthManagerMessage(
+                        'warning',
+                        `⚠️ Il cliente <strong>${clienteNome}</strong> non ha un Health Manager assegnato.<br>Ticket assegnato a <strong>Daniela Mastropasqua</strong> (default).`
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Errore nel recupero Health Manager:', error);
+                showHealthManagerMessage(
+                    'danger',
+                    '❌ Errore nel recupero dell\'Health Manager. Seleziona manualmente l\'assegnatario.'
+                );
+            });
+    }
+
+    // Funzione per mostrare messaggi relativi all'health manager / consulente alimentare
+    function showHealthManagerMessage(type, message) {
+        // Rimuovi eventuali messaggi precedenti
+        const oldMsg = document.getElementById('health-manager-message');
+        if (oldMsg) oldMsg.remove();
+
+        // Crea nuovo messaggio
+        const msgDiv = document.createElement('div');
+        msgDiv.id = 'health-manager-message';
+        msgDiv.className = `alert alert-${type} mt-3`;
+        msgDiv.style.borderRadius = '12px';
+        msgDiv.innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+                <iconify-icon icon="ri:information-line" style="font-size: 20px;"></iconify-icon>
+                <div>${message}</div>
+            </div>
+        `;
+
+        // Inserisci il messaggio dopo il campo cliente
+        const clienteField = document.getElementById('cliente-field');
+        if (clienteField) {
+            clienteField.appendChild(msgDiv);
+
+            // NON rimuoviamo automaticamente per i messaggi di errore (danger)
+            if (type !== 'danger') {
+                setTimeout(() => {
+                    msgDiv.style.transition = 'opacity 0.5s';
+                    msgDiv.style.opacity = '0';
+                    setTimeout(() => msgDiv.remove(), 500);
+                }, 8000);
+            }
+        }
+    }
+
+    // Funzione per auto-assegnare il consulente alimentare del cliente (per Sales Team)
+    function autoAssignConsulenteAlimentare(clienteId, clienteNome) {
+        fetch(`/tickets/api/cliente/${clienteId}/consulente-alimentare`)
+            .then(response => response.json())
+            .then(data => {
+                const memberSelect = document.getElementById('assigned_to_id');
+
+                if (data.has_consulente_alimentare && data.consulente_alimentare_id) {
+                    // Il cliente HA un consulente alimentare - auto-assegna
+                    console.log(`✅ Consulente Alimentare trovato: ${data.consulente_alimentare_name} (ID: ${data.consulente_alimentare_id})`);
+
+                    // Pre-seleziona il consulente alimentare nel dropdown
+                    if (memberSelect) {
+                        memberSelect.value = data.consulente_alimentare_id;
+
+                        // Mostra messaggio di successo
+                        showHealthManagerMessage(
+                            'success',
+                            `✅ Ticket auto-assegnato a <strong>${data.consulente_alimentare_name}</strong> (Consulente Alimentare di ${clienteNome})`
+                        );
+                    }
+                } else {
+                    // Il cliente NON ha un consulente alimentare - mostra errore
+                    console.log('⚠️ Cliente senza Consulente Alimentare');
+
+                    // Mostra messaggio di errore (non bloccante)
+                    showHealthManagerMessage(
+                        'danger',
+                        `❌ <strong>Errore:</strong> Il cliente <strong>${clienteNome}</strong> non ha un Consulente Alimentare associato.<br><small>Contattare il team IT per risolvere il problema. Puoi comunque selezionare manualmente un membro.</small>`
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Errore nel recupero Consulente Alimentare:', error);
+                showHealthManagerMessage(
+                    'danger',
+                    '❌ Errore nel recupero del Consulente Alimentare. Seleziona manualmente l\'assegnatario.'
+                );
+            });
+    }
+
+    window.removeCliente = function() {
+        clienteIdField.value = '';
+        clienteSearch.value = '';
+        clienteSearch.style.display = 'block';
+        selectedClienteDiv.innerHTML = '';
+
+        // Rimuovi il messaggio health manager / consulente alimentare se presente
+        const oldMsg = document.getElementById('health-manager-message');
+        if (oldMsg) oldMsg.remove();
+
+        // Reset dell'assegnazione se il dipartimento è 13 (Customer Success) o 5 (Sales Team)
+        const departmentSelect = document.getElementById('department_id');
+        const selectedDeptId = departmentSelect ? departmentSelect.value : null;
+        const deptIdInt = parseInt(selectedDeptId);
+        if (deptIdInt === 13 || deptIdInt === 5) {
+            const memberSelect = document.getElementById('assigned_to_id');
+            if (memberSelect) {
+                memberSelect.value = '';  // Reset selezione
+            }
+        }
+    }
+    
+    // Gestione allegati multipli con selezione incrementale
+    const singleFileInput = document.getElementById('single-file-input');
+    const addFileBtn = document.getElementById('add-file-btn');
+    const selectedFilesList = document.getElementById('selected-files-list');
+    const hiddenFilesContainer = document.getElementById('hidden-files-container');
+    const maxFiles = 5;
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    
+    // Array per tenere traccia dei file selezionati
+    let selectedFiles = [];
+    
+    // Bottone per aprire il file selector
+    if (addFileBtn) {
+        addFileBtn.addEventListener('click', function() {
+            if (selectedFiles.length >= maxFiles) {
+                alert(`Hai già selezionato il massimo di ${maxFiles} file`);
+                return;
+            }
+            singleFileInput.click();
+        });
+    }
+    
+    // Gestione selezione file
+    if (singleFileInput) {
+        singleFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Reset input per permettere di selezionare lo stesso file di nuovo
+            e.target.value = '';
+            
+            // Controllo numero massimo di file
+            if (selectedFiles.length >= maxFiles) {
+                alert(`Puoi caricare un massimo di ${maxFiles} file`);
+                return;
+            }
+            
+            // Controllo dimensione
+            if (file.size > maxSize) {
+                alert(`${file.name} è troppo grande. Max 5MB per file.`);
+                return;
+            }
+            
+            // Controllo duplicati
+            if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                alert(`${file.name} è già stato selezionato`);
+                return;
+            }
+            
+            // Aggiungi il file
+            selectedFiles.push(file);
+            updateFilesList();
+            updateHiddenInputs();
+        });
+    }
+    
+    // Aggiorna la visualizzazione dei file selezionati
+    function updateFilesList() {
+        if (selectedFiles.length === 0) {
+            selectedFilesList.innerHTML = '';
+            return;
+        }
+        
+        const filesHtml = selectedFiles.map((file, index) => {
+            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+            const icon = file.type.includes('pdf') ? 'ri-file-pdf-line text-danger' : 'ri-image-line text-primary';
+            
+            return `
+                <div class="alert alert-light border d-flex align-items-center justify-content-between py-2 px-3 mb-2">
+                    <div class="d-flex align-items-center">
+                        <i class="${icon} me-2" style="font-size: 20px;"></i>
+                        <div>
+                            <strong>${file.name}</strong>
+                            <small class="text-muted ms-2">(${sizeInMB} MB)</small>
+                        </div>
+                    </div>
+                    <button type="button" 
+                            class="btn btn-sm btn-danger" 
+                            onclick="removeFile(${index})"
+                            title="Rimuovi">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+        
+        selectedFilesList.innerHTML = filesHtml;
+        
+        // Aggiorna il bottone
+        if (selectedFiles.length >= maxFiles) {
+            addFileBtn.classList.add('disabled');
+            addFileBtn.innerHTML = '<i class="ri-check-line"></i> Massimo raggiunto (5 file)';
+        } else {
+            addFileBtn.classList.remove('disabled');
+            addFileBtn.innerHTML = `<i class="ri-add-line"></i> Aggiungi Allegato (${selectedFiles.length}/5)`;
+        }
+    }
+    
+    // Aggiorna gli input nascosti per l'invio del form
+    function updateHiddenInputs() {
+        // Crea un nuovo DataTransfer per gestire i file
+        const dataTransfer = new DataTransfer();
+        
+        selectedFiles.forEach(file => {
+            dataTransfer.items.add(file);
+        });
+        
+        // Crea o aggiorna l'input file nascosto
+        let hiddenInput = document.getElementById('attachments-hidden');
+        if (!hiddenInput) {
+            hiddenInput = document.createElement('input');
+            hiddenInput.type = 'file';
+            hiddenInput.id = 'attachments-hidden';
+            hiddenInput.name = 'attachments';
+            hiddenInput.multiple = true;
+            hiddenInput.style.display = 'none';
+            hiddenFilesContainer.appendChild(hiddenInput);
+        }
+        
+        // Assegna i file all'input
+        hiddenInput.files = dataTransfer.files;
+    }
+    
+    // Funzione globale per rimuovere un file
+    window.removeFile = function(index) {
+        selectedFiles.splice(index, 1);
+        updateFilesList();
+        updateHiddenInputs();
+    }
+});
+</script>
+{% endblock %}

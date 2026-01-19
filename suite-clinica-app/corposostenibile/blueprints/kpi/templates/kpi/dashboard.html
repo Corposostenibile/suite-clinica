@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% block title %}Dashboard KPI{% endblock %}
+
+{% block head_extra %}
+<style>
+    .kpi-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 2px solid rgba(100, 116, 139, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .kpi-card.success {
+        background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        border-color: rgba(34, 197, 94, 0.2);
+    }
+    .kpi-card.warning {
+        background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+        border-color: rgba(234, 179, 8, 0.2);
+    }
+    .kpi-card.danger {
+        background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+        border-color: rgba(239, 68, 68, 0.2);
+    }
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .kpi-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .kpi-detail {
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+    .arr-table {
+        width: 100%;
+    }
+    .arr-table th {
+        background: #f1f5f9;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+    }
+    .arr-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .arr-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    .arr-badge.high {
+        background: #dcfce7;
+        color: #166534;
+    }
+    .arr-badge.medium {
+        background: #fef9c3;
+        color: #854d0e;
+    }
+    .arr-badge.low {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .periodo-selector {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .formula-box {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 1rem;
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: #475569;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1">
+                <i class="ri-line-chart-line me-2" style="color: #6366f1;"></i>
+                Dashboard KPI
+            </h4>
+            <p class="text-muted mb-0">KPI Aziendali e ARR Professionisti</p>
+        </div>
+        <button class="btn btn-primary" id="btn-salva-snapshot">
+            <i class="ri-save-line me-1"></i> Salva Snapshot
+        </button>
+    </div>
+
+    <!-- Selettore Periodo -->
+    <div class="periodo-selector">
+        <div class="row align-items-end g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Data Inizio</label>
+                <input type="date" class="form-control" id="periodo-inizio" value="{{ periodo_default.inizio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Data Fine</label>
+                <input type="date" class="form-control" id="periodo-fine" value="{{ periodo_default.fine }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Preset</label>
+                <select class="form-select" id="periodo-preset">
+                    <option value="">Personalizzato</option>
+                    <option value="mese_scorso" selected>Mese Scorso</option>
+                    <option value="mese_corrente">Mese Corrente</option>
+                    <option value="trimestre">Ultimo Trimestre</option>
+                    <option value="anno">Anno Corrente</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-success w-100" id="btn-calcola">
+                    <i class="ri-calculator-line me-1"></i> Calcola KPI
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Aziendali -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="ri-building-line me-2"></i>
+                KPI Aziendali
+            </h5>
+        </div>
+        <div class="col-md-6">
+            <div class="kpi-card" id="card-tasso-rinnovi">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Tasso Rinnovi</div>
+                        <div class="kpi-value" id="valore-tasso-rinnovi">--%</div>
+                        <div class="kpi-detail" id="dettaglio-tasso-rinnovi">
+                            -- clienti rinnovati su -- in scadenza
+                        </div>
+                    </div>
+                    <i class="ri-refresh-line" style="font-size: 2.5rem; color: #22c55e; opacity: 0.3;"></i>
+                </div>
+                <div class="formula-box mt-3">
+                    <strong>Formula:</strong> Clienti Rinnovati / Clienti in Scadenza × 100
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="kpi-card" id="card-tasso-referral">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Tasso Referral</div>
+                        <div class="kpi-value" id="valore-tasso-referral">--%</div>
+                        <div class="kpi-detail" id="dettaglio-tasso-referral">
+                            -- referral convertiti su -- totali
+                        </div>
+                    </div>
+                    <i class="ri-group-line" style="font-size: 2.5rem; color: #6366f1; opacity: 0.3;"></i>
+                </div>
+                <div class="formula-box mt-3">
+                    <strong>Formula:</strong> Referral Convertiti / Referral Totali × 100
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARR Professionisti -->
+    <div class="row">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="ri-user-star-line me-2"></i>
+                ARR Professionisti
+                <span class="badge bg-secondary ms-2" id="count-professionisti">0</span>
+            </h5>
+
+            <!-- Spiegazione ARR -->
+            <div class="alert alert-info mb-3">
+                <strong><i class="ri-information-line me-1"></i> Formula ARR:</strong>
+                <div class="formula-box mt-2 bg-white">
+                    (Rinnovi + Upgrade<sub>60%</sub> + Referral<sub>60%</sub>) / (Clienti Eleggibili + Upgrade Totali + Referral Totali) × 100
+                </div>
+                <small class="d-block mt-2 text-muted">
+                    <strong>Split 60/40:</strong> 60% al proponente, 40% al ricevente per upgrade e referral convertiti.
+                    <br>
+                    <strong>Clienti Eleggibili:</strong> Clienti con obiettivi ancora da raggiungere (has_goals_left ≠ False).
+                </small>
+            </div>
+
+            <div class="modern-card">
+                <div class="modern-card-body">
+                    <div class="table-responsive">
+                        <table class="arr-table" id="tabella-arr">
+                            <thead>
+                                <tr>
+                                    <th>Professionista</th>
+                                    <th class="text-center">Rinnovi</th>
+                                    <th class="text-center">Upgrade (60%)</th>
+                                    <th class="text-center">Upgrade (40%)</th>
+                                    <th class="text-center">Referral (60%)</th>
+                                    <th class="text-center">Referral (40%)</th>
+                                    <th class="text-center">Eleggibili</th>
+                                    <th class="text-center">ARR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpo-tabella-arr">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="ri-calculator-line ri-2x mb-2 d-block" style="opacity: 0.3;"></i>
+                                        Seleziona un periodo e clicca "Calcola KPI"
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARR Medio -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">ARR Medio Professionisti</div>
+                <div class="kpi-value" id="arr-medio">--%</div>
+                <div class="kpi-detail">Media ARR di tutti i professionisti attivi</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const periodoInizio = document.getElementById('periodo-inizio');
+    const periodoFine = document.getElementById('periodo-fine');
+    const periodoPreset = document.getElementById('periodo-preset');
+    const btnCalcola = document.getElementById('btn-calcola');
+    const btnSalvaSnapshot = document.getElementById('btn-salva-snapshot');
+
+    // Gestione preset periodo
+    periodoPreset.addEventListener('change', function() {
+        const oggi = new Date();
+        let inizio, fine;
+
+        switch(this.value) {
+            case 'mese_scorso':
+                fine = new Date(oggi.getFullYear(), oggi.getMonth(), 0);
+                inizio = new Date(fine.getFullYear(), fine.getMonth(), 1);
+                break;
+            case 'mese_corrente':
+                inizio = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
+                fine = oggi;
+                break;
+            case 'trimestre':
+                fine = oggi;
+                inizio = new Date(oggi.getFullYear(), oggi.getMonth() - 3, oggi.getDate());
+                break;
+            case 'anno':
+                inizio = new Date(oggi.getFullYear(), 0, 1);
+                fine = oggi;
+                break;
+            default:
+                return;
+        }
+
+        periodoInizio.value = inizio.toISOString().split('T')[0];
+        periodoFine.value = fine.toISOString().split('T')[0];
+    });
+
+    // Calcola KPI
+    btnCalcola.addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line ri-spin me-1"></i> Calcolo...';
+
+        fetch('/kpi/api/calcola', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({
+                periodo_inizio: periodoInizio.value,
+                periodo_fine: periodoFine.value,
+                save_snapshot: false
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                aggiornaKPIAziendali(result.data.kpi_aziendali);
+                aggiornaARRProfessionisti(result.data.arr);
+            } else {
+                toastr.error(result.message || 'Errore nel calcolo KPI');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            toastr.error('Errore nel calcolo KPI');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-calculator-line me-1"></i> Calcola KPI';
+        });
+    });
+
+    // Salva Snapshot
+    btnSalvaSnapshot.addEventListener('click', function() {
+        if (!confirm('Vuoi salvare gli snapshot KPI per il periodo selezionato?')) {
+            return;
+        }
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line ri-spin me-1"></i> Salvataggio...';
+
+        fetch('/kpi/api/snapshot/salva', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({
+                periodo_inizio: periodoInizio.value,
+                periodo_fine: periodoFine.value
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                toastr.success('Snapshot salvati con successo');
+            } else {
+                toastr.error(result.message || 'Errore nel salvataggio');
+            }
+        })
+        .catch(error => {
+            console.error('Errore:', error);
+            toastr.error('Errore nel salvataggio');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-save-line me-1"></i> Salva Snapshot';
+        });
+    });
+
+    function aggiornaKPIAziendali(kpi) {
+        // Tasso Rinnovi
+        const tassoRinnovi = kpi.tasso_rinnovi;
+        document.getElementById('valore-tasso-rinnovi').textContent = tassoRinnovi.percentuale.toFixed(1) + '%';
+        document.getElementById('dettaglio-tasso-rinnovi').textContent =
+            `${tassoRinnovi.numeratore} clienti rinnovati su ${tassoRinnovi.denominatore} in scadenza`;
+
+        const cardRinnovi = document.getElementById('card-tasso-rinnovi');
+        cardRinnovi.classList.remove('success', 'warning', 'danger');
+        if (tassoRinnovi.percentuale >= 70) cardRinnovi.classList.add('success');
+        else if (tassoRinnovi.percentuale >= 50) cardRinnovi.classList.add('warning');
+        else cardRinnovi.classList.add('danger');
+
+        // Tasso Referral
+        const tassoReferral = kpi.tasso_referral;
+        document.getElementById('valore-tasso-referral').textContent = tassoReferral.percentuale.toFixed(1) + '%';
+        document.getElementById('dettaglio-tasso-referral').textContent =
+            `${tassoReferral.numeratore} referral convertiti su ${tassoReferral.denominatore} totali`;
+
+        const cardReferral = document.getElementById('card-tasso-referral');
+        cardReferral.classList.remove('success', 'warning', 'danger');
+        if (tassoReferral.percentuale >= 50) cardReferral.classList.add('success');
+        else if (tassoReferral.percentuale >= 30) cardReferral.classList.add('warning');
+        else cardReferral.classList.add('danger');
+    }
+
+    function aggiornaARRProfessionisti(arr) {
+        const tbody = document.getElementById('corpo-tabella-arr');
+        const countBadge = document.getElementById('count-professionisti');
+        const arrMedio = document.getElementById('arr-medio');
+
+        countBadge.textContent = arr.totale_professionisti;
+        arrMedio.textContent = arr.arr_medio.toFixed(1) + '%';
+
+        if (arr.professionisti && arr.professionisti.length > 0) {
+            tbody.innerHTML = '';
+            arr.professionisti.forEach(p => {
+                const arrClass = p.arr_percentuale >= 70 ? 'high' :
+                                p.arr_percentuale >= 50 ? 'medium' : 'low';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${p.user_name}</strong>
+                        </td>
+                        <td class="text-center">${p.dettagli.rinnovi_count}</td>
+                        <td class="text-center">${p.dettagli.upgrade_proponente}</td>
+                        <td class="text-center">${p.dettagli.upgrade_ricevente}</td>
+                        <td class="text-center">${p.dettagli.referral_proponente}</td>
+                        <td class="text-center">${p.dettagli.referral_ricevente}</td>
+                        <td class="text-center">${p.dettagli.clienti_eleggibili}</td>
+                        <td class="text-center">
+                            <span class="arr-badge ${arrClass}">
+                                ${p.arr_percentuale.toFixed(1)}%
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="ri-user-unfollow-line ri-2x mb-2 d-block" style="opacity: 0.3;"></i>
+                        Nessun professionista trovato
+                    </td>
+                </tr>
+            `;
+        }
+    }
+});
+</script>
+{% endblock %}

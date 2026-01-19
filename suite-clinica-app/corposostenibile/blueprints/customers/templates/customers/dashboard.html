@@ -1,0 +1,168 @@
+{# templates/customers/dashboard.html #}
+{% extends "base.html" %}
+
+{% block title %}Dashboard Clienti • Suite{% endblock %}
+
+{# ------------------------------------------------------------------ #
+   Extra CSS – stile KPI e graﬁci                                      #
+# ------------------------------------------------------------------ #}
+{% block extra_css %}
+<style>
+  /* -- KPI card --------------------------------------------------- */
+  .kpi-card        {min-width:160px;position:relative}
+  .kpi-card h3     {font-size:1.75rem;font-weight:700}
+  .kpi-icon        {width:44px;height:44px;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center}
+  .info-btn        {position:absolute;top:8px;right:8px;
+                    color:#27AE60;cursor:pointer;font-size:1.15rem}
+
+  /* -- chart info icon ------------------------------------------- */
+  .chart-info-btn  {color:#27AE60;cursor:pointer;font-size:1.15rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="p-24">
+
+  <!-- ─────────────── Header ─────────────── -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h4 class="mb-0 fw-semibold">Dashboard Clienti</h4>
+    
+  </div>
+
+  {# ======================== KPI ========================= #}
+  {% set kpi_items = [
+    ('total_active',      'Clienti attivi',                     'ri-user-follow-line',
+     'Numero di clienti con stato <strong>attivo</strong>.',     'bg-success-subtle text-success-main'),
+    ('new_month',         'Nuovi clienti (mese)',               'ri-user-add-line',
+     'Clienti inseriti dal primo giorno del mese corrente.',     'bg-info-subtle text-info-main'),
+    ('percent_scadenza',  '% in scadenza (&lt;30 gg)',          'ri-alarm-warning-line',
+     'Percentuale di clienti con rinnovo in scadenza entro 30 giorni.',
+                                                                 'bg-warning-subtle text-warning-main')
+  ] %}
+
+  <div class="row g-4">
+    {% for key,label,icon,desc,cls in kpi_items %}
+      <div class="col-md-4">
+        <div class="kpi-card shadow-7 p-20 radius-12 bg-base d-flex align-items-center gap-16">
+          <span class="kpi-icon {{ cls }}"><i class="{{ icon }}"></i></span>
+          <div>
+            <h3 id="kpi_{{ key }}">—</h3>
+            <span class="text-secondary-light fw-medium text-sm">{{ label }}</span>
+          </div>
+          <span class="info-btn" data-bs-toggle="modal" data-bs-target="#info_{{ key }}">
+            <i class="ri-information-line"></i>
+          </span>
+        </div>
+      </div>
+
+      {# ─ modal info KPI ─ #}
+      <div class="modal fade" id="info_{{ key }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">{{ label }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body"><p class="mb-0">{{ desc|safe }}</p></div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {# ======================= CHARTS ======================= #}
+  {% set charts = [
+    ('chart_status',        'Distribuzione stato cliente',
+     'Suddivisione percentuale dei clienti per stato (attivo, pausa, ghost…).'),
+    ('chart_new_customers', 'Nuovi clienti – ultimi 12 mesi',
+     'Andamento mensile dei clienti acquisiti nell’ultimo anno.')
+  ] %}
+
+  <div class="row g-4 mt-24">
+    {% for cid,title,desc in charts %}
+      <div class="col-xl-{% if cid == 'chart_status' %}4{% else %}8{% endif %}">
+        <div class="shadow-7 p-20 radius-12 bg-base h-100">
+          <div class="d-flex align-items-start justify-content-between mb-16">
+            <h6 class="fw-semibold mb-0">{{ title }}</h6>
+            <span class="chart-info-btn" data-bs-toggle="modal" data-bs-target="#info_{{ cid }}">
+              <i class="ri-information-line"></i>
+            </span>
+          </div>
+          <div id="{{ cid }}" style="height:{% if cid == 'chart_status' %}300{% else %}320{% endif %}px"></div>
+        </div>
+      </div>
+
+      {# ─ modal info chart ─ #}
+      <div class="modal fade" id="info_{{ cid }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">{{ title }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body"><p class="mb-0">{{ desc }}</p></div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+
+{# ------------------------------------------------------------------ #
+   JS – ApexCharts + fetch metriche                                   #
+# ------------------------------------------------------------------ #}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='assets/js/lib/apexcharts.min.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  /* ---- fetch dati dashboard dal backend ---- */
+  fetch('{{ url_for("customers_api_v1.api_stats") }}')
+    .then(r => r.json())
+    .then(res => {
+      const kpi = res.kpi || {};
+      /* ---- KPI cards -------------------------------------------------- */
+      const kpiMap = {
+        total_active     : kpi.total_active ?? 0,
+        new_month        : kpi.new_month ?? 0,
+        percent_scadenza : kpi.percent_scadenza !== undefined
+                           ? kpi.percent_scadenza.toFixed(1) + '%'
+                           : '—'
+      };
+      for (const [k, v] of Object.entries(kpiMap)) {
+        const el = document.getElementById('kpi_' + k);
+        if (el) el.textContent = v;
+      }
+
+      /* ---- donut stato cliente --------------------------------------- */
+      const statusData = res.charts.status_distribution || [];
+      new ApexCharts(
+        document.querySelector('#chart_status'),
+        {
+          chart  : {type:'donut', height:300},
+          series : statusData.map(o => o.count),
+          labels : statusData.map(o => o.status.replace('_',' ')),
+          legend : {position:'bottom'}
+        }
+      ).render();
+
+      /* ---- area “nuovi clienti” -------------------------------------- */
+      const monthly = res.charts.new_customers_monthly || [];
+      new ApexCharts(
+        document.querySelector('#chart_new_customers'),
+        {
+          chart:{type:'area',height:320,toolbar:{show:false}},
+          series:[{name:'Nuovi clienti', data:monthly.map(o => o.count)}],
+          xaxis : {categories:monthly.map(o => o.month), labels:{rotate:-45}},
+          stroke:{curve:'smooth',width:3},
+          fill  : {type:'gradient',gradient:{shadeIntensity:.4,opacityFrom:.5,opacityTo:0}},
+          dataLabels:{enabled:false}
+        }
+      ).render();
+    })
+    .catch(console.error);
+});
+</script>
+{% endblock %}

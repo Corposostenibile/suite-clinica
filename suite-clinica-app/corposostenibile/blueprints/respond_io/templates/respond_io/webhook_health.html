@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Webhook Health Monitor - Respond.io{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0">🔍 Webhook Health Monitor</h1>
+            <p class="text-muted">Sistema di monitoraggio e recovery webhook Respond.io</p>
+        </div>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card {% if health.status == 'healthy' %}bg-success{% elif health.status == 'degraded' %}bg-warning{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Status Generale</h5>
+                    <h2 class="mb-0">
+                        {% if health.status == 'healthy' %}
+                            ✅ Healthy
+                        {% elif health.status == 'degraded' %}
+                            ⚠️ Degraded
+                        {% else %}
+                            ❌ Unhealthy
+                        {% endif %}
+                    </h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Coda</h5>
+                    <h2 class="mb-0">{{ queue_status.get('queued', 0) }}</h2>
+                    <small class="text-muted">In attesa</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Falliti</h5>
+                    <h2 class="mb-0 text-danger">{{ queue_status.get('failed', 0) }}</h2>
+                    <small class="text-muted">Da riprocessare</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Success Rate</h5>
+                    {% set total = 0 %}
+                    {% set success = 0 %}
+                    {% for stat in stats_24h %}
+                        {% set total = total + stat.total %}
+                        {% set success = success + (stat.processed or 0) %}
+                    {% endfor %}
+                    {% set rate = (success / total * 100) if total > 0 else 100 %}
+                    <h2 class="mb-0">{{ "%.1f"|format(rate) }}%</h2>
+                    <small class="text-muted">Ultime 24h</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Issues Alert -->
+    {% if health.issues %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h5>⚠️ Problemi Rilevati:</h5>
+                <ul class="mb-0">
+                    {% for issue in health.issues %}
+                    <li>{{ issue }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Webhook Types Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📊 Stato per Tipo di Webhook</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Status</th>
+                                    <th>Totale (24h)</th>
+                                    <th>Processati</th>
+                                    <th>Falliti</th>
+                                    <th>Success Rate</th>
+                                    <th>Ultimo Ricevuto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for webhook_type, wh_health in health.webhooks.items() %}
+                                <tr>
+                                    <td><code>{{ webhook_type }}</code></td>
+                                    <td>
+                                        {% if wh_health.status == 'healthy' %}
+                                            <span class="badge badge-success">OK</span>
+                                        {% elif wh_health.status == 'warning' %}
+                                            <span class="badge badge-warning">Warning</span>
+                                        {% else %}
+                                            <span class="badge badge-danger">Error</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ wh_health.total_last_hour }}</td>
+                                    <td>{{ wh_health.processed }}</td>
+                                    <td>{{ wh_health.failed }}</td>
+                                    <td>
+                                        {% if wh_health.total_last_hour > 0 %}
+                                            {{ "%.1f"|format((wh_health.processed / wh_health.total_last_hour * 100)) }}%
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if wh_health.last_received %}
+                                            <small>{{ wh_health.last_received }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Mai</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recovery Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🔧 Azioni di Recovery</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-warning" onclick="runRecovery('retry_failed')">
+                            🔄 Riprova Falliti
+                        </button>
+                        <button class="btn btn-info" onclick="runRecovery('full_recovery')">
+                            🚀 Recovery Completo
+                        </button>
+                        <button class="btn btn-danger" onclick="if(confirm('Sicuro di voler svuotare la coda?')) runRecovery('clear_queue', true)">
+                            🗑️ Svuota Coda
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Errors -->
+    {% if recent_errors %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">❌ Errori Recenti</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tipo</th>
+                                    <th>Tentativi</th>
+                                    <th>Errore</th>
+                                    <th>Creato</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for error in recent_errors %}
+                                <tr>
+                                    <td><code>{{ error.webhook_id[:8] }}...</code></td>
+                                    <td>{{ error.webhook_type }}</td>
+                                    <td>{{ error.attempts }}</td>
+                                    <td><small>{{ error.last_error[:50] if error.last_error else '-' }}</small></td>
+                                    <td><small>{{ error.created_at.strftime('%H:%M:%S') }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function runRecovery(action, needConfirm = false) {
+    const data = {
+        action: action,
+        limit: 100
+    };
+    
+    if (action === 'clear_queue' && needConfirm) {
+        data.confirm = 'CONFIRM_CLEAR_QUEUE';
+    }
+    
+    fetch('{{ url_for("respond_io.webhook_recovery") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('✅ ' + result.message);
+            location.reload();
+        } else {
+            alert('❌ Errore: ' + (result.error || 'Operazione fallita'));
+        }
+    })
+    .catch(error => {
+        alert('❌ Errore di rete: ' + error);
+    });
+}
+
+// Auto-refresh ogni 30 secondi
+setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}

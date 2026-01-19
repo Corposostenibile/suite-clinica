@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Idee Proposte - Corposostenibile{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('it_projects.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="ri-arrow-left-line"></i>
+    </a>
+    <h6 class="fw-semibold mb-0">Idee Proposte dal Team</h6>
+  </div>
+</div>
+
+{# ─────────────────────── KPI CARDS ─────────────────────── #}
+<div class="row gy-4 mb-32">
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-warning-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:lightbulb" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Totale Idee</span>
+          <h4 class="fw-semibold mb-0">{{ stats.total }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-4">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-warning text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:clock-outline" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">In Attesa</span>
+          <h4 class="fw-semibold mb-0">{{ stats.pending }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-2">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-success-main text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:check-circle" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Approvate</span>
+          <h4 class="fw-semibold mb-0">{{ stats.approved }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xxl-3 col-sm-6">
+    <div class="card p-3 shadow-2 radius-8 border input-form-light h-100 bg-gradient-end-1">
+      <div class="card-body p-0 d-flex flex-wrap align-items-center gap-3">
+        <span class="w-48-px h-48-px bg-primary-600 text-white d-flex justify-content-center align-items-center rounded-circle">
+          <iconify-icon icon="mdi:folder-arrow-right" class="icon"></iconify-icon>
+        </span>
+        <div>
+          <span class="text-sm text-secondary-light fw-medium d-block">Convertite in Progetti</span>
+          <h4 class="fw-semibold mb-0">{{ stats.converted }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─────────────────────── FILTRI ─────────────────────── #}
+<div class="card mb-4">
+  <div class="card-body py-3">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label text-sm">Stato</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Tutti</option>
+          {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-sm btn-primary-600 w-100">
+          <i class="ri-filter-line me-1"></i>Filtra
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ─────────────────────── LISTA IDEE ─────────────────────── #}
+<div class="card">
+  <div class="card-header">
+    <h6 class="card-title mb-0">
+      <i class="ri-lightbulb-line text-warning-main me-2"></i>
+      Idee
+      <span class="badge bg-warning-100 text-warning-600 ms-2">{{ ideas|length }}</span>
+    </h6>
+  </div>
+  <div class="card-body">
+    {% if ideas %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th style="width: 35%;">Idea</th>
+            <th>Proposta da</th>
+            <th>Stato</th>
+            <th>Data</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for idea in ideas %}
+          <tr class="{% if idea.status == 'pending' %}table-warning{% endif %}">
+            <td>
+              <div>
+                <a href="{{ url_for('it_projects.ideas_detail', idea_id=idea.id) }}" class="fw-semibold text-decoration-none">
+                  {{ idea.title }}
+                </a>
+                <p class="text-muted text-sm mb-0 mt-1" style="max-width: 300px;">
+                  {{ idea.description[:80] }}{% if idea.description|length > 80 %}...{% endif %}
+                </p>
+              </div>
+            </td>
+            <td>
+              {% if idea.proposed_by %}
+              <div class="d-flex align-items-center gap-2">
+                <div class="w-24-px h-24-px rounded-circle bg-primary-100 d-flex justify-content-center align-items-center text-primary-600 fw-semibold text-xs">
+                  {{ idea.proposed_by.first_name[0] }}
+                </div>
+                <span class="text-sm">{{ idea.proposed_by.full_name }}</span>
+              </div>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-{{ idea.status_color }}-subtle text-{{ idea.status_color }}-main">
+                {{ idea.status_label }}
+              </span>
+              {% if idea.converted_to_project %}
+              <br><a href="{{ url_for('it_projects.detail', project_id=idea.converted_to_project.id) }}" class="text-primary text-xs">
+                <i class="ri-folder-line"></i> Vedi progetto
+              </a>
+              {% endif %}
+            </td>
+            <td>
+              <span class="text-sm text-muted">{{ idea.created_at.strftime('%d/%m/%Y') }}</span>
+            </td>
+            <td>
+              <div class="d-flex gap-2">
+                <a href="{{ url_for('it_projects.ideas_detail', idea_id=idea.id) }}" class="btn btn-sm btn-outline-primary" title="Dettagli">
+                  <i class="ri-eye-line"></i>
+                </a>
+                {% if idea.is_convertible %}
+                <a href="{{ url_for('it_projects.ideas_convert', idea_id=idea.id) }}" class="btn btn-sm btn-outline-success" title="Converti in Progetto">
+                  <i class="ri-folder-add-line"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <iconify-icon icon="mdi:lightbulb-off-outline" style="font-size: 3rem;"></iconify-icon>
+      <p class="mt-3 mb-0">Nessuna idea trovata</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

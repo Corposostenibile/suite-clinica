@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}Risposte - {{ survey.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Root Variables */
+  :root {
+    --primary-color: #45CB85;
+    --primary-dark: #239957;
+    --secondary-color: #4ECAC2;
+    --success-color: #45CB85;
+    --danger-color: #DC3545;
+    --warning-color: #F0AD4E;
+    --info-color: #5BC0DE;
+    --light-color: #F8FAFC;
+    --dark-color: #1A3366;
+  }
+
+  /* Page Header */
+  .page-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 24px rgba(72, 127, 255, 0.15);
+  }
+
+  .page-header h4 {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  /* Card Styles */
+  .card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: white;
+    transition: all 0.3s ease;
+  }
+
+  .card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, var(--light-color) 0%, white 100%);
+    border-bottom: 1px solid #E2E8F0;
+    border-radius: 16px 16px 0 0 !important;
+    padding: 20px 24px;
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  /* Badge Styles */
+  .badge {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+
+  .badge-primary-gradient {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+  }
+
+  .badge-secondary-gradient {
+    background: linear-gradient(135deg, #6C757D 0%, #545B62 100%);
+    color: white;
+  }
+
+  /* Alert Styles */
+  .alert {
+    border-radius: 12px;
+    border: none;
+    padding: 16px 20px;
+  }
+
+  .alert-info {
+    background: linear-gradient(135deg, rgba(91, 192, 222, 0.15) 0%, rgba(49, 176, 213, 0.15) 100%);
+    color: var(--dark-color);
+  }
+
+  .alert-light {
+    background: var(--light-color);
+    color: #4A5568;
+  }
+
+  /* Button Styles */
+  .btn {
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    border: none;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #2856D4 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72, 127, 255, 0.3);
+    color: white;
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, #6C757D 0%, #545B62 100%);
+    border: none;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background: linear-gradient(135deg, #545B62 0%, #3D4349 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.3);
+    color: white;
+  }
+
+  .btn-outline-primary {
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    background: transparent;
+  }
+
+  .btn-outline-primary:hover {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    border-color: transparent;
+    color: white;
+  }
+
+  /* Progress Bar */
+  .progress {
+    border-radius: 8px;
+    background-color: var(--light-color);
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    transition: width 0.6s ease;
+  }
+
+  /* Details/Summary */
+  details summary {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  details[open] summary {
+    margin-bottom: 16px;
+  }
+
+  /* Tabs Navigation */
+  .nav-tabs {
+    border-bottom: 2px solid #E2E8F0;
+  }
+
+  .nav-tabs .nav-link {
+    border: none;
+    color: #64748B;
+    font-weight: 500;
+    padding: 12px 24px;
+    transition: all 0.3s ease;
+  }
+
+  .nav-tabs .nav-link:hover {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+  }
+
+  .nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    background: transparent;
+    border-bottom: 3px solid var(--primary-color);
+  }
+
+  /* Individual Response Card */
+  .response-card {
+    border-left: 4px solid var(--primary-color);
+    margin-bottom: 20px;
+  }
+
+  .response-card .card-header {
+    background: linear-gradient(135deg, rgba(69, 203, 133, 0.1) 0%, rgba(35, 153, 87, 0.05) 100%);
+  }
+
+  .question-answer-pair {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+
+  .question-answer-pair:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .question-text {
+    font-weight: 600;
+    color: var(--dark-color);
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+
+  .answer-text {
+    color: #4A5568;
+    background: var(--light-color);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+
+  .badge-response-number {
+    background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
+    color: white;
+    font-size: 0.85rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="d-flex justify-content-between align-items-center">
+      <h4 class="mb-0"><i class="ri-bar-chart-box-line me-2"></i>Risposte: {{ survey.title }}</h4>
+      <span class="badge badge-primary-gradient">{{ total_responses }} risposte totali</span>
+    </div>
+  </div>
+
+  <!-- Alert Anonimato -->
+  <div class="alert alert-info mb-4">
+    <i class="ri-shield-check-line me-2"></i>
+    <strong>Garanzia anonimato:</strong> Le risposte sono aggregate e visualizzate senza alcun riferimento all'identità dei rispondenti.
+  </div>
+
+  <!-- Tabs Navigation -->
+  <ul class="nav nav-tabs mb-4" id="responsesTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="aggregated-tab" data-bs-toggle="tab" data-bs-target="#aggregated" type="button" role="tab">
+        <i class="ri-bar-chart-line me-2"></i>Risposte Aggregate
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="individual-tab" data-bs-toggle="tab" data-bs-target="#individual" type="button" role="tab">
+        <i class="ri-file-list-line me-2"></i>Risposte Individuali
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Content -->
+  <div class="tab-content" id="responsesTabContent">
+
+    <!-- TAB 1: Risposte Aggregate -->
+    <div class="tab-pane fade show active" id="aggregated" role="tabpanel">
+      <div class="card mb-4">
+        <div class="card-body">
+          {% if aggregated_data %}
+            {% for question_key, stats in aggregated_data.items() %}
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <strong>{{ question_labels.get(question_key, question_key) }}</strong>
+              </div>
+              <div class="card-body">
+                {% if stats.average %}
+                  <div class="mb-3">
+                    <strong>Media:</strong>
+                    <span class="badge badge-primary-gradient">{{ "%.2f"|format(stats.average) }} / 5</span>
+                  </div>
+                {% endif %}
+
+                {% if stats.counts %}
+                  <h6>Distribuzione risposte:</h6>
+                  <ul class="list-unstyled">
+                    {% for answer, count in stats.counts.items() %}
+                    <li class="mb-3">
+                      <span class="badge badge-secondary-gradient">{{ count }}</span>
+                      {{ answer }}
+                      <div class="progress" style="height: 20px; margin-top: 8px;">
+                        <div class="progress-bar" style="width: {{ (count / stats.total * 100)|int }}%">
+                          {{ (count / stats.total * 100)|int }}%
+                        </div>
+                      </div>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+
+                {% if stats.all_answers and question_key in ['q5_4', 'q8_1', 'q8_2', 'q8_3', 'q1_2', 'q2_5_other'] %}
+                  <details>
+                    <summary class="btn btn-sm btn-outline-primary">Mostra tutte le risposte aperte ({{ stats.all_answers|length }})</summary>
+                    <div class="mt-3">
+                      {% for answer in stats.all_answers %}
+                        <div class="alert alert-light">{{ answer }}</div>
+                      {% endfor %}
+                    </div>
+                  </details>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-center py-5">
+              <p class="text-muted">Nessuna risposta ricevuta ancora</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Risposte Individuali -->
+    <div class="tab-pane fade" id="individual" role="tabpanel">
+      {% if responses %}
+        {% for response in responses %}
+        <div class="card response-card mb-4">
+          <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="ri-user-line me-2"></i>Compilazione #{{ loop.index }}
+              </h5>
+              <span class="badge badge-response-number">
+                <i class="ri-calendar-line me-1"></i>{{ response.submitted_at.strftime('%d/%m/%Y %H:%M') }}
+              </span>
+            </div>
+          </div>
+          <div class="card-body">
+            {% for question_key, answer in response.responses.items() %}
+            <div class="question-answer-pair">
+              <div class="question-text">
+                <i class="ri-question-line me-1 text-primary"></i>{{ question_labels.get(question_key, question_key) }}
+              </div>
+              <div class="answer-text">
+                {% if answer %}
+                  {{ answer }}
+                {% else %}
+                  <em class="text-muted">Nessuna risposta</em>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="card">
+          <div class="card-body">
+            <div class="text-center py-5">
+              <i class="ri-file-list-line" style="font-size: 3rem; color: #CBD5E0;"></i>
+              <p class="text-muted mt-3">Nessuna risposta ricevuta ancora</p>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Back Button -->
+  <div class="mt-4">
+    <a href="{{ url_for('team.admin_anonymous_surveys') }}" class="btn btn-secondary">
+      <i class="ri-arrow-left-line me-1"></i>Torna alla Dashboard
+    </a>
+  </div>
+</div>
+{% endblock %}

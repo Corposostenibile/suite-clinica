@@ -1,0 +1,748 @@
+{% extends "base.html" %}
+
+{% block title %}Editor Piano - {{ plan.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Editor Styles */
+.meal-editor {
+    min-height: 600px;
+}
+
+.day-column {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 500px;
+}
+
+.meal-card {
+    background: white;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.meal-card-header {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+.food-item {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 6px;
+    cursor: move;
+    transition: all 0.2s;
+}
+
+.food-item:hover {
+    background: #e9ecef;
+    transform: translateX(2px);
+}
+
+.food-item.dragging {
+    opacity: 0.5;
+}
+
+.meal-foods {
+    min-height: 60px;
+    border: 2px dashed transparent;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.meal-foods.drag-over {
+    border-color: var(--brand-green);
+    background: var(--brand-green-50);
+}
+
+.add-meal-btn {
+    border: 2px dashed #dee2e6;
+    background: transparent;
+    padding: 12px;
+    text-align: center;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-meal-btn:hover {
+    border-color: var(--brand-green);
+    background: var(--brand-green-50);
+}
+
+/* Food Library */
+.food-library {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.food-library-item {
+    cursor: grab;
+    transition: all 0.2s;
+}
+
+.food-library-item:active {
+    cursor: grabbing;
+}
+
+.food-library-item:hover {
+    background: var(--brand-green-50);
+}
+
+/* Macros Display */
+.macro-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* Search */
+.food-search {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding-bottom: 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h1 class="h3 mb-0">{{ plan.name }}</h1>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#templateModal">
+            <iconify-icon icon="solar:clipboard-list-linear" class="me-1"></iconify-icon>
+            Usa Template
+        </button>
+        <a href="{{ url_for('nutrition.meal_plan_view', plan_id=plan.id) }}" class="btn btn-outline-primary">
+            <iconify-icon icon="solar:eye-linear" class="me-1"></iconify-icon>
+            Anteprima
+        </a>
+        <button type="button" class="btn btn-primary" id="savePlan">
+            <iconify-icon icon="solar:diskette-linear" class="me-1"></iconify-icon>
+            Salva Modifiche
+        </button>
+    </div>
+</div>
+
+<!-- Target Summary -->
+<div class="card radius-8 border-0 mb-24">
+    <div class="card-body p-16">
+        <div class="row align-items-center g-3">
+            <div class="col-auto">
+                <h6 class="mb-0">Target Giornalieri:</h6>
+            </div>
+            <div class="col">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <span class="badge bg-primary-50 text-primary-600 px-12 py-6">
+                        <iconify-icon icon="solar:fire-linear" class="me-1"></iconify-icon>
+                        {{ plan.target_calories|int }} kcal
+                    </span>
+                    <span class="badge bg-info-50 text-info-600 px-12 py-6">
+                        <iconify-icon icon="solar:dumbbell-linear" class="me-1"></iconify-icon>
+                        {{ plan.target_proteins|format_macros }}g proteine
+                    </span>
+                    <span class="badge bg-warning-50 text-warning-600 px-12 py-6">
+                        <iconify-icon icon="solar:wheat-linear" class="me-1"></iconify-icon>
+                        {{ plan.target_carbohydrates|format_macros }}g carboidrati
+                    </span>
+                    <span class="badge bg-success-50 text-success-600 px-12 py-6">
+                        <iconify-icon icon="solar:drop-linear" class="me-1"></iconify-icon>
+                        {{ plan.target_fats|format_macros }}g grassi
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Food Library Sidebar -->
+    <div class="col-xxl-3">
+        <div class="card radius-8 border-0 h-100">
+            <div class="card-header border-bottom bg-base py-16 px-24">
+                <h6 class="text-lg fw-semibold mb-0">Database Alimenti</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="food-search p-16 border-bottom">
+                    <div class="input-group">
+                        <input type="text" 
+                               id="foodSearch" 
+                               class="form-control" 
+                               placeholder="Cerca alimento...">
+                        <button class="btn btn-outline-secondary" type="button">
+                            <iconify-icon icon="solar:magnifer-linear"></iconify-icon>
+                        </button>
+                    </div>
+                    <select id="categoryFilter" class="form-select mt-2">
+                        <option value="">Tutte le categorie</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="food-library" id="foodLibrary">
+                    <div class="text-center py-24 text-secondary-light">
+                        <iconify-icon icon="solar:magnifer-linear" class="text-3xl mb-8"></iconify-icon>
+                        <p>Cerca un alimento per iniziare</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meal Plan Editor -->
+    <div class="col-xxl-9">
+        <div class="meal-editor">
+            <!-- Days Navigation -->
+            <ul class="nav nav-tabs mb-16" role="tablist">
+                {% for day in days[:7] %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {{ 'active' if loop.first }}" 
+                            id="day-{{ day.id }}-tab" 
+                            data-bs-toggle="tab" 
+                            data-bs-target="#day-{{ day.id }}" 
+                            type="button" 
+                            role="tab">
+                        <span class="d-block">Giorno {{ day.day_number }}</span>
+                        <small class="text-secondary-light">{{ day.day_date.strftime('%d/%m') }}</small>
+                    </button>
+                </li>
+                {% endfor %}
+                {% if days|length > 7 %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button">
+                        Altri giorni
+                    </a>
+                    <ul class="dropdown-menu">
+                        {% for day in days[7:] %}
+                        <li>
+                            <a class="dropdown-item" 
+                               data-bs-toggle="tab" 
+                               href="#day-{{ day.id }}">
+                                Giorno {{ day.day_number }} - {{ day.day_date.strftime('%d/%m') }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% endif %}
+            </ul>
+
+            <!-- Days Content -->
+            <div class="tab-content">
+                {% for day in days %}
+                <div class="tab-pane fade {{ 'show active' if loop.first }}" 
+                     id="day-{{ day.id }}" 
+                     role="tabpanel"
+                     data-day-id="{{ day.id }}">
+                    
+                    <div class="day-column">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">{{ day.day_date.strftime('%A %d %B %Y') }}</h6>
+                            <div class="day-totals">
+                                <span class="badge bg-neutral-100 text-secondary-light px-8 py-4 text-xs">
+                                    <span class="total-calories">0</span> kcal
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="meals-container" data-day-id="{{ day.id }}">
+                            {% set meal_types = [
+                                ('colazione', 'Colazione', 'solar:sunrise-linear'),
+                                ('spuntino_mattina', 'Spuntino Mattina', 'solar:cup-linear'),
+                                ('pranzo', 'Pranzo', 'solar:dish-linear'),
+                                ('spuntino_pomeriggio', 'Spuntino Pomeriggio', 'solar:donut-linear'),
+                                ('cena', 'Cena', 'solar:moon-linear'),
+                                ('spuntino_sera', 'Spuntino Sera', 'solar:star-linear')
+                            ] %}
+                            
+                            {% for meal_type, meal_name, meal_icon in meal_types %}
+                                {% set meal = day.meals|selectattr('meal_type', 'equalto', meal_type)|first %}
+                                
+                                {% if meal %}
+                                <div class="meal-card" data-meal-id="{{ meal.id }}">
+                                    <div class="meal-card-header d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 text-sm">
+                                            <iconify-icon icon="{{ meal_icon }}" class="me-1"></iconify-icon>
+                                            {{ meal_name }}
+                                        </h6>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-primary-50 text-primary-600 text-xs meal-calories">
+                                                {{ meal.total_calories|int }} kcal
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0" 
+                                                    onclick="deleteMeal({{ meal.id }})">
+                                                <iconify-icon icon="solar:trash-bin-trash-linear"></iconify-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="meal-foods" 
+                                         data-meal-id="{{ meal.id }}"
+                                         ondrop="handleDrop(event)"
+                                         ondragover="handleDragOver(event)"
+                                         ondragleave="handleDragLeave(event)">
+                                        {% for meal_food in meal.foods %}
+                                        <div class="food-item" 
+                                             data-meal-food-id="{{ meal_food.id }}"
+                                             draggable="true">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="flex-grow-1">
+                                                    <p class="mb-1 fw-medium text-sm">
+                                                        {% if meal_food.food %}
+                                                            {{ meal_food.food.name }}
+                                                        {% else %}
+                                                            {{ meal_food.recipe.name }}
+                                                        {% endif %}
+                                                    </p>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <input type="number" 
+                                                               class="form-control form-control-sm quantity-input" 
+                                                               style="width: 70px;"
+                                                               value="{{ meal_food.quantity }}"
+                                                               min="1"
+                                                               onchange="updateQuantity({{ meal_food.id }}, this.value)">
+                                                        <select class="form-select form-select-sm unit-select" 
+                                                                style="width: 80px;"
+                                                                onchange="updateUnit({{ meal_food.id }}, this.value)">
+                                                            {% for unit in ['g', 'ml', 'porzione', 'cucchiaio', 'tazza'] %}
+                                                                <option value="{{ unit }}" {{ 'selected' if meal_food.unit == unit }}>
+                                                                    {{ unit }}
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="text-end ms-2">
+                                                    <p class="mb-1 text-sm fw-medium">{{ meal_food.calories|int }} kcal</p>
+                                                    <div class="d-flex gap-1">
+                                                        <span class="macro-badge bg-info-100 text-info-600">
+                                                            P: {{ meal_food.proteins|format_macros }}
+                                                        </span>
+                                                        <span class="macro-badge bg-warning-100 text-warning-600">
+                                                            C: {{ meal_food.carbohydrates|format_macros }}
+                                                        </span>
+                                                        <span class="macro-badge bg-success-100 text-success-600">
+                                                            G: {{ meal_food.fats|format_macros }}
+                                                        </span>
+                                                    </div>
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-link text-danger p-0 mt-1"
+                                                            onclick="removeFoodFromMeal({{ meal_food.id }})">
+                                                        <iconify-icon icon="solar:close-circle-linear"></iconify-icon>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="add-meal-btn" onclick="createMeal({{ day.id }}, '{{ meal_type }}')">
+                                    <iconify-icon icon="{{ meal_icon }}" class="text-secondary-light text-xl mb-1"></iconify-icon>
+                                    <p class="mb-0 text-sm text-secondary-light">Aggiungi {{ meal_name }}</p>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template Modal -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Applica Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    {% for template in templates %}
+                    <div class="col-md-6">
+                        <div class="card h-100 cursor-pointer template-card" 
+                             onclick="applyTemplate({{ template.id }})">
+                            <div class="card-body">
+                                <h6 class="mb-2">{{ template.name }}</h6>
+                                <p class="text-sm text-secondary-light mb-2">
+                                    {{ template.description|truncate(100) }}
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <span class="badge bg-primary-50 text-primary-600 text-xs">
+                                        {{ template.duration_days }} giorni
+                                    </span>
+                                    <span class="badge bg-info-50 text-info-600 text-xs">
+                                        {{ template.target_calories|int }} kcal
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let currentDraggedFood = null;
+
+// Food search functionality
+const foodSearch = document.getElementById('foodSearch');
+const categoryFilter = document.getElementById('categoryFilter');
+const foodLibrary = document.getElementById('foodLibrary');
+
+function searchFoods() {
+    const query = foodSearch.value;
+    const category = categoryFilter.value;
+    
+    if (query.length < 2) return;
+    
+    fetch(`{{ url_for('nutrition.api_food_search') }}?q=${query}&category=${category}`)
+        .then(response => response.json())
+        .then(data => {
+            foodLibrary.innerHTML = '';
+            
+            if (data.results.length === 0) {
+                foodLibrary.innerHTML = `
+                    <div class="text-center py-24 text-secondary-light">
+                        <p>Nessun alimento trovato</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            data.results.forEach(food => {
+                const foodEl = document.createElement('div');
+                foodEl.className = 'food-library-item p-12 border-bottom';
+                foodEl.draggable = true;
+                foodEl.dataset.foodId = food.id;
+                
+                foodEl.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1 text-sm">${food.name}</h6>
+                            ${food.brand ? `<p class="text-xs text-secondary-light mb-1">${food.brand}</p>` : ''}
+                        </div>
+                        <span class="badge bg-primary-50 text-primary-600 text-xs">
+                            ${food.calories} kcal
+                        </span>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <span class="text-xs text-secondary-light">
+                            P: ${food.proteins}g
+                        </span>
+                        <span class="text-xs text-secondary-light">
+                            C: ${food.carbohydrates}g
+                        </span>
+                        <span class="text-xs text-secondary-light">
+                            G: ${food.fats}g
+                        </span>
+                    </div>
+                `;
+                
+                foodEl.addEventListener('dragstart', handleDragStart);
+                foodEl.addEventListener('dragend', handleDragEnd);
+                
+                foodLibrary.appendChild(foodEl);
+            });
+        });
+}
+
+foodSearch.addEventListener('input', debounce(searchFoods, 300));
+categoryFilter.addEventListener('change', searchFoods);
+
+// Drag and drop handlers
+function handleDragStart(e) {
+    currentDraggedFood = {
+        foodId: e.target.dataset.foodId,
+        element: e.target
+    };
+    e.target.classList.add('dragging');
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    
+    const mealId = e.currentTarget.dataset.mealId;
+    if (!mealId || !currentDraggedFood) return;
+    
+    // Add food to meal
+    fetch(`{{ url_for('nutrition.api_add_meal_food', meal_id=0) }}`.replace('0', mealId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            food_id: currentDraggedFood.foodId,
+            quantity: 100,
+            unit: 'g'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        // Add food item to UI
+        const foodItem = createFoodItemElement(data);
+        e.currentTarget.appendChild(foodItem);
+        
+        // Update totals
+        updateMealTotals(mealId);
+        updateDayTotals();
+    });
+}
+
+// Create meal
+function createMeal(dayId, mealType) {
+    fetch(`{{ url_for('nutrition.api_create_meal', plan_id=plan.id, day_id=0) }}`.replace('0', dayId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            meal_type: mealType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        // Reload to show new meal
+        location.reload();
+    });
+}
+
+// Delete meal
+function deleteMeal(mealId) {
+    if (!confirm('Eliminare questo pasto?')) return;
+    
+    fetch(`{{ url_for('nutrition.api_delete_meal', meal_id=0) }}`.replace('0', mealId), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+// Update food quantity
+function updateQuantity(mealFoodId, quantity) {
+    fetch(`{{ url_for('nutrition.api_update_meal_food', meal_food_id=0) }}`.replace('0', mealFoodId), {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            quantity: parseFloat(quantity)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Update UI with new values
+        updateFoodItemDisplay(mealFoodId, data);
+        updateMealTotals();
+        updateDayTotals();
+    });
+}
+
+// Update food unit
+function updateUnit(mealFoodId, unit) {
+    fetch(`{{ url_for('nutrition.api_update_meal_food', meal_food_id=0) }}`.replace('0', mealFoodId), {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            unit: unit
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        updateFoodItemDisplay(mealFoodId, data);
+        updateMealTotals();
+        updateDayTotals();
+    });
+}
+
+// Remove food from meal
+function removeFoodFromMeal(mealFoodId) {
+    if (!confirm('Rimuovere questo alimento?')) return;
+    
+    fetch(`{{ url_for('nutrition.api_delete_meal_food', meal_food_id=0) }}`.replace('0', mealFoodId), {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector(`[data-meal-food-id="${mealFoodId}"]`).remove();
+            updateMealTotals();
+            updateDayTotals();
+        }
+    });
+}
+
+// Apply template
+function applyTemplate(templateId) {
+    if (!confirm('Applicare questo template? I pasti esistenti verranno sostituiti.')) return;
+    
+    fetch(`{{ url_for('nutrition.api_apply_template', plan_id=plan.id, template_id=0) }}`.replace('0', templateId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Errore nell\'applicazione del template');
+        }
+    });
+}
+
+// Helper functions
+function createFoodItemElement(data) {
+    const div = document.createElement('div');
+    div.className = 'food-item';
+    div.dataset.mealFoodId = data.id;
+    div.draggable = true;
+    
+    const foodName = data.food ? data.food.name : data.recipe.name;
+    
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <p class="mb-1 fw-medium text-sm">${foodName}</p>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="number" 
+                           class="form-control form-control-sm quantity-input" 
+                           style="width: 70px;"
+                           value="${data.quantity}"
+                           min="1"
+                           onchange="updateQuantity(${data.id}, this.value)">
+                    <select class="form-select form-select-sm unit-select" 
+                            style="width: 80px;"
+                            onchange="updateUnit(${data.id}, this.value)">
+                        <option value="g" ${data.unit === 'g' ? 'selected' : ''}>g</option>
+                        <option value="ml" ${data.unit === 'ml' ? 'selected' : ''}>ml</option>
+                        <option value="porzione" ${data.unit === 'porzione' ? 'selected' : ''}>porzione</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-end ms-2">
+                <p class="mb-1 text-sm fw-medium">${Math.round(data.calories)} kcal</p>
+                <div class="d-flex gap-1">
+                    <span class="macro-badge bg-info-100 text-info-600">
+                        P: ${data.proteins.toFixed(1)}
+                    </span>
+                    <span class="macro-badge bg-warning-100 text-warning-600">
+                        C: ${data.carbohydrates.toFixed(1)}
+                    </span>
+                    <span class="macro-badge bg-success-100 text-success-600">
+                        G: ${data.fats.toFixed(1)}
+                    </span>
+                </div>
+                <button type="button" 
+                        class="btn btn-sm btn-link text-danger p-0 mt-1"
+                        onclick="removeFoodFromMeal(${data.id})">
+                    <iconify-icon icon="solar:close-circle-linear"></iconify-icon>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return div;
+}
+
+function updateFoodItemDisplay(mealFoodId, data) {
+    const foodItem = document.querySelector(`[data-meal-food-id="${mealFoodId}"]`);
+    if (!foodItem) return;
+    
+    // Update displayed values
+    foodItem.querySelector('.text-sm.fw-medium').textContent = `${Math.round(data.calories)} kcal`;
+    foodItem.querySelector('.macro-badge.bg-info-100').textContent = `P: ${data.proteins.toFixed(1)}`;
+    foodItem.querySelector('.macro-badge.bg-warning-100').textContent = `C: ${data.carbohydrates.toFixed(1)}`;
+    foodItem.querySelector('.macro-badge.bg-success-100').textContent = `G: ${data.fats.toFixed(1)}`;
+}
+
+function updateMealTotals() {
+    // This would calculate totals for each meal
+    // Implementation depends on backend API
+}
+
+function updateDayTotals() {
+    // This would calculate totals for the day
+    // Implementation depends on backend API
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Save plan
+document.getElementById('savePlan').addEventListener('click', function() {
+    // In this case, changes are already saved via API calls
+    // This could trigger a final validation or redirect
+    alert('Modifiche salvate con successo!');
+});
+</script>
+{% endblock %}

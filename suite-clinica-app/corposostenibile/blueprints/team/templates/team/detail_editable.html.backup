@@ -1,0 +1,1873 @@
+{# blueprints/team/templates/team/detail_editable.html #}
+{% extends "base.html" %}
+
+{# ------------------------------------------------------------------- #}
+{#  Macro helpers                                                      #}
+{# ------------------------------------------------------------------- #}
+{% macro format_date(dt) -%}
+  {{ dt.strftime('%d/%m/%Y') if dt else '—' }}
+{%- endmacro %}
+
+{% macro format_datetime(dt) -%}
+  {{ dt.strftime('%d/%m/%Y %H:%M') if dt else '—' }}
+{%- endmacro %}
+
+{% macro format_bool(val) -%}
+  {% if val is none %}<span class="bool-unknown">Non specificato</span>
+  {% elif val %}<span class="bool-yes">✓ Sì</span>
+  {% else %}<span class="bool-no">✗ No</span>{% endif %}
+{%- endmacro %}
+
+{% block title %}{{ user.full_name }} • Profilo Membro Team{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Section headers */
+.section-header {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 24px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--brand-green);
+}
+.section-header:first-child { margin-top: 0; }
+
+/* Inline edit styles */
+.editable-field {
+    position: relative;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.editable-field:hover {
+    background-color: #f8f9fa;
+}
+
+.editable-field.editing {
+    background-color: #fff;
+    border: 2px solid var(--brand-green);
+}
+
+.editable-field .edit-icon {
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.editable-field:hover .edit-icon {
+    opacity: 0.7;
+}
+
+.editable-input {
+    border: none;
+    background: transparent;
+    width: 100%;
+    font-size: inherit;
+    font-family: inherit;
+    padding: 0;
+}
+
+.editable-input:focus {
+    outline: none;
+}
+
+/* Status indicators */
+.save-indicator {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 1050;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.save-indicator.saving {
+    background: #cfe2ff;
+    color: #084298;
+    display: flex;
+}
+
+.save-indicator.saved {
+    background: #d1e7dd;
+    color: #0f5132;
+    display: flex;
+}
+
+.save-indicator.error {
+    background: #f8d7da;
+    color: #842029;
+    display: flex;
+}
+
+/* Tab styles */
+.nav-tabs .nav-link {
+    color: #6c757d;
+    border: 1px solid transparent;
+    border-radius: 8px 8px 0 0;
+    padding: 10px 20px;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #e9ecef #e9ecef #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--brand-green);
+    background-color: #fff;
+    border-color: #dee2e6 #dee2e6 #fff;
+    border-bottom: 2px solid var(--brand-green);
+}
+
+/* Access control badges */
+.access-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 20px;
+    margin-left: 10px;
+}
+
+.access-badge.hr-only {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.access-badge.finance-only {
+    background: #dfe6e9;
+    color: #2d3436;
+}
+
+/* Empty state */
+.empty-state {
+    color: #adb5bd;
+    font-style: italic;
+}
+
+/* Boolean toggles */
+.bool-yes { color: #28a745; font-weight: 600; }
+.bool-no { color: #dc3545; font-weight: 600; }
+.bool-unknown { color: #6c757d; font-style: italic; }
+
+/* Experience timeline */
+.experience-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.experience-timeline:before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.experience-item {
+    position: relative;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.experience-item:before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--brand-green);
+    border: 2px solid #fff;
+}
+
+/* Form field groups */
+.field-group {
+    margin-bottom: 20px;
+}
+
+.field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.field-value {
+    font-size: 15px;
+    color: #212529;
+}
+
+/* Avatar upload */
+.avatar-container {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 0 auto;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid #dee2e6;
+}
+
+.avatar-upload-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--brand-green);
+    color: white;
+    border: 3px solid white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.avatar-upload-btn:hover {
+    background: var(--brand-green-dark);
+}
+
+/* Add button styles */
+.btn-add-item {
+    border: 2px dashed #dee2e6;
+    background: transparent;
+    color: #6c757d;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-add-item:hover {
+    border-color: var(--brand-green);
+    color: var(--brand-green);
+    background: #f8f9fa;
+}
+
+/* Note cards */
+.note-card {
+    background: #f8f9fa;
+    border-left: 4px solid var(--brand-green);
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.note-card.pinned {
+    background: #fff3cd;
+    border-left-color: #ffc107;
+}
+
+.note-meta {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+
+.note-actions {
+    margin-top: 10px;
+}
+
+/* Weekly report stats */
+.report-stat {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.report-stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--brand-green);
+}
+
+.report-stat-label {
+    font-size: 14px;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+/* Permission controls */
+.permission-required {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.permission-message {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #856404;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{# Check permissions #}
+{% set is_hr = current_user.department and current_user.department.name == "HR" %}
+{% set is_finance = current_user.department and current_user.department.name == "Finance" %}
+{% set is_self = current_user.id == user.id %}
+{% set can_edit = current_user.is_admin or is_hr or is_finance or is_self %}
+{% set can_view_salary = current_user.is_admin or is_hr or is_finance %}
+{% set can_view_hr_notes = current_user.is_admin or is_hr or is_finance %}
+{% set can_edit_competences = current_user.is_admin or is_hr %}
+
+<!-- Save indicator -->
+<div class="save-indicator" id="saveIndicator">
+    <span class="spinner-border spinner-border-sm" id="saveSpinner" style="display: none;"></span>
+    <span id="saveText">Salvataggio...</span>
+</div>
+
+<!-- Breadcrumb -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
+    <h6 class="fw-semibold mb-0">Profilo Membro Team</h6>
+    <ul class="d-flex align-items-center gap-2">
+        <li class="fw-medium">
+            <a href="/" class="d-flex align-items-center gap-1 hover-text-primary">
+                <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>Dashboard
+            </a>
+        </li>
+        <li>-</li>
+        <li class="fw-medium"><a href="{{ url_for('team.user_list') }}">Team</a></li>
+        <li>-</li>
+        <li class="fw-medium">{{ user.full_name }}</li>
+    </ul>
+</div>
+
+<div class="row g-3">
+    <!-- COL PROFILO -->
+    <div class="col-lg-4">
+        <div class="card radius-16 overflow-hidden h-100">
+            <div class="position-relative">
+                <img src="{{ url_for('static', filename='assets/immagini/bg_utenti.png') }}" alt="" class="w-100 object-fit-cover" style="height:170px">
+                <img src="{{ user.avatar_url }}" alt="avatar" class="rounded-circle border border-3 border-white position-absolute start-50 translate-middle" style="top:140px;width:128px;height:128px;object-fit:cover">
+            </div>
+
+            <div class="card-body pt-80">
+
+                <h5 class="text-center mb-0">{{ user.full_name or user.email }}</h5>
+                <p class="small text-muted text-center mb-24">
+                    {% if not readonly %}
+                    <span class="editable-field" data-field="job_title">
+                        <span class="field-value">{{ user.job_title or '—' }}</span>
+                        <iconify-icon icon="ri:pencil-line" class="edit-icon"></iconify-icon>
+                    </span>
+                    {% else %}
+                    {{ user.job_title or '—' }}
+                    {% endif %}
+                </p>
+
+                <h6 class="text-md fw-semibold mb-16">Informazioni</h6>
+
+                <div class="info-line">
+                    <iconify-icon icon="ri:mail-line"></iconify-icon>
+                    <div class="flex-grow-1">
+                        <span class="fw-semibold">Email</span><br>
+                        <span class="text-secondary-light">{{ user.email }}</span>
+                    </div>
+                </div>
+
+                <div class="info-line">
+                    <iconify-icon icon="ri:smartphone-line"></iconify-icon>
+                    <div class="flex-grow-1">
+                        <span class="fw-semibold">Telefono</span><br>
+                        <span class="text-secondary-light">{{ user.mobile or '—' }}</span>
+                    </div>
+                </div>
+
+                <div class="info-line">
+                    <iconify-icon icon="ri:building-4-line"></iconify-icon>
+                    <div class="flex-grow-1">
+                        <span class="fw-semibold">Dipartimento</span><br>
+                        <span class="text-secondary-light">{{ user.department.name if user.department else '—' }}</span>
+                    </div>
+                </div>
+
+                {% if user.department and user.department.head %}
+                <div class="info-line">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ user.department.head.avatar_url }}" 
+                             alt="Manager" 
+                             class="rounded-circle me-2" 
+                             style="width: 32px; height: 32px; object-fit: cover;">
+                        <div>
+                            <span class="fw-semibold">Manager</span><br>
+                            <a href="{{ url_for('team.user_detail', user_id=user.department.head.id) }}" class="text-secondary-light text-decoration-none">
+                                {{ user.department.head.full_name }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if not readonly %}
+                <hr class="my-24">
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <a href="{{ url_for('team.user_edit', user_id=user.id) }}" class="btn btn-outline-success">
+                        <i class="ri-pencil-line me-1"></i>Modifica completa
+                    </a>
+                    <form action="{{ url_for('team.user_toggle', user_id=user.id) }}" method="post" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn {{ 'btn-outline-danger' if user.is_active else 'btn-outline-success' }}">
+                            <i class="{{ 'ri-user-unfollow-line' if user.is_active else 'ri-user-follow-line' }} me-1"></i>{{ 'Disattiva' if user.is_active else 'Attiva' }}
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div><!-- /COL PROFILO -->
+
+    <!-- COL DETTAGLI -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-body p-24">
+                <!-- Tab Navigation -->
+                <ul class="nav border-gradient-tab nav-pills mb-20 d-inline-flex flex-wrap" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="pills-anagrafica-tab" data-bs-toggle="pill" 
+                                data-bs-target="#pills-anagrafica" type="button">
+                            <iconify-icon icon="solar:user-bold" class="me-2"></iconify-icon>Anagrafica
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-formazione-tab" data-bs-toggle="pill" data-bs-target="#pills-formazione" type="button">
+                            <iconify-icon icon="solar:graduation-cap-bold" class="me-2"></iconify-icon>Formazione
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-esperienza-tab" data-bs-toggle="pill" data-bs-target="#pills-esperienza" type="button">
+                            <iconify-icon icon="solar:briefcase-bold" class="me-2"></iconify-icon>Esperienza
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-contratto-tab" data-bs-toggle="pill" data-bs-target="#pills-contratto" type="button">
+                            <iconify-icon icon="solar:document-text-bold" class="me-2"></iconify-icon>Contratto
+                        </button>
+                    </li>
+            {% if can_view_salary %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-retribuzione-tab" data-bs-toggle="pill" data-bs-target="#pills-retribuzione" type="button">
+                            <iconify-icon icon="solar:wallet-bold" class="me-2"></iconify-icon>Retribuzione
+                            <span class="access-badge finance-only">HR/Finance</span>
+                        </button>
+                    </li>
+            {% endif %}
+            {% if can_edit_competences %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-competenze-tab" data-bs-toggle="pill" data-bs-target="#pills-competenze" type="button">
+                            <iconify-icon icon="solar:star-bold" class="me-2"></iconify-icon>Competenze
+                            <span class="access-badge hr-only">HR Only</span>
+                        </button>
+                    </li>
+            {% endif %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-ferie-tab" data-bs-toggle="pill" data-bs-target="#pills-ferie" type="button">
+                            <iconify-icon icon="solar:calendar-bold" class="me-2"></iconify-icon>Ferie
+                        </button>
+                    </li>
+            {% if can_view_hr_notes %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-note-tab" data-bs-toggle="pill" data-bs-target="#pills-note" type="button">
+                            <iconify-icon icon="solar:notes-bold" class="me-2"></iconify-icon>Note HR
+                            <span class="access-badge finance-only">HR/Finance</span>
+                        </button>
+                    </li>
+            {% endif %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pills-performance-tab" data-bs-toggle="pill" data-bs-target="#pills-performance" type="button">
+                            <iconify-icon icon="solar:chart-bold" class="me-2"></iconify-icon>Performance
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="pills-tabContent">
+                    <!-- TAB ANAGRAFICA -->
+                    <div class="tab-pane fade show active" id="pills-anagrafica" role="tabpanel">
+                        <form id="form-anagrafica" data-user-id="{{ user.id }}">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Nome <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="first_name" 
+                                               value="{{ user.first_name }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Cognome <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="last_name" 
+                                               value="{{ user.last_name }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Data di Nascita
+                                        </label>
+                                        <input type="date" class="form-control radius-8" name="birth_date" 
+                                               value="{{ user.birth_date.strftime('%Y-%m-%d') if user.birth_date }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Email <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="email" class="form-control radius-8" name="email" 
+                                               value="{{ user.email }}" required>
+                                    </div>
+                                </div>
+
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Telefono
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="mobile" 
+                                               value="{{ user.mobile or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Codice Fiscale
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="codice_fiscale" 
+                                               value="{{ user.codice_fiscale or '' }}" style="text-transform: uppercase;">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Partita IVA
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="partita_iva" 
+                                               value="{{ user.partita_iva or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Tipo Documento
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="documento_tipo">
+                                            <option value="">Seleziona tipo</option>
+                                            <option value="carta_identita" {% if user.documento_tipo == 'carta_identita' %}selected{% endif %}>Carta d'identità</option>
+                                            <option value="patente" {% if user.documento_tipo == 'patente' %}selected{% endif %}>Patente di guida</option>
+                                            <option value="passaporto" {% if user.documento_tipo == 'passaporto' %}selected{% endif %}>Passaporto</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Numero Documento
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="documento_numero" 
+                                               value="{{ user.documento_numero or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Posizione Lavorativa
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="job_title" 
+                                               value="{{ user.job_title or '' }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Dipartimento
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="department_id">
+                                            <option value="">Seleziona dipartimento</option>
+                                            {% for dept in departments %}
+                                                <option value="{{ dept.id }}" {% if user.department_id == dept.id %}selected{% endif %}>
+                                                    {{ dept.name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Bottone Salva -->
+                                <div class="col-12 mt-4">
+                                    <button type="submit" class="btn btn-primary border border-primary-600 text-md px-56 py-12 radius-8">
+                                        Salva modifiche
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TAB 2: FORMAZIONE -->
+                    <div class="tab-pane fade" id="pills-formazione" role="tabpanel">
+                        <form id="form-formazione" data-user-id="{{ user.id }}">
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-md text-primary-light mb-16">Diploma di Scuola Superiore</h6>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Tipo Diploma
+                                        </label>
+                                        <select class="form-control radius-8 form-select" name="education_high_school_type">
+                                            <option value="">Seleziona tipo</option>
+                                            <option value="scientifico">Scientifico</option>
+                                            <option value="classico">Classico</option>
+                                            <option value="tecnico">Tecnico</option>
+                                            <option value="professionale">Professionale</option>
+                                            <option value="artistico">Artistico</option>
+                                            <option value="linguistico">Linguistico</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mb-20">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                            Istituto
+                                        </label>
+                                        <input type="text" class="form-control radius-8" name="education_high_school_institute" 
+                                               value="">
+                                    </div>
+                                </div>
+                            <div class="col-md-5">
+                                <div class="field-group">
+                                    <div class="field-label">Istituto</div>
+                                    <div class="editable-field" data-field="education_high_school.institute" data-type="text">
+                                        <span class="field-value">
+                                            {{ user.education_high_school.institute if user.education_high_school else 'Non specificato' }}
+                                        </span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="field-group">
+                                    <div class="field-label">Anno</div>
+                                    <div class="editable-field" data-field="education_high_school.year" data-type="number">
+                                        <span class="field-value">
+                                            {{ user.education_high_school.year if user.education_high_school else 'N/D' }}
+                                        </span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="field-group">
+                                    <div class="field-label">Voto</div>
+                                    <div class="editable-field" data-field="education_high_school.grade" data-type="text">
+                                        <span class="field-value">
+                                            {{ user.education_high_school.grade if user.education_high_school else 'N/D' }}
+                                        </span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="section-header">Formazione Universitaria</h5>
+                        <div id="degrees-container">
+                            {% if user.education_degrees %}
+                                {% for degree in user.education_degrees %}
+                                <div class="degree-item mb-3 p-3 bg-light rounded">
+                                    <!-- Degree fields here -->
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="empty-state">Nessuna laurea registrata</p>
+                            {% endif %}
+                        </div>
+                        {% if can_edit %}
+                        <button class="btn btn-add-item mt-3" onclick="addDegree()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Laurea
+                        </button>
+                        {% endif %}
+
+                        <h5 class="section-header">Master e Dottorati</h5>
+                        <div id="masters-container">
+                            {% if user.education_masters %}
+                                {% for master in user.education_masters %}
+                                <div class="master-item mb-3 p-3 bg-light rounded">
+                                    <!-- Master fields here -->
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="empty-state">Nessun master o dottorato registrato</p>
+                            {% endif %}
+                        </div>
+                        {% if can_edit %}
+                        <button class="btn btn-add-item mt-3" onclick="addMaster()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Master/Dottorato
+                        </button>
+                        {% endif %}
+
+                        <h5 class="section-header">Certificazioni</h5>
+                        <div id="certifications-container">
+                            {% if user.certifications %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nome</th>
+                                            <th>Ente</th>
+                                            <th>Data</th>
+                                            <th>File</th>
+                                            {% if can_edit %}<th>Azioni</th>{% endif %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for cert in user.certifications %}
+                                        <tr>
+                                            <td>{{ cert.title }}</td>
+                                            <td>{{ cert.issuer or '-' }}</td>
+                                            <td>{{ format_date(cert.issue_date) }}</td>
+                                            <td>
+                                                {% if cert.file_path %}
+                                                <a href="{{ url_for('team.serve_file', subpath='certifications', filename=cert.file_path.split('/')[-1]) }}" 
+                                                   target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <iconify-icon icon="solar:document-bold"></iconify-icon> Visualizza
+                                                </a>
+                                                {% endif %}
+                                            </td>
+                                            {% if can_edit %}
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteCertification({{ cert.id }})">
+                                                    <iconify-icon icon="solar:trash-bin-trash-bold"></iconify-icon>
+                                                </button>
+                                            </td>
+                                            {% endif %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p class="empty-state">Nessuna certificazione registrata</p>
+                            {% endif %}
+                        </div>
+                        {% if can_edit %}
+                        <button class="btn btn-add-item mt-3" onclick="$('#certificationModal').modal('show')">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Certificazione
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: ESPERIENZA -->
+                    <div class="tab-pane fade" id="pills-esperienza" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="section-header">Esperienze Lavorative Precedenti</h5>
+                        <div class="experience-timeline" id="experiences-container">
+                            {% if user.work_experiences %}
+                                {% for exp in user.work_experiences %}
+                                <div class="experience-item">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6 class="mb-1">{{ exp.role }} presso {{ exp.company }}</h6>
+                                            <small class="text-muted">{{ exp.start_date }} - {{ exp.end_date or 'Presente' }}</small>
+                                            {% if exp.responsibilities %}
+                                            <ul class="mt-2">
+                                                {% for resp in exp.responsibilities %}
+                                                <li>{{ resp }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                            {% endif %}
+                                        </div>
+                                        {% if can_edit %}
+                                        <div class="col-md-4 text-end">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="editExperience({{ loop.index0 }})">
+                                                <iconify-icon icon="solar:pen-bold"></iconify-icon>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteExperience({{ loop.index0 }})">
+                                                <iconify-icon icon="solar:trash-bin-trash-bold"></iconify-icon>
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="empty-state">Nessuna esperienza lavorativa registrata</p>
+                            {% endif %}
+                        </div>
+                        {% if can_edit %}
+                        <button class="btn btn-add-item mt-3" onclick="addExperience()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Esperienza
+                        </button>
+                        {% endif %}
+
+                        <h5 class="section-header mt-4">Competenze Specialistiche</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="clinicalResearchCheck" 
+                                           {{ 'checked' if user.has_clinical_research }} 
+                                           {% if not can_edit %}disabled{% endif %}
+                                           onchange="toggleFieldVisibility('clinicalResearchDetails', this.checked); saveCheckboxField('has_clinical_research', this.checked)">
+                                    <label class="form-check-label" for="clinicalResearchCheck">
+                                        Ha svolto attività di ricerca clinica?
+                                    </label>
+                                </div>
+                                <div id="clinicalResearchDetails" class="mt-2 ms-4" style="{{ 'display:none' if not user.has_clinical_research }}">
+                                    <div class="field-group">
+                                        <div class="field-label">Dettagli attività di ricerca</div>
+                                        <div class="editable-field" data-field="clinical_research_details" data-type="textarea">
+                                            <span class="field-value">{{ user.clinical_research_details or 'Clicca per aggiungere dettagli' }}</span>
+                                            {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="publicationsCheck" 
+                                           {{ 'checked' if user.has_scientific_publications }}
+                                           {% if not can_edit %}disabled{% endif %}
+                                           onchange="toggleFieldVisibility('publicationsDetails', this.checked); saveCheckboxField('has_scientific_publications', this.checked)">
+                                    <label class="form-check-label" for="publicationsCheck">
+                                        Ha pubblicazioni scientifiche?
+                                    </label>
+                                </div>
+                                <div id="publicationsDetails" class="mt-2 ms-4" style="{{ 'display:none' if not user.has_scientific_publications }}">
+                                    <div class="field-group">
+                                        <div class="field-label">Lista pubblicazioni</div>
+                                        <div class="editable-field" data-field="scientific_publications_details" data-type="textarea">
+                                            <span class="field-value">{{ user.scientific_publications_details or 'Clicca per aggiungere pubblicazioni' }}</span>
+                                            {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="teachingCheck" 
+                                           {{ 'checked' if user.has_teaching_experience }}
+                                           {% if not can_edit %}disabled{% endif %}
+                                           onchange="toggleFieldVisibility('teachingDetails', this.checked); saveCheckboxField('has_teaching_experience', this.checked)">
+                                    <label class="form-check-label" for="teachingCheck">
+                                        Esperienza come formatore/docente?
+                                    </label>
+                                </div>
+                                <div id="teachingDetails" class="mt-2 ms-4" style="{{ 'display:none' if not user.has_teaching_experience }}">
+                                    <div class="field-group">
+                                        <div class="field-label">Dettagli esperienza formazione</div>
+                                        <div class="editable-field" data-field="teaching_experience_details" data-type="textarea">
+                                            <span class="field-value">{{ user.teaching_experience_details or 'Clicca per aggiungere dettagli' }}</span>
+                                            {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: CONTRATTO -->
+                    <div class="tab-pane fade" id="pills-contratto" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="section-header">Inquadramento</h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="field-group">
+                                    <div class="field-label">Data Assunzione</div>
+                                    <div class="editable-field" data-field="hired_at" data-type="date">
+                                        <span class="field-value">{{ format_date(user.hired_at) }}</span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="field-group">
+                                    <div class="field-label">Dipartimento</div>
+                                    <div class="editable-field" data-field="department_id" data-type="select" data-source="departments">
+                                        <span class="field-value">{{ user.department.name if user.department else 'Non assegnato' }}</span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="field-group">
+                                    <div class="field-label">Ruolo/Job Title</div>
+                                    <div class="editable-field" data-field="job_title" data-type="text">
+                                        <span class="field-value">{{ user.job_title or 'Non specificato' }}</span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="section-header">Orario di Lavoro</h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="field-group">
+                                    <div class="field-label">Tipo Orario</div>
+                                    <div class="editable-field" data-field="work_schedule.type" data-type="select" 
+                                         data-options='["full-time", "part-time", "turni", "flessibile"]'>
+                                        <span class="field-value">
+                                            {{ user.work_schedule.type if user.work_schedule else 'Non specificato' }}
+                                        </span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="field-group">
+                                    <div class="field-label">Orario</div>
+                                    <div class="editable-field" data-field="work_schedule.hours" data-type="time-range">
+                                        <span class="field-value">
+                                            {% if user.work_schedule and user.work_schedule.hours_from %}
+                                                {{ user.work_schedule.hours_from }} - {{ user.work_schedule.hours_to }}
+                                            {% else %}
+                                                Non specificato
+                                            {% endif %}
+                                        </span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="field-group">
+                                    <div class="field-label">Giorni Lavorativi</div>
+                                    <div class="editable-field" data-field="work_schedule.days" data-type="multiselect" 
+                                         data-options='["lun", "mar", "mer", "gio", "ven", "sab", "dom"]'>
+                                        <span class="field-value">
+                                            {% if user.work_schedule and user.work_schedule.days %}
+                                                {{ user.work_schedule.days|join(', ') }}
+                                            {% else %}
+                                                Non specificato
+                                            {% endif %}
+                                        </span>
+                                        {% if can_edit %}<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="section-header">Documenti</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                {% if user.contract_file %}
+                                <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                                    <div>
+                                        <iconify-icon icon="solar:document-text-bold" class="me-2"></iconify-icon>
+                                        Contratto di lavoro
+                                    </div>
+                                    <div>
+                                        <a href="{{ url_for('team.serve_file', subpath='contracts', filename=user.contract_file.split('/')[-1]) }}" 
+                                           target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <iconify-icon icon="solar:eye-bold" class="me-1"></iconify-icon> Visualizza
+                                        </a>
+                                        {% if can_edit %}
+                                        <button class="btn btn-sm btn-outline-warning" onclick="$('#contractUploadModal').modal('show')">
+                                            <iconify-icon icon="solar:refresh-bold" class="me-1"></iconify-icon> Sostituisci
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <p class="empty-state">Nessun contratto caricato</p>
+                                {% if can_edit %}
+                                <button class="btn btn-add-item" onclick="$('#contractUploadModal').modal('show')">
+                                    <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                                    Carica Contratto
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: RETRIBUZIONE (Solo HR/Finance/Admin) -->
+            {% if can_view_salary %}
+                    <div class="tab-pane fade" id="pills-retribuzione" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        {% if not can_view_salary %}
+                        <div class="permission-message">
+                            <iconify-icon icon="solar:lock-bold" class="me-2"></iconify-icon>
+                            Questa sezione è visibile solo ai membri di HR e Finance.
+                        </div>
+                        {% else %}
+                        <h5 class="section-header">Compensi</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="field-group">
+                                    <div class="field-label">Stipendio Mensile Lordo</div>
+                                    <div class="editable-field" data-field="stipendio_mensile_lordo" data-type="currency">
+                                        <span class="field-value">
+                                            {% if user.stipendio_mensile_lordo %}
+                                                € {{ "{:,.2f}".format(user.stipendio_mensile_lordo) }}
+                                            {% else %}
+                                                Non specificato
+                                            {% endif %}
+                                        </span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="field-group">
+                                    <div class="field-label">Partita IVA</div>
+                                    <div class="editable-field" data-field="partita_iva" data-type="text">
+                                        <span class="field-value">{{ user.partita_iva or 'Non applicabile' }}</span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="section-header">Storico Aumenti</h5>
+                        <div id="salary-history">
+                            {% if user.salary_history %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Importo Precedente</th>
+                                            <th>Nuovo Importo</th>
+                                            <th>Variazione</th>
+                                            <th>Motivazione</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for history in user.salary_history %}
+                                        <tr>
+                                            <td>{{ format_date(history.date) }}</td>
+                                            <td>€ {{ "{:,.2f}".format(history.old_amount) }}</td>
+                                            <td>€ {{ "{:,.2f}".format(history.new_amount) }}</td>
+                                            <td>+{{ history.percentage }}%</td>
+                                            <td>{{ history.reason }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p class="empty-state">Nessun aumento registrato</p>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-add-item mt-3" onclick="addSalaryIncrease()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Registra Aumento
+                        </button>
+
+                        <h5 class="section-header">Note</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="field-group">
+                                    <div class="field-label">Note HR</div>
+                                    <div class="editable-field" data-field="hr_notes" data-type="textarea">
+                                        <span class="field-value">{{ user.hr_notes or 'Nessuna nota' }}</span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="field-group">
+                                    <div class="field-label">Note Finance</div>
+                                    <div class="editable-field" data-field="finance_notes" data-type="textarea">
+                                        <span class="field-value">{{ user.finance_notes or 'Nessuna nota' }}</span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- TAB 6: COMPETENZE (Solo HR/Admin) -->
+            {% if can_edit_competences %}
+                    <div class="tab-pane fade" id="pills-competenze" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="section-header">Skills Tecniche</h5>
+                        <div id="technical-skills">
+                            {% if user.technical_skills %}
+                                {% for skill, level in user.technical_skills.items() %}
+                                <div class="d-inline-block me-3 mb-2">
+                                    <span class="badge bg-primary">{{ skill }}</span>
+                                    <span class="skill-level">
+                                        {% for i in range(5) %}
+                                            <iconify-icon icon="{{ 'solar:star-bold' if i < level else 'solar:star-linear' }}" 
+                                                         class="text-warning"></iconify-icon>
+                                        {% endfor %}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="empty-state">Nessuna skill tecnica registrata</p>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-add-item mt-3" onclick="addTechnicalSkill()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Skill
+                        </button>
+
+                        <h5 class="section-header">Lingue</h5>
+                        <div id="languages-container">
+                            {% if user.languages %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Lingua</th>
+                                            <th>Livello</th>
+                                            <th>Certificazione</th>
+                                            <th>Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for lang in user.languages %}
+                                        <tr>
+                                            <td>{{ lang.language }}</td>
+                                            <td>{{ lang.level }}</td>
+                                            <td>{{ lang.certification or '-' }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteLanguage({{ loop.index0 }})">
+                                                    <iconify-icon icon="solar:trash-bin-trash-bold"></iconify-icon>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p class="empty-state">Nessuna lingua registrata</p>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-add-item mt-3" onclick="addLanguage()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Lingua
+                        </button>
+
+                        <h5 class="section-header">Piano di Sviluppo</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="field-group">
+                                    <div class="field-label">Obiettivi</div>
+                                    <div class="editable-field" data-field="development_plan.goals" data-type="textarea">
+                                        <span class="field-value">
+                                            {{ user.development_plan.goals if user.development_plan else 'Non definiti' }}
+                                        </span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="field-group">
+                                    <div class="field-label">Skills da sviluppare</div>
+                                    <div class="editable-field" data-field="development_plan.skills_to_develop" data-type="textarea">
+                                        <span class="field-value">
+                                            {{ user.development_plan.skills_to_develop if user.development_plan else 'Non definite' }}
+                                        </span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="field-group">
+                                    <div class="field-label">Timeline</div>
+                                    <div class="editable-field" data-field="development_plan.timeline" data-type="text">
+                                        <span class="field-value">
+                                            {{ user.development_plan.timeline if user.development_plan else 'Non definita' }}
+                                        </span>
+                                        <iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- TAB 7: FERIE -->
+                    <div class="tab-pane fade" id="pills-ferie" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="section-header">Saldo Attuale ({{ current_year }})</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-primary bg-opacity-10">
+                                    <div class="card-body text-center">
+                                        <h3 class="text-primary">{{ leave_balance.leave_days_available }}/{{ leave_balance.leave_days_total }}</h3>
+                                        <p class="mb-0">Giorni Ferie Disponibili</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-warning bg-opacity-10">
+                                    <div class="card-body text-center">
+                                        <h3 class="text-warning">{{ leave_balance.permission_hours_available }}/{{ leave_balance.permission_hours_total }}</h3>
+                                        <p class="mb-0">Ore Permessi Disponibili</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="section-header">Calendario</h5>
+                        <div id="leave-calendar" style="min-height: 400px;"></div>
+
+                        <h5 class="section-header mt-4">Richieste</h5>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th>Tipo</th>
+                                        <th>Giorni/Ore</th>
+                                        <th>Stato</th>
+                                        <th>Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for request in leave_requests %}
+                                    <tr>
+                                        <td>{{ format_date(request.start_date) }} - {{ format_date(request.end_date) }}</td>
+                                        <td>{{ request.leave_type.value|capitalize }}</td>
+                                        <td>
+                                            {% if request.working_days %}
+                                                {{ request.working_days }} giorni
+                                            {% else %}
+                                                {{ request.hours }} ore
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if request.status.value == 'richiesta' %}
+                                                <span class="badge bg-warning">In attesa</span>
+                                            {% elif request.status.value == 'approvata' %}
+                                                <span class="badge bg-success">Approvata</span>
+                                            {% elif request.status.value == 'rifiutata' %}
+                                                <span class="badge bg-danger">Rifiutata</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ request.notes or '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if is_self %}
+                        <button class="btn btn-primary mt-3" onclick="window.location.href='{{ url_for('team.leave_request') }}'">
+                            <iconify-icon icon="solar:add-circle-bold" class="me-2"></iconify-icon>
+                            Nuova Richiesta
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 8: NOTE HR (Solo HR/Finance/Admin) -->
+            {% if can_view_hr_notes %}
+                    <div class="tab-pane fade" id="pills-note" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="section-header mb-0">Note Dipartimento HR</h5>
+                            <button class="btn btn-primary" onclick="addHRNote()">
+                                <iconify-icon icon="solar:add-circle-bold" class="me-2"></iconify-icon>
+                                Aggiungi Nota
+                            </button>
+                        </div>
+
+                        <div id="hr-notes-container">
+                            {% if user.hr_notes_list %}
+                                {% for note in user.hr_notes_list %}
+                                <div class="note-card {{ 'pinned' if note.is_pinned }}">
+                                    <div class="note-meta">
+                                        <strong>{{ note.author.full_name }}</strong> • 
+                                        {{ format_datetime(note.created_at) }} •
+                                        <span class="badge bg-secondary">{{ note.note_type or 'Generale' }}</span>
+                                        {% if note.is_pinned %}
+                                            <iconify-icon icon="solar:pin-bold" class="text-warning ms-2"></iconify-icon>
+                                        {% endif %}
+                                    </div>
+                                    <div class="note-content">{{ note.note_text }}</div>
+                                    <div class="note-actions">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editHRNote({{ note.id }})">
+                                            <iconify-icon icon="solar:pen-bold"></iconify-icon> Modifica
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteHRNote({{ note.id }})">
+                                            <iconify-icon icon="solar:trash-bin-trash-bold"></iconify-icon> Elimina
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" onclick="togglePinNote({{ note.id }})">
+                                            <iconify-icon icon="solar:pin-{{ 'bold' if not note.is_pinned else 'linear' }}"></iconify-icon>
+                                            {{ 'Fissa' if not note.is_pinned else 'Rimuovi pin' }}
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="empty-state">Nessuna nota HR registrata</p>
+                            {% endif %}
+                        </div>
+
+                        <h5 class="section-header mt-4">Valutazioni Performance</h5>
+                        <div id="performance-evaluations">
+                            {% if user.performance_evaluations %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Valutatore</th>
+                                            <th>Score</th>
+                                            <th>Note</th>
+                                            <th>Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for eval in user.performance_evaluations %}
+                                        <tr>
+                                            <td>{{ format_date(eval.date) }}</td>
+                                            <td>{{ eval.evaluator }}</td>
+                                            <td>{{ eval.score }}/5</td>
+                                            <td>{{ eval.notes or '-' }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="viewEvaluation({{ eval.id }})">
+                                                    <iconify-icon icon="solar:eye-bold"></iconify-icon>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p class="empty-state">Nessuna valutazione registrata</p>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-add-item mt-3" onclick="addEvaluation()">
+                            <iconify-icon icon="solar:add-circle-linear" class="me-2"></iconify-icon>
+                            Aggiungi Valutazione
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- TAB 9: PERFORMANCE -->
+                    <div class="tab-pane fade" id="pills-performance" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="section-header">Weekly Reports</h5>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="report-stat">
+                                    <div class="report-stat-value">
+                                        {% if latest_report %}
+                                            {{ latest_report.week_number }}/{{ latest_report.year }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </div>
+                                    <div class="report-stat-label">Ultimo Report</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="report-stat">
+                                    <div class="report-stat-value">
+                                        {{ weekly_report_compliance }}%
+                                    </div>
+                                    <div class="report-stat-label">Compliance</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="report-stat">
+                                    <div class="report-stat-value">
+                                        {{ total_reports }}
+                                    </div>
+                                    <div class="report-stat-label">Report Totali</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="section-header">Storico Report</h5>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Settimana</th>
+                                        <th>Data Compilazione</th>
+                                        <th>Stato</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if weekly_reports %}
+                                        {% for report in weekly_reports[:10] %}
+                                        <tr>
+                                            <td>Settimana {{ report.week_number }}/{{ report.year }}</td>
+                                            <td>{{ format_datetime(report.submission_date) }}</td>
+                                            <td>
+                                                {% if report.is_complete %}
+                                                    <span class="badge bg-success">Completo</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">Incompleto</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('weekly_report.view_report', report_id=report.id) }}" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <iconify-icon icon="solar:eye-bold"></iconify-icon> Visualizza
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="4" class="text-center empty-state">Nessun report compilato</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% if is_self and can_submit_report %}
+                        <button class="btn btn-primary mt-3" onclick="window.location.href='{{ url_for('weekly_report.index') }}'">
+                            <iconify-icon icon="solar:document-add-bold" class="me-2"></iconify-icon>
+                            Compila Report Settimanale
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Add modals for various forms here -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Configuration
+const userId = {{ user.id }};
+const canEdit = {{ 'true' if can_edit else 'false' }};
+const updateUrl = "{{ url_for('team.user_update_field', user_id=user.id) }}";
+const saveUrl = "/team/{{ user.id }}/update";
+
+// Track original values for change detection
+const originalValues = {};
+
+// Initialize form handlers when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize all forms
+    initializeForms();
+});
+
+// Initialize all forms
+function initializeForms() {
+    // Find all forms with data-user-id attribute
+    const forms = document.querySelectorAll('form[data-user-id]');
+    
+    forms.forEach(form => {
+        // Store original values
+        const formId = form.id;
+        originalValues[formId] = {};
+        
+        const formData = new FormData(form);
+        for (let [key, value] of formData.entries()) {
+            originalValues[formId][key] = value;
+        }
+        
+        // Add submit handler
+        form.addEventListener('submit', handleFormSubmit);
+    });
+}
+
+// Handle form submission
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    const userId = form.dataset.userId;
+    const formId = form.id;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Disable submit button
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Salvataggio...';
+    }
+    
+    // Convert FormData to JSON
+    const data = {};
+    for (let [key, value] of formData.entries()) {
+        data[key] = value;
+    }
+    
+    try {
+        const response = await fetch(saveUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                form_id: formId,
+                data: data
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update original values
+            originalValues[formId] = {...data};
+            
+            // Show success message
+            showNotification('success', result.message || 'Modifiche salvate con successo');
+            
+            // Re-enable button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Salva modifiche';
+            }
+        } else {
+            throw new Error(result.message || 'Errore durante il salvataggio');
+        }
+    } catch (error) {
+        console.error('Error saving form:', error);
+        showNotification('error', error.message || 'Errore durante il salvataggio');
+        
+        // Re-enable button
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Salva modifiche';
+        }
+    }
+}
+
+// Show notification
+function showNotification(type, message) {
+    // You can implement a toast notification system here
+    // For now, using alert
+    if (type === 'error') {
+        alert('Errore: ' + message);
+    } else {
+        // Show success in the save indicator
+        showSaveIndicator('saved', message);
+    }
+}
+
+// Save indicator functions
+function showSaveIndicator(status, message) {
+    const indicator = document.getElementById('saveIndicator');
+    const spinner = document.getElementById('saveSpinner');
+    const text = document.getElementById('saveText');
+    
+    indicator.className = 'save-indicator ' + status;
+    
+    if (status === 'saving') {
+        spinner.style.display = 'inline-block';
+        text.textContent = message || 'Salvataggio...';
+    } else {
+        spinner.style.display = 'none';
+        text.textContent = message || 'Salvato';
+    }
+    
+    if (status !== 'saving') {
+        setTimeout(() => {
+            indicator.className = 'save-indicator';
+        }, 2000);
+    }
+}
+
+// Inline editing functionality
+document.addEventListener('DOMContentLoaded', function() {
+    if (!canEdit) return;
+    
+    // Setup inline editing for all editable fields
+    document.querySelectorAll('.editable-field').forEach(field => {
+        field.addEventListener('click', function(e) {
+            if (this.classList.contains('editing')) return;
+            
+            const fieldName = this.dataset.field;
+            const fieldType = this.dataset.type;
+            const currentValue = this.querySelector('.field-value').textContent.trim();
+            
+            this.classList.add('editing');
+            
+            let input;
+            switch(fieldType) {
+                case 'textarea':
+                    input = document.createElement('textarea');
+                    input.className = 'editable-input form-control';
+                    input.value = currentValue === 'Non specificato' || currentValue === 'Clicca per aggiungere dettagli' ? '' : currentValue;
+                    input.rows = 3;
+                    break;
+                    
+                case 'date':
+                    input = document.createElement('input');
+                    input.type = 'date';
+                    input.className = 'editable-input form-control';
+                    // Parse date from display format
+                    if (currentValue !== '—') {
+                        const parts = currentValue.split('/');
+                        if (parts.length === 3) {
+                            input.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        }
+                    }
+                    break;
+                    
+                case 'select':
+                    input = document.createElement('select');
+                    input.className = 'editable-input form-control';
+                    
+                    if (this.dataset.options) {
+                        const options = JSON.parse(this.dataset.options);
+                        options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = opt;
+                            option.text = opt;
+                            input.appendChild(option);
+                        });
+                    } else if (this.dataset.source === 'departments') {
+                        // Load departments via AJAX
+                        fetch('/api/departments')
+                            .then(r => r.json())
+                            .then(departments => {
+                                departments.forEach(dept => {
+                                    const option = document.createElement('option');
+                                    option.value = dept.id;
+                                    option.text = dept.name;
+                                    input.appendChild(option);
+                                });
+                            });
+                    }
+                    break;
+                    
+                case 'currency':
+                    input = document.createElement('input');
+                    input.type = 'number';
+                    input.className = 'editable-input form-control';
+                    input.step = '0.01';
+                    // Remove currency symbol and formatting
+                    const numValue = currentValue.replace(/[€,.\s]/g, '').slice(0, -2) + '.' + currentValue.slice(-2);
+                    input.value = parseFloat(numValue) || '';
+                    break;
+                    
+                default:
+                    input = document.createElement('input');
+                    input.type = fieldType || 'text';
+                    input.className = 'editable-input form-control';
+                    input.value = currentValue === 'Non specificato' ? '' : currentValue;
+            }
+            
+            // Replace content with input
+            this.innerHTML = '';
+            this.appendChild(input);
+            input.focus();
+            
+            // Save on blur or enter
+            const saveField = () => {
+                const newValue = input.value;
+                
+                if (newValue !== currentValue) {
+                    showSaveIndicator('saving', 'Salvataggio...');
+                    
+                    fetch(updateUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            field: fieldName,
+                            value: newValue
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showSaveIndicator('saved', 'Salvato!');
+                            
+                            // Update display value
+                            const displayValue = data.display_value || newValue || 'Non specificato';
+                            this.innerHTML = `<span class="field-value">${displayValue}</span>`;
+                            if (canEdit) {
+                                this.innerHTML += '<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>';
+                            }
+                        } else {
+                            showSaveIndicator('error', data.message || 'Errore nel salvataggio');
+                            // Restore original value
+                            this.innerHTML = `<span class="field-value">${currentValue}</span>`;
+                            if (canEdit) {
+                                this.innerHTML += '<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>';
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        showSaveIndicator('error', 'Errore di connessione');
+                        console.error(err);
+                        // Restore original value
+                        this.innerHTML = `<span class="field-value">${currentValue}</span>`;
+                        if (canEdit) {
+                            this.innerHTML += '<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>';
+                        }
+                    })
+                    .finally(() => {
+                        this.classList.remove('editing');
+                    });
+                } else {
+                    // No change, just restore display
+                    this.innerHTML = `<span class="field-value">${currentValue}</span>`;
+                    if (canEdit) {
+                        this.innerHTML += '<iconify-icon icon="solar:pen-2-linear" class="edit-icon"></iconify-icon>';
+                    }
+                    this.classList.remove('editing');
+                }
+            };
+            
+            input.addEventListener('blur', saveField);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && fieldType !== 'textarea') {
+                    e.preventDefault();
+                    saveField();
+                }
+            });
+        });
+    });
+});
+
+// Helper functions for specific actions
+function toggleFieldVisibility(fieldId, show) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.style.display = show ? 'block' : 'none';
+    }
+}
+
+function saveCheckboxField(fieldName, checked) {
+    showSaveIndicator('saving', 'Salvataggio...');
+    
+    fetch(updateUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            field: fieldName,
+            value: checked
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showSaveIndicator('saved', 'Salvato!');
+        } else {
+            showSaveIndicator('error', 'Errore nel salvataggio');
+        }
+    })
+    .catch(err => {
+        showSaveIndicator('error', 'Errore di connessione');
+        console.error(err);
+    });
+}
+
+// Avatar upload
+document.getElementById('avatarInput')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    showSaveIndicator('saving', 'Caricamento avatar...');
+    
+    fetch(`/team/${userId}/upload-avatar`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showSaveIndicator('saved', 'Avatar aggiornato!');
+            // Update preview
+            document.getElementById('avatarPreview').src = data.avatar_url + '?t=' + Date.now();
+        } else {
+            showSaveIndicator('error', data.message || 'Errore caricamento');
+        }
+    })
+    .catch(err => {
+        showSaveIndicator('error', 'Errore di connessione');
+        console.error(err);
+    });
+});
+
+// Initialize FullCalendar for leave calendar
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('leave-calendar');
+    if (calendarEl) {
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'it',
+            events: `/team/api/leaves/${userId}/calendar`,
+            eventColor: '#28a745'
+        });
+        calendar.render();
+    }
+});
+</script>
+{% endblock %}
