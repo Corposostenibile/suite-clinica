@@ -21,6 +21,7 @@ import clientiService, {
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
+import { useAuth } from '../../context/AuthContext';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -70,7 +71,9 @@ const PROFESSIONI_OPTIONS = [
 
 function ClientiDetail() {
   const { id } = useParams();
+
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // State
   const [cliente, setCliente] = useState(null);
@@ -119,6 +122,10 @@ function ClientiDetail() {
   const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [diarioForm, setDiarioForm] = useState({ id: null, entry_date: '', content: '' });
   const [savingDiario, setSavingDiario] = useState(false);
+  // Diario History
+  const [showDiaryHistoryModal, setShowDiaryHistoryModal] = useState(false);
+  const [diaryHistory, setDiaryHistory] = useState([]);
+  const [loadingDiaryHistory, setLoadingDiaryHistory] = useState(false);
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -850,6 +857,22 @@ function ClientiDetail() {
     } catch (err) {
       console.error('Error deleting diary entry:', err);
       alert('Errore durante l\'eliminazione della nota');
+    }
+  };
+
+  const handleOpenHistoryModal = async (entry, type) => {
+    setLoadingDiaryHistory(true);
+    setShowDiaryHistoryModal(true);
+    setDiaryHistory([]);
+    try {
+      const data = await clientiService.getDiaryHistory(id, type, entry.id);
+      if (data.success) {
+        setDiaryHistory(data.history);
+      }
+    } catch (err) {
+      console.error('Error fetching diary history:', err);
+    } finally {
+      setLoadingDiaryHistory(false);
     }
   };
 
@@ -3434,6 +3457,11 @@ function ClientiDetail() {
                                         <span className="badge bg-primary-subtle text-primary me-2">
                                           <i className="ri-calendar-line me-1"></i>
                                           {entry.entry_date_display}
+                                          {entry.created_at && (
+                                            <span className="ms-1 opacity-75 small">
+                                              ({entry.created_at.split(' ')[1]})
+                                            </span>
+                                          )}
                                         </span>
                                         <small className="text-muted">
                                           <i className="ri-user-line me-1"></i>
@@ -3448,12 +3476,21 @@ function ClientiDetail() {
                                         >
                                           <i className="ri-edit-line"></i>
                                         </button>
+                                        {(user?.is_admin || user?.role === 'admin') && (
+                                          <button
+                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            onClick={() => handleDeleteDiarioEntry(entry.id)}
+                                            title="Elimina"
+                                          >
+                                            <i className="ri-delete-bin-line"></i>
+                                          </button>
+                                        )}
                                         <button
-                                          className="btn btn-sm btn-outline-danger py-0 px-2"
-                                          onClick={() => handleDeleteDiarioEntry(entry.id)}
-                                          title="Elimina"
+                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          onClick={() => handleOpenHistoryModal(entry, 'nutrizione')}
+                                          title="Storico Modifiche"
                                         >
-                                          <i className="ri-delete-bin-line"></i>
+                                          <i className="ri-history-line"></i>
                                         </button>
                                       </div>
                                     </div>
@@ -4400,6 +4437,11 @@ function ClientiDetail() {
                                         <span className="badge bg-warning-subtle text-warning me-2">
                                           <i className="ri-calendar-line me-1"></i>
                                           {entry.entry_date_display}
+                                          {entry.created_at && (
+                                            <span className="ms-1 opacity-75 small">
+                                              ({entry.created_at.split(' ')[1]})
+                                            </span>
+                                          )}
                                         </span>
                                         <small className="text-muted">
                                           <i className="ri-user-line me-1"></i>
@@ -4414,12 +4456,21 @@ function ClientiDetail() {
                                         >
                                           <i className="ri-edit-line"></i>
                                         </button>
+                                        {(user?.is_admin || user?.role === 'admin') && (
+                                          <button
+                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            onClick={() => handleDeleteDiarioCoaching(entry.id)}
+                                            title="Elimina"
+                                          >
+                                            <i className="ri-delete-bin-line"></i>
+                                          </button>
+                                        )}
                                         <button
-                                          className="btn btn-sm btn-outline-danger py-0 px-2"
-                                          onClick={() => handleDeleteDiarioCoaching(entry.id)}
-                                          title="Elimina"
+                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          onClick={() => handleOpenHistoryModal(entry, 'coaching')}
+                                          title="Storico Modifiche"
                                         >
-                                          <i className="ri-delete-bin-line"></i>
+                                          <i className="ri-history-line"></i>
                                         </button>
                                       </div>
                                     </div>
@@ -5025,6 +5076,11 @@ function ClientiDetail() {
                                         <span className="badge me-2" style={{ background: '#f3e8ff', color: '#a855f7' }}>
                                           <i className="ri-calendar-line me-1"></i>
                                           {entry.entry_date_display || entry.entry_date}
+                                          {entry.created_at && (
+                                            <span className="ms-1 opacity-75 small">
+                                              ({entry.created_at.split(' ')[1]})
+                                            </span>
+                                          )}
                                         </span>
                                         <small className="text-muted">
                                           <i className="ri-user-line me-1"></i>
@@ -5039,12 +5095,21 @@ function ClientiDetail() {
                                         >
                                           <i className="ri-edit-line"></i>
                                         </button>
+                                        {(user?.is_admin || user?.role === 'admin') && (
+                                          <button
+                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            onClick={() => handleDeleteDiarioPsicologia(entry.id)}
+                                            title="Elimina"
+                                          >
+                                            <i className="ri-delete-bin-line"></i>
+                                          </button>
+                                        )}
                                         <button
-                                          className="btn btn-sm btn-outline-danger py-0 px-2"
-                                          onClick={() => handleDeleteDiarioPsicologia(entry.id)}
-                                          title="Elimina"
+                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          onClick={() => handleOpenHistoryModal(entry, 'psicologia')}
+                                          title="Storico Modifiche"
                                         >
-                                          <i className="ri-delete-bin-line"></i>
+                                          <i className="ri-history-line"></i>
                                         </button>
                                       </div>
                                     </div>
@@ -6776,6 +6841,50 @@ function ClientiDetail() {
                 <button className="btn btn-secondary" onClick={() => setShowCheckResponseModal(false)}>
                   Chiudi
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Storico Diario */}
+      {showDiaryHistoryModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Storico Modifiche</h5>
+                <button type="button" className="btn-close" onClick={() => setShowDiaryHistoryModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                {loadingDiaryHistory ? (
+                  <div className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Caricamento...</span>
+                    </div>
+                  </div>
+                ) : diaryHistory.length === 0 ? (
+                  <p className="text-muted text-center py-3">Nessuna modifica precedente trovata.</p>
+                ) : (
+                  <div className="list-group">
+                    {diaryHistory.map((version, idx) => (
+                      <div key={idx} className="list-group-item">
+                        <div className="d-flex w-100 justify-content-between">
+                          <small className="text-muted">
+                            <i className="ri-time-line me-1"></i>
+                            {version.modified_at}
+                            <span className="mx-2">•</span>
+                            <i className="ri-user-line me-1"></i>
+                            {version.author}
+                          </small>
+                        </div>
+                        <p className="mb-1 mt-2 small" style={{ whiteSpace: 'pre-wrap' }}>{version.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDiaryHistoryModal(false)}>Chiudi</button>
               </div>
             </div>
           </div>

@@ -773,6 +773,18 @@ const clientiService = {
     return response.data;
   },
 
+  /**
+   * Get diary entry history
+   * @param {number} clienteId
+   * @param {string} serviceType
+   * @param {number} entryId
+   * @returns {Promise} - { success, history: [] }
+   */
+  async getDiaryHistory(clienteId, serviceType, entryId) {
+    const response = await api.get(`${API_BASE}/${clienteId}/diary/${serviceType}/${entryId}/history`);
+    return response.data;
+  },
+
   // ==================== TRAINING PLANS ====================
 
   /**

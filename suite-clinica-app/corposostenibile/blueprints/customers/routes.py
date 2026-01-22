@@ -6839,6 +6839,9 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
 
+    if not current_user.is_admin:
+        return jsonify({"success": False, "error": "Solo gli amministratori possono eliminare le note del diario"}), HTTPStatus.FORBIDDEN
+
     entry = ServiceDiaryEntry.query.filter_by(
         id=entry_id,
         cliente_id=cliente_id,
@@ -6862,6 +6865,45 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
         logger.error(f"Errore eliminazione diary entry: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
+
+@csrf.exempt
+@api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
+    """Recupera lo storico delle modifiche per una voce del diario."""
+    from corposostenibile.models import ServiceDiaryEntry, User
+    from sqlalchemy_continuum import version_class
+    
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+
+    ServiceDiaryEntryVersion = version_class(ServiceDiaryEntry)
+    
+    versions = ServiceDiaryEntryVersion.query.filter(
+        ServiceDiaryEntryVersion.id == entry_id
+    ).order_by(ServiceDiaryEntryVersion.transaction_id.desc()).all()
+
+    history = []
+    for version in versions:
+        author_name = "Sistema"
+        # Continuum transaction.user_id non disponibile (user_cls=None)
+        # Usiamo author_user_id salvato nella versione
+        if version.author_user_id:
+             user = User.query.get(version.author_user_id)
+             if user:
+                 author_name = user.full_name
+
+        history.append({
+            "content": version.content,
+            # transaction.issued_at è disponibile anche senza user_cls
+            "modified_at": version.transaction.issued_at.strftime('%d/%m/%Y %H:%M') if version.transaction else "N/D",
+            "author": author_name
+        })
+
+    return jsonify({
+        "success": True,
+        "history": history
+    })
 
 # --------------------------------------------------------------------------- #
 #  Blueprint registration helper                                              #
