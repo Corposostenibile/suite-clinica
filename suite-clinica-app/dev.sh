@@ -87,31 +87,29 @@ show_help() {
     echo ""
     echo "Uso: $0 [COMANDO] [SVILUPPATORE]"
     echo ""
-    echo "COMANDI PER LO SVILUPPO ATTIVO (Foreground):"
-    echo "  debug [dev]                              - Avvia il server Flask con log in tempo reale e hot-reload."
-    echo "                                             (Blocca il terminale, usa Ctrl+C per fermare)."
+    echo "COMANDI FULLSTACK (Backend + Frontend):"
+    echo "  fullstack [dev]                          - Avvia sia Backend Flask (5001) che Frontend React (3000)."
+    echo "                                             Modalità raccomandata per lo sviluppo ibrido."
+    echo "  frontend [dev]                           - Avvia solo il frontend React (Vite) su porta 3000."
     echo ""
-    echo "COMANDI PER GESTIRE IL SERVIZIO:"
-    echo "  start [dev]                              - Avvia il server Gunicorn in foreground (blocca il terminale)."
-    echo "  stop [dev]                               - Ferma il server Gunicorn."
-    echo "  restart [dev]                            - Riavvia il server Gunicorn."
-    echo "  status                                   - Mostra lo stato di tutti i server."
+    echo "COMANDI BACKEND (Foreground):"
+    echo "  debug [dev]                              - Avvia solo Flask con hot-reload (vecchio stile)."
     echo ""
-    echo "COMANDI PER GESTIONE AMBIENTE:"
-    echo "  clear [dev]                              - Pulisce completamente l'ambiente di sviluppo (database, cache, logs)."
-    echo "  recreate [dev]                           - Ricrea completamente l'ambiente da zero (clear + setup)."
+    echo "COMANDI GESTIONE SERVIZIO:"
+    echo "  start [dev]                              - Avvia Gunicorn in foreground."
+    echo "  stop [dev]                               - Ferma il server."
+    echo "  restart [dev]                            - Riavvia il server."
+    echo "  status                                   - Mostra lo stato dei servizi."
+    echo ""
+    echo "COMANDI GESTIONE AMBIENTE:"
+    echo "  setup [dev]                              - Setup completo iniziale (dipendenze + db + admin)."
+    echo "  clear [dev]                              - Pulisce completamente l'ambiente."
+    echo "  recreate [dev]                           - Ricrea completamente l'ambiente da zero."
     echo "  reset-db [dev]                           - Resetta il database (elimina tutto, setup e crea admin)."
     echo ""
-    echo "ALTRI COMANDI:"
-    echo "  setup [dev], install-deps [dev], db-init [dev], db-migrate [dev], db-upgrade [dev],"
-    echo "  create-admin [dev], reset-db [dev], help"
-    echo ""
     echo "ESEMPI:"
-    echo "  $0 debug manu                         # Sviluppo attivo per manu, vedo i log subito."
-    echo "  $0 start samu                         # Avvio il servizio per samu in foreground."
-    echo "  $0 status                             # Controllo quali servizi sono attivi."
-    echo "  $0 stop samu                          # Fermo il servizio di samu."
-    echo "  $0 clear matte                        # Pulisco completamente l'ambiente di matte."
+    echo "  $0 fullstack manu                     # Avvia tutto l'ambiente (Flask + React)."
+    echo "  $0 debug manu                         # Sviluppo solo backend."
     echo "  $0 recreate manu                      # Ricreo da zero l'ambiente di manu."
 }
 
@@ -552,16 +550,77 @@ reset_database() {
     log_info "Credenziali admin: admin@suiteclinica.com / admin123"
 }
 
+# --- GESTIONE FRONTEND (React) ---
+
+check_node() {
+    if ! command -v npm &> /dev/null; then
+        log_error "Node.js e npm non trovati. Installa Node.js per usare il frontend React."
+        exit 1
+    fi
+}
+
+setup_frontend() {
+    log_info "Verifica dipendenze frontend..."
+    check_node
+    cd "$PROJECT_DIR/frontend"
+    if [ ! -d "node_modules" ]; then
+        log_info "Installazione dipendenze React (npm install)..."
+        npm install
+    fi
+}
+
+start_frontend() {
+    log_info "Avvio Frontend React (Vite) sulla porta 3000..."
+    setup_frontend
+    cd "$PROJECT_DIR/frontend"
+    npm run dev
+}
+
+start_fullstack() {
+    local dev=$1
+    validate_developer "$dev"
+    set_project_dir "$dev"
+    
+    log_info "🚀 Avvio modalità FULLSTACK per $dev"
+    log_info "   - Backend Flask: http://localhost:5001"
+    log_info "   - Frontend React: http://localhost:3000"
+    
+    # Avvia Backend in background e salva PID
+    cd "$PROJECT_DIR"
+    export FLASK_APP="corposostenibile:create_app()"
+    export FLASK_DEBUG=1
+    update_env_database_url "$dev"
+    
+    log_info "Avvio Backend..."
+    poetry run flask run --host=0.0.0.0 --port="${PORTS_APP[0]}" --debug &
+    BACKEND_PID=$!
+    
+    # Trap per chiudere il backend quando si chiude lo script
+    cleanup() {
+        log_info "🛑 Arresto servizi Fullstack..."
+        kill $BACKEND_PID 2>/dev/null || true
+        exit 0
+    }
+    trap cleanup SIGINT SIGTERM EXIT
+    
+    # Attendi un attimo che il backend parta
+    sleep 2
+    
+    # Avvia Frontend
+    start_frontend
+}
+
 # --- SCRIPT PRINCIPALE ---
 if [[ $# -eq 0 ]]; then show_help; exit 0; fi
 
 COMMAND=$1; shift
 case "$COMMAND" in
-    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db)
+    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack)
         if [[ -z "$1" ]]; then log_error "Specificare lo sviluppatore per il comando '$COMMAND'."; exit 1; fi
         check_prerequisites "$1"
         case "$COMMAND" in
             debug) debug_server "$1";;
+            fullstack) start_fullstack "$1";; # Nuovo comando Fullstack
             start) start_server "$1";;
             stop) stop_server "$1";;
             restart) restart_server "$1";;
@@ -575,6 +634,11 @@ case "$COMMAND" in
             recreate) recreate_environment "$1";;
             reset-db) reset_database "$1";;
         esac
+        ;;
+    frontend)
+        # Frontend non richiede argomento dev obbligatorio, ma settiamo project dir se presente
+        if [[ -n "$1" ]]; then set_project_dir "$1"; else set_project_dir "$(whoami)"; fi
+        start_frontend
         ;;
     status)
         show_status
