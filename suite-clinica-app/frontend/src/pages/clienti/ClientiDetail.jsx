@@ -178,7 +178,14 @@ function ClientiDetail() {
   const [generatingLink, setGeneratingLink] = useState(null); // 'weekly' | 'dca' | 'minor' | null
   const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
+
   const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
+  
+  // Check Sub-tabs states
+  const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly');
+  const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
+  const [initialChecksData, setInitialChecksData] = useState(null);
+  const [loadingInitialChecks, setLoadingInitialChecks] = useState(false);
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
@@ -359,7 +366,8 @@ function ClientiDetail() {
 
   // Fetch check data when check tab is active
   useEffect(() => {
-    if (activeTab === 'check' && id) {
+    // Fetch check data when check tab is active
+    if ((activeTab === 'check_periodici' || activeTab === 'check_iniziali') && id) {
       fetchCheckData();
       // Also fetch professionisti history for showing avatars in check responses
       if (professionistiHistory.length === 0) {
@@ -433,6 +441,29 @@ function ClientiDetail() {
       console.error('Error confirming read:', err);
     }
   };
+
+  const fetchInitialChecks = useCallback(async () => {
+    if (!id) return;
+    setLoadingInitialChecks(true);
+    try {
+      const result = await clientiService.getInitialChecks(id);
+      if (result.has_data) {
+        setInitialChecksData(result.checks);
+      } else {
+        setInitialChecksData(null);
+      }
+    } catch (err) {
+      console.error('Error fetching initial checks:', err);
+    } finally {
+      setLoadingInitialChecks(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'check_iniziali') {
+      fetchInitialChecks();
+    }
+  }, [activeTab, fetchInitialChecks]);
 
   const fetchStoricoNutrizione = async () => {
     setLoadingStoricoNutrizione(true);
@@ -1536,7 +1567,8 @@ function ClientiDetail() {
     { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
     { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
-    { id: 'check', label: 'Check', icon: 'ri-checkbox-multiple-line' },
+    { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
+    { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
   ];
 
   return (
@@ -5056,19 +5088,52 @@ function ClientiDetail() {
               )}
 
               {/* ========== CHECK TAB ========== */}
-              {activeTab === 'check' && (
+              {/* ========== CHECK PERIODICI TAB ========== */}
+              {activeTab === 'check_periodici' && (
                 <div className="row g-4">
-                  {/* Link Generation Section */}
+                  {/* Pills Navigation */}
+                  <div className="col-12">
+                    <ul className="nav nav-pills mb-3">
+                      <li className="nav-item">
+                        <button 
+                          className={`nav-link ${activePeriodiciTab === 'weekly' ? 'active' : ''}`} 
+                          onClick={() => setActivePeriodiciTab('weekly')}
+                        >
+                          Settimanale
+                        </button>
+                      </li>
+                      <li className="nav-item">
+                        <button 
+                          className={`nav-link ${activePeriodiciTab === 'dca' ? 'active' : ''}`} 
+                          onClick={() => setActivePeriodiciTab('dca')}
+                        >
+                          DCA
+                        </button>
+                      </li>
+                      <li className="nav-item">
+                        <button 
+                          className={`nav-link ${activePeriodiciTab === 'minor' ? 'active' : ''}`} 
+                          onClick={() => setActivePeriodiciTab('minor')}
+                        >
+                          Minori
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Link Generation Section (Filtered) */}
                   <div className="col-12">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-link me-2"></i>
                       Genera Link Check
                     </h6>
                     <div className="row g-3">
-                      {Object.values(CHECK_TYPES).map((checkType) => {
+                      {Object.values(CHECK_TYPES)
+                        .filter(t => t.key === activePeriodiciTab)
+                        .map((checkType) => {
                         const existingCheck = checkData.checks[checkType.key];
                         return (
-                          <div key={checkType.key} className="col-md-4">
+                          <div key={checkType.key} className="col-md-6 col-lg-4">
                             <div className="card border">
                               <div className="card-body p-3">
                                 <div className="d-flex align-items-center">
@@ -5118,12 +5183,11 @@ function ClientiDetail() {
                     </div>
                   </div>
 
-                  {/* Responses History Section */}
+                  {/* Responses History Section (Filtered) */}
                   <div className="col-12">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-history-line me-2"></i>
                       Storico Compilazioni
-                      <span className="badge bg-secondary ms-2">{checkData.responses.length}</span>
                     </h6>
                     <div className="card border">
                       <div className="card-body p-3">
@@ -5132,11 +5196,10 @@ function ClientiDetail() {
                             <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
                             <small className="ms-2 text-muted">Caricamento check...</small>
                           </div>
-                        ) : checkData.responses.length === 0 ? (
+                        ) : checkData.responses.filter(r => r.type === activePeriodiciTab).length === 0 ? (
                           <div className="text-center py-4">
                             <i className="ri-inbox-line fs-2 text-muted d-block mb-2"></i>
                             <p className="text-muted small mb-0">Nessuna compilazione ricevuta</p>
-                            <small className="text-muted">Genera un link e invialo al cliente</small>
                           </div>
                         ) : (
                           <div className="table-responsive">
@@ -5150,7 +5213,9 @@ function ClientiDetail() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {checkData.responses.map((response) => (
+                                {checkData.responses
+                                  .filter(r => r.type === activePeriodiciTab)
+                                  .map((response) => (
                                   <tr key={`${response.type}-${response.id}`}>
                                     <td>
                                       <small className="fw-medium">{response.submit_date}</small>
@@ -5218,6 +5283,82 @@ function ClientiDetail() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* ========== CHECK INIZIALI TAB ========== */}
+              {activeTab === 'check_iniziali' && (
+                 <div className="row g-4">
+                    {/* Pills Navigation */}
+                    <div className="col-12">
+                       <ul className="nav nav-pills mb-3">
+                          <li className="nav-item">
+                             <button className={`nav-link ${activeInizialiTab === 'check_1' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_1')}>Check 1</button>
+                          </li>
+                          <li className="nav-item">
+                             <button className={`nav-link ${activeInizialiTab === 'check_2' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_2')}>Check 2</button>
+                          </li>
+                          <li className="nav-item">
+                             <button className={`nav-link ${activeInizialiTab === 'check_3' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_3')}>Check 3</button>
+                          </li>
+                       </ul>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="col-12">
+                       <div className="card border">
+                          <div className="card-body p-4">
+                             {loadingInitialChecks ? (
+                                <div className="text-center py-5">
+                                   <div className="spinner-border text-primary" role="status"></div>
+                                   <p className="mt-2 text-muted">Caricamento risposte...</p>
+                                </div>
+                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] || !initialChecksData[activeInizialiTab].responses ? (
+                                <div className="text-center py-5">
+                                   <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
+                                   <h5>Nessun dato disponibile</h5>
+                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                </div>
+                             ) : (
+                                <div>
+                                   <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                                      <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
+                                      {initialChecksData[activeInizialiTab].completed_at && (
+                                         <span className="badge bg-light text-dark border">
+                                            <i className="ri-calendar-event-line me-1"></i>
+                                            Compilato il: {new Date(initialChecksData[activeInizialiTab].completed_at).toLocaleDateString('it-IT')}
+                                         </span>
+                                      )}
+                                   </div>
+                                   
+                                   {/* Score for Check 3 */}
+                                   {activeInizialiTab === 'check_3' && initialChecksData.check_3.score !== null && (
+                                      <div className="alert alert-info d-flex align-items-center mb-4">
+                                         <i className="ri-scales-3-line fs-4 me-3"></i>
+                                         <div>
+                                            <strong>Punteggio Psico-Alimentare:</strong> {initialChecksData.check_3.score} / 78
+                                            {initialChecksData.check_3.type && (
+                                               <span className="ms-3 badge bg-primary">Profilo {initialChecksData.check_3.type}</span>
+                                            )}
+                                         </div>
+                                      </div>
+                                   )}
+
+                                   {/* Responses List */}
+                                   <div className="responses-list">
+                                      {Object.entries(initialChecksData[activeInizialiTab].responses).map(([question, answer], idx) => (
+                                         <div key={idx} className="mb-3 p-3 bg-light rounded-2">
+                                            <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>Domanda {idx + 1}</small>
+                                            <div className="fw-semibold text-dark mb-1">{question}</div>
+                                            <div className="text-secondary" style={{whiteSpace: 'pre-wrap'}}>{Array.isArray(answer) ? answer.join(', ') : String(answer)}</div>
+                                         </div>
+                                      ))}
+                                   </div>
+                                </div>
+                             )}
+                          </div>
+                       </div>
+                    </div>
+                 </div>
               )}
             </div>
           </div>

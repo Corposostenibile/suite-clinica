@@ -11,6 +11,7 @@ DEFAULT_HOST="localhost"
 # Configurazione sviluppatori
 DEVELOPERS=("manu" "samu" "matte")
 PORTS_APP=("5001" "5002" "5003")
+PORTS_FRONTEND=("3001" "3002" "3003")
 DB_PORT="5432"  # Porta fissa per tutti gli sviluppatori
 DB_NAMES=("suite_clinica_dev_manu" "suite_clinica_dev_samu" "suite_clinica_dev_matte")
 
@@ -50,7 +51,7 @@ get_developer_info() {
     local dev=$1
     for i in "${!DEVELOPERS[@]}"; do
         if [[ "${DEVELOPERS[$i]}" == "$dev" ]]; then
-            echo "${PORTS_APP[$i]} $DB_PORT ${DB_NAMES[$i]}"; return
+            echo "${PORTS_APP[$i]} $DB_PORT ${DB_NAMES[$i]} ${PORTS_FRONTEND[$i]}"; return
         fi
     done
 }
@@ -88,9 +89,9 @@ show_help() {
     echo "Uso: $0 [COMANDO] [SVILUPPATORE]"
     echo ""
     echo "COMANDI FULLSTACK (Backend + Frontend):"
-    echo "  fullstack [dev]                          - Avvia sia Backend Flask (5001) che Frontend React (3000)."
+    echo "  fullstack [dev]                          - Avvia sia Backend Flask (5001/5002/5003) che Frontend React (3001/3002/3003)."
     echo "                                             Modalità raccomandata per lo sviluppo ibrido."
-    echo "  frontend [dev]                           - Avvia solo il frontend React (Vite) su porta 3000."
+    echo "  frontend [dev]                           - Avvia solo il frontend React (Vite) sulla porta dedicata."
     echo ""
     echo "COMANDI BACKEND (Foreground):"
     echo "  debug [dev]                              - Avvia solo Flask con hot-reload (vecchio stile)."
@@ -100,6 +101,7 @@ show_help() {
     echo "  stop [dev]                               - Ferma il server."
     echo "  restart [dev]                            - Riavvia il server."
     echo "  status                                   - Mostra lo stato dei servizi."
+    echo "  setup-firewall                           - Configura UFW per aprire le porte necessarie."
     echo ""
     echo "COMANDI GESTIONE AMBIENTE:"
     echo "  setup [dev]                              - Setup completo iniziale (dipendenze + db + admin)."
@@ -108,9 +110,9 @@ show_help() {
     echo "  reset-db [dev]                           - Resetta il database (elimina tutto, setup e crea admin)."
     echo ""
     echo "ESEMPI:"
-    echo "  $0 fullstack manu                     # Avvia tutto l'ambiente (Flask + React)."
+    echo "  $0 fullstack manu                     # Avvia tutto l'ambiente (Flask:5001 + React:3001)."
     echo "  $0 debug manu                         # Sviluppo solo backend."
-    echo "  $0 recreate manu                      # Ricreo da zero l'ambiente di manu."
+    echo "  $0 setup-firewall                     # Apre le porte nel firewall."
 }
 
 # --- FUNZIONI DI GESTIONE SERVER ---
@@ -570,10 +572,19 @@ setup_frontend() {
 }
 
 start_frontend() {
-    log_info "Avvio Frontend React (Vite) sulla porta 3000..."
+    local dev=$1
+    if [[ -z "$dev" ]]; then dev="manu"; fi 
+    
+    validate_developer "$dev"
+    set_project_dir "$dev"
+    
+    local info=($(get_developer_info "$dev"))
+    local fe_port="${info[3]}"
+
+    log_info "Avvio Frontend React (Vite) per $dev sulla porta $fe_port..."
     setup_frontend
     cd "$PROJECT_DIR/frontend"
-    npm run dev
+    npm run dev -- --port "$fe_port" --host
 }
 
 start_fullstack() {
@@ -581,9 +592,13 @@ start_fullstack() {
     validate_developer "$dev"
     set_project_dir "$dev"
     
+    local info=($(get_developer_info "$dev"))
+    local be_port="${info[0]}"
+    local fe_port="${info[3]}"
+    
     log_info "🚀 Avvio modalità FULLSTACK per $dev"
-    log_info "   - Backend Flask: http://localhost:5001"
-    log_info "   - Frontend React: http://localhost:3000"
+    log_info "   - Backend Flask: http://localhost:$be_port"
+    log_info "   - Frontend React: http://localhost:$fe_port"
     
     # Avvia Backend in background e salva PID
     cd "$PROJECT_DIR"
@@ -592,7 +607,7 @@ start_fullstack() {
     update_env_database_url "$dev"
     
     log_info "Avvio Backend..."
-    poetry run flask run --host=0.0.0.0 --port="${PORTS_APP[0]}" --debug &
+    poetry run flask run --host=0.0.0.0 --port="$be_port" --debug &
     BACKEND_PID=$!
     
     # Trap per chiudere il backend quando si chiude lo script
@@ -607,8 +622,32 @@ start_fullstack() {
     sleep 2
     
     # Avvia Frontend
-    start_frontend
+    start_frontend "$dev"
 }
+
+setup_firewall() {
+    log_info "🔒 Configurazione Firewall (UFW)..."
+    
+    # Porte Backend
+    for port in "${PORTS_APP[@]}"; do
+        log_info "Apertura porta Backend TCP/$port..."
+        sudo ufw allow "$port"/tcp
+    done
+
+    # Porte Frontend
+    for port in "${PORTS_FRONTEND[@]}"; do
+        log_info "Apertura porta Frontend TCP/$port..."
+        sudo ufw allow "$port"/tcp
+    done
+
+    # Database
+    log_info "Apertura porta Database TCP/$DB_PORT..."
+    sudo ufw allow "$DB_PORT"/tcp
+
+    sudo ufw reload
+    log_success "Regole Firewall applicate! (Verifica con 'sudo ufw status')"
+}
+
 
 # --- SCRIPT PRINCIPALE ---
 if [[ $# -eq 0 ]]; then show_help; exit 0; fi
@@ -635,10 +674,12 @@ case "$COMMAND" in
             reset-db) reset_database "$1";;
         esac
         ;;
+    setup-firewall)
+        setup_firewall
+        ;;
     frontend)
         # Frontend non richiede argomento dev obbligatorio, ma settiamo project dir se presente
-        if [[ -n "$1" ]]; then set_project_dir "$1"; else set_project_dir "$(whoami)"; fi
-        start_frontend
+        if [[ -n "$1" ]]; then start_frontend "$1"; else start_frontend "$(whoami)"; fi
         ;;
     status)
         show_status

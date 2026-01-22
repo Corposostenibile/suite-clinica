@@ -405,6 +405,16 @@ const clientiService = {
   },
 
   /**
+   * Get initial checks (Check 1, 2, 3) from original lead
+   * @param {number} id - Client ID
+   * @returns {Promise} - { has_data, checks: { check_1, check_2, check_3 } }
+   */
+  async getInitialChecks(id) {
+    const response = await api.get(`${API_BASE}/${id}/initial-checks`);
+    return response.data;
+  },
+
+  /**
    * Get weekly checks metrics for a client
    * @param {number} id - Client ID
    * @returns {Promise} - Weekly checks metrics data

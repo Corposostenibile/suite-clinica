@@ -2635,7 +2635,11 @@ def api_detail(cliente_id: int) -> Any:
 @permission_required(CustomerPerm.CREATE)
 def api_create() -> Any:
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
-    errors = cliente_schema.validate(data)
+    
+    # Use schema with session for validation (required for unique checks)
+    with db.session.no_autoflush:
+        errors = cliente_schema.validate(data, session=db.session)
+        
     if errors:
         raise BadRequest(errors)
     cliente = create_cliente(data, current_user)
@@ -2840,6 +2844,45 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
             })
 
     return jsonify(metrics_data)
+
+
+# – INITIAL CHECKS (FROM LEAD) -------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/initial-checks", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_initial_checks(cliente_id: int) -> Any:
+    """
+    Restituisce i dati dei Check 1, 2 e 3 (Iniziali) recuperati dalla Lead originale.
+    """
+    cliente = customers_repo.get_one(cliente_id, eager=True)
+    
+    if not cliente.original_lead:
+        return jsonify({
+            "has_data": False,
+            "message": "Nessuna lead originale associata a questo cliente."
+        })
+        
+    lead = cliente.original_lead
+    
+    return jsonify({
+        "has_data": True,
+        "lead_id": lead.id,
+        "checks": {
+            "check_1": {
+                "completed_at": lead.check1_completed_at.isoformat() if lead.check1_completed_at else None,
+                "responses": lead.check1_responses
+            },
+            "check_2": {
+                "completed_at": lead.check2_completed_at.isoformat() if lead.check2_completed_at else None,
+                "responses": lead.check2_responses
+            },
+            "check_3": {
+                "completed_at": lead.check3_completed_at.isoformat() if lead.check3_completed_at else None,
+                "responses": lead.check3_responses,
+                "score": lead.check3_score,
+                "type": lead.check3_type
+            }
+        }
+    })
 
 
 # --------------------------------------------------------------------------- #
