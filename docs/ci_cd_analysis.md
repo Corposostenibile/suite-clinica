@@ -110,6 +110,17 @@ Per collegare il repository a Cloud Build, seguire questi passaggi nella Console
 
 ---
 
+### 2.5 Risoluzione Problemi Comuni
+**Errore: `Permission 'secretmanager.secrets.create' denied`**
+Se si riscontra questo errore durante la connessione del repository:
+1.  **Abilitare API**: Cercare "Secret Manager API" nella console GCP e cliccare "Abilita".
+2.  **Permessi**: 
+    - Andare su **IAM e amministrazione**.
+    - Cercare l'agente di servizio di Cloud Build (formato: `service-[NUMERO]@gcp-sa-cloudbuild.iam.gserviceaccount.com`).
+    - Assegnare il ruolo **Secret Manager Admin** (o `Secret Manager VS Code Admin` per test).
+
+---
+
 ## 3. Vantaggi della scelta Cloud Build
 
 1.  **Sicurezza Semplificata**: Non dobbiamo gestire Service Account Key o Workload Identity Federation su GitHub. Cloud Build usa un Service Account interno gestito da Google.
