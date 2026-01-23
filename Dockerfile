@@ -3,12 +3,12 @@
 # ==========================================
 FROM node:18-alpine AS frontend-builder
 WORKDIR /app
-COPY frontend/package*.json ./frontend/
+COPY corposostenibile-clinica/package*.json ./frontend/
 WORKDIR /app/frontend
 # Install dependencies
 RUN npm ci
 # Copy frontend source
-COPY frontend/ ./
+COPY corposostenibile-clinica/ ./
 # Build React app
 RUN npm run build
 
@@ -35,15 +35,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install "poetry==1.7.1"
 
 # Copy dependency definition
-COPY pyproject.toml poetry.lock ./
+COPY backend/pyproject.toml backend/poetry.lock ./
 
 # Install defaults (no dev dependencies)
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi --no-root --only main
 
 # Copy backend code
-COPY corposostenibile ./corposostenibile
-COPY wsgi.py ./
+COPY backend/corposostenibile ./corposostenibile
+COPY backend/wsgi.py ./
 
 # Copy built frontend assets from Stage 1
 # We allow __init__.py to serve them via send_from_directory
