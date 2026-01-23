@@ -2563,7 +2563,6 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
                           { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
                           { key: 'piano', label: 'Piano Alimentare', icon: 'ri-restaurant-line', color: '#10b981' },
-                          { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: '#8b5cf6' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
                         ].map(({ key, label, icon, color }) => (
@@ -3101,6 +3100,64 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
+
+                      {/* ===== ANAMNESI MERGED ===== */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Anamnesi Nutrizionale
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
+                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
+                                </div>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
+                              </div>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={handleSaveAnamnesi}
+                                disabled={savingAnamnesi || loadingAnamnesi}
+                              >
+                                {savingAnamnesi ? (
+                                  <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
+                                ) : (
+                                  <><i className="ri-save-line me-1"></i>Salva</>
+                                )}
+                              </button>
+                            </div>
+
+                            {loadingAnamnesi ? (
+                              <div className="text-center py-4">
+                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
+                              </div>
+                            ) : (
+                              <>
+                                <textarea
+                                  className="form-control mb-3"
+                                  rows="10"
+                                  placeholder="Inserisci l'anamnesi nutrizionale del cliente...&#10;&#10;• Storia clinica&#10;• Abitudini alimentari&#10;• Obiettivi&#10;• Allergie e intolleranze&#10;• Farmaci in uso&#10;• Attività fisica&#10;• Stile di vita"
+                                  value={anamnesiContent}
+                                  onChange={(e) => setAnamnesiContent(e.target.value)}
+                                ></textarea>
+                                {anamnesiNutrizione && (
+                                  <div className="small text-muted border-top pt-2">
+                                    <i className="ri-information-line me-1"></i>
+                                    Creato: {anamnesiNutrizione.created_at} da {anamnesiNutrizione.created_by || 'N/D'}
+                                    {anamnesiNutrizione.last_modified_by && (
+                                      <span className="ms-3">
+                                        | Ultima modifica: {anamnesiNutrizione.updated_at} da {anamnesiNutrizione.last_modified_by}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </>
                   )}
 
@@ -3350,67 +3407,7 @@ function ClientiDetail() {
                     </>
                   )}
 
-                  {/* ===== ANAMNESI SUB-TAB ===== */}
-                  {nutrizioneSubTab === 'anamnesi' && (
-                    <>
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          Anamnesi Nutrizionale
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center justify-content-between mb-3">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
-                              </div>
-                              <button
-                                className="btn btn-sm btn-primary"
-                                onClick={handleSaveAnamnesi}
-                                disabled={savingAnamnesi || loadingAnamnesi}
-                              >
-                                {savingAnamnesi ? (
-                                  <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
-                                ) : (
-                                  <><i className="ri-save-line me-1"></i>Salva</>
-                                )}
-                              </button>
-                            </div>
 
-                            {loadingAnamnesi ? (
-                              <div className="text-center py-4">
-                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
-                              </div>
-                            ) : (
-                              <>
-                                <textarea
-                                  className="form-control mb-3"
-                                  rows="10"
-                                  placeholder="Inserisci l'anamnesi nutrizionale del cliente...&#10;&#10;• Storia clinica&#10;• Abitudini alimentari&#10;• Obiettivi&#10;• Allergie e intolleranze&#10;• Farmaci in uso&#10;• Attività fisica&#10;• Stile di vita"
-                                  value={anamnesiContent}
-                                  onChange={(e) => setAnamnesiContent(e.target.value)}
-                                ></textarea>
-                                {anamnesiNutrizione && (
-                                  <div className="small text-muted border-top pt-2">
-                                    <i className="ri-information-line me-1"></i>
-                                    Creato: {anamnesiNutrizione.created_at} da {anamnesiNutrizione.created_by || 'N/D'}
-                                    {anamnesiNutrizione.last_modified_by && (
-                                      <span className="ms-3">
-                                        | Ultima modifica: {anamnesiNutrizione.updated_at} da {anamnesiNutrizione.last_modified_by}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {nutrizioneSubTab === 'diario' && (
@@ -3551,7 +3548,7 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
                           { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: '#f59e0b' },
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: '#10b981' },
-                          { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: '#8b5cf6' },
+                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
                         ].map(({ key, label, icon, color }) => (
@@ -4332,12 +4329,12 @@ function ClientiDetail() {
                     </>
                   )}
 
-                  {/* ===== ANAMNESI SUB-TAB ===== */}
-                  {coachingSubTab === 'anamnesi' && (
+                  {/* ===== PATOLOGIE SUB-TAB ===== */}
+                  {coachingSubTab === 'patologie' && (
                     <>
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          Anamnesi Coaching
+                          Patologie e Anamnesi Coaching
                         </h6>
                         <div className="card border">
                           <div className="card-body p-3">
@@ -4543,7 +4540,6 @@ function ClientiDetail() {
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: '#a855f7' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
                           { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
-                          { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: '#8b5cf6' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
                         ].map(({ key, label, icon, color }) => (
@@ -5001,12 +4997,8 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
-                  )}
 
-                  {/* ===== ANAMNESI SUB-TAB ===== */}
-                  {psicologiaSubTab === 'anamnesi' && (
-                    <>
+                      {/* ===== ANAMNESI MERGED ===== */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">Storia Psicologica</h6>
                         <div className="card border">
@@ -5029,6 +5021,8 @@ function ClientiDetail() {
                       </div>
                     </>
                   )}
+
+
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {psicologiaSubTab === 'diario' && (
