@@ -46,9 +46,22 @@ Ecco cosa avviene esattamente in ogni fase del diagramma:
 
 ---
 
-## 2. Configurazione Tecnica (`cloudbuild.yaml`)
+## 2. Configurazione Tecnica
 
-Al posto dei workflow di GitHub Actions, useremo un unico file `cloudbuild.yaml` nella root del progetto.
+Per abilitare il deployment automatico, è necessario aggiungere al repository i seguenti file di configurazione:
+
+### 2.1 Dockerfile (`Dockerfile`)
+Un file **multi-stage** che gestisce sia la build del frontend (React) che il runtime del backend (Flask).
+- **Stage 1 (Frontend)**: Usa l'immagine `node` per compilare gli asset statici (`npm run build`).
+- **Stage 2 (Backend)**: Usa l'immagine `python` per eseguire l'applicazione Flask, servendo anche gli asset statici compilati nello stage precedente.
+
+### 2.2 Manifesti Kubernetes (`k8s/`)
+Una cartella contenente le definizioni delle risorse Kubernetes:
+- **`deployment.yaml`**: Definisce come eseguire l'applicazione (repliche, risorse, variabili d'ambiente).
+- **`service.yaml`**: Espone l'applicazione all'interno o all'esterno del cluster (LoadBalancer/ClusterIP).
+
+### 2.3 Cloud Build (`cloudbuild.yaml`)
+Il file che orchestra la pipeline. Al posto dei workflow di GitHub Actions, useremo un unico file `cloudbuild.yaml` nella root del progetto.
 
 ### Esempio di Struttura
 
@@ -77,6 +90,24 @@ options:
   logging: CLOUD_LOGGING_ONLY
 ```
 
+### 2.4 Setup del Trigger (GCP Console)
+Per collegare il repository a Cloud Build, seguire questi passaggi nella Console Google Cloud:
+
+1.  **Connessione Repository**:
+    *   Andare su **Cloud Build** > **Repositories**.
+    *   Cliccare su **CONNECT HOST** e seguire la procedura per collegare l'account GitHub.
+    *   Selezionare il repository `suite-clinica`.
+
+2.  **Creazione del Trigger**:
+    *   Andare su **Cloud Build** > **Triggers**.
+    *   Cliccare su **CREATE TRIGGER**.
+    *   **Name**: `suite-clinica-cd-main` (o simile).
+    *   **Event**: "Push to a branch".
+    *   **Source**: Selezionare il repo collegato e il branch `main` (o il branch desiderato per il deploy).
+    *   **Configuration**: Selezionare "Cloud Build configuration file (yaml or json)".
+    *   **Location**: Lasciare `cloudbuild.yaml` (default).
+    *   **Service Account**: Assicurarsi di usare il Service Account predefinito o uno dedicato che abbia i permessi IAM necessari (vedi punto 4).
+
 ---
 
 ## 3. Vantaggi della scelta Cloud Build
@@ -90,5 +121,5 @@ options:
 ## 4. Prossimi Passi Operativi
 
 1.  **[Console GCP]** Creare il **Trigger**: Collegare il repo GitHub a Cloud Build dalla console.
-2.  **[Codice]** Creare il file `cloudbuild.yaml`.
+2.  **[Codice]** Creare `Dockerfile`, `cloudbuild.yaml` e cartella `k8s/` con i manifesti.
 3.  **[IAM]** Verificare che il Service Account di Cloud Build (`[NUMERO-PROGETTO]@cloudbuild.gserviceaccount.com`) abbia i permessi `Kubernetes Engine Developer`.

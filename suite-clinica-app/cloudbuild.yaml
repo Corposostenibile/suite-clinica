@@ -1,0 +1,22 @@
+steps:
+  # 1. Build Layer: Crea l'immagine Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA', '.']
+
+  # 2. Push Layer: Carica su Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA']
+
+  # 3. Deploy Layer: Aggiorna GKE
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    args:
+      - run
+      - --filename=k8s/
+      - --location=europe-west8
+      - --cluster=suite-clinica-cluster-prod
+      - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
+
+# Configurazione Timeout e Log
+timeout: 1200s
+options:
+  logging: CLOUD_LOGGING_ONLY
