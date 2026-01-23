@@ -150,13 +150,34 @@ const getInitials = (name) => {
 };
 
 // Component to render professional with read status
-const ProfessionalCell = ({ professionals, rating, bgColor, textColor }) => {
+const ProfessionalCell = ({ professionals, rating, progressRating, bgColor, textColor }) => {
+  // Calculate MPS if both ratings exist
+  const mps = (rating && progressRating) ? ((rating + progressRating) / 2).toFixed(1) : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
       {/* Rating Badge */}
       <span style={getRatingStyle(rating)}>
         {rating ?? '-'}
       </span>
+
+      {/* MPS Badge (New) */}
+      {mps && (
+        <span
+            title={`Media: (Voto Professionista [${rating}] + Voto Progresso [${progressRating}]) / 2 = ${mps}`}
+            style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            color: '#64748b',
+            background: '#f1f5f9',
+            padding: '2px 6px',
+            borderRadius: '6px',
+            cursor: 'help'
+            }}
+        >
+            MPS: {mps}
+        </span>
+      )}
 
       {/* Professionals */}
       {professionals && professionals.length > 0 ? (
@@ -712,6 +733,7 @@ function CheckAzienda() {
                           <ProfessionalCell
                             professionals={response.nutrizionisti}
                             rating={response.nutritionist_rating}
+                            progressRating={response.progress_rating}
                             bgColor="#dcfce7"
                             textColor="#166534"
                           />
@@ -722,6 +744,7 @@ function CheckAzienda() {
                           <ProfessionalCell
                             professionals={response.psicologi}
                             rating={response.psychologist_rating}
+                            progressRating={response.progress_rating}
                             bgColor="#e0f2fe"
                             textColor="#0369a1"
                           />
@@ -732,6 +755,7 @@ function CheckAzienda() {
                           <ProfessionalCell
                             professionals={response.coaches}
                             rating={response.coach_rating}
+                            progressRating={response.progress_rating}
                             bgColor="#dbeafe"
                             textColor="#1d4ed8"
                           />
