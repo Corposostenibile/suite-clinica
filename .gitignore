@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build
+dist/
+dist-ssr/
+*.local
+
+# Uploads & Data
+uploads/
+backups/
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sw?
+
+# Python
+*.egg-info/
+.eggs/
+
+# Large files
+*.mov
+*.mp4
+*.zip
+*.tar.gz
+
+# Misc
+.running_pids

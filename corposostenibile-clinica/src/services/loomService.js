@@ -1,0 +1,91 @@
+/**
+ * Loom Service
+ *
+ * Servizio per la gestione dei link Loom associati agli eventi GHL.
+ * Comunica con il backend per salvare/recuperare i link delle registrazioni.
+ */
+
+import axios from 'axios';
+
+// Helper to get CSRF token
+const getCsrfToken = () => {
+  let token = document.querySelector('meta[name="csrf-token"]')?.content;
+  if (!token) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split('; csrf_token=');
+    if (parts.length === 2) token = parts.pop().split(';').shift();
+  }
+  return token;
+};
+
+// Create axios instance for GHL/Loom routes
+const loomApi = axios.create({
+  baseURL: '/ghl/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+});
+
+// Add CSRF token to requests
+loomApi.interceptors.request.use((config) => {
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    config.headers['X-CSRFToken'] = csrfToken;
+    config.headers['X-CSRF-Token'] = csrfToken;
+  }
+  return config;
+});
+
+// Handle 401 responses
+loomApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.location.href = '/auth/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+const loomService = {
+  /**
+   * Salva link Loom per un evento GHL
+   * Crea o aggiorna il record Meeting locale associato
+   *
+   * @param {Object} eventData - Dati dell'evento
+   * @param {string} eventData.ghlEventId - ID dell'evento GHL
+   * @param {string} eventData.loomLink - URL del video Loom
+   * @param {string} [eventData.title] - Titolo dell'evento
+   * @param {string} [eventData.startTime] - Data/ora inizio (ISO string)
+   * @param {string} [eventData.endTime] - Data/ora fine (ISO string)
+   * @param {number} [eventData.clienteId] - ID del cliente associato
+   * @param {string} [eventData.ghlCalendarId] - ID del calendario GHL
+   * @returns {Promise<Object>} - Risposta del server con meeting_id
+   */
+  saveLoomLink: async (eventData) => {
+    const response = await loomApi.post('/meeting/loom', {
+      ghl_event_id: eventData.ghlEventId,
+      loom_link: eventData.loomLink,
+      title: eventData.title,
+      start_time: eventData.startTime,
+      end_time: eventData.endTime,
+      cliente_id: eventData.clienteId,
+      ghl_calendar_id: eventData.ghlCalendarId,
+    });
+    return response.data;
+  },
+
+  /**
+   * Ottiene il link Loom per un evento GHL
+   *
+   * @param {string} ghlEventId - ID dell'evento GHL
+   * @returns {Promise<Object>} - { success, meeting_id, loom_link, has_loom }
+   */
+  getLoomLink: async (ghlEventId) => {
+    const response = await loomApi.get(`/meeting/loom/${ghlEventId}`);
+    return response.data;
+  },
+};
+
+export default loomService;

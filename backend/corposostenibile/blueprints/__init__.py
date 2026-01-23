@@ -1,0 +1,43 @@
+"""Blueprint collection for Corposostenibile Suite"""
+
+from . import (
+    auth,
+    communications,
+    customers,
+    department,
+    feedback,
+    feedback_global,
+    nutrition,
+    postit,
+    projects,
+    recruiting,
+    respond_io,
+    review,
+    sales_form,
+    team,
+    ticket,
+    welcome,
+    client_checks,
+    manual,
+)
+
+__all__ = [
+    'auth',
+    'communications',
+    'customers',
+    'department',
+    'feedback',
+    'feedback_global',
+    'nutrition',
+    'postit',
+    'projects',
+    'recruiting',
+    'respond_io',
+    'review',
+    'sales_form',
+    'team',
+    'ticket',
+    'welcome',
+    'client_checks',
+    'manual',
+]
