@@ -251,6 +251,8 @@ function ClientiDetail() {
     patologia_diabete: false,
     patologia_ipertensione: false,
     patologia_tiroidee: false,
+    patologia_altro_check: false,
+    patologia_altro: '',
     storia_nutrizione: '',
     note_extra_nutrizione: '',
     alert_nutrizione: '',
@@ -271,6 +273,8 @@ function ClientiDetail() {
     storia_psicologica: '',
     note_extra_psicologa: '',
     alert_psicologia: '',
+    patologia_psico_altro_check: false,
+    patologia_psico_altro: '',
   });
 
   const [showProfessioneAltro, setShowProfessioneAltro] = useState(false);
@@ -1371,6 +1375,8 @@ function ClientiDetail() {
       patologia_crohn: c.patologia_crohn || c.patologiaCrohn || false,
       patologia_stitichezza: c.patologia_stitichezza || c.patologiaStitichezza || false,
       patologia_tiroidee: c.patologia_tiroidee || c.patologiaTiroidee || false,
+      patologia_altro_check: c.patologia_altro_check || c.patologiaAltroCheck || (!!c.patologia_altro) || false,
+      patologia_altro: c.patologia_altro || c.patologiaAltro || '',
       storia_nutrizione: c.storia_nutrizione || c.storiaNutrizione || '',
       note_extra_nutrizione: c.note_extra_nutrizione || c.noteExtraNutrizione || '',
       alert_nutrizione: c.alert_nutrizione || c.alertNutrizione || '',
@@ -1389,6 +1395,8 @@ function ClientiDetail() {
       storia_psicologica: c.storia_psicologica || c.storiaPsicologica || '',
       note_extra_psicologa: c.note_extra_psicologa || c.noteExtraPsicologa || '',
       alert_psicologia: c.alert_psicologia || c.alertPsicologia || '',
+      patologia_psico_altro_check: c.patologia_psico_altro_check || c.patologiaPsicoAltroCheck || (!!c.patologia_psico_altro) || false,
+      patologia_psico_altro: c.patologia_psico_altro || c.patologiaPsicoAltro || '',
     });
 
     // Check custom professione
@@ -3096,7 +3104,35 @@ function ClientiDetail() {
                                   </div>
                                 </div>
                               ))}
+                              {/* Altro Checkbox */}
+                              <div className="col-md-4 col-6">
+                                <div className="form-check">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="patologia_altro_check"
+                                    checked={formData.patologia_altro_check || false}
+                                    onChange={(e) => handleInputChange('patologia_altro_check', e.target.checked)}
+                                  />
+                                  <label className={`form-check-label small ${formData.patologia_altro_check ? 'fw-medium' : ''}`} htmlFor="patologia_altro_check">
+                                    Altro...
+                                  </label>
+                                </div>
+                              </div>
                             </div>
+                            
+                            {/* Altro Input */}
+                            {formData.patologia_altro_check && (
+                              <div className="mt-2">
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  placeholder="Specifica altra patologia..."
+                                  value={formData.patologia_altro || ''}
+                                  onChange={(e) => handleInputChange('patologia_altro', e.target.value)}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4993,7 +5029,35 @@ function ClientiDetail() {
                                   </div>
                                 </div>
                               ))}
+                              {/* Altro Checkbox Psicologia */}
+                              <div className="col-md-6 col-12">
+                                <div className="form-check">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="patologia_psico_altro_check"
+                                    checked={formData.patologia_psico_altro_check || false}
+                                    onChange={(e) => handleInputChange('patologia_psico_altro_check', e.target.checked)}
+                                  />
+                                  <label className={`form-check-label small ${formData.patologia_psico_altro_check ? 'fw-medium' : ''}`} htmlFor="patologia_psico_altro_check">
+                                    Altro...
+                                  </label>
+                                </div>
+                              </div>
                             </div>
+
+                            {/* Altro Input Psicologia */}
+                            {formData.patologia_psico_altro_check && (
+                              <div className="mt-2">
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  placeholder="Specifica altra patologia psicologica..."
+                                  value={formData.patologia_psico_altro || ''}
+                                  onChange={(e) => handleInputChange('patologia_psico_altro', e.target.value)}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

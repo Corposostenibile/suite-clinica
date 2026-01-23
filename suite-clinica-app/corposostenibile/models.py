@@ -1679,6 +1679,10 @@ class Cliente(TimestampMixin, db.Model):
     patologia_psico_immagine_corporea          = db.Column(db.Boolean, default=False)
     patologia_psico_psicosomatiche             = db.Column(db.Boolean, default=False)
     patologia_psico_relazionali_altro          = db.Column(db.Boolean, default=False)
+    
+    # Campi testuali per "Altro"
+    patologia_altro                     = db.Column(db.Text)  # Campo testuale per "Altro" nutrizione
+    patologia_psico_altro               = db.Column(db.Text)  # Campo testuale per "Altro" psicologia
 
     # Bonus & Alert
     bonus                   = db.Column(db.Boolean)
