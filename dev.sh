@@ -23,9 +23,9 @@ VENV_PATH=""
 set_project_dir() {
     local dev=$1
     if [[ -n "$dev" ]]; then
-        PROJECT_DIR="/home/$dev/suite-clinica/suite-clinica-app"
+        PROJECT_DIR="/home/$dev/suite-clinica"
     else
-        PROJECT_DIR="/home/$(whoami)/suite-clinica/suite-clinica-app"
+        PROJECT_DIR="/home/$(whoami)/suite-clinica"
     fi
     VENV_PATH="$PROJECT_DIR/.venv"
     export POETRY_CACHE_DIR="/home/$dev/.cache/pypoetry"
@@ -65,7 +65,7 @@ update_env_database_url() {
     local db_name="${info[2]}"
 
     local new_database_url="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
-    local env_file="$PROJECT_DIR/.env"
+    local env_file="$PROJECT_DIR/backend/.env"
 
     if [[ -f "$env_file" ]]; then
         # Usa sed per sostituire la linea DATABASE_URL esistente
@@ -131,10 +131,10 @@ debug_server() {
     log_info "Avvio server di sviluppo Flask per $dev su http://$DEFAULT_HOST:$port..."
     log_warning "Il server si riavvierà automaticamente alle modifiche del codice."
     log_warning "Premi Ctrl+C per fermare."
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
 
     # Controlla se Gunicorn è attivo sulla stessa porta e avvisa
-    local PID_FILE="$PROJECT_DIR/.pid_${dev}"
+    local PID_FILE="$PROJECT_DIR/backend/.pid_${dev}"
     if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" &>/dev/null; then
         log_error "Un server Gunicorn per '$dev' è già attivo! Fermalo prima con '$0 stop $dev'."
         exit 1
@@ -154,7 +154,7 @@ start_server() {
     local info=($(get_developer_info "$dev")); local port="${info[0]}"; local db_name="${info[2]}"
 
     log_info "Avvio server per $dev su $DEFAULT_HOST:$port in foreground..."
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
 
     # Controlla se il server è già in esecuzione sulla porta
     if netstat -tuln 2>/dev/null | grep -q ":$port " || ss -tuln 2>/dev/null | grep -q ":$port "; then
@@ -243,7 +243,7 @@ show_status() {
 check_prerequisites() {
     local dev=$1; log_info "Verifico prerequisiti per ${dev:-sistema}..."; set_project_dir "${dev:-manu}"
     command -v poetry &> /dev/null || { log_error "Poetry non trovato."; exit 1; }
-    [[ -f "$PROJECT_DIR/pyproject.toml" ]] || { log_error "File pyproject.toml non trovato in $PROJECT_DIR"; exit 1; }
+    [[ -f "$PROJECT_DIR/backend/pyproject.toml" ]] || { log_error "File pyproject.toml non trovato in $PROJECT_DIR/backend"; exit 1; }
     systemctl is-active --quiet postgresql || sudo systemctl start postgresql
     systemctl is-active --quiet redis-server || sudo systemctl start redis-server
     
@@ -257,7 +257,7 @@ check_prerequisites() {
         log_info "Utente PostgreSQL suite_clinica già esistente."
     fi
     
-    [[ -f "$PROJECT_DIR/.env" ]] || { log_error "File .env non trovato."; exit 1; }
+    [[ -f "$PROJECT_DIR/backend/.env" ]] || { log_error "File .env non trovato."; exit 1; }
     log_success "Prerequisiti verificati."
 }
 install_dependencies() {
@@ -265,7 +265,7 @@ install_dependencies() {
     validate_developer "$dev"
     set_project_dir "$dev"
     log_info "Installazione dipendenze per $dev..."
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
 
     # Configura Poetry per evitare problemi di connessione durante install
     export POETRY_NO_CACHE=1
@@ -292,7 +292,7 @@ install_dependencies() {
     done
 
     log_error "Impossibile installare le dipendenze dopo $max_attempts tentativi."
-    log_info "Prova manualmente: cd $PROJECT_DIR && poetry cache clear pypi --all && poetry install --no-root"
+    log_info "Prova manualmente: cd $PROJECT_DIR/backend && poetry cache clear pypi --all && poetry install --no-root"
     return 1
 }
 setup_database() {
@@ -302,7 +302,7 @@ setup_database() {
     local info=($(get_developer_info "$dev"))
     local db_name="${info[2]}"
     log_info "Setup database per $dev..."
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
     if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$db_name"; then
         log_info "Creazione database $db_name..."
@@ -333,7 +333,7 @@ create_admin_user() {
     local info=($(get_developer_info "$dev"))
     local db_name="${info[2]}"
     log_info "Creazione utente admin per $dev..."
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
 
     # Crea admin direttamente con Python
@@ -374,7 +374,7 @@ db_migrate() {
     set_project_dir "$dev"
     local info=($(get_developer_info "$dev"))
     local db_name="${info[2]}"
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
     if [[ -z "$message" ]]; then
         message="Auto migration $(date '+%Y%m%d_%H%M%S')"
     fi
@@ -397,7 +397,7 @@ db_upgrade() {
     set_project_dir "$dev"
     local info=($(get_developer_info "$dev"))
     local db_name="${info[2]}"
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
     log_info "Applicazione migrazioni per $dev..."
     poetry run flask db upgrade
@@ -459,7 +459,7 @@ clear_environment() {
 
     # 3. Rimuovi virtual environment Poetry
     log_info "Rimozione virtual environment Poetry..."
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
     if poetry env list | grep -q "Activated"; then
         poetry env remove --all 2>/dev/null || true
         log_success "Virtual environment rimosso."
@@ -474,7 +474,7 @@ clear_environment() {
 
     # 5. Rimuovi log files
     log_info "Rimozione log files..."
-    rm -rf "$PROJECT_DIR/logs" 2>/dev/null || true
+    rm -rf "$PROJECT_DIR/backend/logs" 2>/dev/null || true
     log_success "Log files rimossi."
 
     log_success "✨ Ambiente per $dev completamente pulito!"
@@ -564,7 +564,7 @@ check_node() {
 setup_frontend() {
     log_info "Verifica dipendenze frontend..."
     check_node
-    cd "$PROJECT_DIR/frontend"
+    cd "$PROJECT_DIR/corposostenibile-clinica"
     if [ ! -d "node_modules" ]; then
         log_info "Installazione dipendenze React (npm install)..."
         npm install
@@ -583,7 +583,7 @@ start_frontend() {
 
     log_info "Avvio Frontend React (Vite) per $dev sulla porta $fe_port..."
     setup_frontend
-    cd "$PROJECT_DIR/frontend"
+    cd "$PROJECT_DIR/corposostenibile-clinica"
     npm run dev -- --port "$fe_port" --host
 }
 
@@ -601,7 +601,7 @@ start_fullstack() {
     log_info "   - Frontend React: http://localhost:$fe_port"
     
     # Avvia Backend in background e salva PID
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR/backend"
     export FLASK_APP="corposostenibile:create_app()"
     export FLASK_DEBUG=1
     update_env_database_url "$dev"
