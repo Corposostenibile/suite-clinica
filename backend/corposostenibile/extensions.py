@@ -195,13 +195,10 @@ def init_app(app):  # noqa: D401
         # Test connessione
         redis_client.ping()
         app.logger.info(f"[extensions] Redis connected: {redis_url}")
-    except redis.ConnectionError as e:
+    except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
         app.logger.warning(f"[extensions] Redis connection failed: {e}")
         # In development, possiamo procedere senza Redis
-        if app.debug:
-            redis_client = None
-        else:
-            raise
+        redis_client = None
 
     # ── Celery ──────────────────────────────────────────────────────────
     celery.conf.update(app.config)              # type: ignore[arg-type]

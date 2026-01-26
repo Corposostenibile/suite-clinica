@@ -13658,5 +13658,99 @@ class PostIt(TimestampMixin, db.Model):
         }
 
 
+# ───────────────────────── Appointment Setting ──────────────────────────── #
+
+class AppointmentSettingMessage(TimestampMixin, db.Model):
+    """Stores monthly messaging stats from Respond.io CSV exports."""
+    __tablename__ = "appointment_setting_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    utente = db.Column(db.String(255), nullable=False)
+    mese = db.Column(db.String(20), nullable=False)       # e.g. "Gennaio"
+    anno = db.Column(db.Integer, nullable=False)           # e.g. 2025
+    messaggi_inviati = db.Column(db.Integer, nullable=False, default=0)
+    contatti_unici_chiusi = db.Column(db.Integer, nullable=False, default=0)
+    conversazioni_assegnate = db.Column(db.Integer, nullable=False, default=0)
+    conversazioni_chiuse = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('utente', 'mese', 'anno', name='uq_appt_utente_mese_anno'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'utente': self.utente,
+            'mese': self.mese,
+            'anno': self.anno,
+            'messaggi_inviati': self.messaggi_inviati,
+            'contatti_unici_chiusi': self.contatti_unici_chiusi,
+            'conversazioni_assegnate': self.conversazioni_assegnate,
+            'conversazioni_chiuse': self.conversazioni_chiuse,
+        }
+
+
+class AppointmentSettingContact(TimestampMixin, db.Model):
+    """Stores daily contact counts per user from Respond.io bar chart CSV."""
+    __tablename__ = "appointment_setting_contacts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    utente = db.Column(db.String(255), nullable=False)
+    giorno = db.Column(db.Integer, nullable=False)
+    mese = db.Column(db.String(20), nullable=False)
+    anno = db.Column(db.Integer, nullable=False)
+    contatti = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('utente', 'giorno', 'mese', 'anno', name='uq_appt_contact_utente_giorno'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'utente': self.utente,
+            'giorno': self.giorno,
+            'mese': self.mese,
+            'anno': self.anno,
+            'contatti': self.contatti,
+        }
+
+
+class AppointmentSettingFunnel(TimestampMixin, db.Model):
+    """Stores lifecycle journey breakdown data per stage."""
+    __tablename__ = "appointment_setting_funnel"
+
+    id = db.Column(db.Integer, primary_key=True)
+    mese = db.Column(db.String(20), nullable=False)
+    anno = db.Column(db.Integer, nullable=False)
+    fase = db.Column(db.String(100), nullable=False)
+    tasso_conversione = db.Column(db.Float, nullable=False, default=0)
+    tempo_medio_fase = db.Column(db.Float, nullable=False, default=0)
+    tasso_abbandono = db.Column(db.Float, nullable=False, default=0)
+    cold = db.Column(db.Integer, nullable=False, default=0)
+    non_in_target = db.Column(db.Integer, nullable=False, default=0)
+    prenotato_non_in_target = db.Column(db.Integer, nullable=False, default=0)
+    under = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('fase', 'mese', 'anno', name='uq_appt_funnel_fase_mese_anno'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'mese': self.mese,
+            'anno': self.anno,
+            'fase': self.fase,
+            'tasso_conversione': self.tasso_conversione,
+            'tempo_medio_fase': self.tempo_medio_fase,
+            'tasso_abbandono': self.tasso_abbandono,
+            'cold': self.cold,
+            'non_in_target': self.non_in_target,
+            'prenotato_non_in_target': self.prenotato_non_in_target,
+            'under': self.under,
+        }
+
+
 configure_mappers()          # deve vedere anche Task
 ClienteVersion = version_class(Cliente)

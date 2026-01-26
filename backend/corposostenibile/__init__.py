@@ -371,6 +371,7 @@ def create_app(config_name: str | None = None) -> Flask:
         feedback_global,  # AGGIUNTO: Sistema feedback democratico globale
         manual,  # AGGIUNTO: Import del blueprint manual (documentazione suite)
         kpi,  # AGGIUNTO: Sistema KPI e ARR
+        appointment_setting,  # Appointment Setting - messaggi Respond.io
     )
     from .blueprints.blueprint_registry import bp as blueprint_registry_bp  # Blueprint Registry
     from .blueprints.database_registry import bp as database_registry_bp  # Database Models Registry
@@ -401,6 +402,7 @@ def create_app(config_name: str | None = None) -> Flask:
     feedback_global.init_app(app)  # AGGIUNTO: Sistema feedback democratico globale (FASE 1+2)
     manual.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint manual (documentazione suite)
     kpi.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint KPI e ARR
+    appointment_setting.init_app(app)  # Appointment Setting
 
     # Sales Form Blueprint
     from .blueprints.sales_form import sales_form_bp
@@ -451,17 +453,49 @@ def create_app(config_name: str | None = None) -> Flask:
     react_dist = Path(__file__).parent.parent / "frontend" / "dist"
 
     if react_dist.exists():
-        from flask import send_from_directory
+        from flask import send_from_directory, request as flask_request, make_response
 
-        @app.route("/assets/<path:filename>")
-        def serve_react_assets(filename):
-            """Serve React static assets (JS/CSS bundles)."""
-            return send_from_directory(react_dist / "assets", filename)
+        # Override login_manager to redirect to React SPA login (not Jinja)
+        app.login_manager.login_view = None
 
-    # Root → login
-    @app.get("/")
-    def index():
-        return redirect(url_for("auth.login"))
+        @app.login_manager.unauthorized_handler
+        def unauthorized():
+            """Redirect to React login for pages, 401 for API calls."""
+            if flask_request.path.startswith('/api/'):
+                return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
+            return redirect('/login')
+
+        # Paths that should NOT be intercepted (handled by Flask)
+        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/')
+
+        @app.before_request
+        def serve_spa_for_pages():
+            """Intercept page requests and serve React SPA instead of Jinja templates."""
+            path = flask_request.path
+
+            # Let Flask handle API, uploads, OAuth, and static routes
+            if any(path.startswith(p) for p in _flask_prefixes):
+                return None
+
+            # Serve React static assets
+            if path.startswith('/assets/'):
+                filename = path[len('/assets/'):]
+                return send_from_directory(react_dist / "assets", filename)
+
+            # Serve static files from React dist (favicon, etc.)
+            rel_path = path.lstrip('/')
+            if rel_path:
+                full_path = react_dist / rel_path
+                if full_path.exists() and full_path.is_file():
+                    return send_from_directory(str(react_dist), rel_path)
+
+            # All other page routes: serve React SPA index.html
+            return send_from_directory(str(react_dist), "index.html")
+    else:
+        # Development: redirect to login (Vite handles React separately)
+        @app.get("/")
+        def index():
+            return redirect(url_for("auth.login"))
     
     # Error-handling JSON-first
     @app.errorhandler(Exception)
