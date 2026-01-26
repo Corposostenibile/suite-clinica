@@ -356,6 +356,15 @@ class TaskPriorityEnum(str, Enum):
     urgent  = "urgent"
 
 
+class TaskCategoryEnum(str, Enum):
+    onboarding  = "onboarding"
+    check       = "check"
+    reminder    = "reminder"
+    formazione  = "formazione"
+    sollecito   = "sollecito"
+    generico    = "generico"
+
+
 
 
 class OKRStatusEnum(str, Enum):
@@ -2810,12 +2819,18 @@ class Task(TimestampMixin, db.Model):
     priority     = db.Column(_def(TaskPriorityEnum),
                              default=TaskPriorityEnum.medium,
                              nullable=False)
+    category     = db.Column(_def(TaskCategoryEnum),
+                             default=TaskCategoryEnum.generico,
+                             nullable=False)
+    payload      = db.Column(db.JSON, default=dict)  # Dati contestuali (es. cliente_id, check_id)
+    
     due_date     = db.Column(db.Date)
 
     # FK principali
+    # department_id reso Nullable per task di sistema (es. solleciti automatici)
     department_id = db.Column(db.Integer,
                               db.ForeignKey("departments.id"),
-                              nullable=False,
+                              nullable=True,
                               index=True)
     assignee_id   = db.Column(db.Integer,
                               db.ForeignKey("users.id"),
