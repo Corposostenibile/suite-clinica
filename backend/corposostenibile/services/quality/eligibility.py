@@ -2,12 +2,11 @@
 EligibilityService - Servizio per calcolo eleggibilità clienti ai check settimanali.
 
 Criteri eleggibilità:
-- Stato servizio specifico 'attivo' per il tipo di professionista:
-  - Nutrizionista (dept 2): stato_nutrizione == 'attivo'
-  - Coach (dept 3): stato_coach == 'attivo'
-  - Psicologo (dept 4): stato_psicologia == 'attivo'
+- Stato servizio specifico 'attivo' per il tipo di professionista (basato su specialty):
+  - Nutrizionista (specialty: nutrizione/nutrizionista): stato_nutrizione == 'attivo'
+  - Coach (specialty: coach): stato_coach == 'attivo'
+  - Psicologo (specialty: psicologia/psicologo): stato_psicologia == 'attivo'
 - Ha almeno un professionista assegnato (nutrizionista/coach/psicologa)
-- check_day corrisponde al giorno della settimana target
 - Cliente attivo da almeno 7 giorni (dalla data_inizio_abbonamento)
 """
 from datetime import datetime, date, timedelta
@@ -17,6 +16,7 @@ from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente,
     User,
+    UserSpecialtyEnum,
     EleggibilitaSettimanale,
     cliente_nutrizionisti,
     cliente_coaches,
@@ -30,10 +30,13 @@ class EligibilityService:
     GIORNI_MINIMI_ATTIVO = 7  # Cliente deve essere attivo almeno 7 giorni
     STATI_ELEGGIBILI = ['attivo']  # Solo servizi con stato 'attivo' sono eleggibili
 
-    # Mapping dipartimento -> tipo professionista
-    DEPT_NUTRIZIONE = 2
-    DEPT_COACH = 3
-    DEPT_PSICOLOGIA = 4
+    # Mapping specialty -> tipo servizio da verificare
+    # Nutrizione specialties: controlla stato_nutrizione
+    NUTRIZIONE_SPECIALTIES = [UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista]
+    # Coach specialties: controlla stato_coach
+    COACH_SPECIALTIES = [UserSpecialtyEnum.coach]
+    # Psicologia specialties: controlla stato_psicologia
+    PSICOLOGIA_SPECIALTIES = [UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo]
 
 
     @staticmethod
@@ -83,26 +86,26 @@ class EligibilityService:
             if not professionista:
                 return False, f"Professionista {professionista_id} non trovato"
 
-        # 1. Verifica stato servizio specifico in base al dipartimento del professionista
-        dept_id = professionista.department_id
+        # 1. Verifica stato servizio specifico in base alla specialty del professionista
+        specialty = professionista.specialty
 
-        if dept_id == cls.DEPT_NUTRIZIONE:
+        if specialty in cls.NUTRIZIONE_SPECIALTIES:
             # Nutrizionista: verifica stato_nutrizione
             stato_servizio = cliente.stato_nutrizione
             if stato_servizio not in cls.STATI_ELEGGIBILI:
                 return False, f"Stato nutrizione non eleggibile: {stato_servizio}"
-        elif dept_id == cls.DEPT_COACH:
+        elif specialty in cls.COACH_SPECIALTIES:
             # Coach: verifica stato_coach
             stato_servizio = cliente.stato_coach
             if stato_servizio not in cls.STATI_ELEGGIBILI:
                 return False, f"Stato coach non eleggibile: {stato_servizio}"
-        elif dept_id == cls.DEPT_PSICOLOGIA:
+        elif specialty in cls.PSICOLOGIA_SPECIALTIES:
             # Psicologo: verifica stato_psicologia
             stato_servizio = cliente.stato_psicologia
             if stato_servizio not in cls.STATI_ELEGGIBILI:
                 return False, f"Stato psicologia non eleggibile: {stato_servizio}"
         else:
-            # Dipartimento non riconosciuto, fallback su stato_cliente globale
+            # Specialty non riconosciuta, fallback su stato_cliente globale
             if cliente.stato_cliente not in cls.STATI_ELEGGIBILI:
                 return False, f"Stato cliente non eleggibile: {cliente.stato_cliente}"
 

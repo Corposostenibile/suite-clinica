@@ -2694,6 +2694,189 @@ def api_stats() -> Any:
     """Espone le metriche di dashboard in JSON."""
     return jsonify(_compute_dashboard_metrics())
 
+# – ADMIN DASHBOARD STATS -------------------------------------------------- #
+@api_bp.route("/admin-dashboard-stats", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_admin_dashboard_stats() -> Any:
+    """Comprehensive patient dashboard stats for admin overview."""
+    today = date.today()
+    first_day_month = today.replace(day=1)
+    threshold_scadenza = today + timedelta(days=30)
+
+    # ─── KPI ─────────────────────────────────────────────────────────── #
+    total = db.session.query(func.count(Cliente.cliente_id)).scalar() or 0
+    active = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.stato_cliente == "attivo").scalar() or 0
+    ghost = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.stato_cliente == "ghost").scalar() or 0
+    pausa = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.stato_cliente == "pausa").scalar() or 0
+    stop = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.stato_cliente == "stop").scalar() or 0
+    insoluto = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.stato_cliente == "insoluto").scalar() or 0
+    freeze = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.stato_cliente == "freeze").scalar() or 0
+    new_month = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.created_at >= first_day_month).scalar() or 0
+    in_scadenza = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.data_rinnovo.isnot(None),
+        Cliente.data_rinnovo <= threshold_scadenza,
+        Cliente.stato_cliente == "attivo",
+    ).scalar() or 0
+
+    # Previous month new clients for comparison
+    prev_month_start = (first_day_month - relativedelta(months=1))
+    prev_month_end = first_day_month - timedelta(days=1)
+    new_prev_month = db.session.query(func.count(Cliente.cliente_id)).filter(
+        Cliente.created_at >= prev_month_start,
+        Cliente.created_at <= prev_month_end,
+    ).scalar() or 0
+
+    # ─── STATUS DISTRIBUTION ─────────────────────────────────────────── #
+    status_rows = (
+        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        .group_by(Cliente.stato_cliente)
+        .all()
+    )
+    status_distribution = [
+        {"status": (s.value if hasattr(s, 'value') else str(s)) if s else "non_definito", "count": c}
+        for s, c in status_rows
+    ]
+
+    # ─── TIPOLOGIA DISTRIBUTION ──────────────────────────────────────── #
+    tipologia_rows = (
+        db.session.query(Cliente.tipologia_cliente, func.count(Cliente.cliente_id))
+        .group_by(Cliente.tipologia_cliente)
+        .all()
+    )
+    tipologia_distribution = [
+        {"tipologia": (t.value if hasattr(t, 'value') else str(t)) if t else "non_definito", "count": c}
+        for t, c in tipologia_rows
+    ]
+
+    # ─── SPECIALTY SERVICES ──────────────────────────────────────────── #
+    def get_service_stats(col):
+        rows = (
+            db.session.query(col, func.count(Cliente.cliente_id))
+            .group_by(col)
+            .all()
+        )
+        return {((s.value if hasattr(s, 'value') else str(s)) if s else "non_definito"): c for s, c in rows}
+
+    nutrizione_stats = get_service_stats(Cliente.stato_nutrizione)
+    coach_stats = get_service_stats(Cliente.stato_coach)
+    psicologia_stats = get_service_stats(Cliente.stato_psicologia)
+
+    # ─── MONTHLY TREND (last 12 months) ──────────────────────────────── #
+    start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
+    monthly_rows = (
+        db.session.query(
+            func.date_trunc("month", Cliente.created_at).label("month"),
+            func.count(Cliente.cliente_id).label("count"),
+        )
+        .filter(Cliente.created_at >= start_period)
+        .group_by("month")
+        .order_by("month")
+        .all()
+    )
+    monthly_trend = [
+        {"month": row.month.strftime("%Y-%m"), "count": row.count}
+        for row in monthly_rows
+    ]
+
+    # ─── PATOLOGIE (top occurrences) ─────────────────────────────────── #
+    patologie_fields = [
+        ("IBS", Cliente.patologia_ibs),
+        ("Reflusso", Cliente.patologia_reflusso),
+        ("Gastrite", Cliente.patologia_gastrite),
+        ("DCA", Cliente.patologia_dca),
+        ("Insulino-resistenza", Cliente.patologia_insulino_resistenza),
+        ("Diabete", Cliente.patologia_diabete),
+        ("Dislipidemie", Cliente.patologia_dislipidemie),
+        ("Steatosi epatica", Cliente.patologia_steatosi_epatica),
+        ("Ipertensione", Cliente.patologia_ipertensione),
+        ("PCOS", Cliente.patologia_pcos),
+        ("Endometriosi", Cliente.patologia_endometriosi),
+        ("Obesità", Cliente.patologia_obesita_sindrome),
+        ("Osteoporosi", Cliente.patologia_osteoporosi),
+        ("Diverticolite", Cliente.patologia_diverticolite),
+        ("Crohn", Cliente.patologia_crohn),
+        ("Stitichezza", Cliente.patologia_stitichezza),
+        ("Tiroidee", Cliente.patologia_tiroidee),
+    ]
+    patologie = []
+    for name, col in patologie_fields:
+        count = db.session.query(func.count(Cliente.cliente_id)).filter(col == True).scalar() or 0
+        if count > 0:
+            patologie.append({"name": name, "count": count})
+    patologie.sort(key=lambda x: x["count"], reverse=True)
+
+    # ─── GENDER DISTRIBUTION ─────────────────────────────────────────── #
+    gender_rows = (
+        db.session.query(Cliente.genere, func.count(Cliente.cliente_id))
+        .group_by(Cliente.genere)
+        .all()
+    )
+    gender_distribution = [
+        {"gender": g if g else "non_definito", "count": c}
+        for g, c in gender_rows
+    ]
+
+    # ─── PROGRAMMA DISTRIBUTION ──────────────────────────────────────── #
+    programma_rows = (
+        db.session.query(Cliente.programma_attuale, func.count(Cliente.cliente_id))
+        .filter(Cliente.programma_attuale.isnot(None), Cliente.stato_cliente == "attivo")
+        .group_by(Cliente.programma_attuale)
+        .order_by(func.count(Cliente.cliente_id).desc())
+        .limit(10)
+        .all()
+    )
+    programma_distribution = [
+        {"programma": p if p else "N/D", "count": c}
+        for p, c in programma_rows
+    ]
+
+    # ─── PAYMENT METHOD DISTRIBUTION ─────────────────────────────────── #
+    payment_rows = (
+        db.session.query(Cliente.modalita_pagamento, func.count(Cliente.cliente_id))
+        .filter(Cliente.stato_cliente == "attivo")
+        .group_by(Cliente.modalita_pagamento)
+        .all()
+    )
+    payment_distribution = [
+        {"method": (m.value if hasattr(m, 'value') else str(m)) if m else "non_definito", "count": c}
+        for m, c in payment_rows
+    ]
+
+    return jsonify({
+        "kpi": {
+            "total": total,
+            "active": active,
+            "ghost": ghost,
+            "pausa": pausa,
+            "stop": stop,
+            "insoluto": insoluto,
+            "freeze": freeze,
+            "newMonth": new_month,
+            "newPrevMonth": new_prev_month,
+            "inScadenza": in_scadenza,
+        },
+        "statusDistribution": status_distribution,
+        "tipologiaDistribution": tipologia_distribution,
+        "services": {
+            "nutrizione": nutrizione_stats,
+            "coach": coach_stats,
+            "psicologia": psicologia_stats,
+        },
+        "monthlyTrend": monthly_trend,
+        "patologie": patologie,
+        "genderDistribution": gender_distribution,
+        "programmaDistribution": programma_distribution,
+        "paymentDistribution": payment_distribution,
+    })
+
+
 # – FEEDBACK METRICS ------------------------------------------------------- #
 @api_bp.route("/<int:cliente_id>/feedback-metrics", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)

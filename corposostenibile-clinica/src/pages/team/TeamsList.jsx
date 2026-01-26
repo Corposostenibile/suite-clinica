@@ -4,7 +4,6 @@ import teamService, {
   TEAM_TYPE_LABELS,
   TEAM_TYPE_COLORS,
   TEAM_TYPE_ICONS,
-  TEAM_TYPES,
 } from '../../services/teamService';
 
 // Colori sfondo header card in base al tipo team (coerenti con i KPI pazienti)
@@ -19,6 +18,12 @@ function TeamsList() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    perPage: 12,
+    total: 0,
+    totalPages: 0,
+  });
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
@@ -31,6 +36,8 @@ function TeamsList() {
     setError(null);
     try {
       const params = {
+        page: pagination.page,
+        per_page: pagination.perPage,
         q: filters.search || undefined,
         team_type: filters.teamType || undefined,
         active: filters.status === 'active' ? '1' : filters.status === 'inactive' ? '0' : undefined,
@@ -38,13 +45,18 @@ function TeamsList() {
 
       const data = await teamService.getTeams(params);
       setTeams(data.teams || []);
+      setPagination(prev => ({
+        ...prev,
+        total: data.total || 0,
+        totalPages: data.total_pages || 0,
+      }));
     } catch (err) {
       console.error('Error fetching teams:', err);
       setError('Errore nel caricamento dei team');
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [pagination.page, pagination.perPage, filters]);
 
   useEffect(() => {
     fetchTeams();
@@ -52,6 +64,7 @@ function TeamsList() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
     if (value) {
       newParams.set(key === 'search' ? 'q' : key === 'teamType' ? 'team_type' : key, value);
@@ -61,16 +74,17 @@ function TeamsList() {
     setSearchParams(newParams);
   };
 
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
   const resetFilters = () => {
     setFilters({ search: '', teamType: '', status: '' });
     setSearchParams(new URLSearchParams());
   };
 
-  // Stats
-  const totalTeams = teams.length;
-  const nutrizioneTeams = teams.filter(t => t.team_type === 'nutrizione').length;
-  const coachTeams = teams.filter(t => t.team_type === 'coach').length;
-  const psicologiaTeams = teams.filter(t => t.team_type === 'psicologia').length;
+  // Stats from current page data
+  const totalTeams = pagination.total;
 
   return (
     <div className="container-fluid p-0">
@@ -90,9 +104,9 @@ function TeamsList() {
       <div className="row g-3 mb-4">
         {[
           { label: 'Team Totali', value: totalTeams, icon: 'ri-team-line', bg: 'primary', gradient: null },
-          { label: 'Nutrizione', value: nutrizioneTeams, icon: TEAM_TYPE_ICONS.nutrizione, bg: null, gradient: TYPE_GRADIENTS.nutrizione },
-          { label: 'Coach', value: coachTeams, icon: TEAM_TYPE_ICONS.coach, bg: null, gradient: TYPE_GRADIENTS.coach },
-          { label: 'Psicologia', value: psicologiaTeams, icon: TEAM_TYPE_ICONS.psicologia, bg: null, gradient: TYPE_GRADIENTS.psicologia },
+          { label: 'Nutrizione', value: teams.filter(t => t.team_type === 'nutrizione').length, icon: TEAM_TYPE_ICONS.nutrizione, bg: null, gradient: TYPE_GRADIENTS.nutrizione },
+          { label: 'Coach', value: teams.filter(t => t.team_type === 'coach').length, icon: TEAM_TYPE_ICONS.coach, bg: null, gradient: TYPE_GRADIENTS.coach },
+          { label: 'Psicologia', value: teams.filter(t => t.team_type === 'psicologia').length, icon: TEAM_TYPE_ICONS.psicologia, bg: null, gradient: TYPE_GRADIENTS.psicologia },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
             <div
@@ -263,37 +277,34 @@ function TeamsList() {
                     </p>
 
                     {/* Team Leader */}
-                    {team.head && (
-                      <div className="d-flex align-items-center justify-content-center mb-2">
+                    {team.head ? (
+                      <div className="d-flex align-items-center justify-content-center">
                         <div className="flex-shrink-0">
                           {team.head.avatar_path ? (
                             <img
                               src={team.head.avatar_path}
                               alt={team.head.full_name}
                               className="rounded-circle"
-                              style={{ width: '24px', height: '24px', objectFit: 'cover' }}
+                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
                             />
                           ) : (
                             <div
                               className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
-                              style={{ width: '24px', height: '24px', fontSize: '10px' }}
+                              style={{ width: '28px', height: '28px', fontSize: '11px' }}
                             >
                               {team.head.first_name?.[0]}{team.head.last_name?.[0]}
                             </div>
                           )}
                         </div>
                         <small className="ms-2 text-muted">
-                          <i className="ri-user-star-line me-1"></i>
                           {team.head.full_name}
                         </small>
                       </div>
+                    ) : (
+                      <small className="text-muted">
+                        Nessun leader
+                      </small>
                     )}
-
-                    {/* Members Count */}
-                    <div className="text-muted small">
-                      <i className="ri-group-line me-1"></i>
-                      {team.member_count || 0} membri
-                    </div>
                   </div>
 
                   {/* Card Footer */}
@@ -317,6 +328,40 @@ function TeamsList() {
               </div>
             ))}
           </div>
+
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+              <span className="text-muted">
+                Pagina <strong>{pagination.page}</strong> di <strong>{pagination.totalPages}</strong>
+              </span>
+              <nav>
+                <ul className="pagination pagination-sm mb-0">
+                  <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
+                    <button className="page-link rounded-start" onClick={() => handlePageChange(pagination.page - 1)}>
+                      <i className="ri-arrow-left-s-line"></i>
+                    </button>
+                  </li>
+                  {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
+                    const pageNum = pagination.totalPages <= 5 ? i + 1 :
+                      pagination.page <= 3 ? i + 1 :
+                      pagination.page >= pagination.totalPages - 2 ? pagination.totalPages - 4 + i :
+                      pagination.page - 2 + i;
+                    return (
+                      <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => handlePageChange(pageNum)}>{pageNum}</button>
+                      </li>
+                    );
+                  })}
+                  <li className={`page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`}>
+                    <button className="page-link rounded-end" onClick={() => handlePageChange(pagination.page + 1)}>
+                      <i className="ri-arrow-right-s-line"></i>
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
         </>
       )}
     </div>

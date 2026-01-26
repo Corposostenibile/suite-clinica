@@ -6,7 +6,7 @@ from flask import render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 from datetime import date, datetime, timedelta
 from sqlalchemy import desc, func
-from corposostenibile.extensions import db
+from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     User,
     Cliente,
@@ -597,6 +597,7 @@ def _aggregate_period_scores(professionisti, weeks):
 # ============================================================================
 
 @bp.route('/api/calcola/<dept_key>', methods=['POST'])
+@csrf.exempt
 @login_required
 @admin_required
 def api_calcola_dipartimento(dept_key):
@@ -740,6 +741,291 @@ def api_clienti_eleggibili(prof_id):
         'check_done': sum(1 for c in clienti if c['check_effettuato']),
         'clienti': clienti
     })
+
+
+# ============================================================================
+# API PER FRONTEND REACT
+# ============================================================================
+
+@bp.route('/api/weekly-scores')
+@login_required
+def api_weekly_scores():
+    """
+    API: Restituisce Quality Score settimanali per tutti i professionisti di una specialità.
+
+    Query params:
+        - specialty: 'nutrizione', 'coach', 'psicologia' (required)
+        - week: YYYY-MM-DD (optional, default: current week)
+        - team_id: filter by team (optional)
+
+    Returns JSON con lista di score per professionista.
+    """
+    specialty = request.args.get('specialty', 'nutrizione')
+    week_param = request.args.get('week')
+    team_id = request.args.get('team_id', type=int)
+
+    # Mappa specialty param -> UserSpecialtyEnum values to filter
+    # User.specialty uses UserSpecialtyEnum (nutrizione, nutrizionista, coach, psicologia, psicologo)
+    SPECIALTY_FILTER_MAP = {
+        'nutrizione': ['nutrizione', 'nutrizionista'],
+        'nutrizionista': ['nutrizione', 'nutrizionista'],
+        'coach': ['coach'],
+        'psicologia': ['psicologia', 'psicologo'],
+        'psicologo': ['psicologia', 'psicologo'],
+    }
+
+    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
+    if not specialty_values:
+        return jsonify({'error': 'Invalid specialty'}), 400
+
+    # Parse week date
+    if week_param:
+        try:
+            target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
+        except:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    week_start, week_end = EligibilityService.get_week_bounds(target_date)
+
+    # Get professionals by specialty
+    # User.specialty is an enum, need to filter by the string values
+    from corposostenibile.models import UserSpecialtyEnum
+    specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
+
+    prof_query = db.session.query(User).filter(
+        User.is_active == True,
+        User.specialty.in_(specialty_enums)
+    )
+
+    # Filter by team if specified
+    if team_id:
+        from corposostenibile.models import Team, team_members
+        prof_query = prof_query.join(
+            team_members, User.id == team_members.c.user_id
+        ).filter(team_members.c.team_id == team_id)
+
+    professionisti = prof_query.order_by(User.last_name).all()
+    prof_ids = [p.id for p in professionisti]
+
+    # Get weekly scores for all professionals
+    scores = {}
+    if prof_ids:
+        weekly_scores = db.session.query(QualityWeeklyScore).filter(
+            QualityWeeklyScore.professionista_id.in_(prof_ids),
+            QualityWeeklyScore.week_start_date == week_start
+        ).all()
+        scores = {s.professionista_id: s for s in weekly_scores}
+
+    # Build response
+    data = []
+    for prof in professionisti:
+        score = scores.get(prof.id)
+
+        # Get teams for this professional
+        teams = []
+        if hasattr(prof, 'teams'):
+            teams = [{'id': t.id, 'name': t.name} for t in prof.teams]
+
+        prof_data = {
+            'id': prof.id,
+            'first_name': prof.first_name,
+            'last_name': prof.last_name,
+            'full_name': f"{prof.first_name} {prof.last_name}",
+            'email': prof.email,
+            'avatar_url': prof.avatar_path if prof.avatar_path else None,
+            'teams': teams,
+            'quality': None
+        }
+
+        if score:
+            # Convert bonus_band enum to string if needed
+            bonus_band_value = score.bonus_band
+            if hasattr(bonus_band_value, 'value'):
+                bonus_band_value = bonus_band_value.value
+
+            prof_data['quality'] = {
+                'n_clients_eligible': score.n_clients_eligible or 0,
+                'n_checks_done': score.n_checks_done or 0,
+                'miss_rate': score.miss_rate or 0,
+                'quality_raw': score.quality_raw,
+                'quality_final': score.quality_final,
+                'quality_month': score.quality_month,
+                'quality_trim': score.quality_trim,
+                'bonus_band': bonus_band_value or '0%',
+                'penalty_week': abs(score.penalty_week) if score.penalty_week else 0,
+                'avg_brec_week': score.avg_brec_week or 0,
+                'delta_vs_last_week': score.delta_vs_last_week,
+                'trend_indicator': score.trend_indicator,
+            }
+
+        data.append(prof_data)
+
+    # Calculate aggregate stats
+    valid_scores = [d['quality'] for d in data if d['quality'] and d['quality']['quality_final'] is not None]
+    stats = {
+        'total_professionisti': len(data),
+        'with_score': len(valid_scores),
+        'avg_quality': round(sum(s['quality_final'] for s in valid_scores) / len(valid_scores), 2) if valid_scores else None,
+        'total_eligible': sum(s['n_clients_eligible'] for s in valid_scores) if valid_scores else 0,
+        'total_checks': sum(s['n_checks_done'] for s in valid_scores) if valid_scores else 0,
+        'avg_miss_rate': round(sum(s['miss_rate'] for s in valid_scores) / len(valid_scores), 4) if valid_scores else None,
+        'bands_distribution': {
+            '100%': len([s for s in valid_scores if s['bonus_band'] == '100%']),
+            '60%': len([s for s in valid_scores if s['bonus_band'] == '60%']),
+            '30%': len([s for s in valid_scores if s['bonus_band'] == '30%']),
+            '0%': len([s for s in valid_scores if s['bonus_band'] == '0%']),
+        }
+    }
+
+    return jsonify({
+        'success': True,
+        'week_start': week_start.strftime('%Y-%m-%d'),
+        'week_end': week_end.strftime('%Y-%m-%d'),
+        'specialty': specialty,
+        'stats': stats,
+        'professionals': data
+    })
+
+
+@bp.route('/api/calculate', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_calculate_quality():
+    """
+    API: Calcola Quality Score per una specialità e settimana.
+
+    JSON body:
+        - specialty: 'nutrizione', 'coach', 'psicologia' (required)
+        - week: YYYY-MM-DD (required)
+        - team_id: filter by team (optional)
+
+    Returns JSON con risultati del calcolo.
+    """
+    import time
+
+    data = request.get_json() or {}
+    specialty = data.get('specialty', 'nutrizione')
+    week_param = data.get('week')
+    team_id = data.get('team_id')
+
+    # Mappa specialty -> filter values
+    SPECIALTY_FILTER_MAP = {
+        'nutrizione': ['nutrizione', 'nutrizionista'],
+        'coach': ['coach'],
+        'psicologia': ['psicologia', 'psicologo'],
+    }
+
+    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
+    if not specialty_values:
+        return jsonify({'success': False, 'error': 'Specialità non valida'}), 400
+
+    if not week_param:
+        return jsonify({'success': False, 'error': 'Settimana non specificata'}), 400
+
+    try:
+        target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
+    except:
+        return jsonify({'success': False, 'error': 'Formato data non valido (YYYY-MM-DD)'}), 400
+
+    week_start, week_end = EligibilityService.get_week_bounds(target_date)
+
+    # Get professionals by specialty
+    from corposostenibile.models import UserSpecialtyEnum, team_members as tm
+    specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
+
+    prof_query = db.session.query(User).filter(
+        User.is_active == True,
+        User.specialty.in_(specialty_enums)
+    )
+
+    # Filter by team if specified
+    if team_id:
+        prof_query = prof_query.join(
+            tm, User.id == tm.c.user_id
+        ).filter(tm.c.team_id == int(team_id))
+
+    professionisti = prof_query.order_by(User.last_name).all()
+
+    start_time = time.time()
+
+    results = {
+        'specialty': specialty,
+        'week_start': week_start.strftime('%Y-%m-%d'),
+        'week_end': week_end.strftime('%Y-%m-%d'),
+        'total_professionisti': len(professionisti),
+        'processed': 0,
+        'eligible_total': 0,
+        'checks_total': 0,
+        'scores': [],
+        'errors': []
+    }
+
+    try:
+        # 1. Calcola eleggibilità per ogni professionista
+        for prof in professionisti:
+            try:
+                EligibilityService.calculate_eligibility_for_week(
+                    week_start=week_start,
+                    professionista_id=prof.id
+                )
+            except Exception as e:
+                results['errors'].append(f"Eligibility error for {prof.full_name}: {str(e)}")
+
+        # 2. Processa check responses per collegare i voti ai clienti eleggibili
+        try:
+            QualityScoreCalculator.process_check_responses_for_week(week_start=week_start)
+            db.session.commit()
+        except Exception as e:
+            results['errors'].append(f"Check responses error: {str(e)}")
+
+        # 3. Calcola weekly scores
+        for prof in professionisti:
+            try:
+                weekly_score = QualityScoreCalculator.calculate_weekly_score(
+                    professionista_id=prof.id,
+                    week_start=week_start,
+                    calculated_by_user_id=current_user.id
+                )
+
+                results['processed'] += 1
+                if weekly_score:
+                    results['eligible_total'] += weekly_score.n_clients_eligible or 0
+                    results['checks_total'] += weekly_score.n_checks_done or 0
+
+                    bonus_band_value = weekly_score.bonus_band
+                    if hasattr(bonus_band_value, 'value'):
+                        bonus_band_value = bonus_band_value.value
+
+                    results['scores'].append({
+                        'professionista_id': prof.id,
+                        'professionista_name': prof.full_name,
+                        'quality_final': weekly_score.quality_final,
+                        'quality_trim': weekly_score.quality_trim,
+                        'n_clients': weekly_score.n_clients_eligible,
+                        'n_checks': weekly_score.n_checks_done,
+                        'miss_rate': round(weekly_score.miss_rate * 100, 1) if weekly_score.miss_rate else None,
+                        'bonus_band': bonus_band_value or '0%',
+                    })
+            except Exception as e:
+                results['errors'].append(f"Score error for {prof.full_name}: {str(e)}")
+
+        db.session.commit()
+
+        elapsed = time.time() - start_time
+        results['elapsed_seconds'] = round(elapsed, 2)
+        results['success'] = True
+
+        return jsonify(results)
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'results': results
+        }), 500
 
 
 @bp.route('/api/check-responses/<int:prof_id>')

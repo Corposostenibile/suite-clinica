@@ -26,6 +26,8 @@ function TeamsDetail() {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [availableProfessionals, setAvailableProfessionals] = useState([]);
   const [loadingProfessionals, setLoadingProfessionals] = useState(false);
+  const [membersPage, setMembersPage] = useState(1);
+  const membersPerPage = 5;
 
   useEffect(() => {
     fetchTeam();
@@ -250,33 +252,6 @@ function TeamsDetail() {
                     )}
                   </button>
                 </li>
-                <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'clienti' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('clienti')}
-                  >
-                    <i className="ri-user-heart-line me-2"></i>
-                    Clienti
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'check' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('check')}
-                  >
-                    <i className="ri-checkbox-multiple-line me-2"></i>
-                    Check
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'quality' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('quality')}
-                  >
-                    <i className="ri-star-line me-2"></i>
-                    Quality
-                  </button>
-                </li>
               </ul>
             </div>
 
@@ -401,129 +376,222 @@ function TeamsDetail() {
               )}
 
               {/* Members Tab */}
-              {activeTab === 'members' && (
-                <>
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h6 className="mb-0">
-                      Membri del Team
-                      <span className="badge bg-primary ms-2">{team?.members?.length || 0}</span>
-                    </h6>
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={openAddMemberModal}
-                    >
-                      <i className="ri-user-add-line me-1"></i>
-                      Aggiungi Membro
-                    </button>
-                  </div>
+              {activeTab === 'members' && (() => {
+                const allMembers = team?.members || [];
+                const totalMembers = allMembers.length;
+                const totalPages = Math.ceil(totalMembers / membersPerPage);
+                const paginatedMembers = allMembers.slice(
+                  (membersPage - 1) * membersPerPage,
+                  membersPage * membersPerPage
+                );
 
-                  {team?.members && team.members.length > 0 ? (
-                    <div className="list-group list-group-flush">
-                      {team.members.map(member => (
-                        <div key={member.id} className="list-group-item px-0 py-3">
-                          <div className="d-flex align-items-center">
-                            <div className="flex-shrink-0">
-                              {member.avatar_path ? (
-                                <img
-                                  src={member.avatar_path}
-                                  alt={member.full_name}
-                                  className="rounded-circle"
-                                  style={{ width: '48px', height: '48px', objectFit: 'cover' }}
-                                />
-                              ) : (
-                                <div
-                                  className="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
-                                  style={{ width: '48px', height: '48px' }}
-                                >
-                                  {member.first_name?.[0]}{member.last_name?.[0]}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-grow-1 ms-3">
-                              <h6 className="mb-0">{member.full_name}</h6>
-                              <small className="text-muted">{member.email}</small>
-                              <div className="mt-1">
-                                <span className={`badge bg-${ROLE_COLORS[member.role] || 'secondary'} me-1`} style={{ fontSize: '10px' }}>
-                                  {ROLE_LABELS[member.role] || member.role}
-                                </span>
-                                {member.specialty && (
-                                  <span className="badge bg-light text-dark" style={{ fontSize: '10px' }}>
-                                    {SPECIALTY_LABELS[member.specialty] || member.specialty}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="d-flex gap-2">
-                              <Link
-                                to={`/team-dettaglio/${member.id}`}
-                                className="btn btn-sm btn-outline-primary"
-                              >
-                                <i className="ri-eye-line me-1"></i>
-                                Dettagli
-                              </Link>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleRemoveMember(member.id)}
-                              >
-                                <i className="ri-user-unfollow-line"></i>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-5">
-                      <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                           style={{ width: '64px', height: '64px' }}>
-                        <i className="ri-group-line text-muted fs-3"></i>
-                      </div>
-                      <p className="text-muted mb-3">Nessun membro nel team</p>
+                return (
+                  <>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h6 className="mb-0">
+                        Membri del Team
+                        <span className="badge bg-primary ms-2">{totalMembers}</span>
+                      </h6>
                       <button
-                        className="btn btn-primary"
+                        className="btn btn-sm btn-primary"
                         onClick={openAddMemberModal}
                       >
                         <i className="ri-user-add-line me-1"></i>
-                        Aggiungi il primo membro
+                        Aggiungi Membro
                       </button>
                     </div>
-                  )}
-                </>
-              )}
 
-              {/* Clienti Tab */}
-              {activeTab === 'clienti' && (
-                <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                       style={{ width: '64px', height: '64px' }}>
-                    <i className="ri-user-heart-line text-muted fs-3"></i>
-                  </div>
-                  <p className="text-muted mb-0">Qui vedrai i clienti gestiti dal team</p>
-                </div>
-              )}
+                    {totalMembers > 0 ? (
+                      <>
+                        <div className="list-group list-group-flush">
+                          {paginatedMembers.map(member => (
+                            <div key={member.id} className="list-group-item px-0 py-3">
+                              <div className="d-flex align-items-center">
+                                <div className="flex-shrink-0">
+                                  {member.avatar_path ? (
+                                    <img
+                                      src={member.avatar_path}
+                                      alt={member.full_name}
+                                      className="rounded-circle"
+                                      style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <div
+                                      className="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white"
+                                      style={{ width: '48px', height: '48px' }}
+                                    >
+                                      {member.first_name?.[0]}{member.last_name?.[0]}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-grow-1 ms-3">
+                                  <h6 className="mb-0">{member.full_name}</h6>
+                                  <small className="text-muted">{member.email}</small>
+                                  <div className="mt-1">
+                                    <span className={`badge bg-${ROLE_COLORS[member.role] || 'secondary'} me-1`} style={{ fontSize: '10px' }}>
+                                      {ROLE_LABELS[member.role] || member.role}
+                                    </span>
+                                    {member.specialty && (
+                                      <span className="badge bg-light text-dark" style={{ fontSize: '10px' }}>
+                                        {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="d-flex gap-2">
+                                  <Link
+                                    to={`/team-dettaglio/${member.id}`}
+                                    className="btn btn-sm btn-outline-primary"
+                                  >
+                                    <i className="ri-eye-line me-1"></i>
+                                    Dettagli
+                                  </Link>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => handleRemoveMember(member.id)}
+                                  >
+                                    <i className="ri-user-unfollow-line"></i>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
 
-              {/* Check Tab */}
-              {activeTab === 'check' && (
-                <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                       style={{ width: '64px', height: '64px' }}>
-                    <i className="ri-checkbox-multiple-line text-muted fs-3"></i>
-                  </div>
-                  <p className="text-muted mb-0">Qui vedrai i check del team</p>
-                </div>
-              )}
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-3 border-top gap-2">
+                            <span style={{ color: '#64748b', fontSize: '14px' }}>
+                              Pagina <strong style={{ color: '#334155' }}>{membersPage}</strong> di{' '}
+                              <strong style={{ color: '#334155' }}>{totalPages}</strong>
+                              <span className="ms-2" style={{ color: '#94a3b8' }}>•</span>
+                              <span className="ms-2">{totalMembers} membri</span>
+                            </span>
+                            <nav>
+                              <ul className="pagination mb-0" style={{ gap: '4px' }}>
+                                {/* First */}
+                                <li className={`page-item ${membersPage === 1 ? 'disabled' : ''}`}>
+                                  <button
+                                    className="page-link"
+                                    onClick={() => setMembersPage(1)}
+                                    disabled={membersPage === 1}
+                                    style={{
+                                      borderRadius: '8px',
+                                      border: '1px solid #e2e8f0',
+                                      color: membersPage === 1 ? '#cbd5e1' : '#64748b',
+                                      padding: '8px 12px',
+                                    }}
+                                  >
+                                    <i className="ri-arrow-left-double-line"></i>
+                                  </button>
+                                </li>
+                                {/* Prev */}
+                                <li className={`page-item ${membersPage === 1 ? 'disabled' : ''}`}>
+                                  <button
+                                    className="page-link"
+                                    onClick={() => setMembersPage(p => p - 1)}
+                                    disabled={membersPage === 1}
+                                    style={{
+                                      borderRadius: '8px',
+                                      border: '1px solid #e2e8f0',
+                                      color: membersPage === 1 ? '#cbd5e1' : '#64748b',
+                                      padding: '8px 12px',
+                                    }}
+                                  >
+                                    <i className="ri-arrow-left-s-line"></i>
+                                  </button>
+                                </li>
+                                {/* Page numbers - max 5 visible */}
+                                {[...Array(Math.min(totalPages, 5))].map((_, i) => {
+                                  let pageNum;
+                                  if (totalPages <= 5) {
+                                    pageNum = i + 1;
+                                  } else if (membersPage <= 3) {
+                                    pageNum = i + 1;
+                                  } else if (membersPage >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + i;
+                                  } else {
+                                    pageNum = membersPage - 2 + i;
+                                  }
+                                  const isActive = membersPage === pageNum;
+                                  return (
+                                    <li key={pageNum} className="page-item">
+                                      <button
+                                        className="page-link"
+                                        onClick={() => setMembersPage(pageNum)}
+                                        style={{
+                                          borderRadius: '8px',
+                                          border: isActive ? 'none' : '1px solid #e2e8f0',
+                                          background: isActive ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'transparent',
+                                          color: isActive ? '#fff' : '#64748b',
+                                          padding: '8px 14px',
+                                          fontWeight: isActive ? 600 : 400,
+                                          minWidth: '40px',
+                                        }}
+                                      >
+                                        {pageNum}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                                {/* Next */}
+                                <li className={`page-item ${membersPage === totalPages ? 'disabled' : ''}`}>
+                                  <button
+                                    className="page-link"
+                                    onClick={() => setMembersPage(p => p + 1)}
+                                    disabled={membersPage === totalPages}
+                                    style={{
+                                      borderRadius: '8px',
+                                      border: '1px solid #e2e8f0',
+                                      color: membersPage === totalPages ? '#cbd5e1' : '#64748b',
+                                      padding: '8px 12px',
+                                    }}
+                                  >
+                                    <i className="ri-arrow-right-s-line"></i>
+                                  </button>
+                                </li>
+                                {/* Last */}
+                                <li className={`page-item ${membersPage === totalPages ? 'disabled' : ''}`}>
+                                  <button
+                                    className="page-link"
+                                    onClick={() => setMembersPage(totalPages)}
+                                    disabled={membersPage === totalPages}
+                                    style={{
+                                      borderRadius: '8px',
+                                      border: '1px solid #e2e8f0',
+                                      color: membersPage === totalPages ? '#cbd5e1' : '#64748b',
+                                      padding: '8px 12px',
+                                    }}
+                                  >
+                                    <i className="ri-arrow-right-double-line"></i>
+                                  </button>
+                                </li>
+                              </ul>
+                            </nav>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-5">
+                        <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                             style={{ width: '64px', height: '64px' }}>
+                          <i className="ri-group-line text-muted fs-3"></i>
+                        </div>
+                        <p className="text-muted mb-3">Nessun membro nel team</p>
+                        <button
+                          className="btn btn-primary"
+                          onClick={openAddMemberModal}
+                        >
+                          <i className="ri-user-add-line me-1"></i>
+                          Aggiungi il primo membro
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
-              {/* Quality Tab */}
-              {activeTab === 'quality' && (
-                <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                       style={{ width: '64px', height: '64px' }}>
-                    <i className="ri-star-line text-muted fs-3"></i>
-                  </div>
-                  <p className="text-muted mb-0">Qui vedrai il quality del team</p>
-                </div>
-              )}
-            </div>
+                          </div>
           </div>
         </div>
       </div>

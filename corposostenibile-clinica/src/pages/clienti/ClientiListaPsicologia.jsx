@@ -7,55 +7,91 @@ import clientiService, {
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 
-// CSS Styles inline for the component
-const styles = {
-  psicoHeader: {
-    background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-    color: 'white',
-    padding: '16px 24px',
-    borderRadius: '12px',
-    marginBottom: '24px',
+// Stili per la tabella professionale (stesso stile di ClientiList)
+const tableStyles = {
+  card: {
+    borderRadius: '16px',
+    border: 'none',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    overflow: 'hidden',
   },
-  statoBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '4px 10px',
-    borderRadius: '20px',
+  tableHeader: {
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    borderBottom: '2px solid #e2e8f0',
+  },
+  th: {
+    padding: '16px 20px',
+    fontSize: '11px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    color: '#64748b',
+    whiteSpace: 'nowrap',
+    borderBottom: 'none',
+  },
+  td: {
+    padding: '16px 20px',
+    fontSize: '14px',
+    color: '#334155',
+    borderBottom: '1px solid #f1f5f9',
+    verticalAlign: 'middle',
+  },
+  row: {
+    transition: 'all 0.15s ease',
+  },
+  nameLink: {
+    color: '#3b82f6',
+    fontWeight: 600,
+    textDecoration: 'none',
+    transition: 'color 0.15s ease',
+  },
+  emptyCell: {
+    color: '#cbd5e1',
+    fontStyle: 'normal',
+    fontSize: '13px',
+  },
+  badge: {
+    padding: '6px 12px',
+    borderRadius: '6px',
     fontSize: '11px',
     fontWeight: 600,
     textTransform: 'capitalize',
+    letterSpacing: '0.3px',
+  },
+  actionBtn: {
+    width: '36px',
+    height: '36px',
+    padding: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '8px',
+    border: '1px solid',
+    transition: 'all 0.15s ease',
+    marginLeft: '6px',
   },
   avatarTeam: {
     position: 'relative',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '28px',
-    height: '28px',
+    width: '32px',
+    height: '32px',
     borderRadius: '50%',
-    cursor: 'pointer',
-  },
-  avatarImg: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    objectFit: 'cover',
-    border: '2px solid #fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+    marginRight: '4px',
   },
   avatarInitials: {
-    width: '28px',
-    height: '28px',
+    width: '32px',
+    height: '32px',
     borderRadius: '50%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: '10px',
-    fontWeight: 600,
+    fontWeight: 700,
     textTransform: 'uppercase',
     border: '2px solid #fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   avatarBadge: {
     position: 'absolute',
@@ -64,40 +100,51 @@ const styles = {
     fontSize: '7px',
     fontWeight: 700,
     color: '#fff',
-    padding: '1px 3px',
-    borderRadius: '3px',
+    padding: '2px 4px',
+    borderRadius: '4px',
     lineHeight: 1,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   },
-  btnStoria: {
-    padding: '4px 10px',
+  statoBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '6px 12px',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: 600,
+    textTransform: 'capitalize',
+  },
+  btnEditInline: {
+    padding: '4px 8px',
+    fontSize: '12px',
+    borderRadius: '6px',
+    background: 'rgba(0,0,0,0.04)',
+    color: '#64748b',
+    border: 'none',
+    cursor: 'pointer',
+    marginLeft: '6px',
+    transition: 'all 0.15s ease',
+  },
+  btnSmall: {
+    padding: '6px 12px',
     fontSize: '12px',
     borderRadius: '8px',
     color: 'white',
     border: 'none',
     transition: 'all 0.2s ease',
     cursor: 'pointer',
+    fontWeight: 600,
   },
-  btnEditInline: {
-    padding: '2px 6px',
-    fontSize: '10px',
-    borderRadius: '4px',
-    background: 'rgba(0,0,0,0.05)',
-    color: '#64748b',
-    border: 'none',
-    cursor: 'pointer',
-    marginLeft: '4px',
-  },
-  reachOutBadge: {
+  seduteBadge: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '4px',
-    padding: '4px 10px',
-    borderRadius: '8px',
-    fontSize: '11px',
-    fontWeight: 600,
-    background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-    color: '#92400e',
+    justifyContent: 'center',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    fontSize: '14px',
+    fontWeight: 700,
   },
   patologiaTag: {
     display: 'inline-flex',
@@ -109,16 +156,6 @@ const styles = {
     fontWeight: 500,
     background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
     color: '#be185d',
-  },
-  seduteBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    fontSize: '14px',
-    fontWeight: 700,
   },
 };
 
@@ -136,6 +173,7 @@ function ClientiListaPsicologia() {
   const [clienti, setClienti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hoveredRow, setHoveredRow] = useState(null);
   const [kpi, setKpi] = useState({
     stato_attivo: 0,
     stato_ghost: 0,
@@ -335,37 +373,48 @@ function ClientiListaPsicologia() {
   };
 
   // Render avatar team
-  const renderAvatarTeam = (user, role, label) => {
-    if (!user) return null;
-    const colors = ROLE_COLORS[role] || ROLE_COLORS.p;
-    const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
+  const renderTeamAvatar = (member, roleKey, roleLabel) => {
+    if (!member) return null;
+    const colors = ROLE_COLORS[roleKey] || ROLE_COLORS.p;
+    const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`;
 
     return (
       <span
-        style={styles.avatarTeam}
-        title={`${label}: ${user.full_name || `${user.first_name} ${user.last_name}`}`}
+        key={`${roleKey}-${member.id}`}
+        style={tableStyles.avatarTeam}
+        title={`${roleLabel}: ${member.full_name || `${member.first_name} ${member.last_name}`}`}
       >
-        {user.avatar_url ? (
-          <img src={user.avatar_url} alt={user.full_name} style={styles.avatarImg} />
+        {member.avatar_url || member.avatar_path ? (
+          <img
+            src={member.avatar_url || member.avatar_path}
+            alt={member.full_name}
+            style={{ ...tableStyles.avatarInitials, objectFit: 'cover' }}
+          />
         ) : (
-          <span style={{ ...styles.avatarInitials, background: colors.bg, color: colors.text }}>
+          <span
+            style={{
+              ...tableStyles.avatarInitials,
+              background: colors.bg,
+              color: colors.text,
+            }}
+          >
             {initials}
           </span>
         )}
-        <span style={{ ...styles.avatarBadge, background: colors.badge }}>
-          {role.toUpperCase()}
+        <span style={{ ...tableStyles.avatarBadge, background: colors.badge }}>
+          {roleKey.toUpperCase()}
         </span>
       </span>
     );
   };
 
   // Render stato badge
-  const renderStatoBadge = (stato) => {
-    if (!stato) return <em className="text-muted">-</em>;
+  const renderStatoBadge = (stato, type = 'psico') => {
+    if (!stato) return <span style={tableStyles.emptyCell}>—</span>;
     const colors = STATI_PROFESSIONISTA_COLORS[stato] || { bg: '#f1f5f9', color: '#64748b' };
     return (
-      <span style={{ ...styles.statoBadge, background: colors.bg, color: colors.color }}>
-        <i className="ri-circle-fill" style={{ fontSize: '6px' }}></i>
+      <span style={{ ...tableStyles.statoBadge, background: colors.bg, color: colors.color }}>
+        <i className={type === 'chat' ? 'ri-chat-3-line' : 'ri-circle-fill'} style={{ fontSize: type === 'chat' ? '10px' : '6px' }}></i>
         {stato}
       </span>
     );
@@ -374,150 +423,121 @@ function ClientiListaPsicologia() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div style={styles.psicoHeader} className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
         <div>
-          <h5 className="fw-semibold mb-1 text-white">
-            <i className="ri-mental-health-line me-2"></i>Visuale Psicologia
-          </h5>
-          <small className="opacity-75">Vista ottimizzata per il team psicologia</small>
+          <h4 className="mb-1">Visuale Psicologia</h4>
+          <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
-        <Link to="/clienti-lista" className="btn btn-light btn-sm">
-          <i className="ri-arrow-left-line me-1"></i> Torna alla Lista
-        </Link>
+        <div className="d-flex flex-wrap gap-2">
+          <Link to="/clienti-lista" className="btn btn-primary px-3">
+            <i className="ri-group-line me-2"></i>
+            Lista Generale
+          </Link>
+          <Link to="/clienti-nutrizione" className="btn btn-success px-3">
+            <i className="ri-restaurant-line me-2"></i>
+            Visuale Nutrizione
+          </Link>
+          <Link to="/clienti-coach" className="btn btn-warning px-3">
+            <i className="ri-run-line me-2"></i>
+            Visuale Coach
+          </Link>
+          <Link to="/clienti-nuovo" className="btn btn-primary px-4">
+            <i className="ri-user-add-line me-2"></i>
+            Aggiungi Paziente
+          </Link>
+        </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* Stats Row */}
       <div className="row g-3 mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-body py-3">
-              <div className="d-flex align-items-center gap-2 mb-2">
-                <i className="ri-mental-health-line" style={{ fontSize: '18px', color: '#ec4899' }}></i>
-                <span className="fw-semibold text-dark">Stato Psicologia</span>
-              </div>
-              <div className="d-flex flex-wrap gap-3">
-                <div className="d-flex align-items-center gap-2">
-                  {renderStatoBadge('attivo')}
-                  <span className="fw-bold text-dark">{kpi.stato_attivo}</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  {renderStatoBadge('ghost')}
-                  <span className="fw-bold text-dark">{kpi.stato_ghost}</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  {renderStatoBadge('pausa')}
-                  <span className="fw-bold text-dark">{kpi.stato_pausa}</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  {renderStatoBadge('stop')}
-                  <span className="fw-bold text-dark">{kpi.stato_stop}</span>
-                </div>
-                <div className="border-start ps-3 d-flex align-items-center gap-2">
-                  <i className="ri-chat-3-line text-primary" style={{ fontSize: '16px' }}></i>
-                  <span className="fw-semibold text-muted">Chat:</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <span style={{ ...styles.statoBadge, ...STATI_PROFESSIONISTA_COLORS.attivo }}>
-                    <i className="ri-chat-3-line" style={{ fontSize: '10px' }}></i> Attivo
-                  </span>
-                  <span className="fw-bold text-dark">{kpi.chat_attivo}</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <span style={{ ...styles.statoBadge, ...STATI_PROFESSIONISTA_COLORS.ghost }}>
-                    <i className="ri-chat-3-line" style={{ fontSize: '10px' }}></i> Ghost
-                  </span>
-                  <span className="fw-bold text-dark">{kpi.chat_ghost}</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <span style={{ ...styles.statoBadge, ...STATI_PROFESSIONISTA_COLORS.pausa }}>
-                    <i className="ri-chat-3-line" style={{ fontSize: '10px' }}></i> Pausa
-                  </span>
-                  <span className="fw-bold text-dark">{kpi.chat_pausa}</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <span style={{ ...styles.statoBadge, ...STATI_PROFESSIONISTA_COLORS.stop }}>
-                    <i className="ri-chat-3-line" style={{ fontSize: '10px' }}></i> Stop
-                  </span>
-                  <span className="fw-bold text-dark">{kpi.chat_stop}</span>
+        {[
+          { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-mental-health-line', bg: 'success' },
+          { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },
+          { label: 'Stato Pausa', value: kpi.stato_pausa, icon: 'ri-pause-circle-line', bg: 'warning' },
+          { label: 'Stato Stop', value: kpi.stato_stop, icon: 'ri-stop-circle-line', bg: 'danger' },
+        ].map((stat, idx) => (
+          <div key={idx} className="col-xl-3 col-sm-6">
+            <div className={`card bg-${stat.bg} border-0 shadow-sm`}>
+              <div className="card-body py-3">
+                <div className="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
+                    <span className="text-white opacity-75 small">{stat.label}</span>
+                  </div>
+                  <div
+                    className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                    style={{ width: '48px', height: '48px' }}
+                  >
+                    <i className={`${stat.icon} text-white fs-4`}></i>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="card mb-4">
-        <div className="card-body">
-          <div className="row gy-3 gx-4 align-items-end">
-            <div className="col-lg-4 col-md-6">
-              <label className="form-label fw-semibold text-sm mb-2">Ricerca Cliente</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Nome cliente..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-              />
+      <div className="card shadow-sm border-0 mb-4">
+        <div className="card-body py-3">
+          <div className="row g-2 align-items-center">
+            <div className="col-lg-4">
+              <div className="position-relative">
+                <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
+                <input
+                  type="text"
+                  className="form-control bg-light border-0"
+                  placeholder="Cerca paziente..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  style={{ paddingLeft: '36px' }}
+                />
+              </div>
             </div>
-            <div className="col-lg-3 col-md-4">
-              <label className="form-label fw-semibold text-sm mb-2">Psicologo</label>
+            <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.psicologo}
                 onChange={(e) => handleFilterChange('psicologo', e.target.value)}
               >
-                <option value="">Tutti</option>
+                <option value="">Psicologo</option>
                 {psicologi.map(p => (
                   <option key={p.id} value={p.id}>{p.full_name}</option>
                 ))}
               </select>
             </div>
-            <div className="col-lg-2 col-md-3">
-              <label className="form-label fw-semibold text-sm mb-2">Stato Psicologia</label>
+            <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.statoPsicologia}
                 onChange={(e) => handleFilterChange('statoPsicologia', e.target.value)}
               >
-                <option value="">Tutti</option>
+                <option value="">Stato Psicologia</option>
                 <option value="attivo">Attivo</option>
                 <option value="pausa">Pausa</option>
                 <option value="ghost">Ghost</option>
                 <option value="stop">Stop</option>
               </select>
             </div>
-            <div className="col-lg-2 col-md-3">
-              <label className="form-label fw-semibold text-sm mb-2">Reach Out</label>
+            <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.reachOut}
                 onChange={(e) => handleFilterChange('reachOut', e.target.value)}
               >
-                <option value="">Tutti</option>
+                <option value="">Reach Out</option>
                 {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
-            <div className="col-lg-2 col-md-3">
-              <div className="d-flex gap-2">
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}
-                  onClick={fetchClienti}
-                >
-                  <i className="ri-filter-line me-1"></i> Filtra
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={resetFilters}
-                >
-                  <i className="ri-refresh-line"></i>
-                </button>
-              </div>
+            <div className="col-lg-2">
+              <button
+                className="btn btn-outline-secondary w-100"
+                onClick={resetFilters}
+              >
+                <i className="ri-refresh-line me-1"></i>Reset
+              </button>
             </div>
           </div>
         </div>
@@ -526,76 +546,105 @@ function ClientiListaPsicologia() {
       {/* Content */}
       {loading ? (
         <div className="text-center py-5">
-          <div className="spinner-border" style={{ width: '3rem', height: '3rem', color: '#ec4899' }}></div>
-          <p className="mt-3 text-muted">Caricamento clienti...</p>
+          <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></div>
+          <p className="mt-3 text-muted">Caricamento pazienti...</p>
         </div>
       ) : error ? (
-        <div className="alert alert-danger">{error}</div>
+        <div className="alert alert-danger" style={{ borderRadius: '12px' }}>{error}</div>
       ) : clienti.length === 0 ? (
-        <div className="card">
+        <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
           <div className="card-body text-center py-5">
-            <i className="ri-mental-health-line text-muted" style={{ fontSize: '48px' }}></i>
-            <h5 className="text-secondary-light mt-3">Nessun cliente trovato</h5>
-            <p className="text-muted mb-0">Non ci sono clienti che corrispondono ai criteri di ricerca.</p>
+            <div className="mb-4">
+              <i className="ri-mental-health-line" style={{ fontSize: '5rem', color: '#cbd5e1' }}></i>
+            </div>
+            <h5 style={{ color: '#475569' }}>Nessun paziente trovato</h5>
+            <p className="text-muted mb-4">Prova a modificare i filtri di ricerca</p>
+            <button
+              className="btn btn-primary"
+              onClick={resetFilters}
+              style={{ borderRadius: '10px', padding: '10px 24px' }}
+            >
+              <i className="ri-refresh-line me-2"></i>Reset Filtri
+            </button>
           </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <h5 className="card-title mb-0">
-              <i className="ri-mental-health-line me-2" style={{ color: '#ec4899' }}></i>
-              Clienti ({pagination.total})
-            </h5>
-          </div>
-          <div className="card-body p-0">
+        <>
+          {/* Tabella Pazienti */}
+          <div className="card border-0" style={tableStyles.card}>
             <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead className="table-light">
+              <table className="table mb-0">
+                <thead style={tableStyles.tableHeader}>
                   <tr>
-                    <th>Cliente</th>
-                    <th>Team</th>
-                    <th>Stato Psico</th>
-                    <th>Stato Chat</th>
-                    <th>Reach Out</th>
-                    <th className="text-center">Patologie</th>
-                    <th className="text-center">Comprate</th>
-                    <th className="text-center">Svolte</th>
-                    <th className="text-center">Storia</th>
-                    <th className="text-center">Note Extra</th>
-                    <th className="text-end">Azioni</th>
+                    <th style={{ ...tableStyles.th, minWidth: '180px' }}>Paziente</th>
+                    <th style={{ ...tableStyles.th, minWidth: '100px' }}>Team</th>
+                    <th style={{ ...tableStyles.th, minWidth: '130px' }}>Stato Psico</th>
+                    <th style={{ ...tableStyles.th, minWidth: '130px' }}>Stato Chat</th>
+                    <th style={{ ...tableStyles.th, minWidth: '120px' }}>Reach Out</th>
+                    <th style={{ ...tableStyles.th, minWidth: '90px', textAlign: 'center' }}>Patologie</th>
+                    <th style={{ ...tableStyles.th, minWidth: '80px', textAlign: 'center' }}>Comprate</th>
+                    <th style={{ ...tableStyles.th, minWidth: '80px', textAlign: 'center' }}>Svolte</th>
+                    <th style={{ ...tableStyles.th, minWidth: '80px', textAlign: 'center' }}>Storia</th>
+                    <th style={{ ...tableStyles.th, textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {clienti.map((cliente) => {
-                    const patologie = getClientPatologie(cliente);
+                  {clienti.map((cliente, index) => {
                     const clienteId = cliente.cliente_id || cliente.clienteId;
+                    const nomeCognome = cliente.nome_cognome || cliente.nomeCognome || 'N/D';
+                    const isHovered = hoveredRow === index;
+                    const patologie = getClientPatologie(cliente);
                     const seduteComprate = cliente.sedute_psicologia_comprate || 0;
                     const seduteSvolte = cliente.sedute_psicologia_svolte || 0;
 
+                    // Team members
+                    const healthManager = cliente.health_manager_user || cliente.healthManagerUser;
+                    const psicologiList = cliente.psicologi_multipli || cliente.psicologiMultipli || [];
+                    const nutrizionistiList = cliente.nutrizionisti_multipli || cliente.nutrizionistiMultipli || [];
+                    const coachesList = cliente.coaches_multipli || cliente.coachesMultipli || [];
+                    const consulentiList = cliente.consulenti_multipli || cliente.consulentiMultipli || [];
+                    const hasTeam = healthManager || psicologiList.length > 0 || nutrizionistiList.length > 0 || coachesList.length > 0 || consulentiList.length > 0;
+
                     return (
-                      <tr key={clienteId}>
-                        <td>
-                          <Link to={`/clienti-dettaglio/${clienteId}`} className="fw-semibold text-dark">
-                            {cliente.nome_cognome || cliente.nomeCognome}
+                      <tr
+                        key={clienteId}
+                        style={{
+                          ...tableStyles.row,
+                          background: isHovered ? '#f8fafc' : 'transparent',
+                        }}
+                        onMouseEnter={() => setHoveredRow(index)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                      >
+                        {/* Nome */}
+                        <td style={tableStyles.td}>
+                          <Link
+                            to={`/clienti-dettaglio/${clienteId}`}
+                            style={tableStyles.nameLink}
+                            onMouseOver={(e) => e.currentTarget.style.color = '#2563eb'}
+                            onMouseOut={(e) => e.currentTarget.style.color = '#3b82f6'}
+                          >
+                            {nomeCognome}
                           </Link>
                         </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-1">
-                            {renderAvatarTeam(cliente.health_manager_user, 'hm', 'HM')}
-                            {cliente.psicologi_multipli?.map((p, i) => renderAvatarTeam(p, 'p', 'Psico'))}
-                            {cliente.nutrizionisti_multipli?.map((n, i) => renderAvatarTeam(n, 'n', 'Nutri'))}
-                            {cliente.coaches_multipli?.map((c, i) => renderAvatarTeam(c, 'c', 'Coach'))}
-                            {cliente.consulenti_multipli?.map((ca, i) => renderAvatarTeam(ca, 'ca', 'Cons'))}
-                            {!cliente.health_manager_user && !cliente.psicologi_multipli?.length &&
-                              !cliente.nutrizionisti_multipli?.length && !cliente.coaches_multipli?.length &&
-                              !cliente.consulenti_multipli?.length && <em className="text-muted">-</em>}
+
+                        {/* Team */}
+                        <td style={tableStyles.td}>
+                          <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
+                            {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
+                            {psicologiList.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
+                            {nutrizionistiList.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
+                            {coachesList.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
+                            {consulentiList.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
+                            {!hasTeam && <span style={tableStyles.emptyCell}>—</span>}
                           </div>
                         </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-1">
-                            {renderStatoBadge(cliente.stato_psicologia)}
+
+                        {/* Stato Psicologia */}
+                        <td style={tableStyles.td}>
+                          <div className="d-flex align-items-center">
+                            {renderStatoBadge(cliente.stato_psicologia, 'psico')}
                             <button
-                              style={styles.btnEditInline}
+                              style={tableStyles.btnEditInline}
                               onClick={() => openStatoModal(cliente)}
                               title="Modifica stato"
                             >
@@ -603,20 +652,13 @@ function ClientiListaPsicologia() {
                             </button>
                           </div>
                         </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-1">
-                            {cliente.stato_cliente_chat_psicologia ? (
-                              <span style={{
-                                ...styles.statoBadge,
-                                background: STATI_PROFESSIONISTA_COLORS[cliente.stato_cliente_chat_psicologia]?.bg || '#f1f5f9',
-                                color: STATI_PROFESSIONISTA_COLORS[cliente.stato_cliente_chat_psicologia]?.color || '#64748b'
-                              }}>
-                                <i className="ri-chat-3-line" style={{ fontSize: '10px' }}></i>
-                                {cliente.stato_cliente_chat_psicologia}
-                              </span>
-                            ) : <em className="text-muted">-</em>}
+
+                        {/* Stato Chat */}
+                        <td style={tableStyles.td}>
+                          <div className="d-flex align-items-center">
+                            {renderStatoBadge(cliente.stato_cliente_chat_psicologia, 'chat')}
                             <button
-                              style={styles.btnEditInline}
+                              style={tableStyles.btnEditInline}
                               onClick={() => openChatModal(cliente)}
                               title="Modifica stato chat"
                             >
@@ -624,20 +666,24 @@ function ClientiListaPsicologia() {
                             </button>
                           </div>
                         </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-1">
+
+                        {/* Reach Out */}
+                        <td style={tableStyles.td}>
+                          <div className="d-flex align-items-center">
                             {cliente.reach_out_psicologia ? (
-                              <span style={styles.reachOutBadge}>
-                                <i className="ri-calendar-event-line"></i>
+                              <span style={{
+                                ...tableStyles.badge,
+                                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                                color: '#92400e',
+                              }}>
+                                <i className="ri-calendar-event-line me-1"></i>
                                 {GIORNI_LABELS[cliente.reach_out_psicologia] || cliente.reach_out_psicologia}
                               </span>
                             ) : (
-                              <span style={{ ...styles.reachOutBadge, background: '#f1f5f9', color: '#64748b' }}>
-                                <em>-</em>
-                              </span>
+                              <span style={tableStyles.emptyCell}>—</span>
                             )}
                             <button
-                              style={styles.btnEditInline}
+                              style={tableStyles.btnEditInline}
                               onClick={() => openReachOutModal(cliente)}
                               title="Modifica reach out"
                             >
@@ -645,14 +691,14 @@ function ClientiListaPsicologia() {
                             </button>
                           </div>
                         </td>
-                        <td className="text-center">
+
+                        {/* Patologie */}
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
                           {patologie.length > 0 ? (
                             <button
-                              className="btn btn-sm"
                               style={{
+                                ...tableStyles.btnSmall,
                                 background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-                                color: 'white',
-                                borderRadius: '8px',
                               }}
                               onClick={() => {
                                 setSelectedCliente(cliente);
@@ -663,7 +709,8 @@ function ClientiListaPsicologia() {
                               {patologie.length}
                             </button>
                           ) : cliente.nessuna_patologia_psicologica ? (
-                            <span className="btn btn-sm" style={{
+                            <span style={{
+                              ...tableStyles.btnSmall,
                               background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
                               color: '#166534',
                               cursor: 'default',
@@ -672,26 +719,26 @@ function ClientiListaPsicologia() {
                             </span>
                           ) : (
                             <button
-                              className="btn btn-sm"
                               style={{
+                                ...tableStyles.btnSmall,
                                 background: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
-                                color: 'white',
-                                borderRadius: '8px',
                               }}
                               onClick={() => {
                                 setSelectedCliente(cliente);
                                 setShowPatologieModal(true);
                               }}
                             >
-                              <i className="ri-brain-line me-1"></i>-
+                              <i className="ri-brain-line"></i>
                             </button>
                           )}
                         </td>
-                        <td className="text-center">
+
+                        {/* Sedute Comprate */}
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
                           <div className="d-flex align-items-center justify-content-center gap-1">
                             <span
                               style={{
-                                ...styles.seduteBadge,
+                                ...tableStyles.seduteBadge,
                                 background: seduteComprate > 0
                                   ? 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)'
                                   : '#f1f5f9',
@@ -701,7 +748,7 @@ function ClientiListaPsicologia() {
                               {seduteComprate}
                             </span>
                             <button
-                              style={styles.btnEditInline}
+                              style={tableStyles.btnEditInline}
                               onClick={() => openSeduteComprateModal(cliente)}
                               title="Modifica sedute comprate"
                             >
@@ -709,11 +756,13 @@ function ClientiListaPsicologia() {
                             </button>
                           </div>
                         </td>
-                        <td className="text-center">
+
+                        {/* Sedute Svolte */}
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
                           <div className="d-flex align-items-center justify-content-center gap-1">
                             <span
                               style={{
-                                ...styles.seduteBadge,
+                                ...tableStyles.seduteBadge,
                                 background: seduteSvolte > 0
                                   ? 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)'
                                   : '#f1f5f9',
@@ -723,7 +772,7 @@ function ClientiListaPsicologia() {
                               {seduteSvolte}
                             </span>
                             <button
-                              style={styles.btnEditInline}
+                              style={tableStyles.btnEditInline}
                               onClick={() => openSeduteSvolteModal(cliente)}
                               title="Modifica sedute svolte"
                             >
@@ -731,44 +780,48 @@ function ClientiListaPsicologia() {
                             </button>
                           </div>
                         </td>
-                        <td className="text-center">
+
+                        {/* Storia */}
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
                           <button
-                            className="btn btn-sm"
                             style={{
-                              ...styles.btnStoria,
+                              ...tableStyles.btnSmall,
                               background: cliente.storia_psicologia
                                 ? 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)'
                                 : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
                             }}
                             onClick={() => openStoriaModal(cliente)}
                           >
-                            <i className="ri-file-text-line me-1"></i>
-                            {cliente.storia_psicologia ? 'Vedi' : 'Aggiungi'}
+                            <i className={`ri-file-text-line ${cliente.storia_psicologia ? '' : 'me-1'}`}></i>
+                            {!cliente.storia_psicologia && '+'}
                           </button>
                         </td>
-                        <td className="text-center">
-                          <button
-                            className="btn btn-sm"
+
+                        {/* Azioni */}
+                        <td style={{ ...tableStyles.td, textAlign: 'right' }}>
+                          <Link
+                            to={`/clienti-dettaglio/${clienteId}`}
                             style={{
-                              ...styles.btnStoria,
-                              background: cliente.note_extra_psicologa
-                                ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                              ...tableStyles.actionBtn,
+                              borderColor: '#22c55e',
+                              color: '#22c55e',
+                              background: isHovered ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
                             }}
-                            onClick={() => openNoteModal(cliente)}
+                            title="Dettaglio"
                           >
-                            <i className="ri-sticky-note-line me-1"></i>
-                            {cliente.note_extra_psicologa ? 'Vedi' : 'Aggiungi'}
-                          </button>
-                        </td>
-                        <td className="text-end">
+                            <i className="ri-eye-line" style={{ fontSize: '16px' }}></i>
+                          </Link>
                           <Link
                             to={`/clienti-dettaglio/${clienteId}#psicologia`}
-                            className="btn btn-sm"
-                            title="Vai a Tab Psicologia"
-                            style={{ borderColor: '#ec4899', color: '#ec4899', border: '1px solid' }}
+                            style={{
+                              ...tableStyles.actionBtn,
+                              borderColor: '#ec4899',
+                              color: '#ec4899',
+                              background: isHovered ? 'rgba(236, 72, 153, 0.1)' : 'transparent',
+                            }}
+                            title="Tab Psicologia"
                           >
-                            <i className="ri-mental-health-line"></i>
+                            <i className="ri-mental-health-line" style={{ fontSize: '16px' }}></i>
                           </Link>
                         </td>
                       </tr>
@@ -778,72 +831,158 @@ function ClientiListaPsicologia() {
               </table>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <nav aria-label="Paginazione clienti" className="mt-4">
-          <ul className="pagination justify-content-center mb-0">
-            <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
-              <button className="page-link" onClick={() => handlePageChange(pagination.page - 1)}>
-                &laquo;
-              </button>
-            </li>
-            {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
-              const pageNum = pagination.totalPages <= 5 ? i + 1 :
-                pagination.page <= 3 ? i + 1 :
-                pagination.page >= pagination.totalPages - 2 ? pagination.totalPages - 4 + i :
-                pagination.page - 2 + i;
-              return (
-                <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
-                  <button className="page-link" onClick={() => handlePageChange(pageNum)}>{pageNum}</button>
-                </li>
-              );
-            })}
-            <li className={`page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`}>
-              <button className="page-link" onClick={() => handlePageChange(pagination.page + 1)}>
-                &raquo;
-              </button>
-            </li>
-          </ul>
-        </nav>
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div
+              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
+            >
+              <span style={{ color: '#64748b', fontSize: '14px' }}>
+                Pagina <strong style={{ color: '#334155' }}>{pagination.page}</strong> di{' '}
+                <strong style={{ color: '#334155' }}>{pagination.totalPages}</strong>
+                <span className="ms-2" style={{ color: '#94a3b8' }}>•</span>
+                <span className="ms-2">{pagination.total} risultati</span>
+              </span>
+              <nav>
+                <ul className="pagination mb-0" style={{ gap: '4px' }}>
+                  {/* First */}
+                  <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => handlePageChange(1)}
+                      disabled={pagination.page === 1}
+                      style={{
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        color: pagination.page === 1 ? '#cbd5e1' : '#64748b',
+                        padding: '8px 12px',
+                      }}
+                    >
+                      <i className="ri-arrow-left-double-line"></i>
+                    </button>
+                  </li>
+                  {/* Prev */}
+                  <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={pagination.page === 1}
+                      style={{
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        color: pagination.page === 1 ? '#cbd5e1' : '#64748b',
+                        padding: '8px 12px',
+                      }}
+                    >
+                      <i className="ri-arrow-left-s-line"></i>
+                    </button>
+                  </li>
+                  {/* Page numbers */}
+                  {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
+                    let pageNum;
+                    if (pagination.totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.page <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.page >= pagination.totalPages - 2) {
+                      pageNum = pagination.totalPages - 4 + i;
+                    } else {
+                      pageNum = pagination.page - 2 + i;
+                    }
+                    const isActive = pagination.page === pageNum;
+                    return (
+                      <li key={pageNum} className="page-item">
+                        <button
+                          className="page-link"
+                          onClick={() => handlePageChange(pageNum)}
+                          style={{
+                            borderRadius: '8px',
+                            border: isActive ? 'none' : '1px solid #e2e8f0',
+                            background: isActive ? 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' : 'transparent',
+                            color: isActive ? '#fff' : '#64748b',
+                            padding: '8px 14px',
+                            fontWeight: isActive ? 600 : 400,
+                            minWidth: '40px',
+                          }}
+                        >
+                          {pageNum}
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {/* Next */}
+                  <li className={`page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={pagination.page === pagination.totalPages}
+                      style={{
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        color: pagination.page === pagination.totalPages ? '#cbd5e1' : '#64748b',
+                        padding: '8px 12px',
+                      }}
+                    >
+                      <i className="ri-arrow-right-s-line"></i>
+                    </button>
+                  </li>
+                  {/* Last */}
+                  <li className={`page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => handlePageChange(pagination.totalPages)}
+                      disabled={pagination.page === pagination.totalPages}
+                      style={{
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        color: pagination.page === pagination.totalPages ? '#cbd5e1' : '#64748b',
+                        padding: '8px 12px',
+                      }}
+                    >
+                      <i className="ri-arrow-right-double-line"></i>
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
+        </>
       )}
 
       {/* Modal Storia Psicologia */}
       {showStoriaModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-file-text-line me-2"></i>
                   Storia Psicologia - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowStoriaModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <textarea
                   className="form-control"
                   rows="12"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
                   placeholder="Inserisci la storia psicologia..."
-                  style={{ border: '2px solid rgba(236, 72, 153, 0.2)', borderRadius: '12px' }}
+                  style={{ border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 ></textarea>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowStoriaModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowStoriaModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'storia_psicologia', modalValue)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -855,36 +994,36 @@ function ClientiListaPsicologia() {
       {showNoteModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-sticky-note-line me-2"></i>
                   Note Extra - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowNoteModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <textarea
                   className="form-control"
                   rows="12"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
                   placeholder="Inserisci note extra..."
-                  style={{ border: '2px solid rgba(139, 92, 246, 0.2)', borderRadius: '12px' }}
+                  style={{ border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 ></textarea>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowNoteModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowNoteModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_psicologa', modalValue)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -896,20 +1035,20 @@ function ClientiListaPsicologia() {
       {showStatoModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-circle-fill me-2"></i>
                   Stato Psicologia - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowStatoModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <select
                   className="form-select"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
-                  style={{ border: '2px solid rgba(236, 72, 153, 0.2)', borderRadius: '12px' }}
+                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 >
                   <option value="">-- Nessuno --</option>
                   <option value="attivo">Attivo</option>
@@ -918,18 +1057,18 @@ function ClientiListaPsicologia() {
                   <option value="stop">Stop</option>
                 </select>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowStatoModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowStatoModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'stato_psicologia', modalValue)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -941,20 +1080,20 @@ function ClientiListaPsicologia() {
       {showChatModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-chat-3-line me-2"></i>
                   Stato Chat - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowChatModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <select
                   className="form-select"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
-                  style={{ border: '2px solid rgba(139, 92, 246, 0.2)', borderRadius: '12px' }}
+                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 >
                   <option value="">-- Nessuno --</option>
                   <option value="attivo">Attivo</option>
@@ -963,18 +1102,18 @@ function ClientiListaPsicologia() {
                   <option value="stop">Stop</option>
                 </select>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowChatModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowChatModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'stato_cliente_chat_psicologia', modalValue)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -986,20 +1125,20 @@ function ClientiListaPsicologia() {
       {showReachOutModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-calendar-event-line me-2"></i>
                   Reach Out - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowReachOutModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <select
                   className="form-select"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
-                  style={{ border: '2px solid rgba(245, 158, 11, 0.2)', borderRadius: '12px' }}
+                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 >
                   <option value="">-- Nessun giorno --</option>
                   <option value="lunedi">Lunedì</option>
@@ -1011,18 +1150,18 @@ function ClientiListaPsicologia() {
                   <option value="domenica">Domenica</option>
                 </select>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowReachOutModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowReachOutModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'reach_out_psicologia', modalValue)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -1034,36 +1173,36 @@ function ClientiListaPsicologia() {
       {showSeduteComprateModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-shopping-cart-line me-2"></i>
                   Sedute Comprate - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowSeduteComprateModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <input
                   type="number"
                   min="0"
                   className="form-control"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
-                  style={{ border: '2px solid rgba(236, 72, 153, 0.2)', borderRadius: '12px' }}
+                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 />
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowSeduteComprateModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowSeduteComprateModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'sedute_psicologia_comprate', parseInt(modalValue) || 0)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -1075,36 +1214,36 @@ function ClientiListaPsicologia() {
       {showSeduteSvolteModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-checkbox-circle-line me-2"></i>
                   Sedute Svolte - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowSeduteSvolteModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 <input
                   type="number"
                   min="0"
                   className="form-control"
                   value={modalValue}
                   onChange={(e) => setModalValue(e.target.value)}
-                  style={{ border: '2px solid rgba(34, 197, 94, 0.2)', borderRadius: '12px' }}
+                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
                 />
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowSeduteSvolteModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowSeduteSvolteModal(false)}>
+                  Chiudi
                 </button>
                 <button
                   type="button"
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', borderRadius: '10px' }}
                   onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'sedute_psicologia_svolte', parseInt(modalValue) || 0)}
                   disabled={saving}
                 >
-                  {saving ? <><i className="ri-loader-4-line spin me-1"></i> Salvando...</> : <><i className="ri-save-line me-1"></i> Salva</>}
+                  {saving ? 'Salvando...' : 'Salva'}
                 </button>
               </div>
             </div>
@@ -1116,19 +1255,19 @@ function ClientiListaPsicologia() {
       {showPatologieModal && selectedCliente && (
         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}>
+            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
+              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '16px 16px 0 0' }}>
                 <h5 className="modal-title text-white">
                   <i className="ri-brain-line me-2"></i>
                   Patologie - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowPatologieModal(false)}></button>
               </div>
-              <div className="modal-body">
+              <div className="modal-body p-4">
                 {getClientPatologie(selectedCliente).length > 0 ? (
                   <div className="d-flex flex-wrap gap-2">
                     {getClientPatologie(selectedCliente).map((p, i) => (
-                      <span key={i} style={styles.patologiaTag}>
+                      <span key={i} style={tableStyles.patologiaTag}>
                         <i className="ri-brain-fill"></i>
                         {p}
                       </span>
@@ -1141,14 +1280,14 @@ function ClientiListaPsicologia() {
                   </div>
                 )}
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowPatologieModal(false)}>
-                  <i className="ri-close-line me-1"></i> Chiudi
+              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowPatologieModal(false)}>
+                  Chiudi
                 </button>
                 <Link
                   to={`/clienti-dettaglio/${selectedCliente.cliente_id || selectedCliente.clienteId}#psicologia`}
                   className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderRadius: '10px' }}
                 >
                   <i className="ri-external-link-line me-1"></i> Modifica
                 </Link>

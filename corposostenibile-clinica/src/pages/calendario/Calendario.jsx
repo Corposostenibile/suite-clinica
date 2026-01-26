@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import calendarService, { EVENT_CATEGORIES, MEETING_STATUSES } from '../../services/calendarService';
 import ghlService from '../../services/ghlService';
+import loomService from '../../services/loomService';
+import { useLoom } from '../../hooks/useLoom';
 
 // Styles
 const styles = {
@@ -54,6 +56,16 @@ function Calendario() {
     const [showEventModal, setShowEventModal] = useState(false);
     const [connectionChecked, setConnectionChecked] = useState(false);
     const [useGHL, setUseGHL] = useState(false); // true = use GHL, false = use Google
+    const [savingLoom, setSavingLoom] = useState(false);
+    const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+
+    // Loom SDK hook
+    const { isSupported: loomSupported, isRecording: loomRecording, startRecording, error: loomError, isInitialized: loomInitialized } = useLoom();
+
+    // Debug Loom
+    useEffect(() => {
+        console.log('[Calendario] Loom state:', { loomSupported, loomInitialized, loomError });
+    }, [loomSupported, loomInitialized, loomError]);
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -187,7 +199,7 @@ function Calendario() {
                         color: eventColor,
                         isCallIniziale: isIniziale,
                         // GHL data
-                        meetingId: null,
+                        meetingId: event.meetingId || null,
                         userId: null,
                         userName: null,
                         clienteId: event.cliente?.cliente_id,
@@ -197,7 +209,7 @@ function Calendario() {
                         meetingLink: event.meetingLink,
                         meetingOutcome: null,
                         meetingNotes: event.notes,
-                        loomLink: null,
+                        loomLink: event.loomLink || null,
                         location: event.location,
                         description: event.notes,
                         // GHL specific
@@ -335,6 +347,54 @@ function Calendario() {
         if (meetingLink) {
             window.open(meetingLink, '_blank');
         }
+    };
+
+    // Gestisce la registrazione Loom
+    const handleLoomRecord = async () => {
+        if (!selectedEvent) return;
+
+        // Conferma se c'è già un loom
+        if (selectedEvent.loomLink) {
+            if (!window.confirm('C\'è già una registrazione Loom. Vuoi sostituirla?')) {
+                return;
+            }
+        }
+
+        startRecording(async (video) => {
+            try {
+                setSavingLoom(true);
+
+                // Salva il link Loom nel backend
+                await loomService.saveLoomLink({
+                    ghlEventId: selectedEvent.id,
+                    loomLink: video.sharedUrl,
+                    title: selectedEvent.title,
+                    startTime: selectedEvent.date?.toISOString(),
+                    endTime: selectedEvent.endDate?.toISOString(),
+                    clienteId: selectedEvent.clienteId,
+                    ghlCalendarId: selectedEvent.ghlCalendarId,
+                });
+
+                // Aggiorna l'evento selezionato con il nuovo loom link
+                setSelectedEvent(prev => ({ ...prev, loomLink: video.sharedUrl }));
+
+                // Aggiorna anche l'evento nella lista
+                setEvents(prevEvents =>
+                    prevEvents.map(evt =>
+                        evt.id === selectedEvent.id
+                            ? { ...evt, loomLink: video.sharedUrl }
+                            : evt
+                    )
+                );
+
+                alert('Registrazione Loom salvata con successo!');
+            } catch (err) {
+                console.error('[Loom] Errore salvataggio:', err);
+                alert('Errore nel salvataggio della registrazione: ' + (err.message || 'Errore sconosciuto'));
+            } finally {
+                setSavingLoom(false);
+            }
+        });
     };
 
     const renderCalendarGrid = () => {
@@ -550,8 +610,8 @@ function Calendario() {
                         <i className="ri-focus-line me-2"></i>
                         Oggi
                     </button>
-                    <a
-                        href={calendarService.getDashboardUrl()}
+                    <button
+                        onClick={() => setShowComingSoonModal(true)}
                         className="btn"
                         style={{
                             background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
@@ -565,7 +625,7 @@ function Calendario() {
                     >
                         <i className="ri-add-line me-2"></i>
                         Nuova Call
-                    </a>
+                    </button>
                 </div>
             </div>
 
@@ -939,7 +999,7 @@ function Calendario() {
                                     )}
                                 </div>
                             </div>
-                            <div className="modal-footer border-0 pt-0">
+                            <div className="modal-footer border-0 pt-0 flex-wrap gap-2">
                                 {selectedEvent.meetingLink && (
                                     <button
                                         className="btn btn-success"
@@ -948,6 +1008,26 @@ function Calendario() {
                                         <i className="ri-video-chat-line me-2"></i>
                                         Avvia Call
                                     </button>
+                                )}
+                                <button
+                                    className="btn btn-danger"
+                                    onClick={handleLoomRecord}
+                                    disabled={loomRecording || savingLoom}
+                                    title={loomError || (loomSupported ? 'Registra con Loom' : 'Loom non supportato')}
+                                >
+                                    <i className="ri-record-circle-line me-2"></i>
+                                    {loomRecording ? 'Registrazione...' : savingLoom ? 'Salvataggio...' : 'Registra Loom'}
+                                </button>
+                                {selectedEvent.loomLink && (
+                                    <a
+                                        href={selectedEvent.loomLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-outline-danger"
+                                    >
+                                        <i className="ri-play-circle-line me-2"></i>
+                                        Guarda Loom
+                                    </a>
                                 )}
                                 {selectedEvent.clienteId && (
                                     <Link
@@ -961,6 +1041,38 @@ function Calendario() {
                                 )}
                                 <button className="btn btn-light" onClick={() => setShowEventModal(false)}>
                                     Chiudi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Coming Soon Modal */}
+            {showComingSoonModal && (
+                <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal-dialog modal-dialog-centered modal-sm">
+                        <div className="modal-content text-center" style={{ borderRadius: '16px' }}>
+                            <div className="modal-body py-5">
+                                <div
+                                    className="rounded-circle d-inline-flex align-items-center justify-content-center mb-4"
+                                    style={{
+                                        width: '80px',
+                                        height: '80px',
+                                        background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+                                    }}
+                                >
+                                    <i className="ri-calendar-todo-line text-white" style={{ fontSize: '36px' }}></i>
+                                </div>
+                                <h4 className="fw-bold mb-2">In Arrivo</h4>
+                                <p className="text-muted mb-4">
+                                    La funzionalità per creare nuove call sarà disponibile a breve!
+                                </p>
+                                <button
+                                    className="btn btn-primary px-4"
+                                    onClick={() => setShowComingSoonModal(false)}
+                                >
+                                    OK, capito!
                                 </button>
                             </div>
                         </div>

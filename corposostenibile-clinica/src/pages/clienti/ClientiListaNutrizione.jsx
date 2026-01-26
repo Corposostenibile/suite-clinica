@@ -443,62 +443,21 @@ function ClientiListaNutrizione() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
         <div>
-          <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>
-            <i className="ri-restaurant-line me-2" style={{ color: '#22c55e' }}></i>
-            Visuale Nutrizione
-          </h4>
-          <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
-            {pagination.total} pazienti in visuale nutrizione
-          </p>
+          <h4 className="mb-1">Visuale Nutrizione</h4>
+          <p className="text-muted mb-0">{pagination.total} pazienti in visuale nutrizione</p>
         </div>
         <div className="d-flex flex-wrap gap-2">
-          <Link
-            to="/clienti-lista"
-            className="btn"
-            style={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              color: 'white',
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
-            }}
-          >
+          <Link to="/clienti-lista" className="btn btn-primary px-3">
             <i className="ri-list-check me-2"></i>
             Lista Generale
           </Link>
-          <Link
-            to="/clienti-coach"
-            className="btn"
-            style={{
-              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-              color: 'white',
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
-            }}
-          >
+          <Link to="/clienti-coach" className="btn btn-warning px-3">
             <i className="ri-run-line me-2"></i>
             Visuale Coach
           </Link>
-          <Link
-            to="/clienti-psicologia"
-            className="btn"
-            style={{
-              background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-              color: 'white',
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(236, 72, 153, 0.3)',
-            }}
-          >
+          <Link to="/clienti-psicologia" className="btn px-3" style={{ backgroundColor: '#8b5cf6', color: 'white' }}>
             <i className="ri-mental-health-line me-2"></i>
             Visuale Psicologia
           </Link>
@@ -508,36 +467,24 @@ function ClientiListaNutrizione() {
       {/* Stats Row */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-check-line', gradient: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', shadow: 'rgba(34, 197, 94, 0.3)' },
-          { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)', shadow: 'rgba(148, 163, 184, 0.3)' },
-          { label: 'Stato Pausa', value: kpi.stato_pausa, icon: 'ri-pause-line', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', shadow: 'rgba(245, 158, 11, 0.3)' },
-          { label: 'Stato Stop', value: kpi.stato_stop, icon: 'ri-stop-line', gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', shadow: 'rgba(239, 68, 68, 0.3)' },
+          { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-check-line', bg: 'success' },
+          { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },
+          { label: 'Stato Pausa', value: kpi.stato_pausa, icon: 'ri-pause-line', bg: 'warning' },
+          { label: 'Stato Stop', value: kpi.stato_stop, icon: 'ri-stop-line', bg: 'danger' },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
-            <div
-              className="card border-0"
-              style={{
-                background: stat.gradient,
-                borderRadius: '16px',
-                boxShadow: `0 4px 15px ${stat.shadow}`,
-              }}
-            >
-              <div className="card-body py-4">
+            <div className={`card bg-${stat.bg} border-0 shadow-sm`}>
+              <div className="card-body py-3">
                 <div className="d-flex align-items-center justify-content-between">
                   <div>
-                    <h2 className="text-white mb-1 fw-bold">{stat.value}</h2>
-                    <span className="text-white" style={{ opacity: 0.85, fontSize: '13px', fontWeight: 500 }}>{stat.label}</span>
+                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
+                    <span className="text-white opacity-75 small">{stat.label}</span>
                   </div>
                   <div
-                    className="d-flex align-items-center justify-content-center"
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '14px',
-                    }}
+                    className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                    style={{ width: '48px', height: '48px' }}
                   >
-                    <i className={`${stat.icon} text-white`} style={{ fontSize: '24px' }}></i>
+                    <i className={`${stat.icon} text-white fs-4`}></i>
                   </div>
                 </div>
               </div>
@@ -547,57 +494,27 @@ function ClientiListaNutrizione() {
       </div>
 
       {/* Filters */}
-      <div
-        className="card border-0 mb-4"
-        style={{
-          borderRadius: '16px',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        }}
-      >
-        <div className="card-body py-3 px-4">
-          <div className="row g-3 align-items-center">
+      <div className="card shadow-sm border-0 mb-4">
+        <div className="card-body py-3">
+          <div className="row g-2 align-items-center">
             <div className="col-lg-3">
               <div className="position-relative">
-                <i
-                  className="ri-search-line position-absolute"
-                  style={{
-                    left: '14px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#94a3b8',
-                    fontSize: '18px',
-                  }}
-                ></i>
+                <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control bg-light border-0"
                   placeholder="Cerca paziente..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  style={{
-                    paddingLeft: '44px',
-                    height: '46px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    background: '#f8fafc',
-                    fontSize: '14px',
-                  }}
+                  style={{ paddingLeft: '36px' }}
                 />
               </div>
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.nutrizionista}
                 onChange={(e) => handleFilterChange('nutrizionista', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.nutrizionista ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Nutrizionista</option>
                 {nutrizionisti.map(n => (
@@ -607,17 +524,9 @@ function ClientiListaNutrizione() {
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.statoNutrizione}
                 onChange={(e) => handleFilterChange('statoNutrizione', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.statoNutrizione ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Stato Nutrizione</option>
                 <option value="attivo">Attivo</option>
@@ -628,17 +537,9 @@ function ClientiListaNutrizione() {
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.checkDay}
                 onChange={(e) => handleFilterChange('checkDay', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.checkDay ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Check Day</option>
                 {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
@@ -648,17 +549,9 @@ function ClientiListaNutrizione() {
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.reachOut}
                 onChange={(e) => handleFilterChange('reachOut', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.reachOut ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Reach Out</option>
                 {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
@@ -668,27 +561,10 @@ function ClientiListaNutrizione() {
             </div>
             <div className="col-lg-1">
               <button
-                className="btn w-100"
+                className="btn btn-outline-secondary w-100"
                 onClick={resetFilters}
-                title="Reset filtri"
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#fff',
-                  color: '#64748b',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = '#f1f5f9';
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = '#fff';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
-                }}
               >
-                <i className="ri-refresh-line" style={{ fontSize: '18px' }}></i>
+                <i className="ri-refresh-line me-1"></i>Reset
               </button>
             </div>
           </div>
@@ -734,7 +610,7 @@ function ClientiListaNutrizione() {
                     <th style={{ ...tableStyles.th, minWidth: '110px' }}>Stato Chat</th>
                     <th style={{ ...tableStyles.th, minWidth: '100px' }}>Check Day</th>
                     <th style={{ ...tableStyles.th, minWidth: '100px' }}>Reach Out</th>
-                    <th style={{ ...tableStyles.th, textAlign: 'center', minWidth: '90px' }}>Patologie</th>
+                    <th style={{ ...tableStyles.th, textAlign: 'center', minWidth: '110px' }}>Patologie</th>
                     <th style={{ ...tableStyles.th, textAlign: 'center', minWidth: '100px' }}>Piano Dieta</th>
                     <th style={{ ...tableStyles.th, textAlign: 'center', minWidth: '80px' }}>Storia</th>
                     <th style={{ ...tableStyles.th, textAlign: 'center', minWidth: '90px' }}>Note Extra</th>
@@ -768,7 +644,7 @@ function ClientiListaNutrizione() {
                           </Link>
                         </td>
                         <td style={tableStyles.td}>
-                          <div className="d-flex align-items-center flex-wrap">
+                          <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
                             {renderTeamAvatar(cliente.health_manager_user, 'hm', 'Health Manager')}
                             {cliente.nutrizionisti_multipli?.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
                             {cliente.coaches_multipli?.map(c => renderTeamAvatar(c, 'c', 'Coach'))}

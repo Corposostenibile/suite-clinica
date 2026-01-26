@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    allowedHosts: true,
     proxy: {
       // Proxy API requests to Flask backend
       '/api': {
@@ -54,6 +55,21 @@ export default defineConfig({
       },
       // Proxy GHL integration routes
       '/ghl': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      // Proxy Quality routes
+      '/quality': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      // Proxy Review/Training routes
+      '/review': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+      },
+      // Proxy Post-it routes
+      '/postit': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },

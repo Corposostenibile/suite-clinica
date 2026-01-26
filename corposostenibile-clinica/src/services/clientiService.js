@@ -332,6 +332,15 @@ const clientiService = {
     return response.data;
   },
 
+  /**
+   * Get comprehensive admin dashboard stats for patients overview
+   * @returns {Promise} - Full stats with KPIs, distributions, trends
+   */
+  async getAdminDashboardStats() {
+    const response = await api.get(`${API_BASE}/admin-dashboard-stats`);
+    return response.data;
+  },
+
   // ==================== SPECIALTY VIEWS ====================
 
   /**

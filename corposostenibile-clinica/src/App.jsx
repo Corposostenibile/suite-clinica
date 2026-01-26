@@ -13,7 +13,10 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Welcome from './pages/Welcome';
 
 // Team pages
-import { TeamList, TeamAdd, TeamDetail, Profilo, TeamsList, TeamsAdd, TeamsDetail } from './pages/team';
+import { TeamList, TeamAdd, TeamDetail, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI } from './pages/team';
+
+// Trial (In Prova) pages
+import { TrialUsersList, TrialUserDetail, TrialUserForm, AssignClients } from './pages/trial';
 
 // Clienti pages
 import {
@@ -31,6 +34,9 @@ import { Chat } from './pages/chat';
 // Task pages
 import { Task } from './pages/task';
 
+// Formazione pages
+import { Formazione } from './pages/formazione';
+
 // Quality pages
 import { Quality } from './pages/quality';
 
@@ -39,6 +45,9 @@ import { CheckAzienda, CheckDaLeggere } from './pages/check';
 
 // Calendario pages
 import { Calendario } from './pages/calendario';
+
+// Support pages
+import { Support } from './pages/support';
 
 // Admin pages
 import { GHLSettings } from './pages/admin';
@@ -86,6 +95,16 @@ function App() {
             <Route path="/teams-dettaglio/:id" element={<TeamsDetail />} />
             <Route path="/teams-modifica/:id" element={<TeamsAdd />} />
 
+            {/* AI Assignments */}
+            <Route path="/assegnazioni-ai" element={<AssegnazioniAI />} />
+
+            {/* In Prova (Trial Users) */}
+            <Route path="/in-prova" element={<TrialUsersList />} />
+            <Route path="/in-prova/nuovo" element={<TrialUserForm />} />
+            <Route path="/in-prova/:userId" element={<TrialUserDetail />} />
+            <Route path="/in-prova/:userId/modifica" element={<TrialUserForm />} />
+            <Route path="/in-prova/:userId/assegna-clienti" element={<AssignClients />} />
+
             {/* Clienti Routes */}
             <Route path="/clienti-lista" element={<ClientiList />} />
             <Route path="/clienti-nuovo" element={<ClientiAdd />} />
@@ -101,6 +120,9 @@ function App() {
             {/* Task */}
             <Route path="/task" element={<Task />} />
 
+            {/* Formazione */}
+            <Route path="/formazione" element={<Formazione />} />
+
             {/* Quality */}
             <Route path="/quality" element={<Quality />} />
 
@@ -112,6 +134,9 @@ function App() {
             <Route path="/calendario" element={<Calendario />} />
             <Route path="/comunicazioni" element={<div className="card p-4">Comunicazioni (coming soon)</div>} />
             <Route path="/profilo" element={<Profilo />} />
+
+            {/* Support */}
+            <Route path="/supporto" element={<Support />} />
 
             {/* Admin Pages */}
             <Route path="/admin/ghl-settings" element={<GHLSettings />} />

@@ -10129,8 +10129,17 @@ class Meeting(TimestampMixin, db.Model):
         db.String(255),
         unique=True,
         index=True,
-        nullable=False,
+        nullable=True,  # Reso nullable per supportare eventi GHL senza Google
         comment="ID univoco dell'evento in Google Calendar"
+    )
+
+    # ────────────────────────── GHL (GO HIGH LEVEL) ─────────────────────────
+    ghl_event_id = db.Column(
+        db.String(255),
+        unique=True,
+        index=True,
+        nullable=True,
+        comment="ID univoco dell'evento in Go High Level"
     )
 
     # ────────────────────────── INFORMAZIONI EVENTO ───────────────────────
@@ -13596,6 +13605,170 @@ class ImpersonationLog(TimestampMixin, db.Model):
 
     def __repr__(self):
         return f'<ImpersonationLog Admin:{self.admin_id} -> User:{self.impersonated_user_id}>'
+
+
+# ───────────────────────── POST-IT / PROMEMORIA ──────────────────────────── #
+
+class PostItColor(str, enum.Enum):
+    """Colori disponibili per i post-it."""
+    YELLOW = 'yellow'
+    GREEN = 'green'
+    BLUE = 'blue'
+    PINK = 'pink'
+    ORANGE = 'orange'
+    PURPLE = 'purple'
+
+
+class PostIt(TimestampMixin, db.Model):
+    """
+    Post-it / Promemoria personali dell'utente.
+    Visibili nella sidebar destra della dashboard.
+    """
+    __tablename__ = 'post_its'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Utente proprietario del post-it
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+
+    # Contenuto del post-it
+    content = db.Column(db.Text, nullable=False)
+
+    # Colore del post-it (default: giallo)
+    color = db.Column(
+        db.String(20),
+        default='yellow',
+        nullable=False
+    )
+
+    # Data/ora promemoria (opzionale)
+    reminder_at = db.Column(db.DateTime, nullable=True)
+
+    # Ordine di visualizzazione (per drag & drop futuro)
+    position = db.Column(db.Integer, default=0)
+
+    # Soft delete
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
+    # Relazione con utente
+    user = db.relationship(
+        'User',
+        backref=db.backref('post_its', lazy='dynamic', cascade='all, delete-orphan')
+    )
+
+    def __repr__(self):
+        return f'<PostIt {self.id} user={self.user_id}>'
+
+    def to_dict(self):
+        """Serializza il post-it per le API."""
+        return {
+            'id': self.id,
+            'content': self.content,
+            'color': self.color,
+            'reminderAt': self.reminder_at.isoformat() if self.reminder_at else None,
+            'position': self.position,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ───────────────────────── Appointment Setting ──────────────────────────── #
+
+class AppointmentSettingMessage(TimestampMixin, db.Model):
+    """Stores monthly messaging stats from Respond.io CSV exports."""
+    __tablename__ = "appointment_setting_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    utente = db.Column(db.String(255), nullable=False)
+    mese = db.Column(db.String(20), nullable=False)       # e.g. "Gennaio"
+    anno = db.Column(db.Integer, nullable=False)           # e.g. 2025
+    messaggi_inviati = db.Column(db.Integer, nullable=False, default=0)
+    contatti_unici_chiusi = db.Column(db.Integer, nullable=False, default=0)
+    conversazioni_assegnate = db.Column(db.Integer, nullable=False, default=0)
+    conversazioni_chiuse = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('utente', 'mese', 'anno', name='uq_appt_utente_mese_anno'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'utente': self.utente,
+            'mese': self.mese,
+            'anno': self.anno,
+            'messaggi_inviati': self.messaggi_inviati,
+            'contatti_unici_chiusi': self.contatti_unici_chiusi,
+            'conversazioni_assegnate': self.conversazioni_assegnate,
+            'conversazioni_chiuse': self.conversazioni_chiuse,
+        }
+
+
+class AppointmentSettingContact(TimestampMixin, db.Model):
+    """Stores daily contact counts per user from Respond.io bar chart CSV."""
+    __tablename__ = "appointment_setting_contacts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    utente = db.Column(db.String(255), nullable=False)
+    giorno = db.Column(db.Integer, nullable=False)
+    mese = db.Column(db.String(20), nullable=False)
+    anno = db.Column(db.Integer, nullable=False)
+    contatti = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('utente', 'giorno', 'mese', 'anno', name='uq_appt_contact_utente_giorno'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'utente': self.utente,
+            'giorno': self.giorno,
+            'mese': self.mese,
+            'anno': self.anno,
+            'contatti': self.contatti,
+        }
+
+
+class AppointmentSettingFunnel(TimestampMixin, db.Model):
+    """Stores lifecycle journey breakdown data per stage."""
+    __tablename__ = "appointment_setting_funnel"
+
+    id = db.Column(db.Integer, primary_key=True)
+    mese = db.Column(db.String(20), nullable=False)
+    anno = db.Column(db.Integer, nullable=False)
+    fase = db.Column(db.String(100), nullable=False)
+    tasso_conversione = db.Column(db.Float, nullable=False, default=0)
+    tempo_medio_fase = db.Column(db.Float, nullable=False, default=0)
+    tasso_abbandono = db.Column(db.Float, nullable=False, default=0)
+    cold = db.Column(db.Integer, nullable=False, default=0)
+    non_in_target = db.Column(db.Integer, nullable=False, default=0)
+    prenotato_non_in_target = db.Column(db.Integer, nullable=False, default=0)
+    under = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('fase', 'mese', 'anno', name='uq_appt_funnel_fase_mese_anno'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'mese': self.mese,
+            'anno': self.anno,
+            'fase': self.fase,
+            'tasso_conversione': self.tasso_conversione,
+            'tempo_medio_fase': self.tempo_medio_fase,
+            'tasso_abbandono': self.tasso_abbandono,
+            'cold': self.cold,
+            'non_in_target': self.non_in_target,
+            'prenotato_non_in_target': self.prenotato_non_in_target,
+            'under': self.under,
+        }
 
 
 configure_mappers()          # deve vedere anche Task

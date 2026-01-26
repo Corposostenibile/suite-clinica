@@ -281,111 +281,37 @@ function ClientiList() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
         <div>
-          <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Gestione Pazienti</h4>
-          <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
-            {pagination.total} pazienti totali
-          </p>
-        </div>
-        <div className="d-flex flex-wrap gap-2">
-          <Link
-            to="/clienti-nutrizione"
-            className="btn"
-            style={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-              color: 'white',
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
-            }}
-          >
-            <i className="ri-restaurant-line me-2"></i>
-            Visuale Nutrizione
-          </Link>
-          <Link
-            to="/clienti-coach"
-            className="btn"
-            style={{
-              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-              color: 'white',
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
-            }}
-          >
-            <i className="ri-run-line me-2"></i>
-            Visuale Coach
-          </Link>
-          <Link
-            to="/clienti-psicologia"
-            className="btn"
-            style={{
-              background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-              color: 'white',
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              border: 'none',
-              boxShadow: '0 2px 8px rgba(236, 72, 153, 0.3)',
-            }}
-          >
-            <i className="ri-mental-health-line me-2"></i>
-            Visuale Psicologia
-          </Link>
-          <Link
-            to="/clienti-nuovo"
-            className="btn btn-primary"
-            style={{
-              fontWeight: 600,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
-            }}
-          >
-            <i className="ri-user-add-line me-2"></i>
-            Aggiungi Paziente
-          </Link>
+          <h4 className="mb-1">Gestione Pazienti</h4>
+          <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
       </div>
 
       {/* Stats Row */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', shadow: 'rgba(59, 130, 246, 0.3)' },
-          { label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', gradient: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', shadow: 'rgba(34, 197, 94, 0.3)' },
-          { label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line', gradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', shadow: 'rgba(249, 115, 22, 0.3)' },
-          { label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line', gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', shadow: 'rgba(236, 72, 153, 0.3)' },
+          { label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', bg: 'primary' },
+          { label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', bg: 'success' },
+          { label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line', bg: 'warning' },
+          { label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
             <div
-              className="card border-0"
-              style={{
-                background: stat.gradient,
-                borderRadius: '16px',
-                boxShadow: `0 4px 15px ${stat.shadow}`,
-              }}
+              className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
+              style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
             >
-              <div className="card-body py-4">
+              <div className="card-body py-3">
                 <div className="d-flex align-items-center justify-content-between">
                   <div>
-                    <h2 className="text-white mb-1 fw-bold">{stat.value}</h2>
-                    <span className="text-white" style={{ opacity: 0.85, fontSize: '13px', fontWeight: 500 }}>{stat.label}</span>
+                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
+                    <span className="text-white opacity-75 small">{stat.label}</span>
                   </div>
                   <div
-                    className="d-flex align-items-center justify-content-center"
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '14px',
-                    }}
+                    className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                    style={{ width: '48px', height: '48px' }}
                   >
-                    <i className={`${stat.icon} text-white`} style={{ fontSize: '24px' }}></i>
+                    <i className={`${stat.icon} text-white fs-4`}></i>
                   </div>
                 </div>
               </div>
@@ -395,57 +321,27 @@ function ClientiList() {
       </div>
 
       {/* Filters */}
-      <div
-        className="card border-0 mb-4"
-        style={{
-          borderRadius: '16px',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        }}
-      >
-        <div className="card-body py-3 px-4">
-          <div className="row g-3 align-items-center">
+      <div className="card shadow-sm border-0 mb-4">
+        <div className="card-body py-3">
+          <div className="row g-2 align-items-center">
             <div className="col-lg-3">
               <div className="position-relative">
-                <i
-                  className="ri-search-line position-absolute"
-                  style={{
-                    left: '14px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#94a3b8',
-                    fontSize: '18px',
-                  }}
-                ></i>
+                <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control bg-light border-0"
                   placeholder="Cerca paziente..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  style={{
-                    paddingLeft: '44px',
-                    height: '46px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    background: '#f8fafc',
-                    fontSize: '14px',
-                  }}
+                  style={{ paddingLeft: '36px' }}
                 />
               </div>
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.stato}
                 onChange={(e) => handleFilterChange('stato', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.stato ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Stato Cliente</option>
                 {Object.entries(STATO_LABELS).map(([value, label]) => (
@@ -455,17 +351,9 @@ function ClientiList() {
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.tipologia}
                 onChange={(e) => handleFilterChange('tipologia', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.tipologia ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Tipologia</option>
                 {Object.entries(TIPOLOGIA_LABELS).map(([value, label]) => (
@@ -475,17 +363,9 @@ function ClientiList() {
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.nutrizionista}
                 onChange={(e) => handleFilterChange('nutrizionista', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.nutrizionista ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Nutrizionista</option>
                 {nutrizionisti.map(p => (
@@ -495,17 +375,9 @@ function ClientiList() {
             </div>
             <div className="col-lg-2">
               <select
-                className="form-select"
+                className="form-select bg-light border-0"
                 value={filters.coach}
                 onChange={(e) => handleFilterChange('coach', e.target.value)}
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  fontSize: '14px',
-                  color: filters.coach ? '#334155' : '#94a3b8',
-                }}
               >
                 <option value="">Coach</option>
                 {coaches.map(p => (
@@ -515,27 +387,10 @@ function ClientiList() {
             </div>
             <div className="col-lg-1">
               <button
-                className="btn w-100"
+                className="btn btn-outline-secondary w-100"
                 onClick={resetFilters}
-                title="Reset filtri"
-                style={{
-                  height: '46px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  background: '#fff',
-                  color: '#64748b',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = '#f1f5f9';
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = '#fff';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
-                }}
               >
-                <i className="ri-refresh-line" style={{ fontSize: '18px' }}></i>
+                <i className="ri-refresh-line me-1"></i>Reset
               </button>
             </div>
           </div>

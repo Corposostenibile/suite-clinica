@@ -28,6 +28,7 @@ from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente,
     User,
+    UserSpecialtyEnum,
     QualityWeeklyScore,
     QualityClientScore,
     EleggibilitaSettimanale,
@@ -210,11 +211,16 @@ class QualityScoreCalculator:
         week_start_dt = datetime.combine(week_start, datetime.min.time())
         week_end_dt = datetime.combine(week_end, datetime.max.time())
 
-        # Mapping dipartimento -> campo rating in WeeklyCheckResponse
-        DEPT_RATING_MAP = {
-            2: 'nutritionist_rating',  # Nutrizione
-            3: 'coach_rating',         # Coach
-            4: 'psychologist_rating',  # Psicologia
+        # Mapping specialty -> campo rating in WeeklyCheckResponse
+        # Nutrizione specialties: nutritionist_rating
+        # Coach specialties: coach_rating
+        # Psicologia specialties: psychologist_rating
+        SPECIALTY_RATING_MAP = {
+            UserSpecialtyEnum.nutrizione: 'nutritionist_rating',
+            UserSpecialtyEnum.nutrizionista: 'nutritionist_rating',
+            UserSpecialtyEnum.coach: 'coach_rating',
+            UserSpecialtyEnum.psicologia: 'psychologist_rating',
+            UserSpecialtyEnum.psicologo: 'psychologist_rating',
         }
 
         stats = {'processed': 0, 'created': 0, 'updated': 0, 'skipped': 0}
@@ -229,10 +235,10 @@ class QualityScoreCalculator:
 
         eligibilities = elig_query.all()
 
-        # 2. Pre-carica professionisti per sapere il dipartimento
+        # 2. Pre-carica professionisti per sapere la specialty
         prof_ids = list(set(e.professionista_id for e in eligibilities))
         profs = db.session.query(User).filter(User.id.in_(prof_ids)).all() if prof_ids else []
-        prof_dept_map = {p.id: p.department_id for p in profs}
+        prof_specialty_map = {p.id: p.specialty for p in profs}
 
         # 3. Pre-carica tutti i WeeklyCheck per i clienti eleggibili
         cliente_ids = list(set(e.cliente_id for e in eligibilities))
@@ -272,7 +278,7 @@ class QualityScoreCalculator:
 
             cliente_id = elig.cliente_id
             prof_id = elig.professionista_id
-            dept_id = prof_dept_map.get(prof_id)
+            specialty = prof_specialty_map.get(prof_id)
 
             # Trova WeeklyCheck del cliente
             wc = cliente_wc_map.get(cliente_id)
@@ -286,8 +292,8 @@ class QualityScoreCalculator:
                 stats['skipped'] += 1
                 continue
 
-            # Estrai voto professionista in base al dipartimento
-            rating_field = DEPT_RATING_MAP.get(dept_id)
+            # Estrai voto professionista in base alla specialty
+            rating_field = SPECIALTY_RATING_MAP.get(specialty)
             if not rating_field:
                 stats['skipped'] += 1
                 continue

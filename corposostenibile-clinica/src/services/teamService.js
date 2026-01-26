@@ -188,6 +188,14 @@ const teamService = {
     return response.data;
   },
 
+  /**
+   * Get comprehensive admin dashboard stats for professionals overview
+   */
+  async getAdminDashboardStats() {
+    const response = await api.get('/team/admin-dashboard-stats');
+    return response.data;
+  },
+
   // ==================== TEAM ENTITY MANAGEMENT ====================
 
   /**
@@ -277,6 +285,16 @@ const teamService = {
   },
 
   /**
+   * Get check responses from clients associated with a team member (professional)
+   * @param {number} memberId - User ID
+   * @param {Object} params - { period, start_date, end_date, page, per_page }
+   */
+  async getMemberChecks(memberId, params = {}) {
+    const response = await api.get(`/team/members/${memberId}/checks`, { params });
+    return response.data;
+  },
+
+  /**
    * Helper function to determine user role from backend data
    */
   getUserRole(user) {
@@ -325,6 +343,43 @@ const teamService = {
    */
   getSpecialtyBadgeColor(specialty) {
     return SPECIALTY_COLORS[specialty] || 'secondary';
+  },
+
+  // ==================== ASSEGNAZIONI AI ====================
+
+  /**
+   * Get all professionals for AI assignments
+   * Returns professionals with their assignment_ai_notes and client KPIs
+   */
+  async getAssegnazioni(params = {}) {
+    const response = await api.get('/team/api/assegnazioni', { params });
+    return response.data;
+  },
+
+  /**
+   * Get single professional's assignment data
+   */
+  async getAssegnazione(userId) {
+    const response = await api.get(`/team/api/assegnazioni/${userId}`);
+    return response.data;
+  },
+
+  /**
+   * Update professional's assignment AI notes
+   * @param {number} userId - Professional user ID
+   * @param {Object} data - { specializzazione, target_ideale, problematiche_efficaci, target_non_ideale, link_calendario, note_aggiuntive }
+   */
+  async updateAssegnazione(userId, data) {
+    const response = await api.post(`/team/api/assegnazioni/${userId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Toggle professional's availability for assignments
+   */
+  async toggleDisponibile(userId) {
+    const response = await api.post(`/team/api/assegnazioni/${userId}/toggle-disponibile`);
+    return response.data;
   },
 };
 

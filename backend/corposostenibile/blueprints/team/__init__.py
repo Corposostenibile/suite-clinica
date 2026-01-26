@@ -17,7 +17,7 @@ def init_app(app):  # noqa: D401
     Da invocare nella application-factory.
     """
     # 1️⃣ importa le view prima della registrazione
-    from . import routes, forms, okr_routes, trial_routes, anonymous_survey_routes, team_payments_routes   # noqa: F401,E402
+    from . import routes, forms, okr_routes, trial_routes, trial_api, anonymous_survey_routes, team_payments_routes   # noqa: F401,E402
     from .weekly_report_routes import weekly_report_bp   # noqa: F401,E402
     from .api import team_api_bp   # noqa: F401,E402
 

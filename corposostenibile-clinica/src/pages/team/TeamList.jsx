@@ -28,7 +28,7 @@ function TeamList() {
   const [globalStats, setGlobalStats] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
-    perPage: 24,
+    perPage: 12,
     total: 0,
     totalPages: 0,
   });
@@ -123,10 +123,6 @@ function TeamList() {
           <h4 className="mb-1">Gestione Team</h4>
           <p className="text-muted mb-0">{pagination.total} membri totali</p>
         </div>
-        <Link to="/team-nuovo" className="btn btn-primary btn-lg px-4">
-          <i className="ri-user-add-line me-2"></i>
-          Nuovo Membro
-        </Link>
       </div>
 
       {/* Stats Row */}

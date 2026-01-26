@@ -35,7 +35,7 @@ export const MenuList = [
     {
         title: 'Formazione',
         iconStyle: SVGICON.Learning,
-        to: 'training',
+        to: 'formazione',
     },
 
     // ==================== CLIENTI SECTION ====================
@@ -53,17 +53,13 @@ export const MenuList = [
     {
         title: 'Assegnazioni',
         iconStyle: SVGICON.PeopleArrow,
-        to: 'assegnazioni',
+        to: 'assegnazioni-ai',
     },
     // Check
     {
         title: 'Check',
-        classsChange: 'mm-collapse',
         iconStyle: SVGICON.Check,
-        content: [
-            { title: 'Check Azienda', to: 'check-azienda' },
-            { title: 'Da Leggere', to: 'check-da-leggere' },
-        ],
+        to: 'check-azienda',
     },
 
     // ==================== TEAM SECTION ====================
@@ -100,6 +96,6 @@ export const MenuList = [
     {
         title: 'In Prova',
         iconStyle: SVGICON.Trial,
-        to: 'team-prova',
+        to: 'in-prova',
     },
 ];

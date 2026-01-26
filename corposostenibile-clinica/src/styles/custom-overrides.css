@@ -143,6 +143,23 @@
   margin: 4px 0;
   border-radius: 2px;
   transition: all 0.3s ease;
+  transform: none;
+}
+
+.nav-header .nav-control .hamburger.is-active .line:nth-child(1) {
+  width: 100% !important;
+  transform: translateY(7px) rotate(45deg);
+}
+
+.nav-header .nav-control .hamburger.is-active .line:nth-child(2) {
+  opacity: 0;
+  width: 100% !important;
+  transform: none;
+}
+
+.nav-header .nav-control .hamburger.is-active .line:nth-child(3) {
+  width: 100% !important;
+  transform: translateY(-7px) rotate(-45deg);
 }
 
 /* ===================================================================

@@ -874,3 +874,132 @@ def api_calendar_connection_status():
             else 'GHL non configurato'
         )
     })
+
+
+# ============================================================================
+# LOOM INTEGRATION API
+# ============================================================================
+
+@bp.route('/api/meeting/loom', methods=['POST'])
+@csrf.exempt
+@login_required
+def save_ghl_meeting_loom():
+    """
+    Salva link Loom per un evento GHL.
+    Crea o aggiorna record Meeting locale associato all'evento GHL.
+
+    Expected payload:
+    {
+        "ghl_event_id": "xxx",
+        "loom_link": "https://www.loom.com/share/xxx",
+        "title": "Call con Mario Rossi",
+        "start_time": "2024-01-15T10:00:00",
+        "end_time": "2024-01-15T11:00:00",
+        "cliente_id": 123,  // opzionale
+        "ghl_calendar_id": "yyy"  // opzionale
+    }
+    """
+    from corposostenibile.models import Meeting
+
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'success': False, 'message': 'Dati non forniti'}), 400
+
+        # Dati richiesti
+        ghl_event_id = data.get('ghl_event_id')
+        loom_link = data.get('loom_link')
+
+        if not ghl_event_id:
+            return jsonify({'success': False, 'message': 'ghl_event_id richiesto'}), 400
+
+        if not loom_link:
+            return jsonify({'success': False, 'message': 'loom_link richiesto'}), 400
+
+        # Dati opzionali per creare Meeting se non esiste
+        title = data.get('title', 'Meeting GHL')
+        start_time_str = data.get('start_time')
+        end_time_str = data.get('end_time')
+        cliente_id = data.get('cliente_id')
+
+        # Cerca Meeting esistente con ghl_event_id
+        meeting = Meeting.query.filter_by(ghl_event_id=ghl_event_id).first()
+
+        if meeting:
+            # Aggiorna solo loom_link
+            meeting.loom_link = loom_link
+            current_app.logger.info(f"[GHL Loom] Updated loom_link for existing meeting {meeting.id}")
+        else:
+            # Crea nuovo Meeting
+            # Parse delle date
+            start_time = None
+            end_time = None
+
+            if start_time_str:
+                try:
+                    start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                except ValueError:
+                    start_time = datetime.utcnow()
+            else:
+                start_time = datetime.utcnow()
+
+            if end_time_str:
+                try:
+                    end_time = datetime.fromisoformat(end_time_str.replace('Z', '+00:00'))
+                except ValueError:
+                    end_time = start_time + timedelta(minutes=30)
+            else:
+                end_time = start_time + timedelta(minutes=30)
+
+            meeting = Meeting(
+                ghl_event_id=ghl_event_id,
+                title=title,
+                start_time=start_time,
+                end_time=end_time,
+                cliente_id=cliente_id if cliente_id else None,
+                user_id=current_user.id,
+                loom_link=loom_link,
+                status='completed'
+            )
+            db.session.add(meeting)
+            current_app.logger.info(f"[GHL Loom] Created new meeting for GHL event {ghl_event_id}")
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'meeting_id': meeting.id,
+            'message': 'Link Loom salvato con successo'
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"[GHL Loom] Error saving loom link: {e}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/api/meeting/loom/<ghl_event_id>', methods=['GET'])
+@login_required
+def get_ghl_meeting_loom(ghl_event_id):
+    """
+    Ottiene il link Loom per un evento GHL.
+    """
+    from corposostenibile.models import Meeting
+
+    meeting = Meeting.query.filter_by(ghl_event_id=ghl_event_id).first()
+
+    if meeting:
+        return jsonify({
+            'success': True,
+            'meeting_id': meeting.id,
+            'loom_link': meeting.loom_link,
+            'has_loom': bool(meeting.loom_link)
+        })
+    else:
+        return jsonify({
+            'success': True,
+            'meeting_id': None,
+            'loom_link': None,
+            'has_loom': False
+        })

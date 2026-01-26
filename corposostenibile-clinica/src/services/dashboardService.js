@@ -99,27 +99,12 @@ const dashboardService = {
    */
   async getTeamsWithMembers() {
     try {
-      // First get list of all active teams
-      const teamsResponse = await teamService.getTeams({ active: '1' });
-      const teams = teamsResponse.teams || [];
-
-      // Fetch each team's details to get members
-      const teamsWithMembers = await Promise.all(
-        teams.map(async (team) => {
-          try {
-            const teamDetail = await teamService.getTeam(team.id);
-            return {
-              ...team,
-              members: teamDetail.members || []
-            };
-          } catch (err) {
-            console.error(`Error fetching team ${team.id}:`, err);
-            return { ...team, members: [] };
-          }
-        })
-      );
-
-      return teamsWithMembers;
+      // Get all active teams with members in a single API call
+      const teamsResponse = await teamService.getTeams({
+        active: '1',
+        include_members: '1'
+      });
+      return teamsResponse.teams || [];
     } catch (error) {
       console.error('Error fetching teams:', error);
       return [];

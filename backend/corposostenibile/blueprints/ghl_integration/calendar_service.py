@@ -12,7 +12,7 @@ from flask import current_app
 from sqlalchemy import func
 
 from corposostenibile.extensions import db
-from corposostenibile.models import GHLConfig, User, Cliente
+from corposostenibile.models import GHLConfig, User, Cliente, Meeting
 
 
 class GHLCalendarService:
@@ -675,7 +675,7 @@ class GHLCalendarService:
 
     def _enrich_appointment(self, appointment, calendars_map=None):
         """
-        Arricchisce un appuntamento GHL con dati cliente Suite Clinica.
+        Arricchisce un appuntamento GHL con dati cliente Suite Clinica e loom_link.
 
         Args:
             appointment: Appuntamento GHL
@@ -687,6 +687,7 @@ class GHLCalendarService:
         if calendars_map is None:
             calendars_map = {}
 
+        ghl_event_id = appointment.get("id")
         contact_id = appointment.get("contactId")
         calendar_id = appointment.get("calendarId")
         calendar_name = calendars_map.get(calendar_id, "")
@@ -694,6 +695,7 @@ class GHLCalendarService:
         # Estrai nome cliente direttamente dall'appuntamento (senza chiamata API extra)
         contact_name = appointment.get("title") or appointment.get("contactName") or ""
         cliente_data = None
+        cliente = None
 
         # Cerca match veloce nel DB per contact_id (senza chiamata API GHL)
         if contact_id:
@@ -709,6 +711,18 @@ class GHLCalendarService:
                     }
             except Exception as e:
                 current_app.logger.warning(f"[GHL] Error matching contact {contact_id}: {e}")
+
+        # Cerca Meeting locale per ottenere loom_link
+        loom_link = None
+        meeting_id = None
+        if ghl_event_id:
+            try:
+                meeting = Meeting.query.filter_by(ghl_event_id=ghl_event_id).first()
+                if meeting:
+                    loom_link = meeting.loom_link
+                    meeting_id = meeting.id
+            except Exception as e:
+                current_app.logger.warning(f"[GHL] Error fetching meeting for event {ghl_event_id}: {e}")
 
         # Costruisci evento arricchito
         return {
@@ -728,7 +742,11 @@ class GHLCalendarService:
 
             # Dati cliente Suite Clinica (se trovato)
             "cliente": cliente_data,
-            "cliente_matched": cliente is not None
+            "cliente_matched": cliente is not None,
+
+            # Loom link (se presente)
+            "loomLink": loom_link,
+            "meetingId": meeting_id
         }
 
 

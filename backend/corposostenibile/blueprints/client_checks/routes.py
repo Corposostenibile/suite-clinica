@@ -2753,6 +2753,7 @@ def api_generate_check_link(check_type: str, cliente_id: int):
 def api_da_leggere():
     """
     API JSON: Ritorna tutti i check non letti per il professionista corrente.
+    OTTIMIZZATO: usa subquery per i clienti, evita caricamento preventivo.
     """
     from corposostenibile.models import (
         ClientCheckReadConfirmation,
@@ -2761,29 +2762,28 @@ def api_da_leggere():
     )
 
     try:
-        # Get professional's clients
-        my_clienti = db.session.query(Cliente).filter(
-            db.or_(
-                Cliente.nutrizionista_id == current_user.id,
-                Cliente.coach_id == current_user.id,
-                Cliente.psicologa_id == current_user.id,
-                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                Cliente.coaches_multipli.any(User.id == current_user.id),
-                Cliente.psicologi_multipli.any(User.id == current_user.id),
+        # Subquery for client IDs - more efficient than loading all clients
+        my_clienti_subq = (
+            db.session.query(Cliente.cliente_id)
+            .filter(
+                db.or_(
+                    Cliente.nutrizionista_id == current_user.id,
+                    Cliente.coach_id == current_user.id,
+                    Cliente.psicologa_id == current_user.id,
+                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                    Cliente.coaches_multipli.any(User.id == current_user.id),
+                    Cliente.psicologi_multipli.any(User.id == current_user.id),
+                )
             )
-        ).all()
-
-        my_clienti_ids = [c.cliente_id for c in my_clienti]
-
-        if not my_clienti_ids:
-            return jsonify({"success": True, "unread_checks": [], "total": 0})
+            .subquery()
+        )
 
         unread_checks = []
 
-        # Weekly checks not read
+        # Weekly checks not read - with eager loading
         weekly_responses = (
             WeeklyCheckResponse.query
-            .join(WeeklyCheck)
+            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
             .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
             .outerjoin(
                 ClientCheckReadConfirmation,
@@ -2794,10 +2794,14 @@ def api_da_leggere():
                 )
             )
             .filter(
-                Cliente.cliente_id.in_(my_clienti_ids),
+                Cliente.cliente_id.in_(db.session.query(my_clienti_subq)),
                 ClientCheckReadConfirmation.id.is_(None)
             )
-            .options(joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente))
+            .options(
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente)
+            )
+            .order_by(WeeklyCheckResponse.submit_date.desc())
+            .limit(100)  # Limit for performance
             .all()
         )
 
@@ -2817,10 +2821,10 @@ def api_da_leggere():
                 "coach_rating": resp.coach_rating
             })
 
-        # DCA checks not read
+        # DCA checks not read - with eager loading
         dca_responses = (
             DCACheckResponse.query
-            .join(DCACheck)
+            .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
             .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
             .outerjoin(
                 ClientCheckReadConfirmation,
@@ -2831,10 +2835,14 @@ def api_da_leggere():
                 )
             )
             .filter(
-                Cliente.cliente_id.in_(my_clienti_ids),
+                Cliente.cliente_id.in_(db.session.query(my_clienti_subq)),
                 ClientCheckReadConfirmation.id.is_(None)
             )
-            .options(joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente))
+            .options(
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente)
+            )
+            .order_by(DCACheckResponse.submit_date.desc())
+            .limit(100)  # Limit for performance
             .all()
         )
 
@@ -3080,8 +3088,10 @@ def api_get_response_detail(response_type: str, response_id: int):
 def api_azienda_stats():
     """
     API JSON: Statistiche aziendali sui check (per Check Azienda).
+    OTTIMIZZATO: paginazione server-side, eager loading, batch queries.
     """
     from corposostenibile.models import WeeklyCheckResponse, DCACheckResponse, ClientCheckReadConfirmation
+    from sqlalchemy.orm import selectinload
     from datetime import timedelta
 
     try:
@@ -3090,13 +3100,14 @@ def api_azienda_stats():
         custom_end = request.args.get('end_date')
         prof_type = request.args.get('prof_type')  # 'nutrizione', 'coach', 'psicologia'
         prof_id = request.args.get('prof_id', type=int)  # Specific professional ID
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 100)
 
         # Calculate date range
         now = datetime.utcnow()
-        end_date = now  # Default end date is now
+        end_date = now
 
         if period == 'custom' and custom_start and custom_end:
-            # Parse custom dates
             start_date = datetime.strptime(custom_start, '%Y-%m-%d')
             end_date = datetime.strptime(custom_end, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
         elif period == 'week':
@@ -3110,102 +3121,206 @@ def api_azienda_stats():
         else:
             start_date = now - timedelta(days=30)
 
-        # Get weekly check responses in period
-        query = WeeklyCheckResponse.query.filter(WeeklyCheckResponse.submit_date >= start_date)
+        # Build base query with date filter
+        base_query = (
+            WeeklyCheckResponse.query
+            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+            .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+            .filter(WeeklyCheckResponse.submit_date >= start_date)
+        )
         if period == 'custom':
-            query = query.filter(WeeklyCheckResponse.submit_date <= end_date)
+            base_query = base_query.filter(WeeklyCheckResponse.submit_date <= end_date)
+
+        # Filter by professional at database level (subquery)
+        if prof_type and prof_id:
+            if prof_type == 'nutrizione':
+                base_query = base_query.filter(
+                    db.or_(
+                        Cliente.nutrizionista_id == prof_id,
+                        Cliente.nutrizionisti_multipli.any(User.id == prof_id)
+                    )
+                )
+            elif prof_type == 'coach':
+                base_query = base_query.filter(
+                    db.or_(
+                        Cliente.coach_id == prof_id,
+                        Cliente.coaches_multipli.any(User.id == prof_id)
+                    )
+                )
+            elif prof_type == 'psicologia':
+                base_query = base_query.filter(
+                    db.or_(
+                        Cliente.psicologa_id == prof_id,
+                        Cliente.psicologi_multipli.any(User.id == prof_id)
+                    )
+                )
+        elif prof_type:
+            # Filter only clients that have at least one professional of this type
+            if prof_type == 'nutrizione':
+                base_query = base_query.filter(
+                    db.or_(
+                        Cliente.nutrizionista_id.isnot(None),
+                        Cliente.nutrizionisti_multipli.any()
+                    )
+                )
+            elif prof_type == 'coach':
+                base_query = base_query.filter(
+                    db.or_(
+                        Cliente.coach_id.isnot(None),
+                        Cliente.coaches_multipli.any()
+                    )
+                )
+            elif prof_type == 'psicologia':
+                base_query = base_query.filter(
+                    db.or_(
+                        Cliente.psicologa_id.isnot(None),
+                        Cliente.psicologi_multipli.any()
+                    )
+                )
+
+        # Get total count for pagination (before applying limit)
+        total_count = base_query.count()
+
+        # Calculate stats from ALL matching responses (aggregation query)
+        stats_query = (
+            db.session.query(
+                db.func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
+                db.func.avg(WeeklyCheckResponse.psychologist_rating).label('avg_psicologo'),
+                db.func.avg(WeeklyCheckResponse.coach_rating).label('avg_coach'),
+                db.func.avg(WeeklyCheckResponse.progress_rating).label('avg_progresso')
+            )
+            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+            .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+            .filter(WeeklyCheckResponse.submit_date >= start_date)
+        )
+        if period == 'custom':
+            stats_query = stats_query.filter(WeeklyCheckResponse.submit_date <= end_date)
+
+        # Apply same professional filters to stats
+        if prof_type and prof_id:
+            if prof_type == 'nutrizione':
+                stats_query = stats_query.filter(
+                    db.or_(Cliente.nutrizionista_id == prof_id, Cliente.nutrizionisti_multipli.any(User.id == prof_id))
+                )
+            elif prof_type == 'coach':
+                stats_query = stats_query.filter(
+                    db.or_(Cliente.coach_id == prof_id, Cliente.coaches_multipli.any(User.id == prof_id))
+                )
+            elif prof_type == 'psicologia':
+                stats_query = stats_query.filter(
+                    db.or_(Cliente.psicologa_id == prof_id, Cliente.psicologi_multipli.any(User.id == prof_id))
+                )
+        elif prof_type:
+            if prof_type == 'nutrizione':
+                stats_query = stats_query.filter(db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any()))
+            elif prof_type == 'coach':
+                stats_query = stats_query.filter(db.or_(Cliente.coach_id.isnot(None), Cliente.coaches_multipli.any()))
+            elif prof_type == 'psicologia':
+                stats_query = stats_query.filter(db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any()))
+
+        stats_result = stats_query.first()
+
+        # Compute averages
+        avg_nutrizionista = round(float(stats_result.avg_nutrizionista), 1) if stats_result.avg_nutrizionista else None
+        avg_psicologo = round(float(stats_result.avg_psicologo), 1) if stats_result.avg_psicologo else None
+        avg_coach = round(float(stats_result.avg_coach), 1) if stats_result.avg_coach else None
+        avg_progresso = round(float(stats_result.avg_progresso), 1) if stats_result.avg_progresso else None
+        all_avgs = [x for x in [avg_nutrizionista, avg_psicologo, avg_coach, avg_progresso] if x is not None]
+        avg_quality = round(sum(all_avgs) / len(all_avgs), 1) if all_avgs else None
+
+        # Get paginated responses with eager loading
+        offset = (page - 1) * per_page
         weekly_responses = (
-            query
-            .options(joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente))
+            base_query
+            .options(
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .selectinload(Cliente.nutrizionisti_multipli),
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .selectinload(Cliente.coaches_multipli),
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .selectinload(Cliente.psicologi_multipli),
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .joinedload(Cliente.nutrizionista_user),
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .joinedload(Cliente.coach_user),
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .joinedload(Cliente.psicologa_user),
+            )
             .order_by(WeeklyCheckResponse.submit_date.desc())
+            .offset(offset)
+            .limit(per_page)
             .all()
         )
 
-        responses_data = []
-        ratings_nutrizionista = []
-        ratings_psicologo = []
-        ratings_coach = []
-        ratings_progresso = []
+        # Batch load all read confirmations for these responses
+        response_ids = [r.id for r in weekly_responses]
+        all_confirmations = {}
+        if response_ids:
+            confirmations = ClientCheckReadConfirmation.query.filter(
+                ClientCheckReadConfirmation.response_type == 'weekly_check',
+                ClientCheckReadConfirmation.response_id.in_(response_ids)
+            ).all()
+            for conf in confirmations:
+                if conf.response_id not in all_confirmations:
+                    all_confirmations[conf.response_id] = set()
+                all_confirmations[conf.response_id].add(conf.user_id)
 
+        responses_data = []
         for resp in weekly_responses:
             cliente = resp.assignment.cliente if resp.assignment else None
             if not cliente:
                 continue
 
-            # Filter by professional type and ID (check both single FK and many-to-many)
-            if prof_type:
-                if prof_type == 'nutrizione':
-                    # Get all nutrizionisti IDs for this client
-                    nutri_ids = [n.id for n in cliente.nutrizionisti_multipli] if cliente.nutrizionisti_multipli else []
-                    if cliente.nutrizionista_id:
-                        nutri_ids.append(cliente.nutrizionista_id)
-                    if prof_id:
-                        if prof_id not in nutri_ids:
-                            continue
-                    elif not nutri_ids:
-                        continue
-                elif prof_type == 'coach':
-                    # Get all coach IDs for this client
-                    coach_ids = [c.id for c in cliente.coaches_multipli] if cliente.coaches_multipli else []
-                    if cliente.coach_id:
-                        coach_ids.append(cliente.coach_id)
-                    if prof_id:
-                        if prof_id not in coach_ids:
-                            continue
-                    elif not coach_ids:
-                        continue
-                elif prof_type == 'psicologia':
-                    # Get all psicologo IDs for this client
-                    psico_ids = [p.id for p in cliente.psicologi_multipli] if cliente.psicologi_multipli else []
-                    if cliente.psicologa_id:
-                        psico_ids.append(cliente.psicologa_id)
-                    if prof_id:
-                        if prof_id not in psico_ids:
-                            continue
-                    elif not psico_ids:
-                        continue
+            confirmed_user_ids = all_confirmations.get(resp.id, set())
 
-            # Get read confirmations for this response
-            read_confirmations = ClientCheckReadConfirmation.query.filter_by(
-                response_type='weekly_check',
-                response_id=resp.id
-            ).all()
-            confirmed_user_ids = {rc.user_id for rc in read_confirmations}
-
-            # Get professionals assigned to the client
             def format_prof(user, confirmed_ids):
                 if not user:
                     return None
                 return {
                     "id": user.id,
                     "nome": user.full_name,
-                    "avatar_path": user.avatar_path,  # Already contains full path like /uploads/avatars/...
+                    "avatar_path": user.avatar_path,
                     "has_read": user.id in confirmed_ids
                 }
 
-            # Nutrizionisti
+            # Nutrizionisti (max 2)
             nutrizionisti = []
-            if cliente.nutrizionisti_multipli:
-                nutrizionisti.extend([format_prof(n, confirmed_user_ids) for n in cliente.nutrizionisti_multipli[:2]])
-            if cliente.nutrizionista_user and cliente.nutrizionista_user.id not in [n["id"] for n in nutrizionisti if n]:
+            seen_ids = set()
+            for n in (cliente.nutrizionisti_multipli or [])[:2]:
+                if n.id not in seen_ids:
+                    nutrizionisti.append(format_prof(n, confirmed_user_ids))
+                    seen_ids.add(n.id)
+            if cliente.nutrizionista_user and cliente.nutrizionista_user.id not in seen_ids and len(nutrizionisti) < 2:
                 nutrizionisti.append(format_prof(cliente.nutrizionista_user, confirmed_user_ids))
-            nutrizionisti = [n for n in nutrizionisti if n][:2]
+            nutrizionisti = [n for n in nutrizionisti if n]
 
-            # Psicologi
+            # Psicologi (max 2)
             psicologi = []
-            if cliente.psicologi_multipli:
-                psicologi.extend([format_prof(p, confirmed_user_ids) for p in cliente.psicologi_multipli[:2]])
-            if cliente.psicologa_user and cliente.psicologa_user.id not in [p["id"] for p in psicologi if p]:
+            seen_ids = set()
+            for p in (cliente.psicologi_multipli or [])[:2]:
+                if p.id not in seen_ids:
+                    psicologi.append(format_prof(p, confirmed_user_ids))
+                    seen_ids.add(p.id)
+            if cliente.psicologa_user and cliente.psicologa_user.id not in seen_ids and len(psicologi) < 2:
                 psicologi.append(format_prof(cliente.psicologa_user, confirmed_user_ids))
-            psicologi = [p for p in psicologi if p][:2]
+            psicologi = [p for p in psicologi if p]
 
-            # Coach
+            # Coach (max 2)
             coaches = []
-            if cliente.coaches_multipli:
-                coaches.extend([format_prof(c, confirmed_user_ids) for c in cliente.coaches_multipli[:2]])
-            if cliente.coach_user and cliente.coach_user.id not in [c["id"] for c in coaches if c]:
+            seen_ids = set()
+            for c in (cliente.coaches_multipli or [])[:2]:
+                if c.id not in seen_ids:
+                    coaches.append(format_prof(c, confirmed_user_ids))
+                    seen_ids.add(c.id)
+            if cliente.coach_user and cliente.coach_user.id not in seen_ids and len(coaches) < 2:
                 coaches.append(format_prof(cliente.coach_user, confirmed_user_ids))
-            coaches = [c for c in coaches if c][:2]
+            coaches = [c for c in coaches if c]
 
             responses_data.append({
                 "id": resp.id,
@@ -3224,30 +3339,17 @@ def api_azienda_stats():
                 "coaches": coaches,
             })
 
-            if resp.nutritionist_rating:
-                ratings_nutrizionista.append(resp.nutritionist_rating)
-            if resp.psychologist_rating:
-                ratings_psicologo.append(resp.psychologist_rating)
-            if resp.coach_rating:
-                ratings_coach.append(resp.coach_rating)
-            if resp.progress_rating:
-                ratings_progresso.append(resp.progress_rating)
-
-        # Calculate averages
-        avg_nutrizionista = round(sum(ratings_nutrizionista) / len(ratings_nutrizionista), 1) if ratings_nutrizionista else None
-        avg_psicologo = round(sum(ratings_psicologo) / len(ratings_psicologo), 1) if ratings_psicologo else None
-        avg_coach = round(sum(ratings_coach) / len(ratings_coach), 1) if ratings_coach else None
-        avg_progresso = round(sum(ratings_progresso) / len(ratings_progresso), 1) if ratings_progresso else None
-
-        # Quality is average of all 4 ratings
-        all_avgs = [x for x in [avg_nutrizionista, avg_psicologo, avg_coach, avg_progresso] if x is not None]
-        avg_quality = round(sum(all_avgs) / len(all_avgs), 1) if all_avgs else None
-
         return jsonify({
             "success": True,
             "period": period,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total_count,
+                "pages": (total_count + per_page - 1) // per_page
+            },
             "stats": {
-                "total_responses": len(responses_data),
+                "total_responses": total_count,
                 "avg_nutrizionista": avg_nutrizionista,
                 "avg_psicologo": avg_psicologo,
                 "avg_coach": avg_coach,
@@ -3592,3 +3694,332 @@ def api_public_submit_minor(token: str):
         db.session.rollback()
         current_app.logger.error(f"[API_PUBLIC] Errore submit minor: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Errore nel salvataggio"}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  API Admin Dashboard Stats (for React Welcome dashboard)                     #
+# --------------------------------------------------------------------------- #
+
+@client_checks_bp.route("/api/admin/dashboard-stats")
+@login_required
+def api_admin_dashboard_stats():
+    """Comprehensive check dashboard stats for admin overview."""
+    from corposostenibile.models import (
+        WeeklyCheckResponse, WeeklyCheck,
+        DCACheck, DCACheckResponse,
+        MinorCheck, MinorCheckResponse,
+        ClientCheckReadConfirmation,
+    )
+    from datetime import timedelta
+    from dateutil.relativedelta import relativedelta
+    from sqlalchemy import func, case, and_
+
+    try:
+        now = datetime.utcnow()
+        today = now.date()
+        first_day_month = today.replace(day=1)
+        prev_month_start = (first_day_month - relativedelta(months=1))
+        prev_month_end = first_day_month - timedelta(days=1)
+
+        # ─── COUNTS BY TYPE ───────────────────────────────────────── #
+        weekly_total = db.session.query(func.count(WeeklyCheckResponse.id)).scalar() or 0
+        dca_total = db.session.query(func.count(DCACheckResponse.id)).scalar() or 0
+        minor_total = db.session.query(func.count(MinorCheckResponse.id)).scalar() or 0
+        total_all = weekly_total + dca_total + minor_total
+
+        # This month
+        weekly_month = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+            WeeklyCheckResponse.submit_date >= first_day_month
+        ).scalar() or 0
+        dca_month = db.session.query(func.count(DCACheckResponse.id)).filter(
+            DCACheckResponse.submit_date >= first_day_month
+        ).scalar() or 0
+        minor_month = db.session.query(func.count(MinorCheckResponse.id)).filter(
+            MinorCheckResponse.submit_date >= first_day_month
+        ).scalar() or 0
+        total_month = weekly_month + dca_month + minor_month
+
+        # Previous month
+        weekly_prev = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+            WeeklyCheckResponse.submit_date >= prev_month_start,
+            WeeklyCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        ).scalar() or 0
+        dca_prev = db.session.query(func.count(DCACheckResponse.id)).filter(
+            DCACheckResponse.submit_date >= prev_month_start,
+            DCACheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        ).scalar() or 0
+        minor_prev = db.session.query(func.count(MinorCheckResponse.id)).filter(
+            MinorCheckResponse.submit_date >= prev_month_start,
+            MinorCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        ).scalar() or 0
+        total_prev = weekly_prev + dca_prev + minor_prev
+
+        # ─── AVERAGE RATINGS (from weekly checks - last 30 days) ──── #
+        thirty_days_ago = now - timedelta(days=30)
+        avg_result = db.session.query(
+            func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
+            func.avg(WeeklyCheckResponse.psychologist_rating).label('avg_psicologo'),
+            func.avg(WeeklyCheckResponse.coach_rating).label('avg_coach'),
+            func.avg(WeeklyCheckResponse.progress_rating).label('avg_progresso'),
+        ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago).first()
+
+        avg_nutrizionista = round(float(avg_result.avg_nutrizionista), 1) if avg_result.avg_nutrizionista else None
+        avg_psicologo = round(float(avg_result.avg_psicologo), 1) if avg_result.avg_psicologo else None
+        avg_coach = round(float(avg_result.avg_coach), 1) if avg_result.avg_coach else None
+        avg_progresso = round(float(avg_result.avg_progresso), 1) if avg_result.avg_progresso else None
+        all_avgs = [x for x in [avg_nutrizionista, avg_psicologo, avg_coach, avg_progresso] if x is not None]
+        avg_quality = round(sum(all_avgs) / len(all_avgs), 1) if all_avgs else None
+
+        # ─── RATINGS DISTRIBUTION (last 30 days) ─────────────────── #
+        rating_cols = [
+            WeeklyCheckResponse.nutritionist_rating,
+            WeeklyCheckResponse.psychologist_rating,
+            WeeklyCheckResponse.coach_rating,
+            WeeklyCheckResponse.progress_rating,
+        ]
+        ratings_dist = {"low": 0, "medium": 0, "good": 0, "excellent": 0}
+        for col in rating_cols:
+            low = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                col.isnot(None), col >= 1, col <= 4
+            ).scalar() or 0
+            medium = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                col.isnot(None), col >= 5, col <= 6
+            ).scalar() or 0
+            good = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                col.isnot(None), col >= 7, col <= 8
+            ).scalar() or 0
+            excellent = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                col.isnot(None), col >= 9
+            ).scalar() or 0
+            ratings_dist["low"] += low
+            ratings_dist["medium"] += medium
+            ratings_dist["good"] += good
+            ratings_dist["excellent"] += excellent
+
+        # ─── MONTHLY TREND (last 6 months - weekly checks) ───────── #
+        six_months_ago = (first_day_month - relativedelta(months=5)).replace(day=1)
+        monthly_rows = (
+            db.session.query(
+                func.date_trunc("month", WeeklyCheckResponse.submit_date).label("month"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+                func.avg(WeeklyCheckResponse.progress_rating).label("avg_progress"),
+            )
+            .filter(WeeklyCheckResponse.submit_date >= six_months_ago)
+            .group_by("month")
+            .order_by("month")
+            .all()
+        )
+        monthly_trend = [
+            {
+                "month": row.month.strftime("%Y-%m"),
+                "count": row.count,
+                "avgProgress": round(float(row.avg_progress), 1) if row.avg_progress else None,
+            }
+            for row in monthly_rows
+        ]
+
+        # ─── UNREAD CHECKS COUNT ─────────────────────────────────── #
+        # Count responses without read confirmations from current user
+        unread_count = 0
+        try:
+            read_ids = db.session.query(ClientCheckReadConfirmation.response_id).filter(
+                ClientCheckReadConfirmation.user_id == current_user.id,
+                ClientCheckReadConfirmation.response_type == 'weekly_check',
+            ).subquery()
+            unread_count = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                ~WeeklyCheckResponse.id.in_(read_ids),
+            ).scalar() or 0
+        except Exception:
+            pass
+
+        # ─── TOP PROFESSIONALS BY RATING ─────────────────────────── #
+        # Nutritionists
+        top_nutrizionisti = []
+        try:
+            nutri_rows = (
+                db.session.query(
+                    Cliente.nutrizionista_id,
+                    User.nome_cognome,
+                    func.avg(WeeklyCheckResponse.nutritionist_rating).label("avg_rating"),
+                    func.count(WeeklyCheckResponse.id).label("count"),
+                )
+                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                .join(User, Cliente.nutrizionista_id == User.id)
+                .filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                    Cliente.nutrizionista_id.isnot(None),
+                )
+                .group_by(Cliente.nutrizionista_id, User.nome_cognome)
+                .having(func.count(WeeklyCheckResponse.id) >= 3)
+                .order_by(func.avg(WeeklyCheckResponse.nutritionist_rating).desc())
+                .limit(5)
+                .all()
+            )
+            top_nutrizionisti = [
+                {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
+                for r in nutri_rows
+            ]
+        except Exception:
+            pass
+
+        # Coaches
+        top_coaches = []
+        try:
+            coach_rows = (
+                db.session.query(
+                    Cliente.coach_id,
+                    User.nome_cognome,
+                    func.avg(WeeklyCheckResponse.coach_rating).label("avg_rating"),
+                    func.count(WeeklyCheckResponse.id).label("count"),
+                )
+                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                .join(User, Cliente.coach_id == User.id)
+                .filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    WeeklyCheckResponse.coach_rating.isnot(None),
+                    Cliente.coach_id.isnot(None),
+                )
+                .group_by(Cliente.coach_id, User.nome_cognome)
+                .having(func.count(WeeklyCheckResponse.id) >= 3)
+                .order_by(func.avg(WeeklyCheckResponse.coach_rating).desc())
+                .limit(5)
+                .all()
+            )
+            top_coaches = [
+                {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
+                for r in coach_rows
+            ]
+        except Exception:
+            pass
+
+        # Psychologists
+        top_psicologi = []
+        try:
+            psico_rows = (
+                db.session.query(
+                    Cliente.psicologa_id,
+                    User.nome_cognome,
+                    func.avg(WeeklyCheckResponse.psychologist_rating).label("avg_rating"),
+                    func.count(WeeklyCheckResponse.id).label("count"),
+                )
+                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                .join(User, Cliente.psicologa_id == User.id)
+                .filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    WeeklyCheckResponse.psychologist_rating.isnot(None),
+                    Cliente.psicologa_id.isnot(None),
+                )
+                .group_by(Cliente.psicologa_id, User.nome_cognome)
+                .having(func.count(WeeklyCheckResponse.id) >= 3)
+                .order_by(func.avg(WeeklyCheckResponse.psychologist_rating).desc())
+                .limit(5)
+                .all()
+            )
+            top_psicologi = [
+                {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
+                for r in psico_rows
+            ]
+        except Exception:
+            pass
+
+        # ─── RECENT RESPONSES (last 10) ──────────────────────────── #
+        recent_responses = []
+        try:
+            recent_rows = (
+                db.session.query(
+                    WeeklyCheckResponse.id,
+                    WeeklyCheckResponse.submit_date,
+                    WeeklyCheckResponse.nutritionist_rating,
+                    WeeklyCheckResponse.coach_rating,
+                    WeeklyCheckResponse.psychologist_rating,
+                    WeeklyCheckResponse.progress_rating,
+                    Cliente.nome_cognome.label("cliente_nome"),
+                )
+                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                .order_by(WeeklyCheckResponse.submit_date.desc())
+                .limit(15)
+                .all()
+            )
+            for r in recent_rows:
+                ratings = [x for x in [r.nutritionist_rating, r.coach_rating, r.psychologist_rating, r.progress_rating] if x is not None]
+                avg = round(sum(ratings) / len(ratings), 1) if ratings else None
+                recent_responses.append({
+                    "id": r.id,
+                    "cliente": r.cliente_nome,
+                    "date": r.submit_date.strftime("%d/%m/%Y") if r.submit_date else None,
+                    "dateIso": r.submit_date.isoformat() if r.submit_date else None,
+                    "nutrizionista": r.nutritionist_rating,
+                    "coach": r.coach_rating,
+                    "psicologo": r.psychologist_rating,
+                    "progresso": r.progress_rating,
+                    "avg": avg,
+                })
+        except Exception:
+            pass
+
+        # ─── PHYSICAL METRICS AVERAGES (last 30 days) ────────────── #
+        physical_avgs = {}
+        try:
+            phys_result = db.session.query(
+                func.avg(WeeklyCheckResponse.digestion_rating).label('digestion'),
+                func.avg(WeeklyCheckResponse.energy_rating).label('energy'),
+                func.avg(WeeklyCheckResponse.strength_rating).label('strength'),
+                func.avg(WeeklyCheckResponse.sleep_rating).label('sleep'),
+                func.avg(WeeklyCheckResponse.mood_rating).label('mood'),
+                func.avg(WeeklyCheckResponse.motivation_rating).label('motivation'),
+            ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago).first()
+            if phys_result:
+                physical_avgs = {
+                    "digestione": round(float(phys_result.digestion), 1) if phys_result.digestion else None,
+                    "energia": round(float(phys_result.energy), 1) if phys_result.energy else None,
+                    "forza": round(float(phys_result.strength), 1) if phys_result.strength else None,
+                    "sonno": round(float(phys_result.sleep), 1) if phys_result.sleep else None,
+                    "umore": round(float(phys_result.mood), 1) if phys_result.mood else None,
+                    "motivazione": round(float(phys_result.motivation), 1) if phys_result.motivation else None,
+                }
+        except Exception:
+            pass
+
+        return jsonify({
+            "kpi": {
+                "totalAll": total_all,
+                "totalMonth": total_month,
+                "totalPrevMonth": total_prev,
+                "avgQuality": avg_quality,
+                "unreadCount": unread_count,
+            },
+            "ratings": {
+                "nutrizionista": avg_nutrizionista,
+                "coach": avg_coach,
+                "psicologo": avg_psicologo,
+                "progresso": avg_progresso,
+            },
+            "typeBreakdown": {
+                "weekly": {"total": weekly_total, "month": weekly_month},
+                "dca": {"total": dca_total, "month": dca_month},
+                "minor": {"total": minor_total, "month": minor_month},
+            },
+            "ratingsDistribution": ratings_dist,
+            "monthlyTrend": monthly_trend,
+            "topProfessionals": {
+                "nutrizionisti": top_nutrizionisti,
+                "coaches": top_coaches,
+                "psicologi": top_psicologi,
+            },
+            "recentResponses": recent_responses,
+            "physicalMetrics": physical_avgs,
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"[CHECK_ADMIN_STATS] Error: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500

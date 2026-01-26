@@ -113,10 +113,12 @@ const checkService = {
    * @param {string} endDate - End date for custom period (YYYY-MM-DD)
    * @param {string} profType - Professional type filter: 'nutrizione', 'coach', 'psicologia'
    * @param {number} profId - Specific professional ID
-   * @returns {Promise} - { success, period, stats: {...}, responses: [] }
+   * @param {number} page - Page number for pagination
+   * @param {number} perPage - Items per page
+   * @returns {Promise} - { success, period, stats: {...}, responses: [], pagination: {...} }
    */
-  async getAziendaStats(period = 'month', startDate = null, endDate = null, profType = null, profId = null) {
-    let url = `/api/azienda/stats?period=${period}`;
+  async getAziendaStats(period = 'month', startDate = null, endDate = null, profType = null, profId = null, page = 1, perPage = 25) {
+    let url = `/api/azienda/stats?period=${period}&page=${page}&per_page=${perPage}`;
     if (period === 'custom' && startDate && endDate) {
       url += `&start_date=${startDate}&end_date=${endDate}`;
     }
@@ -127,6 +129,15 @@ const checkService = {
       url += `&prof_id=${profId}`;
     }
     const response = await api.get(url);
+    return response.data;
+  },
+
+  /**
+   * Get comprehensive admin dashboard stats for check overview
+   * @returns {Promise} - Full stats with KPIs, ratings, trends, professionals
+   */
+  async getAdminDashboardStats() {
+    const response = await api.get('/api/admin/dashboard-stats');
     return response.data;
   },
 

@@ -7,6 +7,7 @@ frontend/node_modules/
 .env.local
 .env.*.local
 *.env
+.env.production
 
 # Python
 __pycache__/
@@ -17,12 +18,17 @@ __pycache__/
 venv/
 .venv/
 ENV/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sw?
 .DS_Store
 
 # Logs
@@ -32,8 +38,10 @@ npm-debug.log*
 
 # Build
 dist/
+dist-ssr/
 build/
 *.egg-info/
+*.local
 
 # Database
 *.db
@@ -44,7 +52,18 @@ coverage/
 .coverage
 htmlcov/
 
+# Uploads & Data
+uploads/
+backups/
+
+# OS
+Thumbs.db
+
 # Misc
 .cache/
 *.bak
 *.mov
+*.mp4
+*.zip
+*.tar.gz
+.running_pids

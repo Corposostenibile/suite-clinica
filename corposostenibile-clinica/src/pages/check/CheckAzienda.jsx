@@ -234,12 +234,21 @@ function CheckAzienda() {
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
   const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
 
-  // Fetch data when filters change (except for custom period)
+  // Pagination (server-side)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, per_page: 25, total: 0, pages: 1 });
+  const ITEMS_PER_PAGE = 25;
+
+  // Rating & Read filters (client-side for now)
+  const [ratingFilter, setRatingFilter] = useState(null); // 'da_migliorare', 'negativo', null
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+
+  // Fetch data when filters or page change (except for custom period)
   useEffect(() => {
     if (period !== 'custom') {
-      fetchData(period, null, null, profType, profId);
+      fetchData(period, null, null, profType, profId, currentPage);
     }
-  }, [period, profType, profId]);
+  }, [period, profType, profId, currentPage]);
 
   // Fetch professionals when profType changes
   useEffect(() => {
@@ -251,14 +260,15 @@ function CheckAzienda() {
     }
   }, [profType]);
 
-  const fetchData = async (periodParam, customStart = null, customEnd = null, profTypeParam = null, profIdParam = null) => {
+  const fetchData = async (periodParam, customStart = null, customEnd = null, profTypeParam = null, profIdParam = null, page = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await checkService.getAziendaStats(periodParam, customStart, customEnd, profTypeParam, profIdParam);
+      const result = await checkService.getAziendaStats(periodParam, customStart, customEnd, profTypeParam, profIdParam, page, ITEMS_PER_PAGE);
       if (result.success) {
         setResponses(result.responses || []);
         setStats(result.stats || {});
+        setPagination(result.pagination || { page: 1, per_page: ITEMS_PER_PAGE, total: 0, pages: 1 });
       } else {
         setError('Errore nel caricamento dei dati');
       }
@@ -290,13 +300,22 @@ function CheckAzienda() {
       setPeriod('custom');
     } else {
       setShowCustomDates(false);
+      setCurrentPage(1); // Reset page only when period changes
       setPeriod(newPeriod);
     }
   };
 
   const handleApplyCustomDates = () => {
     if (startDate && endDate) {
-      fetchData('custom', startDate, endDate, profType, profId);
+      setCurrentPage(1);
+      fetchData('custom', startDate, endDate, profType, profId, 1);
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.pages && newPage !== currentPage) {
+      setCurrentPage(newPage);
+      // fetchData will be triggered by useEffect
     }
   };
 
@@ -309,16 +328,61 @@ function CheckAzienda() {
       setProfType(type);
       setProfId(null);
     }
+    setCurrentPage(1); // Reset page when filter changes
   };
 
   const handleProfIdChange = (id) => {
     setProfId(id || null);
+    setCurrentPage(1); // Reset page when filter changes
   };
 
   const handleResetFilters = () => {
     setProfType(null);
     setProfId(null);
     setProfessionals([]);
+    setRatingFilter(null);
+    setShowUnreadOnly(false);
+  };
+
+  // Filter responses based on rating and read status
+  const getFilteredResponses = () => {
+    let filtered = [...responses];
+
+    // Filter by rating
+    if (ratingFilter === 'da_migliorare') {
+      // Any rating below 8
+      filtered = filtered.filter(r => {
+        const ratings = [r.nutritionist_rating, r.psychologist_rating, r.coach_rating, r.progress_rating].filter(v => v !== null && v !== undefined);
+        return ratings.some(rating => rating < 8);
+      });
+    } else if (ratingFilter === 'negativo') {
+      // Any rating below 7
+      filtered = filtered.filter(r => {
+        const ratings = [r.nutritionist_rating, r.psychologist_rating, r.coach_rating, r.progress_rating].filter(v => v !== null && v !== undefined);
+        return ratings.some(rating => rating < 7);
+      });
+    }
+
+    // Filter by unread status
+    if (showUnreadOnly) {
+      filtered = filtered.filter(r => {
+        // Check if any professional hasn't read yet
+        const allProfs = [...(r.nutrizionisti || []), ...(r.psicologi || []), ...(r.coaches || [])];
+        return allProfs.some(prof => !prof.has_read);
+      });
+    }
+
+    return filtered;
+  };
+
+  const handleRatingFilterChange = (filter) => {
+    setCurrentPage(1);
+    setRatingFilter(ratingFilter === filter ? null : filter);
+  };
+
+  const handleUnreadFilterChange = () => {
+    setCurrentPage(1);
+    setShowUnreadOnly(!showUnreadOnly);
   };
 
   const handleViewCheckResponse = async (response) => {
@@ -367,7 +431,14 @@ function CheckAzienda() {
         <div>
           <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Check Azienda</h4>
           <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
-            {stats?.total_responses || 0} risposte nel periodo
+            {(ratingFilter || showUnreadOnly) ? (
+              <>
+                {getFilteredResponses().length} risposte filtrate
+                <span className="ms-1">({pagination.total || responses.length} totali nel periodo)</span>
+              </>
+            ) : (
+              <>{pagination.total || responses.length} risposte nel periodo</>
+            )}
           </p>
         </div>
       </div>
@@ -383,8 +454,8 @@ function CheckAzienda() {
         <div className="card-body py-3 px-4">
           <div className="row g-3 align-items-center">
             {/* Period Filters */}
-            <div className="col-lg-5">
-              <div className="d-flex gap-2 flex-wrap">
+            <div className="col-lg-6">
+              <div className="d-flex gap-2 flex-nowrap">
                 {[
                   { key: 'week', label: 'Settimana' },
                   { key: 'month', label: 'Mese' },
@@ -419,7 +490,7 @@ function CheckAzienda() {
             </div>
 
             {/* KPI Averages */}
-            <div className="col-lg-7">
+            <div className="col-lg-6">
               <div className="d-flex flex-wrap gap-3 justify-content-lg-end align-items-center">
                 {/* Nutrizionista */}
                 <div className="d-flex align-items-center gap-2">
@@ -626,6 +697,97 @@ function CheckAzienda() {
               </div>
             </div>
           </div>
+
+          {/* Rating & Read Filters Row */}
+          <div className="row g-3 align-items-center mt-2 pt-3 border-top">
+            <div className="col-12">
+              <div className="d-flex align-items-center gap-3 flex-wrap">
+                <span className="text-muted small fw-semibold">Stato:</span>
+
+                {/* Voto Da Migliorare (< 8) */}
+                <button
+                  className="btn"
+                  onClick={() => handleRatingFilterChange('da_migliorare')}
+                  disabled={loading}
+                  style={{
+                    height: '38px',
+                    borderRadius: '10px',
+                    border: ratingFilter === 'da_migliorare' ? 'none' : '1px solid #e2e8f0',
+                    background: ratingFilter === 'da_migliorare'
+                      ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                      : '#f8fafc',
+                    color: ratingFilter === 'da_migliorare' ? 'white' : '#64748b',
+                    fontSize: '13px',
+                    fontWeight: ratingFilter === 'da_migliorare' ? 600 : 500,
+                    padding: '0 14px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <i className="ri-arrow-down-line me-1"></i>
+                  Da Migliorare (&lt;8)
+                </button>
+
+                {/* Voto Negativo (< 7) */}
+                <button
+                  className="btn"
+                  onClick={() => handleRatingFilterChange('negativo')}
+                  disabled={loading}
+                  style={{
+                    height: '38px',
+                    borderRadius: '10px',
+                    border: ratingFilter === 'negativo' ? 'none' : '1px solid #e2e8f0',
+                    background: ratingFilter === 'negativo'
+                      ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                      : '#f8fafc',
+                    color: ratingFilter === 'negativo' ? 'white' : '#64748b',
+                    fontSize: '13px',
+                    fontWeight: ratingFilter === 'negativo' ? 600 : 500,
+                    padding: '0 14px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <i className="ri-error-warning-line me-1"></i>
+                  Voto Negativo (&lt;7)
+                </button>
+
+                {/* Non Letto */}
+                <button
+                  className="btn"
+                  onClick={handleUnreadFilterChange}
+                  disabled={loading}
+                  style={{
+                    height: '38px',
+                    borderRadius: '10px',
+                    border: showUnreadOnly ? 'none' : '1px solid #e2e8f0',
+                    background: showUnreadOnly
+                      ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
+                      : '#f8fafc',
+                    color: showUnreadOnly ? 'white' : '#64748b',
+                    fontSize: '13px',
+                    fontWeight: showUnreadOnly ? 600 : 500,
+                    padding: '0 14px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <i className="ri-eye-off-line me-1"></i>
+                  Non Letto
+                </button>
+
+                {/* Reset all filters button */}
+                {(ratingFilter || showUnreadOnly || profType) && (
+                  <button
+                    className="btn btn-link text-muted p-0 ms-2"
+                    onClick={handleResetFilters}
+                    title="Reset tutti i filtri"
+                    style={{ fontSize: '14px' }}
+                  >
+                    <i className="ri-refresh-line me-1"></i>
+                    Reset filtri
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -643,34 +805,65 @@ function CheckAzienda() {
           <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></div>
           <p className="mt-3 text-muted">Caricamento risposte...</p>
         </div>
-      ) : responses.length === 0 ? (
-        <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <div className="card-body text-center py-5">
-            <div className="mb-4">
-              <i className="ri-file-list-3-line" style={{ fontSize: '5rem', color: '#cbd5e1' }}></i>
-            </div>
-            <h5 style={{ color: '#475569' }}>Nessuna risposta trovata</h5>
-            <p className="text-muted mb-0">Non ci sono risposte disponibili per i filtri selezionati.</p>
-          </div>
-        </div>
       ) : (
         <>
-          {/* Tabella Risposte */}
-          <div className="card border-0" style={tableStyles.card}>
-            <div className="table-responsive">
-              <table className="table mb-0">
-                <thead style={tableStyles.tableHeader}>
-                  <tr>
-                    <th style={{ ...tableStyles.th, minWidth: '200px' }}>Cliente</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px' }}>Data</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {responses.map((response, index) => {
+          {/* Pagination calculation */}
+          {(() => {
+            const filteredResponses = getFilteredResponses();
+
+            if (filteredResponses.length === 0) {
+              return (
+                <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+                  <div className="card-body text-center py-5">
+                    <div className="mb-4">
+                      <i className="ri-file-list-3-line" style={{ fontSize: '5rem', color: '#cbd5e1' }}></i>
+                    </div>
+                    <h5 style={{ color: '#475569' }}>Nessuna risposta trovata</h5>
+                    <p className="text-muted mb-0">
+                      {responses.length > 0
+                        ? 'Nessuna risposta corrisponde ai filtri selezionati.'
+                        : 'Non ci sono risposte disponibili per il periodo selezionato.'}
+                    </p>
+                    {(ratingFilter || showUnreadOnly) && (
+                      <button
+                        className="btn btn-outline-primary mt-3"
+                        onClick={() => { setRatingFilter(null); setShowUnreadOnly(false); }}
+                      >
+                        <i className="ri-refresh-line me-1"></i>
+                        Rimuovi filtri stato
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Use server-side pagination when no client-side filters are active
+            const useServerPagination = !ratingFilter && !showUnreadOnly;
+            const totalPages = useServerPagination ? pagination.pages : Math.ceil(filteredResponses.length / ITEMS_PER_PAGE);
+            const totalItems = useServerPagination ? pagination.total : filteredResponses.length;
+            const paginatedResponses = useServerPagination
+              ? filteredResponses // Already paginated from server
+              : filteredResponses.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+            return (
+              <>
+                {/* Tabella Risposte */}
+                <div className="card border-0" style={tableStyles.card}>
+                  <div className="table-responsive">
+                    <table className="table mb-0">
+                      <thead style={tableStyles.tableHeader}>
+                        <tr>
+                          <th style={{ ...tableStyles.th, minWidth: '200px' }}>Cliente</th>
+                          <th style={{ ...tableStyles.th, minWidth: '120px' }}>Data</th>
+                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>
+                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>
+                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>
+                          <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedResponses.map((response, index) => {
                     const isHovered = hoveredRow === index;
 
                     return (
@@ -788,6 +981,70 @@ function CheckAzienda() {
               </table>
             </div>
           </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="d-flex justify-content-between align-items-center mt-4">
+                    <div className="text-muted small">
+                      Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} di {totalItems} risposte
+                    </div>
+                    <nav>
+                      <ul className="pagination mb-0">
+                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                          <button
+                            className="page-link"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1 || loading}
+                            style={{ borderRadius: '8px 0 0 8px' }}
+                          >
+                            <i className="ri-arrow-left-s-line"></i>
+                          </button>
+                        </li>
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
+                              <button
+                                className="page-link"
+                                onClick={() => handlePageChange(pageNum)}
+                                disabled={loading}
+                                style={currentPage === pageNum ? {
+                                  background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                                  borderColor: '#22c55e',
+                                  color: 'white',
+                                } : {}}
+                              >
+                                {pageNum}
+                              </button>
+                            </li>
+                          );
+                        })}
+                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                          <button
+                            className="page-link"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages || loading}
+                            style={{ borderRadius: '0 8px 8px 0' }}
+                          >
+                            <i className="ri-arrow-right-s-line"></i>
+                          </button>
+                        </li>
+                      </ul>
+                    </nav>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
 
