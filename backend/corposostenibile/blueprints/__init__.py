@@ -19,6 +19,8 @@ from . import (
     welcome,
     client_checks,
     manual,
+    tasks,
+
 )
 
 __all__ = [
@@ -40,4 +42,5 @@ __all__ = [
     'welcome',
     'client_checks',
     'manual',
+    'tasks',
 ]

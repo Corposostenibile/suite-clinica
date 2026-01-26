@@ -1,19 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import api from '../../services/api';
-
-// Categorie task (Mappate su Enum Backend)
-const TASK_CATEGORIES = {
-    all: { label: 'Tutti', icon: 'ri-list-check', color: '#6c757d', bg: 'secondary' },
-    onboarding: { label: 'Onboarding', icon: 'ri-user-add-line', color: '#17a2b8', bg: 'info' },
-    check: { label: 'Check', icon: 'ri-file-list-3-line', color: '#28a745', bg: 'success' },
-    reminder: { label: 'Reminder', icon: 'ri-alarm-warning-line', color: '#dc8c14', bg: 'warning' },
-    formazione: { label: 'Formazione', icon: 'ri-book-open-line', color: '#6f42c1', bg: 'primary' },
-    sollecito: { label: 'Solleciti', icon: 'ri-time-line', color: '#dc3545', bg: 'danger' }, // Added Solleciti
-};
+import { useOutletContext, useNavigate } from 'react-router-dom';
+import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
 
 function Task() {
     const { user } = useOutletContext();
+    const navigate = useNavigate();
     const [tasks, setTasks] = useState([]);
     const [stats, setStats] = useState({ by_category: {}, total_open: 0 });
     const [activeTab, setActiveTab] = useState('all');
@@ -22,8 +13,8 @@ function Task() {
 
     const fetchStats = useCallback(async () => {
         try {
-            const response = await api.get('/tasks/stats');
-            setStats(response.data);
+            const data = await taskService.getStats();
+            setStats(data);
         } catch (error) {
             console.error("Error fetching stats:", error);
         }
@@ -39,8 +30,8 @@ function Task() {
                 params.category = activeTab;
             }
             
-            const response = await api.get('/tasks/', { params });
-            setTasks(response.data);
+            const data = await taskService.getAll(params);
+            setTasks(data);
         } catch (error) {
             console.error("Error fetching tasks:", error);
         } finally {
@@ -63,9 +54,7 @@ function Task() {
         ));
 
         try {
-            await api.put(`/tasks/${taskId}`, {
-                completed: !currentStatus
-            });
+            await taskService.toggleComplete(taskId, !currentStatus);
             // Refresh stats to ensure sync
             fetchStats();
             // If we are filtering by completion, the task might disappear, so maybe refresh list?
@@ -76,6 +65,41 @@ function Task() {
             console.error("Error updating task:", error);
             // Revert on error
             fetchTasks();
+        }
+    };
+
+    const handleTaskAction = (task) => {
+        if (!task || !task.payload) return;
+
+        const { category, payload } = task;
+
+        switch (category) {
+            case 'check':
+                if (payload.client_id) {
+                    // Navigate to client details, tab 'check'
+                    navigate(`/clienti-dettaglio/${payload.client_id}?tab=check`);
+                }
+                break;
+            case 'onboarding':
+            case 'formazione': // Forse formazione porta al training, ma per ora cliente è sicuro
+            case 'sollecito':
+                if (payload.client_id) {
+                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                }
+                break;
+            case 'reminder':
+                 if (payload.client_id) {
+                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                }
+                break;
+            default:
+                // If there's a generic link in payload
+                if (payload.url) {
+                    window.open(payload.url, '_blank');
+                } else if (payload.client_id) {
+                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                }
+                break;
         }
     };
 
@@ -96,13 +120,7 @@ function Task() {
     };
 
     const getPriorityColor = (priority) => {
-        switch (priority) {
-            case 'high': return '#dc3545';
-            case 'medium': return '#ffc107';
-            case 'low': return '#28a745';
-            case 'urgent': return '#dc3545'; // Added urgent
-            default: return '#6c757d';
-        }
+        return TASK_PRIORITIES[priority]?.color || '#6c757d';
     };
 
     // Helper per ottenere label categoria anche se non in TASK_CATEGORIES (fallback)
@@ -120,28 +138,41 @@ function Task() {
                         {stats.total_open} attività da completare
                     </p>
                 </div>
-                <div className="form-check form-switch">
-                    <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="showCompleted"
-                        checked={showCompleted}
-                        onChange={(e) => setShowCompleted(e.target.checked)}
-                    />
-                    <label className="form-check-label text-muted" htmlFor="showCompleted">
-                        Mostra completate
-                    </label>
+                <div className="d-flex gap-2">
+                     <button className="btn btn-light" onClick={fetchTasks}>
+                        <i className="ri-refresh-line"></i>
+                    </button>
+                    <div className="form-check form-switch d-flex align-items-center gap-2 m-0 border px-3 rounded bg-white">
+                        <input
+                            className="form-check-input m-0"
+                            type="checkbox"
+                            role="switch"
+                            id="showCompleted"
+                            checked={showCompleted}
+                            onChange={(e) => setShowCompleted(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                        />
+                        <label className="form-check-label text-muted small cursor-pointer" htmlFor="showCompleted" style={{ cursor: 'pointer' }}>
+                            Mostra completate
+                        </label>
+                    </div>
                 </div>
             </div>
 
             {/* Stats Cards */}
             <div className="row g-3 mb-4">
-                {Object.entries(TASK_CATEGORIES).filter(([key]) => key !== 'all').map(([key, cat]) => (
+                {Object.entries(TASK_CATEGORIES).map(([key, cat]) => (
                     <div className="col-xl-2 col-md-4 col-6" key={key}>
                         <div
                             className={`card bg-${cat.bg} border-0 shadow-sm`}
                             onClick={() => setActiveTab(key)}
-                            style={{ cursor: 'pointer', opacity: activeTab === key ? 1 : 0.85, transition: 'all 0.2s' }}
+                            style={{ 
+                                cursor: 'pointer', 
+                                opacity: activeTab === key ? 1 : 0.7, 
+                                transform: activeTab === key ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'all 0.2s',
+                                color: '#fff'
+                            }}
                         >
                             <div className="card-body py-3">
                                 <div className="d-flex align-items-center justify-content-between">
@@ -165,15 +196,26 @@ function Task() {
             </div>
 
             {/* Task List */}
-            <div className="card">
+            <div className="card border-0 shadow-sm">
                 {/* Tabs */}
-                <div className="card-header bg-white border-bottom">
-                    <ul className="nav nav-tabs card-header-tabs">
-                        {Object.keys(TASK_CATEGORIES).map((key) => {
-                            const cat = TASK_CATEGORIES[key];
-                            const count = key === 'all' ? stats.total_open : (stats.by_category?.[key] || 0);
-                            
-                            return (
+                <div className="card-header bg-white border-bottom-0 py-3">
+                    <ul className="nav nav-pills custom-pills">
+                        <li className="nav-item">
+                             <button
+                                className={`nav-link ${activeTab === 'all' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('all')}
+                            >
+                                <span className="me-2">Tutti</span>
+                                <span className={`badge ${activeTab === 'all' ? 'bg-white text-primary' : 'bg-light text-muted'}`}>
+                                    {stats.total_open}
+                                </span>
+                            </button>
+                        </li>
+                        {Object.entries(TASK_CATEGORIES).map(([key, cat]) => {
+                             const count = stats.by_category?.[key] || 0;
+                             if (count === 0 && activeTab !== key) return null; // Hide empty tabs if not active
+
+                             return (
                                 <li className="nav-item" key={key}>
                                     <button
                                         className={`nav-link ${activeTab === key ? 'active' : ''}`}
@@ -181,155 +223,134 @@ function Task() {
                                     >
                                         <i className={`${cat.icon} me-1`}></i>
                                         {cat.label}
-                                        {count > 0 && (
-                                            <span className={`badge ${activeTab === key ? 'bg-primary' : 'bg-secondary'} ms-2`}>
-                                                {count}
-                                            </span>
-                                        )}
+                                        <span className={`badge ms-2 ${activeTab === key ? 'bg-white text-primary' : 'bg-light text-muted'}`}>
+                                            {count}
+                                        </span>
                                     </button>
                                 </li>
-                            );
+                             );
                         })}
                     </ul>
                 </div>
 
                 {/* Task Items */}
-                <div className="card-body p-0" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                <div className="card-body p-0" style={{ minHeight: '300px' }}>
                     {loading ? (
-                        <div className="text-center py-5">
+                        <div className="d-flex align-items-center justify-content-center h-100 py-5">
                             <div className="spinner-border text-primary" role="status">
                                 <span className="visually-hidden">Loading...</span>
                             </div>
                         </div>
                     ) : tasks.length === 0 ? (
-                        <div className="text-center py-5 text-muted">
-                            <i className="ri-checkbox-circle-line text-success" style={{ fontSize: '64px' }}></i>
-                            <h5 className="mt-3 mb-1">Tutto fatto!</h5>
-                            <p className="text-muted">Non hai task da completare in questa categoria.</p>
+                        <div className="text-center py-5">
+                            <div className="mb-3">
+                                <i className="ri-checkbox-circle-line text-success" style={{ fontSize: '64px', opacity: 0.5 }}></i>
+                            </div>
+                            <h5 className="text-muted">Nessun task da mostrare</h5>
+                            <p className="text-muted small">Tutte le attività in questa categoria sono state completate!</p>
                         </div>
                     ) : (
-                        <table className="table table-hover mb-0">
-                            <tbody>
-                                {tasks.map(task => {
-                                    const category = getCategoryInfo(task.category);
-                                    const userName = user?.first_name || 'Professionista';
-                                    
-                                    // Use format client name if available, else standard message logic
-                                    // Backend sends client_name
-                                    
-                                    return (
-                                        <tr
-                                            key={task.id}
-                                            className={task.completed ? 'table-light' : ''}
-                                            style={{ transition: 'all 0.2s' }}
-                                        >
-                                            {/* Checkbox */}
-                                            <td style={{ width: '50px', verticalAlign: 'middle' }}>
-                                                <div className="form-check">
-                                                    <input
-                                                        className="form-check-input"
-                                                        type="checkbox"
-                                                        checked={task.completed}
-                                                        onChange={() => toggleTask(task.id, task.completed)}
-                                                        style={{
-                                                            width: '20px',
-                                                            height: '20px',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    />
-                                                </div>
-                                            </td>
-
-                                            {/* Priority indicator */}
-                                            <td style={{ width: '6px', padding: 0 }}>
-                                                <div
-                                                    style={{
-                                                        width: '4px',
-                                                        height: '100%',
-                                                        minHeight: '60px',
-                                                        background: task.completed ? '#dee2e6' : getPriorityColor(task.priority),
-                                                        borderRadius: '2px'
-                                                    }}
-                                                />
-                                            </td>
-
-                                            {/* Content */}
-                                            <td className="py-3">
-                                                <div className="d-flex align-items-start justify-content-between">
-                                                    <div className="flex-grow-1">
-                                                        <div className="d-flex align-items-center gap-2 mb-1">
-                                                            <span
-                                                                className="badge"
-                                                                style={{
-                                                                    background: task.completed ? '#e9ecef' : `${category.color}15`,
-                                                                    color: task.completed ? '#6c757d' : category.color,
-                                                                    fontWeight: 500
-                                                                }}
-                                                            >
-                                                                {category.label}
-                                                            </span>
-                                                            <span className="text-muted small">
-                                                                {formatDate(task.created_at)}
-                                                                {task.due_date && ` • Scadenza: ${formatDate(task.due_date)}`}
-                                                            </span>
-                                                        </div>
-                                                        <p className={`mb-2 ${task.completed ? 'text-muted text-decoration-line-through' : ''}`}>
-                                                            {task.description || task.title}
-                                                        </p>
-                                                        {task.client_name && (
-                                                            <div className="d-flex align-items-center gap-2">
-                                                                <span className="badge bg-light text-dark border">
-                                                                    <i className="ri-user-line me-1"></i>
-                                                                    {task.client_name}
-                                                                </span>
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle mb-0">
+                                <thead className="bg-light text-muted small uppercase">
+                                    <tr>
+                                        <th style={{ width: '50px' }}></th>
+                                        <th>Attività</th>
+                                        <th style={{ width: '150px' }}>Categoria</th>
+                                        <th style={{ width: '150px' }}>Cliente</th>
+                                        <th style={{ width: '120px' }}>Scadenza</th>
+                                        <th style={{ width: '100px' }}>Priorità</th>
+                                        <th style={{ width: '80px' }}></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tasks.map(task => {
+                                        const category = getCategoryInfo(task.category);
+                                        const priorityColor = getPriorityColor(task.priority);
+                                        const hasAction = task.payload && (task.payload.client_id || task.payload.url);
+                                        
+                                        return (
+                                            <tr key={task.id} className={task.completed ? 'bg-light opacity-75' : ''}>
+                                                <td className="text-center">
+                                                    <div className="form-check d-flex justify-content-center">
+                                                        <input
+                                                            className="form-check-input"
+                                                            type="checkbox"
+                                                            checked={task.completed}
+                                                            onChange={() => toggleTask(task.id, task.completed)}
+                                                            style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className="d-flex flex-column">
+                                                        <span className={`fw-medium ${task.completed ? 'text-decoration-line-through text-muted' : 'text-dark'}`}>
+                                                            {task.title}
+                                                        </span>
+                                                        {task.description && (
+                                                            <small className="text-muted text-truncate" style={{ maxWidth: '300px' }}>
+                                                                {task.description}
+                                                            </small>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className={`badge bg-${category.bg} bg-opacity-10 text-${category.bg} border border-${category.bg} border-opacity-25`}>
+                                                        <i className={`${category.icon} me-1`}></i>
+                                                        {category.label}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {task.client_name ? (
+                                                        <div className="d-flex align-items-center">
+                                                            <div className="avatar-xs me-2 bg-light rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style={{width:'24px', height:'24px', fontSize:'10px'}}>
+                                                                {task.client_name.substring(0,2).toUpperCase()}
                                                             </div>
-                                                        )}
+                                                            <span className="small fw-medium">{task.client_name}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted small">-</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <small className={`${task.due_date && new Date(task.due_date) < new Date() && !task.completed ? 'text-danger fw-bold' : 'text-muted'}`}>
+                                                        {formatDate(task.due_date)}
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <div className="d-flex align-items-center gap-1">
+                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: priorityColor }}></div>
+                                                        <small style={{ color: priorityColor, fontWeight: 500 }}>
+                                                            {TASK_PRIORITIES[task.priority]?.label || task.priority}
+                                                        </small>
                                                     </div>
-                                                    {/* Action */}
-                                                    <div className="ms-3">
-                                                        {!task.completed && (
-                                                            <button className="btn btn-sm btn-outline-primary" onClick={() => {/* Navigate details? */}}>
-                                                                Vai <i className="ri-arrow-right-line ms-1"></i>
-                                                            </button>
-                                                        )}
-                                                        {task.completed && (
-                                                            <span className="badge bg-success-subtle text-success">
-                                                                <i className="ri-check-line me-1"></i>
-                                                                Completata
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                                </td>
+                                                <td className="text-end">
+                                                    {!task.completed && hasAction && (
+                                                        <button 
+                                                            className="btn btn-icon btn-sm btn-ghost-primary" 
+                                                            title="Vai"
+                                                            onClick={() => handleTaskAction(task)}
+                                                        >
+                                                            <i className="ri-arrow-right-line"></i>
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
-
-                {/* Footer */}
+                
+                {/* Footer / Pagination */}
                 {tasks.length > 0 && (
-                    <div className="card-footer bg-white text-muted small">
-                        <div className="d-flex align-items-center justify-content-between">
-                            <span>
-                                {tasks.filter(t => !t.completed).length} da completare
-                            </span>
-                            <div className="d-flex align-items-center gap-3">
-                                <span className="d-flex align-items-center gap-1">
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#dc3545' }}></span>
-                                    Alta
-                                </span>
-                                <span className="d-flex align-items-center gap-1">
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffc107' }}></span>
-                                    Media
-                                </span>
-                                <span className="d-flex align-items-center gap-1">
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#28a745' }}></span>
-                                    Bassa
-                                </span>
-                            </div>
+                    <div className="card-footer bg-white py-3 border-top-0">
+                        <div className="d-flex justify-content-between align-items-center text-muted small">
+                            <span>Visualizzi {tasks.length} task</span>
+                            <span>Ordina per: <span className="fw-medium text-dark cursor-pointer">Priorità</span></span>
                         </div>
                     </div>
                 )}
