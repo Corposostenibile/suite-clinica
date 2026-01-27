@@ -13,7 +13,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Welcome from './pages/Welcome';
 
 // Team pages
-import { TeamList, TeamAdd, TeamDetail, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI } from './pages/team';
+import { TeamList, TeamAdd, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI } from './pages/team';
 
 // Trial (In Prova) pages
 import { TrialUsersList, TrialUserDetail, TrialUserForm, AssignClients } from './pages/trial';
@@ -86,7 +86,7 @@ function App() {
             {/* Team Member Routes */}
             <Route path="/team-lista" element={<TeamList />} />
             <Route path="/team-nuovo" element={<TeamAdd />} />
-            <Route path="/team-dettaglio/:id" element={<TeamDetail />} />
+            <Route path="/team-dettaglio/:id" element={<Profilo />} /> {/* Redirect to Profilo for detail */}
             <Route path="/team-modifica/:id" element={<TeamAdd />} />
 
             {/* Team Entity Routes */}

@@ -371,7 +371,7 @@ def create_app(config_name: str | None = None) -> Flask:
         feedback_global,  # AGGIUNTO: Sistema feedback democratico globale
         manual,  # AGGIUNTO: Import del blueprint manual (documentazione suite)
         kpi,  # AGGIUNTO: Sistema KPI e ARR
-        kpi,  # AGGIUNTO: Sistema KPI e ARR
+
         appointment_setting,  # Appointment Setting - messaggi Respond.io
         tasks,  # AGGIUNTO: Import del blueprint tasks
     )
@@ -405,7 +405,7 @@ def create_app(config_name: str | None = None) -> Flask:
     feedback_global.init_app(app)  # AGGIUNTO: Sistema feedback democratico globale (FASE 1+2)
     manual.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint manual (documentazione suite)
     kpi.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint KPI e ARR
-    kpi.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint KPI e ARR
+
     appointment_setting.init_app(app)  # Appointment Setting
     tasks.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint tasks
 
