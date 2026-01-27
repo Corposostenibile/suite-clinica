@@ -285,20 +285,6 @@ function Quality() {
 
     return (
         <div className="container-fluid p-0">
-            {/* Header Unified */}
-            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-                <div>
-                    <h2 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Quality Dashboard</h2>
-                    <p className="text-muted mb-0">Monitoraggio performance e KPI</p>
-                </div>
-                
-    // State for View Mode ('weekly' or 'quarterly')
-    const [viewMode, setViewMode] = useState('weekly');
-
-    // ... (rest of state)
-
-    return (
-        <div className="container-fluid p-0">
             {/* Unified Header & Controls */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
                 <div>
@@ -915,7 +901,6 @@ function Quality() {
                     </div>
                 </div>
             )}
-        </div>
         </div>
     );
 }
