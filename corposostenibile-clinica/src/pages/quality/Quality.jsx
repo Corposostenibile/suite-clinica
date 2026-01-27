@@ -88,6 +88,7 @@ const BAND_BADGE_STYLES = {
 };
 
 function Quality() {
+    const [activeTab, setActiveTab] = useState('weekly'); // 'weekly' | 'quarterly'
     const [specialty, setSpecialty] = useState('nutrizione');
     const [professionals, setProfessionals] = useState([]);
     const [stats, setStats] = useState({});
@@ -284,7 +285,34 @@ function Quality() {
 
     return (
         <div className="container-fluid p-0">
-            {/* Header */}
+            {/* Header Unified */}
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+                <div>
+                    <h2 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Quality Dashboard</h2>
+                    <p className="text-muted mb-0">Monitoraggio performance e KPI</p>
+                </div>
+                
+                {/* Tabs Switcher */}
+                <div className="bg-white p-1 rounded-pill shadow-sm d-inline-flex">
+                    <button
+                        className={`btn btn-sm rounded-pill px-4 fw-medium transition-all ${activeTab === 'weekly' ? 'btn-primary shadow-sm' : 'btn-light text-muted bg-transparent'}`}
+                        onClick={() => setActiveTab('weekly')}
+                    >
+                        Settimanale
+                    </button>
+                    <button
+                        className={`btn btn-sm rounded-pill px-4 fw-medium transition-all ${activeTab === 'quarterly' ? 'btn-primary shadow-sm' : 'btn-light text-muted bg-transparent'}`}
+                        onClick={() => setActiveTab('quarterly')}
+                    >
+                        Trimestrale & Malus
+                    </button>
+                </div>
+            </div>
+
+            {/* WEEKLY CONTENT */}
+            {activeTab === 'weekly' && (
+                <>
+                {/* Weekly Header Controls */}
             <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
                 <div>
                     <h4 className="mb-1">Quality Score</h4>
@@ -309,17 +337,16 @@ function Quality() {
                             {spec.label}
                         </button>
                     ))}
-                    <button
-                        className="btn btn-primary px-4"
-                        onClick={() => setShowCalcModal(true)}
-                    >
-                        <i className="ri-calculator-line me-2"></i>
-                        Calcola Quality
-                    </button>
-                </div>
-            </div>
+                        <button
+                            className="btn btn-primary px-4"
+                            onClick={() => setShowCalcModal(true)}
+                        >
+                            <i className="ri-calculator-line me-2"></i>
+                            Calcola Quality
+                        </button>
+                    </div>
 
-            {/* Stats Row */}
+                    {/* Stats Row */}
             <div className="row g-3 mb-4">
                 {[
                     {
@@ -686,9 +713,13 @@ function Quality() {
                     )}
                 </>
             )}
+        </>
+    )}
 
-            {/* Quarterly KPI Section */}
-            <QuarterlyKPI />
+            {/* QUARTERLY VIEW CONTENT */}
+            {activeTab === 'quarterly' && (
+                <QuarterlyKPI />
+            )}
 
             {/* Calculate Quality Modal */}
             {showCalcModal && (
