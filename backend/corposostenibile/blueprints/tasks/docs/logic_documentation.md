@@ -79,14 +79,24 @@ Task pianificati (Cron) per controlli giornalieri.
              # Crea Task
     ```
 
-    **B. Revisione Piano Nutrizionale**
-    1.  Controlla il campo `dieta_dal` (inizio piano attuale).
-    2.  Se sono passati esattamente **28 giorni** (4 settimane), ricorda al Nutrizionista di valutare una revisione.
+    **B. Scadenza Piano Nutrizionale**
+    1.  Controlla il campo `nuova_dieta_dal` (data prevista prossimo aggiornamento).
+    2.  Genera un task se mancano **7, 3 o 0 giorni**.
 
     ```python
-    # Esempio Semplificato
-    if client.dieta_dal:
-        days_since_diet = (today - client.dieta_dal).days
-        if days_since_diet == 28:
-             # Crea Task Revisione
+    if client.nuova_dieta_dal:
+        days = (client.nuova_dieta_dal - today).days
+        if days in [7, 3, 0]:
+             # Crea Task Scadenza Piano Nutrizionale
+    ```
+
+    **C. Scadenza Piano Allenamento**
+    1.  Controlla il campo `nuovo_allenamento_il` (data aggiornamento scheda).
+    2.  Genera un task se mancano **7, 3 o 0 giorni**.
+
+    ```python
+    if client.nuovo_allenamento_il:
+        days = (client.nuovo_allenamento_il - today).days
+        if days in [7, 3, 0]:
+             # Crea Task Scadenza Allenamento
     ```

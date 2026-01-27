@@ -172,27 +172,37 @@ def generate_reminders_task():
                     ):
                         count_reminders += 1
 
-        # 2. Scadenza Piano Nutrizionale (es. ogni 4 settimane da dieta_dal?)
-        # Se c'è 'dieta_dal', ipotizziamo check ogni 4 settimane? o solo se 'nuova_dieta_dal' è impostata futura?
-        # Non essendoci una regola fissa, per ora usiamo una logica semplice:
-        # Se 'dieta_dal' è vecchia di 28 giorni esatti (o multipli), ricorda di aggiornare?
-        # OPPURE: Il cliente ha un reminder specifico.
-        # Implementiamo solo se esplicito. Per ora mettiamo un placeholder logico sulla data dieta.
-        
-        if client.dieta_dal:
-            # Esempio: reminder dopo 4 settimane (28 giorni)
-            days_since_diet = (today - client.dieta_dal).days
-            if days_since_diet == 28:
+        # 2. Scadenza Piano Nutrizionale (nuova_dieta_dal)
+        if client.nuova_dieta_dal:
+            days_to_diet_expire = (client.nuova_dieta_dal - today).days
+            if days_to_diet_expire in [7, 3, 0]: # Reminder a -7, -3 e oggi
                  assignee_id = client.nutrizionista_id
                  if assignee_id:
                      if _create_reminder_task(
                         session,
                         client,
                         assignee_id,
-                        f"Revisione Piano: {client.nome_cognome}",
-                        f"Il piano nutrizionale è attivo da 4 settimane ({client.dieta_dal}). Valuta revisione.",
+                        f"Scadenza Piano Nutrizionale: {client.nome_cognome}",
+                        f"Il piano nutrizionale scade/si rinnova il {client.nuova_dieta_dal} (tra {days_to_diet_expire} giorni).",
                         TaskCategoryEnum.reminder,
-                         payload={'type': 'plan_expiration', 'days_active': days_since_diet}
+                         payload={'type': 'plan_expiration', 'subtype': 'nutrition', 'days_left': days_to_diet_expire}
+                     ):
+                         count_reminders += 1
+
+        # 3. Scadenza Piano Allenamento (nuovo_allenamento_il)
+        if client.nuovo_allenamento_il:
+            days_to_training_expire = (client.nuovo_allenamento_il - today).days
+            if days_to_training_expire in [7, 3, 0]: # Reminder a -7, -3 e oggi
+                 assignee_id = client.coach_id
+                 if assignee_id:
+                     if _create_reminder_task(
+                        session,
+                        client,
+                        assignee_id,
+                        f"Scadenza Scheda Allenamento: {client.nome_cognome}",
+                        f"La scheda di allenamento scade/si rinnova il {client.nuovo_allenamento_il} (tra {days_to_training_expire} giorni).",
+                        TaskCategoryEnum.reminder,
+                         payload={'type': 'plan_expiration', 'subtype': 'training', 'days_left': days_to_training_expire}
                      ):
                          count_reminders += 1
 
