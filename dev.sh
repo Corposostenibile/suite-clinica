@@ -356,6 +356,7 @@ with app.app_context():
             last_name='Sistema',
             role=UserRoleEnum.admin,
             specialty=UserSpecialtyEnum.amministrazione,
+            is_admin=True,
             is_active=True
         )
         admin.set_password('admin123')

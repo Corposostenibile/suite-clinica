@@ -88,7 +88,7 @@ const BAND_BADGE_STYLES = {
 };
 
 function Quality() {
-    const [activeTab, setActiveTab] = useState('weekly'); // 'weekly' | 'quarterly'
+    const [viewMode, setViewMode] = useState('weekly'); // 'weekly' | 'quarterly'
     const [specialty, setSpecialty] = useState('nutrizione');
     const [professionals, setProfessionals] = useState([]);
     const [stats, setStats] = useState({});
@@ -292,28 +292,48 @@ function Quality() {
                     <p className="text-muted mb-0">Monitoraggio performance e KPI</p>
                 </div>
                 
-                {/* Tabs Switcher */}
-                <div className="bg-white p-1 rounded-pill shadow-sm d-inline-flex">
+    // State for View Mode ('weekly' or 'quarterly')
+    const [viewMode, setViewMode] = useState('weekly');
+
+    // ... (rest of state)
+
+    return (
+        <div className="container-fluid p-0">
+            {/* Unified Header & Controls */}
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+                <div>
+                    <h2 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Quality Dashboard</h2>
+                    <p className="text-muted mb-0">Monitoraggio performance e KPI</p>
+                </div>
+                
+                {/* View Mode Selector */}
+                <div className="bg-white p-1 rounded-3 shadow-sm d-inline-flex border">
                     <button
-                        className={`btn btn-sm rounded-pill px-4 fw-medium transition-all ${activeTab === 'weekly' ? 'btn-primary shadow-sm' : 'btn-light text-muted bg-transparent'}`}
-                        onClick={() => setActiveTab('weekly')}
+                        className={`btn btn-sm px-3 fw-medium transition-all ${viewMode === 'weekly' ? 'btn-primary' : 'btn-light text-muted bg-transparent'}`}
+                        onClick={() => setViewMode('weekly')}
+                        style={{ borderRadius: '8px' }}
                     >
-                        Settimanale
+                        <i className="ri-calendar-week-line me-2"></i>
+                        Analisi Settimanale
                     </button>
+                    <div className="vr mx-1 align-self-center" style={{ height: '20px', opacity: 0.2 }}></div>
                     <button
-                        className={`btn btn-sm rounded-pill px-4 fw-medium transition-all ${activeTab === 'quarterly' ? 'btn-primary shadow-sm' : 'btn-light text-muted bg-transparent'}`}
-                        onClick={() => setActiveTab('quarterly')}
+                        className={`btn btn-sm px-3 fw-medium transition-all ${viewMode === 'quarterly' ? 'btn-primary' : 'btn-light text-muted bg-transparent'}`}
+                        onClick={() => setViewMode('quarterly')}
+                        style={{ borderRadius: '8px' }}
                     >
-                        Trimestrale & Malus
+                        <i className="ri-pie-chart-2-line me-2"></i>
+                        KPI Trimestrali & Malus
                     </button>
                 </div>
             </div>
 
-            {/* WEEKLY CONTENT */}
-            {activeTab === 'weekly' && (
-                <>
-                {/* Weekly Header Controls */}
-            <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
+            {/* View Content */}
+            <div className="fade-in">
+                {viewMode === 'weekly' && (
+                    <>
+                    {/* Weekly Header Controls */}
+                    <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
                 <div>
                     <h4 className="mb-1">Quality Score</h4>
                     <p className="text-muted mb-0">
@@ -718,9 +738,10 @@ function Quality() {
     )}
 
             {/* QUARTERLY VIEW CONTENT */}
-            {activeTab === 'quarterly' && (
+            {viewMode === 'quarterly' && (
                 <QuarterlyKPI />
             )}
+            </div>
 
             {/* Calculate Quality Modal */}
             {showCalcModal && (
@@ -894,6 +915,7 @@ function Quality() {
                     </div>
                 </div>
             )}
+        </div>
         </div>
     );
 }
