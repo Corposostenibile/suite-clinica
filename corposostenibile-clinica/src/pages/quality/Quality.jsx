@@ -337,17 +337,18 @@ function Quality() {
                             {spec.label}
                         </button>
                     ))}
-                        <button
-                            className="btn btn-primary px-4"
-                            onClick={() => setShowCalcModal(true)}
-                        >
-                            <i className="ri-calculator-line me-2"></i>
-                            Calcola Quality
-                        </button>
+                            <button
+                                className="btn btn-primary px-4"
+                                onClick={() => setShowCalcModal(true)}
+                            >
+                                <i className="ri-calculator-line me-2"></i>
+                                Calcola Quality
+                            </button>
+                        </div>
                     </div>
 
                     {/* Stats Row */}
-            <div className="row g-3 mb-4">
+                    <div className="row g-3 mb-4">
                 {[
                     {
                         label: 'Media Quality',
