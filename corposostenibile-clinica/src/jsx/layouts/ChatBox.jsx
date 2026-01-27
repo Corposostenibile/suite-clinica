@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { Modal, Button, Badge } from "react-bootstrap";
 import postitService, { POSTIT_COLORS } from "../../services/postitService";
+import taskService, { TASK_PRIORITIES, TASK_CATEGORIES } from "../../services/taskService";
 
 const ChatBox = ({ onClick, toggle }) => {
    const [toggleTab, settoggleTab] = useState("chat");
@@ -12,6 +14,10 @@ const ChatBox = ({ onClick, toggle }) => {
    const [editingPostit, setEditingPostit] = useState(null);
    const [formData, setFormData] = useState({ content: '', color: 'yellow' });
    const [actionLoading, setActionLoading] = useState(false);
+
+   // Task Modal state
+   const [selectedTask, setSelectedTask] = useState(null);
+   const [showTaskModal, setShowTaskModal] = useState(false);
 
    const dataToggle = [
       { href: "#chat", name: "Chat", key: "chat" },
@@ -130,18 +136,71 @@ const ChatBox = ({ onClick, toggle }) => {
       setFormData({ content: '', color: 'yellow' });
    };
 
-   // Format date
-   const formatDate = (isoString) => {
-      if (!isoString) return '';
-      const date = new Date(isoString);
-      const now = new Date();
-      const diff = now - date;
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+   // Task state
+   const [tasks, setTasks] = useState([]);
+   const [loadingTasks, setLoadingTasks] = useState(false);
 
-      if (days === 0) return 'Oggi';
-      if (days === 1) return 'Ieri';
-      if (days < 7) return `${days} giorni fa`;
-      return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+   // Load tasks
+   const loadTasks = useCallback(async () => {
+      if (loadingTasks) return;
+      setLoadingTasks(true);
+      try {
+         // Get top 20 incomplete tasks
+         const res = await taskService.getAll({ completed: 'false', per_page: 20 });
+         setTasks(res || []);
+      } catch (err) {
+         console.error('Errore caricamento tasks:', err);
+      } finally {
+         setLoadingTasks(false);
+      }
+   }, [loadingTasks]);
+
+   useEffect(() => {
+      if (toggleTab === 'task' && toggle === 'chatbox') {
+         loadTasks();
+      }
+   }, [toggleTab, toggle, loadTasks]);
+
+   const toggleTaskCompletion = async (taskId, currentStatus) => {
+      // Optimistic update
+      setTasks(prev => prev.filter(t => t.id !== taskId)); // Remove from list instantly
+      
+      try {
+         await taskService.toggleComplete(taskId, !currentStatus);
+         // No need to reload, optimistic update is enough for sidebar
+      } catch (err) {
+         console.error("Error updating task:", err);
+         if (err.response) {
+            console.error("Response data:", err.response.data);
+         }
+         loadTasks(); // Revert on error
+      }
+   };
+
+   const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (date.toDateString() === today.toDateString()) {
+         return 'Oggi';
+      } else if (date.toDateString() === yesterday.toDateString()) {
+         return 'Ieri';
+      } else {
+         return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+      }
+   };
+
+   const openTaskModal = (task) => {
+      setSelectedTask(task);
+      setShowTaskModal(true);
+   };
+
+   const closeTaskModal = () => {
+      setShowTaskModal(false);
+      setSelectedTask(null);
    };
 
    return (
@@ -353,61 +412,105 @@ const ChatBox = ({ onClick, toggle }) => {
                         <Link to="/task"><i className="ri-external-link-line" style={{ fontSize: '18px' }}></i></Link>
                         <div>
                            <h6 className="mb-1">Le tue Task</h6>
-                           <p className="mb-0">Da completare</p>
+                           <p className="mb-0">{tasks.length} da completare</p>
                         </div>
-                        <span style={{ width: '18px' }}></span>
-                     </div>
-                     <div className="card-body contacts_body p-0 dz-scroll d-flex flex-column align-items-center justify-content-center text-center"
-                          id="DZ_W_Contacts_Body2"
-                          style={{
-                             minHeight: '350px',
-                             background: 'linear-gradient(180deg, #f8faf9 0%, #ffffff 100%)',
-                             padding: '30px 20px'
-                          }}
-                     >
-                        {/* Icon */}
-                        <div
-                           style={{
-                              width: '80px',
-                              height: '80px',
-                              borderRadius: '50%',
-                              background: 'linear-gradient(135deg, rgba(115, 103, 240, 0.15) 0%, rgba(115, 103, 240, 0.05) 100%)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginBottom: '16px'
-                           }}
-                        >
-                           <i className="ri-task-line" style={{ fontSize: '36px', color: '#7367f0' }}></i>
-                        </div>
-
-                        {/* Title */}
-                        <h6 style={{ fontWeight: 600, color: '#333', fontSize: '16px', marginBottom: '8px' }}>
-                           Gestione Task
-                        </h6>
-
-                        {/* Description */}
-                        <p style={{
-                           color: '#6c757d',
-                           fontSize: '13px',
-                           lineHeight: 1.5,
-                           marginBottom: '16px',
-                           maxWidth: '220px'
-                        }}>
-                           Sistema di task e promemoria automatici per il follow-up dei pazienti.
-                        </p>
-
-                        <Link 
-                           to="/task" 
-                           className="btn btn-primary btn-sm rounded-pill px-4"
-                           style={{
-                              background: 'linear-gradient(135deg, #7367f0 0%, #6355e0 100%)',
-                              border: 'none',
-                              boxShadow: '0 4px 12px rgba(115, 103, 240, 0.3)'
-                           }}
-                        >
-                           Vai ai Task
+                        <Link to="#" onClick={loadTasks} style={{ opacity: loadingTasks ? 0.5 : 1 }}>
+                           <i className={`ri-refresh-line ${loadingTasks ? 'spin' : ''}`} style={{ fontSize: '18px' }}></i>
                         </Link>
+                     </div>
+                     <div className="card-body contacts_body p-0 dz-scroll" id="DZ_W_Contacts_Body2" style={{ maxHeight: '450px', background: '#f8faf9' }}>
+                        {loadingTasks && tasks.length === 0 ? (
+                           <div className="text-center py-4">
+                              <i className="ri-loader-4-line spin" style={{ fontSize: '24px', color: '#6c757d' }}></i>
+                              <p className="text-muted mt-2 mb-0">Caricamento...</p>
+                           </div>
+                        ) : tasks.length === 0 ? (
+                           <div className="text-center py-4">
+                              <i className="ri-task-line" style={{ fontSize: '48px', color: '#e9ecef' }}></i>
+                              <p className="text-muted mt-2 mb-0">Nessun task in sospeso</p>
+                              <Link to="/task" className="btn btn-sm btn-primary mt-2">
+                                 Gestisci Task
+                              </Link>
+                           </div>
+                        ) : (
+                           <ul className="contacts" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                              {tasks.map((task) => (
+                                 <li key={task.id} style={{
+                                    padding: '12px 16px',
+                                    borderBottom: '1px solid #f1f5f9',
+                                    background: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '10px',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s'
+                                 }}
+                                 onClick={(e) => {
+                                    // Prevent modal if clicking checkbox
+                                    if(e.target.type !== 'checkbox') {
+                                       openTaskModal(task);
+                                    }
+                                 }}
+                                 className="task-item-hover"
+                                 >
+                                    <div className="form-check m-0 pt-1">
+                                       <input
+                                          className="form-check-input"
+                                          type="checkbox"
+                                          checked={task.completed}
+                                          onChange={() => toggleTaskCompletion(task.id, task.completed)}
+                                          style={{ cursor: 'pointer' }}
+                                       />
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                       <div className="d-flex justify-content-between align-items-start mb-1">
+                                          <span style={{
+                                             fontSize: '13px',
+                                             fontWeight: 600,
+                                             color: '#333',
+                                             lineHeight: 1.3
+                                          }}>
+                                             {task.title}
+                                          </span>
+                                       </div>
+                                       
+                                       {/* Description removed for cleaner look, available in modal */}
+                                       
+                                       <div className="d-flex align-items-center gap-2 mt-1">
+                                          {/* Priority Dot */}
+                                          <div className="d-flex align-items-center" title={`Priorità: ${task.priority}`}>
+                                             <div style={{
+                                                width: '6px',
+                                                height: '6px',
+                                                borderRadius: '50%',
+                                                backgroundColor: TASK_PRIORITIES[task.priority]?.color || '#6c757d',
+                                                marginRight: '4px'
+                                             }}></div>
+                                             <span style={{ fontSize: '10px', color: '#888' }}>
+                                                {task.due_date ? formatDate(task.due_date) : 'No scadenza'}
+                                             </span>
+                                          </div>
+                                          
+                                          {/* Category Badge */}
+                                          <span className="badge border" style={{ 
+                                             fontSize: '9px', 
+                                             padding: '2px 6px',
+                                             color: '#6c757d',
+                                             fontWeight: 400
+                                          }}>
+                                             {task.category}
+                                          </span>
+                                       </div>
+                                    </div>
+                                 </li>
+                              ))}
+                           </ul>
+                        )}
+                        <div className="text-center p-3">
+                           <Link to="/task" className="btn btn-xs btn-outline-primary rounded-pill w-100">
+                              Vedi Tutti
+                           </Link>
+                        </div>
                      </div>
                   </div>
                </div>
@@ -502,6 +605,58 @@ const ChatBox = ({ onClick, toggle }) => {
                </div>
             </div>
          </div>
+
+         {/* Task Details Modal */}
+         <Modal show={showTaskModal} onHide={closeTaskModal} centered>
+            <Modal.Header closeButton>
+               <Modal.Title>{selectedTask?.title}</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+               {selectedTask && (
+                  <div>
+                     <div className="d-flex justify-content-between mb-3">
+                        <Badge bg={TASK_CATEGORIES[selectedTask.category]?.bg || 'secondary'}>
+                           <i className={`${TASK_CATEGORIES[selectedTask.category]?.icon} me-1`}></i>
+                           {selectedTask.category}
+                        </Badge>
+                        <Badge bg="light" text="dark" className="border">
+                           Priorità: {TASK_PRIORITIES[selectedTask.priority]?.label}
+                        </Badge>
+                     </div>
+                     
+                     <h6 className="fw-bold">Descrizione</h6>
+                     <p style={{ whiteSpace: 'pre-wrap', color: '#555' }}>
+                        {selectedTask.description || "Nessuna descrizione."}
+                     </p>
+
+                     {selectedTask.client_name && (
+                        <div className="mt-3">
+                           <strong>Cliente:</strong> {selectedTask.client_name}
+                        </div>
+                     )}
+
+                     <div className="mt-3 text-muted small">
+                        Creato il: {new Date(selectedTask.created_at).toLocaleDateString()}<br/>
+                        Scadenza: {selectedTask.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : 'Nessuna'}
+                     </div>
+                  </div>
+               )}
+            </Modal.Body>
+            <Modal.Footer>
+               <Button variant="secondary" onClick={closeTaskModal}>
+                  Chiudi
+               </Button>
+               <Button 
+                  variant="success" 
+                  onClick={() => {
+                     toggleTaskCompletion(selectedTask.id, selectedTask.completed);
+                     closeTaskModal();
+                  }}
+               >
+                  {selectedTask?.completed ? 'Segna come Da Fare' : 'Segna come Completato'}
+               </Button>
+            </Modal.Footer>
+         </Modal>
       </div>
    );
 };

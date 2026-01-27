@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # CONFIGURAZIONE
 # ============================================================
 
-TOTAL_PER_SPECIALTY = 1000
+TOTAL_PER_SPECIALTY = 50
 TEAM_SIZE = 100
 
 # Nomi italiani comuni

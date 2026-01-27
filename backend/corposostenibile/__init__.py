@@ -83,7 +83,9 @@ from types import MappingProxyType
 from typing import Dict, List, Set, Union
 
 from dateutil import parser
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, jsonify, redirect, url_for, request
+
+
 from jinja2 import TemplateSyntaxError
 from werkzeug.exceptions import HTTPException
 
@@ -502,6 +504,27 @@ def create_app(config_name: str | None = None) -> Flask:
         @app.get("/")
         def index():
             return redirect(url_for("auth.login"))
+
+    # Ensure CSRF cookie is set for SPA
+    @app.after_request
+    def set_csrf_cookie(response):
+        if not request.path.startswith('/static') and not request.path.startswith('/assets'):
+            from flask_wtf.csrf import generate_csrf
+            try:
+                csrf_token = generate_csrf()
+                # Set cookie accessible by JS (httpOnly=False) so Axios can read it if needed, 
+                # OR api.js reads it. api.js code: getCookie('csrf_token') 
+                # So we must NOT use httpOnly=True.
+                # secure=True matches SESSION_COOKIE_SECURE usually.
+                response.set_cookie(
+                    'csrf_token', 
+                    csrf_token, 
+                    secure=app.config.get('SESSION_COOKIE_SECURE', False),
+                    samesite='Lax'
+                )
+            except Exception:
+                pass
+        return response
     
     # Error-handling JSON-first
     @app.errorhandler(Exception)
