@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import teamService from '../../services/teamService';
+import QuarterlyKPI from './QuarterlyKPI';
 import qualityService, {
     QUALITY_SPECIALTIES,
     getWeekBounds,
@@ -685,6 +686,9 @@ function Quality() {
                     )}
                 </>
             )}
+
+            {/* Quarterly KPI Section */}
+            <QuarterlyKPI />
 
             {/* Calculate Quality Modal */}
             {showCalcModal && (

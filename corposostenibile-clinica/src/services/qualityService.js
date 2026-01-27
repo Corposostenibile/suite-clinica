@@ -231,6 +231,75 @@ const qualityService = {
         const response = await qualityApi.get('/quality/api/dashboard/stats');
         return response.data;
     },
+
+    /**
+     * Calculate quarterly composite KPI with Super Malus for all professionals
+     * @param {string} [quarter] - Quarter string (e.g. '2025-Q4'), defaults to current
+     * @returns {Promise<Object>} Calculation result with stats and per-professional results
+     */
+    async calculateQuarterly(quarter) {
+        const response = await qualityApi.post('/quality/api/calcola-trimestrale', { quarter });
+        return response.data;
+    },
+
+    /**
+     * Get quarterly summary with Super Malus details
+     * @param {string} [quarter] - Quarter string (e.g. '2025-Q4'), defaults to current
+     * @returns {Promise<Object>} Summary with aggregate stats and malus details
+     */
+    async getQuarterlySummary(quarter) {
+        const response = await qualityApi.get('/quality/api/quarterly-summary', {
+            params: quarter ? { quarter } : {}
+        });
+        return response.data;
+    },
+
+    /**
+     * Get KPI breakdown for a specific professional in a quarter
+     * @param {number} professionistaId - Professional ID
+     * @param {string} [quarter] - Quarter string (e.g. '2025-Q4'), defaults to current
+     * @returns {Promise<Object>} Detailed KPI breakdown with Super Malus info
+     */
+    async getProfessionistaKPIBreakdown(professionistaId, quarter) {
+        const response = await qualityApi.get(`/quality/api/professionista/${professionistaId}/kpi-breakdown`, {
+            params: quarter ? { quarter } : {}
+        });
+        return response.data;
+    },
+};
+
+// Super Malus badge style helper
+export const getSuperMalusBadgeStyle = (percentage) => {
+    if (percentage >= 100) return { background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', color: '#fff' };
+    if (percentage >= 50) return { background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff' };
+    if (percentage >= 25) return { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff' };
+    return { background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff' };
+};
+
+// Get current quarter string (e.g. '2025-Q1')
+export const getCurrentQuarter = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+    return `${year}-Q${quarter}`;
+};
+
+// Get available quarters (last 4)
+export const getAvailableQuarters = () => {
+    const quarters = [];
+    const now = new Date();
+    let year = now.getFullYear();
+    let quarter = Math.floor(now.getMonth() / 3) + 1;
+
+    for (let i = 0; i < 4; i++) {
+        quarters.push(`${year}-Q${quarter}`);
+        quarter--;
+        if (quarter === 0) {
+            quarter = 4;
+            year--;
+        }
+    }
+    return quarters;
 };
 
 export default qualityService;

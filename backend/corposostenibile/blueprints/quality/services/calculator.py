@@ -58,7 +58,7 @@ class QualityScoreCalculator:
         (1.00, 5.0),   # >50%   → 5 punti
     ]
 
-    # Soglie bonus band (su score trimestrale)
+    # Soglie bonus band (su score trimestrale) - QUALITY KPI2 (40% peso)
     # Usa direttamente le stringhe invece degli enum per evitare problemi di serializzazione
     BONUS_BANDS = [
         (9.0, '100%'),
@@ -66,6 +66,26 @@ class QualityScoreCalculator:
         (8.0, '30%'),
         (0.0, '0%'),
     ]
+
+    # Fasce bonus KPI2 Quality (per calcolo composito)
+    QUALITY_BONUS_BANDS = [
+        (9.0, 100),   # >= 9 → 100%
+        (8.5, 60),    # 8.5-9 → 60%
+        (8.0, 30),    # 8-8.5 → 30%
+        (0.0, 0),     # < 8 → 0%
+    ]
+
+    # Fasce bonus KPI1 Rinnovo Adj (60% peso)
+    RINNOVO_ADJ_BONUS_BANDS = [
+        (80.0, 100),  # >= 80% → 100%
+        (70.0, 60),   # 70-79% → 60%
+        (60.0, 30),   # 60-69% → 30%
+        (0.0, 0),     # < 60% → 0%
+    ]
+
+    # Pesi KPI per bonus composito
+    KPI_WEIGHT_RINNOVO_ADJ = 0.60  # 60%
+    KPI_WEIGHT_QUALITY = 0.40     # 40%
 
     @staticmethod
     def calculate_client_score(
@@ -661,3 +681,220 @@ class QualityScoreCalculator:
             'calculated_at': datetime.utcnow(),
             'calculated_by_user_id': calculated_by_user_id
         }
+
+    @classmethod
+    def _get_bonus_from_bands(cls, value: float, bands: List[Tuple[float, int]]) -> int:
+        """
+        Determina il bonus percentage in base al valore e alle fasce.
+
+        Args:
+            value: Valore da valutare
+            bands: Lista di tuple (soglia, bonus_percentage)
+
+        Returns:
+            Bonus percentage (0, 30, 60, 100)
+        """
+        for threshold, bonus in bands:
+            if value >= threshold:
+                return bonus
+        return 0
+
+    @classmethod
+    def get_rinnovo_adj_percentage(
+        cls,
+        professionista_id: int,
+        quarter: str
+    ) -> Optional[float]:
+        """
+        Calcola % Rinnovo Adjustato per un professionista nel trimestre.
+
+        Formula: clienti_rinnovati / clienti_con_contratto_scaduto × 100
+
+        Args:
+            professionista_id: ID professionista
+            quarter: Trimestre (es. "2025-Q4")
+
+        Returns:
+            Percentuale rinnovo adj (0-100), None se dati insufficienti
+        """
+        from .super_malus import SuperMalusService
+
+        start_date, end_date = SuperMalusService.get_quarter_dates(quarter)
+
+        # Query per clienti del professionista con contratto scaduto nel trimestre
+        # Un cliente è "scaduto" se subscription_end_date cade nel trimestre
+
+        from corposostenibile.models import SubscriptionRenewal
+
+        # Clienti del professionista
+        professionista = db.session.get(User, professionista_id)
+        if not professionista or not professionista.specialty:
+            return None
+
+        specialty = professionista.specialty.value.lower()
+
+        # Determina il campo del cliente da usare
+        if 'nutri' in specialty:
+            cliente_field = Cliente.nutrizionista_id
+        elif 'coach' in specialty:
+            cliente_field = Cliente.coach_id
+        elif 'psic' in specialty:
+            cliente_field = Cliente.psicologa_id
+        else:
+            return None
+
+        # Trova clienti assegnati al professionista con contratto scaduto nel periodo
+        clienti_scaduti = db.session.query(Cliente).filter(
+            cliente_field == professionista_id,
+            Cliente.subscription_end_date >= start_date,
+            Cliente.subscription_end_date <= end_date
+        ).all()
+
+        n_scaduti = len(clienti_scaduti)
+        if n_scaduti == 0:
+            return None  # Nessun cliente scaduto, non calcolabile
+
+        # Conta quanti hanno rinnovato
+        n_rinnovati = 0
+        for cliente in clienti_scaduti:
+            # Verifica se esiste un rinnovo dopo la scadenza
+            rinnovo = db.session.query(SubscriptionRenewal).filter(
+                SubscriptionRenewal.cliente_id == cliente.cliente_id,
+                SubscriptionRenewal.renewal_date >= cliente.subscription_end_date
+            ).first()
+
+            if rinnovo:
+                n_rinnovati += 1
+
+        # Calcola percentuale
+        perc = (n_rinnovati / n_scaduti) * 100
+        return round(perc, 2)
+
+    @classmethod
+    def calculate_quarterly_composite_kpi(
+        cls,
+        weekly_score: 'QualityWeeklyScore',
+        apply_super_malus: bool = True
+    ) -> None:
+        """
+        Calcola KPI composito trimestrale e applica Super Malus.
+
+        Aggiorna i campi:
+        - rinnovo_adj_percentage
+        - rinnovo_adj_bonus_band
+        - quality_bonus_band
+        - final_bonus_percentage
+        - (Super Malus fields via SuperMalusService)
+        - final_bonus_after_malus
+
+        Args:
+            weekly_score: QualityWeeklyScore instance
+            apply_super_malus: Se True, applica anche Super Malus
+        """
+        from .super_malus import SuperMalusService
+
+        quarter = weekly_score.quarter
+        professionista_id = weekly_score.professionista_id
+
+        # 1. Calcola Rinnovo Adj %
+        rinnovo_adj = cls.get_rinnovo_adj_percentage(professionista_id, quarter)
+        weekly_score.rinnovo_adj_percentage = rinnovo_adj
+
+        # 2. Determina fasce bonus per entrambi i KPI
+        if rinnovo_adj is not None:
+            rinnovo_bonus = cls._get_bonus_from_bands(rinnovo_adj, cls.RINNOVO_ADJ_BONUS_BANDS)
+            weekly_score.rinnovo_adj_bonus_band = f"{rinnovo_bonus}%"
+        else:
+            rinnovo_bonus = 0
+            weekly_score.rinnovo_adj_bonus_band = '0%'
+
+        quality_trim = weekly_score.quality_trim
+        if quality_trim is not None:
+            quality_bonus = cls._get_bonus_from_bands(quality_trim, cls.QUALITY_BONUS_BANDS)
+            weekly_score.quality_bonus_band = f"{quality_bonus}%"
+        else:
+            quality_bonus = 0
+            weekly_score.quality_bonus_band = '0%'
+
+        # 3. Calcola bonus composito pesato
+        # Formula: (60% × rinnovo_bonus) + (40% × quality_bonus)
+        final_bonus = (
+            cls.KPI_WEIGHT_RINNOVO_ADJ * rinnovo_bonus +
+            cls.KPI_WEIGHT_QUALITY * quality_bonus
+        )
+        weekly_score.final_bonus_percentage = round(final_bonus, 2)
+
+        # 4. Applica Super Malus se richiesto
+        if apply_super_malus:
+            SuperMalusService.apply_super_malus_to_score(weekly_score, quarter)
+        else:
+            weekly_score.final_bonus_after_malus = weekly_score.final_bonus_percentage
+
+    @classmethod
+    def calculate_quarterly_scores(
+        cls,
+        quarter: str,
+        calculated_by_user_id: Optional[int] = None
+    ) -> Dict[str, any]:
+        """
+        Calcola KPI composito trimestrale per tutti i professionisti.
+
+        Trova l'ultima settimana del trimestre per ogni professionista
+        e calcola il KPI composito con Super Malus.
+
+        Args:
+            quarter: Trimestre (es. "2025-Q4")
+            calculated_by_user_id: ID utente che richiede calcolo
+
+        Returns:
+            Dict con statistiche
+        """
+        from .super_malus import SuperMalusService
+
+        start_date, end_date = SuperMalusService.get_quarter_dates(quarter)
+
+        # Trova tutti gli score settimanali del trimestre
+        quarterly_scores = db.session.query(QualityWeeklyScore).filter(
+            QualityWeeklyScore.quarter == quarter
+        ).order_by(
+            QualityWeeklyScore.professionista_id,
+            func.desc(QualityWeeklyScore.week_start_date)
+        ).all()
+
+        # Raggruppa per professionista, prendi solo l'ultima settimana
+        prof_latest_scores = {}
+        for score in quarterly_scores:
+            if score.professionista_id not in prof_latest_scores:
+                prof_latest_scores[score.professionista_id] = score
+
+        stats = {
+            'quarter': quarter,
+            'professionisti_processati': 0,
+            'super_malus_applicati': 0,
+            'results': []
+        }
+
+        for prof_id, weekly_score in prof_latest_scores.items():
+            # Calcola KPI composito con Super Malus
+            cls.calculate_quarterly_composite_kpi(weekly_score, apply_super_malus=True)
+
+            stats['professionisti_processati'] += 1
+            if weekly_score.super_malus_applied:
+                stats['super_malus_applicati'] += 1
+
+            stats['results'].append({
+                'professionista_id': prof_id,
+                'quality_trim': weekly_score.quality_trim,
+                'rinnovo_adj_percentage': weekly_score.rinnovo_adj_percentage,
+                'final_bonus_percentage': weekly_score.final_bonus_percentage,
+                'super_malus_applied': weekly_score.super_malus_applied,
+                'super_malus_percentage': weekly_score.super_malus_percentage,
+                'final_bonus_after_malus': weekly_score.final_bonus_after_malus
+            })
+
+        db.session.commit()
+
+        stats['calculated_at'] = datetime.utcnow()
+        stats['calculated_by_user_id'] = calculated_by_user_id
+
+        return stats

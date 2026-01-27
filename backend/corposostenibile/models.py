@@ -12539,6 +12539,21 @@ class QualityWeeklyScore(TimestampMixin, db.Model):
     # ─── Bonus Band ───
     bonus_band = db.Column(db.String(10))  # Banda bonus ('100%', '60%', '30%', '0%')
 
+    # ─── KPI Composito (trimestrale) ───
+    rinnovo_adj_percentage = db.Column(db.Float)      # % rinnovo adj (clienti rinnovati / scaduti)
+    rinnovo_adj_bonus_band = db.Column(db.String(10)) # '100%', '60%', '30%', '0%'
+    quality_bonus_band = db.Column(db.String(10))     # '100%', '60%', '30%', '0%'
+    final_bonus_percentage = db.Column(db.Float)      # Bonus finale dopo pesi (60% rinnovo + 40% quality)
+
+    # ─── Super Malus (trimestrale) ───
+    has_negative_review = db.Column(db.Boolean, default=False)  # Ha review negativa (stelle <= 2)
+    has_refund = db.Column(db.Boolean, default=False)           # Ha rimborso nel trimestre
+    is_primary_for_malus = db.Column(db.Boolean)                # È primario per almeno un cliente con malus
+    super_malus_percentage = db.Column(db.Float, default=0.0)   # 0, 25, 50, 100
+    super_malus_applied = db.Column(db.Boolean, default=False)  # Super Malus applicato
+    super_malus_reason = db.Column(db.Text)                     # Motivo malus (JSON con dettagli clienti)
+    final_bonus_after_malus = db.Column(db.Float)               # Bonus finale DOPO Super Malus
+
     # ─── Metadata Calcolo ───
     calculation_status = db.Column(db.Enum('pending', 'calculating', 'completed', 'error', name='calc_status_enum'), default='pending')
     calculation_error = db.Column(db.Text)
