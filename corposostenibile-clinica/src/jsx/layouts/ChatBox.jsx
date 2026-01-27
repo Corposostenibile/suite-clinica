@@ -491,9 +491,7 @@ const ChatBox = ({ onClick, toggle }) => {
                                                 backgroundColor: TASK_PRIORITIES[task.priority]?.color || '#6c757d',
                                                 marginRight: '4px'
                                              }}></div>
-                                             <span style={{ fontSize: '10px', color: '#888' }}>
-                                                {task.due_date ? formatDate(task.due_date) : 'No scadenza'}
-                                             </span>
+                                             {/* Date removed as requested */}
                                           </div>
                                           
                                           {/* Category Badge */}
