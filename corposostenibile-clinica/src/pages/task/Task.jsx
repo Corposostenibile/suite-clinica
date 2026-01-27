@@ -288,7 +288,7 @@ function Task() {
                                                             {task.title}
                                                         </span>
                                                         {task.description && (
-                                                            <small className="text-muted text-truncate" style={{ maxWidth: '300px' }}>
+                                                            <small className="text-muted">
                                                                 {task.description}
                                                             </small>
                                                         )}
