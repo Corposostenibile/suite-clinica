@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Modal, Button, Badge } from "react-bootstrap";
 import postitService, { POSTIT_COLORS } from "../../services/postitService";
@@ -41,9 +41,13 @@ const ChatBox = ({ onClick, toggle }) => {
       transition: 'all 0.2s ease',
    });
 
+   const loadingTasksRef = useRef(false);
+   const loadingPostitsRef = useRef(false);
+
    // Load post-its when tab is activated
    const loadPostits = useCallback(async () => {
-      if (loading) return;
+      if (loadingPostitsRef.current) return;
+      loadingPostitsRef.current = true;
       setLoading(true);
       try {
          const res = await postitService.getAll();
@@ -52,14 +56,15 @@ const ChatBox = ({ onClick, toggle }) => {
          console.error('Errore caricamento post-it:', err);
       } finally {
          setLoading(false);
+         loadingPostitsRef.current = false;
       }
-   }, [loading]);
+   }, []);
 
    useEffect(() => {
       if (toggleTab === 'postit' && toggle === 'chatbox') {
          loadPostits();
       }
-   }, [toggleTab, toggle]);
+   }, [toggleTab, toggle, loadPostits]);
 
    // Create post-it
    const handleCreate = async (e) => {
@@ -142,7 +147,9 @@ const ChatBox = ({ onClick, toggle }) => {
 
    // Load tasks
    const loadTasks = useCallback(async () => {
-      if (loadingTasks) return;
+      if (loadingTasksRef.current) return;
+      
+      loadingTasksRef.current = true;
       setLoadingTasks(true);
       try {
          // Get top 20 incomplete tasks
@@ -152,8 +159,9 @@ const ChatBox = ({ onClick, toggle }) => {
          console.error('Errore caricamento tasks:', err);
       } finally {
          setLoadingTasks(false);
+         loadingTasksRef.current = false;
       }
-   }, [loadingTasks]);
+   }, []);
 
    useEffect(() => {
       if (toggleTab === 'task' && toggle === 'chatbox') {
@@ -428,9 +436,6 @@ const ChatBox = ({ onClick, toggle }) => {
                            <div className="text-center py-4">
                               <i className="ri-task-line" style={{ fontSize: '48px', color: '#e9ecef' }}></i>
                               <p className="text-muted mt-2 mb-0">Nessun task in sospeso</p>
-                              <Link to="/task" className="btn btn-sm btn-primary mt-2">
-                                 Gestisci Task
-                              </Link>
                            </div>
                         ) : (
                            <ul className="contacts" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
