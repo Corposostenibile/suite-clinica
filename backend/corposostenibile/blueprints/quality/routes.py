@@ -11,6 +11,7 @@ from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     User,
     Cliente,
+    Team,
     QualityWeeklyScore,
     QualityClientScore,
     TrustpilotReview,
@@ -35,6 +36,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin:
+            print(f"Access denied for user {current_user}")  # Log access denied
             return jsonify({'success': False, 'error': 'Accesso negato. Solo amministratori.'}), 403
         return f(*args, **kwargs)
     return decorated_function
@@ -63,6 +65,7 @@ SPECIALTY_FILTER_MAP = {
 
 @bp.route('/api/weekly-scores')
 @login_required
+@admin_required
 def api_weekly_scores():
     """
     API: Restituisce Quality Score settimanali per tutti i professionisti di una specialità.
@@ -74,121 +77,130 @@ def api_weekly_scores():
 
     Returns JSON con lista di score per professionista.
     """
-    specialty = request.args.get('specialty', 'nutrizione')
-    week_param = request.args.get('week')
-    team_id = request.args.get('team_id', type=int)
+    try:
+        specialty = request.args.get('specialty', 'nutrizione')
+        week_param = request.args.get('week')
+        team_id = request.args.get('team_id', type=int)
 
-    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
-    if not specialty_values:
-        return jsonify({'error': 'Invalid specialty'}), 400
+        specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
+        if not specialty_values:
+            return jsonify({'error': 'Invalid specialty'}), 400
 
-    # Parse week date
-    if week_param:
-        try:
-            target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
-        except:
+        # Parse week date
+        if week_param:
+            try:
+                target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
+            except:
+                target_date = date.today()
+        else:
             target_date = date.today()
-    else:
-        target_date = date.today()
 
-    week_start, week_end = EligibilityService.get_week_bounds(target_date)
+        week_start, week_end = EligibilityService.get_week_bounds(target_date)
 
-    # Get professionals by specialty
-    specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
+        # Get professionals by specialty
+        specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
 
-    prof_query = db.session.query(User).filter(
-        User.is_active == True,
-        User.specialty.in_(specialty_enums)
-    )
+        prof_query = db.session.query(User).filter(
+            User.is_active == True,
+            User.specialty.in_(specialty_enums)
+        )
 
-    if team_id:
-        prof_query = prof_query.filter(User.team_id == team_id)
+        if team_id:
+            prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
 
-    professionisti = prof_query.order_by(User.last_name).all()
+        professionisti = prof_query.order_by(User.last_name).all()
 
-    # Get weekly scores for these professionals
-    prof_ids = [p.id for p in professionisti]
-    scores = {}
-    if prof_ids:
-        score_records = db.session.query(QualityWeeklyScore).filter(
-            QualityWeeklyScore.professionista_id.in_(prof_ids),
-            QualityWeeklyScore.week_start_date == week_start
-        ).all()
-        scores = {s.professionista_id: s for s in score_records}
+        # Get weekly scores for these professionals
+        prof_ids = [p.id for p in professionisti]
+        scores = {}
+        if prof_ids:
+            score_records = db.session.query(QualityWeeklyScore).filter(
+                QualityWeeklyScore.professionista_id.in_(prof_ids),
+                QualityWeeklyScore.week_start_date == week_start
+            ).all()
+            scores = {s.professionista_id: s for s in score_records}
 
-    # Build response with professionals and their scores
-    result = []
-    total_eligible = 0
-    total_checks = 0
-    total_quality = 0
-    quality_count = 0
-    total_miss_rate = 0
-    miss_rate_count = 0
+        # Build response with professionals and their scores
+        result = []
+        total_eligible = 0
+        total_checks = 0
+        total_quality = 0
+        quality_count = 0
+        total_miss_rate = 0
+        miss_rate_count = 0
 
-    for prof in professionisti:
-        score = scores.get(prof.id)
-        prof_data = {
-            'id': prof.id,
-            'first_name': prof.first_name,
-            'last_name': prof.last_name,
-            'email': prof.email,
-            'specialty': prof.specialty.value if prof.specialty else None,
-            'team_id': prof.team_id,
-            'avatar_url': prof.avatar_url if hasattr(prof, 'avatar_url') else None,
-            'quality': None
-        }
-
-        if score:
-            prof_data['quality'] = {
-                'n_clients_eligible': score.n_clients_eligible,
-                'n_checks_done': score.n_checks_done,
-                'miss_rate': score.miss_rate,
-                'quality_raw': score.quality_raw,
-                'quality_final': score.quality_final,
-                'quality_month': score.quality_month,
-                'quality_trim': score.quality_trim,
-                'bonus_band': score.bonus_band,
-                'trend_indicator': score.trend_indicator,
-                'delta_vs_last_week': score.delta_vs_last_week,
-                # New KPI fields
-                'rinnovo_adj_percentage': score.rinnovo_adj_percentage,
-                'rinnovo_adj_bonus_band': score.rinnovo_adj_bonus_band,
-                'quality_bonus_band': score.quality_bonus_band,
-                'final_bonus_percentage': score.final_bonus_percentage,
-                'super_malus_applied': score.super_malus_applied,
-                'super_malus_percentage': score.super_malus_percentage,
-                'final_bonus_after_malus': score.final_bonus_after_malus,
+        for prof in professionisti:
+            score = scores.get(prof.id)
+            prof_data = {
+                'id': prof.id,
+                'first_name': prof.first_name,
+                'last_name': prof.last_name,
+                'email': prof.email,
+                'specialty': prof.specialty.value if prof.specialty else None,
+                'team_id': prof.teams[0].id if prof.teams else None,
+                'avatar_url': prof.avatar_url if hasattr(prof, 'avatar_url') else None,
+                'quality': None
             }
-            # Aggregate stats
-            total_eligible += score.n_clients_eligible or 0
-            total_checks += score.n_checks_done or 0
-            if score.quality_final is not None:
-                total_quality += score.quality_final
-                quality_count += 1
-            if score.miss_rate is not None:
-                total_miss_rate += score.miss_rate
-                miss_rate_count += 1
+
+            if score:
+                prof_data['quality'] = {
+                    'n_clients_eligible': score.n_clients_eligible,
+                    'n_checks_done': score.n_checks_done,
+                    'miss_rate': score.miss_rate,
+                    'quality_raw': score.quality_raw,
+                    'quality_final': score.quality_final,
+                    'quality_month': score.quality_month,
+                    'quality_trim': score.quality_trim,
+                    'bonus_band': score.bonus_band,
+                    'trend_indicator': score.trend_indicator,
+                    'delta_vs_last_week': score.delta_vs_last_week,
+                    # New KPI fields
+                    'rinnovo_adj_percentage': score.rinnovo_adj_percentage,
+                    'rinnovo_adj_bonus_band': score.rinnovo_adj_bonus_band,
+                    'quality_bonus_band': score.quality_bonus_band,
+                    'final_bonus_percentage': score.final_bonus_percentage,
+                    'super_malus_applied': score.super_malus_applied,
+                    'super_malus_percentage': score.super_malus_percentage,
+                    'final_bonus_after_malus': score.final_bonus_after_malus,
+                }
+                # Aggregate stats
+                total_eligible += score.n_clients_eligible or 0
+                total_checks += score.n_checks_done or 0
+                if score.quality_final is not None:
+                    total_quality += score.quality_final
+                    quality_count += 1
+                if score.miss_rate is not None:
+                    total_miss_rate += score.miss_rate
+                    miss_rate_count += 1
 
         result.append(prof_data)
 
-    # Calculate aggregated stats
-    stats = {
-        'total_professionisti': len(professionisti),
-        'with_score': quality_count,
-        'total_eligible': total_eligible,
-        'total_checks': total_checks,
-        'avg_quality': round(total_quality / quality_count, 2) if quality_count > 0 else None,
-        'avg_miss_rate': round(total_miss_rate / miss_rate_count, 4) if miss_rate_count > 0 else None,
-    }
+        # Calculate aggregated stats
+        stats = {
+            'total_professionisti': len(professionisti),
+            'with_score': quality_count,
+            'total_eligible': total_eligible,
+            'total_checks': total_checks,
+            'avg_quality': round(total_quality / quality_count, 2) if quality_count > 0 else None,
+            'avg_miss_rate': round(total_miss_rate / miss_rate_count, 4) if miss_rate_count > 0 else None,
+        }
 
-    return jsonify({
-        'success': True,
-        'week_start': week_start.strftime('%Y-%m-%d'),
-        'week_end': week_end.strftime('%Y-%m-%d'),
-        'specialty': specialty,
-        'professionals': result,
-        'stats': stats,
-    })
+        return jsonify({
+            'success': True,
+            'week_start': week_start.strftime('%Y-%m-%d'),
+            'week_end': week_end.strftime('%Y-%m-%d'),
+            'specialty': specialty,
+            'professionals': result,
+            'stats': stats,
+        })
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 
 @bp.route('/api/professionista/<int:user_id>/trend')
@@ -289,7 +301,7 @@ def api_calculate_quality():
         User.department_id == dept_id
     )
     if team_id:
-        prof_query = prof_query.filter(User.team_id == team_id)
+        prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
 
     professionisti = prof_query.all()
 
@@ -351,6 +363,7 @@ def api_calculate_quality():
     except Exception as e:
         db.session.rollback()
         import traceback
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e),
@@ -444,6 +457,7 @@ def api_calcola_dipartimento(dept_key):
     except Exception as e:
         db.session.rollback()
         import traceback
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e),
@@ -615,6 +629,7 @@ def api_calcola_trimestrale():
     except Exception as e:
         db.session.rollback()
         import traceback
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e),
