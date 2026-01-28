@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import clientiService, {
   STATO_LABELS,
   STATO_COLORS,
@@ -128,7 +127,6 @@ const ROLE_COLORS = {
 };
 
 function ClientiList() {
-  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [clienti, setClienti] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -288,16 +286,6 @@ function ClientiList() {
           <h4 className="mb-1">Gestione Pazienti</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
-        {(user?.is_admin || user?.role === 'admin') && (
-          <Link
-            to="/clienti-nuovo"
-            className="btn btn-primary d-flex align-items-center gap-2"
-            style={{ borderRadius: '10px', padding: '10px 20px' }}
-          >
-            <i className="ri-user-add-line" style={{ fontSize: '18px' }}></i>
-            <span>Nuovo Paziente</span>
-          </Link>
-        )}
       </div>
 
       {/* Stats Row */}
