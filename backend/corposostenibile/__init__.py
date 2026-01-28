@@ -458,7 +458,12 @@ def create_app(config_name: str | None = None) -> Flask:
     # ---- Serve React Frontend Assets ---- #
     # React app is served via Vite dev server in development (port 3000)
     # In production, these routes serve the built React assets
+    # Check standard structure (backend/frontend)
     react_dist = Path(__file__).parent.parent / "frontend" / "dist"
+    
+    # Check Suite Clinica structure (suite-clinica/corposostenibile-clinica) if standard not found
+    if not react_dist.exists():
+        react_dist = Path(__file__).parent.parent.parent / "corposostenibile-clinica" / "dist"
 
     if react_dist.exists():
         from flask import send_from_directory, request as flask_request, make_response
@@ -498,6 +503,14 @@ def create_app(config_name: str | None = None) -> Flask:
                     return send_from_directory(str(react_dist), rel_path)
 
             # All other page routes: serve React SPA index.html
+            return send_from_directory(str(react_dist), "index.html")
+
+        # Fallback catch-all route for SPA (handles 404s on unknown routes)
+        @app.route("/<path:path>")
+        def catch_all(path):
+            if any(path.startswith(p) for p in _flask_prefixes):
+                from flask import abort
+                abort(404)
             return send_from_directory(str(react_dist), "index.html")
     else:
         # Development: redirect to login (Vite handles React separately)

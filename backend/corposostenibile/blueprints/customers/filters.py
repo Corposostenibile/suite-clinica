@@ -157,6 +157,7 @@ class CustomerFilterParams:
     origine: Optional[str] = None
     professione: Optional[str] = None
     paese: Optional[str] = None
+    origine_ids: List[int] = field(default_factory=list)  # Added for Influencer filtering
     
     # Missing anagrafica
     missing_email: bool = False
@@ -653,6 +654,10 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # -------- tipologia filter ------
     if p.tipologia:
         qry = qry.filter(Cliente.tipologia_cliente.in_(p.tipologia))
+
+    # -------- origine filter (Influencer) ------
+    if p.origine_ids:
+        qry = qry.filter(Cliente.origine_id.in_(p.origine_ids))
     
     # -------- professional filters ------
     # Usa le tabelle many-to-many per i filtri professionisti

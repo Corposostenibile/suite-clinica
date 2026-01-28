@@ -242,6 +242,7 @@ class UserRoleEnum(str, Enum):
     team_leader = "team_leader"
     professionista = "professionista"
     team_esterno = "team_esterno"
+    influencer = "influencer"
 
 
 class UserSpecialtyEnum(str, Enum):
@@ -1068,6 +1069,41 @@ class GoogleAuth(TimestampMixin, db.Model):
     def __repr__(self) -> str:  # pragma: no cover
         return f"<GoogleAuth user_id={self.user_id} expires_at={self.expires_at} has_refresh={self.has_refresh_token()}>"
 
+# ---------------------------------------------------------------------------- #
+#  Origine  (per Influencer/Campaigns)
+# ---------------------------------------------------------------------------- #
+class Origine(TimestampMixin, db.Model):
+    """
+    Origine dei clienti (es. campagne marketing, influencer, etc).
+    Utilizzata per filtrare i clienti visibili agli Influencer.
+    """
+    __tablename__ = "origins"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+
+    users = db.relationship(
+        "User",
+        secondary="user_origins",
+        back_populates="influencer_origins",
+        lazy="selectin"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Origine {self.name!r}>"
+
+
+# ---------------------------------------------------------------------------- #
+#  Tabella ponte User (Influencer) ⇄ Origine (M2M)
+# ---------------------------------------------------------------------------- #
+user_origins = db.Table(
+    "user_origins",
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("origin_id", db.Integer, db.ForeignKey("origins.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("assigned_at", db.DateTime, default=datetime.utcnow, nullable=False),
+)
+
 # --------------------------------------------------------------------------- #
 #  User  (profili interni) – DEFINITIVO
 # --------------------------------------------------------------------------- #
@@ -1403,6 +1439,14 @@ class User(UserMixin, TimestampMixin, db.Model):
     def get_roles(self) -> List[str]:
         return ["admin"] if self.is_admin else []
 
+    # ────────────────────────── Influencer Origins ────────────────────────────
+    influencer_origins = relationship(
+        "Origine",
+        secondary="user_origins",
+        back_populates="users",
+        lazy="selectin"
+    )
+
     # ────────────────────────── Repr ───────────────────────────────────────
     def __repr__(self) -> str:           # pragma: no cover
         return f"<User {self.email!r}>"
@@ -1623,7 +1667,11 @@ class Cliente(TimestampMixin, db.Model):
     professione_note        = db.Column(db.Text)  # Note aggiuntive sulla professione
 
     # Dati aggiuntivi finance (tutti facoltativi)
-    origine                 = db.Column(db.String(255))  # Origine del cliente
+    origine                 = db.Column(db.String(255))  # Origine del cliente (Legacy/Display)
+    origine_id              = db.Column(db.Integer, db.ForeignKey("origins.id"), nullable=True, index=True)
+    
+    origine_obj             = relationship("Origine", backref="clienti", lazy="joined")
+
     deposito_iniziale       = db.Column(db.Numeric(10, 2))  # Deposito iniziale
     paese                   = db.Column(db.String(100))  # Paese di residenza
     genere                  = db.Column(db.String(20))   # M/F/Altro

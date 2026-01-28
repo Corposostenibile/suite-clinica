@@ -5,6 +5,7 @@ import teamService, {
   USER_SPECIALTIES,
   ROLE_LABELS,
 } from '../../services/teamService';
+import originsService from '../../services/originsService';
 
 function TeamAdd() {
   const navigate = useNavigate();
@@ -29,6 +30,25 @@ function TeamAdd() {
     avatar_path: '',
   });
 
+  const [allOrigins, setAllOrigins] = useState([]);
+  const [selectedOrigins, setSelectedOrigins] = useState([]);
+
+  // Fetch origins on component mount
+  useEffect(() => {
+    fetchOrigins();
+  }, []);
+
+  const fetchOrigins = async () => {
+    try {
+      const result = await originsService.getOrigins();
+      if (result.success) {
+        setAllOrigins(result.origins);
+      }
+    } catch (err) {
+      console.error('Error fetching origins:', err);
+    }
+  };
+
   // Fetch member data in edit mode
   useEffect(() => {
     if (isEditMode) {
@@ -48,8 +68,11 @@ function TeamAdd() {
         last_name: data.last_name || '',
         role: data.role || '',
         specialty: data.specialty || '',
-        avatar_path: data.avatar_path || '',
+
       });
+      if (data.role === 'influencer' && data.influencer_origins) {
+        setSelectedOrigins(data.influencer_origins.map(o => o.id));
+      }
       if (data.avatar_path) {
         setAvatarPreview(data.avatar_path);
       }
@@ -68,6 +91,17 @@ function TeamAdd() {
     if (name === 'role') {
       setFormData(prev => ({ ...prev, specialty: '' }));
     }
+  };
+
+
+  const handleOriginChange = (originId) => {
+    setSelectedOrigins(prev => {
+      if (prev.includes(originId)) {
+        return prev.filter(id => id !== originId);
+      } else {
+        return [...prev, originId];
+      }
+    });
   };
 
   const handleAvatarClick = () => {
@@ -153,7 +187,9 @@ function TeamAdd() {
         first_name: formData.first_name,
         last_name: formData.last_name,
         role: formData.role,
+
         specialty: formData.specialty || null,
+        origin_ids: formData.role === 'influencer' ? selectedOrigins : [],
       };
 
       // Only include password if provided
@@ -435,6 +471,44 @@ function TeamAdd() {
                     </select>
                   </div>
                 </div>
+
+                {/* Origins Selection for Influencers */}
+                {formData.role === 'influencer' && (
+                  <div className="mt-4 animate__animated animate__fadeIn">
+                    <h6 className="mb-3">Assegna Origini (Campagne)</h6>
+                    <div className="card bg-light border-0">
+                      <div className="card-body">
+                        {allOrigins.length === 0 ? (
+                          <p className="text-muted mb-0">Nessuna origine disponibile.</p>
+                        ) : (
+                          <div className="row g-2">
+                             {allOrigins
+                                .filter(o => o.active) // Show only active origins
+                                .map(origin => (
+                                <div className="col-md-6" key={origin.id}>
+                                  <div className="form-check">
+                                    <input
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      id={`origin-${origin.id}`}
+                                      checked={selectedOrigins.includes(origin.id)}
+                                      onChange={() => handleOriginChange(origin.id)}
+                                    />
+                                    <label className="form-check-label" htmlFor={`origin-${origin.id}`}>
+                                      {origin.name}
+                                    </label>
+                                  </div>
+                                </div>
+                             ))}
+                          </div>
+                        )}
+                        <small className="text-muted d-block mt-2">
+                          Seleziona le origini dei clienti visibili a questo influencer.
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Card Footer */}

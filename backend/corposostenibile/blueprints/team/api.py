@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, team_members
+from corposostenibile.models import User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, team_members, Origine
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -102,6 +102,14 @@ def _serialize_user(user, include_details=False, include_teams_led=True):
         })
 
     return data
+
+def _serialize_origins(user):
+    """Serialize user origins (for influencers)."""
+    if hasattr(user, 'influencer_origins'):
+        # Handle dynamic relationship
+        origins = user.influencer_origins.all() if hasattr(user.influencer_origins, 'all') else user.influencer_origins
+        return [{'id': o.id, 'name': o.name} for o in origins]
+    return []
 
 
 # =============================================================================
@@ -204,7 +212,8 @@ def get_member(user_id):
 
     return jsonify({
         'success': True,
-        **_serialize_user(user, include_details=True)
+        **_serialize_user(user, include_details=True),
+        'influencer_origins': _serialize_origins(user)
     })
 
 
@@ -272,6 +281,15 @@ def create_member():
         # Set password
         user.set_password(data['password'])
 
+        # Handle Origin assignment for Influencers
+        if role_enum == UserRoleEnum.influencer and 'origin_ids' in data:
+            origin_ids = data['origin_ids']
+            if isinstance(origin_ids, list):
+                # Retrieve Origin objects
+                origins = Origine.query.filter(Origine.id.in_(origin_ids)).all()
+                for origin in origins:
+                    user.influencer_origins.append(origin)
+
         db.session.add(user)
         db.session.commit()
 
@@ -279,7 +297,8 @@ def create_member():
             'success': True,
             'message': 'Membro creato con successo',
             'id': user.id,
-            **_serialize_user(user)
+            **_serialize_user(user),
+            'influencer_origins': _serialize_origins(user)
         }), HTTPStatus.CREATED
 
     except Exception as e:
@@ -349,10 +368,34 @@ def update_member(user_id):
 
         db.session.commit()
 
+
+        # Update Origin assignment for Influencers
+        if 'origin_ids' in data:
+            # Check if user is influencer (either currently or being updated to)
+            current_role = user.role
+            new_role_str = data.get('role')
+            new_role = UserRoleEnum(new_role_str) if new_role_str in [e.value for e in UserRoleEnum] else current_role
+            
+            if new_role == UserRoleEnum.influencer:
+                origin_ids = data['origin_ids']
+                if isinstance(origin_ids, list):
+                    # Clear current origins (safe for dynamic relationship)
+                    current_origins = user.influencer_origins.all() if hasattr(user.influencer_origins, 'all') else list(user.influencer_origins)
+                    for o in current_origins:
+                        user.influencer_origins.remove(o)
+                    
+                    # Add new origins
+                    new_origins = Origine.query.filter(Origine.id.in_(origin_ids)).all()
+                    for o in new_origins:
+                        user.influencer_origins.append(o)
+
+        db.session.commit()
+
         return jsonify({
             'success': True,
             'message': 'Membro aggiornato con successo',
-            **_serialize_user(user, include_details=True)
+            **_serialize_user(user, include_details=True),
+            'influencer_origins': _serialize_origins(user)
         })
 
     except Exception as e:

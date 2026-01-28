@@ -44,7 +44,9 @@ from corposostenibile.models import (
     LuogoAllenEnum,
     Task,
     TipoProfessionistaEnum,
+    UserRoleEnum,
     User,
+    Origine,
     PagamentoInterno,
     PagamentoInternoApprovazione,
     PagamentoInternoStatusEnum,
@@ -360,6 +362,11 @@ def list_view() -> str:
     form.health_manager_id.choices = [("", "Tutti gli health manager")] + health_managers
 
     params = parse_filter_args(request.args)
+
+    # Filtro per Influencer: vincola alle origini assegnate
+    if current_user.role == UserRoleEnum.influencer:
+        origine_ids = [o.id for o in current_user.influencer_origins]
+        params = replace(params, origine_ids=origine_ids)
 
     pagination = customers_repo.list(
         filters=params,
@@ -2602,11 +2609,62 @@ def _json_error(err):  # type: ignore[override]
         getattr(err, "code", HTTPStatus.BAD_REQUEST),
     )
 
+# – ORIGINS API ------------------------------------------------------------- #
+@api_bp.route("/origins", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_origins_list():
+    origins = Origine.query.all()
+    # Manual serialization since no schema yet
+    return jsonify([{"id": o.id, "name": o.name, "active": o.active} for o in origins])
+
+@api_bp.route("/origins", methods=["POST"])
+@permission_required(CustomerPerm.MANAGE)
+def api_origins_create():
+    data = request.json
+    if not data or not data.get("name"):
+        return jsonify({"error": "Name required"}), 400
+    
+    # Check if exists
+    existing = Origine.query.filter_by(name=data["name"]).first()
+    if existing:
+        return jsonify({"error": "Origin already exists"}), 400
+
+    origin = Origine(name=data["name"], active=data.get("active", True))
+    db.session.add(origin)
+    db.session.commit()
+    return jsonify({"id": origin.id, "name": origin.name, "active": origin.active}), 201
+
+@api_bp.route("/origins/<int:origin_id>", methods=["PUT"])
+@permission_required(CustomerPerm.MANAGE)
+def api_origins_update(origin_id):
+    origin = Origine.query.get_or_404(origin_id)
+    data = request.json
+    if "name" in data:
+        origin.name = data["name"]
+    if "active" in data:
+        origin.active = data["active"]
+    db.session.commit()
+    return jsonify({"id": origin.id, "name": origin.name, "active": origin.active})
+
+@api_bp.route("/origins/<int:origin_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.MANAGE)
+def api_origins_delete(origin_id):
+    origin = Origine.query.get_or_404(origin_id)
+    db.session.delete(origin)
+    db.session.commit()
+    return jsonify({"success": True})
+
 # – CRUD -------------------------------------------------------------------- #
 @api_bp.route("/", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_list() -> Any:
     params = parse_filter_args(request.args)
+
+    # Filtro per Influencer: vincola alle origini assegnate
+    if current_user.role == UserRoleEnum.influencer:
+        origine_ids = [o.id for o in current_user.influencer_origins]
+        params = replace(params, origine_ids=origine_ids)
+
     pagination = customers_repo.list(
         filters=params,
         order_by=request.args.get("order_by"),

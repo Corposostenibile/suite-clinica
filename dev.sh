@@ -345,13 +345,13 @@ from corposostenibile.models import User, UserRoleEnum, UserSpecialtyEnum
 app = create_app()
 with app.app_context():
     # Verifica se l'utente esiste già
-    existing_user = User.query.filter_by(email='admin@suiteclinica.com').first()
+    existing_user = User.query.filter_by(email='admin1@suiteclinica.com').first()
     if existing_user:
         print('⚠️  Utente admin già esistente.')
     else:
         # Crea l'utente admin
         admin = User(
-            email='admin@suiteclinica.com',
+            email='admin1@suiteclinica.com',
             first_name='Admin',
             last_name='Sistema',
             role=UserRoleEnum.admin,

@@ -79,7 +79,10 @@ const SideBar = () => {
 
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
-          {MenuList.map((data, index) => {
+          {(user?.role === 'influencer' 
+            ? MenuList.filter(item => ['Pazienti', 'Profilo', 'CLIENTI', 'TEAM'].includes(item.title))
+            : MenuList
+          ).map((data, index) => {
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
               return (
@@ -161,13 +164,19 @@ const SideBar = () => {
           })}
 
           {/* Admin Settings - solo per admin */}
-          {user?.is_admin && (
+          {(user?.is_admin || user?.role === 'admin') && (
             <>
               <li className="nav-label menu-title">Impostazioni</li>
               <li className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
                 <Link to="/admin/ghl-settings" className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
                   <i className="ri-settings-3-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
                   <span className="nav-text">GHL Settings</span>
+                </Link>
+              </li>
+              <li className={path === 'admin/origins' ? 'mm-active' : ''}>
+                <Link to="/admin/origins" className={path === 'admin/origins' ? 'mm-active' : ''}>
+                  <i className="ri-global-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                  <span className="nav-text">Gestione Origini</span>
                 </Link>
               </li>
             </>

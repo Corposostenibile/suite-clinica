@@ -50,7 +50,7 @@ import { Calendario } from './pages/calendario';
 import { Support } from './pages/support';
 
 // Admin pages
-import { GHLSettings } from './pages/admin';
+import { GHLSettings, OriginSettings } from './pages/admin';
 
 // Public pages (no auth required)
 import {
@@ -140,6 +140,7 @@ function App() {
 
             {/* Admin Pages */}
             <Route path="/admin/ghl-settings" element={<GHLSettings />} />
+            <Route path="/admin/origins" element={<OriginSettings />} />
           </Route>
 
           {/* Default redirect to welcome */}

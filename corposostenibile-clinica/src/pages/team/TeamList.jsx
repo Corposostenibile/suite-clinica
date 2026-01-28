@@ -5,8 +5,10 @@ import teamService, {
   SPECIALTY_LABELS,
   SPECIALTY_FILTER_OPTIONS,
   ROLE_COLORS,
+
   SPECIALTY_COLORS
 } from '../../services/teamService';
+import { useAuth } from '../../context/AuthContext';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con i KPI pazienti)
 const SPECIALTY_GRADIENTS = {
@@ -21,6 +23,7 @@ const SPECIALTY_GRADIENTS = {
 const DEFAULT_GRADIENT = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
 function TeamList() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +126,12 @@ function TeamList() {
           <h4 className="mb-1">Gestione Team</h4>
           <p className="text-muted mb-0">{pagination.total} membri totali</p>
         </div>
+        {(user?.is_admin || user?.role === 'admin') && (
+          <Link to="/team-nuovo" className="btn btn-primary">
+            <i className="ri-user-add-line me-1"></i>
+            Nuovo Professionista
+          </Link>
+        )}
       </div>
 
       {/* Stats Row */}
