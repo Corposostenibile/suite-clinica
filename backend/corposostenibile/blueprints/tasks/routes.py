@@ -3,23 +3,39 @@ from flask_login import login_required, current_user
 from datetime import datetime, date
 from sqlalchemy import desc, func
 
-from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, db
+from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, db
 
 bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
 
 @bp.route('/', methods=['GET'])
 @login_required
 def list_tasks():
-    """Ritorna la lista dei task, filtrata."""
+    """Ritorna la lista dei task, filtrata in base al ruolo."""
     query = Task.query
-
-    # Filtro base: l'utente vede i propri task, oppure se è admin/hr può filtrare
-    # Per semplicità, di default mostriamo i propri task.
-    # Un parametro 'all_users=true' (solo admin) permette di vedere tutto.
     
-    if request.args.get('all_users') == 'true' and (current_user.is_admin or current_user.department_id == 17):
-        pass # No filter on assignee
+    user_role = getattr(current_user, 'role', None)
+    
+    # Filtro base per ruolo
+    if request.args.get('all_users') == 'true' and current_user.is_admin:
+        # Admin con all_users=true: nessun filtro
+        pass
+    elif user_role == UserRoleEnum.admin or current_user.is_admin:
+        # Admin: vede tutto
+        pass
+    elif user_role == UserRoleEnum.team_leader:
+        # Team Leader: vede task propri e dei membri del team
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        team_member_ids.add(current_user.id)
+        
+        if team_member_ids:
+            query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
+        else:
+            query = query.filter(Task.assignee_id == current_user.id)
     else:
+        # Professionista o altro: solo i propri task
         query = query.filter(Task.assignee_id == current_user.id)
 
     # Filtri

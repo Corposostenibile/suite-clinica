@@ -50,7 +50,7 @@ from corposostenibile.models import (
     Certification, User, Department, Team,
     LeaveRequest, LeavePolicy, ItalianHoliday,
     LeaveTypeEnum, LeaveStatusEnum,
-    Cliente, StatoClienteEnum
+    Cliente, StatoClienteEnum, UserRoleEnum
 )
 from . import team_bp
 from .forms import (
@@ -938,6 +938,34 @@ def user_list() -> str:
         filters.append(User.is_active.is_(True))
     elif active in {"1", "0"}:
         filters.append(User.is_active.is_(active == "1"))
+    
+    # ── Filtro per ruolo (Admin, Team Leader, Professionista) ─────
+    user_role = getattr(current_user, 'role', None)
+    
+    if user_role == UserRoleEnum.admin:
+        # Admin: vede tutti gli utenti (nessun filtro aggiuntivo)
+        pass
+    elif user_role == UserRoleEnum.team_leader:
+        # Team Leader: vede solo i membri dei suoi team
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        # Aggiungi anche se stesso
+        team_member_ids.add(current_user.id)
+        
+        if team_member_ids:
+            filters.append(User.id.in_(list(team_member_ids)))
+        else:
+            # Nessun membro del team: mostra solo se stesso
+            filters.append(User.id == current_user.id)
+    elif user_role == UserRoleEnum.professionista:
+        # Professionista: vede solo se stesso
+        filters.append(User.id == current_user.id)
+    else:
+        # Altri ruoli (influencer, etc.): vede solo se stesso
+        if not current_user.is_admin:
+            filters.append(User.id == current_user.id)
     
     if dept is not None:
         filters.append(User.department_id == dept)
