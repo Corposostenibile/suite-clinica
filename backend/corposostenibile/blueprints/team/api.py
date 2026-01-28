@@ -103,13 +103,12 @@ def _serialize_user(user, include_details=False, include_teams_led=True):
 
     return data
 
-def _serialize_origins(user):
-    """Serialize user origins (for influencers)."""
-    if hasattr(user, 'influencer_origins'):
-        # Handle dynamic relationship
-        origins = user.influencer_origins.all() if hasattr(user.influencer_origins, 'all') else user.influencer_origins
-        return [{'id': o.id, 'name': o.name} for o in origins]
-    return []
+def _serialize_origin(user):
+    """Serialize user origin (for influencers) - now 1:1 relationship."""
+    if hasattr(user, 'influencer_origin') and user.influencer_origin:
+        o = user.influencer_origin
+        return {'id': o.id, 'name': o.name}
+    return None
 
 
 # =============================================================================
@@ -213,7 +212,7 @@ def get_member(user_id):
     return jsonify({
         'success': True,
         **_serialize_user(user, include_details=True),
-        'influencer_origins': _serialize_origins(user)
+        'influencer_origin': _serialize_origin(user)
     })
 
 
@@ -281,14 +280,21 @@ def create_member():
         # Set password
         user.set_password(data['password'])
 
-        # Handle Origin assignment for Influencers
-        if role_enum == UserRoleEnum.influencer and 'origin_ids' in data:
-            origin_ids = data['origin_ids']
-            if isinstance(origin_ids, list):
-                # Retrieve Origin objects
-                origins = Origine.query.filter(Origine.id.in_(origin_ids)).all()
-                for origin in origins:
-                    user.influencer_origins.append(origin)
+        # Handle Origin assignment for Influencers (now 1:1)
+        if role_enum == UserRoleEnum.influencer and 'origin_id' in data:
+            origin_id = data['origin_id']
+            if origin_id:
+                # Find the origin and assign it
+                origin = Origine.query.get(origin_id)
+                if origin:
+                    # Check if origin is already assigned to another influencer
+                    if origin.influencer_id and origin.influencer_id != user.id:
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'message': f'Origine "{origin.name}" è già assegnata ad un altro influencer'
+                        }), HTTPStatus.BAD_REQUEST
+                    origin.influencer_id = user.id
 
         db.session.add(user)
         db.session.commit()
@@ -298,7 +304,7 @@ def create_member():
             'message': 'Membro creato con successo',
             'id': user.id,
             **_serialize_user(user),
-            'influencer_origins': _serialize_origins(user)
+            'influencer_origin': _serialize_origin(user)
         }), HTTPStatus.CREATED
 
     except Exception as e:
@@ -369,25 +375,34 @@ def update_member(user_id):
         db.session.commit()
 
 
-        # Update Origin assignment for Influencers
-        if 'origin_ids' in data:
+        # Update Origin assignment for Influencers (now 1:1)
+        if 'origin_id' in data:
             # Check if user is influencer (either currently or being updated to)
             current_role = user.role
             new_role_str = data.get('role')
             new_role = UserRoleEnum(new_role_str) if new_role_str in [e.value for e in UserRoleEnum] else current_role
             
             if new_role == UserRoleEnum.influencer:
-                origin_ids = data['origin_ids']
-                if isinstance(origin_ids, list):
-                    # Clear current origins (safe for dynamic relationship)
-                    current_origins = user.influencer_origins.all() if hasattr(user.influencer_origins, 'all') else list(user.influencer_origins)
-                    for o in current_origins:
-                        user.influencer_origins.remove(o)
-                    
-                    # Add new origins
-                    new_origins = Origine.query.filter(Origine.id.in_(origin_ids)).all()
-                    for o in new_origins:
-                        user.influencer_origins.append(o)
+                origin_id = data['origin_id']
+                
+                # Clear current origin if exists
+                if user.influencer_origin:
+                    old_origin = Origine.query.get(user.influencer_origin.id)
+                    if old_origin:
+                        old_origin.influencer_id = None
+                
+                # Assign new origin
+                if origin_id:
+                    new_origin = Origine.query.get(origin_id)
+                    if new_origin:
+                        # Check if origin is already assigned to another influencer
+                        if new_origin.influencer_id and new_origin.influencer_id != user.id:
+                            db.session.rollback()
+                            return jsonify({
+                                'success': False,
+                                'message': f'Origine "{new_origin.name}" è già assegnata ad un altro influencer'
+                            }), HTTPStatus.BAD_REQUEST
+                        new_origin.influencer_id = user.id
 
         db.session.commit()
 
@@ -395,7 +410,7 @@ def update_member(user_id):
             'success': True,
             'message': 'Membro aggiornato con successo',
             **_serialize_user(user, include_details=True),
-            'influencer_origins': _serialize_origins(user)
+            'influencer_origin': _serialize_origin(user)
         })
 
     except Exception as e:

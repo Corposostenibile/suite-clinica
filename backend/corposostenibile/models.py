@@ -1083,12 +1083,8 @@ class Origine(TimestampMixin, db.Model):
     name = db.Column(db.String(255), unique=True, nullable=False, index=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
 
-    users = db.relationship(
-        "User",
-        secondary="user_origins",
-        back_populates="influencer_origins",
-        lazy="selectin"
-    )
+    influencer_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True)
+    influencer = db.relationship("User", back_populates="influencer_origin")
 
     def __repr__(self) -> str:
         return f"<Origine {self.name!r}>"
@@ -1097,12 +1093,7 @@ class Origine(TimestampMixin, db.Model):
 # ---------------------------------------------------------------------------- #
 #  Tabella ponte User (Influencer) ⇄ Origine (M2M)
 # ---------------------------------------------------------------------------- #
-user_origins = db.Table(
-    "user_origins",
-    db.Column("user_id", db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    db.Column("origin_id", db.Integer, db.ForeignKey("origins.id", ondelete="CASCADE"), primary_key=True),
-    db.Column("assigned_at", db.DateTime, default=datetime.utcnow, nullable=False),
-)
+# user_origins table removed provided 1:1 implementation
 
 # --------------------------------------------------------------------------- #
 #  User  (profili interni) – DEFINITIVO
@@ -1440,10 +1431,11 @@ class User(UserMixin, TimestampMixin, db.Model):
         return ["admin"] if self.is_admin else []
 
     # ────────────────────────── Influencer Origins ────────────────────────────
-    influencer_origins = relationship(
+    # ────────────────────────── Influencer Origins ────────────────────────────
+    influencer_origin = relationship(
         "Origine",
-        secondary="user_origins",
-        back_populates="users",
+        back_populates="influencer",
+        uselist=False,
         lazy="selectin"
     )
 

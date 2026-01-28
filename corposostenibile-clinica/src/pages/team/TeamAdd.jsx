@@ -31,7 +31,7 @@ function TeamAdd() {
   });
 
   const [allOrigins, setAllOrigins] = useState([]);
-  const [selectedOrigins, setSelectedOrigins] = useState([]);
+  const [selectedOrigin, setSelectedOrigin] = useState('');
 
   // Fetch origins on component mount
   useEffect(() => {
@@ -70,8 +70,8 @@ function TeamAdd() {
         specialty: data.specialty || '',
 
       });
-      if (data.role === 'influencer' && data.influencer_origins) {
-        setSelectedOrigins(data.influencer_origins.map(o => o.id));
+      if (data.role === 'influencer' && data.influencer_origin) {
+        setSelectedOrigin(data.influencer_origin.id);
       }
       if (data.avatar_path) {
         setAvatarPreview(data.avatar_path);
@@ -94,14 +94,8 @@ function TeamAdd() {
   };
 
 
-  const handleOriginChange = (originId) => {
-    setSelectedOrigins(prev => {
-      if (prev.includes(originId)) {
-        return prev.filter(id => id !== originId);
-      } else {
-        return [...prev, originId];
-      }
-    });
+  const handleOriginChange = (e) => {
+    setSelectedOrigin(e.target.value);
   };
 
   const handleAvatarClick = () => {
@@ -189,7 +183,7 @@ function TeamAdd() {
         role: formData.role,
 
         specialty: formData.specialty || null,
-        origin_ids: formData.role === 'influencer' ? selectedOrigins : [],
+        origin_id: formData.role === 'influencer' ? (selectedOrigin || null) : null,
       };
 
       // Only include password if provided
@@ -475,35 +469,29 @@ function TeamAdd() {
                 {/* Origins Selection for Influencers */}
                 {formData.role === 'influencer' && (
                   <div className="mt-4 animate__animated animate__fadeIn">
-                    <h6 className="mb-3">Assegna Origini (Campagne)</h6>
+                    <h6 className="mb-3">Assegna Origine</h6>
                     <div className="card bg-light border-0">
                       <div className="card-body">
                         {allOrigins.length === 0 ? (
                           <p className="text-muted mb-0">Nessuna origine disponibile.</p>
                         ) : (
-                          <div className="row g-2">
-                             {allOrigins
-                                .filter(o => o.active) // Show only active origins
-                                .map(origin => (
-                                <div className="col-md-6" key={origin.id}>
-                                  <div className="form-check">
-                                    <input
-                                      className="form-check-input"
-                                      type="checkbox"
-                                      id={`origin-${origin.id}`}
-                                      checked={selectedOrigins.includes(origin.id)}
-                                      onChange={() => handleOriginChange(origin.id)}
-                                    />
-                                    <label className="form-check-label" htmlFor={`origin-${origin.id}`}>
-                                      {origin.name}
-                                    </label>
-                                  </div>
-                                </div>
-                             ))}
-                          </div>
+                          <select
+                            className="form-select"
+                            value={selectedOrigin}
+                            onChange={handleOriginChange}
+                          >
+                            <option value="">Seleziona un'origine...</option>
+                            {allOrigins
+                              .filter(o => o.active)
+                              .map(origin => (
+                                <option key={origin.id} value={origin.id}>
+                                  {origin.name}
+                                </option>
+                              ))}
+                          </select>
                         )}
                         <small className="text-muted d-block mt-2">
-                          Seleziona le origini dei clienti visibili a questo influencer.
+                          Seleziona l'origine dei clienti visibili a questo influencer.
                         </small>
                       </div>
                     </div>
