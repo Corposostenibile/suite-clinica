@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
 import {
   ROLE_LABELS,
   SPECIALTY_LABELS,
   ROLE_COLORS,
   SPECIALTY_COLORS
 } from '../../services/teamService';
+import teamService from '../../services/teamService';
 
 // Gradient colors by role
 const ROLE_GRADIENTS = {
@@ -16,10 +17,52 @@ const ROLE_GRADIENTS = {
 };
 
 function Profilo() {
-  const { user } = useOutletContext();
+  const { id } = useParams();
+  const outletContext = useOutletContext();
+  const currentUser = outletContext?.user || null;
+  const [profileUser, setProfileUser] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
-  if (!user) {
+  // If ID is provided in URL, fetch that user's profile
+  // Otherwise, show current user's profile
+  useEffect(() => {
+    if (id) {
+      // Fetch specific user profile
+      const fetchUserProfile = async () => {
+        setLoading(true);
+        try {
+          const data = await teamService.getTeamMember(id);
+          // Ensure teams arrays are initialized
+          setProfileUser({
+            ...data,
+            teams: data.teams || [],
+            teams_led: data.teams_led || []
+          });
+        } catch (err) {
+          console.error('Error fetching user profile:', err);
+          setProfileUser(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchUserProfile();
+    } else {
+      // Use current user from context
+      if (currentUser) {
+        setProfileUser({
+          ...currentUser,
+          teams: currentUser.teams || [],
+          teams_led: currentUser.teams_led || []
+        });
+      }
+    }
+  }, [id, currentUser]);
+
+  const user = profileUser;
+  const isOwnProfile = !id || (currentUser && user && currentUser.id === user.id);
+
+  if (loading || !user) {
     return (
       <div className="d-flex justify-content-center align-items-center py-5">
         <div className="spinner-border text-primary" role="status">
@@ -37,7 +80,7 @@ function Profilo() {
       {/* Page Header */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
-          <h4 className="mb-1">Il Mio Profilo</h4>
+          <h4 className="mb-1">{isOwnProfile ? 'Il Mio Profilo' : `Profilo di ${user.full_name}`}</h4>
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb mb-0">
               <li className="breadcrumb-item">
@@ -47,10 +90,12 @@ function Profilo() {
             </ol>
           </nav>
         </div>
-        <Link to={`/team-modifica/${user.id}`} className="btn btn-primary">
-          <i className="ri-edit-line me-1"></i>
-          Modifica Profilo
-        </Link>
+        {isOwnProfile && (
+          <Link to={`/team-modifica/${user.id}`} className="btn btn-primary">
+            <i className="ri-edit-line me-1"></i>
+            Modifica Profilo
+          </Link>
+        )}
       </div>
 
       <div className="row g-4">
@@ -272,43 +317,97 @@ function Profilo() {
               {/* Teams Tab */}
               {activeTab === 'teams' && (
                 <>
-                  {user.teams_led && user.teams_led.length > 0 ? (
-                    <div className="row g-3">
-                      {user.teams_led.map((team) => (
-                        <div key={team.id} className="col-md-6">
-                          <div className="border rounded-3 p-3 d-flex align-items-center h-100">
-                            <div className="flex-shrink-0">
-                              <div
-                                className="rounded-circle d-flex align-items-center justify-content-center text-white"
-                                style={{
-                                  width: '48px',
-                                  height: '48px',
-                                  background: ROLE_GRADIENTS.team_leader
-                                }}
-                              >
-                                <i className="ri-team-line fs-5"></i>
+                  {/* Teams Led */}
+                  <div className="mb-4">
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <i className="ri-shield-star-line me-2"></i>
+                      Team Guidati
+                    </h6>
+                    {user.teams_led && user.teams_led.length > 0 ? (
+                      <div className="row g-3">
+                        {user.teams_led.map((team) => (
+                          <div key={team.id} className="col-12">
+                            <Link 
+                              to={`/teams-dettaglio/${team.id}`}
+                              className="text-decoration-none"
+                            >
+                              <div className="border rounded-3 p-3 d-flex align-items-center">
+                                <div className="flex-shrink-0">
+                                  <div
+                                    className="rounded-circle d-flex align-items-center justify-content-center text-white"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      background: ROLE_GRADIENTS.team_leader
+                                    }}
+                                  >
+                                    <i className="ri-team-line fs-5"></i>
+                                  </div>
+                                </div>
+                                <div className="flex-grow-1 ms-3">
+                                  <h6 className="mb-0">{team.name}</h6>
+                                  <small className="text-muted">
+                                    <i className="ri-shield-star-line me-1"></i>
+                                    Team Leader
+                                  </small>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex-grow-1 ms-3">
-                              <h6 className="mb-0">{team.name}</h6>
-                              <small className="text-muted">
-                                <i className="ri-shield-star-line me-1"></i>
-                                Team Leader
-                              </small>
-                            </div>
+                            </Link>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-5">
-                      <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                           style={{ width: '64px', height: '64px' }}>
-                        <i className="ri-team-line text-muted fs-3"></i>
+                        ))}
                       </div>
-                      <p className="text-muted mb-0">Non guidi nessun team</p>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="text-center py-3 bg-light rounded-3">
+                        <small className="text-muted">Non guida nessun team</small>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Teams Member */}
+                  <div>
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <i className="ri-group-line me-2"></i>
+                      Membro di Team
+                    </h6>
+                    {user.teams && user.teams.length > 0 ? (
+                      <div className="row g-3">
+                        {user.teams.map((team) => (
+                          <div key={team.id} className="col-12">
+                            <Link 
+                              to={`/teams-dettaglio/${team.id}`}
+                              className="text-decoration-none"
+                            >
+                              <div className="border rounded-3 p-3 d-flex align-items-center">
+                                <div className="flex-shrink-0">
+                                  <div
+                                    className="rounded-circle d-flex align-items-center justify-content-center text-white"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
+                                    }}
+                                  >
+                                    <i className="ri-user-line fs-5"></i>
+                                  </div>
+                                </div>
+                                <div className="flex-grow-1 ms-3">
+                                  <h6 className="mb-0">{team.name}</h6>
+                                  <small className="text-muted">
+                                    <i className="ri-user-line me-1"></i>
+                                    Membro
+                                  </small>
+                                </div>
+                              </div>
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-3 bg-light rounded-3">
+                        <small className="text-muted">Non è membro di nessun team</small>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 

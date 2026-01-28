@@ -86,11 +86,20 @@ def _serialize_user(user, include_details=False, include_teams_led=True):
     # Only load teams_led when explicitly requested (causes N+1 queries)
     if include_teams_led and hasattr(user, 'teams_led'):
         data['teams_led'] = [
-            {'id': t.id, 'name': t.name}
+            {'id': t.id, 'name': t.name, 'team_type': t.team_type.value if t.team_type else None}
             for t in (user.teams_led or [])
         ]
     else:
         data['teams_led'] = []
+
+    # Include teams where user is a member
+    if include_details and hasattr(user, 'teams'):
+        data['teams'] = [
+            {'id': t.id, 'name': t.name, 'team_type': t.team_type.value if t.team_type else None}
+            for t in (user.teams or [])
+        ]
+    else:
+        data['teams'] = []
 
     if include_details:
         data.update({

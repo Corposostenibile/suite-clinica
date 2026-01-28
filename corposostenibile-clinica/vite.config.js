@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/',
   plugins: [react()],
   server: {
     port: 3000,
@@ -28,11 +29,8 @@ export default defineConfig({
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
-      // Proxy team routes (for avatars, etc.)
-      '/team': {
-        target: 'http://127.0.0.1:5001',
-        changeOrigin: true,
-      },
+      // Note: /team routes are handled by React Router on the frontend
+      // Only /api/team/* routes are proxied to the backend
       // Proxy client-checks routes
       '/client-checks': {
         target: 'http://127.0.0.1:5001',
