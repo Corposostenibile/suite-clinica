@@ -95,8 +95,11 @@ class CustomerRepository:
         eager: bool = False,
     ):
         """Ritorna una `Pagination` pronta per template/API."""
-        from sqlalchemy import case
-        from corposostenibile.models import TipologiaClienteEnum
+        from sqlalchemy import case, or_, exists, select
+        from corposostenibile.models import (
+            TipologiaClienteEnum, UserRoleEnum,
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
+        )
         from flask_login import current_user
 
         qry: Query = self._base_query(eager=eager)
@@ -115,6 +118,95 @@ class CustomerRepository:
                     qry = qry.filter(Cliente.cliente_id.in_(assigned_ids))
                 else:
                     qry = qry.filter(False)  # Nessun cliente assegnato
+        
+        # -------------------------------------------------------------------
+        # FILTRO PER RUOLO (Admin, Team Leader, Professionista)
+        # -------------------------------------------------------------------
+        if current_user.is_authenticated and not current_user.is_trial:
+            user_role = getattr(current_user, 'role', None)
+            
+            # Admin: vede tutto (nessun filtro)
+            if user_role == UserRoleEnum.admin:
+                pass  # Nessun filtro aggiuntivo
+            
+            # Influencer: già gestito in routes.py
+            elif user_role == UserRoleEnum.influencer:
+                pass  # Già filtrato dalle routes
+            
+            # Team Leader: vede i pazienti assegnati ai membri del suo team
+            elif user_role == UserRoleEnum.team_leader:
+                # Raccoglie tutti i member_ids dei team guidati
+                team_member_ids = set()
+                for team in (current_user.teams_led or []):
+                    for member in (team.members or []):
+                        team_member_ids.add(member.id)
+                
+                if team_member_ids:
+                    # Filtra i pazienti che hanno almeno un professionista del team assegnato
+                    member_ids_list = list(team_member_ids)
+                    qry = qry.filter(
+                        or_(
+                            # Assegnato a nutrizionista del team
+                            exists(
+                                select(cliente_nutrizionisti.c.cliente_id)
+                                .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnato a coach del team
+                            exists(
+                                select(cliente_coaches.c.cliente_id)
+                                .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_coaches.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnato a psicologo del team
+                            exists(
+                                select(cliente_psicologi.c.cliente_id)
+                                .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_psicologi.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnato a consulente del team
+                            exists(
+                                select(cliente_consulenti.c.cliente_id)
+                                .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_consulenti.c.user_id.in_(member_ids_list))
+                            ),
+                        )
+                    )
+                else:
+                    # Team Leader senza membri: nessun paziente visibile
+                    qry = qry.filter(False)
+            
+            # Professionista o altro: vede solo i propri pazienti
+            elif user_role == UserRoleEnum.professionista:
+                user_id = current_user.id
+                qry = qry.filter(
+                    or_(
+                        # Pazienti assegnati come nutrizionista
+                        exists(
+                            select(cliente_nutrizionisti.c.cliente_id)
+                            .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_nutrizionisti.c.user_id == user_id)
+                        ),
+                        # Pazienti assegnati come coach
+                        exists(
+                            select(cliente_coaches.c.cliente_id)
+                            .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_coaches.c.user_id == user_id)
+                        ),
+                        # Pazienti assegnati come psicologo
+                        exists(
+                            select(cliente_psicologi.c.cliente_id)
+                            .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_psicologi.c.user_id == user_id)
+                        ),
+                        # Pazienti assegnati come consulente
+                        exists(
+                            select(cliente_consulenti.c.cliente_id)
+                            .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_consulenti.c.user_id == user_id)
+                        ),
+                    )
+                )
         
         # SEMPRE applica l'ordinamento prioritario per tipologia
         # Ordina prima per tipologia (C, B, A hanno priorità), poi per nome
