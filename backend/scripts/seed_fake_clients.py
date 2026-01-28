@@ -211,11 +211,9 @@ def main():
             confirm = input(f"\n⚠️  Vuoi eliminare i {existing_count} clienti esistenti? (s/n): ")
             if confirm.lower() == 's':
                 print("🗑️  Eliminazione clienti esistenti...")
-                # Disabilita FK temporaneamente per velocità
-                db.session.execute(db.text("SET session_replication_role = 'replica'"))
+                # Delete all clients (standard deletion without FK disabling)
                 Cliente.query.delete()
                 db.session.commit()
-                db.session.execute(db.text("SET session_replication_role = 'origin'"))
                 print("✅ Clienti eliminati")
             else:
                 print("❌ Operazione annullata")

@@ -138,7 +138,7 @@ def main():
         print("=" * 60)
         
         # Verifica utente admin esistente
-        admin = User.query.filter_by(email='volpara.corposostenibile@gmail.com').first()
+        admin = User.query.filter_by(email='admin1@suiteclinica.com').first()
         if not admin:
             print("❌ Admin volpara non trovato!")
             return

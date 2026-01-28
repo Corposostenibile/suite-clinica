@@ -363,9 +363,12 @@ def list_view() -> str:
 
     params = parse_filter_args(request.args)
 
-    # Filtro per Influencer: vincola alle origini assegnate
+    # Filtro per Influencer: vincola all'origine assegnata
     if current_user.role == UserRoleEnum.influencer:
-        origine_ids = [o.id for o in current_user.influencer_origins]
+        if current_user.influencer_origin:
+            origine_ids = [current_user.influencer_origin.id]
+        else:
+            origine_ids = []
         params = replace(params, origine_ids=origine_ids)
 
     pagination = customers_repo.list(
@@ -2660,9 +2663,12 @@ def api_origins_delete(origin_id):
 def api_list() -> Any:
     params = parse_filter_args(request.args)
 
-    # Filtro per Influencer: vincola alle origini assegnate
+    # Filtro per Influencer: vincola all'origine assegnata
     if current_user.role == UserRoleEnum.influencer:
-        origine_ids = [o.id for o in current_user.influencer_origins]
+        if current_user.influencer_origin:
+            origine_ids = [current_user.influencer_origin.id]
+        else:
+            origine_ids = []
         params = replace(params, origine_ids=origine_ids)
 
     pagination = customers_repo.list(
