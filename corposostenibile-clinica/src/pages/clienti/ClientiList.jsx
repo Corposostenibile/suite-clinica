@@ -290,7 +290,7 @@ function ClientiList() {
         </div>
         {(user?.is_admin || user?.role === 'admin') && (
           <Link
-            to="/clienti-aggiungi"
+            to="/clienti-nuovo"
             className="btn btn-primary d-flex align-items-center gap-2"
             style={{ borderRadius: '10px', padding: '10px 20px' }}
           >
