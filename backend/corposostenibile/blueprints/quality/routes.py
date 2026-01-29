@@ -1,27 +1,5 @@
-"""
-Quality Score API Routes
-API routes for Quality Score management (ADMIN and TEAM LEADERS).
-All routes return JSON for React frontend consumption.
-"""
-from flask import request, jsonify
-from flask_login import login_required, current_user
-from datetime import date, datetime, timedelta
-from sqlalchemy import desc, func
-from corposostenibile.extensions import db, csrf
-from corposostenibile.models import (
-    User,
-    Cliente,
-    Team,
-    QualityWeeklyScore,
-    QualityClientScore,
-    TrustpilotReview,
-    EleggibilitaSettimanale,
-    WeeklyCheck,
-    WeeklyCheckResponse,
-    TypeFormResponse,
     DCACheckResponse,
     UserSpecialtyEnum,
-    UserRoleEnum,
 )
 from .services import (
     EligibilityService,
@@ -43,53 +21,7 @@ def admin_required(f):
     return decorated_function
 
 
-def admin_or_team_leader_required(f):
-    """
-    Decorator per verificare accesso admin o team leader.
-    Team Leader vedranno solo i dati dei membri del loro team.
-    """
-    from functools import wraps
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({'success': False, 'error': 'Non autenticato.'}), 401
-        
-        user_role = getattr(current_user, 'role', None)
-        is_admin = current_user.is_admin
-        is_team_leader = user_role == UserRoleEnum.team_leader
-        
-        if not (is_admin or is_team_leader):
-            return jsonify({'success': False, 'error': 'Accesso negato. Solo amministratori o team leader.'}), 403
-        
-        return f(*args, **kwargs)
-    return decorated_function
 
-
-def get_allowed_professional_ids():
-    """
-    Ritorna gli ID dei professionisti visibili per l'utente corrente.
-    - Admin: None (vede tutti)
-    - Team Leader: ID dei membri dei suoi team
-    - Altri: solo il proprio ID
-    """
-    if not current_user.is_authenticated:
-        return []
-    
-    user_role = getattr(current_user, 'role', None)
-    
-    if current_user.is_admin or user_role == UserRoleEnum.admin:
-        return None  # Tutti
-    
-    if user_role == UserRoleEnum.team_leader:
-        team_member_ids = set()
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        team_member_ids.add(current_user.id)
-        return list(team_member_ids) if team_member_ids else [current_user.id]
-    
-    # Professionista o altro ruolo: solo se stesso
-    return [current_user.id]
 
 
 
@@ -116,7 +48,7 @@ SPECIALTY_FILTER_MAP = {
 
 @bp.route('/api/weekly-scores')
 @login_required
-@admin_or_team_leader_required
+@admin_required
 def api_weekly_scores():
     """
     API: Restituisce Quality Score settimanali per tutti i professionisti di una specialità.
@@ -158,11 +90,6 @@ def api_weekly_scores():
 
         if team_id:
             prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
-        
-        # Filtro per ruolo: Team Leader vede solo membri del suo team
-        allowed_ids = get_allowed_professional_ids()
-        if allowed_ids is not None:  # None = Admin, vede tutti
-            prof_query = prof_query.filter(User.id.in_(allowed_ids))
 
         professionisti = prof_query.order_by(User.last_name).all()
 
@@ -261,14 +188,9 @@ def api_weekly_scores():
 
 @bp.route('/api/professionista/<int:user_id>/trend')
 @login_required
-@admin_or_team_leader_required
+@admin_required
 def api_professionista_trend(user_id):
     """API: trend Quality Score professionista (ultime 12 settimane)."""
-    # Verifica accesso al professionista richiesto
-    allowed_ids = get_allowed_professional_ids()
-    if allowed_ids is not None and user_id not in allowed_ids:
-        return jsonify({'success': False, 'error': 'Accesso negato a questo professionista.'}), 403
-    
     scores = db.session.query(QualityWeeklyScore).filter_by(
         professionista_id=user_id
     ).order_by(QualityWeeklyScore.week_start_date).limit(12).all()
@@ -286,7 +208,7 @@ def api_professionista_trend(user_id):
 
 @bp.route('/api/dashboard/stats')
 @login_required
-@admin_or_team_leader_required
+@admin_required
 def api_dashboard_stats():
     """API: statistiche generali dashboard."""
     week_start, _ = EligibilityService.get_week_bounds()
@@ -700,7 +622,7 @@ def api_calcola_trimestrale():
 
 @bp.route('/api/quarterly-summary')
 @login_required
-@admin_or_team_leader_required
+@admin_required
 def api_quarterly_summary():
     """
     API: Riassunto trimestrale con KPI compositi e Super Malus.
@@ -766,7 +688,7 @@ def api_quarterly_summary():
 
 @bp.route('/api/professionista/<int:user_id>/kpi-breakdown')
 @login_required
-@admin_or_team_leader_required
+@admin_required
 def api_professionista_kpi_breakdown(user_id):
     """
     API: Dettaglio KPI composito per professionista nel trimestre.
@@ -780,11 +702,6 @@ def api_professionista_kpi_breakdown(user_id):
     Returns:
         JSON con breakdown KPI1, KPI2, bonus pesato e Super Malus
     """
-    # Verifica accesso al professionista richiesto
-    allowed_ids = get_allowed_professional_ids()
-    if allowed_ids is not None and user_id not in allowed_ids:
-        return jsonify({'success': False, 'error': 'Accesso negato a questo professionista.'}), 403
-    
     quarter = request.args.get('quarter') or ReviewService.get_quarter_string()
 
     professionista = db.session.get(User, user_id)
