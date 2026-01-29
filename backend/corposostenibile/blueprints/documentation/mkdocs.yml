@@ -1,0 +1,15 @@
+site_name: Corposostenibile Documentation
+site_dir: static
+
+theme:
+  name: material
+  language: it
+  custom_dir: overrides
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Pazienti:
+    - Pagina Professionisti: pazienti/pagina-professionisti.md

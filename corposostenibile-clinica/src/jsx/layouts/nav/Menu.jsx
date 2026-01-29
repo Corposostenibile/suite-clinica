@@ -98,4 +98,16 @@ export const MenuList = [
         iconStyle: SVGICON.Trial,
         to: 'in-prova',
     },
+
+    // ==================== RISORSE SECTION ====================
+    {
+        title: 'RISORSE',
+        classsChange: 'menu-title'
+    },
+    // Documentazione
+    {
+        title: 'Documentazione',
+        iconStyle: SVGICON.Learning,
+        to: 'documentazione',
+    },
 ];

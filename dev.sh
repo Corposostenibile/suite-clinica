@@ -115,6 +115,22 @@ show_help() {
     echo "  $0 setup-firewall                     # Apre le porte nel firewall."
 }
 
+# --- FUNZIONI DI DOCUMENTAZIONE ---
+build_docs() {
+    local dev=$1
+    validate_developer "$dev"
+    set_project_dir "$dev"
+    log_info "Costruzione documentazione MkDocs..."
+    cd "$PROJECT_DIR/backend"
+    if poetry run mkdocs build -f corposostenibile/blueprints/documentation/mkdocs.yml; then
+        log_success "Documentazione costruita con successo in static/"
+    else
+        log_error "Errore durante la build della documentazione."
+        return 1
+    fi
+}
+
+
 # --- FUNZIONI DI GESTIONE SERVER ---
 
 # NUOVA FUNZIONE: Avvia il server di sviluppo Flask in foreground
@@ -141,6 +157,11 @@ debug_server() {
     fi
 
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
+
+    # Build docs prima di avviare
+    build_docs "$dev"
+
+    # Esegue il comando ufficiale di Flask per lo sviluppo
 
     # Esegue il comando ufficiale di Flask per lo sviluppo
     poetry run flask run --host="0.0.0.0" --port="$port" --debug
@@ -673,6 +694,7 @@ case "$COMMAND" in
             clear) clear_environment "$1";;
             recreate) recreate_environment "$1";;
             reset-db) reset_database "$1";;
+            build-docs) build_docs "$1";; # Nuovo comando
         esac
         ;;
     setup-firewall)

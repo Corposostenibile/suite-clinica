@@ -376,7 +376,9 @@ def create_app(config_name: str | None = None) -> Flask:
 
         appointment_setting,  # Appointment Setting - messaggi Respond.io
         tasks,  # AGGIUNTO: Import del blueprint tasks
+        documentation,  # AGGIUNTO: Import del blueprint documentation
     )
+
 
     from .blueprints.blueprint_registry import bp as blueprint_registry_bp  # Blueprint Registry
     from .blueprints.database_registry import bp as database_registry_bp  # Database Models Registry
@@ -433,6 +435,9 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(database_registry_bp)  # AGGIUNTO: Registrazione Database Models Registry
     app.register_blueprint(dev_tracker_bp)  # AGGIUNTO: Registrazione Dev Tracker
     app.register_blueprint(it_projects_bp)  # AGGIUNTO: Registrazione IT Projects
+    
+    # Documentation Blueprint
+    app.register_blueprint(documentation.documentation_bp, url_prefix='/documentation')
 
     # Quality Score
     from corposostenibile.blueprints.quality import bp as quality_bp
@@ -479,7 +484,7 @@ def create_app(config_name: str | None = None) -> Flask:
             return redirect('/login')
 
         # Paths that should NOT be intercepted (handled by Flask)
-        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/', '/quality/api/')
+        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/', '/quality/api/', '/documentation/')
 
         @app.before_request
         def serve_spa_for_pages():

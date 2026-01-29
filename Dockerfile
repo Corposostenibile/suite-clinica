@@ -45,6 +45,11 @@ RUN poetry config virtualenvs.create false \
 COPY backend/corposostenibile ./corposostenibile
 COPY backend/wsgi.py ./
 
+# Build Documentation (MkDocs) - Production Ready
+# Generates static HTML files in corposostenibile/blueprints/documentation/static
+RUN mkdocs build -f corposostenibile/blueprints/documentation/mkdocs.yml
+
+
 # Copy built frontend assets from Stage 1
 # We allow __init__.py to serve them via send_from_directory
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

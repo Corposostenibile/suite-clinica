@@ -49,6 +49,9 @@ import { Calendario } from './pages/calendario';
 // Support pages
 import { Support } from './pages/support';
 
+// Documentation
+import Documentation from './pages/documentation/Documentation';
+
 // Admin pages
 import { GHLSettings, OriginSettings } from './pages/admin';
 
@@ -144,6 +147,9 @@ function App() {
 
             {/* Support */}
             <Route path="/supporto" element={<Support />} />
+
+            {/* Documentazione */}
+            <Route path="/documentazione" element={<Documentation />} />
 
             {/* Admin Pages */}
             <Route path="/admin/ghl-settings" element={<GHLSettings />} />

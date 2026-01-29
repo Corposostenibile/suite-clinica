@@ -142,6 +142,16 @@ function Sidebar({ user, collapsed, onMobileClose }) {
             </ul>
           </li>
 
+          {/* === SEZIONE RISORSE === */}
+          <li className="nav-label">Risorse</li>
+          <li className={isActive('/documentazione') ? 'mm-active' : ''}>
+            <Link to="/documentazione">
+              <i className="ri-book-read-line menu-icon-ri"></i>
+              <span className="nav-text">Documentazione</span>
+            </Link>
+          </li>
+
+
           {/* === SEZIONE IT (solo admin) === */}
           {user?.is_admin && (
             <>
