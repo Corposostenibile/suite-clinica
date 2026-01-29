@@ -67,7 +67,7 @@ SPECIALTY_FILTER_MAP = {
 # API CORE - WEEKLY SCORES
 # ============================================================================
 
-@bp.route('/api/weekly-scores')
+@bp.route('/weekly-scores')
 @login_required
 @admin_required
 def api_weekly_scores():
@@ -207,7 +207,7 @@ def api_weekly_scores():
         }), 500
 
 
-@bp.route('/api/professionista/<int:user_id>/trend')
+@bp.route('/professionista/<int:user_id>/trend')
 @login_required
 @admin_required
 def api_professionista_trend(user_id):
@@ -227,7 +227,7 @@ def api_professionista_trend(user_id):
     return jsonify(data)
 
 
-@bp.route('/api/dashboard/stats')
+@bp.route('/dashboard/stats')
 @login_required
 @admin_required
 def api_dashboard_stats():
@@ -263,7 +263,7 @@ def api_dashboard_stats():
 # API CALCOLO
 # ============================================================================
 
-@bp.route('/api/calculate', methods=['POST'])
+@bp.route('/calculate', methods=['POST'])
 @csrf.exempt
 @login_required
 @admin_required
@@ -375,7 +375,7 @@ def api_calculate_quality():
         }), 500
 
 
-@bp.route('/api/calcola/<dept_key>', methods=['POST'])
+@bp.route('/calcola/<dept_key>', methods=['POST'])
 @csrf.exempt
 @login_required
 @admin_required
@@ -473,7 +473,7 @@ def api_calcola_dipartimento(dept_key):
 # API CLIENTI ED ELEGGIBILITÀ
 # ============================================================================
 
-@bp.route('/api/clienti-eleggibili/<int:prof_id>')
+@bp.route('/clienti-eleggibili/<int:prof_id>')
 @login_required
 @admin_required
 def api_clienti_eleggibili(prof_id):
@@ -523,7 +523,7 @@ def api_clienti_eleggibili(prof_id):
     })
 
 
-@bp.route('/api/check-responses/<int:prof_id>')
+@bp.route('/check-responses/<int:prof_id>')
 @login_required
 @admin_required
 def api_check_responses(prof_id):
@@ -596,7 +596,7 @@ def api_check_responses(prof_id):
 # API CALCOLO TRIMESTRALE CON SUPER MALUS
 # ============================================================================
 
-@bp.route('/api/calcola-trimestrale', methods=['POST'])
+@bp.route('/calcola-trimestrale', methods=['POST'])
 @csrf.exempt
 @login_required
 @admin_required
@@ -641,7 +641,7 @@ def api_calcola_trimestrale():
         }), 500
 
 
-@bp.route('/api/quarterly-summary')
+@bp.route('/quarterly-summary')
 @login_required
 @admin_required
 def api_quarterly_summary():
@@ -707,7 +707,7 @@ def api_quarterly_summary():
     })
 
 
-@bp.route('/api/professionista/<int:user_id>/kpi-breakdown')
+@bp.route('/professionista/<int:user_id>/kpi-breakdown')
 @login_required
 @admin_required
 def api_professionista_kpi_breakdown(user_id):
