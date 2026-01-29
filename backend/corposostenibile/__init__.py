@@ -479,7 +479,7 @@ def create_app(config_name: str | None = None) -> Flask:
             return redirect('/login')
 
         # Paths that should NOT be intercepted (handled by Flask)
-        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/')
+        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/', '/quality/api/')
 
         @app.before_request
         def serve_spa_for_pages():
