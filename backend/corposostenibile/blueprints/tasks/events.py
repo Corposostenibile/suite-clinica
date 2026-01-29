@@ -3,6 +3,9 @@ from sqlalchemy.orm import attributes
 from flask_login import user_logged_in
 from flask import current_app
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -23,6 +26,7 @@ def trigger_onboarding_task(mapper, connection, target):
     """
     Genera un task di onboarding quando viene assegnato un professionista.
     """
+    logger.info(f"EVENT: trigger_onboarding_task for client {target.cliente_id} - {target.nome_cognome}")
     # Verifica cambiamenti nei campi professionista
     # create_task_session = db.session.object_session(target) # after_update keeps session?
     # Usiamo Connection per insert diretti o Session? 
@@ -33,7 +37,9 @@ def trigger_onboarding_task(mapper, connection, target):
     
     session = db.session
     if not session:
+        logger.warning("EVENT: trigger_onboarding_task - NO SESSION FOUND")
         return
+    logger.info("EVENT: trigger_onboarding_task - Session OK")
 
     # Helper per creare task
     def create_onboard_task(assignee_id, role_name):
@@ -51,22 +57,79 @@ def trigger_onboarding_task(mapper, connection, target):
             created_at=datetime.utcnow()
         )
         session.add(task)
+        logger.info(f"TASK CREATED: Onboarding task for assignee {assignee_id} (role: {role_name})")
 
-    # Campi da monitorare
+    # Campi da monitorare (SOLO CAMPI SINGOLI/SCALAR)
+    # health_manager_id è ancora un campo singolo
     prof_fields = {
-        'nutrizionista_id': 'Nutrizionista',
-        'coach_id': 'Coach',
-        'psicologa_id': 'Psicologo/a',
         'health_manager_id': 'Health Manager'
     }
 
     state = inspect(target)
+    # logger.info(f"INSPECTING STATE for {target} (Scalar Fields)")
+    
     for field, role in prof_fields.items():
         hist = state.attrs.get(field).history
+        # logger.info(f"CHECK SCALAR FIELD {field}: has_changes={hist.has_changes()}")
+        
         if hist.has_changes():
             # Nuovo valore assegnato (added[0])
             if hist.added and hist.added[0]:
+                logger.info(f"MATCH SCALAR! Creating task for {role} (id: {hist.added[0]})")
                 create_onboard_task(hist.added[0], role)
+
+
+# --------------------------------------------------------------------------- #
+#  1b. ONBOARDING (Assegnazione Cliente - M2M Lists)
+# --------------------------------------------------------------------------- #
+def trigger_professional_assignment(target, value, initiator):
+    """
+    Genera un task quando viene aggiunto un professionista a una lista M2M.
+    Triggered by: append event on collections
+    """
+    if not value:
+        return
+        
+    session = db.session
+    if not session:
+        logger.warning("EVENT: trigger_professional_assignment - NO SESSION FOUND")
+        return
+
+    # Determina il ruolo in base al nome dell'attributo che ha scatenato l'evento
+    # initiator.key è il nome dell'attributo (es. 'nutrizionisti_multipli')
+    role_map = {
+        'nutrizionisti_multipli': 'Nutrizionista',
+        'coaches_multipli': 'Coach',
+        'psicologi_multipli': 'Psicologo/a',
+        'consulenti_multipli': 'Consulente Alimentare'
+    }
+    
+    attr_name = initiator.key
+    role_name = role_map.get(attr_name, 'Professionista')
+    
+    logger.info(f"EVENT: M2M Append - {attr_name} -> Assigning to {value.id} as {role_name}")
+
+    try:
+        task = Task(
+            title=f"Nuovo Cliente: {target.nome_cognome}",
+            description=f"Ti è stato assegnato il cliente {target.nome_cognome} come {role_name}. Mandagli il messaggio di benvenuto e leggi i suoi check!",
+            category=TaskCategoryEnum.onboarding,
+            status=TaskStatusEnum.todo,
+            priority=TaskPriorityEnum.high,
+            client_id=target.cliente_id,
+            assignee_id=value.id,
+            created_at=datetime.utcnow()
+        )
+        session.add(task)
+        # Flush per garantire che l'ID del task sia generato? Non necessario per l'insert, 
+        # ma l'evento è sincrono.
+        logger.info(f"TASK CREATED (M2M): Onboarding task for assignee {value.id}")
+    except Exception as e:
+        logger.error(f"ERROR creating task in M2M listener: {e}")
+
+# Registra i listener per le collezioni M2M
+for attr in ['nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli']:
+    event.listen(getattr(Cliente, attr), 'append', trigger_professional_assignment)
 
 
 # --------------------------------------------------------------------------- #
@@ -77,6 +140,7 @@ def trigger_check_task(mapper, connection, target):
     """
     Genera un task quando un cliente invia un check.
     """
+    logger.info(f"EVENT: trigger_check_task for response {target.id}")
     session = db.session
     if not session:
         return
@@ -109,6 +173,7 @@ def trigger_check_task(mapper, connection, target):
             payload={'check_response_id': target.id}
         )
         session.add(task)
+        logger.info(f"TASK CREATED: Check task for assignee {assignment.assigned_by_id}")
 
 
 # --------------------------------------------------------------------------- #
@@ -119,6 +184,7 @@ def trigger_training_task(mapper, connection, target):
     """
     Genera un task quando viene assegnata una Review (Training).
     """
+    logger.info(f"EVENT: trigger_training_task for review {target.id}")
     session = db.session
     if not session:
         return
@@ -138,5 +204,6 @@ def trigger_training_task(mapper, connection, target):
         payload={'review_id': target.id}
     )
     session.add(task)
+    logger.info(f"TASK CREATED: Training task for assignee {target.reviewee_id}")
 
 

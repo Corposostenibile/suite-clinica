@@ -298,3 +298,43 @@
 .p-40 {
   padding: 2.5rem !important;
 }
+
+/* ===================================================================
+   TASK SIDEBAR STYLES
+   =================================================================== */
+
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.08)!important;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.leading-tight {
+  line-height: 1.25;
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Custom Scrollbar for Tasks */
+#DZ_W_Contacts_Body2::-webkit-scrollbar {
+  width: 4px;
+}
+#DZ_W_Contacts_Body2::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+#DZ_W_Contacts_Body2::-webkit-scrollbar-track {
+  background: transparent;
+}
