@@ -2758,30 +2758,61 @@ def api_da_leggere():
     from corposostenibile.models import (
         ClientCheckReadConfirmation,
         WeeklyCheck, WeeklyCheckResponse,
-        DCACheck, DCACheckResponse
+        DCACheck, DCACheckResponse,
+        Team
     )
 
     try:
-        # Subquery for client IDs - more efficient than loading all clients
-        my_clienti_subq = (
-            db.session.query(Cliente.cliente_id)
-            .filter(
-                db.or_(
-                    Cliente.nutrizionista_id == current_user.id,
-                    Cliente.coach_id == current_user.id,
-                    Cliente.psicologa_id == current_user.id,
-                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                    Cliente.coaches_multipli.any(User.id == current_user.id),
-                    Cliente.psicologi_multipli.any(User.id == current_user.id),
-                )
+        # RBAC Logic for Client Access
+        my_clienti_subq = None
+        
+        # 1. Admin: vede tutto (my_clienti_subq resta None)
+        if current_user.is_admin or current_user.role == 'admin':
+            pass
+            
+        # 2. Team Leader
+        elif current_user.teams_led:
+            managed_team_ids = [t.id for t in current_user.teams_led]
+            team_members_subq = (
+                db.session.query(User.id)
+                .join(User.teams)
+                .filter(Team.id.in_(managed_team_ids))
+                .subquery()
             )
-            .subquery()
-        )
+            my_clienti_subq = (
+                db.session.query(Cliente.cliente_id)
+                .filter(
+                    db.or_(
+                        Cliente.nutrizionista_id.in_(db.session.query(team_members_subq)),
+                        Cliente.coach_id.in_(db.session.query(team_members_subq)),
+                        Cliente.psicologa_id.in_(db.session.query(team_members_subq)),
+                    )
+                )
+                .subquery()
+            )
+            
+        # 3. Professional (default)
+        else:
+            my_clienti_subq = (
+                db.session.query(Cliente.cliente_id)
+                .filter(
+                    db.or_(
+                        Cliente.nutrizionista_id == current_user.id,
+                        Cliente.coach_id == current_user.id,
+                        Cliente.psicologa_id == current_user.id,
+                        Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                        Cliente.coaches_multipli.any(User.id == current_user.id),
+                        Cliente.psicologi_multipli.any(User.id == current_user.id),
+                    )
+                )
+                .subquery()
+            )
 
         unread_checks = []
 
         # Weekly checks not read - with eager loading
-        weekly_responses = (
+        # Weekly checks query building
+        weekly_query = (
             WeeklyCheckResponse.query
             .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
             .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
@@ -2793,10 +2824,14 @@ def api_da_leggere():
                     ClientCheckReadConfirmation.user_id == current_user.id
                 )
             )
-            .filter(
-                Cliente.cliente_id.in_(db.session.query(my_clienti_subq)),
-                ClientCheckReadConfirmation.id.is_(None)
-            )
+            .filter(ClientCheckReadConfirmation.id.is_(None))
+        )
+        
+        if my_clienti_subq is not None:
+             weekly_query = weekly_query.filter(Cliente.cliente_id.in_(db.session.query(my_clienti_subq)))
+             
+        weekly_responses = (
+            weekly_query
             .options(
                 joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente)
             )
@@ -2822,7 +2857,8 @@ def api_da_leggere():
             })
 
         # DCA checks not read - with eager loading
-        dca_responses = (
+        # DCA checks query building
+        dca_query = (
             DCACheckResponse.query
             .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
             .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
@@ -2834,10 +2870,14 @@ def api_da_leggere():
                     ClientCheckReadConfirmation.user_id == current_user.id
                 )
             )
-            .filter(
-                Cliente.cliente_id.in_(db.session.query(my_clienti_subq)),
-                ClientCheckReadConfirmation.id.is_(None)
-            )
+            .filter(ClientCheckReadConfirmation.id.is_(None))
+        )
+
+        if my_clienti_subq is not None:
+             dca_query = dca_query.filter(Cliente.cliente_id.in_(db.session.query(my_clienti_subq)))
+
+        dca_responses = (
+            dca_query
             .options(
                 joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente)
             )
@@ -3090,11 +3130,76 @@ def api_azienda_stats():
     API JSON: Statistiche aziendali sui check (per Check Azienda).
     OTTIMIZZATO: paginazione server-side, eager loading, batch queries.
     """
-    from corposostenibile.models import WeeklyCheckResponse, DCACheckResponse, ClientCheckReadConfirmation
-    from sqlalchemy.orm import selectinload
-    from datetime import timedelta
+    from corposostenibile.models import (
+        ClientCheckReadConfirmation,
+        WeeklyCheck, WeeklyCheckResponse,
+        DCACheck, DCACheckResponse,
+        Team
+    )
+
+    def _get_accessible_clients_subquery():
+        """
+        Restituisce una subquery per filtrare i clienti accessibili all'utente corrente.
+        - Admin: None (accesso a tutti)
+        - Team Leader: Clienti dei membri dei team gestiti
+        - Professionista: Propri clienti
+        """
+        # 1. Admin: vede tutto
+        if current_user.is_admin or current_user.role == 'admin':
+            return None
+
+        # 2. Team Leader: vede i clienti dei membri del suo team
+        # Verifica se l'utente gestisce dei team
+        if current_user.teams_led:
+            managed_team_ids = [t.id for t in current_user.teams_led]
+            
+            # Membri dei team gestiti
+            team_members_subq = (
+                db.session.query(User.id)
+                .join(User.teams)
+                .filter(Team.id.in_(managed_team_ids))
+                .subquery()
+            )
+            
+            # Clienti assegnati a questi membri (come nutrizionista, coach o psicologo)
+            # Nota: gestire le relazioni many-to-many in or_ è complesso in subquery semplice,
+            # ci limitiamo alle foreign keys principali per ora per semplicità e performance,
+            # oppure usiamo una logica più inclusiva.
+            
+            # Query più robusta:
+            return (
+                db.session.query(Cliente.cliente_id)
+                .filter(
+                    db.or_(
+                        Cliente.nutrizionista_id.in_(db.session.query(team_members_subq)),
+                        Cliente.coach_id.in_(db.session.query(team_members_subq)),
+                        Cliente.psicologa_id.in_(db.session.query(team_members_subq)),
+                        # Per le many-to-many servirebbe una exists/any, ma in subquery è tricky.
+                        # Per semplicità assumiamo che l'assegnazione principale sia sufficiente per "appartenenza al team"
+                        # o che il TL veda i clienti "del professionista" in generale.
+                    )
+                )
+                .subquery()
+            )
+
+        # 3. Professionista (User standard): vede solo i propri clienti
+        return (
+            db.session.query(Cliente.cliente_id)
+            .filter(
+                db.or_(
+                    Cliente.nutrizionista_id == current_user.id,
+                    Cliente.coach_id == current_user.id,
+                    Cliente.psicologa_id == current_user.id,
+                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                    Cliente.coaches_multipli.any(User.id == current_user.id),
+                    Cliente.psicologi_multipli.any(User.id == current_user.id),
+                )
+            )
+            .subquery()
+        )
 
     try:
+        # Paginazione server-side & Filtri
         period = request.args.get('period', 'month')
         custom_start = request.args.get('start_date')
         custom_end = request.args.get('end_date')
@@ -3121,7 +3226,7 @@ def api_azienda_stats():
         else:
             start_date = now - timedelta(days=30)
 
-        # Build base query with date filter
+        # Build base query
         base_query = (
             WeeklyCheckResponse.query
             .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
@@ -3131,7 +3236,14 @@ def api_azienda_stats():
         if period == 'custom':
             base_query = base_query.filter(WeeklyCheckResponse.submit_date <= end_date)
 
-        # Filter by professional at database level (subquery)
+        # --- RBAC Filtering ---
+        accessible_subq = _get_accessible_clients_subquery()
+        if accessible_subq is not None:
+            # Se non è admin, filtra per i clienti accessibili
+            base_query = base_query.filter(Cliente.cliente_id.in_(db.session.query(accessible_subq)))
+        # ----------------------
+
+        # Filter by professional (UI Filter)
         if prof_type and prof_id:
             if prof_type == 'nutrizione':
                 base_query = base_query.filter(
