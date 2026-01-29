@@ -34,7 +34,6 @@ from flask import (
     request,
     url_for,
     abort,
-    make_response,
 )
 from flask_login import current_user, login_required
 from sqlalchemy import desc, and_
@@ -81,7 +80,16 @@ from .helpers import (
 # --------------------------------------------------------------------------- #
 
 # Importa il blueprint già definito in __init__.py
+# Importa il blueprint già definito in __init__.py
 from . import client_checks_bp
+
+# API Blueprint (Standard Pattern)
+api_bp = Blueprint(
+    'client_checks_api',
+    __name__,
+    url_prefix='/api/client-checks'
+)
+csrf.exempt(api_bp)  # Exclude API from CSRF since it uses Tokens/Session with different mechanism if needed or just standard API rules
 
 
 # --------------------------------------------------------------------------- #
@@ -2538,7 +2546,7 @@ def undo_link_sent(assignment_id):
 #  API JSON per React Frontend                                                 #
 # --------------------------------------------------------------------------- #
 
-@client_checks_bp.route("/api/cliente/<int:cliente_id>/checks")
+@api_bp.route("/cliente/<int:cliente_id>/checks")
 @login_required
 def api_cliente_checks(cliente_id: int):
     """
@@ -2669,7 +2677,7 @@ def api_cliente_checks(cliente_id: int):
 
 
 @csrf.exempt
-@client_checks_bp.route("/api/generate/<check_type>/<int:cliente_id>", methods=["POST"])
+@api_bp.route("/generate/<check_type>/<int:cliente_id>", methods=["POST"])
 @login_required
 def api_generate_check_link(check_type: str, cliente_id: int):
     """
@@ -2749,7 +2757,7 @@ def api_generate_check_link(check_type: str, cliente_id: int):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/da-leggere")
+@api_bp.route("/da-leggere")
 @login_required
 def api_da_leggere():
     """
@@ -2911,7 +2919,7 @@ def api_da_leggere():
 
 
 @csrf.exempt
-@client_checks_bp.route("/api/conferma-lettura/<string:response_type>/<int:response_id>", methods=["POST"])
+@api_bp.route("/conferma-lettura/<string:response_type>/<int:response_id>", methods=["POST"])
 @login_required
 def api_conferma_lettura(response_type: str, response_id: int):
     """
@@ -2959,7 +2967,7 @@ def api_conferma_lettura(response_type: str, response_id: int):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/response/<string:response_type>/<int:response_id>")
+@api_bp.route("/response/<string:response_type>/<int:response_id>")
 @login_required
 def api_get_response_detail(response_type: str, response_id: int):
     """
@@ -3121,7 +3129,7 @@ def api_get_response_detail(response_type: str, response_id: int):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/azienda/stats")
+@api_bp.route("/azienda/stats")
 @login_required
 def api_azienda_stats():
     """
@@ -3134,6 +3142,8 @@ def api_azienda_stats():
         DCACheck, DCACheckResponse,
         Team
     )
+    
+
 
     def _get_accessible_clients_query():
         """
@@ -3440,7 +3450,7 @@ def api_azienda_stats():
                 "coaches": coaches,
             })
 
-        response = make_response(jsonify({
+        return jsonify({
             "success": True,
             "period": period,
             "pagination": {
@@ -3458,18 +3468,14 @@ def api_azienda_stats():
                 "avg_quality": avg_quality
             },
             "responses": responses_data
-        }))
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
+        })
 
     except Exception as e:
         current_app.logger.error(f"[API] Errore azienda stats: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/professionisti/<prof_type>")
+@api_bp.route("/professionisti/<prof_type>")
 @login_required
 def api_get_professionisti_by_type(prof_type: str):
     """
@@ -3805,7 +3811,7 @@ def api_public_submit_minor(token: str):
 #  API Admin Dashboard Stats (for React Welcome dashboard)                     #
 # --------------------------------------------------------------------------- #
 
-@client_checks_bp.route("/api/admin/dashboard-stats")
+@api_bp.route("/admin/dashboard-stats")
 @login_required
 def api_admin_dashboard_stats():
     """Comprehensive check dashboard stats for admin overview."""

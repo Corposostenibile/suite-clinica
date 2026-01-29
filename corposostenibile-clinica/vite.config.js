@@ -31,7 +31,7 @@ export default defineConfig({
       },
       // Note: /team routes are handled by React Router on the frontend
       // Only /api/team/* routes are proxied to the backend
-      // Proxy client-checks routes
+      // Proxy client-checks routes (server-rendered pages, not API)
       '/client-checks': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
