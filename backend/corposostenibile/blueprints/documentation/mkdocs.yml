@@ -10,6 +10,9 @@ extra_css:
   - stylesheets/extra.css
 
 nav:
-  - Home: index.md
-  - Pazienti:
+  - Benvenuto: index.md
+  - Gestione Pazienti:
+    - Lista Pazienti: pazienti/lista.md
+    - Scheda Dettaglio: pazienti/dettaglio.md
+    - Check e Monitoraggio: pazienti/check.md
     - Pagina Professionisti: pazienti/pagina-professionisti.md
