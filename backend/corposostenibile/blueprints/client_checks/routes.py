@@ -53,6 +53,7 @@ from corposostenibile.models import (
     StatoClienteEnum,
     MinorCheck,
     MinorCheckResponse,
+    UserRoleEnum,
 )
 from .forms import (
     CheckFormForm,
@@ -163,19 +164,57 @@ def da_leggere():
         DCACheckResponse
     )
 
-    # Ottieni i clienti del professionista corrente
-    query = db.session.query(Cliente).filter(
-        db.or_(
-            # Relazioni singole (foreign keys)
-            Cliente.nutrizionista_id == current_user.id,
-            Cliente.coach_id == current_user.id,
-            Cliente.psicologa_id == current_user.id,
-            # Relazioni multiple (many-to-many)
-            Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-            Cliente.coaches_multipli.any(User.id == current_user.id),
-            Cliente.psicologi_multipli.any(User.id == current_user.id),
+    # Ottieni i clienti visibili in base al ruolo
+    query = db.session.query(Cliente)
+    
+    # 1. Admin: vede tutto (ma qui filtriamo solo chi ha check non letti dopo)
+    if current_user.role == UserRoleEnum.admin:
+        # Recupera TUTTI i clienti che hanno check
+        # In questo contesto "da_leggere" per admin potrebbe mostrare tutto, 
+        # ma per coerenza con la logica "Inbox" manteniamo il focus.
+        # Tuttavia, se l'admin vuole vedere tutto, non applichiamo filtri qui
+        # e lasciamo che la join successiva trovi i check non letti.
+        pass
+
+    # 2. Team Leader: vede i clienti assegnati ai membri del proprio team
+    elif current_user.role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        # Includi se stesso
+        team_member_ids.add(current_user.id)
+        # Includi membri dei team guidati
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        
+        member_ids_list = list(team_member_ids)
+        
+        query = query.filter(
+            db.or_(
+                # Relazioni singole (foreign keys) - controlla se assegnato a QUALSIASI membro del team
+                Cliente.nutrizionista_id.in_(member_ids_list),
+                Cliente.coach_id.in_(member_ids_list),
+                Cliente.psicologa_id.in_(member_ids_list),
+                # Relazioni multiple - controlla se QUALSIASI membro del team è nelle liste
+                Cliente.nutrizionisti_multipli.any(User.id.in_(member_ids_list)),
+                Cliente.coaches_multipli.any(User.id.in_(member_ids_list)),
+                Cliente.psicologi_multipli.any(User.id.in_(member_ids_list)),
+            )
         )
-    )
+
+    # 3. Professionista: vede solo i propri clienti
+    else:
+        query = query.filter(
+            db.or_(
+                # Relazioni singole (foreign keys)
+                Cliente.nutrizionista_id == current_user.id,
+                Cliente.coach_id == current_user.id,
+                Cliente.psicologa_id == current_user.id,
+                # Relazioni multiple (many-to-many)
+                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                Cliente.coaches_multipli.any(User.id == current_user.id),
+                Cliente.psicologi_multipli.any(User.id == current_user.id),
+            )
+        )
 
     my_clienti = query.all()
     my_clienti_ids = [c.cliente_id for c in my_clienti]
