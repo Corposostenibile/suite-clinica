@@ -1,3 +1,24 @@
+"""
+Quality Score API Routes
+API routes for Quality Score management (ADMIN ONLY).
+All routes return JSON for React frontend consumption.
+"""
+from flask import request, jsonify
+from flask_login import login_required, current_user
+from datetime import date, datetime, timedelta
+from sqlalchemy import desc, func
+from corposostenibile.extensions import db, csrf
+from corposostenibile.models import (
+    User,
+    Cliente,
+    Team,
+    QualityWeeklyScore,
+    QualityClientScore,
+    TrustpilotReview,
+    EleggibilitaSettimanale,
+    WeeklyCheck,
+    WeeklyCheckResponse,
+    TypeFormResponse,
     DCACheckResponse,
     UserSpecialtyEnum,
 )
