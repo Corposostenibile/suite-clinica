@@ -2764,36 +2764,34 @@ def api_da_leggere():
 
     try:
         # RBAC Logic for Client Access
-        my_clienti_subq = None
+        my_clienti_query = None
         
-        # 1. Admin: vede tutto (my_clienti_subq resta None)
+        # 1. Admin: vede tutto (my_clienti_query resta None)
         if current_user.is_admin or current_user.role == 'admin':
             pass
             
         # 2. Team Leader
         elif current_user.teams_led:
             managed_team_ids = [t.id for t in current_user.teams_led]
-            team_members_subq = (
+            team_members_query = (
                 db.session.query(User.id)
                 .join(User.teams)
                 .filter(Team.id.in_(managed_team_ids))
-                .subquery()
             )
-            my_clienti_subq = (
+            my_clienti_query = (
                 db.session.query(Cliente.cliente_id)
                 .filter(
                     db.or_(
-                        Cliente.nutrizionista_id.in_(db.session.query(team_members_subq)),
-                        Cliente.coach_id.in_(db.session.query(team_members_subq)),
-                        Cliente.psicologa_id.in_(db.session.query(team_members_subq)),
+                        Cliente.nutrizionista_id.in_(team_members_query),
+                        Cliente.coach_id.in_(team_members_query),
+                        Cliente.psicologa_id.in_(team_members_query),
                     )
                 )
-                .subquery()
             )
             
         # 3. Professional (default)
         else:
-            my_clienti_subq = (
+            my_clienti_query = (
                 db.session.query(Cliente.cliente_id)
                 .filter(
                     db.or_(
@@ -2805,7 +2803,6 @@ def api_da_leggere():
                         Cliente.psicologi_multipli.any(User.id == current_user.id),
                     )
                 )
-                .subquery()
             )
 
         unread_checks = []
@@ -2827,8 +2824,8 @@ def api_da_leggere():
             .filter(ClientCheckReadConfirmation.id.is_(None))
         )
         
-        if my_clienti_subq is not None:
-             weekly_query = weekly_query.filter(Cliente.cliente_id.in_(db.session.query(my_clienti_subq)))
+        if my_clienti_query is not None:
+             weekly_query = weekly_query.filter(Cliente.cliente_id.in_(my_clienti_query))
              
         weekly_responses = (
             weekly_query
@@ -2873,8 +2870,8 @@ def api_da_leggere():
             .filter(ClientCheckReadConfirmation.id.is_(None))
         )
 
-        if my_clienti_subq is not None:
-             dca_query = dca_query.filter(Cliente.cliente_id.in_(db.session.query(my_clienti_subq)))
+        if my_clienti_query is not None:
+             dca_query = dca_query.filter(Cliente.cliente_id.in_(my_clienti_query))
 
         dca_responses = (
             dca_query
@@ -3137,9 +3134,9 @@ def api_azienda_stats():
         Team
     )
 
-    def _get_accessible_clients_subquery():
+    def _get_accessible_clients_query():
         """
-        Restituisce una subquery per filtrare i clienti accessibili all'utente corrente.
+        Restituisce una QUERY per filtrare i clienti accessibili all'utente corrente.
         - Admin: None (accesso a tutti)
         - Team Leader: Clienti dei membri dei team gestiti
         - Professionista: Propri clienti
@@ -3154,32 +3151,22 @@ def api_azienda_stats():
             managed_team_ids = [t.id for t in current_user.teams_led]
             
             # Membri dei team gestiti
-            team_members_subq = (
+            team_members_query = (
                 db.session.query(User.id)
                 .join(User.teams)
                 .filter(Team.id.in_(managed_team_ids))
-                .subquery()
             )
             
             # Clienti assegnati a questi membri (come nutrizionista, coach o psicologo)
-            # Nota: gestire le relazioni many-to-many in or_ è complesso in subquery semplice,
-            # ci limitiamo alle foreign keys principali per ora per semplicità e performance,
-            # oppure usiamo una logica più inclusiva.
-            
-            # Query più robusta:
             return (
                 db.session.query(Cliente.cliente_id)
                 .filter(
                     db.or_(
-                        Cliente.nutrizionista_id.in_(db.session.query(team_members_subq)),
-                        Cliente.coach_id.in_(db.session.query(team_members_subq)),
-                        Cliente.psicologa_id.in_(db.session.query(team_members_subq)),
-                        # Per le many-to-many servirebbe una exists/any, ma in subquery è tricky.
-                        # Per semplicità assumiamo che l'assegnazione principale sia sufficiente per "appartenenza al team"
-                        # o che il TL veda i clienti "del professionista" in generale.
+                        Cliente.nutrizionista_id.in_(team_members_query),
+                        Cliente.coach_id.in_(team_members_query),
+                        Cliente.psicologa_id.in_(team_members_query),
                     )
                 )
-                .subquery()
             )
 
         # 3. Professionista (User standard): vede solo i propri clienti
@@ -3195,7 +3182,6 @@ def api_azienda_stats():
                     Cliente.psicologi_multipli.any(User.id == current_user.id),
                 )
             )
-            .subquery()
         )
 
     try:
@@ -3237,10 +3223,10 @@ def api_azienda_stats():
             base_query = base_query.filter(WeeklyCheckResponse.submit_date <= end_date)
 
         # --- RBAC Filtering ---
-        accessible_subq = _get_accessible_clients_subquery()
-        if accessible_subq is not None:
+        accessible_query = _get_accessible_clients_query()
+        if accessible_query is not None:
             # Se non è admin, filtra per i clienti accessibili
-            base_query = base_query.filter(Cliente.cliente_id.in_(db.session.query(accessible_subq)))
+            base_query = base_query.filter(Cliente.cliente_id.in_(accessible_query))
         # ----------------------
 
         # Filter by professional (UI Filter)
