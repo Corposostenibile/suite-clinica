@@ -81,7 +81,13 @@ const SideBar = () => {
         <ul className="metismenu" id="menu">
           {(user?.role === 'influencer' 
             ? MenuList.filter(item => ['Pazienti', 'Profilo', 'CLIENTI', 'TEAM'].includes(item.title))
-            : MenuList
+            : MenuList.filter(item => {
+                // Nascondi Quality per utenti non admin
+                if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
+                  return false;
+                }
+                return true;
+              })
           ).map((data, index) => {
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
