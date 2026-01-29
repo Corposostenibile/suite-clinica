@@ -265,16 +265,18 @@ function CheckAzienda() {
     setError(null);
     try {
       const result = await checkService.getAziendaStats(periodParam, customStart, customEnd, profTypeParam, profIdParam, page, ITEMS_PER_PAGE);
+      console.log("CheckAzienda fetchData result:", result); // DEBUG
       if (result.success) {
         setResponses(result.responses || []);
         setStats(result.stats || {});
         setPagination(result.pagination || { page: 1, per_page: ITEMS_PER_PAGE, total: 0, pages: 1 });
       } else {
+        console.error("CheckAzienda success check failed:", result); // DEBUG
         setError('Errore nel caricamento dei dati');
       }
     } catch (err) {
       console.error('Error fetching check stats:', err);
-      setError('Errore nel caricamento dei dati');
+      setError(`Errore nel caricamento dei dati: ${err.message}`);
     } finally {
       setLoading(false);
     }

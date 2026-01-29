@@ -21,7 +21,7 @@ Route per il sistema di gestione check clienti:
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 
 from flask import (
@@ -34,6 +34,7 @@ from flask import (
     request,
     url_for,
     abort,
+    make_response,
 )
 from flask_login import current_user, login_required
 from sqlalchemy import desc, and_
@@ -860,7 +861,7 @@ def response_data(id: int):
 
     except Exception as e:
         current_app.logger.error(f"Errore nel recupero dati risposta: {e}")
-        return jsonify({'error': 'Errore nel caricamento dei dati'}), 500
+        return jsonify({'error': f'Errore nel caricamento dei dati: {e}'}), 500
 
 
 # --------------------------------------------------------------------------- #
@@ -3198,6 +3199,8 @@ def api_azienda_stats():
         now = datetime.utcnow()
         end_date = now
 
+
+
         if period == 'custom' and custom_start and custom_end:
             start_date = datetime.strptime(custom_start, '%Y-%m-%d')
             end_date = datetime.strptime(custom_end, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
@@ -3437,7 +3440,7 @@ def api_azienda_stats():
                 "coaches": coaches,
             })
 
-        return jsonify({
+        response = make_response(jsonify({
             "success": True,
             "period": period,
             "pagination": {
@@ -3455,7 +3458,11 @@ def api_azienda_stats():
                 "avg_quality": avg_quality
             },
             "responses": responses_data
-        })
+        }))
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
     except Exception as e:
         current_app.logger.error(f"[API] Errore azienda stats: {e}", exc_info=True)
