@@ -156,52 +156,14 @@ Ogni riga è un paziente. Ecco cosa significa ogni colonna:
 2. Guardo i numeri in alto
 3. Esporto o copio i dati per report
 
-## ❓ Risoluzione Problemi
+> [!TIP]
+> **Ricorda**: Questa è la tua dashboard principale. Inizia sempre da qui per pianificare efficacemente il lavoro con i pazienti.
 
-### "Non trovo il paziente che cerco"
-- **Soluzione 1**: Controlla ortografia e prova con meno caratteri
-- **Soluzione 2**: Usa "Reset" per vedere tutti
-- **Soluzione 3**: Chiedi a colleghi se è sotto altro nome
+> [!IMPORTANT]
+> **Aggiornamenti**: Quando modifichi una scheda paziente, torna qui per vedere i cambiamenti nei numeri e nella lista.
 
-### "I numeri non corrispondono"
-- **Causa**: Filtri attivi che limitano i risultati
-- **Soluzione**: Clicca "Reset" o ricarica pagina (F5)
-
-### "La pagina è lenta"
-- **Causa**: Troppi pazienti senza filtri
-- **Soluzione**: Applica filtri per restringere (es. tuo nome + "Attivo")
-
-### "Non vedo pazienti che seguo"
-- **Causa**: Filtri troppo restrittivi
-- **Soluzione**: Controlla filtri attivi, usa "Reset"
-
-### "Errore di caricamento"
-- **Soluzione**: Ricarica pagina (F5)
-- **Se persiste**: Contatta supporto tecnico
-
-## 💡 Suggerimenti Professionali
-
-### Organizzazione Giornaliera
-- **Mattina**: Controlla Ghost e rinnovi urgenti
-- **Pomeriggio**: Lavora con pazienti attivi
-- **Sera**: Prepara piano per domani
-
-### Scorciatoie Utili
-- **F5**: Ricarica pagina
-- **Ctrl+F**: Cerca nella pagina (non nei dati)
-- **URL copia**: Salva ricerche frequenti negli appunti
-
-### Best Practice
-- **Salva spesso**: Le modifiche si aggiornano automaticamente
-- **Controlla team**: Ogni paziente dovrebbe avere il supporto necessario
-- **Date critiche**: Rinnovi e stati "problema" vanno monitorati
-- **Comunicazione**: Usa le schede per note interne al team
-
-### Sicurezza e Privacy
-- **Dati protetti**: Visibili solo a ruoli autorizzati
-- **Audit trail**: Tutte le modifiche sono tracciate
-- **Condivisione**: Non condividere link diretti senza autorizzazione
-
+> [!NOTE]
+> **Performance**: La pagina gestisce migliaia di pazienti grazie alla paginazione intelligente e ai filtri server-side.
 ---
 
 > [!TIP]

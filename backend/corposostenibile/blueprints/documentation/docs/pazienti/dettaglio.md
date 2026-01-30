@@ -315,46 +315,19 @@ I questionari che il paziente compila quando arriva.
 - **Freccia indietro**: Nel browser
 - **Menu laterale**: Per andare ad altre sezioni
 
-## ❓ Problemi Comuni e Soluzioni
+---
 
-### "Non vedo le modifiche che ho fatto"
-- Ricarica la pagina (F5)
-- Controlla se hai cliccato "Salva"
+> [!TIP]
+> **La scheda è viva**: Si aggiorna automaticamente quando altri professionisti salvano modifiche. Ricarica se vedi qualcosa di strano.
 
-### "Non riesco a cambiare stato"
-- Forse non hai i permessi
-- Chiedi all'amministratore
+> [!IMPORTANT]
+> **Privacy**: Le informazioni psicologiche sono protette. Non condividerle senza permesso.
 
-### "Il paziente non ha il team giusto"
-- Vai alla tab "Team"
-- Assegna o rimuovi professionisti
+> [!NOTE]
+> **Backup**: Tutto viene salvato automaticamente nel cloud. Non devi preoccuparti di perdere dati.
 
-### "Non trovo una sezione"
-- Controlla i tab in alto
-- Alcune sezioni potrebbero essere nascoste se non hai i permessi
-
-### "I PDF non si caricano"
-- Riprova tra qualche minuto
-- Contatta il supporto tecnico
-
-## 💡 Suggerimenti per Lavorare Bene
-
-### Organizza la Tua Giornata:
-1. **Mattina**: Controlla alert e stati pazienti
-2. **Pomeriggio**: Aggiorna diari e piani
-3. **Sera**: Prepara per domani
-
-### Ricorda Sempre:
-- **Salva spesso**: Non perdere lavoro
-- **Scrivi motivazioni**: Quando cambi stati o assegnamenti
-- **Controlla date rinnovo**: Non perdere pazienti
-- **Usa alert**: Per comunicare problemi urgenti
-
-### Scorciatoie Utili:
-- **Ctrl+S**: Salva modifiche (come Word)
-- **F5**: Ricarica pagina
-- **Tab**: Passa da un campo all'altro
-
+> [!WARNING]
+> **Modifiche irreversibili**: Quando elimini qualcosa, potrebbe non essere recuperabile. Chiedi conferma prima.
 ---
 
 > [!TIP]
