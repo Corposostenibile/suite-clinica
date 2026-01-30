@@ -22,3 +22,5 @@ nav:
   - Gestione Professionisti:
     - Task: professionisti/task.md
     - Formazione: professionisti/formazione.md
+  - Gestione Azienda:
+    - Check Azienda: azienda/check_azienda.md
