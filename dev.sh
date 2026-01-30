@@ -676,12 +676,13 @@ if [[ $# -eq 0 ]]; then show_help; exit 0; fi
 
 COMMAND=$1; shift
 case "$COMMAND" in
-    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack)
+    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack|build-docs)
         if [[ -z "$1" ]]; then log_error "Specificare lo sviluppatore per il comando '$COMMAND'."; exit 1; fi
         check_prerequisites "$1"
         case "$COMMAND" in
             debug) debug_server "$1";;
             fullstack) start_fullstack "$1";; # Nuovo comando Fullstack
+            build-docs) build_docs "$1";;
             start) start_server "$1";;
             stop) stop_server "$1";;
             restart) restart_server "$1";;

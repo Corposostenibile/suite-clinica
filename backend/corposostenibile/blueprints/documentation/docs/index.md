@@ -8,8 +8,8 @@ Questa guida è progettata per aiutare il team a comprendere le funzionalità de
 ### 👥 Gestione Pazienti
 *   [**Lista Pazienti**](pazienti/lista.md): Panoramica della flotta pazienti, filtri e statistiche rapide.
 *   [**Scheda Dettaglio**](pazienti/dettaglio.md): Approfondimento sulla scheda del singolo paziente (Anagrafica, Piani, Diario).
-*   [**Check e Monitoraggio**](pazienti/check.md): Gestione dei check periodici (Nutrizione, Coaching, Psicologia).
-*   [**Pagina Professionisti**](pazienti/pagina-professionisti.md): Visuale specifica per i singoli professionisti del team.
+*   *Check e Monitoraggio*: *Coming Soon* - Gestione dei check periodici (Nutrizione, Coaching, Psicologia).
+*   *Pagina Professionisti*: *Coming Soon* - Visuale specifica per i singoli professionisti del team.
 
 ### 📅 Calendario e Appuntamenti
 *   *Coming Soon*: Gestione disponibilità e sincronizzazione Google Calendar.

@@ -14,5 +14,3 @@ nav:
   - Gestione Pazienti:
     - Lista Pazienti: pazienti/lista.md
     - Scheda Dettaglio: pazienti/dettaglio.md
-    - Check e Monitoraggio: pazienti/check.md
-    - Pagina Professionisti: pazienti/pagina-professionisti.md
