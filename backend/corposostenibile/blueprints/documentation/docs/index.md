@@ -11,7 +11,10 @@ Questa guida è progettata per aiutare il team a comprendere le funzionalità de
 *   *Check e Monitoraggio*: *Coming Soon* - Gestione dei check periodici (Nutrizione, Coaching, Psicologia).
 *   *Pagina Professionisti*: *Coming Soon* - Visuale specifica per i singoli professionisti del team.
 
-### 📅 Calendario e Appuntamenti
+### �‍⚕️ Sezione Professionisti
+*   [**Sistema Task**](professionisti/task.md): Guida completa al sistema di gestione task per organizzare attività quotidiane, scadenze e priorità.
+
+### �📅 Calendario e Appuntamenti
 *   *Coming Soon*: Gestione disponibilità e sincronizzazione Google Calendar.
 
 ### 💬 Comunicazione

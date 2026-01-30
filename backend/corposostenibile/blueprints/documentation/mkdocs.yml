@@ -14,3 +14,5 @@ nav:
   - Gestione Pazienti:
     - Lista Pazienti: pazienti/lista.md
     - Scheda Dettaglio: pazienti/dettaglio.md
+  - Gestione Professionisti:
+    - Task: professionisti/task.md
