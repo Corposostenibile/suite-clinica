@@ -11,7 +11,7 @@ Questa è la "casa" di ogni paziente. Qui trovi TUTTO quello che devi sapere e p
 
 ### Da Altre Pagine
 - Alcuni link nel sistema ti portano direttamente qui
-- L'URL finisce sempre con `/clienti/[numero-paziente]`
+- L'URL finisce sempre con `/clienti-dettaglio/[numero-paziente]`
 
 ## 👀 Quello che Vedi Subito (Il Profilo a Sinistra)
 

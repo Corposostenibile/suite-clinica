@@ -6,15 +6,15 @@ Questa pagina è il tuo centro operativo principale: qui gestisci tutti i pazien
 
 - Dal menu principale: "Pazienti" → "Lista Pazienti"
 - Da altre pagine: cerca il link "Lista Pazienti" nel menu laterale
-- URL diretta: `/clienti` (si apre automaticamente se sei loggato)
+- URL diretta: `/clienti-lista` (si apre automaticamente se sei loggato)
 
 ## 🟢 Quello che Vedi Subito (Dashboard Rapida)
 
 ### I 4 Numeri in Alto (Statistiche Veloci)
 - **Pazienti Totali**: Quanti pazienti sono registrati complessivamente
-- **In Nutrizione Attiva**: Quanti seguono attivamente un piano alimentare
-- **In Coaching Attivo**: Quanti fanno allenamento con un coach
-- **In Psicologia Attiva**: Quanti sono in percorso psicologico
+- **Nutrizionista Attivo**: Quanti seguono attivamente un piano alimentare
+- **Coach Attivo**: Quanti fanno allenamento con un coach
+- **Psicologo Attivo**: Quanti sono in percorso psicologico
 
 **Perché sono utili**: Ti danno un'istantanea della situazione clinica. Se vedi molti "Ghost", sai che devi fare follow-up.
 
