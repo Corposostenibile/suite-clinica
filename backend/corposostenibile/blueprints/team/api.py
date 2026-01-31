@@ -81,6 +81,7 @@ def _serialize_user(user, include_details=False, include_teams_led=True):
         'is_external': getattr(user, 'is_external', False),
         'role': _get_user_role(user),
         'specialty': _get_user_specialty(user),
+        'max_clients': getattr(user, 'max_clients', None),
     }
 
     # Only load teams_led when explicitly requested (causes N+1 queries)
@@ -274,6 +275,14 @@ def create_member():
         if specialty_str and specialty_str in [e.value for e in UserSpecialtyEnum]:
             specialty_enum = UserSpecialtyEnum(specialty_str)
 
+        # Parse max_clients
+        max_clients = None
+        if 'max_clients' in data and data['max_clients'] is not None:
+            try:
+                max_clients = int(data['max_clients'])
+            except (ValueError, TypeError):
+                pass
+
         # Create user
         user = User(
             email=data['email'].lower(),
@@ -284,6 +293,7 @@ def create_member():
             role=role_enum,
             specialty=specialty_enum,
             is_external=is_external,
+            max_clients=max_clients,
         )
 
         # Set password
@@ -350,6 +360,17 @@ def update_member(user_id):
         for field in updatable_fields:
             if field in data:
                 setattr(user, field, data[field])
+        
+        # Manually handle max_clients to ensure type safety
+        if 'max_clients' in data:
+            val = data['max_clients']
+            if val == '' or val is None:
+                user.max_clients = None
+            else:
+                try:
+                    user.max_clients = int(val)
+                except (ValueError, TypeError):
+                    pass # Keep previous value or handle error? For now ignore invalid input
 
         # Update role (enum field)
         if 'role' in data:

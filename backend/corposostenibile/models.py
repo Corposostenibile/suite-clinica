@@ -1114,6 +1114,9 @@ class User(UserMixin, TimestampMixin, db.Model):
     last_name    = db.Column(db.String(80),  nullable=False)
     avatar_path  = db.Column(db.String(255))
 
+    # Limite clienti assegnabili (manuale)
+    max_clients = db.Column(db.Integer, nullable=True, default=None)
+
     # ────────────────────────── AI Notes ───────────────────────────────────
     assignment_ai_notes = db.Column(db.JSON, default=dict, comment="Note strutturate per assegnazione automatica AI")
 
@@ -3412,7 +3415,7 @@ class Food(TimestampMixin, db.Model):
     external_id = db.Column(db.String(100))    # id nel DB esterno
     verified    = db.Column(db.Boolean, default=False)
 
-    # ───────────────────────── full-text search ────────────────────────── #
+    # ────────────────────────── Metodi di utilità ────────────────────────── #
     search_vector = db.Column(
         TSVectorType(
             "name",
