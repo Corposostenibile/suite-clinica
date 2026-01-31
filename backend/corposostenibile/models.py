@@ -1185,6 +1185,19 @@ class User(UserMixin, TimestampMixin, db.Model):
                                     back_populates="created_by_user",
                                     lazy="selectin", cascade="all, delete-orphan")
 
+    # ────────────────────────── Compatibilità / Helpers ────────────────────
+    @property
+    def department(self):
+        """
+        Restituisce il dipartimento del primo team dell'utente.
+        Helper per compatibilità con codice legacy che si aspetta user.department.
+        """
+        if self.teams:
+            for team in self.teams:
+                if team.department:
+                    return team.department
+        return None
+
     google_auth      = relationship("GoogleAuth", back_populates="user",
                                     uselist=False, cascade="all, delete-orphan")
 

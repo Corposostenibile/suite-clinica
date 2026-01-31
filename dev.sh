@@ -602,6 +602,9 @@ start_frontend() {
     
     local info=($(get_developer_info "$dev"))
     local fe_port="${info[3]}"
+    local be_port="${info[0]}"
+    export BACKEND_URL="http://127.0.0.1:$be_port"
+    log_info "Configurato backend su $BACKEND_URL"
 
     log_info "Avvio Frontend React (Vite) per $dev sulla porta $fe_port..."
     setup_frontend
