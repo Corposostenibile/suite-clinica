@@ -416,13 +416,11 @@ def main():
                 data_inizio = cliente.data_inizio_abbonamento or date(2024, 6, 1)
                 durata = cliente.durata_programma_giorni or 180
 
-                # Calcola numero settimane
+                # Calcola numero settimane (LIMITATO A 3 PER PERFORMANCE)
                 data_fine_abb = data_inizio + timedelta(days=durata)
                 data_fine = min(data_fine_abb, OGGI)
                 num_weeks = max(1, (data_fine - data_inizio).days // 7)
-
-                # Limita a max 52 settimane (1 anno)
-                num_weeks = min(num_weeks, 52)
+                num_weeks = min(num_weeks, 3)  # Max 3 settimane di storico per performance
 
                 # Probabilità compilazione
                 prob_base = PROB_COMPILA_BY_TIPOLOGIA.get(tipologia, 0.75)
@@ -444,8 +442,11 @@ def main():
                     assigned_at=datetime.combine(data_inizio, datetime.min.time()),
                 )
                 db.session.add(weekly_check)
-                db.session.flush()  # Per ottenere l'ID
+                db.session.flush()  # Per ottenere l'ID per le risposte
                 checks_created += 1
+
+                # Accumula risposte per bulk insert
+                batch_responses = []
 
                 # Crea responses per ogni settimana (con skip casuali)
                 for week_num in range(num_weeks):
@@ -511,8 +512,11 @@ def main():
                         referral=random.choice(REFERRALS) if random.random() > 0.5 else "",
                         extra_comments=random.choice(EXTRA_COMMENTS),
                     )
-                    db.session.add(response)
+                    batch_responses.append(response)
                     responses_created += 1
+
+                if batch_responses:
+                    db.session.bulk_save_objects(batch_responses)
 
             db.session.commit()
 
