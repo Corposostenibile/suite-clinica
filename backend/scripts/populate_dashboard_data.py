@@ -225,11 +225,11 @@ def main():
     app = create_app()
 
     with app.app_context():
-        # 1. Recupera tutti i clienti
-        clienti = Cliente.query.all()
-        print(f"\n[1] Trovati {len(clienti)} clienti nel database")
+        # 1. Recupera totale clienti
+        total_clients = Cliente.query.count()
+        print(f"\n[1] Trovati {total_clients} clienti nel database (Processing in batches)")
 
-        if not clienti:
+        if total_clients == 0:
             print("ERRORE: Nessun cliente trovato nel database!")
             return
 
@@ -240,26 +240,49 @@ def main():
         ).all()
         print(f"[2] Trovati {len(professionisti)} professionisti attivi")
 
-        # 3. Assegna professionisti ai clienti che non li hanno
-        print(f"\n[3] Assegnazione professionisti mancanti...")
-        assigned = assign_professionals(clienti, professionisti)
-        print(f"    Assegnati professionisti a {assigned} clienti")
+        # Process in batches
+        BATCH_SIZE = 100
+        processed = 0
+        
+        assigned_total = 0
+        updated_total = 0
+        checks_total = 0
+        responses_total = 0
 
-        # 4. Aggiorna stati clienti
-        print(f"\n[4] Aggiornamento stati clienti...")
-        updated = update_client_states(clienti)
-        print(f"    Aggiornati {updated} clienti")
+        while processed < total_clients:
+            print(f"\n--- Processing batch {processed} to {processed + BATCH_SIZE} ---")
+            # Clear session to avoid memory buildup and continuum issues
+            # db.session.expunge_all() # Risk of detaching needed objects? Better just query in batch
+            
+            clienti = Cliente.query.offset(processed).limit(BATCH_SIZE).all()
+            if not clienti:
+                break
+            
+            # 3. Assegna professionisti
+            assigned = assign_professionals(clienti, professionisti)
+            assigned_total += assigned
+            
+            # 4. Aggiorna stati
+            updated = update_client_states(clienti)
+            updated_total += updated
+            
+            # 5. Crea check responses
+            checks, responses = create_weekly_checks(clienti, professionisti)
+            checks_total += checks
+            responses_total += responses
+            
+            # 6. Commit per batch
+            print(f"   Committing batch...")
+            db.session.commit()
+            
+            processed += len(clienti)
+            print(f"   Progress: {processed}/{total_clients}")
 
-        # 5. Crea check responses
-        print(f"\n[5] Creazione check responses...")
-        checks, responses = create_weekly_checks(clienti, professionisti)
-        print(f"    Creati {checks} WeeklyCheck")
-        print(f"    Create {responses} WeeklyCheckResponse")
-
-        # 6. Commit
-        print(f"\n[6] Salvataggio nel database...")
-        db.session.commit()
-        print("    COMPLETATO!")
+        print("\nCOMPLETATO!")
+        print(f"    Assegnati professionisti a {assigned_total} clienti")
+        print(f"    Aggiornati {updated_total} clienti")
+        print(f"    Creati {checks_total} WeeklyCheck")
+        print(f"    Create {responses_total} WeeklyCheckResponse")
 
         # 7. Riepilogo
         print("\n" + "=" * 60)
