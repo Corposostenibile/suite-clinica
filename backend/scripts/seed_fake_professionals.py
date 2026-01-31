@@ -18,8 +18,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # CONFIGURAZIONE
 # ============================================================
 
-TOTAL_PER_SPECIALTY = 50
+TOTAL_PER_SPECIALTY = 167  # ~500 totali (167 * 3)
 TEAM_SIZE = 100
+
+
 
 # Nomi italiani comuni
 NOMI_MASCHILI = [
@@ -143,6 +145,14 @@ def main():
             print("❌ Admin volpara non trovato!")
             return
         print(f"✅ Admin trovato: {admin.email}")
+
+        # PULIZIA DATI ESISTENTI
+        print("\n🗑️  Pulizia dati esistenti...")
+        Team.query.delete()
+        # Elimina tutti gli utenti tranne l'admin
+        User.query.filter(User.id != admin.id).delete()
+        db.session.commit()
+        print("✅ Dati puliti.")
         
         # ============================================================
         # STEP 1: Genera professionisti

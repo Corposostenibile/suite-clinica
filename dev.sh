@@ -670,18 +670,89 @@ setup_firewall() {
     log_success "Regole Firewall applicate! (Verifica con 'sudo ufw status')"
 }
 
+# --- GESTIONE PM2 (Background Persistente) ---
+
+check_pm2() {
+    if ! command -v npx &> /dev/null; then
+        log_error "npx non trovato. Installa Node.js."
+        exit 1
+    fi
+}
+
+start_pm2() {
+    local dev=$1
+    validate_developer "$dev"
+    set_project_dir "$dev"
+    check_pm2
+
+    local info=($(get_developer_info "$dev"))
+    local be_port="${info[0]}"
+    local fe_port="${info[3]}"
+    local db_name="${info[2]}"
+
+    log_info "🚀 Avvio servizi PM2 per $dev (Backend:$be_port, Frontend:$fe_port)..."
+
+    # Aggiorna .env backend
+    cd "$PROJECT_DIR/backend"
+    update_env_database_url "$dev"
+
+    # Avvia Backend
+    log_info "Avvio Backend Flask..."
+    npx pm2 start "poetry run flask run --host=0.0.0.0 --port=$be_port --debug" --name "backend-$dev" --namespace "$dev" --force
+
+    # Avvia Frontend
+    log_info "Avvio Frontend React..."
+    cd "$PROJECT_DIR/corposostenibile-clinica"
+    if [ ! -d "node_modules" ]; then npm install; fi
+    npx pm2 start "npm run dev -- --port $fe_port --host" --name "frontend-$dev" --namespace "$dev" --force
+
+    log_success "Servizi avviati in background!"
+    log_info "Usa '$0 logs-pm2 $dev' per vedere i log o '$0 stop-pm2 $dev' per fermarli."
+}
+
+stop_pm2() {
+    local dev=$1
+    validate_developer "$dev"
+    check_pm2
+    
+    log_info "Fermando servizi PM2 per $dev..."
+    npx pm2 delete "backend-$dev" 2>/dev/null || true
+    npx pm2 delete "frontend-$dev" 2>/dev/null || true
+    log_success "Servizi fermati."
+}
+
+restart_pm2() {
+    local dev=$1
+    validate_developer "$dev"
+    stop_pm2 "$dev"
+    start_pm2 "$dev"
+}
+
+logs_pm2() {
+    local dev=$1
+    validate_developer "$dev"
+    check_pm2
+    log_info "Mostrando log per namespace $dev... (Ctrl+C per uscire)"
+    npx pm2 logs --namespace "$dev"
+}
+
+status_pm2() {
+    check_pm2
+    npx pm2 list
+}
+
 
 # --- SCRIPT PRINCIPALE ---
 if [[ $# -eq 0 ]]; then show_help; exit 0; fi
 
 COMMAND=$1; shift
 case "$COMMAND" in
-    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack|build-docs)
+    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack|build-docs|start-pm2|stop-pm2|restart-pm2|logs-pm2)
         if [[ -z "$1" ]]; then log_error "Specificare lo sviluppatore per il comando '$COMMAND'."; exit 1; fi
         check_prerequisites "$1"
         case "$COMMAND" in
             debug) debug_server "$1";;
-            fullstack) start_fullstack "$1";; # Nuovo comando Fullstack
+            fullstack) start_fullstack "$1";;
             build-docs) build_docs "$1";;
             start) start_server "$1";;
             stop) stop_server "$1";;
@@ -695,8 +766,15 @@ case "$COMMAND" in
             clear) clear_environment "$1";;
             recreate) recreate_environment "$1";;
             reset-db) reset_database "$1";;
-            build-docs) build_docs "$1";; # Nuovo comando
+            build-docs) build_docs "$1";;
+            start-pm2) start_pm2 "$1";;
+            stop-pm2) stop_pm2 "$1";;
+            restart-pm2) restart_pm2 "$1";;
+            logs-pm2) logs_pm2 "$1";;
         esac
+        ;;
+    status-pm2)
+        status_pm2
         ;;
     setup-firewall)
         setup_firewall

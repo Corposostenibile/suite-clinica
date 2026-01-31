@@ -15,8 +15,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # CONFIGURAZIONE
 # ============================================================
 
-TOTAL_CLIENTS = 50000
+TOTAL_CLIENTS = 5000
 BATCH_SIZE = 1000  # Inserimento a batch per performance
+
+# ... (omitted content)
+
+
 
 # Nomi italiani comuni
 NOMI_MASCHILI = [
@@ -208,16 +212,11 @@ def main():
         print(f"\n📊 Clienti esistenti: {existing_count}")
 
         if existing_count > 0:
-            confirm = input(f"\n⚠️  Vuoi eliminare i {existing_count} clienti esistenti? (s/n): ")
-            if confirm.lower() == 's':
-                print("🗑️  Eliminazione clienti esistenti...")
-                # Delete all clients (standard deletion without FK disabling)
-                Cliente.query.delete()
-                db.session.commit()
-                print("✅ Clienti eliminati")
-            else:
-                print("❌ Operazione annullata")
-                return
+            print("🗑️  Eliminazione clienti esistenti (Auto-confirm)...")
+            # Delete all clients (standard deletion without FK disabling)
+            Cliente.query.delete()
+            db.session.commit()
+            print("✅ Clienti eliminati")
 
         # ============================================================
         # GENERAZIONE CLIENTI
