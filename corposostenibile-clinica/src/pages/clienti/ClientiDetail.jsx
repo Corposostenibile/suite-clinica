@@ -106,15 +106,134 @@ function ClientiDetail() {
     {
       target: '[data-tour="nav-tabs-dettaglio"]',
       title: 'Navigazione Sezioni',
-      content: 'Usa questi tab per spostarti tra le diverse aree: dai dati anagrafici ai piani alimentari, dagli allenamenti ai check periodici.',
+      content: 'Usa questi tab per spostarti tra le diverse aree del percorso cliente.',
       placement: 'bottom',
       icon: <FaLayerGroup size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
     },
     {
+      target: '[data-tour="anagrafica-dati"]',
+      title: 'Dati Personali',
+      content: 'Gestisci qui i dati anagrafici, la professione e le note base.',
+      placement: 'right',
+      icon: <FaUserCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'anagrafica'
+    },
+    {
+      target: '[data-tour="anagrafica-contatti"]',
+      title: 'Contatti',
+      content: 'Tutti i recapiti e l\'indirizzo del cliente sempre a portata di mano.',
+      placement: 'left',
+      icon: <FaIdCard size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'anagrafica'
+    },
+    {
+      target: '[data-tour="anagrafica-storia"]',
+      title: 'Storia e Obiettivi',
+      content: 'Annota il passato del cliente, le sue paure e gli obiettivi che vuole raggiungere.',
+      placement: 'top',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'anagrafica'
+    },
+    {
+      target: '[data-tour="programma-stato"]',
+      title: 'Stato Operativo',
+      content: 'Controlla se il cliente è attivo, in pausa o in stop, e aggiorna i dettagli del suo programma.',
+      placement: 'right',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'programma'
+    },
+    {
+      target: '[data-tour="programma-date"]',
+      title: 'Controllo Scadenze',
+      content: 'Monitora la data di inizio e soprattutto la data di rinnovo per prevenire abbandoni.',
+      placement: 'top',
+      icon: <FaSave size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'programma'
+    },
+    {
+      target: '[data-tour="team-subtabs"]',
+      title: 'Gestione Team',
+      content: 'Visualizza e assegna i professionisti (Nutrizionista, Coach, Psicologo) che seguono il cliente.',
+      placement: 'bottom',
+      icon: <FaUserCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+      tabId: 'team'
+    },
+    {
+      target: '[data-tour="team-timeline"]',
+      title: 'Storico Assegnazioni',
+      content: 'Una timeline completa di chi ha seguito il cliente nel tempo.',
+      placement: 'top',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+      tabId: 'team'
+    },
+    {
+      target: '[data-tour="nutrizione-subtabs"]',
+      title: 'Area Nutrizione',
+      content: 'Accedi a panoramica, setup, patologie e piani alimentari.',
+      placement: 'bottom',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'nutrizione'
+    },
+    {
+      target: '[data-tour="nutrizione-piani"]',
+      title: 'Piani Alimentari',
+      content: 'Carica nuovi PDF, modifica quelli attivi e consulta lo storico dei piani.',
+      placement: 'top',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'nutrizione',
+      onEnter: () => setNutrizioneSubTab('piano')
+    },
+    {
+      target: '[data-tour="coaching-subtabs"]',
+      title: 'Area Coaching',
+      content: 'Gestisci allenamenti, luoghi e setup sportivo del cliente.',
+      placement: 'bottom',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching'
+    },
+    {
+      target: '[data-tour="coaching-schede"]',
+      title: 'Schede Allenamento',
+      content: 'Documenta e pianifica le schede di allenamento del cliente.',
+      placement: 'top',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('piano')
+    },
+    {
+      target: '[data-tour="check-periodici-link"]',
+      title: 'Invio Check',
+      content: 'Genera e copia i link per i check settimanali, DCA o minori da inviare al cliente.',
+      placement: 'bottom',
+      icon: <FaIdCard size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+      tabId: 'check_periodici'
+    },
+    {
+      target: '[data-tour="check-periodici-risposte"]',
+      title: 'Storico Risposte',
+      content: 'Analizza le risposte passate per monitorare l\'andamento del percorso.',
+      placement: 'top',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+      tabId: 'check_periodici'
+    },
+    {
       target: '[data-tour="salva-modifiche"]',
-      title: 'Salvataggio',
-      content: 'Ricordati di cliccare qui dopo ogni modifica per rendere i cambiamenti permanenti nel sistema.',
+      title: 'Salvataggio rapido',
+      content: 'Ricordati di salvare sempre dopo aver modificato i dati anagrafici o di programma.',
       placement: 'bottom',
       icon: <FaSave size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
@@ -1926,7 +2045,7 @@ function ClientiDetail() {
               {activeTab === 'anagrafica' && (
                 <div className="row g-4">
                   {/* Dati Personali */}
-                  <div className="col-md-6">
+                  <div className="col-md-6" data-tour="anagrafica-dati">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       Dati Personali
                     </h6>
@@ -1994,7 +2113,7 @@ function ClientiDetail() {
                   </div>
 
                   {/* Contatti */}
-                  <div className="col-md-6">
+                  <div className="col-md-6" data-tour="anagrafica-contatti">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       Contatti
                     </h6>
@@ -2037,7 +2156,7 @@ function ClientiDetail() {
                   </div>
 
                   {/* Storia */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="anagrafica-storia">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       Storia e Obiettivi
                     </h6>
@@ -2087,7 +2206,7 @@ function ClientiDetail() {
               {activeTab === 'programma' && (
                 <div className="row g-4">
                   {/* Stato */}
-                  <div className="col-md-6">
+                  <div className="col-md-6" data-tour="programma-stato">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       Stato Cliente
                     </h6>
@@ -2145,7 +2264,7 @@ function ClientiDetail() {
                   </div>
 
                   {/* Date */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="programma-date">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       Date Abbonamento
                     </h6>
@@ -2177,7 +2296,7 @@ function ClientiDetail() {
               {activeTab === 'team' && (
                 <div className="row g-4">
                   {/* Sub-tabs for Team Clinico / Team Esterno */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="team-subtabs">
                     <ul className="nav nav-pills mb-4" style={{ gap: '8px' }}>
                       <li className="nav-item">
                         <button
@@ -2412,7 +2531,7 @@ function ClientiDetail() {
                       </div>
 
                       {/* Timeline Storico Assegnazioni - Orizzontale */}
-                      <div className="col-12 mt-4">
+                      <div className="col-12 mt-4" data-tour="team-timeline">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           <i className="ri-history-line me-2"></i>
                           Storico Assegnazioni
@@ -2603,7 +2722,7 @@ function ClientiDetail() {
                   )}
 
                   {/* Sub-tab Navigation - Same style as Team tab */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="nutrizione-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -2864,7 +2983,7 @@ function ClientiDetail() {
                       </div>
 
                       {/* Timeline Storico Stati Unificata */}
-                      <div className="col-12">
+                      <div className="col-12" data-tour="nutrizione-storico">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           <i className="ri-history-line me-2"></i>
                           Storico Stati (Servizio + Chat)
@@ -3241,7 +3360,7 @@ function ClientiDetail() {
                   {nutrizioneSubTab === 'piano' && (
                     <>
                       {/* Piano Attivo */}
-                      <div className="col-12">
+                      <div className="col-12" data-tour="nutrizione-piani">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Piano Alimentare Attivo
                         </h6>
@@ -3616,7 +3735,7 @@ function ClientiDetail() {
               {activeTab === 'coaching' && (
                 <div className="row g-4">
                   {/* Sub-tab Navigation */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="coaching-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -4092,7 +4211,7 @@ function ClientiDetail() {
                   {/* ===== PIANO ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'piano' && (
                     <>
-                      <div className="col-12">
+                      <div className="col-12" data-tour="coaching-schede">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Piano Allenamento Attivo
                         </h6>
@@ -5285,7 +5404,7 @@ function ClientiDetail() {
                   </div>
 
                   {/* Link Generation Section (Filtered) */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="check-periodici-link">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-link me-2"></i>
                       Genera Link Check
@@ -5347,7 +5466,7 @@ function ClientiDetail() {
                   </div>
 
                   {/* Responses History Section (Filtered) */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="check-periodici-risposte">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-history-line me-2"></i>
                       Storico Compilazioni
@@ -7007,6 +7126,14 @@ function ClientiDetail() {
         onComplete={() => {
           setMostraTour(false);
           console.log('Tour Dettaglio Paziente completato');
+        }}
+        onStepChange={(index, step) => {
+          if (step.tabId) {
+            setActiveTab(step.tabId);
+          }
+          if (step.onEnter) {
+            step.onEnter();
+          }
         }}
       />
     </>
