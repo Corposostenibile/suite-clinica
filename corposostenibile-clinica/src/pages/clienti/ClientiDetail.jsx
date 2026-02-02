@@ -1974,6 +1974,7 @@ function ClientiDetail() {
         docsSection="la-scheda-completa-del-paziente"
         onStartTour={() => setMostraTour(true)}
         brandName="Suite Clinica"
+        logoSrc="/suitemind.png"
         accentColor="#85FF00"
       />
       {/* Page Header */}

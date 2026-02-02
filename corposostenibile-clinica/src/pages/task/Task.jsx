@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { 
+    FaTasks, 
+    FaClipboardCheck, 
+    FaClipboardList,
+    FaBell, 
+    FaGraduationCap, 
+    FaExclamationTriangle, 
+    FaStickyNote, 
+    FaStream, 
+    FaCheckCircle, 
+    FaArrowRight, 
+    FaFilter,
+    FaSync
+} from 'react-icons/fa';
 
 function Task() {
     const { user } = useOutletContext();
@@ -10,6 +26,58 @@ function Task() {
     const [activeTab, setActiveTab] = useState('all');
     const [showCompleted, setShowCompleted] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [mostraTour, setMostraTour] = useState(false);
+
+    const tourSteps = [
+        {
+            target: '[data-tour="header"]',
+            title: 'Benvenuto al Sistema Task',
+            content: 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti. È progettata per aiutarti a organizzare il lavoro in modo efficiente.',
+            placement: 'bottom',
+            icon: <FaTasks size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+        },
+        {
+            target: '[data-tour="stats-cards"]',
+            title: 'Dashboard Task',
+            content: 'Ogni card rappresenta una categoria di attività aperte: \n\n• Onboarding (Blu): Nuovi clienti\n• Check (Verde): Controlli periodici\n• Reminder (Arancione): Scadenze imminenti\n• Formazione (Viola): Apprendimento\n• Solleciti (Rosso): Clienti non rispondenti\n• Generico (Grigio): Task manuali dai colleghi',
+            placement: 'bottom',
+            icon: <FaStream size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+        },
+        {
+            target: '[data-tour="task-table"]',
+            title: 'La Tua Lista Attività',
+            content: 'Qui trovi tutte le attività da svolgere. Ogni riga contiene i dettagli necessari: il tipo di attività, il cliente collegato, la scadenza e la priorità.',
+            placement: 'top',
+            icon: <FaClipboardList size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+        },
+        {
+            target: '[data-tour="task-checkbox"]',
+            title: 'Completamento Task',
+            content: 'Quando finisci un\'attività, clicca sulla checkbox. Il task verrà segnato come completato e sparirà dalla vista per mantenere la lista pulita.',
+            placement: 'right',
+            icon: <FaCheckCircle size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+        },
+        {
+            target: '[data-tour="task-action"]',
+            title: 'Navigazione Intelligente',
+            content: 'Il pulsante "Vai" ti porta automaticamente dove devi operare: nella scheda cliente, nella sezione check o direttamente ai materiali formativi.',
+            placement: 'left',
+            icon: <FaArrowRight size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+        },
+        {
+            target: '[data-tour="task-tabs"]',
+            title: 'Filtri Comodi',
+            content: 'Usa i tab per visualizzare solo una categoria specifica. Puoi anche ricaricare i dati o mostrare i task già completati per consultare lo storico.',
+            placement: 'bottom',
+            icon: <FaFilter size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+        }
+    ];
 
     const fetchStats = useCallback(async () => {
         try {
@@ -131,7 +199,7 @@ function Task() {
     return (
         <>
             {/* Page Header */}
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header">
                 <div>
                     <h4 className="mb-1">Le tue Task</h4>
                     <p className="text-muted mb-0">
@@ -142,7 +210,7 @@ function Task() {
                      <button className="btn btn-light" onClick={fetchTasks}>
                         <i className="ri-refresh-line"></i>
                     </button>
-                    <div className="form-check form-switch d-flex align-items-center gap-2 m-0 border px-3 rounded bg-white">
+                    <div className="form-check form-switch d-flex align-items-center gap-2 m-0 border px-3 rounded bg-white" data-tour="task-switch">
                         <input
                             className="form-check-input m-0"
                             type="checkbox"
@@ -160,7 +228,7 @@ function Task() {
             </div>
 
             {/* Stats Cards */}
-            <div className="row g-3 mb-4">
+            <div className="row g-3 mb-4" data-tour="stats-cards">
                 {Object.entries(TASK_CATEGORIES).map(([key, cat]) => (
                     <div className="col-xl-2 col-md-4 col-6" key={key}>
                         <div
@@ -198,7 +266,7 @@ function Task() {
             {/* Task List */}
             <div className="card border-0 shadow-sm">
                 {/* Tabs */}
-                <div className="card-header bg-white border-bottom-0 py-3">
+                <div className="card-header bg-white border-bottom-0 py-3" data-tour="task-tabs">
                     <ul className="nav nav-pills custom-pills">
                         <li className="nav-item">
                              <button
@@ -252,7 +320,7 @@ function Task() {
                     ) : (
                         <div className="table-responsive">
                             <table className="table table-hover align-middle mb-0">
-                                <thead className="bg-light text-muted small uppercase">
+                                <thead className="bg-light text-muted small uppercase" data-tour="task-table">
                                     <tr>
                                         <th style={{ width: '50px' }}></th>
                                         <th>Attività</th>
@@ -264,14 +332,14 @@ function Task() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tasks.map(task => {
+                                    {tasks.map((task, index) => {
                                         const category = getCategoryInfo(task.category);
                                         const priorityColor = getPriorityColor(task.priority);
                                         const hasAction = task.payload && (task.payload.client_id || task.payload.url);
                                         
                                         return (
                                             <tr key={task.id} className={task.completed ? 'bg-light opacity-75' : ''}>
-                                                <td className="text-center">
+                                                <td className="text-center" data-tour={index === 0 ? "task-checkbox" : undefined}>
                                                     <div className="form-check d-flex justify-content-center">
                                                         <input
                                                             className="form-check-input"
@@ -325,7 +393,7 @@ function Task() {
                                                         </small>
                                                     </div>
                                                 </td>
-                                                <td className="text-end">
+                                                <td className="text-end" data-tour={index === 0 ? "task-action" : undefined}>
                                                     {!task.completed && hasAction && (
                                                         <button 
                                                             className="btn btn-icon btn-sm btn-ghost-primary" 
@@ -355,6 +423,26 @@ function Task() {
                     </div>
                 )}
             </div>
+            <SupportWidget
+                pageTitle="Gestione Task"
+                pageDescription="Organizza il tuo lavoro, gestisci i solleciti e monitora le scadenze dei pazienti."
+                pageIcon={FaTasks}
+                docsSection="task"
+                onStartTour={() => setMostraTour(true)}
+                brandName="Suite Clinica"
+                logoSrc="/suitemind.png"
+                accentColor="#85FF00"
+            />
+
+            <GuidedTour
+                steps={tourSteps}
+                isOpen={mostraTour}
+                onClose={() => setMostraTour(false)}
+                onComplete={() => {
+                    setMostraTour(false);
+                    console.log('Tour Task completato');
+                }}
+            />
         </>
     );
 }

@@ -153,6 +153,7 @@ function SupportWidget({
   const [isOpen, setIsOpen] = useState(false);  // Controlla apertura pannello
   const navigate = useNavigate();
 
+
   // =========================================================================
   // HANDLERS
   // =========================================================================
@@ -237,9 +238,9 @@ function SupportWidget({
             src={logoSrc}
             alt="Supporto"
             style={{
-              width: '36px',
-              height: '36px',
-              filter: 'invert(1) brightness(2)'
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover'
             }}
           />
         ) : (

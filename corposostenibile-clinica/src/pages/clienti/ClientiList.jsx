@@ -764,6 +764,7 @@ function ClientiList() {
         docsSection="lista-pazienti"
         onStartTour={() => setMostraTour(true)}
         brandName="Suite Clinica"
+        logoSrc="/suitemind.png"
         accentColor="#85FF00"
       />
 

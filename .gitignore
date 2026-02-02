@@ -54,7 +54,6 @@ htmlcov/
 
 # Uploads & Data
 uploads/
-backups/
 
 # OS
 Thumbs.db
