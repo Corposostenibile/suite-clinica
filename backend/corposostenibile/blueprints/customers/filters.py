@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
 from flask import Flask, Request
-from sqlalchemy import Numeric, cast, func, or_, and_
+from sqlalchemy import and_, func, or_, text, exists, select, Numeric, cast, String
 from sqlalchemy.orm import Query
 from sqlalchemy.orm.dynamic import AppenderQuery  # patch __len__
 
@@ -95,6 +95,7 @@ class CustomerFilterParams:
     """Struttura immutabile con tutti i filtri accettati dalle query."""
 
     q: Optional[str] = None
+    view: Optional[str] = None  # NEW: allows specialized filtering (nutrizione, coach, psicologia)
     tipologia: List[TipologiaClienteEnum] = field(default_factory=list)
     
     # Filtri professionisti (FK)
@@ -401,6 +402,7 @@ class CustomerFilterParams:
 
         return cls(
             q=args.get("q"),
+            view=args.get("view"),
             tipologia=_parse_multi_value(
                 _val("tipologia_cliente", "tipologia"), TipologiaClienteEnum
             ),
@@ -651,6 +653,52 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
                 )
             )
 
+    # -------- view-based implicit filters (Option B) ------
+    if p.view == 'nutrizione':
+        # Show if (assigned to a nutritionist) OR (has a nutrition status)
+        from corposostenibile.models import cliente_nutrizionisti
+        has_nutri_subviz = exists(
+             select(cliente_nutrizionisti.c.cliente_id)
+             .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+        )
+        qry = qry.filter(
+            or_(
+                has_nutri_subviz,
+                Cliente.stato_nutrizione.isnot(None),
+                Cliente.piano_alimentare.isnot(None)
+            )
+        )
+
+    elif p.view == 'coach':
+        # Show if (assigned to a coach) OR (has a coach status)
+        from corposostenibile.models import cliente_coaches
+        has_coach_subviz = exists(
+             select(cliente_coaches.c.cliente_id)
+             .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
+        )
+        qry = qry.filter(
+            or_(
+                has_coach_subviz,
+                Cliente.stato_coach.isnot(None),
+                Cliente.programma_attuale.isnot(None)
+            )
+        )
+
+    elif p.view == 'psicologia':
+        # Show if (assigned to a psychologist) OR (has a psychology status)
+        from corposostenibile.models import cliente_psicologi
+        has_psico_subviz = exists(
+             select(cliente_psicologi.c.cliente_id)
+             .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+        )
+        qry = qry.filter(
+            or_(
+                has_psico_subviz,
+                Cliente.stato_psicologia.isnot(None),
+                Cliente.sedute_psicologia_comprate > 0
+            )
+        )
+
     # -------- tipologia filter ------
     if p.tipologia:
         qry = qry.filter(Cliente.tipologia_cliente.in_(p.tipologia))
@@ -895,7 +943,6 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         # not the Python enum member name ("uno", "due", etc.)
         # We also need to cast to String to prevent SQLAlchemy's enum type processor
         # from converting back to enum names
-        from sqlalchemy import String, cast
         check_saltati_values = [e.value if hasattr(e, 'value') else e for e in p.check_saltati]
         qry = qry.filter(cast(Cliente.check_saltati, String).in_(check_saltati_values))
     
@@ -934,7 +981,6 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # ─────────────────── TAB 3: TEAM ─────────────────── #
     if p.missing_nutrizionista:
         # Nessun nutrizionista assegnato (né FK né many-to-many)
-        from sqlalchemy import exists
         from corposostenibile.models import cliente_nutrizionisti
         qry = qry.filter(
             Cliente.nutrizionista_id.is_(None),
@@ -942,7 +988,6 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         )
     
     if p.missing_coach:
-        from sqlalchemy import exists
         from corposostenibile.models import cliente_coaches
         qry = qry.filter(
             Cliente.coach_id.is_(None),
@@ -950,7 +995,6 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         )
     
     if p.missing_psicologa:
-        from sqlalchemy import exists
         from corposostenibile.models import cliente_psicologi
         qry = qry.filter(
             Cliente.psicologa_id.is_(None),
@@ -961,7 +1005,6 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         qry = qry.filter(Cliente.health_manager_id.is_(None))
     
     if p.missing_consulente_alimentare:
-        from sqlalchemy import exists
         from corposostenibile.models import cliente_consulenti
         qry = qry.filter(
             Cliente.consulente_alimentare_id.is_(None),
