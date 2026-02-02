@@ -8,6 +8,15 @@ import teamService, {
     ROLE_COLORS,
     SPECIALTY_COLORS
 } from '../../services/teamService';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { 
+    FaGraduationCap, 
+    FaChartBar, 
+    FaFilter, 
+    FaList, 
+    FaPlusCircle 
+} from 'react-icons/fa';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con TeamList)
 const SPECIALTY_GRADIENTS = {
@@ -58,6 +67,52 @@ function Formazione() {
     const [requests, setRequests] = useState([]);
     const [receivedRequests, setReceivedRequests] = useState([]); // Richieste ricevute
     const [recipients, setRecipients] = useState([]);
+    
+    // Configurazione Tour
+    const [mostraTour, setMostraTour] = useState(false);
+    
+    const tourSteps = [
+        {
+            target: '[data-tour="header"]',
+            title: 'Area Formazione',
+            content: 'Qui puoi gestire il tuo percorso di crescita professionale, visualizzare i training assegnati e richiedere formazione specifica.',
+            placement: 'bottom',
+            icon: <FaGraduationCap size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+        },
+        {
+            target: '[data-tour="stats-cards"]',
+            title: 'Dashboard Rapida',
+            content: 'Tieni d\'occhio le metriche principali: training ricevuti, erogati (se sei Team Leader) e lo stato delle tue richieste.',
+            placement: 'bottom',
+            icon: <FaChartBar size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+        },
+        {
+            target: '[data-tour="tabs"]',
+            title: 'Organizzazione',
+            content: 'Usa i tab per navigare tra i training che ti sono stati assegnati, quelli che hai erogato e le richieste di formazione.',
+            placement: 'bottom',
+            icon: <FaFilter size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+        },
+        {
+            target: '[data-tour="content-list"]',
+            title: 'I Tuoi Training',
+            content: 'Clicca su un elemento per espandere i dettagli, leggere il feedback e confermare la presa visione.',
+            placement: 'top',
+            icon: <FaList size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+        },
+        {
+            target: '[data-tour="request-btn"]',
+            title: 'Richiedi Formazione',
+            content: 'Hai bisogno di supporto su un tema specifico? Invia una richiesta di training al tuo responsabile o a un collega esperto.',
+            placement: 'left',
+            icon: <FaPlusCircle size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)'
+        }
+    ];
 
     // Paginazione per le 4 sezioni (10 elementi per pagina)
     const ITEMS_PER_SECTION = 10;
@@ -527,7 +582,7 @@ function Formazione() {
             return (
                 <div className="container-fluid p-0">
                     {/* Header */}
-                    <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
+                    <div className="d-flex flex-wrap align-items-center justify-content-between mb-4" data-tour="header">
                         <div>
                             <h4 className="mb-1">Formazione</h4>
                             <p className="text-muted mb-0">
@@ -539,6 +594,7 @@ function Formazione() {
                         <button
                             className="btn btn-success"
                             onClick={() => { console.log('Recipients:', recipients); setShowRequestModal(true); }}
+                            data-tour="request-btn"
                         >
                             <i className="ri-add-circle-line me-2"></i>
                             Richiedi Training
@@ -546,7 +602,7 @@ function Formazione() {
                     </div>
 
                     {/* Stats Row - KPI sui training */}
-                    <div className="row g-3 mb-4">
+                    <div className="row g-3 mb-4" data-tour="stats-cards">
                         {[
                             { label: 'Training Ricevuti', value: stats.totalTrainings, icon: 'ri-book-open-line', bg: 'primary', badge: stats.unacknowledged > 0 ? stats.unacknowledged : null },
                             { label: 'Training Erogati', value: stats.totalGiven, icon: 'ri-presentation-line', bg: 'success', badge: stats.givenPending > 0 ? stats.givenPending : null },
@@ -578,7 +634,7 @@ function Formazione() {
                     </div>
 
                     {/* Main Tabs: I Miei Training | Gestione Team */}
-                    <ul className="nav nav-tabs mb-4">
+                    <ul className="nav nav-tabs mb-4" data-tour="tabs">
                         <li className="nav-item">
                             <button
                                 className={`nav-link ${adminTab === 'myTrainings' ? 'active' : ''}`}
@@ -654,7 +710,7 @@ function Formazione() {
                                 <div className="card-body p-0">
                                     {/* Training List */}
                                     {activeTab === 'trainings' && (
-                                        <div>
+                                        <div data-tour="content-list">
                                             {trainings.length === 0 ? (
                                                 <div className="text-center py-5">
                                                     <i className="ri-book-open-line text-muted" style={{ fontSize: '64px' }}></i>
@@ -1381,6 +1437,27 @@ function Formazione() {
                             </div>
                         </div>
                     )}
+
+                    <SupportWidget
+                        pageTitle="Formazione e Sviluppo"
+                        pageDescription="Gestisci la tua crescita professionale, visualizza i training assegnati e richiedi supporto formativo."
+                        pageIcon={FaGraduationCap}
+                        docsSection="formazione"
+                        onStartTour={() => setMostraTour(true)}
+                        brandName="Suite Clinica"
+                        logoSrc="/suitemind.png"
+                        accentColor="#6366F1"
+                    />
+
+                    <GuidedTour
+                        steps={tourSteps}
+                        isOpen={mostraTour}
+                        onClose={() => setMostraTour(false)}
+                        onComplete={() => {
+                            setMostraTour(false);
+                            console.log('Tour Formazione completato');
+                        }}
+                    />
                 </div>
             );
         }
@@ -2337,6 +2414,27 @@ function Formazione() {
                     to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
+
+            <SupportWidget
+                pageTitle="Formazione e Sviluppo"
+                pageDescription="Gestisci la tua crescita professionale, visualizza i training assegnati e richiedi supporto formativo."
+                pageIcon={FaGraduationCap}
+                docsSection="formazione"
+                onStartTour={() => setMostraTour(true)}
+                brandName="Suite Clinica"
+                logoSrc="/suitemind.png"
+                accentColor="#6366F1"
+            />
+
+            <GuidedTour
+                steps={tourSteps}
+                isOpen={mostraTour}
+                onClose={() => setMostraTour(false)}
+                onComplete={() => {
+                    setMostraTour(false);
+                    console.log('Tour Formazione completato');
+                }}
+            />
         </>
     );
 }
