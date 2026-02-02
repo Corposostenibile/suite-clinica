@@ -24,7 +24,7 @@ import checkService, { CHECK_TYPES } from '../../services/checkService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave } from 'react-icons/fa';
+import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning } from 'react-icons/fa';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -96,7 +96,7 @@ function ClientiDetail() {
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
     },
     {
-      target: '[data-tour="profilo-paziente"]',
+      target: '[data-tour="profilo-rapido"]',
       title: 'Profilo Rapido',
       content: 'In questa colonna trovi le informazioni essenziali: stato del paziente, giorni al rinnovo e i professionisti assegnati.',
       placement: 'right',
@@ -111,6 +111,7 @@ function ClientiDetail() {
       icon: <FaLayerGroup size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
     },
+    // ANAGRAFICA
     {
       target: '[data-tour="anagrafica-dati"]',
       title: 'Dati Personali',
@@ -138,6 +139,7 @@ function ClientiDetail() {
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
       tabId: 'anagrafica'
     },
+    // PROGRAMMA
     {
       target: '[data-tour="programma-stato"]',
       title: 'Stato Operativo',
@@ -156,6 +158,7 @@ function ClientiDetail() {
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
       tabId: 'programma'
     },
+    // TEAM
     {
       target: '[data-tour="team-subtabs"]',
       title: 'Gestione Team',
@@ -174,48 +177,230 @@ function ClientiDetail() {
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
       tabId: 'team'
     },
+    // NUTRIZIONE
     {
       target: '[data-tour="nutrizione-subtabs"]',
       title: 'Area Nutrizione',
-      content: 'Accedi a panoramica, setup, patologie e piani alimentari.',
+      content: 'Naviga tra le diverse sezioni dedicate alla nutrizione.',
       placement: 'bottom',
-      icon: <FaLayerGroup size={18} color="white" />,
+      icon: <FaAppleAlt size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
       tabId: 'nutrizione'
     },
     {
+      target: '[data-tour="nutrizione-panoramica"]',
+      title: 'Panoramica Nutrizione',
+      content: 'Vedi i professionisti attivi e lo storico degli stati del servizio nutrizionale.',
+      placement: 'top',
+      icon: <FaAppleAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'nutrizione',
+      onEnter: () => setNutrizioneSubTab('panoramica')
+    },
+    {
+      target: '[data-tour="nutrizione-setup"]',
+      title: 'Setup Nutrizione',
+      content: 'Configura la call iniziale e i giorni di reach-out settimanale.',
+      placement: 'top',
+      icon: <FaAppleAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'nutrizione',
+      onEnter: () => setNutrizioneSubTab('setup')
+    },
+    {
+      target: '[data-tour="nutrizione-patologie"]',
+      title: 'Patologie e Anamnesi',
+      content: 'Documenta la situazione clinica e le abitudini alimentari del cliente.',
+      placement: 'top',
+      icon: <FaAppleAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'nutrizione',
+      onEnter: () => setNutrizioneSubTab('patologie')
+    },
+    {
       target: '[data-tour="nutrizione-piani"]',
       title: 'Piani Alimentari',
-      content: 'Carica nuovi PDF, modifica quelli attivi e consulta lo storico dei piani.',
+      content: 'Il cuore della nutrizione: carica nuovi PDF, modifica quelli attivi e consulta lo storico.',
       placement: 'top',
-      icon: <FaLayerGroup size={18} color="white" />,
+      icon: <FaAppleAlt size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
       tabId: 'nutrizione',
       onEnter: () => setNutrizioneSubTab('piano')
     },
     {
+      target: '[data-tour="nutrizione-diario"]',
+      title: 'Diario Nutrizionale',
+      content: 'Annota i progressi e le osservazioni durante il percorso nutrizionale.',
+      placement: 'top',
+      icon: <FaAppleAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'nutrizione',
+      onEnter: () => setNutrizioneSubTab('diario')
+    },
+    {
+      target: '[data-tour="nutrizione-alert"]',
+      title: 'Alert Nutrizione',
+      content: 'Segnala allergie o criticità fondamentali che devono essere sempre visibili.',
+      placement: 'top',
+      icon: <FaAppleAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+      tabId: 'nutrizione',
+      onEnter: () => setNutrizioneSubTab('alert')
+    },
+    // COACHING
+    {
       target: '[data-tour="coaching-subtabs"]',
       title: 'Area Coaching',
       content: 'Gestisci allenamenti, luoghi e setup sportivo del cliente.',
       placement: 'bottom',
-      icon: <FaLayerGroup size={18} color="white" />,
+      icon: <FaRunning size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
       tabId: 'coaching'
     },
     {
+      target: '[data-tour="coaching-panoramica"]',
+      title: 'Panoramica Coaching',
+      content: 'Monitora i coach assegnati e lo storico degli stati sportivi.',
+      placement: 'top',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('panoramica')
+    },
+    {
+      target: '[data-tour="coaching-setup"]',
+      title: 'Setup Coaching',
+      content: 'Gestisci la call iniziale sportiva e la frequenza dei contatti.',
+      placement: 'top',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('setup')
+    },
+    {
       target: '[data-tour="coaching-schede"]',
       title: 'Schede Allenamento',
-      content: 'Documenta e pianifica le schede di allenamento del cliente.',
+      content: 'Pianifica le schede, carica i file e consulta lo storico degli allenamenti.',
       placement: 'top',
-      icon: <FaLayerGroup size={18} color="white" />,
+      icon: <FaRunning size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
       tabId: 'coaching',
       onEnter: () => setCoachingSubTab('piano')
     },
     {
+      target: '[data-tour="coaching-luoghi"]',
+      title: 'Luoghi di Allenamento',
+      content: 'Indica dove si allena il cliente (casa, palestra, ecc.).',
+      placement: 'top',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('luoghi')
+    },
+    {
+      target: '[data-tour="coaching-patologie"]',
+      title: 'Patologie e Anamnesi Sportiva',
+      content: 'Annota infortuni, condizioni fisiche o patologie rilevanti per l\'allenamento.',
+      placement: 'top',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('patologie')
+    },
+    {
+      target: '[data-tour="coaching-diario"]',
+      title: 'Diario Coaching',
+      content: 'Traccia i feedback sugli allenamenti e l\'evoluzione atletica.',
+      placement: 'top',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('diario')
+    },
+    {
+      target: '[data-tour="coaching-alert"]',
+      title: 'Alert Coaching',
+      content: 'Inserisci alert critici per la sicurezza durante l\'esercizio fisico.',
+      placement: 'top',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+      tabId: 'coaching',
+      onEnter: () => setCoachingSubTab('alert')
+    },
+    // PSICOLOGIA
+    {
+      target: '[data-tour="psicologia-subtabs"]',
+      title: 'Area Psicologia',
+      content: 'Approfondisci il benessere mentale e comportamentale del cliente.',
+      placement: 'bottom',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+      tabId: 'psicologia'
+    },
+    {
+      target: '[data-tour="psicologia-panoramica"]',
+      title: 'Panoramica Psicologia',
+      content: 'Vedi gli psicologi assegnati e lo storico del supporto psicologico.',
+      placement: 'top',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+      tabId: 'psicologia',
+      onEnter: () => setPsicologiaSubTab('panoramica')
+    },
+    {
+      target: '[data-tour="psicologia-setup"]',
+      title: 'Setup Psicologia',
+      content: 'Gestisci la call iniziale psicologica e le modalità di supporto.',
+      placement: 'top',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+      tabId: 'psicologia',
+      onEnter: () => setPsicologiaSubTab('setup')
+    },
+    {
+      target: '[data-tour="psicologia-patologie"]',
+      title: 'Patologie Psicologiche',
+      content: 'Documenta eventuali disturbi o condizioni psicologiche certificate.',
+      placement: 'top',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+      tabId: 'psicologia',
+      onEnter: () => setPsicologiaSubTab('patologie')
+    },
+    {
+      target: '[data-tour="psicologia-diario"]',
+      title: 'Diario Psicologia',
+      content: 'Note del percorso psicologico e annotazioni comportamentali.',
+      placement: 'top',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+      tabId: 'psicologia',
+      onEnter: () => setPsicologiaSubTab('diario')
+    },
+    {
+      target: '[data-tour="psicologia-alert"]',
+      title: 'Alert Psicologia',
+      content: 'Inserisci alert critici per la gestione psicologica o rischi per il cliente.',
+      placement: 'top',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+      tabId: 'psicologia',
+      onEnter: () => setPsicologiaSubTab('alert')
+    },
+    // CHECK
+    {
+      target: '[data-tour="check-periodici-tabs"]',
+      title: 'Check Periodici',
+      content: 'Scegli la tipologia di check: Settimanale, DCA o Minori.',
+      placement: 'bottom',
+      icon: <FaClipboardCheck size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+      tabId: 'check_periodici'
+    },
+    {
       target: '[data-tour="check-periodici-link"]',
       title: 'Invio Check',
-      content: 'Genera e copia i link per i check settimanali, DCA o minori da inviare al cliente.',
+      content: 'Genera e copia i link da inviare al cliente per la compilazione.',
       placement: 'bottom',
       icon: <FaIdCard size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
@@ -224,16 +409,35 @@ function ClientiDetail() {
     {
       target: '[data-tour="check-periodici-risposte"]',
       title: 'Storico Risposte',
-      content: 'Analizza le risposte passate per monitorare l\'andamento del percorso.',
+      content: 'Consulta tutte le compilazioni passate e i punteggi ottenuti.',
       placement: 'top',
       icon: <FaLayerGroup size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
       tabId: 'check_periodici'
     },
     {
+      target: '[data-tour="check-iniziali-tabs"]',
+      title: 'Check Iniziali',
+      content: 'Accedi ai check storici (Check 1, 2 e 3) compilati all\'inizio del percorso.',
+      placement: 'bottom',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'check_iniziali'
+    },
+    {
+      target: '[data-tour="check-iniziali-contenuto"]',
+      title: 'Dettagli Check Iniziali',
+      content: 'Visualizza tutte le risposte dettagliate e i punteggi dei check di ingresso.',
+      placement: 'top',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tabId: 'check_iniziali'
+    },
+    // FINAL
+    {
       target: '[data-tour="salva-modifiche"]',
       title: 'Salvataggio rapido',
-      content: 'Ricordati di salvare sempre dopo aver modificato i dati anagrafici o di programma.',
+      content: 'Ricordati di salvare sempre dopo aver apportato modifiche importanti.',
       placement: 'bottom',
       icon: <FaSave size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
@@ -1763,6 +1967,15 @@ function ClientiDetail() {
 
   return (
     <>
+      <SupportWidget
+        pageTitle="Dettaglio Paziente"
+        pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
+        pageIcon={FaUserCircle}
+        docsSection="la-scheda-completa-del-paziente"
+        onStartTour={() => setMostraTour(true)}
+        brandName="Suite Clinica"
+        accentColor="#85FF00"
+      />
       {/* Page Header */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header-dettaglio">
         <div>
@@ -2337,7 +2550,8 @@ function ClientiDetail() {
 
                   {/* ===== TEAM CLINICO ===== */}
                   {teamSubTab === 'clinico' && (
-                    <>
+                    <div className="col-12" data-tour="team-clinico-wrapper">
+                      <div className="row g-4">
                       {/* Professionisti Clinici */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -2682,12 +2896,13 @@ function ClientiDetail() {
                           </div>
                         )}
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== TEAM ESTERNO ===== */}
                   {teamSubTab === 'esterno' && (
-                    <div className="col-12">
+                    <div className="col-12" data-tour="team-esterno">
                       <div className="card border">
                         <div className="card-body text-center py-5">
                           <div className="mb-3">
@@ -2759,7 +2974,8 @@ function ClientiDetail() {
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {nutrizioneSubTab === 'panoramica' && (
-                    <>
+                    <div className="col-12" data-tour="nutrizione-panoramica">
+                      <div className="row g-4">
                       {/* Nutrizionisti Assegnati - Same style as Team tab */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -3103,12 +3319,14 @@ function ClientiDetail() {
                           </div>
                         )}
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== SETUP SUB-TAB ===== */}
                   {nutrizioneSubTab === 'setup' && (
-                    <>
+                    <div className="col-12" data-tour="nutrizione-setup">
+                      <div className="row g-4">
                       {/* Call Iniziale */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -3190,12 +3408,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {nutrizioneSubTab === 'patologie' && (
-                    <>
+                    <div className="col-12" data-tour="nutrizione-patologie">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Patologie del Cliente
@@ -3353,12 +3573,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== PIANO ALIMENTARE SUB-TAB ===== */}
                   {nutrizioneSubTab === 'piano' && (
-                    <>
+                    <div className="col-12" data-tour="nutrizione-piani-wrapper">
+                      <div className="row g-4">
                       {/* Piano Attivo */}
                       <div className="col-12" data-tour="nutrizione-piani">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -3599,14 +3821,16 @@ function ClientiDetail() {
                           </div>
                         </div>
                       )}
-                    </>
+                      </div>
+                    </div>
                   )}
 
 
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {nutrizioneSubTab === 'diario' && (
-                    <>
+                    <div className="col-12" data-tour="nutrizione-diario">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Diario Nutrizionale
@@ -3694,12 +3918,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== ALERT SUB-TAB ===== */}
                   {nutrizioneSubTab === 'alert' && (
-                    <>
+                    <div className="col-12" data-tour="nutrizione-alert">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Alert e Criticità
@@ -3726,7 +3952,8 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -3773,7 +4000,8 @@ function ClientiDetail() {
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {coachingSubTab === 'panoramica' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-panoramica">
+                      <div className="row g-4">
                       {/* Coach Assegnati - Same style as Nutrizione */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -4118,12 +4346,14 @@ function ClientiDetail() {
                         )}
                       </div>
 
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== SETUP SUB-TAB ===== */}
                   {coachingSubTab === 'setup' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-setup">
+                      <div className="row g-4">
                       {/* Call Iniziale */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -4205,12 +4435,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== PIANO ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'piano' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-piani-wrapper">
+                      <div className="row g-4">
                       <div className="col-12" data-tour="coaching-schede">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Piano Allenamento Attivo
@@ -4369,12 +4601,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       )}
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== LUOGHI ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'luoghi' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-luoghi">
+                      <div className="row g-4">
                       {/* Header con bottone Nuovo Luogo */}
                       <div className="col-12">
                         <div className="d-flex align-items-center justify-content-between mb-3">
@@ -4521,12 +4755,14 @@ function ClientiDetail() {
                           </div>
                         )}
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {coachingSubTab === 'patologie' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-patologie">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Patologie e Anamnesi Coaching
@@ -4582,12 +4818,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {coachingSubTab === 'diario' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-diario">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Diario Coaching
@@ -4674,12 +4912,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== ALERT SUB-TAB ===== */}
                   {coachingSubTab === 'alert' && (
-                    <>
+                    <div className="col-12" data-tour="coaching-alert">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Alert e Criticità
@@ -4706,7 +4946,8 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -4728,7 +4969,7 @@ function ClientiDetail() {
                   )}
 
                   {/* Sub-tab Navigation - Same style as Nutrizione/Coaching */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="psicologia-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -4764,7 +5005,8 @@ function ClientiDetail() {
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {psicologiaSubTab === 'panoramica' && (
-                    <>
+                    <div className="col-12" data-tour="psicologia-panoramica">
+                      <div className="row g-4">
                       {/* Psicologi Assegnati */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
@@ -5007,12 +5249,14 @@ function ClientiDetail() {
                           </div>
                         )}
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== SETUP SUB-TAB ===== */}
                   {psicologiaSubTab === 'setup' && (
-                    <>
+                    <div className="col-12" data-tour="psicologia-setup">
+                      <div className="row g-4">
                       {/* Call Iniziale */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">Call Iniziale</h6>
@@ -5137,12 +5381,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {psicologiaSubTab === 'patologie' && (
-                    <>
+                    <div className="col-12" data-tour="psicologia-patologie">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">Patologie Psicologiche</h6>
                         <div className="card border">
@@ -5242,14 +5488,16 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
 
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {psicologiaSubTab === 'diario' && (
-                    <>
+                    <div className="col-12" data-tour="psicologia-diario">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                           Diario Psicologia
@@ -5338,12 +5586,14 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
 
                   {/* ===== ALERT SUB-TAB ===== */}
                   {psicologiaSubTab === 'alert' && (
-                    <>
+                    <div className="col-12" data-tour="psicologia-alert">
+                      <div className="row g-4">
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">Alert / Criticità</h6>
                         <div className="card border border-danger">
@@ -5364,7 +5614,8 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -5374,7 +5625,7 @@ function ClientiDetail() {
               {activeTab === 'check_periodici' && (
                 <div className="row g-4">
                   {/* Pills Navigation */}
-                  <div className="col-12">
+                  <div className="col-12" data-tour="check-periodici-tabs">
                     <ul className="nav nav-pills mb-3">
                       <li className="nav-item">
                         <button 
@@ -5571,7 +5822,7 @@ function ClientiDetail() {
               {activeTab === 'check_iniziali' && (
                  <div className="row g-4">
                     {/* Pills Navigation */}
-                    <div className="col-12">
+                    <div className="col-12" data-tour="check-iniziali-tabs">
                        <ul className="nav nav-pills mb-3">
                           <li className="nav-item">
                              <button className={`nav-link ${activeInizialiTab === 'check_1' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_1')}>Check 1</button>
@@ -5586,7 +5837,7 @@ function ClientiDetail() {
                     </div>
                     
                     {/* Content */}
-                    <div className="col-12">
+                     <div className="col-12" data-tour="check-iniziali-contenuto">
                        <div className="card border">
                           <div className="card-body p-4">
                              {loadingInitialChecks ? (
@@ -7109,15 +7360,6 @@ function ClientiDetail() {
       )}
 
       {/* Support and Tour Components */}
-      <SupportWidget
-        pageTitle="Dettaglio Paziente"
-        pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
-        pageIcon={FaUserCircle}
-        docsSection="la-scheda-completa-del-paziente"
-        onStartTour={() => setMostraTour(true)}
-        brandName="Suite Clinica"
-        accentColor="#85FF00"
-      />
 
       <GuidedTour
         steps={tourSteps}
