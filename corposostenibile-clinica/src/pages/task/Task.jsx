@@ -79,6 +79,17 @@ function Task() {
         }
     ];
 
+    // Determine the first actionable task index for the tour
+    const firstActionableIndex = tasks.findIndex(t => !t.completed && (t.client_id || (t.payload && (t.payload.client_id || t.payload.url))));
+
+    // Filter tour steps based on availability
+    const filteredTourSteps = tourSteps.filter(step => {
+        if (step.target === '[data-tour="task-action"]' && firstActionableIndex === -1) {
+            return false;
+        }
+        return true;
+    });
+
     const fetchStats = useCallback(async () => {
         try {
             const data = await taskService.getStats();
@@ -137,35 +148,40 @@ function Task() {
     };
 
     const handleTaskAction = (task) => {
-        if (!task || !task.payload) return;
+        if (!task) return;
 
-        const { category, payload } = task;
+        const { category, payload, client_id } = task;
+        // Usa client_id dal top-level se disponibile, altrimenti cerca nel payload
+        const targetClientId = client_id || (payload ? payload.client_id : null);
+        const targetUrl = payload ? payload.url : null;
+
+        if (!targetClientId && !targetUrl) return;
 
         switch (category) {
             case 'check':
-                if (payload.client_id) {
+                if (targetClientId) {
                     // Navigate to client details, tab 'check'
-                    navigate(`/clienti-dettaglio/${payload.client_id}?tab=check`);
+                    navigate(`/clienti-dettaglio/${targetClientId}?tab=check`);
                 }
                 break;
             case 'onboarding':
             case 'formazione': // Forse formazione porta al training, ma per ora cliente è sicuro
             case 'sollecito':
-                if (payload.client_id) {
-                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                if (targetClientId) {
+                     navigate(`/clienti-dettaglio/${targetClientId}`);
                 }
                 break;
             case 'reminder':
-                 if (payload.client_id) {
-                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                 if (targetClientId) {
+                     navigate(`/clienti-dettaglio/${targetClientId}`);
                 }
                 break;
             default:
                 // If there's a generic link in payload
-                if (payload.url) {
-                    window.open(payload.url, '_blank');
-                } else if (payload.client_id) {
-                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                if (targetUrl) {
+                    window.open(targetUrl, '_blank');
+                } else if (targetClientId) {
+                     navigate(`/clienti-dettaglio/${targetClientId}`);
                 }
                 break;
         }
@@ -319,8 +335,8 @@ function Task() {
                         </div>
                     ) : (
                         <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
-                                <thead className="bg-light text-muted small uppercase" data-tour="task-table">
+                            <table className="table table-hover align-middle mb-0" data-tour="task-table">
+                                <thead className="bg-light text-muted small uppercase">
                                     <tr>
                                         <th style={{ width: '50px' }}></th>
                                         <th>Attività</th>
@@ -335,7 +351,7 @@ function Task() {
                                     {tasks.map((task, index) => {
                                         const category = getCategoryInfo(task.category);
                                         const priorityColor = getPriorityColor(task.priority);
-                                        const hasAction = task.payload && (task.payload.client_id || task.payload.url);
+                                        const hasAction = task.client_id || (task.payload && (task.payload.client_id || task.payload.url));
                                         
                                         return (
                                             <tr key={task.id} className={task.completed ? 'bg-light opacity-75' : ''}>
@@ -393,7 +409,7 @@ function Task() {
                                                         </small>
                                                     </div>
                                                 </td>
-                                                <td className="text-end" data-tour={index === 0 ? "task-action" : undefined}>
+                                                <td className="text-end" data-tour={index === firstActionableIndex ? "task-action" : undefined}>
                                                     {!task.completed && hasAction && (
                                                         <button 
                                                             className="btn btn-icon btn-sm btn-ghost-primary" 
@@ -435,7 +451,7 @@ function Task() {
             />
 
             <GuidedTour
-                steps={tourSteps}
+                steps={filteredTourSteps}
                 isOpen={mostraTour}
                 onClose={() => setMostraTour(false)}
                 onComplete={() => {
