@@ -22,6 +22,9 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
 import { useAuth } from '../../context/AuthContext';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave } from 'react-icons/fa';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -80,6 +83,43 @@ function ClientiDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('anagrafica');
+
+  const [mostraTour, setMostraTour] = useState(false);
+
+  const tourSteps = [
+    {
+      target: '[data-tour="header-dettaglio"]',
+      title: 'Scheda Paziente',
+      content: 'Benvenuto nella scheda completa del paziente. Qui puoi gestire ogni aspetto del suo percorso nutrizionale, sportivo e psicologico.',
+      placement: 'bottom',
+      icon: <FaUserCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+    },
+    {
+      target: '[data-tour="profilo-paziente"]',
+      title: 'Profilo Rapido',
+      content: 'In questa colonna trovi le informazioni essenziali: stato del paziente, giorni al rinnovo e i professionisti assegnati.',
+      placement: 'right',
+      icon: <FaIdCard size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+    },
+    {
+      target: '[data-tour="nav-tabs-dettaglio"]',
+      title: 'Navigazione Sezioni',
+      content: 'Usa questi tab per spostarti tra le diverse aree: dai dati anagrafici ai piani alimentari, dagli allenamenti ai check periodici.',
+      placement: 'bottom',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+    },
+    {
+      target: '[data-tour="salva-modifiche"]',
+      title: 'Salvataggio',
+      content: 'Ricordati di cliccare qui dopo ogni modifica per rendere i cambiamenti permanenti nel sistema.',
+      placement: 'bottom',
+      icon: <FaSave size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
+    }
+  ];
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1605,7 +1645,7 @@ function ClientiDetail() {
   return (
     <>
       {/* Page Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header-dettaglio">
         <div>
           <h4 className="mb-1">Dettaglio Paziente</h4>
           <nav aria-label="breadcrumb">
@@ -1622,7 +1662,7 @@ function ClientiDetail() {
             <i className="ri-arrow-left-line me-1"></i>
             Torna alla Lista
           </Link>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
             {saving ? (
               <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
             ) : saveSuccess ? (
@@ -1651,7 +1691,7 @@ function ClientiDetail() {
 
       <div className="row g-4">
         {/* Profile Card - Left Column */}
-        <div className="col-lg-4">
+        <div className="col-lg-4" data-tour="profilo-paziente">
           <div className="card shadow-sm border-0 overflow-hidden">
             {/* Gradient Header */}
             <div
@@ -1864,7 +1904,7 @@ function ClientiDetail() {
           <div className="card shadow-sm border-0">
             {/* Tabs Navigation */}
             <div className="card-header bg-transparent border-bottom p-0">
-              <ul className="nav nav-tabs border-0 flex-nowrap overflow-auto">
+              <ul className="nav nav-tabs border-0 flex-nowrap overflow-auto" data-tour="nav-tabs-dettaglio">
                 {mainTabs.map(tab => (
                   <li key={tab.id} className="nav-item">
                     <button
@@ -6948,6 +6988,27 @@ function ClientiDetail() {
           </div>
         </div>
       )}
+
+      {/* Support and Tour Components */}
+      <SupportWidget
+        pageTitle="Dettaglio Paziente"
+        pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
+        pageIcon={FaUserCircle}
+        docsSection="la-scheda-completa-del-paziente"
+        onStartTour={() => setMostraTour(true)}
+        brandName="Suite Clinica"
+        accentColor="#85FF00"
+      />
+
+      <GuidedTour
+        steps={tourSteps}
+        isOpen={mostraTour}
+        onClose={() => setMostraTour(false)}
+        onComplete={() => {
+          setMostraTour(false);
+          console.log('Tour Dettaglio Paziente completato');
+        }}
+      />
     </>
   );
 }
