@@ -6,6 +6,9 @@ import clientiService, {
   TIPOLOGIA_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 
 // Stili per la tabella professionale
 const tableStyles = {
@@ -140,6 +143,62 @@ function ClientiList() {
     total: 0,
     totalPages: 0,
   });
+
+  const [mostraTour, setMostraTour] = useState(false);
+
+  const tourSteps = [
+    {
+      target: '[data-tour="header"]',
+      title: 'Benvenuto in Lista Pazienti',
+      content: 'Questa è la tua centrale operativa per la gestione dei pazienti. Da qui puoi monitorare lo stato di tutti i percorsi in corso.',
+      placement: 'bottom',
+      icon: <FaUserFriends size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+    },
+    {
+      target: '[data-tour="stats"]',
+      title: 'Statistiche Rapide',
+      content: 'Questi numeri ti danno un\'istantanea della situazione clinica attuale, suddivisa per specialità.',
+      placement: 'bottom',
+      icon: <FaChartBar size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tip: 'I numeri si aggiornano automaticamente in base ai filtri che applichi.'
+    },
+    {
+      target: '[data-tour="filters"]',
+      title: 'Ricerca e Filtri',
+      content: 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato, tipologia o professionista assegnato.',
+      placement: 'bottom',
+      icon: <FaFilter size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tip: 'Premi Reset per tornare alla visualizzazione completa.'
+    },
+    {
+      target: '[data-tour="table"]',
+      title: 'Tabella Pazienti',
+      content: 'Ogni riga rappresenta un paziente. Qui vedi a colpo d\'occhio il team assegnato, le date chiave e lo stato attuale.',
+      placement: 'top',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+    },
+    {
+      target: '[data-tour="actions-detail"]',
+      title: 'Gestione Paziente',
+      content: 'Clicca sul nome del paziente o sull\'icona dell\'occhio per aprire la scheda dettaglio completa e gestire il percorso.',
+      placement: 'left',
+      icon: <FaEye size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)',
+      tip: 'Puoi anche cliccare sulla matita per entrare direttamente in modalità modifica.'
+    },
+    {
+      target: '[data-tour="pagination"]',
+      title: 'Navigazione',
+      content: 'Se hai molti pazienti, usa la paginazione per scorrere tra le diverse pagine dei risultati.',
+      placement: 'top',
+      icon: <FaArrowRight size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6B7280, #9CA3AF)'
+    }
+  ];
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
@@ -281,7 +340,7 @@ function ClientiList() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4" data-tour="header">
         <div>
           <h4 className="mb-1">Gestione Pazienti</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
@@ -289,7 +348,7 @@ function ClientiList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4" data-tour="stats">
         {[
           { label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', bg: 'primary' },
           { label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', bg: 'success' },
@@ -321,7 +380,7 @@ function ClientiList() {
       </div>
 
       {/* Filters */}
-      <div className="card shadow-sm border-0 mb-4">
+      <div className="card shadow-sm border-0 mb-4" data-tour="filters">
         <div className="card-body py-3">
           <div className="row g-2 align-items-center">
             <div className="col-lg-3">
@@ -425,7 +484,7 @@ function ClientiList() {
       ) : (
         <>
           {/* Tabella Pazienti */}
-          <div className="card border-0" style={tableStyles.card}>
+          <div className="card border-0" style={tableStyles.card} data-tour="table">
             <div className="table-responsive">
               <table className="table mb-0">
                 <thead style={tableStyles.tableHeader}>
@@ -545,7 +604,7 @@ function ClientiList() {
                         </td>
 
                         {/* Azioni */}
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-tour={index === 0 ? "actions-detail" : undefined}>
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={{
@@ -583,6 +642,7 @@ function ClientiList() {
           {pagination.totalPages > 1 && (
             <div
               className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
+              data-tour="pagination"
             >
               <span style={{ color: '#64748b', fontSize: '14px' }}>
                 Pagina <strong style={{ color: '#334155' }}>{pagination.page}</strong> di{' '}
@@ -695,6 +755,27 @@ function ClientiList() {
           )}
         </>
       )}
+
+      {/* Support and Tour Components */}
+      <SupportWidget
+        pageTitle="Lista Pazienti"
+        pageDescription="In questa pagina puoi gestire tutti i pazienti, filtrare per stato e specialità, e accedere alle schede dettaglio."
+        pageIcon={FaUserFriends}
+        docsSection="lista-pazienti"
+        onStartTour={() => setMostraTour(true)}
+        brandName="Suite Clinica"
+        accentColor="#85FF00"
+      />
+
+      <GuidedTour
+        steps={tourSteps}
+        isOpen={mostraTour}
+        onClose={() => setMostraTour(false)}
+        onComplete={() => {
+          setMostraTour(false);
+          console.log('Tour Lista Pazienti completato');
+        }}
+      />
     </div>
   );
 }
