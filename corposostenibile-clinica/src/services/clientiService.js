@@ -42,9 +42,9 @@ export const TIPOLOGIA_CLIENTE = {
 };
 
 export const TIPOLOGIA_LABELS = {
-  a: 'Tipo A',
-  b: 'Tipo B',
-  c: 'Tipo C',
+  a: 'VIP',
+  b: 'Premium',
+  c: 'Standard',
   stop: 'Stop',
   recupero: 'Recupero',
   pausa_gt_30: 'Pausa > 30gg',
