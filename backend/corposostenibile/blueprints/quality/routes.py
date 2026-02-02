@@ -177,7 +177,7 @@ def api_weekly_scores():
                     total_miss_rate += score.miss_rate
                     miss_rate_count += 1
 
-        result.append(prof_data)
+            result.append(prof_data)
 
         # Calculate aggregated stats
         stats = {

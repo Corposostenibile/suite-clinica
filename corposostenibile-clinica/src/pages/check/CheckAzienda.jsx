@@ -536,10 +536,10 @@ function CheckAzienda() {
                     </span>
                   </div>
 
-                  {/* Quality */}
+                  {/* MPS */}
                   <div className="d-flex align-items-center gap-2">
                     <i className="ri-star-fill text-warning" style={{ fontSize: '18px' }}></i>
-                    <span className="text-muted small d-none d-xl-inline">Quality</span>
+                    <span className="text-muted small d-none d-xl-inline">MPS</span>
                     <span style={getKpiBadgeStyle(stats?.avg_quality)}>
                       {stats?.avg_quality ?? '-'}
                     </span>

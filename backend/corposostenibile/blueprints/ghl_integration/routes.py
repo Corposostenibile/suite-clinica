@@ -74,6 +74,50 @@ def webhook_acconto_open():
         return jsonify({'error': 'Internal server error'}), 500
 
 
+
+@csrf.exempt
+@bp.route('/webhook/nuovo-cliente', methods=['POST'])
+@require_webhook_signature
+def webhook_nuovo_cliente():
+    """
+    Riceve webhook quando un nuovo cliente viene creato da GHL.
+    Alias di acconto-open per maggiore chiarezza.
+    
+    Endpoint: /ghl/webhook/nuovo-cliente
+    """
+    try:
+        # Rate limiting
+        client_ip = request.remote_addr
+        if not rate_limiter.is_allowed(f"webhook_{client_ip}"):
+            current_app.logger.warning(f"[GHL Webhook] Rate limit exceeded for IP: {client_ip}")
+            return jsonify({'error': 'Rate limit exceeded'}), 429
+
+        # Ottieni il payload
+        payload = request.get_json()
+
+        if not payload:
+            return jsonify({'error': 'No payload provided'}), 400
+
+        # Log del webhook ricevuto
+        current_app.logger.info(
+            f"[GHL Webhook] Received nuovo_cliente webhook for contact: {payload.get('contact', {}).get('name')}"
+        )
+
+        # Queue il task per processing asincrono
+        task = process_acconto_open_webhook.delay(payload)
+
+        # Rispondi immediatamente a GHL
+        return jsonify({
+            'success': True,
+            'message': 'Nuovo cliente ricevuto e in elaborazione',
+            'task_id': task.id
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"[GHL Webhook] Error in nuovo_cliente endpoint: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 @bp.route('/webhook/calendario-prenotato', methods=['POST'])
 @require_webhook_signature
 def webhook_calendario_prenotato():
@@ -1003,3 +1047,191 @@ def get_ghl_meeting_loom(ghl_event_id):
             'loom_link': None,
             'has_loom': False
         })
+
+
+# ============================================================================
+# WEBHOOK OPPORTUNITY DATA - CON DATABASE
+# ============================================================================
+
+@csrf.exempt
+@bp.route('/webhook/opportunity-data', methods=['POST'])
+def webhook_opportunity_data():
+    """
+    Riceve webhook con dati opportunity semplificati da GHL.
+    Salva nel database per persistenza.
+
+    Expected payload:
+    {
+        "nome": "Mario Rossi",
+        "storia": "Storia del cliente...",
+        "pacchetto": "Premium 3 mesi",
+        "durata": "90"
+    }
+
+    Endpoint: /ghl/webhook/opportunity-data
+    """
+    from corposostenibile.models import GHLOpportunityData
+
+    try:
+        client_ip = request.remote_addr
+        if not rate_limiter.is_allowed(f"webhook_opp_{client_ip}"):
+            current_app.logger.warning(f"[GHL Webhook] Rate limit exceeded for IP: {client_ip}")
+            return jsonify({'error': 'Rate limit exceeded'}), 429
+
+        # Ottieni il payload (supporta sia JSON che form data)
+        if request.is_json:
+            payload = request.get_json()
+        else:
+            payload = request.form.to_dict()
+
+        if not payload:
+            return jsonify({'error': 'No payload provided'}), 400
+
+        # Estrai customData se presente (formato GHL)
+        custom_data = payload.get('customData', {})
+
+        # Estrai i campi con fallback multipli
+        nome = (
+            custom_data.get('nome') or
+            payload.get('nome') or
+            payload.get('full_name') or
+            payload.get('opportunity_name') or
+            f"{payload.get('first_name', '')} {payload.get('last_name', '')}".strip() or
+            'N/D'
+        )
+        storia = custom_data.get('storia') or payload.get('storia') or ''
+        pacchetto = custom_data.get('pacchetto') or payload.get('pacchetto') or 'N/D'
+        durata = (
+            custom_data.get('durata') or
+            custom_data.get('durata_in_giorni') or
+            payload.get('durata') or
+            payload.get('durata_in_giorni') or
+            '0'
+        )
+
+        # Crea record nel database
+        opp_data = GHLOpportunityData(
+            nome=nome,
+            storia=storia,
+            pacchetto=pacchetto,
+            durata=durata,
+            ip_address=client_ip,
+            raw_payload=payload
+        )
+        db.session.add(opp_data)
+        db.session.commit()
+
+        current_app.logger.info(
+            f"[GHL Webhook] Saved opportunity data: {opp_data.nome} - {opp_data.pacchetto} (ID: {opp_data.id})"
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Dati ricevuti con successo',
+            'id': opp_data.id
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"[GHL Webhook] Error in opportunity_data endpoint: {e}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
+
+@bp.route('/api/opportunity-data', methods=['GET'])
+@login_required
+def api_get_opportunity_data():
+    """Recupera tutti i dati opportunity dal database."""
+    from corposostenibile.models import GHLOpportunityData
+
+    try:
+        data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(100).all()
+        return jsonify({
+            'success': True,
+            'data': [{
+                'id': d.id,
+                'nome': d.nome,
+                'storia': d.storia,
+                'pacchetto': d.pacchetto,
+                'durata': d.durata,
+                'received_at': d.received_at.isoformat() if d.received_at else None,
+                'ip_address': d.ip_address,
+                'processed': d.processed
+            } for d in data],
+            'total': len(data)
+        })
+    except Exception as e:
+        current_app.logger.error(f"[GHL API] Error fetching opportunity data: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# DEBUG ENDPOINT - Pubblico per test (rimuovere in produzione)
+@bp.route('/api/opportunity-data-debug', methods=['GET'])
+def api_get_opportunity_data_debug():
+    """DEBUG: Recupera dati senza autenticazione."""
+    from corposostenibile.models import GHLOpportunityData
+
+    try:
+        data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(100).all()
+        return jsonify({
+            'success': True,
+            'data': [{
+                'id': d.id,
+                'nome': d.nome,
+                'storia': d.storia,
+                'pacchetto': d.pacchetto,
+                'durata': d.durata,
+                'received_at': d.received_at.isoformat() if d.received_at else None,
+                'ip_address': d.ip_address,
+                'processed': d.processed
+            } for d in data],
+            'total': len(data)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/api/opportunity-data/<int:item_id>', methods=['GET'])
+@login_required
+def api_get_opportunity_data_single(item_id):
+    """Recupera un singolo record opportunity."""
+    from corposostenibile.models import GHLOpportunityData
+
+    try:
+        d = GHLOpportunityData.query.get(item_id)
+        if not d:
+            return jsonify({'success': False, 'message': 'Non trovato'}), 404
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': d.id,
+                'nome': d.nome,
+                'storia': d.storia,
+                'pacchetto': d.pacchetto,
+                'durata': d.durata,
+                'received_at': d.received_at.isoformat() if d.received_at else None,
+                'ip_address': d.ip_address,
+                'raw_payload': d.raw_payload,
+                'processed': d.processed
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/api/opportunity-data/clear', methods=['POST'])
+@login_required
+def api_clear_opportunity_data():
+    """Pulisce tutti i dati (solo admin)."""
+    from corposostenibile.models import GHLOpportunityData
+
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+    try:
+        GHLOpportunityData.query.delete()
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Dati cancellati'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
