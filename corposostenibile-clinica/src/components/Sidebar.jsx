@@ -78,8 +78,19 @@ function Sidebar({ user, collapsed, onMobileClose }) {
               </Link>
               <ul className={isMenuOpen('Clienti') ? 'mm-show' : ''}>
                 <li className={isActive('/customers') ? 'mm-active' : ''}>
-                  <Link to="/customers">Elenco Clienti</Link>
+                  <Link to="/customers">Elenco Generale</Link>
                 </li>
+                {/* --- Specialized Views --- */}
+                <li className={isActive('/clienti-nutrizione') ? 'mm-active' : ''}>
+                  <Link to="/clienti-nutrizione">Nutrizione</Link>
+                </li>
+                <li className={isActive('/clienti-coach') ? 'mm-active' : ''}>
+                  <Link to="/clienti-coach">Coaching</Link>
+                </li>
+                <li className={isActive('/clienti-psicologia') ? 'mm-active' : ''}>
+                  <Link to="/clienti-psicologia">Psicologia</Link>
+                </li>
+                {/* --- Operational Views --- */}
                 <li className={isActive('/customers/in-scadenza') ? 'mm-active' : ''}>
                   <Link to="/customers/in-scadenza">In Scadenza</Link>
                 </li>
