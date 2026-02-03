@@ -10,6 +10,8 @@ Questa pagina è il tuo centro operativo principale: qui gestisci tutti i pazien
 
 ## 🟢 Quello che Vedi Subito (Dashboard Rapida)
 
+![Statistiche Rapide](../screenshots/clienti-lista/statistiche_rapide.png)
+
 ### I 4 Numeri in Alto (Statistiche Veloci)
 - **Pazienti Totali**: Quanti pazienti sono registrati complessivamente
 - **Nutrizionista Attivo**: Quanti seguono attivamente un piano alimentare
@@ -24,6 +26,8 @@ Questa pagina è il tuo centro operativo principale: qui gestisci tutti i pazien
 - Riflettono sempre i filtri attivi (se filtri per "Attivo", i numeri cambiano)
 
 ## 🔍 Sistema di Ricerca e Filtraggio (Passo-Passo Dettagliato)
+
+![Ricerca e Filtri](../screenshots/clienti-lista/ricerca_e_filtri.png)
 
 La barra dei filtri è sotto i numeri. Ecco come usarla al meglio:
 
@@ -65,6 +69,8 @@ La barra dei filtri è sotto i numeri. Ecco come usarla al meglio:
 **Funzione avanzata - URL State**: L'URL si aggiorna con i filtri. Puoi copiarlo per ricerche frequenti.
 
 ## 📋 La Tabella Principale (Cuore della Pagina)
+
+![Tabella Pazienti](../screenshots/clienti-lista/tabella-pazienti.png)
 
 Ogni riga è un paziente. Ecco cosa significa ogni colonna:
 
@@ -111,12 +117,17 @@ Ogni riga è un paziente. Ecco cosa significa ogni colonna:
 - **Perché utile**: Identifica subito i problemi
 
 ### Colonna "Azioni"
+
+![Azioni](../screenshots/clienti-lista/azioni.png)
+
 - **Occhio verde**: Apri la scheda dettaglio in visualizzazione
 - **Matita blu**: Apri la scheda nel modulo modifica
 - **Entrambi i pulsanti**: Conducono alla scheda completa (`/clienti-dettaglio/:id`)
 - **Stile**: Bottoni piccoli circolari, cambiano background al hover
 
 ## 🔄 Paginazione (Quando Hai Molti Pazienti)
+
+![Paginazione](../screenshots/clienti-lista/paginazione.png)
 
 - **Posizione**: Sotto la tabella
 - **Informazioni**: "Pagina 2 di 5 • 127 risultati"
