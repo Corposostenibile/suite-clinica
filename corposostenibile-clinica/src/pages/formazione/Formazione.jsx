@@ -89,7 +89,7 @@ function Formazione() {
             iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
         },
         {
-            target: '[data-tour="tabs"]',
+            target: '[data-tour="tabs-navigation"]',
             title: 'Organizzazione',
             content: 'Usa i tab per navigare tra i training che ti sono stati assegnati, quelli che hai erogato e le richieste di formazione.',
             placement: 'bottom',
@@ -633,79 +633,82 @@ function Formazione() {
                         ))}
                     </div>
 
-                    {/* Main Tabs: I Miei Training | Gestione Team */}
-                    <ul className="nav nav-tabs mb-4" data-tour="tabs">
-                        <li className="nav-item">
-                            <button
-                                className={`nav-link ${adminTab === 'myTrainings' ? 'active' : ''}`}
-                                onClick={() => setAdminTab('myTrainings')}
-                            >
-                                <i className="ri-user-line me-2"></i>
-                                I Miei Training
-                                {stats.unacknowledged > 0 && <span className="badge bg-danger ms-2">{stats.unacknowledged}</span>}
-                            </button>
-                        </li>
-                        <li className="nav-item">
-                            <button
-                                className={`nav-link ${adminTab === 'team' ? 'active' : ''}`}
-                                onClick={() => setAdminTab('team')}
-                            >
-                                <i className="ri-team-line me-2"></i>
-                                Gestione Team
-                                <span className="badge bg-secondary ms-2">{professionals.length}</span>
-                            </button>
-                        </li>
-                    </ul>
+                    {/* Main Tabs AND Sub Tabs Navigation Wrapper for Tour */}
+                    <div data-tour="tabs-navigation">
+                        {/* Main Tabs: I Miei Training | Gestione Team */}
+                        <ul className="nav nav-tabs mb-4">
+                            <li className="nav-item">
+                                <button
+                                    className={`nav-link ${adminTab === 'myTrainings' ? 'active' : ''}`}
+                                    onClick={() => setAdminTab('myTrainings')}
+                                >
+                                    <i className="ri-user-line me-2"></i>
+                                    I Miei Training
+                                    {stats.unacknowledged > 0 && <span className="badge bg-danger ms-2">{stats.unacknowledged}</span>}
+                                </button>
+                            </li>
+                            <li className="nav-item">
+                                <button
+                                    className={`nav-link ${adminTab === 'team' ? 'active' : ''}`}
+                                    onClick={() => setAdminTab('team')}
+                                >
+                                    <i className="ri-team-line me-2"></i>
+                                    Gestione Team
+                                    <span className="badge bg-secondary ms-2">{professionals.length}</span>
+                                </button>
+                            </li>
+                        </ul>
 
-                    {/* Tab Content: I Miei Training */}
-                    {adminTab === 'myTrainings' && (
-                        <>
-                            {/* Sub-tabs for all training sections */}
-                            <div className="card mb-4">
-                                <div className="card-header bg-white border-bottom">
-                                    <ul className="nav nav-tabs card-header-tabs flex-nowrap" style={{ overflowX: 'auto' }}>
-                                        <li className="nav-item">
-                                            <button
-                                                className={`nav-link ${activeTab === 'trainings' ? 'active' : ''}`}
-                                                onClick={() => setActiveTab('trainings')}
-                                            >
-                                                <i className="ri-book-open-line me-1"></i>
-                                                <span className="d-none d-sm-inline">Training </span>Ricevuti
-                                                {stats.unacknowledged > 0 && <span className="badge bg-danger ms-1">{stats.unacknowledged}</span>}
-                                            </button>
-                                        </li>
-                                        <li className="nav-item">
-                                            <button
-                                                className={`nav-link ${activeTab === 'given' ? 'active' : ''}`}
-                                                onClick={() => setActiveTab('given')}
-                                            >
-                                                <i className="ri-presentation-line me-1"></i>
-                                                <span className="d-none d-sm-inline">Training </span>Erogati
-                                                {stats.givenPending > 0 && <span className="badge bg-warning text-dark ms-1">{stats.givenPending}</span>}
-                                            </button>
-                                        </li>
-                                        <li className="nav-item">
-                                            <button
-                                                className={`nav-link ${activeTab === 'received' ? 'active' : ''}`}
-                                                onClick={() => setActiveTab('received')}
-                                            >
-                                                <i className="ri-mail-download-line me-1"></i>
-                                                <span className="d-none d-sm-inline">Richieste </span>Ricevute
-                                                {stats.receivedPending > 0 && <span className="badge bg-info ms-1">{stats.receivedPending}</span>}
-                                            </button>
-                                        </li>
-                                        <li className="nav-item">
-                                            <button
-                                                className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
-                                                onClick={() => setActiveTab('requests')}
-                                            >
-                                                <i className="ri-mail-send-line me-1"></i>
-                                                <span className="d-none d-sm-inline">Richieste </span>Inviate
-                                                {stats.pendingRequests > 0 && <span className="badge bg-warning text-dark ms-1">{stats.pendingRequests}</span>}
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
+                        {/* Tab Content: I Miei Training - Included in Tour Highlight */}
+                        {adminTab === 'myTrainings' && (
+                            <>
+                                {/* Sub-tabs for all training sections */}
+                                <div className="card mb-4">
+                                    <div className="card-header bg-white border-bottom">
+                                        <ul className="nav nav-tabs card-header-tabs flex-nowrap" style={{ overflowX: 'auto' }}>
+                                            <li className="nav-item">
+                                                <button
+                                                    className={`nav-link ${activeTab === 'trainings' ? 'active' : ''}`}
+                                                    onClick={() => setActiveTab('trainings')}
+                                                >
+                                                    <i className="ri-book-open-line me-1"></i>
+                                                    <span className="d-none d-sm-inline">Training </span>Ricevuti
+                                                    {stats.unacknowledged > 0 && <span className="badge bg-danger ms-1">{stats.unacknowledged}</span>}
+                                                </button>
+                                            </li>
+                                            <li className="nav-item">
+                                                <button
+                                                    className={`nav-link ${activeTab === 'given' ? 'active' : ''}`}
+                                                    onClick={() => setActiveTab('given')}
+                                                >
+                                                    <i className="ri-presentation-line me-1"></i>
+                                                    <span className="d-none d-sm-inline">Training </span>Erogati
+                                                    {stats.givenPending > 0 && <span className="badge bg-warning text-dark ms-1">{stats.givenPending}</span>}
+                                                </button>
+                                            </li>
+                                            <li className="nav-item">
+                                                <button
+                                                    className={`nav-link ${activeTab === 'received' ? 'active' : ''}`}
+                                                    onClick={() => setActiveTab('received')}
+                                                >
+                                                    <i className="ri-mail-download-line me-1"></i>
+                                                    <span className="d-none d-sm-inline">Richieste </span>Ricevute
+                                                    {stats.receivedPending > 0 && <span className="badge bg-info ms-1">{stats.receivedPending}</span>}
+                                                </button>
+                                            </li>
+                                            <li className="nav-item">
+                                                <button
+                                                    className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
+                                                    onClick={() => setActiveTab('requests')}
+                                                >
+                                                    <i className="ri-mail-send-line me-1"></i>
+                                                    <span className="d-none d-sm-inline">Richieste </span>Inviate
+                                                    {stats.pendingRequests > 0 && <span className="badge bg-warning text-dark ms-1">{stats.pendingRequests}</span>}
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+
 
                                 <div className="card-body p-0">
                                     {/* Training List */}
@@ -1410,6 +1413,7 @@ function Formazione() {
                             </div>
                         </div>
                     )}
+                    </div>
 
                     {/* Acknowledge Modal */}
                     {showAckModal && (

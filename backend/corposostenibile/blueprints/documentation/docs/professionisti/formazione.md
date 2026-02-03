@@ -12,6 +12,8 @@ Il sistema Formazione è la tua piattaforma di apprendimento continuo, dove rice
 
 ### Le 4 Card Statistiche (In Alto)
 
+![Dashboard Formazione](../screenshots/formazione/dashboard_rapida.png)
+
 Ogni card rappresenta una metrica chiave del tuo percorso formativo:
 
 #### 📖 **Training Ricevuti** (Viola)
@@ -40,9 +42,13 @@ Ogni card rappresenta una metrica chiave del tuo percorso formativo:
 
 ## 📊 I Due Tab Principali
 
+![Panoramica Organizzazione](../screenshots/formazione/organizzazione.png)
+
 ### Tab "Training Ricevuti" (Default)
 
 #### Come È Organizzata la Lista
+
+![Lista Training](../screenshots/formazione/i_tuoi_training.png)
 - **Righe**: Ogni riga è un training ricevuto
 - **Informazioni**: Titolo, reviewer, data, tipo, stato conferma
 - **Espansione**: Clicca per vedere contenuto completo
@@ -122,6 +128,7 @@ Ogni card rappresenta una metrica chiave del tuo percorso formativo:
 7. **Aggiungi note** se vuoi lasciare feedback
 
 ### Scenario 2: "Voglio richiedere una formazione specifica"
+![Richiedi Formazione](../screenshots/formazione/richiedi_formazione.png)
 1. **Clicca "Richiedi Training"** in alto a destra
 2. **Seleziona destinatario** dal menu a tendina (responsabili)
 3. **Scrivi oggetto** chiaro e specifico
