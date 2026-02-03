@@ -143,7 +143,7 @@ def get_random_date_range():
 def main():
     from corposostenibile import create_app
     from corposostenibile.extensions import db
-    from corposostenibile.models import User, Review, ReviewRequest, ReviewAcknowledgment, ReviewMessage
+    from corposostenibile.models import User, Team, Review, ReviewRequest, ReviewAcknowledgment, ReviewMessage
 
     app = create_app()
 
@@ -298,7 +298,29 @@ def main():
         # 6. Generazione dati specifici per il DEMO user
         print(f"🎁 Generazione dati per utente DEMO ({demo_email})...")
         
-        # Training RICEVUTI dal demo user
+        # 6.1 Crea un Team per il Demo user
+        print("   - Creazione Team per utente demo...")
+        team_name = "Team Coaching Demo"
+        existing_team = Team.query.filter_by(name=team_name).first()
+        if not existing_team:
+            demo_team = Team(
+                name=team_name,
+                team_type='coach',
+                head_id=demo_user.id,
+                description="Team di coaching per la verifica dei training."
+            )
+            db.session.add(demo_team)
+            db.session.flush()
+        else:
+            demo_team = existing_team
+            demo_team.head_id = demo_user.id
+
+        # Assegna alcuni membri al team
+        team_members_list = [p for p in professionals if p.id != demo_user.id][:5]
+        demo_team.members = team_members_list
+        db.session.commit()
+
+        # 6.2 Training RICEVUTI dal demo user
         trainer = random.choice([u for u in admins if u.id != demo_user.id])
         for _ in range(3):
             rtype = random.choice(REVIEW_TYPES)
@@ -321,26 +343,56 @@ def main():
             )
             db.session.add(rev)
         
-        # Richieste INVIATE dal demo user
-        req = ReviewRequest(
+        # 6.3 Richieste INVIATE dal demo user
+        req_sent = ReviewRequest(
             requester_id=demo_user.id,
             requested_to_id=trainer.id,
-            subject="Richiesta Demo",
-            description="Questa è una richiesta di prova generata dallo script.",
+            subject="Richiesta di Confronto Tecnico",
+            description="Ciao, vorrei approfondire le nuove metriche di ipertrofia.",
             priority='high',
             status='pending',
-            created_at=OGGI
+            created_at=OGGI - timedelta(days=1)
         )
-        db.session.add(req)
+        db.session.add(req_sent)
 
-        # Training SCRITTI dal demo user (se vogliamo testare lato erogatore)
-        # ... opzionale
+        # 6.4 Training EROGATI dal demo user (scritti per i membri del suo team)
+        for member in team_members_list[:3]:
+            rtype = random.choice(REVIEW_TYPES)
+            p_start, p_end = get_random_date_range()
+            rev_given = Review(
+                reviewer_id=demo_user.id,
+                reviewee_id=member.id,
+                title=f"Feedback Coaching: {member.first_name}",
+                content=f"Ottimo progresso nell'ultimo mese. Continua così!",
+                review_type=rtype,
+                rating=4,
+                period_start=p_start,
+                period_end=p_end,
+                is_draft=False,
+                is_private=False,
+                created_at=OGGI - timedelta(days=2)
+            )
+            db.session.add(rev_given)
+
+        # 6.5 Richieste RICEVUTE dal demo user
+        for member in team_members_list[3:5]:
+            req_rec = ReviewRequest(
+                requester_id=member.id,
+                requested_to_id=demo_user.id,
+                subject=f"Richiesta supporto da {member.first_name}",
+                description="Ho bisogno di un aiuto per un caso complesso di stallo del peso.",
+                priority='normal',
+                status='pending',
+                created_at=OGGI - timedelta(days=1)
+            )
+            db.session.add(req_rec)
 
         db.session.commit()
 
         print(f"✅ Popolamento completato!")
         print(f"   - {reviews_count} Training creati (generale)")
         print(f"   - {requests_count} Richieste create (generale)")
+        print(f"   - Team '{demo_team.name}' creato con {len(demo_team.members)} membri per {demo_email}")
         print(f"==================================================")
         print(f"🔐 CREDENZIALI DI ACCESSO DI TEST")
         print(f"   Email:    {demo_email}")

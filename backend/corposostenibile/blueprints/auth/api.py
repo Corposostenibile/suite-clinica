@@ -252,6 +252,7 @@ def _user_to_dict(user: User) -> dict:
         "full_name": user.full_name if hasattr(user, 'full_name') else f"{user.first_name} {user.last_name}",
         "is_admin": user.is_admin,
         "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+        "specialty": user.specialty.value if hasattr(user, 'specialty') and user.specialty else None,
         "avatar_path": user.avatar_path,
     }
 
