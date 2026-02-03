@@ -13,9 +13,13 @@ Questa è la "casa" di ogni paziente. Qui trovi TUTTO quello che devi sapere e p
 - Alcuni link nel sistema ti portano direttamente qui
 - L'URL finisce sempre con `/clienti-dettaglio/[numero-paziente]`
 
+- Link diretti in pagina
+
 ## 👀 Quello che Vedi Subito (Il Profilo a Sinistra)
 
 A sinistra c'è il "biglietto da visita" del paziente. È sempre visibile mentre navighi.
+
+![Profilo Sinistra](../screenshots/cliente-dettaglio/biglietto_da_visita_paziente.png)
 
 ### Il Colore di Sfondo
 - **Verde chiaro**: Paziente attivo e regolare
@@ -55,7 +59,11 @@ Cerchietti colorati per ogni professionista:
 
 La scheda è divisa in 8 parti. Clicca sui nomi in alto per passare da una all'altra.
 
+![Navigazione Sezioni](../screenshots/cliente-dettaglio/navigazione_sezioni.png)
+
 ### 1. 👤 **ANAGRAFICA** - I Dati Personali
+
+![Contatti](../screenshots/cliente-dettaglio/contatti.png)
 
 Qui trovi tutto quello che riguarda il paziente come persona.
 
@@ -70,12 +78,19 @@ Qui trovi tutto quello che riguarda il paziente come persona.
 - **Professione**: Utile per capire il suo stile di vita
 - **Storia del paziente**: Quello che ti ha raccontato al primo incontro
 
+![Dati Personali](../screenshots/cliente-dettaglio/dati_personali.png)
+
+![Storia e Obiettivi](../screenshots/cliente-dettaglio/storia_e_obiettivi.png)
+
 #### Come Modificare:
 1. Clicca sul campo che vuoi cambiare
 2. Scrivi il nuovo valore
 3. Clicca "Salva Modifiche" in alto a destra
 
 ### 2. 📋 **PROGRAMMA** - L'Abbonamento
+
+![Stato Operativo](../screenshots/cliente-dettaglio/stato_operativo.png)
+![Controllo Scadenze](../screenshots/cliente-dettaglio/controllo_scadenze.png)
 
 Qui gestisci lo stato amministrativo del paziente.
 
@@ -107,6 +122,8 @@ Qui vedi e modifichi chi lavora con questo paziente.
 - **Team Clinico**: I professionisti interni (nutrizione, coaching, psicologia)
 - **Team Esterno**: Per integrazioni future
 
+![Gestione Team](../screenshots/cliente-dettaglio/gestione_team.png)
+
 #### Come Assegnare un Professionista:
 1. Clicca "Assegna" sotto il ruolo che vuoi
 2. Scegli il professionista dal menu
@@ -122,9 +139,13 @@ Qui vedi e modifichi chi lavora con questo paziente.
 #### La Timeline Storica:
 Sotto vedi una linea con tutti i cambi di team nel tempo. È utile per capire la storia del paziente.
 
+![Storico Assegnazioni](../screenshots/cliente-dettaglio/storico_assegnazioni.png)
+
 ### 4. 🥗 **NUTRIZIONE** - Il Percorso Alimentare
 
 Questa è la sezione completa per i nutrizionisti. Ha 6 sub-sezioni organizzate a tab.
+
+![Area Nutrizione](../screenshots/cliente-dettaglio/area_nutrizione.png)
 
 #### **Sottosezioni della Nutrizione**
 
@@ -134,10 +155,14 @@ Questa è la sezione completa per i nutrizionisti. Ha 6 sub-sezioni organizzate 
 - **Stato chat**: Se comunica / non comunica
 - **Cronologia degli stati**: Timeline di tutti i cambi di stato
 
+![Panoramica Nutrizione](../screenshots/cliente-dettaglio/panoramica_nutrizione.png)
+
 ##### ⚙️ **Setup**
 - **Call iniziale**: Checkbox data della prima chiamata
 - **Reach out**: Giorni della settimana per contatti regolari
 - **Altre configurazioni**: Parametri operativi personalizzati
+
+![Setup Nutrizione](../screenshots/cliente-dettaglio/setup_nutrizione.png)
 
 ##### 🩺 **Patologie**
 Checkbox per:
@@ -146,11 +171,15 @@ Checkbox per:
 - **Altro patologie**: Campo testo per aggiungere
 - **Anamnesi**: Textarea con valutazione iniziale completa
 
+![Patologie e Anamnesi](../screenshots/cliente-dettaglio/patologie_e_anamnesi.png)
+
 ##### 📄 **Piano Alimentare**
 - Carica PDF: Clic per scegliere file o drag & drop
 - **Storico**: Versioni precedenti dei piani
 - **Preview**: Visualizza il PDF direttamente
 - **Metadati**: Nome, periodo, note
+
+![Piano Alimentare](../screenshots/cliente-dettaglio/piano_alimentare.png)
 
 **Come caricare un piano:**
 1. Clicca "Carica Nuovo Piano"
@@ -164,15 +193,21 @@ Checkbox per:
 - **Storico**: Tutte le note in cronologia
 - **Aggiungi nota**: Clic per nuova entry
 
+![Diario Nutrizionale](../screenshots/cliente-dettaglio/diario_nutrizionale.png)
+
 ##### 🚨 **Alert**
 - **Textarea rossa**: Per segnalazioni urgenti/critiche
 - **Visibilità immediata**: Appare in evidenza per tutto il team
 - **Uso**: Problemi gravi, allergie, controindicazioni
 
+![Alert Nutrizionale](../screenshots/cliente-dettaglio/alert_nutrizionale.png)
+
 
 ### 5. 🏃 **COACHING** - Il Percorso Fitness
 
 Simile a nutrizione, ma specifico per allenamento e fitness.
+
+![Area Coaching](../screenshots/cliente-dettaglio/area_coaching.png)
 
 #### **Sottosezioni del Coaching**
 
@@ -182,10 +217,14 @@ Simile a nutrizione, ma specifico per allenamento e fitness.
 - **Stato chat**: Se comunica
 - **Timeline degli stati**: Cronologia cambi
 
+![Panoramica Coaching](../screenshots/cliente-dettaglio/panoramica_coaching.png)
+
 ##### ⚙️ **Setup**
 - **Call iniziale**: Data della prima chiamata
 - **Reach out**: Giorni settimanali di contatto
 - Configurazioni tecniche
+
+![Setup Coaching](../screenshots/cliente-dettaglio/setup_coaching.png)
 
 ##### 📄 **Piano Allenamento**
 - Carica PDF con il programma di allenamento
@@ -193,30 +232,41 @@ Simile a nutrizione, ma specifico per allenamento e fitness.
 - Preview online del PDF
 - Metadati e note
 
+![Schede Allenamento](../screenshots/cliente-dettaglio/schede_allenamento.png)
+
 ##### 📍 **Luoghi di Allenamento**
 - **Timeline storica**: Dove ha allenato e per quanto
 - **Date precise**: Inizio/fine per ogni location
 - **Note**: Perché ha cambiato palestra
 - **Tracciamento**: Tutte le location nel tempo
 
+![Luoghi di Allenamento](../screenshots/cliente-dettaglio/luoghi_di_allenamento.png)
+
 ##### 🩺 **Patologie/Condizioni Fisiche**
 - Checkbox per condizioni fisiche (infortuni, limitazioni, ecc.)
 - Anamnesi delle condizioni
 - Note mediche rilevanti per l'allenamento
+
+![Patologie e Anamnesi Sportiva](../screenshots/cliente-dettaglio/patologie_e_anamnesi_sportiva.png)
 
 ##### 📓 **Diario**
 - Note sul percorso di allenamento
 - Progressi, difficoltà, cambiamenti
 - Data e autore di ogni nota
 
+![Diario Coaching](../screenshots/cliente-dettaglio/diario_coaching.png)
+
 ##### 🚨 **Alert**
 - Per problemi fisici urgenti
 - Infortuni o controindicazioni sollevate
 
+![Alert Coaching](../screenshots/cliente-dettaglio/alert_coaching.png)
 
 ### 6. 🧠 **PSICOLOGIA** - Il Percorso Mentale
 
 Sezione dedicata al benessere psicologico, con protezione massima della privacy.
+
+![Area Psicologia](../screenshots/cliente-dettaglio/area_psicologia.png)
 
 #### **Sottosezioni della Psicologia**
 
@@ -226,10 +276,14 @@ Sezione dedicata al benessere psicologico, con protezione massima della privacy.
 - **Stato chat**: Se comunica
 - **Timeline degli stati**: Cronologia cambi
 
+![Panoramica Psicologia](../screenshots/cliente-dettaglio/panoramica_psicologia.png)
+
 ##### ⚙️ **Setup**
 - **Call iniziale**: Data della prima sessione
 - **Reach out**: Giorni settimanali di contatto
 - Configurazioni per follow-up
+
+![Setup Psicologia](../screenshots/cliente-dettaglio/setup_psicologia.png)
 
 ##### 🩺 **Patologie Psicologiche**
 - Lista specializzata di disturbi (ansia, depressione, fobie, ecc.)
@@ -237,15 +291,21 @@ Sezione dedicata al benessere psicologico, con protezione massima della privacy.
 - **Anamnesi psicologica**: Textarea con storia completa dettagliata
 - **Riservatezza**: Solo psicologi autorizzati vedono
 
+![Patologie Psicologiche](../screenshots/cliente-dettaglio/patologie_psicologiche.png)
+
 ##### 📓 **Diario Psicologico**
 - Note sulle sessioni e il progresso
 - Osservazioni cliniche
 - Completamente riservato
 
+![Diario Psicologia](../screenshots/cliente-dettaglio/diario_psicologia.png)
+
 ##### 🚨 **Alert**
 - Per situazioni psicologiche critiche
 - Rischi specifici o preoccupazioni urgenti
 - Visibile al team per coordinamento
+
+![Alert Psicologia](../screenshots/cliente-dettaglio/alert_psicologia.png)
 
 #### ⚠️ **IMPORTANTE - Privacy**
 - Queste informazioni sono **estremamente riservate**
@@ -257,6 +317,8 @@ Sezione dedicata al benessere psicologico, con protezione massima della privacy.
 ### 7. 📊 **CHECK PERIODICI** - Monitoraggio Regolare
 
 Sistema per tracciare i progressi del paziente con questionari periodici online.
+
+![Check Periodici](../screenshots/cliente-dettaglio/check_periodici.png)
 
 #### **Tipi di Check Disponibili**
 
@@ -274,6 +336,8 @@ Sistema per tracciare i progressi del paziente con questionari periodici online.
 6. **Risposte si vedono qui**: Appare la lista completa con data/ora
 7. **Confermi lettura**: Marca come letto quando rivedi
 
+![Invio Check](../screenshots/cliente-dettaglio/invio_check.png)
+
 #### **Gestione delle Risposte**
 
 - **Lista risposte**: Tutte le risposta con timestamp e dettagli
@@ -281,15 +345,21 @@ Sistema per tracciare i progressi del paziente con questionari periodici online.
 - **Modal dettaglio**: Clicca per vedere risposte complete
 - **Tracciamento**: Sai chi ha visto cosa e quando
 
+![Storico Risposte](../screenshots/cliente-dettaglio/storico_risposte.png)
+
 
 ### 8. 📋 **CHECK INIZIALI** - Le Valutazioni di Ingresso
 
 I questionari che il paziente compila quando arriva.
 
+![Check Iniziali](../screenshots/cliente-dettaglio/check_iniziali.png)
+
 #### Cosa Sono:
 - Valutazioni complete fatte all'inizio
 - Diverse per ogni percorso
 - Aiutano a capire da dove partire
+
+![Dettagli Check Iniziali](../screenshots/cliente-dettaglio/dettagli_check_iniziali.png)
 
 ## 💾 Come Salvare le Modifiche
 

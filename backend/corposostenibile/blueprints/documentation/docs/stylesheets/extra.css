@@ -3,3 +3,16 @@
 .md-typeset h1 {
     color: #85FF00;
 }
+
+/* Remove default shadow from images and containers */
+.md-typeset img,
+.md-typeset figure,
+.md-typeset picture {
+    box-shadow: none !important;
+    filter: none !important;
+}
+
+/* Material theme sometimes adds shadow to images inside paragraphs */
+.md-typeset p > img {
+    box-shadow: none !important;
+}
