@@ -14,6 +14,8 @@ Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla
 
 In alto trovi i "termometri" della qualità aziendale per il periodo selezionato.
 
+![KPI Dashboard](../screenshots/check-azienda/i_numeri_chiave_kpi.png)
+
 *   **Nutrizionista**: Media voto dato al servizio nutrizionale.
 *   **Psicologo**: Media voto supporto psicologico.
 *   **Coach**: Media voto allenamento.
@@ -33,6 +35,8 @@ In alto trovi i "termometri" della qualità aziendale per il periodo selezionato
 La barra dei filtri ti permette di "tagliare" i dati come preferisci:
 
 ### 1. 📅 Periodo Temporale
+
+![Filtro Periodo](../screenshots/check-azienda/periodo_temporale.png)
 Scegli l'orizzonte temporale dei dati:
 *   **Settimana**: Per il monitoraggio operativo immediato.
 *   **Mese**: Per le valutazioni mensili.
@@ -40,6 +44,8 @@ Scegli l'orizzonte temporale dei dati:
 *   **Custom**: Scegli date specifiche (es. "dal 1 al 15 agosto").
 
 ### 2. 👥 Tipo di Professionista
+
+![Filtri Professionisti](../screenshots/check-azienda/filtri_professionisti.png)
 Vuoi vedere solo come va l'area Nutrizione? Clicca su **Nutrizione**.
 La dashboard si aggiornerà mostrando solo i dati rilevanti per quel reparto.
 
@@ -48,6 +54,8 @@ Dopo aver scelto il tipo (es. "Coach"), puoi selezionare un nome specifico dal m
 *   *Utile per*: I Team Leader che vogliono analizzare le performance di un singolo membro del team.
 
 ### 4. ⚡ Filtri Rapidi (Stato)
+
+![Filtri Rapidi](../screenshots/check-azienda/filtri_rapidi_stato.png)
 *   **Da Migliorare (<8)**: Mostra solo i check con voti mediocri.
 *   **Voto Negativo (<7)**: Mostra le criticità urgenti.
 *   **Non Letto**: Fondamentale! Mostra i check che il team non ha ancora aperto.
@@ -57,6 +65,8 @@ Dopo aver scelto il tipo (es. "Coach"), puoi selezionare un nome specifico dal m
 ## 📋 La Tabella delle Risposte
 
 Ogni riga è un check compilato da un paziente. Ecco come leggerla:
+
+![Tabella Risposte](../screenshots/check-azienda/tabella_risposte.png)
 
 ### Colonna "Paziente"
 Vedi il nome e il programma (A/B/C). Cliccando vai alla scheda completa.
@@ -77,6 +87,26 @@ Qui vedi:
 
 ### Colonna "Progresso"
 Come il paziente valuta i propri miglioramenti. Un voto basso qui, anche se il servizio è valutato bene, indica frustrazione sui risultati (peso stallo, difficoltà, ecc.).
+
+---
+
+## 🔎 Dettaglio Check (Scheda Completa)
+
+Cliccando su una riga della tabella, si apre la scheda completa del check.
+
+![Scheda Completa](../screenshots/check-azienda/scheda_completa.png)
+
+### Foto Progressi
+Se presenti, puoi visionare le foto caricate dal paziente (frontale, laterale, posteriore).
+![Foto Progressi](../screenshots/check-azienda/foto_progressi.png)
+
+### Valutazioni e Feedback
+Il dettaglio dei voti assegnati a ciascun professionista e i feedback ricevuti.
+![Valutazioni](../screenshots/check-azienda/valutazioni_e_feedback.png)
+
+### Riflessioni
+Le note del paziente su cosa ha funzionato, cosa no e gli obiettivi per la prossima settimana.
+![Riflessioni](../screenshots/check-azienda/riflessioni.png)
 
 ---
 
