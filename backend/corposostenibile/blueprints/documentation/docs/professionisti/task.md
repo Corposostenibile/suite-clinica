@@ -10,6 +10,8 @@ Il sistema Task è il tuo assistente digitale personale per gestire tutte le att
 
 ## 🟢 Quello che Vedi Subito (Dashboard Task)
 
+![Dashboard Task](../screenshots/task/dashboard_task.png)
+
 ### Le 6 Card Statistiche (In Alto)
 
 Ogni card rappresenta una categoria di task con il numero di attività aperte:
@@ -48,6 +50,8 @@ Ogni card rappresenta una categoria di task con il numero di attività aperte:
 
 ## 📊 La Tabella Principale (Lista Task)
 
+![Tabella Task](../screenshots/task/la_tua_lista_attivita.png)
+
 ### Come È Organizzata
 - **Righe**: Ogni riga è un task da completare
 - **Colonne**: Checkbox, Attività, Categoria, Cliente, Scadenza, Priorità, Azioni
@@ -85,36 +89,9 @@ Ogni card rappresenta una categoria di task con il numero di attività aperte:
 - **Freccia destra**: Pulsante "Vai" per task collegati
 - **Visibile solo**: Per task non completati e con collegamenti
 
-## 🎯 Come Usare il Sistema Task
-
-### Scenario 1: "Controllo giornaliero delle attività"
-1. **Apri la pagina Task** ogni mattina
-2. **Guarda le card statistiche** per vedere quanti task hai per categoria
-3. **Prioritizza**: Inizia dai task rossi (urgenti) e scaduti
-4. **Completa**: Spunta i task fatti durante la giornata
-
-### Scenario 2: "Gestisco un sollecito cliente"
-1. **Vedi un task "Solleciti"** rosso nella card
-2. **Clicca sulla card** per filtrare solo solleciti
-3. **Trova il task** del cliente specifico
-4. **Clicca "Vai"** per aprire la scheda cliente
-5. **Contatta il cliente** e aggiorna il suo stato
-6. **Torna al task** e spuntalo come completato
-
-### Scenario 3: "Rispondo a un reminder di scadenza"
-1. **Noti un task "Reminder"** arancione
-2. **Clicca "Vai"** per aprire la scheda cliente
-3. **Vai alla sezione** "Programma" per gestire il rinnovo
-4. **Contatta il cliente** per confermare il rinnovo
-5. **Completa il task** quando risolto
-
-### Scenario 4: "Gestisco task di formazione"
-1. **Vedi task "Formazione"** viola
-2. **Clicca "Vai"** per accedere al materiale formativo
-3. **Completa il corso** o l'attività richiesta
-4. **Spunta il task** come completato
-
 ## 🔄 Filtri e Navigazione
+
+![Filtri](../screenshots/task/filtri_comodi.png)
 
 ### Tab in Alto (Filtraggio per Categoria)
 - **Tutti**: Mostra tutti i task aperti
@@ -156,33 +133,6 @@ Quando clicchi "Vai" su un task, il sistema ti porta automaticamente:
 #### Per Task "Generico"
 - **Destinazione**: Dipende dal payload del task
 - **Perché**: Collegamento personalizzato dal creatore
-
-## ⚙️ Task Automatici vs Manuali
-
-### Task Automatici (Sistema)
-- **Creati da**: Algoritmi del sistema
-- **Quando**: Secondo regole predefinite
-- **Esempi**: Solleciti settimanali, reminder scadenze
-- **Non eliminabili**: Puoi solo completarli
-
-### Task Manuali (Colleghe)
-- **Creati da**: Altri professionisti o admin
-- **Quando**: Quando serve collaborazione
-- **Esempi**: "Controlla questo cliente", "Aggiorna procedura"
-- **Modificabili**: Puoi cambiarli o rifiutarli
-
-## 📈 Statistiche e Monitoraggio
-
-### Cosa Significano i Numeri
-- **Card vuote**: Tutto a posto in quella categoria
-- **Card rosse**: Attenzione richiesta urgente
-- **Totale attività**: In alto a destra del titolo
-
-### Come Mantenere il Sistema Pulito
-- **Completa regolarmente**: Spunta i task fatti
-- **Non accumulare**: Rispondi ai solleciti entro 24 ore
-- **Controlla scadenze**: I reminder aiutano a prevenire problemi
-
 ---
 
 > [!TIP]
