@@ -6,7 +6,7 @@ from datetime import datetime
 from corposostenibile import create_app
 from corposostenibile.extensions import db as _db
 from corposostenibile.models import User, Cliente, Department
-from corposostenibile.blueprints.client_checks.models import (
+from corposostenibile.models import (
     CheckForm, CheckFormField, ClientCheckAssignment, ClientCheckResponse,
     CheckFormTypeEnum, CheckFormFieldTypeEnum, CheckFormStatusEnum, AssignmentStatusEnum
 )

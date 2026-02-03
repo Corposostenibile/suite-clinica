@@ -668,6 +668,182 @@ Corpo Sostenibile Suite
                 exc_info=True
             )
 
+    # Mappatura campi WeeklyCheckResponse -> label italiano per email riepilogo
+    WEEKLY_CHECK_SUMMARY_LABELS = {
+        "what_worked": "Cosa ha funzionato bene per te la settimana scorsa?",
+        "what_didnt_work": "Cosa NON ha funzionato bene per te la settimana scorsa?",
+        "what_learned": "Cosa hai imparato questa settimana?",
+        "what_focus_next": "Su cosa vogliamo focalizzarci la prossima settimana?",
+        "injuries_notes": "Hai avuto infortuni o ci sono note importanti da segnalare?",
+        "digestion_rating": "Digestione (0-10)",
+        "energy_rating": "Energia (0-10)",
+        "strength_rating": "Forza (0-10)",
+        "hunger_rating": "Senso di fame (0-10)",
+        "sleep_rating": "Qualità del sonno (0-10)",
+        "mood_rating": "Umore (0-10)",
+        "motivation_rating": "Motivazione (0-10)",
+        "weight": "Peso (Kg)",
+        "nutrition_program_adherence": "Rispetto programma alimentare",
+        "training_program_adherence": "Rispetto programma sportivo",
+        "exercise_modifications": "Esercizi non fatti o aggiunti",
+        "daily_steps": "Passi medi giornalieri",
+        "completed_training_weeks": "Settimane allenamento rispettate al 100%",
+        "planned_training_days": "Giorni allenamento pianificati",
+        "live_session_topics": "Tematiche per le LIVE settimanali",
+        "nutritionist_rating": "Valutazione nutrizionista (1-10)",
+        "nutritionist_feedback": "Feedback nutrizionista",
+        "psychologist_rating": "Valutazione psicologa (1-10)",
+        "psychologist_feedback": "Feedback psicologa",
+        "coach_rating": "Valutazione coach (1-10)",
+        "coach_feedback": "Feedback coach",
+        "progress_rating": "Valutazione percorso complessivo (1-10)",
+        "referral": "Referral (persona da contattare)",
+        "extra_comments": "Commenti o note aggiuntive",
+    }
+
+    @staticmethod
+    def send_weekly_check_summary_to_client(response) -> None:
+        """
+        Invia al cliente un'email con il riepilogo delle risposte del check settimanale.
+
+        Args:
+            response: Istanza di WeeklyCheckResponse (assignment -> WeeklyCheck -> cliente).
+        """
+        from corposostenibile.models import WeeklyCheckResponse
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+        from flask import render_template
+
+        try:
+            if not isinstance(response, WeeklyCheckResponse):
+                current_app.logger.warning(
+                    "[WEEKLY_CHECK_SUMMARY] send_weekly_check_summary_to_client richiede WeeklyCheckResponse"
+                )
+                return
+
+            assignment = response.assignment
+            if not assignment:
+                current_app.logger.warning(
+                    f"[WEEKLY_CHECK_SUMMARY] Response {response.id} senza assignment"
+                )
+                return
+
+            cliente = assignment.cliente
+            if not cliente:
+                current_app.logger.warning(
+                    f"[WEEKLY_CHECK_SUMMARY] Assignment senza cliente per response {response.id}"
+                )
+                return
+
+            recipient = getattr(cliente, "mail", None)
+            if not recipient or not str(recipient).strip():
+                current_app.logger.info(
+                    f"[WEEKLY_CHECK_SUMMARY] Cliente {cliente.nome_cognome} (id={cliente.cliente_id}) senza email, skip invio riepilogo"
+                )
+                return
+
+            labels = NotificationService.WEEKLY_CHECK_SUMMARY_LABELS
+            sections = {
+                "Riflessioni": [
+                    "what_worked", "what_didnt_work", "what_learned",
+                    "what_focus_next", "injuries_notes",
+                ],
+                "Valutazioni benessere": [
+                    "digestion_rating", "energy_rating", "strength_rating",
+                    "hunger_rating", "sleep_rating", "mood_rating", "motivation_rating",
+                ],
+                "Peso e programmi": [
+                    "weight", "nutrition_program_adherence", "training_program_adherence",
+                    "exercise_modifications", "daily_steps", "completed_training_weeks",
+                    "planned_training_days", "live_session_topics",
+                ],
+                "Valutazioni professionisti": [
+                    "nutritionist_rating", "nutritionist_feedback",
+                    "psychologist_rating", "psychologist_feedback",
+                    "coach_rating", "coach_feedback",
+                ],
+                "Altro": ["progress_rating", "referral", "extra_comments"],
+            }
+
+            section_items = {}
+            for section_name, field_list in sections.items():
+                items = []
+                for field_key in field_list:
+                    value = getattr(response, field_key, None)
+                    if value is None:
+                        continue
+                    if isinstance(value, str) and not value.strip():
+                        continue
+                    if isinstance(value, (int, float)) and field_key != "weight":
+                        display = f"{value}/10" if "rating" in field_key else str(value)
+                    elif field_key == "weight":
+                        display = f"{value} kg"
+                    else:
+                        display = str(value).strip()
+                    items.append((labels.get(field_key, field_key), display))
+                if items:
+                    section_items[section_name] = items
+
+            has_photos = bool(
+                getattr(response, "photo_front", None)
+                or getattr(response, "photo_side", None)
+                or getattr(response, "photo_back", None)
+            )
+
+            submit_date = response.submit_date
+            submit_date_str = (
+                submit_date.strftime("%d/%m/%Y alle %H:%M")
+                if submit_date
+                else ""
+            )
+
+            context = {
+                "cliente": cliente,
+                "response": response,
+                "submit_date_str": submit_date_str,
+                "section_items": section_items,
+                "has_photos": has_photos,
+            }
+
+            html_body = render_template(
+                "client_checks/emails/weekly_check_summary.html",
+                **context
+            )
+            text_lines = [
+                f"Riepilogo Check Settimanale – {submit_date_str}",
+                f"Ciao {cliente.nome_cognome},",
+                "",
+                "Ecco il riepilogo delle risposte che hai inviato.",
+                "",
+            ]
+            for section_name, items in section_items.items():
+                text_lines.append(f"--- {section_name} ---")
+                for label, value in items:
+                    text_lines.append(f"{label}: {value}")
+                text_lines.append("")
+            if has_photos:
+                text_lines.append("Foto: hai inviato una o più foto (frontale, laterale, posteriore).")
+                text_lines.append("")
+            text_lines.append("Il tuo team ha ricevuto le risposte e ti contatterà se necessario.")
+            text_lines.append("")
+            text_lines.append("— Corpo Sostenibile Suite")
+            text_body = "\n".join(text_lines)
+
+            subject = f"Riepilogo del tuo Check Settimanale – {submit_date_str or 'invio'}"
+            send_mail_html(
+                subject=subject,
+                recipients=[recipient],
+                text_body=text_body,
+                html_body=html_body,
+            )
+            current_app.logger.info(
+                f"[WEEKLY_CHECK_SUMMARY] Email riepilogo inviata a {recipient} per response {response.id}"
+            )
+        except Exception as e:
+            current_app.logger.error(
+                f"[WEEKLY_CHECK_SUMMARY] Errore invio email riepilogo al cliente: {e}",
+                exc_info=True,
+            )
+
 
 # --------------------------------------------------------------------------- #
 #  ReportService - Generazione Report                                        #

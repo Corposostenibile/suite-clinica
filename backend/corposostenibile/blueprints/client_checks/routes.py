@@ -1225,6 +1225,12 @@ def weekly_check_public(token: str):
                     current_app.logger.error(f"[WEEKLY_CHECK] Errore invio notifiche: {e}")
                     # Non bloccare il flusso se l'invio email fallisce
 
+                # Invia email riepilogo al cliente
+                try:
+                    NotificationService.send_weekly_check_summary_to_client(response)
+                except Exception as e:
+                    current_app.logger.error(f"[WEEKLY_CHECK] Errore invio email riepilogo al cliente: {e}")
+
                 flash("Grazie! Il tuo check settimanale è stato salvato con successo.", "success")
                 return redirect(url_for("client_checks.weekly_check_success", token=token))
 
@@ -3713,6 +3719,22 @@ def api_public_submit_weekly(token: str):
         db.session.commit()
 
         current_app.logger.info(f"[WEEKLY_CHECK] Risposta salvata per cliente {check.cliente_id}")
+
+        # Invia notifiche ai professionisti (come nel form HTML)
+        try:
+            NotificationService.send_check_notification_to_professionals(
+                cliente=check.cliente,
+                check_type='weekly',
+                check_id=response.id,
+            )
+        except Exception as e:
+            current_app.logger.error(f"[API_PUBLIC] Errore invio notifiche professionisti: {e}")
+
+        # Invia email riepilogo al cliente
+        try:
+            NotificationService.send_weekly_check_summary_to_client(response)
+        except Exception as e:
+            current_app.logger.error(f"[API_PUBLIC] Errore invio email riepilogo al cliente: {e}")
 
         return jsonify({"success": True, "message": "Check inviato con successo"})
 
