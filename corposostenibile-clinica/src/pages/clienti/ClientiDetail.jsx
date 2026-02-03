@@ -24,7 +24,7 @@ import checkService, { CHECK_TYPES } from '../../services/checkService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning } from 'react-icons/fa';
+import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -84,9 +84,10 @@ function ClientiDetail() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('anagrafica');
 
-  const [mostraTour, setMostraTour] = useState(false);
 
-  const tourSteps = [
+
+  // Tour Steps Definitions
+  const commonSteps = [
     {
       target: '[data-tour="header-dettaglio"]',
       title: 'Scheda Paziente',
@@ -111,329 +112,6 @@ function ClientiDetail() {
       icon: <FaLayerGroup size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
     },
-    // ANAGRAFICA
-    {
-      target: '[data-tour="anagrafica-dati"]',
-      title: 'Dati Personali',
-      content: 'Gestisci qui i dati anagrafici, la professione e le note base.',
-      placement: 'right',
-      icon: <FaUserCircle size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'anagrafica'
-    },
-    {
-      target: '[data-tour="anagrafica-contatti"]',
-      title: 'Contatti',
-      content: 'Tutti i recapiti e l\'indirizzo del cliente sempre a portata di mano.',
-      placement: 'left',
-      icon: <FaIdCard size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'anagrafica'
-    },
-    {
-      target: '[data-tour="anagrafica-storia"]',
-      title: 'Storia e Obiettivi',
-      content: 'Annota il passato del cliente, le sue paure e gli obiettivi che vuole raggiungere.',
-      placement: 'top',
-      icon: <FaLayerGroup size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'anagrafica'
-    },
-    // PROGRAMMA
-    {
-      target: '[data-tour="programma-stato"]',
-      title: 'Stato Operativo',
-      content: 'Controlla se il cliente è attivo, in pausa o in stop, e aggiorna i dettagli del suo programma.',
-      placement: 'right',
-      icon: <FaLayerGroup size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'programma'
-    },
-    {
-      target: '[data-tour="programma-date"]',
-      title: 'Controllo Scadenze',
-      content: 'Monitora la data di inizio e soprattutto la data di rinnovo per prevenire abbandoni.',
-      placement: 'top',
-      icon: <FaSave size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'programma'
-    },
-    // TEAM
-    {
-      target: '[data-tour="team-subtabs"]',
-      title: 'Gestione Team',
-      content: 'Visualizza e assegna i professionisti (Nutrizionista, Coach, Psicologo) che seguono il cliente.',
-      placement: 'bottom',
-      icon: <FaUserCircle size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-      tabId: 'team'
-    },
-    {
-      target: '[data-tour="team-timeline"]',
-      title: 'Storico Assegnazioni',
-      content: 'Una timeline completa di chi ha seguito il cliente nel tempo.',
-      placement: 'top',
-      icon: <FaLayerGroup size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-      tabId: 'team'
-    },
-    // NUTRIZIONE
-    {
-      target: '[data-tour="nutrizione-subtabs"]',
-      title: 'Area Nutrizione',
-      content: 'Naviga tra le diverse sezioni dedicate alla nutrizione.',
-      placement: 'bottom',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'nutrizione'
-    },
-    {
-      target: '[data-tour="nutrizione-panoramica"]',
-      title: 'Panoramica Nutrizione',
-      content: 'Vedi i professionisti attivi e lo storico degli stati del servizio nutrizionale.',
-      placement: 'top',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'nutrizione',
-      onEnter: () => setNutrizioneSubTab('panoramica')
-    },
-    {
-      target: '[data-tour="nutrizione-setup"]',
-      title: 'Setup Nutrizione',
-      content: 'Configura la call iniziale e i giorni di reach-out settimanale.',
-      placement: 'top',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'nutrizione',
-      onEnter: () => setNutrizioneSubTab('setup')
-    },
-    {
-      target: '[data-tour="nutrizione-patologie"]',
-      title: 'Patologie e Anamnesi',
-      content: 'Documenta la situazione clinica e le abitudini alimentari del cliente.',
-      placement: 'top',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'nutrizione',
-      onEnter: () => setNutrizioneSubTab('patologie')
-    },
-    {
-      target: '[data-tour="nutrizione-piani"]',
-      title: 'Piani Alimentari',
-      content: 'Il cuore della nutrizione: carica nuovi PDF, modifica quelli attivi e consulta lo storico.',
-      placement: 'top',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'nutrizione',
-      onEnter: () => setNutrizioneSubTab('piano')
-    },
-    {
-      target: '[data-tour="nutrizione-diario"]',
-      title: 'Diario Nutrizionale',
-      content: 'Annota i progressi e le osservazioni durante il percorso nutrizionale.',
-      placement: 'top',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'nutrizione',
-      onEnter: () => setNutrizioneSubTab('diario')
-    },
-    {
-      target: '[data-tour="nutrizione-alert"]',
-      title: 'Alert Nutrizione',
-      content: 'Segnala allergie o criticità fondamentali che devono essere sempre visibili.',
-      placement: 'top',
-      icon: <FaAppleAlt size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-      tabId: 'nutrizione',
-      onEnter: () => setNutrizioneSubTab('alert')
-    },
-    // COACHING
-    {
-      target: '[data-tour="coaching-subtabs"]',
-      title: 'Area Coaching',
-      content: 'Gestisci allenamenti, luoghi e setup sportivo del cliente.',
-      placement: 'bottom',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching'
-    },
-    {
-      target: '[data-tour="coaching-panoramica"]',
-      title: 'Panoramica Coaching',
-      content: 'Monitora i coach assegnati e lo storico degli stati sportivi.',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('panoramica')
-    },
-    {
-      target: '[data-tour="coaching-setup"]',
-      title: 'Setup Coaching',
-      content: 'Gestisci la call iniziale sportiva e la frequenza dei contatti.',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('setup')
-    },
-    {
-      target: '[data-tour="coaching-schede"]',
-      title: 'Schede Allenamento',
-      content: 'Pianifica le schede, carica i file e consulta lo storico degli allenamenti.',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('piano')
-    },
-    {
-      target: '[data-tour="coaching-luoghi"]',
-      title: 'Luoghi di Allenamento',
-      content: 'Indica dove si allena il cliente (casa, palestra, ecc.).',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('luoghi')
-    },
-    {
-      target: '[data-tour="coaching-patologie"]',
-      title: 'Patologie e Anamnesi Sportiva',
-      content: 'Annota infortuni, condizioni fisiche o patologie rilevanti per l\'allenamento.',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('patologie')
-    },
-    {
-      target: '[data-tour="coaching-diario"]',
-      title: 'Diario Coaching',
-      content: 'Traccia i feedback sugli allenamenti e l\'evoluzione atletica.',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('diario')
-    },
-    {
-      target: '[data-tour="coaching-alert"]',
-      title: 'Alert Coaching',
-      content: 'Inserisci alert critici per la sicurezza durante l\'esercizio fisico.',
-      placement: 'top',
-      icon: <FaRunning size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-      tabId: 'coaching',
-      onEnter: () => setCoachingSubTab('alert')
-    },
-    // PSICOLOGIA
-    {
-      target: '[data-tour="psicologia-subtabs"]',
-      title: 'Area Psicologia',
-      content: 'Approfondisci il benessere mentale e comportamentale del cliente.',
-      placement: 'bottom',
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
-      tabId: 'psicologia'
-    },
-    {
-      target: '[data-tour="psicologia-panoramica"]',
-      title: 'Panoramica Psicologia',
-      content: 'Vedi gli psicologi assegnati e lo storico del supporto psicologico.',
-      placement: 'top',
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
-      tabId: 'psicologia',
-      onEnter: () => setPsicologiaSubTab('panoramica')
-    },
-    {
-      target: '[data-tour="psicologia-setup"]',
-      title: 'Setup Psicologia',
-      content: 'Gestisci la call iniziale psicologica e le modalità di supporto.',
-      placement: 'top',
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
-      tabId: 'psicologia',
-      onEnter: () => setPsicologiaSubTab('setup')
-    },
-    {
-      target: '[data-tour="psicologia-patologie"]',
-      title: 'Patologie Psicologiche',
-      content: 'Documenta eventuali disturbi o condizioni psicologiche certificate.',
-      placement: 'top',
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
-      tabId: 'psicologia',
-      onEnter: () => setPsicologiaSubTab('patologie')
-    },
-    {
-      target: '[data-tour="psicologia-diario"]',
-      title: 'Diario Psicologia',
-      content: 'Note del percorso psicologico e annotazioni comportamentali.',
-      placement: 'top',
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
-      tabId: 'psicologia',
-      onEnter: () => setPsicologiaSubTab('diario')
-    },
-    {
-      target: '[data-tour="psicologia-alert"]',
-      title: 'Alert Psicologia',
-      content: 'Inserisci alert critici per la gestione psicologica o rischi per il cliente.',
-      placement: 'top',
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-      tabId: 'psicologia',
-      onEnter: () => setPsicologiaSubTab('alert')
-    },
-    // CHECK
-    {
-      target: '[data-tour="check-periodici-tabs"]',
-      title: 'Check Periodici',
-      content: 'Scegli la tipologia di check: Settimanale, DCA o Minori.',
-      placement: 'bottom',
-      icon: <FaClipboardCheck size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-      tabId: 'check_periodici'
-    },
-    {
-      target: '[data-tour="check-periodici-link"]',
-      title: 'Invio Check',
-      content: 'Genera e copia i link da inviare al cliente per la compilazione.',
-      placement: 'bottom',
-      icon: <FaIdCard size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-      tabId: 'check_periodici'
-    },
-    {
-      target: '[data-tour="check-periodici-risposte"]',
-      title: 'Storico Risposte',
-      content: 'Consulta tutte le compilazioni passate e i punteggi ottenuti.',
-      placement: 'top',
-      icon: <FaLayerGroup size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-      tabId: 'check_periodici'
-    },
-    {
-      target: '[data-tour="check-iniziali-tabs"]',
-      title: 'Check Iniziali',
-      content: 'Accedi ai check storici (Check 1, 2 e 3) compilati all\'inizio del percorso.',
-      placement: 'bottom',
-      icon: <FaLayerGroup size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'check_iniziali'
-    },
-    {
-      target: '[data-tour="check-iniziali-contenuto"]',
-      title: 'Dettagli Check Iniziali',
-      content: 'Visualizza tutte le risposte dettagliate e i punteggi dei check di ingresso.',
-      placement: 'top',
-      icon: <FaLayerGroup size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-      tabId: 'check_iniziali'
-    },
-    // FINAL
     {
       target: '[data-tour="salva-modifiche"]',
       title: 'Salvataggio rapido',
@@ -443,6 +121,409 @@ function ClientiDetail() {
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
     }
   ];
+
+  const tabSpecificSteps = {
+    anagrafica: [
+      {
+        target: '[data-tour="anagrafica-dati"]',
+        title: 'Dati Personali',
+        content: 'Gestisci qui i dati anagrafici, la professione e le note base.',
+        placement: 'right',
+        icon: <FaUserCircle size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'anagrafica'
+      },
+      {
+        target: '[data-tour="anagrafica-contatti"]',
+        title: 'Contatti',
+        content: 'Tutti i recapiti e l\'indirizzo del cliente sempre a portata di mano.',
+        placement: 'left',
+        icon: <FaIdCard size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'anagrafica'
+      },
+      {
+        target: '[data-tour="anagrafica-storia"]',
+        title: 'Storia e Obiettivi',
+        content: 'Annota il passato del cliente, le sue paure e gli obiettivi che vuole raggiungere.',
+        placement: 'top',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'anagrafica'
+      }
+    ],
+    programma: [
+      {
+        target: '[data-tour="programma-stato"]',
+        title: 'Stato Operativo',
+        content: 'Controlla se il cliente è attivo, in pausa o in stop, e aggiorna i dettagli del suo programma.',
+        placement: 'right',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'programma'
+      },
+      {
+        target: '[data-tour="programma-date"]',
+        title: 'Controllo Scadenze',
+        content: 'Monitora la data di inizio e soprattutto la data di rinnovo per prevenire abbandoni.',
+        placement: 'top',
+        icon: <FaSave size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'programma'
+      }
+    ],
+    team: [
+      {
+        target: '[data-tour="team-subtabs"]',
+        title: 'Gestione Team',
+        content: 'Visualizza e assegna i professionisti (Nutrizionista, Coach, Psicologo) che seguono il cliente.',
+        placement: 'bottom',
+        icon: <FaUserCircle size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+        tabId: 'team'
+      },
+      {
+        target: '[data-tour="team-timeline"]',
+        title: 'Storico Assegnazioni',
+        content: 'Una timeline completa di chi ha seguito il cliente nel tempo.',
+        placement: 'top',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+        tabId: 'team'
+      }
+    ],
+    nutrizione: [
+      {
+        target: '[data-tour="nutrizione-subtabs"]',
+        title: 'Area Nutrizione',
+        content: 'Naviga tra le diverse sezioni dedicate alla nutrizione.',
+        placement: 'bottom',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'nutrizione'
+      },
+      {
+        target: '[data-tour="nutrizione-panoramica"]',
+        title: 'Panoramica Nutrizione',
+        content: 'Vedi i professionisti attivi e lo storico degli stati del servizio nutrizionale.',
+        placement: 'top',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'nutrizione',
+        onEnter: () => setNutrizioneSubTab('panoramica')
+      },
+      {
+        target: '[data-tour="nutrizione-setup"]',
+        title: 'Setup Nutrizione',
+        content: 'Configura la call iniziale e i giorni di reach-out settimanale.',
+        placement: 'top',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'nutrizione',
+        onEnter: () => setNutrizioneSubTab('setup')
+      },
+      {
+        target: '[data-tour="nutrizione-patologie"]',
+        title: 'Patologie e Anamnesi',
+        content: 'Documenta la situazione clinica e le abitudini alimentari del cliente.',
+        placement: 'top',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'nutrizione',
+        onEnter: () => setNutrizioneSubTab('patologie')
+      },
+      {
+        target: '[data-tour="nutrizione-piani"]',
+        title: 'Piani Alimentari',
+        content: 'Il cuore della nutrizione: carica nuovi PDF, modifica quelli attivi e consulta lo storico.',
+        placement: 'top',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'nutrizione',
+        onEnter: () => setNutrizioneSubTab('piano')
+      },
+      {
+        target: '[data-tour="nutrizione-diario"]',
+        title: 'Diario Nutrizionale',
+        content: 'Annota i progressi e le osservazioni durante il percorso nutrizionale.',
+        placement: 'top',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'nutrizione',
+        onEnter: () => setNutrizioneSubTab('diario')
+      },
+      {
+        target: '[data-tour="nutrizione-alert"]',
+        title: 'Alert Nutrizione',
+        content: 'Segnala allergie o criticità fondamentali che devono essere sempre visibili.',
+        placement: 'top',
+        icon: <FaAppleAlt size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'nutrizione',
+        onEnter: () => setNutrizioneSubTab('alert')
+      }
+    ],
+    coaching: [
+      {
+        target: '[data-tour="coaching-subtabs"]',
+        title: 'Area Coaching',
+        content: 'Gestisci allenamenti, luoghi e setup sportivo del cliente.',
+        placement: 'bottom',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching'
+      },
+      {
+        target: '[data-tour="coaching-panoramica"]',
+        title: 'Panoramica Coaching',
+        content: 'Monitora i coach assegnati e lo storico degli stati sportivi.',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('panoramica')
+      },
+      {
+        target: '[data-tour="coaching-setup"]',
+        title: 'Setup Coaching',
+        content: 'Gestisci la call iniziale sportiva e la frequenza dei contatti.',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('setup')
+      },
+      {
+        target: '[data-tour="coaching-schede"]',
+        title: 'Schede Allenamento',
+        content: 'Pianifica le schede, carica i file e consulta lo storico degli allenamenti.',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('piano')
+      },
+      {
+        target: '[data-tour="coaching-luoghi"]',
+        title: 'Luoghi di Allenamento',
+        content: 'Indica dove si allena il cliente (casa, palestra, ecc.).',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('luoghi')
+      },
+      {
+        target: '[data-tour="coaching-patologie"]',
+        title: 'Patologie e Anamnesi Sportiva',
+        content: 'Annota infortuni, condizioni fisiche o patologie rilevanti per l\'allenamento.',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('patologie')
+      },
+      {
+        target: '[data-tour="coaching-diario"]',
+        title: 'Diario Coaching',
+        content: 'Traccia i feedback sugli allenamenti e l\'evoluzione atletica.',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('diario')
+      },
+      {
+        target: '[data-tour="coaching-alert"]',
+        title: 'Alert Coaching',
+        content: 'Inserisci alert critici per la sicurezza durante l\'esercizio fisico.',
+        placement: 'top',
+        icon: <FaRunning size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'coaching',
+        onEnter: () => setCoachingSubTab('alert')
+      }
+    ],
+    psicologia: [
+      {
+        target: '[data-tour="psicologia-subtabs"]',
+        title: 'Area Psicologia',
+        content: 'Approfondisci il benessere mentale e comportamentale del cliente.',
+        placement: 'bottom',
+        icon: <FaBrain size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+        tabId: 'psicologia'
+      },
+      {
+        target: '[data-tour="psicologia-panoramica"]',
+        title: 'Panoramica Psicologia',
+        content: 'Vedi gli psicologi assegnati e lo storico del supporto psicologico.',
+        placement: 'top',
+        icon: <FaBrain size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+        tabId: 'psicologia',
+        onEnter: () => setPsicologiaSubTab('panoramica')
+      },
+      {
+        target: '[data-tour="psicologia-setup"]',
+        title: 'Setup Psicologia',
+        content: 'Gestisci la call iniziale psicologica e le modalità di supporto.',
+        placement: 'top',
+        icon: <FaBrain size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+        tabId: 'psicologia',
+        onEnter: () => setPsicologiaSubTab('setup')
+      },
+      {
+        target: '[data-tour="psicologia-patologie"]',
+        title: 'Patologie Psicologiche',
+        content: 'Documenta eventuali disturbi o condizioni psicologiche certificate.',
+        placement: 'top',
+        icon: <FaBrain size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+        tabId: 'psicologia',
+        onEnter: () => setPsicologiaSubTab('patologie')
+      },
+      {
+        target: '[data-tour="psicologia-diario"]',
+        title: 'Diario Psicologia',
+        content: 'Note del percorso psicologico e annotazioni comportamentali.',
+        placement: 'top',
+        icon: <FaBrain size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+        tabId: 'psicologia',
+        onEnter: () => setPsicologiaSubTab('diario')
+      },
+      {
+        target: '[data-tour="psicologia-alert"]',
+        title: 'Alert Psicologia',
+        content: 'Inserisci alert critici per la gestione psicologica o rischi per il cliente.',
+        placement: 'top',
+        icon: <FaBrain size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'psicologia',
+        onEnter: () => setPsicologiaSubTab('alert')
+      }
+    ],
+    check_periodici: [
+      {
+        target: '[data-tour="check-periodici-tabs"]',
+        title: 'Check Periodici',
+        content: 'Scegli la tipologia di check: Settimanale, DCA o Minori.',
+        placement: 'bottom',
+        icon: <FaClipboardCheck size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'check_periodici'
+      },
+      {
+        target: '[data-tour="check-periodici-link"]',
+        title: 'Invio Check',
+        content: 'Genera e copia i link da inviare al cliente per la compilazione.',
+        placement: 'bottom',
+        icon: <FaIdCard size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'check_periodici'
+      },
+      {
+        target: '[data-tour="check-periodici-risposte"]',
+        title: 'Storico Risposte',
+        content: 'Consulta tutte le compilazioni passate e i punteggi ottenuti.',
+        placement: 'top',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'check_periodici'
+      }
+    ],
+    check_iniziali: [
+      {
+        target: '[data-tour="check-iniziali-tabs"]',
+        title: 'Check Iniziali',
+        content: 'Accedi ai check storici (Check 1, 2 e 3) compilati all\'inizio del percorso.',
+        placement: 'bottom',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'check_iniziali'
+      },
+      {
+        target: '[data-tour="check-iniziali-contenuto"]',
+        title: 'Dettagli Check Iniziali',
+        content: 'Visualizza tutte le risposte dettagliate e i punteggi dei check di ingresso.',
+        placement: 'top',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'check_iniziali'
+      }
+    ]
+  };
+  const [mostraTour, setMostraTour] = useState(false);
+  const [activeTourSteps, setActiveTourSteps] = useState([]);
+  const [tourKey, setTourKey] = useState(0);
+
+  const handleTourStart = () => {
+    // Definizione step di scelta iniziale
+    const selectionStep = {
+      target: '[data-tour="header-dettaglio"]', // Target a generic element
+      title: (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>Guida Interattiva</span>
+        </div>
+      ),
+      content: (
+        <div>
+          <p className="mb-3">
+            Ti trovi nella pagina <strong>Dettaglio Paziente</strong>.
+            <br />
+            Tab selezionata: <strong>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')}</strong>
+          </p>
+          <p className="mb-3 small text-muted">
+             Che tipo di tour vuoi seguire oggi?
+          </p>
+          <div className="d-flex flex-column gap-2">
+            <button
+              className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-2"
+              onClick={() => handleTourSelection('general')}
+            >
+              <FaLayerGroup /> Panoramica Generale
+            </button>
+            <button
+              className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-2"
+              onClick={() => handleTourSelection('specific')}
+            >
+              <FaCheck /> Specifico Tab: {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')}
+            </button>
+          </div>
+        </div>
+      ),
+      placement: 'bottom', // 'center' if supported by library, else bottom of header
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+      // Note: We might need to block "Next" button on this step via library props if possible,
+      // or just trust users to click the custom buttons.
+    };
+
+    setActiveTourSteps([selectionStep]);
+    setTourKey(prev => prev + 1);
+    setMostraTour(true);
+  };
+
+  const handleTourSelection = (type) => {
+    let steps = [];
+    if (type === 'general') {
+       steps = commonSteps;
+    } else {
+       const specific = tabSpecificSteps[activeTab] || [];
+       if (specific.length === 0) {
+         // Fallback if no specific steps
+         steps = commonSteps;
+         alert('Nessun tour specifico per questa tab. Avvio tour generale.');
+       } else {
+         steps = specific;
+       }
+    }
+    setActiveTourSteps(steps);
+    setTourKey(prev => prev + 1);
+  };
+
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1972,7 +2053,7 @@ function ClientiDetail() {
         pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
         pageIcon={FaUserCircle}
         docsSection="la-scheda-completa-del-paziente"
-        onStartTour={() => setMostraTour(true)}
+        onStartTour={handleTourStart}
         brandName="Suite Clinica"
         logoSrc="/suitemind.png"
         accentColor="#85FF00"
@@ -7363,7 +7444,8 @@ function ClientiDetail() {
       {/* Support and Tour Components */}
 
       <GuidedTour
-        steps={tourSteps}
+        key={tourKey}
+        steps={activeTourSteps}
         isOpen={mostraTour}
         onClose={() => setMostraTour(false)}
         onComplete={() => {
