@@ -640,14 +640,16 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # -------- full-text --------
     if p.q:
         term = p.q.strip()
-        if db.engine.dialect.name == "postgresql":
-            qry = qry.filter(Cliente.search_vector.match(term))
-        else:
-            like = f"%{term.lower()}%"
+        if term:
+            # Usiamo ILIKE per tutti i database per semplicità e consistenza
+            # Questo permette ricerche parziali come "francesc" -> "francesca"
+            like = f"%{term}%"
             qry = qry.filter(
                 or_(
-                    func.lower(Cliente.nome_cognome).like(like),
-                    func.lower(Cliente.consulente_alimentare).like(like),
+                    Cliente.nome_cognome.ilike(like),
+                    Cliente.mail.ilike(like),
+                    Cliente.numero_telefono.ilike(like),
+                    Cliente.consulente_alimentare.ilike(like),
                 )
             )
 

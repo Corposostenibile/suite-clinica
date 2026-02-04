@@ -11,6 +11,7 @@ import defaultAvatar from "../../../images/profile/pic1.jpg";
 import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
 import { SVGICON } from "../../constant/theme.jsx";
+import GlobalSearch from "../../../components/GlobalSearch";
 
 // Role labels in Italian
 const ROLE_LABELS = {
@@ -69,16 +70,7 @@ const Header = ({ onNote }) => {
         <nav className="navbar navbar-expand">
           <div className="collapse navbar-collapse justify-content-between">
             <div className="header-left">
-              <div className="search_bar dropdown">
-                <span className="search_icon p-3 c-pointer" data-bs-toggle="dropdown">
-                  <i className="mdi mdi-magnify"></i>
-                </span>
-                <div className="dropdown-menu p-0 m-0">
-                  <form>
-                    <input className="form-control" type="search" placeholder="Cerca..." aria-label="Cerca" />
-                  </form>
-                </div>
-              </div>
+            <GlobalSearch />
             </div>
             <ul className="navbar-nav header-right">
               <li className="nav-item dropdown notification_dropdown">

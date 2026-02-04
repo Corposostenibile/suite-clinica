@@ -1,0 +1,40 @@
+/* GlobalSearch.css */
+.search-dropdown-menu {
+    border: 1px solid #e7eaec;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+.search_bar input.form-control {
+    border: none;
+    background: transparent;
+    padding-left: 50px;
+    height: 100%;
+}
+
+.search_bar .search_icon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search_bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  background: transparent;
+  height: 50px;
+  min-width: 300px;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}

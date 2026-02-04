@@ -20,6 +20,7 @@ from . import (
     client_checks,
     manual,
     tasks,
+    search,
 
 )
 
@@ -43,4 +44,5 @@ __all__ = [
     'client_checks',
     'manual',
     'tasks',
+    'search',
 ]
