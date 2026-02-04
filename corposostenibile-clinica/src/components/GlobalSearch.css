@@ -13,6 +13,12 @@
     height: 100%;
 }
 
+/* Global Search in Header */
+.global-search-header {
+  margin: 0;
+  padding: 0;
+}
+
 .search_bar .search_icon {
     position: absolute;
     top: 50%;
