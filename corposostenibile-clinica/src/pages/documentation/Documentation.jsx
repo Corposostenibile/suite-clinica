@@ -1,7 +1,32 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+
+/**
+ * Mapping tra le ancore logiche (docsSection) e i percorsi fisici della documentazione
+ */
+const SECTION_MAP = {
+    'lista-pazienti': 'pazienti/lista/',
+    'la-scheda-completa-del-paziente': 'pazienti/dettaglio/',
+    'check-azienda': 'azienda/check_azienda/',
+    'task': 'professionisti/task/',
+    'formazione': 'professionisti/formazione/',
+};
 
 const Documentation = () => {
-    const docUrl = "/documentation/static/"; 
+    const location = useLocation();
+    
+    // Calcola l'URL dell'iframe in base all'hash nell'URL del browser
+    const docUrl = useMemo(() => {
+        const hash = location.hash.replace('#', '');
+        const baseUrl = "/documentation/static/";
+        
+        if (hash && SECTION_MAP[hash]) {
+            return `${baseUrl}${SECTION_MAP[hash]}`;
+        }
+        
+        // Se non c'è corrispondenza o non c'è hash, carica la root
+        return baseUrl;
+    }, [location.hash]);
 
     return (
         <div style={{ 
