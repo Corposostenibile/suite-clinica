@@ -102,6 +102,7 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     threshold_scadenza = today + timedelta(days=30)
 
     # ▸ KPI -------------------------------------------------------------- #
+    # ▸ KPI -------------------------------------------------------------- #
     query_base = db.session.query(Cliente)
     query_base = apply_role_filtering(query_base)
 
@@ -115,18 +116,20 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     )
 
     new_month = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.created_at >= first_day_month)
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     in_scadenza = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo <= threshold_scadenza,
         )
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
@@ -135,33 +138,41 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
 
     # ▸ KPI per Specialty (Nutrizione, Coach, Psicologia) --------------- #
     nutrizione_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_nutrizione == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     coach_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_coach == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     psicologia_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_psicologia == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     # ▸ Nuovi clienti per mese (ultimi 12) ------------------------------- #
     start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
+    
+    # Query aggregata con filtro applicato
+    monthly_query = db.session.query(
+        func.date_trunc("month", Cliente.created_at).label("month"),
+        func.count(Cliente.cliente_id).label("count"),
+    )
+    monthly_query = apply_role_filtering(monthly_query)
+        
     monthly_rows = (
-        db.session.query(
-            func.date_trunc("month", Cliente.created_at).label("month"),
-            func.count(Cliente.cliente_id).label("count"),
-        )
+        monthly_query
         .filter(Cliente.created_at >= start_period)
         .group_by("month")
         .order_by("month")
@@ -173,8 +184,11 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     ]
 
     # ▸ Distribuzione stato cliente -------------------------------------- #
+    status_query = db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+    status_query = apply_role_filtering(status_query)
+    
     status_rows = (
-        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        status_query
         .group_by(Cliente.stato_cliente)
         .all()
     )
