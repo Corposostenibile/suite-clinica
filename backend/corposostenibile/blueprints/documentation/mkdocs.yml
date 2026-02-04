@@ -5,6 +5,9 @@ theme:
   name: material
   language: it
   custom_dir: overrides
+  palette:
+    primary: green
+    accent: green
 
 extra_css:
   - stylesheets/extra.css

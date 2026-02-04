@@ -1,7 +1,14 @@
 
-/* Placeholder for custom styles */
-.md-typeset h1 {
-    color: #85FF00;
+/* Titoli coerenti con il brand CorpoSostenibile */
+.md-typeset h1, 
+.md-typeset h2, 
+.md-typeset h3 {
+    color: #1B5E20; /* Verde Scuro Brand */
+}
+
+/* Colore dei link */
+.md-typeset a {
+    color: #4CAF50;
 }
 
 /* Remove default shadow from images and containers */
