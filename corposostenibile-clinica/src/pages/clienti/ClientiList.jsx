@@ -146,6 +146,13 @@ function ClientiList() {
 
   const [mostraTour, setMostraTour] = useState(false);
 
+  // Effetto per avvio automatico tour da Hub Supporto
+  useEffect(() => {
+    if (searchParams.get('startTour') === 'true') {
+      setMostraTour(true);
+    }
+  }, [searchParams]);
+
   const tourSteps = [
     {
       target: '[data-tour="header"]',

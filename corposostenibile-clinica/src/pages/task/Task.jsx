@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -27,6 +27,14 @@ function Task() {
     const [showCompleted, setShowCompleted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [mostraTour, setMostraTour] = useState(false);
+    const [searchParams] = useSearchParams();
+
+    // Effetto per avvio automatico tour da Hub Supporto
+    useEffect(() => {
+        if (searchParams.get('startTour') === 'true') {
+            setMostraTour(true);
+        }
+    }, [searchParams]);
 
     const tourSteps = [
         {

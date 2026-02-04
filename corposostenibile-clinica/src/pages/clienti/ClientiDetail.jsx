@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import clientiService, {
   STATO_LABELS,
   STATO_CLIENTE,
@@ -503,8 +503,21 @@ function ClientiDetail() {
 
     setActiveTourSteps([selectionStep]);
     setTourKey(prev => prev + 1);
+    setActiveTourSteps([selectionStep]);
+    setTourKey(prev => prev + 1);
     setMostraTour(true);
   };
+
+  // Support Hub Integration: Auto-start tour if query param is set
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('startTour') === 'true' && !loading) {
+        // Avvia il tour con un leggero ritardo per assicurare il rendering
+        setTimeout(() => {
+            handleTourStart();
+        }, 800);
+    }
+  }, [searchParams, loading]);
 
   const handleTourSelection = (type) => {
     let steps = [];

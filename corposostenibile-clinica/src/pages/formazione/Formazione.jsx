@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import trainingService from '../../services/trainingService';
 import teamService, {
     ROLE_LABELS,
@@ -70,6 +70,14 @@ function Formazione() {
     
     // Configurazione Tour
     const [mostraTour, setMostraTour] = useState(false);
+    const [searchParams] = useSearchParams();
+
+    // Effetto per avvio automatico tour da Hub Supporto
+    useEffect(() => {
+        if (searchParams.get('startTour') === 'true') {
+            setMostraTour(true);
+        }
+    }, [searchParams]);
     
     const tourSteps = [
         {

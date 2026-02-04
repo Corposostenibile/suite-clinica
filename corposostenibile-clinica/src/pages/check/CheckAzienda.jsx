@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -231,6 +231,14 @@ function CheckAzienda() {
   
   // Tour
   const [mostraTour, setMostraTour] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // Effetto per avvio automatico tour da Hub Supporto
+  useEffect(() => {
+    if (searchParams.get('startTour') === 'true') {
+      setMostraTour(true);
+    }
+  }, [searchParams]);
   
   const tourSteps = [
     {
