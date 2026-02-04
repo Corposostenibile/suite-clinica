@@ -48,7 +48,14 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     StatoClienteEnum,
     TransactionTypeEnum,
     TipoProfessionistaEnum,
+    UserRoleEnum,
+    cliente_nutrizionisti,
+    cliente_coaches,
+    cliente_psicologi,
+    cliente_consulenti
 )
+from flask_login import current_user
+from sqlalchemy import desc, func, or_, exists, select
 
 # —— layer contabile centrale (rimosso) ——————————————————————————————— #
 
@@ -79,6 +86,7 @@ __all__ = [
     "calculate_health_scores",
     "calculate_temporal_metrics",
     "calculate_segments",
+    "apply_role_filtering",
     # freeze management
     "freeze_cliente",
     "unfreeze_cliente",
@@ -1107,6 +1115,54 @@ def _enqueue_async(task_name: str, **kwargs):
 # ════════════════════════════════════════════════════════════════════════════
 #                          DASHBOARD 360° FUNCTIONS
 # ════════════════════════════════════════════════════════════════════════════
+def apply_role_filtering(query):
+    """
+    Applica il filtro per ruolo (Admin, Team Leader, Professionista) alla query Clienti.
+    Logica sincronizzata con CustomerRepository.list e global_search.
+    """
+    if not current_user.is_authenticated or current_user.is_trial:
+        return query
+        
+    user_role = getattr(current_user, 'role', None)
+    
+    # Admin: vede tutto
+    if user_role == UserRoleEnum.admin:
+        return query
+    
+    # Team Leader: vede i pazienti assegnati ai membri del suo team
+    elif user_role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        
+        if team_member_ids:
+            member_ids_list = list(team_member_ids)
+            return query.filter(
+                or_(
+                    exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))),
+                    exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(member_ids_list))),
+                    exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(member_ids_list))),
+                    exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(member_ids_list))),
+                )
+            )
+        return query.filter(False)
+    
+    # Professionista: vede solo i propri pazienti
+    elif user_role == UserRoleEnum.professionista:
+        user_id = current_user.id
+        return query.filter(
+            or_(
+                exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == user_id)),
+                exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == user_id)),
+                exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == user_id)),
+                exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == user_id)),
+            )
+        )
+        
+    return query
+
+
 def calculate_dashboard_kpis(filters: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """
     Calcola i KPI principali per la dashboard 360°.
@@ -1118,6 +1174,7 @@ def calculate_dashboard_kpis(filters: Dict[str, Any] | None = None) -> Dict[str,
     
     # Query base
     query = db.session.query(Cliente)
+    query = apply_role_filtering(query)
     
     # Applica filtri se presenti
     if filters:
@@ -1145,9 +1202,11 @@ def calculate_dashboard_kpis(filters: Dict[str, Any] | None = None) -> Dict[str,
     health_score_avg = 75  # Placeholder - calcoleremo in dettaglio nella funzione dedicata
     
     # Permanenza media in mesi
-    avg_permanenza = db.session.query(
+    avg_permanenza_query = db.session.query(
         func.avg(func.extract('epoch', datetime.now() - Cliente.data_inizio_abbonamento) / 2592000)
-    ).filter(Cliente.stato_cliente == 'attivo').scalar() or 0
+    )
+    avg_permanenza_query = apply_role_filtering(avg_permanenza_query)
+    avg_permanenza = avg_permanenza_query.filter(Cliente.stato_cliente == 'attivo').scalar() or 0
     avg_permanenza = round(float(avg_permanenza), 1)
     
     # Alert critici
@@ -1197,7 +1256,10 @@ def calculate_health_scores(filters: Dict[str, Any] | None = None) -> Dict[str, 
         subquery,
         (TypeFormResponse.cliente_id == subquery.c.cliente_id) &
         (TypeFormResponse.submit_date == subquery.c.max_date)
-    )
+    ).join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+    
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
     
     # Calcola medie wellness
     wellness_avgs = db.session.query(
@@ -1208,7 +1270,11 @@ def calculate_health_scores(filters: Dict[str, Any] | None = None) -> Dict[str, 
         func.avg(TypeFormResponse.digestion_rating).label('digestion'),
         func.avg(TypeFormResponse.strength_rating).label('strength'),
         func.avg(TypeFormResponse.hunger_rating).label('hunger')
-    ).filter(TypeFormResponse.submit_date >= datetime.now() - timedelta(days=30)).first()
+    ).join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+    
+    # Applica filtro per ruolo anche qui
+    wellness_avgs_query = apply_role_filtering(wellness_avgs)
+    wellness_avgs = wellness_avgs_query.filter(TypeFormResponse.submit_date >= datetime.now() - timedelta(days=30)).first()
     
     # Calcola health score globale (formula composita)
     health_components = []
@@ -1260,6 +1326,7 @@ def calculate_temporal_metrics(filters: Dict[str, Any] | None = None) -> Dict[st
     
     # Query base
     query = db.session.query(Cliente)
+    query = apply_role_filtering(query)
     
     # Applica filtri se presenti
     if filters:
@@ -1348,6 +1415,9 @@ def calculate_segments(filters: Dict[str, Any] | None = None) -> Dict[str, Any]:
     
     # Query base
     query = db.session.query(Cliente)
+    
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
     
     # Champions: Health Score >85%, Zero o uno check saltati
     champions = query.filter(

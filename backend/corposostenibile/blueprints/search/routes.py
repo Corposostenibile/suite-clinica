@@ -1,8 +1,14 @@
 from flask import jsonify, request
-from sqlalchemy import or_, desc
+from flask_login import current_user, login_required
+from sqlalchemy import or_, desc, exists, select
 from datetime import datetime
 
-from corposostenibile.models import Cliente, WeeklyCheckResponse, WeeklyCheck, User
+from corposostenibile.models import (
+    Cliente, WeeklyCheckResponse, WeeklyCheck, User, 
+    UserRoleEnum, Team,
+    cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
+)
+from corposostenibile.extensions import db
 from corposostenibile.blueprints.search import bp
 
 @bp.route('/global', methods=['GET'])
@@ -29,9 +35,43 @@ def global_search():
                 Cliente.mail.ilike(f'%{q}%'),
                 Cliente.numero_telefono.ilike(f'%{q}%')
             )
-        ).limit(10).all()
+        )
+
+        # ROLE-BASED FILTERING
+        if current_user.role == UserRoleEnum.admin:
+            pass
+        elif current_user.role == UserRoleEnum.team_leader:
+            team_member_ids = set()
+            for team in (current_user.teams_led or []):
+                for member in (team.members or []):
+                    team_member_ids.add(member.id)
+            
+            if team_member_ids:
+                m_ids = list(team_member_ids)
+                clienti_query = clienti_query.filter(
+                    or_(
+                        exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
+                        exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
+                        exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(m_ids)),
+                        exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(m_ids))
+                    )
+                )
+            else:
+                clienti_query = clienti_query.filter(False)
+        else: # professionista
+            u_id = current_user.id
+            clienti_query = clienti_query.filter(
+                or_(
+                    exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
+                    exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
+                    exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == u_id),
+                    exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == u_id)
+                )
+            )
+
+        clienti_results = clienti_query.limit(10).all()
         
-        for c in clienti_query:
+        for c in clienti_results:
             results.append({
                 'type': 'paziente',
                 'category': 'paziente',
@@ -58,9 +98,43 @@ def global_search():
                     Cliente.nome_cognome.ilike(f'%{q}%'),
                     Cliente.mail.ilike(f'%{q}%')
                 )
-            ).order_by(desc(WeeklyCheckResponse.submit_date)).limit(10).all()
+            )
+
+        # ROLE-BASED FILTERING
+        if current_user.role == UserRoleEnum.admin:
+            pass
+        elif current_user.role == UserRoleEnum.team_leader:
+            team_member_ids = set()
+            for team in (current_user.teams_led or []):
+                for member in (team.members or []):
+                    team_member_ids.add(member.id)
+            
+            if team_member_ids:
+                m_ids = list(team_member_ids)
+                check_query = check_query.filter(
+                    or_(
+                        exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
+                        exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
+                        exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(m_ids)),
+                        exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(m_ids))
+                    )
+                )
+            else:
+                check_query = check_query.filter(False)
+        else: # professionista
+            u_id = current_user.id
+            check_query = check_query.filter(
+                or_(
+                    exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
+                    exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
+                    exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == u_id),
+                    exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == u_id)
+                )
+            )
+
+        check_results = check_query.order_by(desc(WeeklyCheckResponse.submit_date)).limit(10).all()
         
-        for check in check_query:
+        for check in check_results:
             # check.assignment is the WeeklyCheck object
             # check.assignment.cliente is the Cliente
             assignment = check.assignment
@@ -113,9 +187,22 @@ def global_search():
                 User.last_name.ilike(f'%{q}%'),
                 User.email.ilike(f'%{q}%')
             )
-        ).limit(10).all()
+        )
+
+        # ROLE-BASED FILTERING
+        if current_user.role == UserRoleEnum.admin:
+            pass
+        else:
+            # TL and Professionista see users in their same team(s)
+            my_team_ids = [t.id for t in current_user.teams]
+            if my_team_ids:
+                users_query = users_query.join(User.teams).filter(Team.id.in_(my_team_ids))
+            else:
+                users_query = users_query.filter(User.id == current_user.id)
+
+        user_results = users_query.limit(10).all()
         
-        for user in users_query:
+        for user in user_results:
             full_name = f"{user.first_name} {user.last_name}".strip()
             
             # Determine specialty label
