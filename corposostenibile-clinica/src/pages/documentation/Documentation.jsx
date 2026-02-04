@@ -30,11 +30,14 @@ const Documentation = () => {
 
     return (
         <div style={{ 
-            width: 'calc(100% + 60px)',
-            height: 'calc(100vh - 140px)',
-            margin: '-30px',
+            width: '100%',
+            height: 'calc(100vh - 210px)',
             backgroundColor: '#fff',
-            overflow: 'hidden'
+            borderRadius: '16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+            overflow: 'hidden',
+            border: '1px solid #f0f0f0',
+            position: 'relative'
         }}>
             <iframe 
                 src={docUrl} 
