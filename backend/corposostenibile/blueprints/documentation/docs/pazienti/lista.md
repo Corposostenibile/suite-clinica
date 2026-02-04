@@ -176,13 +176,3 @@ Ogni riga è un paziente. Ecco cosa significa ogni colonna:
 > [!NOTE]
 > **Performance**: La pagina gestisce migliaia di pazienti grazie alla paginazione intelligente e ai filtri server-side.
 ---
-
-> [!TIP]
-> **Ricorda**: Questa è la tua dashboard principale. Inizia sempre da qui per pianificare efficacemente il lavoro con i pazienti.
-
-> [!IMPORTANT]
-> **Aggiornamenti**: Quando modifichi una scheda paziente, torna qui per vedere i cambiamenti nei numeri e nella lista.
-
-> [!NOTE]
-> **Performance**: La pagina gestisce migliaia di pazienti grazie alla paginazione intelligente e ai filtri server-side.
-

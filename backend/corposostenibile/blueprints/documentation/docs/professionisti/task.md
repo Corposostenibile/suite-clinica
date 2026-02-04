@@ -143,4 +143,3 @@ Quando clicchi "Vai" su un task, il sistema ti porta automaticamente:
 
 > [!NOTE]
 > **Pulizia automatica**: I task completati vengono nascosti per mantenere la lista gestibile.</content>
-<parameter name="filePath">/home/manu/suite-clinica/backend/corposostenibile/blueprints/documentation/docs/professionisti/task.md

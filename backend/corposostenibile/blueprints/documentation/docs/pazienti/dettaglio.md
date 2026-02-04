@@ -399,15 +399,3 @@ I questionari che il paziente compila quando arriva.
 > [!WARNING]
 > **Modifiche irreversibili**: Quando elimini qualcosa, potrebbe non essere recuperabile. Chiedi conferma prima.
 ---
-
-> [!TIP]
-> **La scheda è viva**: Si aggiorna automaticamente quando altri professionisti salvano modifiche. Ricarica se vedi qualcosa di strano.
-
-> [!IMPORTANT]
-> **Privacy**: Le informazioni psicologiche sono protette. Non condividerle senza permesso.
-
-> [!NOTE]
-> **Backup**: Tutto viene salvato automaticamente nel cloud. Non devi preoccuparti di perdere dati.
-
-> [!WARNING]
-> **Modifiche irreversibili**: Quando elimini qualcosa, potrebbe non essere recuperabile. Chiedi conferma prima.

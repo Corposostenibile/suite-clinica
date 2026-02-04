@@ -161,4 +161,3 @@ Ogni card rappresenta una metrica chiave del tuo percorso formativo:
 
 > [!NOTE]
 > **Richieste intelligenti**: Il sistema propone automaticamente i destinatari appropriati basandosi sulla tua posizione e dipartimento.</content>
-<parameter name="filePath">/home/manu/suite-clinica/backend/corposostenibile/blueprints/documentation/docs/professionisti/formazione.md
