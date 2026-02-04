@@ -8,6 +8,7 @@
  *
  * Offre accesso rapido a:
  * - Tour Guidato
+ * - Pagina Supporto
  * - Documentazione
  * - Contatto Supporto
  *
@@ -24,6 +25,7 @@
  * Icone utilizzate da react-icons/fa:
  * - FaTimes (chiudi)
  * - FaRoute (tour)
+ * - FaLifeRing (pagina supporto)
  * - FaBook (documentazione)
  * - FaHeadset (supporto)
  * - FaBoxOpen (icona pagina default)
@@ -133,7 +135,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight } from 'react-icons/fa';
+import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing } from 'react-icons/fa';
 
 function SupportWidget({
   pageTitle,
@@ -185,6 +187,12 @@ function SupportWidget({
     if (onContactSupport) {
       onContactSupport();
     }
+  };
+
+  // Vai alla pagina supporto
+  const handleGoToSupport = () => {
+    setIsOpen(false);
+    navigate('/supporto');
   };
 
   // Icona della pagina (usa quella passata o quella default)
@@ -441,7 +449,17 @@ function SupportWidget({
                 />
               )}
 
-              {/* Opzione 2: Documentazione */}
+              {/* Opzione 2: Pagina Supporto */}
+              <OpzioneAiuto
+                icon={<FaLifeRing size={18} color="#8B5CF6" />}
+                iconBg="linear-gradient(135deg, #F3E8FF, #E9D5FF)"
+                titolo="Pagina Supporto"
+                descrizione="Accedi al centro assistenza completo"
+                onClick={handleGoToSupport}
+                accentColor={accentColor}
+              />
+
+              {/* Opzione 3: Documentazione */}
               <OpzioneAiuto
                 icon={<FaBook size={18} color="#6366F1" />}
                 iconBg="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
@@ -451,7 +469,7 @@ function SupportWidget({
                 accentColor={accentColor}
               />
 
-              {/* Opzione 3: Contatta Supporto */}
+              {/* Opzione 4: Contatta Supporto */}
               {onContactSupport && (
                 <OpzioneAiuto
                   icon={<FaHeadset size={18} color="#D97706" />}
