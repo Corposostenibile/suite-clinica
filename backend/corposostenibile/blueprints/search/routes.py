@@ -21,25 +21,24 @@ def global_search():
     """
     q = request.args.get('q', '').strip()
     category = request.args.get('category', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
     
     if not q or len(q) < 2:
-        return jsonify([])
+        return jsonify({
+            'results': [],
+            'counts': {'all': 0, 'paziente': 0, 'check': 0, 'professional': 0},
+            'pagination': {'page': page, 'per_page': per_page, 'total': 0, 'pages': 0}
+        })
         
     results = []
+    counts = {'all': 0, 'paziente': 0, 'check': 0, 'professional': 0}
+    pagination_meta = {'page': page, 'per_page': per_page, 'total': 0, 'pages': 0}
     
-    # --- SEARCH CLIENTI (PAZIENTI) ---
-    if not category or category == 'paziente':
-        clienti_query = Cliente.query.filter(
-            or_(
-                Cliente.nome_cognome.ilike(f'%{q}%'),
-                Cliente.mail.ilike(f'%{q}%'),
-                Cliente.numero_telefono.ilike(f'%{q}%')
-            )
-        )
-
-        # ROLE-BASED FILTERING
+    # helper for role-based cliente filtering
+    def get_clienti_query_filtered(query):
         if current_user.role == UserRoleEnum.admin:
-            pass
+            return query
         elif current_user.role == UserRoleEnum.team_leader:
             team_member_ids = set()
             for team in (current_user.teams_led or []):
@@ -48,7 +47,7 @@ def global_search():
             
             if team_member_ids:
                 m_ids = list(team_member_ids)
-                clienti_query = clienti_query.filter(
+                return query.filter(
                     or_(
                         exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
                         exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
@@ -57,10 +56,10 @@ def global_search():
                     )
                 )
             else:
-                clienti_query = clienti_query.filter(False)
+                return query.filter(False)
         else: # professionista
             u_id = current_user.id
-            clienti_query = clienti_query.filter(
+            return query.filter(
                 or_(
                     exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
                     exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
@@ -69,8 +68,29 @@ def global_search():
                 )
             )
 
-        clienti_results = clienti_query.limit(10).all()
+    # --- SEARCH CLIENTI (PAZIENTI) ---
+    pazienti_base_query = get_clienti_query_filtered(
+        Cliente.query.filter(
+            or_(
+                Cliente.nome_cognome.ilike(f'%{q}%'),
+                Cliente.mail.ilike(f'%{q}%'),
+                Cliente.numero_telefono.ilike(f'%{q}%')
+            )
+        )
+    )
+    counts['paziente'] = pazienti_base_query.count()
+    
+    if not category or category == 'paziente':
+        # If 'all', only take 10. If specific category, use pagination.
+        limit = 10 if not category else per_page
+        offset = 0 if not category else (page - 1) * per_page
         
+        clienti_results = pazienti_base_query.offset(offset).limit(limit).all()
+        
+        if category == 'paziente':
+            pagination_meta['total'] = counts['paziente']
+            pagination_meta['pages'] = (counts['paziente'] + per_page - 1) // per_page
+
         for c in clienti_results:
             results.append({
                 'type': 'paziente',
@@ -87,76 +107,68 @@ def global_search():
             })
     
     # --- SEARCH CHECK RESPONSES (WeeklyCheckResponse) ---
+    check_base_query = WeeklyCheckResponse.query \
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id) \
+        .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id) \
+        .filter(
+            or_(
+                Cliente.nome_cognome.ilike(f'%{q}%'),
+                Cliente.mail.ilike(f'%{q}%')
+            )
+        )
+    
+    # Apply role filtering (re-using patient filter logic but on the joined Cliente)
+    if current_user.role == UserRoleEnum.admin:
+        pass
+    elif current_user.role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        if team_member_ids:
+            m_ids = list(team_member_ids)
+            check_base_query = check_base_query.filter(
+                or_(
+                    exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
+                    exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
+                    exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(m_ids)),
+                    exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(m_ids))
+                )
+            )
+        else:
+            check_base_query = check_base_query.filter(False)
+    else: # professionista
+        u_id = current_user.id
+        check_base_query = check_base_query.filter(
+            or_(
+                exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
+                exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
+                exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == u_id),
+                exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == u_id)
+            )
+        )
+
+    counts['check'] = check_base_query.count()
+
     if not category or category == 'check':
-        # Search by patient name in WEEKLY check responses
-        # Join: WeeklyCheckResponse -> WeeklyCheck -> Cliente
-        check_query = WeeklyCheckResponse.query \
-            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id) \
-            .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id) \
-            .filter(
-                or_(
-                    Cliente.nome_cognome.ilike(f'%{q}%'),
-                    Cliente.mail.ilike(f'%{q}%')
-                )
-            )
-
-        # ROLE-BASED FILTERING
-        if current_user.role == UserRoleEnum.admin:
-            pass
-        elif current_user.role == UserRoleEnum.team_leader:
-            team_member_ids = set()
-            for team in (current_user.teams_led or []):
-                for member in (team.members or []):
-                    team_member_ids.add(member.id)
-            
-            if team_member_ids:
-                m_ids = list(team_member_ids)
-                check_query = check_query.filter(
-                    or_(
-                        exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
-                        exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
-                        exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(m_ids)),
-                        exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(m_ids))
-                    )
-                )
-            else:
-                check_query = check_query.filter(False)
-        else: # professionista
-            u_id = current_user.id
-            check_query = check_query.filter(
-                or_(
-                    exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
-                    exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
-                    exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == u_id),
-                    exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == u_id)
-                )
-            )
-
-        check_results = check_query.order_by(desc(WeeklyCheckResponse.submit_date)).limit(10).all()
+        limit = 10 if not category else per_page
+        offset = 0 if not category else (page - 1) * per_page
+        
+        check_results = check_base_query.order_by(desc(WeeklyCheckResponse.submit_date)).offset(offset).limit(limit).all()
+        
+        if category == 'check':
+            pagination_meta['total'] = counts['check']
+            pagination_meta['pages'] = (counts['check'] + per_page - 1) // per_page
         
         for check in check_results:
-            # check.assignment is the WeeklyCheck object
-            # check.assignment.cliente is the Cliente
             assignment = check.assignment
             cliente = assignment.cliente if assignment else None
-            
-            # Format date
             date_str = check.submit_date.strftime('%d/%m/%Y') if check.submit_date else 'N/A'
-            
-            # Calculate average rating
-            ratings = [
-                check.nutritionist_rating,
-                check.psychologist_rating,
-                check.coach_rating,
-                check.progress_rating
-            ]
+            ratings = [check.nutritionist_rating, check.psychologist_rating, check.coach_rating, check.progress_rating]
             valid_ratings = [r for r in ratings if r is not None]
             avg_rating = round(sum(valid_ratings) / len(valid_ratings), 1) if valid_ratings else None
-            
             subtitle_parts = [date_str]
-            if avg_rating:
-                subtitle_parts.append(f'Voto: {avg_rating}')
-            
+            if avg_rating: subtitle_parts.append(f'Voto: {avg_rating}')
             patient_name = cliente.nome_cognome if cliente else "Paziente"
             
             results.append({
@@ -176,54 +188,44 @@ def global_search():
             })
     
     # --- SEARCH PROFESSIONALS (USERS) ---
-    if not category or category == 'professional':
-        # Search in first_name, last_name, email
-        # Exclude trial users and inactive users
-        users_query = User.query.filter(
-            User.is_active == True,
-            User.is_trial == False,
-            or_(
-                User.first_name.ilike(f'%{q}%'),
-                User.last_name.ilike(f'%{q}%'),
-                User.email.ilike(f'%{q}%')
-            )
+    users_base_query = User.query.filter(
+        User.is_active == True,
+        User.is_trial == False,
+        or_(
+            User.first_name.ilike(f'%{q}%'),
+            User.last_name.ilike(f'%{q}%'),
+            User.email.ilike(f'%{q}%')
         )
-
-        # ROLE-BASED FILTERING
-        if current_user.role == UserRoleEnum.admin:
-            pass
+    )
+    if current_user.role != UserRoleEnum.admin:
+        my_team_ids = [t.id for t in current_user.teams]
+        if my_team_ids:
+            users_base_query = users_base_query.join(User.teams).filter(Team.id.in_(my_team_ids))
         else:
-            # TL and Professionista see users in their same team(s)
-            my_team_ids = [t.id for t in current_user.teams]
-            if my_team_ids:
-                users_query = users_query.join(User.teams).filter(Team.id.in_(my_team_ids))
-            else:
-                users_query = users_query.filter(User.id == current_user.id)
+            users_base_query = users_base_query.filter(User.id == current_user.id)
 
-        user_results = users_query.limit(10).all()
+    counts['professional'] = users_base_query.count()
+
+    if not category or category == 'professional':
+        limit = 10 if not category else per_page
+        offset = 0 if not category else (page - 1) * per_page
+        
+        user_results = users_base_query.offset(offset).limit(limit).all()
+        
+        if category == 'professional':
+            pagination_meta['total'] = counts['professional']
+            pagination_meta['pages'] = (counts['professional'] + per_page - 1) // per_page
         
         for user in user_results:
             full_name = f"{user.first_name} {user.last_name}".strip()
-            
-            # Determine specialty label
             specialty_label = None
             if user.specialty:
-                specialty_map = {
-                    'nutrizione': 'Nutrizionista',
-                    'psicologia': 'Psicologo/a',
-                    'coach': 'Coach',
-                    'consulente': 'Consulente'
-                }
-                # Handle Enum value access safely
-                try:
-                    val = user.specialty.value
-                    specialty_label = specialty_map.get(val, val.title())
-                except:
-                    specialty_label = str(user.specialty)
+                specialty_map = {'nutrizione': 'Nutrizionista', 'psicologia': 'Psicologo/a', 'coach': 'Coach', 'consulente': 'Consulente'}
+                try: val = user.specialty.value; specialty_label = specialty_map.get(val, val.title())
+                except: specialty_label = str(user.specialty)
             
             subtitle_parts = [user.email]
-            if specialty_label:
-                subtitle_parts.insert(0, specialty_label)
+            if specialty_label: subtitle_parts.insert(0, specialty_label)
             
             results.append({
                 'type': 'professional',
@@ -240,5 +242,11 @@ def global_search():
                     'is_admin': user.is_admin
                 }
             })
-        
-    return jsonify(results)
+    
+    counts['all'] = counts['paziente'] + counts['check'] + counts['professional']
+    
+    return jsonify({
+        'results': results,
+        'counts': counts,
+        'pagination': pagination_meta
+    })

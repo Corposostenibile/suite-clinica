@@ -14,23 +14,39 @@ const GlobalSearchPage = () => {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('all'); // all, paziente, check, professional
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ total: 0, pages: 0 });
+    const [resultCounts, setResultCounts] = useState({ all: 0, paziente: 0, check: 0, professional: 0 });
     
     // Effect: Perform search when URL query changes
     useEffect(() => {
         const q = queryParams.get('q');
         if (q && q.length >= 2) {
             setQuery(q);
-            performSearch(q);
+            setPage(1); // Reset page on new query
+            performSearch(q, activeTab, 1);
         } else {
             setResults([]);
+            setResultCounts({ all: 0, paziente: 0, check: 0, professional: 0 });
         }
     }, [location.search]);
 
-    const performSearch = async (searchQuery) => {
+    // Effect: Perform search on tab or page change
+    useEffect(() => {
+        if (query && query.length >= 2) {
+            // Se cambiamo tab da 'all' a una categoria specifica, o tra categorie, resettiamo inizialmente la pagina?
+            // In realtà il reset della pagina viene già gestito nell'onClick del tab
+            performSearch(query, activeTab, page);
+        }
+    }, [activeTab, page]);
+
+    const performSearch = async (searchQuery, category, searchPage) => {
         setLoading(true);
         try {
-            const data = await searchService.globalSearch(searchQuery);
-            setResults(data);
+            const data = await searchService.globalSearch(searchQuery, category, searchPage);
+            setResults(data.results || []);
+            setResultCounts(data.counts || { all: 0, paziente: 0, check: 0, professional: 0 });
+            setPagination(data.pagination || { total: 0, pages: 0 });
         } catch (error) {
             console.error('Search error:', error);
             setResults([]);
@@ -42,6 +58,7 @@ const GlobalSearchPage = () => {
     const handleSearchSubmit = (e) => {
         e.preventDefault();
         if (query.trim().length >= 2) {
+            setPage(1);
             navigate(`/ricerca-globale?q=${encodeURIComponent(query.trim())}`);
         }
     };
@@ -49,26 +66,27 @@ const GlobalSearchPage = () => {
     const handleClear = () => {
         setQuery('');
         setResults([]);
+        setPage(1);
+        setPagination({ total: 0, pages: 0 });
+        setResultCounts({ all: 0, paziente: 0, check: 0, professional: 0 });
         navigate('/ricerca-globale');
     };
 
-    // Filtering logic based on active tab
-    const filteredResults = activeTab === 'all' 
-        ? results 
-        : results.filter(r => r.category === activeTab);
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setPage(1);
+    };
 
-    // Grouping for "All" view
+    const handlePageChange = (newPage) => {
+        setPage(newPage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Grouping for "All" view (if we are in 'all' tab)
     const groupedResults = {
         paziente: results.filter(r => r.category === 'paziente'),
         check: results.filter(r => r.category === 'check'),
         professional: results.filter(r => r.category === 'professional')
-    };
-
-    const resultCounts = {
-        all: results.length,
-        paziente: results.filter(r => r.category === 'paziente').length,
-        check: results.filter(r => r.category === 'check').length,
-        professional: results.filter(r => r.category === 'professional').length
     };
 
     // Render Helpers
@@ -135,13 +153,23 @@ const GlobalSearchPage = () => {
         );
     };
 
-    const renderSection = (title, items, icon) => {
+    const renderSection = (title, items, icon, categoryKey) => {
         if (!items || items.length === 0) return null;
         return (
             <div className="results-section">
-                <div className="section-label">
-                    <i className={icon}></i>
-                    {title} ({items.length})
+                <div className="section-label d-flex justify-content-between align-items-center">
+                    <span>
+                        <i className={icon}></i>
+                        {title} ({resultCounts[categoryKey]})
+                    </span>
+                    {resultCounts[categoryKey] > 10 && (
+                        <button 
+                            className="btn btn-sm btn-link text-primary" 
+                            onClick={() => handleTabChange(categoryKey)}
+                        >
+                            Vedi tutti <i className="mdi mdi-arrow-right"></i>
+                        </button>
+                    )}
                 </div>
                 <div className="results-grid-clean">
                     {items.map(renderCard)}
@@ -180,30 +208,30 @@ const GlobalSearchPage = () => {
                                 </form>
                             </div>
 
-                            {results.length > 0 && (
+                            {resultCounts.all > 0 && (
                                 <div className="d-flex justify-content-center">
                                     <div className="search-nav-tabs">
                                         <button 
                                             className={`search-tab ${activeTab === 'all' ? 'active' : ''}`}
-                                            onClick={() => setActiveTab('all')}
+                                            onClick={() => handleTabChange('all')}
                                         >
                                             Tutti <span className="search-tab-count">{resultCounts.all}</span>
                                         </button>
                                         <button 
                                             className={`search-tab ${activeTab === 'paziente' ? 'active' : ''}`}
-                                            onClick={() => setActiveTab('paziente')}
+                                            onClick={() => handleTabChange('paziente')}
                                         >
                                             Pazienti <span className="search-tab-count">{resultCounts.paziente}</span>
                                         </button>
                                         <button 
                                             className={`search-tab ${activeTab === 'check' ? 'active' : ''}`}
-                                            onClick={() => setActiveTab('check')}
+                                            onClick={() => handleTabChange('check')}
                                         >
                                             Check <span className="search-tab-count">{resultCounts.check}</span>
                                         </button>
                                         <button 
                                             className={`search-tab ${activeTab === 'professional' ? 'active' : ''}`}
-                                            onClick={() => setActiveTab('professional')}
+                                            onClick={() => handleTabChange('professional')}
                                         >
                                             Professionisti <span className="search-tab-count">{resultCounts.professional}</span>
                                         </button>
@@ -218,7 +246,7 @@ const GlobalSearchPage = () => {
             <div className="container pb-5">
                 <div className="row justify-content-center">
                     <div className="col-lg-10">
-                        {loading ? (
+                        {loading && page === 1 ? (
                             <div className="search-loading-clean">
                                 <div className="spinner-clean"></div>
                                 <p>Ricerca in corso...</p>
@@ -226,14 +254,70 @@ const GlobalSearchPage = () => {
                         ) : results.length > 0 ? (
                             activeTab === 'all' ? (
                                 <>
-                                    {renderSection('Pazienti', groupedResults.paziente, 'mdi mdi-account')}
-                                    {renderSection('Check', groupedResults.check, 'mdi mdi-file-document-check')}
-                                    {renderSection('Professionisti', groupedResults.professional, 'mdi mdi-doctor')}
+                                    {renderSection('Pazienti', groupedResults.paziente, 'mdi mdi-account', 'paziente')}
+                                    {renderSection('Check', groupedResults.check, 'mdi mdi-file-document-check', 'check')}
+                                    {renderSection('Professionisti', groupedResults.professional, 'mdi mdi-doctor', 'professional')}
                                 </>
                             ) : (
-                                <div className="results-grid-clean">
-                                    {filteredResults.map(renderCard)}
-                                </div>
+                                <>
+                                    <div className="results-grid-clean">
+                                        {results.map(renderCard)}
+                                    </div>
+                                    
+                                    {/* Paginazione */}
+                                    {pagination.pages > 1 && (
+                                        <div className="d-flex flex-wrap justify-content-between align-items-center mt-5 pt-3 gap-3 border-top">
+                                            <span className="text-muted small">
+                                                Pagina <strong>{page}</strong> di <strong>{pagination.pages}</strong>
+                                                <span className="mx-2">•</span>
+                                                {pagination.total} risultati
+                                            </span>
+                                            <nav>
+                                                <ul className="pagination mb-0" style={{ gap: '4px' }}>
+                                                    <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
+                                                        <button 
+                                                            className="page-link border-0 shadow-sm rounded-3" 
+                                                            onClick={() => handlePageChange(page - 1)}
+                                                            disabled={page === 1}
+                                                        >
+                                                            <i className="mdi mdi-chevron-left"></i>
+                                                        </button>
+                                                    </li>
+                                                    
+                                                    {[...Array(Math.min(pagination.pages, 5))].map((_, i) => {
+                                                        let pageNum;
+                                                        if (pagination.pages <= 5) pageNum = i + 1;
+                                                        else if (page <= 3) pageNum = i + 1;
+                                                        else if (page >= pagination.pages - 2) pageNum = pagination.pages - 4 + i;
+                                                        else pageNum = page - 2 + i;
+                                                        
+                                                        const isActive = page === pageNum;
+                                                        return (
+                                                            <li key={pageNum} className="page-item">
+                                                                <button 
+                                                                    className={`page-link border-0 shadow-sm rounded-3 ${isActive ? 'bg-primary text-white' : 'bg-white text-dark'}`}
+                                                                    onClick={() => handlePageChange(pageNum)}
+                                                                >
+                                                                    {pageNum}
+                                                                </button>
+                                                            </li>
+                                                        );
+                                                    })}
+
+                                                    <li className={`page-item ${page === pagination.pages ? 'disabled' : ''}`}>
+                                                        <button 
+                                                            className="page-link border-0 shadow-sm rounded-3" 
+                                                            onClick={() => handlePageChange(page + 1)}
+                                                            disabled={page === pagination.pages}
+                                                        >
+                                                            <i className="mdi mdi-chevron-right"></i>
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
+                                    )}
+                                </>
                             )
                         ) : query.length >= 2 ? (
                             <div className="search-empty-clean">
