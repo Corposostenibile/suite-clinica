@@ -176,16 +176,33 @@ def print_report(diff):
 
 import csv
 
-def to_sql_value(val):
-    r"""
-    Converts a COPY format value to a SQL INSERT value.
-    Handles \N as NULL and escapes single quotes.
-    """
-    if val == r'\N':
+def unescape_copy(val):
+    if val == r'\N' or val is None:
+        return None
+    # Unescape COPY text format: \n (0x0a), \r (0x0d), \t (0x09), etc.
+    val = val.replace(r'\n', '\n')
+    val = val.replace(r'\r', '\r')
+    val = val.replace(r'\t', '\t')
+    val = val.replace(r'\b', '\b')
+    val = val.replace(r'\f', '\f')
+    val = val.replace(r'\\', '\\')
+    return val
+
+def to_sql_value(val, col_type=''):
+    if val is None:
         return 'NULL'
-    # Escape single quotes and wrapping in quotes
-    escaped = val.replace("'", "''")
-    return f"'{escaped}'"
+    # Escape single quotes for SQL
+    val = val.replace("'", "''")
+    
+    if col_type and 'json' in col_type.lower():
+        # JSON types in PG MUST have escapes for control chars
+        # but standard_conforming_strings=on means we DO NOT escape backslashes
+        # val = val.replace("\\", "\\\\")  <-- REMOVED
+        val = val.replace("\n", "\\n")
+        val = val.replace("\r", "\\r")
+        val = val.replace("\t", "\\t")
+        
+    return f"'{val}'"
 
 def process_alter_stmt(stmt, constraint_list, outfile):
     """
@@ -288,7 +305,8 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             # Use a buffer/iterator for reading lines
             if process.stdout:
                 for line in process.stdout:
-                    line = line.strip()
+                    # Use rstrip to avoid removing leading/trailing tabs which are meaningful in COPY
+                    line = line.rstrip('\n\r')
                     
                     # Detect COPY start
                     # COPY public.users (id, name, ...) FROM stdin;
@@ -309,8 +327,13 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                             print(f"Skipping table {current_table} (Excluded by user request)")
                             current_table = None # Skip this block
                             continue
+
+                        if current_table == 'global_activity_log':
+                            print(f"Skipping table {current_table} (Analytics only - not critical)")
+                            current_table = None # Skip this block
+                            continue
                         
-                        print(f"Migrating table: {current_table}")
+                        print(f"Migrating table: {current_table} (Source cols: {len(current_cols)})")
                         outfile.write(f"\n-- Data for {current_table}\n")
                         continue
                     
@@ -323,14 +346,16 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                     # Process Row
                     if current_table and current_cols:
                         # Parse COPY row (tab separated)
-                        # We use simple split, assuming standard pg_dump text format
-                        # WARNING: This might be fragile with complex text containing tabs, 
-                        # but standard dumps escape tabs as \t.
-                        row_values = line.split('\t')
+                        row_values_raw = line.split('\t')
                         
-                        if len(row_values) != len(current_cols):
-                            # Mismatch in columns vs values, skip row or log warning
+                        if len(row_values_raw) != len(current_cols):
+                            if current_table == 'users':
+                                print(f"DEBUG: Column mismatch for users. Expected {len(current_cols)}, got {len(row_values_raw)}")
+                                print(f"DEBUG: Sample row start: {line[:50]}...")
                             continue
+                        
+                        # Unescape all values from COPY format
+                        row_values = [unescape_copy(v) for v in row_values_raw]
                             
                         # Build Dictionary for easy mapping
                         row_dict = dict(zip(current_cols, row_values))
@@ -343,27 +368,38 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                         target_vals = []
                         
                         for col in valid_new_cols:
+                            col_type = new_schema_def[current_table].get(col, '')
                             # If column exists in Old Row, use it
                             if col in row_dict:
                                 target_cols.append(f'"{col}"')
-                                target_vals.append(to_sql_value(row_dict[col]))
+                                target_vals.append(to_sql_value(row_dict[col], col_type))
                             # Special handling for mandatory columns in 'users' table
                             elif current_table == 'users':
                                 if col == 'role':
-                                    # Map is_admin to role
-                                    is_admin = row_dict.get('is_admin', 'f')
-                                    role = 'admin' if is_admin == 't' else 'professionista'
+                                    # Map is_admin to role (force correct enum)
+                                    is_admin_val = row_dict.get('is_admin', 'f')
+                                    role = 'admin' if is_admin_val == 't' else 'professionista'
                                     target_cols.append(f'"{col}"')
-                                    target_vals.append(to_sql_value(role))
+                                    target_vals.append(to_sql_value(role, col_type))
+                                elif col == 'password_hash' and 'password' in row_dict:
+                                    target_cols.append(f'"{col}"')
+                                    target_vals.append(to_sql_value(row_dict['password'], col_type))
+                                elif col == 'is_admin':
+                                    # Set default False for is_admin if not in old
+                                    target_cols.append(f'"{col}"')
+                                    target_vals.append(to_sql_value('f', col_type))
                                 elif col == 'is_external':
                                     target_cols.append(f'"{col}"')
-                                    target_vals.append(to_sql_value('f')) # Default false
+                                    target_vals.append(to_sql_value('f', col_type))
                             # Else, we rely on Default (omit from Insert) or set NULL?
                             # Standard pattern: if omitted, DB uses DEFAULT or NULL.
                             # So we just don't add it to target_cols.
                         
                         # Add to batch
                         if target_cols:
+                            if current_table == 'users' and len(current_batch_vals) == 0:
+                                print(f"First user record mapped: {target_cols}")
+                            
                             # Verify columns match current batch
                             cols_tuple = tuple(target_cols)
                             
