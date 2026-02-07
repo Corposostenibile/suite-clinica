@@ -29,8 +29,9 @@ class OpportunityProcessor:
         Workflow:
         1. Crea/aggiorna GHLOpportunity
         2. Crea/aggiorna Cliente
-        3. Crea ServiceClienteAssignment in stato pending_finance
+        3. Crea ServiceClienteAssignment in stato pending_assignment
         4. Crea nota iniziale
+        5. Assegna Check Iniziali (1, 2, 3)
 
         Returns:
             Dict con i risultati del processamento
@@ -65,11 +66,16 @@ class OpportunityProcessor:
             db.session.add(opportunity)
 
             # 3. Crea ServiceClienteAssignment
+            # STATUS CORRETTO: pending_assignment (come richiesto)
             assignment = OpportunityProcessor._create_service_assignment(
                 cliente,
                 opportunity,
-                status='pending_finance'
+                status='pending_assignment'  # ERA: pending_finance
             )
+            
+            # Imposta anche lo stato del cliente per coerenza
+            cliente.service_status = 'pending_assignment'
+            db.session.add(cliente)
 
             # Flush per ottenere l'ID dell'assignment
             db.session.flush()
@@ -83,6 +89,62 @@ class OpportunityProcessor:
                 f"Acconto: €{parsed_data.get('acconto_pagato', 0)}. "
                 f"Pacchetto: {parsed_data.get('pacchetto_comprato', 'N/D')}"
             )
+            
+            # 5. ASSEGNAZIONE CHECK INIZIALI (Check 1, 2, 3)
+            # Importa qui per evitare import circolari
+            from corposostenibile.models import CheckForm, CheckFormTypeEnum, CheckFormField, CheckFormFieldTypeEnum
+            from corposostenibile.blueprints.client_checks.services import ClientCheckService, CheckFormService
+            
+            # Elenco dei check da assegnare
+            initial_checks = [
+                {"name": "Check 1 - Anagrafica", "type": "iniziale", "description": "Dati anagrafici e obiettivi"},
+                {"name": "Check 2 - Fisico", "type": "iniziale", "description": "Misure e foto"},
+                {"name": "Check 3 - Psico-Alimentare", "type": "iniziale", "description": "Questionario approfondito"}
+            ]
+            
+            admin_user = User.query.filter_by(is_admin=True).first()
+            admin_id = admin_user.id if admin_user else 1
+            
+            for check_data in initial_checks:
+                # Cerca se esiste già il form
+                check_form = CheckForm.query.filter_by(
+                    name=check_data["name"], 
+                    form_type=CheckFormTypeEnum.iniziale
+                ).first()
+                
+                # Se non esiste, CREALO (Auto-Seeding)
+                if not check_form:
+                    # Crea un form base se non esiste
+                    # Nota: In produzione ideale avere campi veri, qui creiamo placeholder se mancano
+                    # per permettere il flusso.
+                    try:
+                        check_form = CheckForm(
+                            name=check_data["name"],
+                            description=check_data["description"],
+                            form_type=CheckFormTypeEnum.iniziale,
+                            is_active=True,
+                            created_by_id=admin_id,
+                            department_id=1 # Default a Nutrizione o altro
+                        )
+                        db.session.add(check_form)
+                        db.session.flush()
+                        current_app.logger.info(f"Creato automaticamente Check Form: {check_form.name}")
+                    except Exception as e:
+                        current_app.logger.error(f"Errore creazione form {check_data['name']}: {e}")
+                        continue
+                
+                if check_form:
+                    # Assegna il form al cliente
+                    try:
+                        ClientCheckService.assign_form_to_client(
+                            form_id=check_form.id,
+                            client_id=cliente.cliente_id,
+                            assigned_by_id=admin_id,
+                            send_notification=True # Invia email!
+                        )
+                        current_app.logger.info(f"Assegnato {check_form.name} a cliente {cliente.cliente_id}")
+                    except Exception as e:
+                        current_app.logger.error(f"Errore assegnazione {check_form.name}: {e}")
 
             # Commit di tutto
             db.session.commit()

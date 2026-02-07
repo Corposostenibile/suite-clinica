@@ -213,6 +213,62 @@
     </div>
   </div>
 
+  <!-- Clienti in Attesa di Assegnazione -->
+  {% if clienti_da_assegnare %}
+  <div class="card mb-4 border-warning">
+    <div class="card-header bg-warning-subtle">
+      <h5 class="mb-0 text-warning-emphasis">
+        <i class="ri-time-line me-2"></i>Clienti in Attesa di Assegnazione
+        <span class="badge bg-warning text-dark ms-2">{{ clienti_da_assegnare|length }}</span>
+      </h5>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Cliente</th>
+              <th>Data Acquisizione</th>
+              <th>Pacchetto</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cliente in clienti_da_assegnare %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="avatar-initials bg-light text-primary me-3" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                    {{ cliente.nome_cognome[:2] | upper if cliente.nome_cognome else '??' }}
+                  </div>
+                  <div>
+                    <h6 class="mb-0 fw-semibold">{{ cliente.nome_cognome }}</h6>
+                    <small class="text-muted">{{ cliente.mail }}</small>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {{ cliente.created_at.strftime('%d/%m/%Y %H:%M') if cliente.created_at else 'N/D' }}
+              </td>
+              <td>
+                <span class="badge bg-info-subtle text-info-emphasis">
+                  {{ cliente.programma_attuale or 'Standard' }}
+                </span>
+              </td>
+              <td>
+                <a href="{{ url_for('customers.detail', cliente_id=cliente.cliente_id) }}" class="btn btn-primary btn-sm">
+                  <i class="ri-eye-line me-1"></i>Vedi Scheda
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Tabs Dipartimenti -->
   <div class="card">
     <div class="card-header">

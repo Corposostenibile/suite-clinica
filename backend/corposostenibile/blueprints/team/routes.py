@@ -4838,12 +4838,18 @@ def assignments_dashboard():
         }
     }
 
+    # Recupera i clienti in attesa di assegnazione (pending_assignment)
+    clienti_da_assegnare = Cliente.query.filter_by(
+        service_status='pending_assignment'
+    ).order_by(Cliente.created_at.desc()).all()
+
     return render_template(
         "team/assignments_dashboard.html",
         nutrizionisti=nutrizionisti,
         coaches=coaches,
         psicologi=psicologi,
-        stats=stats
+        stats=stats,
+        clienti_da_assegnare=clienti_da_assegnare
     )
 
 
