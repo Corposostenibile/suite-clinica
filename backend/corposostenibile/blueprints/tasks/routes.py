@@ -124,21 +124,41 @@ def update_task(task_id):
 @login_required
 def get_stats():
     """Ritorna conteggi per la dashboard."""
-    base_query = Task.query.filter(Task.assignee_id == current_user.id)
+    query = db.session.query(Task.category, func.count(Task.id))
     
-    # Counts per category (solo non completati)
-    categories = db.session.query(Task.category, func.count(Task.id)).\
-        filter(Task.assignee_id == current_user.id).\
-        filter(Task.status != TaskStatusEnum.done).\
-        filter(Task.status != TaskStatusEnum.archived).\
-        group_by(Task.category).all()
+    user_role = getattr(current_user, 'role', None) 
+    
+    # Appliciamo la stessa logica di filtraggio di list_tasks
+    if request.args.get('all_users') == 'true' and current_user.is_admin:
+        pass
+    elif user_role == UserRoleEnum.admin or current_user.is_admin:
+        pass
+    elif user_role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        team_member_ids.add(current_user.id)
+        
+        if team_member_ids:
+            query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
+        else:
+            query = query.filter(Task.assignee_id == current_user.id)
+    else:
+        query = query.filter(Task.assignee_id == current_user.id)
+    
+    # Filtri standard
+    query = query.filter(Task.status != TaskStatusEnum.done).\
+                  filter(Task.status != TaskStatusEnum.archived).\
+                  group_by(Task.category)
+
+    categories = query.all()
     
     cat_counts = {c.value: 0 for c in TaskCategoryEnum}
     
     # Fill con i dati reali
     total_open = 0
     for cat, count in categories:
-        # cat è un Enum o stringa a seconda del driver DB, assumiamo enum o string
         val = cat.value if hasattr(cat, 'value') else cat
         cat_counts[val] = count
         total_open += count

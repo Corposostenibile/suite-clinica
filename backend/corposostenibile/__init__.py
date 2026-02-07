@@ -377,6 +377,7 @@ def create_app(config_name: str | None = None) -> Flask:
         appointment_setting,  # Appointment Setting - messaggi Respond.io
         tasks,  # AGGIUNTO: Import del blueprint tasks
         documentation,  # AGGIUNTO: Import del blueprint documentation
+        search,  # AGGIUNTO: Import del blueprint search
     )
 
 
@@ -452,6 +453,9 @@ def create_app(config_name: str | None = None) -> Flask:
     # Health check endpoint
     from .health import health_bp
     app.register_blueprint(health_bp)
+
+    # Search Blueprint
+    app.register_blueprint(search.bp, url_prefix='/api/search')
     
     # Celery tasks specifici
     from corposostenibile.blueprints.customers import init_celery as customers_celery
@@ -484,7 +488,7 @@ def create_app(config_name: str | None = None) -> Flask:
             return redirect('/login')
 
         # Paths that should NOT be intercepted (handled by Flask)
-        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/', '/quality/api/', '/documentation/')
+        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/', '/quality/api/', '/documentation/', '/ghl/', '/review/api/')
 
         @app.before_request
         def serve_spa_for_pages():

@@ -168,6 +168,35 @@ const ghlService = {
   async getConnectionStatus() {
     const response = await ghlApi.get('/calendar/connection-status');
     return response.data;
+  },
+
+  // =========================================================================
+  // OPPORTUNITY DATA (Webhook)
+  // =========================================================================
+
+  /**
+   * Get all opportunity data received from webhooks
+   */
+  async getOpportunityData() {
+    // Usa endpoint debug temporaneamente (non richiede login)
+    const response = await ghlApi.get('/opportunity-data-debug');
+    return response.data;
+  },
+
+  /**
+   * Get single opportunity data by ID
+   */
+  async getOpportunityDataById(id) {
+    const response = await ghlApi.get(`/opportunity-data/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Clear all opportunity data (admin only)
+   */
+  async clearOpportunityData() {
+    const response = await ghlApi.post('/opportunity-data/clear');
+    return response.data;
   }
 };
 

@@ -54,7 +54,6 @@ htmlcov/
 
 # Uploads & Data
 uploads/
-backups/
 
 # OS
 Thumbs.db
@@ -68,3 +67,5 @@ Thumbs.db
 *.tar.gz
 .running_pids
 backend/corposostenibile/blueprints/documentation/static/
+# DB old suite backups
+backend/backups

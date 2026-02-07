@@ -56,6 +56,10 @@ from corposostenibile.models import (
     Package,
     PlanExtraFile,
     PlanTypeEnum,
+    cliente_nutrizionisti,
+    cliente_coaches,
+    cliente_psicologi,
+    cliente_consulenti
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import parse_filter_args
@@ -72,6 +76,7 @@ from .services import (
     calculate_health_scores,
     calculate_temporal_metrics,
     calculate_segments,
+    apply_role_filtering,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,28 +102,34 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     threshold_scadenza = today + timedelta(days=30)
 
     # ▸ KPI -------------------------------------------------------------- #
-    total_clients = db.session.query(func.count(Cliente.cliente_id)).scalar() or 0
+    # ▸ KPI -------------------------------------------------------------- #
+    query_base = db.session.query(Cliente)
+    query_base = apply_role_filtering(query_base)
+
+    total_clients = query_base.with_entities(func.count(Cliente.cliente_id)).scalar() or 0
 
     total_active = (
-        db.session.query(func.count(Cliente.cliente_id))
-        .filter(Cliente.stato_cliente == "attivo")
+        query_base.filter(Cliente.stato_cliente == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     new_month = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.created_at >= first_day_month)
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     in_scadenza = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo <= threshold_scadenza,
         )
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
@@ -127,33 +138,41 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
 
     # ▸ KPI per Specialty (Nutrizione, Coach, Psicologia) --------------- #
     nutrizione_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_nutrizione == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     coach_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_coach == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     psicologia_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_psicologia == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     # ▸ Nuovi clienti per mese (ultimi 12) ------------------------------- #
     start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
+    
+    # Query aggregata con filtro applicato
+    monthly_query = db.session.query(
+        func.date_trunc("month", Cliente.created_at).label("month"),
+        func.count(Cliente.cliente_id).label("count"),
+    )
+    monthly_query = apply_role_filtering(monthly_query)
+        
     monthly_rows = (
-        db.session.query(
-            func.date_trunc("month", Cliente.created_at).label("month"),
-            func.count(Cliente.cliente_id).label("count"),
-        )
+        monthly_query
         .filter(Cliente.created_at >= start_period)
         .group_by("month")
         .order_by("month")
@@ -165,8 +184,11 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     ]
 
     # ▸ Distribuzione stato cliente -------------------------------------- #
+    status_query = db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+    status_query = apply_role_filtering(status_query)
+    
     status_rows = (
-        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        status_query
         .group_by(Cliente.stato_cliente)
         .all()
     )
@@ -379,134 +401,93 @@ def list_view() -> str:
         eager=True,
     )
 
-    # Calcola statistiche per professionista se filtrato
+    # Calcola statistiche per professionista
     professional_stats = None
-    if params.nutrizionista_id or params.coach_id or params.psicologa_id or params.consulente_alimentare_id or params.health_manager_id:
+    
+    # Se filtrato per professionista specifico O se l'utente non è admin (mostra i suoi dati)
+    show_stats = (
+        params.nutrizionista_id or params.coach_id or params.psicologa_id or 
+        params.consulente_alimentare_id or params.health_manager_id or
+        (not current_user.is_admin and current_user.role in [UserRoleEnum.professionista, UserRoleEnum.team_leader])
+    )
+    
+    if show_stats:
         from corposostenibile.models import TipologiaClienteEnum
-        from sqlalchemy import text
         
-        # Determina quale professionista è filtrato
-        prof_type = None
-        prof_id = None
-        prof_name = None
-        prof_avatar = None
-        query = None
+        # Determina dati intestazione stats
+        prof_name = "Le mie statistiche"
+        prof_avatar = current_user.avatar_url
         
-        if params.nutrizionista_id:
-            prof_type = 'nutrizionista'
-            prof_id = params.nutrizionista_id
-            # Trova il nome e avatar del nutrizionista
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Nutrizionista"
-            prof_avatar = user.avatar_url if user else None
+        # Se c'è un filtro esplicito, prendi i dati di quel professionista
+        explicit_prof_id = (params.nutrizionista_id or params.coach_id or params.psicologa_id or 
+                            params.consulente_alimentare_id or params.health_manager_id)
+        if explicit_prof_id:
+            user = db.session.query(User).filter_by(id=explicit_prof_id).first()
+            if user:
+                prof_name = user.full_name
+                prof_avatar = user.avatar_url
+        
+        # Query per contare clienti per tipologia usando la logica di filtro centralizzata
+        stats_query = db.session.query(
+            Cliente.tipologia_cliente,
+            func.count(Cliente.cliente_id).label('count')
+        )
+        
+        # Se c'è un filtro esplicito nella params, la applichiamo, altrimenti usiamo il filtro di ruolo automatico
+        if explicit_prof_id:
+            # Qui applichiamo il filtro specifico in base a quale parametro è presente
+            if params.nutrizionista_id:
+                stats_query = stats_query.join(cliente_nutrizionisti, Cliente.cliente_id == cliente_nutrizionisti.c.cliente_id).filter(cliente_nutrizionisti.c.user_id == params.nutrizionista_id)
+            elif params.coach_id:
+                stats_query = stats_query.join(cliente_coaches, Cliente.cliente_id == cliente_coaches.c.cliente_id).filter(cliente_coaches.c.user_id == params.coach_id)
+            elif params.psicologa_id:
+                stats_query = stats_query.join(cliente_psicologi, Cliente.cliente_id == cliente_psicologi.c.cliente_id).filter(cliente_psicologi.c.user_id == params.psicologa_id)
+            elif params.consulente_alimentare_id:
+                stats_query = stats_query.join(cliente_consulenti, Cliente.cliente_id == cliente_consulenti.c.cliente_id).filter(cliente_consulenti.c.user_id == params.consulente_alimentare_id)
+            elif params.health_manager_id:
+                stats_query = stats_query.filter(Cliente.health_manager_id == params.health_manager_id)
+        else:
+            # Nessun filtro esplicito: usa la logica di ruolo (vede se stesso o team)
+            stats_query = apply_role_filtering(stats_query)
             
-            # Query per contare clienti per tipologia
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_nutrizionisti cn ON c.cliente_id = cn.cliente_id
-                WHERE cn.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
+        results = stats_query.group_by(Cliente.tipologia_cliente).all()
+        
+        # Prepara le statistiche raggruppando per tipologia
+        from collections import defaultdict
+        stats_by_type = defaultdict(int)
+        total = 0
+        
+        for row in results:
+            # La tipologia è salvata come stringa minuscola nel DB
+            tipo = row[0]
+            count = row[1]
             
-        elif params.coach_id:
-            prof_type = 'coach'
-            prof_id = params.coach_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Coach"
-            prof_avatar = user.avatar_url if user else None
-            
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_coaches cc ON c.cliente_id = cc.cliente_id
-                WHERE cc.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-            
-        elif params.psicologa_id:
-            prof_type = 'psicologa'
-            prof_id = params.psicologa_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Psicologa"
-            prof_avatar = user.avatar_url if user else None
-            
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_psicologi cp ON c.cliente_id = cp.cliente_id
-                WHERE cp.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-            
-        elif params.consulente_alimentare_id:
-            prof_type = 'consulente'
-            prof_id = params.consulente_alimentare_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Consulente"
-            prof_avatar = user.avatar_url if user else None
-
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_consulenti_alimentari cca ON c.cliente_id = cca.cliente_id
-                WHERE cca.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-
-        elif params.health_manager_id:
-            prof_type = 'health_manager'
-            prof_id = params.health_manager_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Health Manager"
-            prof_avatar = user.avatar_url if user else None
-
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                WHERE c.health_manager_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-
-        if query is not None:
-            results = db.session.execute(query).fetchall()
-            
-            # Prepara le statistiche raggruppando per tipologia
-            from collections import defaultdict
-            stats_by_type = defaultdict(int)
-            total = 0
-            
-            for row in results:
-                # La tipologia è salvata come stringa minuscola nel DB
-                tipo = row[0]
-                count = row[1]
-                
-                if tipo:
-                    # Normalizza: minuscolo -> maiuscolo per A, B, C
-                    tipo_lower = str(tipo).lower()
-                    if tipo_lower in ['a', 'b', 'c']:
-                        tipo_str = tipo_lower.upper()
-                    elif tipo_lower == 'pausa_gt_30':
-                        tipo_str = 'Pausa >30gg'
-                    elif tipo_lower == 'recupero':
-                        tipo_str = 'Recupero'
-                    elif tipo_lower == 'stop':
-                        tipo_str = 'Stop'
-                    else:
-                        tipo_str = tipo_lower.title()  # Capitalizza altri valori
+            if tipo:
+                # Normalizza: minuscolo -> maiuscolo per A, B, C
+                tipo_lower = str(tipo).lower()
+                if tipo_lower in ['a', 'b', 'c']:
+                    tipo_str = tipo_lower.upper()
+                elif tipo_lower == 'pausa_gt_30':
+                    tipo_str = 'Pausa >30gg'
+                elif tipo_lower == 'recupero':
+                    tipo_str = 'Recupero'
+                elif tipo_lower == 'stop':
+                    tipo_str = 'Stop'
                 else:
-                    tipo_str = 'Non specificato'
-                
-                stats_by_type[tipo_str] += count
-                total += count
+                    tipo_str = tipo_lower.title()  # Capitalizza altri valori
+            else:
+                tipo_str = 'Non specificato'
             
-            professional_stats = {
-                'type': prof_type,
-                'name': prof_name,
-                'avatar': prof_avatar,
-                'total': total,
-                'by_tipologia': dict(stats_by_type)  # Converti defaultdict in dict normale
-            }
+            stats_by_type[tipo_str] += count
+            total += count
+        
+        professional_stats = {
+            'type': explicit_prof_id if explicit_prof_id else 'current_user',
+            'name': prof_name,
+            'avatar': prof_avatar,
+            'total': total,
+            'by_tipologia': dict(stats_by_type)  # Converti defaultdict in dict normale
+        }
     
     return render_template(
         "customers/list.html",
@@ -4306,7 +4287,10 @@ def _get_wellness_trend(filters=None):
         func.avg(TypeFormResponse.mood_rating).label('mood'),
         func.avg(TypeFormResponse.sleep_rating).label('sleep'),
         func.avg(TypeFormResponse.motivation_rating).label('motivation')
-    )
+    ).join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+    
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
     
     if filters and filters.get('dateRange'):
         # Applica filtro date
@@ -4324,6 +4308,9 @@ def _get_wellness_trend(filters=None):
 
 def _apply_dashboard_filters(query, filters):
     """Applica filtri alla query."""
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
+    
     if filters.get('statoCliente'):
         query = query.filter(Cliente.stato_cliente.in_(filters['statoCliente']))
     

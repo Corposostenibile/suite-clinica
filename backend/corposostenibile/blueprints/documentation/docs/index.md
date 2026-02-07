@@ -1,26 +1,48 @@
-# Documentazione Suite Clinica
+# 📖 Guida Ufficiale Suite Clinica — Centro Supporto
 
-Benvenuto nella documentazione tecnica e funzionale di **Suite Clinica**. 
-Questa guida è progettata per aiutare il team a comprendere le funzionalità della piattaforma e come gestire al meglio i processi interni.
+Benvenuto nel **Centro di Supporto e Documentazione** di Suite Clinica. Questa guida è il punto di riferimento per ogni membro del team per padroneggiare gli strumenti della piattaforma, ottimizzare i flussi di lavoro e garantire un servizio d'eccellenza ai nostri pazienti.
 
-## Indice dei Contenuti
+---
+
+## 🚀 Per Cominciare
+La piattaforma è suddivisa in tre aree operative principali. Scegli l'area che vuoi approfondire per accedere alle guide dettagliate, ai tutorial e agli scenari d'uso.
 
 ### 👥 Gestione Pazienti
-*   [**Lista Pazienti**](pazienti/lista.md): Panoramica della flotta pazienti, filtri e statistiche rapide.
-*   [**Scheda Dettaglio**](pazienti/dettaglio.md): Approfondimento sulla scheda del singolo paziente (Anagrafica, Piani, Diario).
-*   *Check e Monitoraggio*: *Coming Soon* - Gestione dei check periodici (Nutrizione, Coaching, Psicologia).
-*   *Pagina Professionisti*: *Coming Soon* - Visuale specifica per i singoli professionisti del team.
+È il cuore pulsante del sistema, dove avviene l'interazione clinica e il monitoraggio dei percorsi.
 
-### �‍⚕️ Sezione Professionisti
-*   [**Sistema Task**](professionisti/task.md): Guida completa al sistema di gestione task per organizzare attività quotidiane, scadenze e priorità.
+*   [**Lista Pazienti**](pazienti/lista.md): La tua dashboard operativa. Scopri come usare i filtri avanzati, monitorare i rinnovi e organizzare la tua coda di lavoro.
+*   [**Scheda Dettaglio**](pazienti/dettaglio.md): Una visione a 360° del paziente. Gestione anagrafica, piani alimentari, schede allenamento e diario clinico.
+*   *Check e Monitoraggio*: *Prossimamente* — Guida all'analisi dei feedback settimanali inviati dai pazienti.
 
-### �📅 Calendario e Appuntamenti
-*   *Coming Soon*: Gestione disponibilità e sincronizzazione Google Calendar.
+### 🧑‍⚕️ Area Professionisti
+Strumenti progettati per semplificare la tua routine quotidiana e la tua crescita nel team.
 
-### 💬 Comunicazione
-*   *Coming Soon*: Gestione Chat interna e notifiche.
+*   [**Sistema Task**](professionisti/task.md): Non perdere mai una scadenza. Impara a gestire compiti, priorità e notifiche automatiche.
+*   [**Formazione Continua**](professionisti/formazione.md): Accedi al materiale didattico, ai protocolli interni e ai video di aggiornamento.
+
+### 📊 Monitoraggio Aziendale
+Strumenti di analisi per i Team Leader e la Direzione.
+
+*   [**Check Azienda (KPI)**](azienda/check_azienda.md): Monitora la qualità del servizio, la soddisfazione dei pazienti e le performance dei singoli reparti.
+
+---
+
+## �️ Come consultare questa guida
+Per ottenere il massimo da questa documentazione, tieni a mente questi suggerimenti:
+
+*   **Navigazione Rapida**: Usa il menu a sinistra per saltare velocemente tra le diverse sezioni.
+*   **Indice di Pagina**: A destra troverai sempre l'indice della pagina corrente per scorrere i contenuti più lunghi.
+*   **Supporto Contestuale**: All'interno dell'app React, clicca sul widget in basso a destra (?) per aprire direttamente la pagina della guida relativa a quello che stai visualizzando.
+
+---
+
+> [!TIP]
+> **Cerca velocemente**: Puoi usare la barra di ricerca in alto (scorciatoia `S` o clic sulla lente) per trovare qualsiasi termine, funzionalità o procedura all'interno di tutta la documentazione.
+
+> [!IMPORTANT]
+> **Documentazione Viva**: Questo portale viene aggiornato settimanalmente con nuove funzionalità e best practices. Se noti discrepanze rispetto alla versione dell'app che utilizzi, segnalalo al tuo Team Leader.
 
 ---
 
 > [!NOTE]
-> La documentazione è in continuo aggiornamento. Se noti discrepanze o informazioni mancanti, contatta l'amministratore di sistema.
+> Per problemi tecnici urgenti o bug di sistema, contatta direttamente il supporto tecnico tramite il canale dedicato su Slack o via email.

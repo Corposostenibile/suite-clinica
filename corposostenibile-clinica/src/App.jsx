@@ -49,6 +49,9 @@ import { Calendario } from './pages/calendario';
 // Support pages
 import { Support } from './pages/support';
 
+// Search pages
+import GlobalSearchPage from './pages/GlobalSearchPage';
+
 // Documentation
 import Documentation from './pages/documentation/Documentation';
 
@@ -147,6 +150,9 @@ function App() {
 
             {/* Support */}
             <Route path="/supporto" element={<Support />} />
+
+            {/* Global Search */}
+            <Route path="/ricerca-globale" element={<GlobalSearchPage />} />
 
             {/* Documentazione */}
             <Route path="/documentazione" element={<Documentation />} />

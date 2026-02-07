@@ -9893,6 +9893,28 @@ class GHLConfig(TimestampMixin, db.Model):
         return f'<GHLConfig location={self.location_id} active={self.is_active}>'
 
 
+
+
+class GHLOpportunityData(TimestampMixin, db.Model):
+    """
+    Dati opportunity ricevuti da webhook GHL (formato semplificato).
+    Usato per la pagina Assegnazioni AI.
+    """
+    __tablename__ = 'ghl_opportunity_data'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(255), nullable=False)
+    storia = db.Column(db.Text)
+    pacchetto = db.Column(db.String(255))
+    durata = db.Column(db.String(50))
+    received_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_address = db.Column(db.String(50))
+    raw_payload = db.Column(db.JSON)
+    processed = db.Column(db.Boolean, default=False)
+
+    def __repr__(self):
+        return f'<GHLOpportunityData {self.id} - {self.nome}>'
+
 class GHLOpportunity(TimestampMixin, db.Model):
     """
     Tracking completo delle opportunità ricevute da GoHighLevel.

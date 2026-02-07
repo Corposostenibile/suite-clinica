@@ -46,7 +46,7 @@ def require_webhook_signature(f):
 
         # Se non c'è secret configurato in development, logga warning ma procedi
         if not secret:
-            if current_app.config.get('ENV') == 'development':
+            if current_app.config.get('FLASK_ENV') == 'development' or current_app.debug:
                 current_app.logger.warning(
                     '[GHL Security] No webhook secret configured - skipping verification (DEV MODE)'
                 )

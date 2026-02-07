@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { 
+    FaTasks, 
+    FaClipboardCheck, 
+    FaClipboardList,
+    FaBell, 
+    FaGraduationCap, 
+    FaExclamationTriangle, 
+    FaStickyNote, 
+    FaStream, 
+    FaCheckCircle, 
+    FaArrowRight, 
+    FaFilter,
+    FaSync
+} from 'react-icons/fa';
 
 function Task() {
     const { user } = useOutletContext();
@@ -10,6 +26,77 @@ function Task() {
     const [activeTab, setActiveTab] = useState('all');
     const [showCompleted, setShowCompleted] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [mostraTour, setMostraTour] = useState(false);
+    const [searchParams] = useSearchParams();
+
+    // Effetto per avvio automatico tour da Hub Supporto
+    useEffect(() => {
+        if (searchParams.get('startTour') === 'true') {
+            setMostraTour(true);
+        }
+    }, [searchParams]);
+
+    const tourSteps = [
+        {
+            target: '[data-tour="header"]',
+            title: 'Benvenuto al Sistema Task',
+            content: 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti. È progettata per aiutarti a organizzare il lavoro in modo efficiente.',
+            placement: 'bottom',
+            icon: <FaTasks size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+        },
+        {
+            target: '[data-tour="stats-cards"]',
+            title: 'Dashboard Task',
+            content: 'Ogni card rappresenta una categoria di attività aperte: \n\n• Onboarding (Blu): Nuovi clienti\n• Check (Verde): Controlli periodici\n• Reminder (Arancione): Scadenze imminenti\n• Formazione (Viola): Apprendimento\n• Solleciti (Rosso): Clienti non rispondenti\n• Generico (Grigio): Task manuali dai colleghi',
+            placement: 'bottom',
+            icon: <FaStream size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+        },
+        {
+            target: '[data-tour="task-table"]',
+            title: 'La Tua Lista Attività',
+            content: 'Qui trovi tutte le attività da svolgere. Ogni riga contiene i dettagli necessari: il tipo di attività, il cliente collegato, la scadenza e la priorità.',
+            placement: 'top',
+            icon: <FaClipboardList size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+        },
+        {
+            target: '[data-tour="task-checkbox"]',
+            title: 'Completamento Task',
+            content: 'Quando finisci un\'attività, clicca sulla checkbox. Il task verrà segnato come completato e sparirà dalla vista per mantenere la lista pulita.',
+            placement: 'right',
+            icon: <FaCheckCircle size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+        },
+        {
+            target: '[data-tour="task-action"]',
+            title: 'Navigazione Intelligente',
+            content: 'Il pulsante "Vai" ti porta automaticamente dove devi operare: nella scheda cliente, nella sezione check o direttamente ai materiali formativi.',
+            placement: 'left',
+            icon: <FaArrowRight size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+        },
+        {
+            target: '[data-tour="task-tabs"]',
+            title: 'Filtri Comodi',
+            content: 'Usa i tab per visualizzare solo una categoria specifica. Puoi anche ricaricare i dati o mostrare i task già completati per consultare lo storico.',
+            placement: 'bottom',
+            icon: <FaFilter size={18} color="white" />,
+            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+        }
+    ];
+
+    // Determine the first actionable task index for the tour
+    const firstActionableIndex = tasks.findIndex(t => !t.completed && (t.client_id || (t.payload && (t.payload.client_id || t.payload.url))));
+
+    // Filter tour steps based on availability
+    const filteredTourSteps = tourSteps.filter(step => {
+        if (step.target === '[data-tour="task-action"]' && firstActionableIndex === -1) {
+            return false;
+        }
+        return true;
+    });
 
     const fetchStats = useCallback(async () => {
         try {
@@ -69,35 +156,40 @@ function Task() {
     };
 
     const handleTaskAction = (task) => {
-        if (!task || !task.payload) return;
+        if (!task) return;
 
-        const { category, payload } = task;
+        const { category, payload, client_id } = task;
+        // Usa client_id dal top-level se disponibile, altrimenti cerca nel payload
+        const targetClientId = client_id || (payload ? payload.client_id : null);
+        const targetUrl = payload ? payload.url : null;
+
+        if (!targetClientId && !targetUrl) return;
 
         switch (category) {
             case 'check':
-                if (payload.client_id) {
+                if (targetClientId) {
                     // Navigate to client details, tab 'check'
-                    navigate(`/clienti-dettaglio/${payload.client_id}?tab=check`);
+                    navigate(`/clienti-dettaglio/${targetClientId}?tab=check`);
                 }
                 break;
             case 'onboarding':
             case 'formazione': // Forse formazione porta al training, ma per ora cliente è sicuro
             case 'sollecito':
-                if (payload.client_id) {
-                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                if (targetClientId) {
+                     navigate(`/clienti-dettaglio/${targetClientId}`);
                 }
                 break;
             case 'reminder':
-                 if (payload.client_id) {
-                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                 if (targetClientId) {
+                     navigate(`/clienti-dettaglio/${targetClientId}`);
                 }
                 break;
             default:
                 // If there's a generic link in payload
-                if (payload.url) {
-                    window.open(payload.url, '_blank');
-                } else if (payload.client_id) {
-                     navigate(`/clienti-dettaglio/${payload.client_id}`);
+                if (targetUrl) {
+                    window.open(targetUrl, '_blank');
+                } else if (targetClientId) {
+                     navigate(`/clienti-dettaglio/${targetClientId}`);
                 }
                 break;
         }
@@ -131,7 +223,7 @@ function Task() {
     return (
         <>
             {/* Page Header */}
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header">
                 <div>
                     <h4 className="mb-1">Le tue Task</h4>
                     <p className="text-muted mb-0">
@@ -142,7 +234,7 @@ function Task() {
                      <button className="btn btn-light" onClick={fetchTasks}>
                         <i className="ri-refresh-line"></i>
                     </button>
-                    <div className="form-check form-switch d-flex align-items-center gap-2 m-0 border px-3 rounded bg-white">
+                    <div className="form-check form-switch d-flex align-items-center gap-2 m-0 border px-3 rounded bg-white" data-tour="task-switch">
                         <input
                             className="form-check-input m-0"
                             type="checkbox"
@@ -160,7 +252,7 @@ function Task() {
             </div>
 
             {/* Stats Cards */}
-            <div className="row g-3 mb-4">
+            <div className="row g-3 mb-4" data-tour="stats-cards">
                 {Object.entries(TASK_CATEGORIES).map(([key, cat]) => (
                     <div className="col-xl-2 col-md-4 col-6" key={key}>
                         <div
@@ -198,7 +290,7 @@ function Task() {
             {/* Task List */}
             <div className="card border-0 shadow-sm">
                 {/* Tabs */}
-                <div className="card-header bg-white border-bottom-0 py-3">
+                <div className="card-header bg-white border-bottom-0 py-3" data-tour="task-tabs">
                     <ul className="nav nav-pills custom-pills">
                         <li className="nav-item">
                              <button
@@ -251,7 +343,7 @@ function Task() {
                         </div>
                     ) : (
                         <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
+                            <table className="table table-hover align-middle mb-0" data-tour="task-table">
                                 <thead className="bg-light text-muted small uppercase">
                                     <tr>
                                         <th style={{ width: '50px' }}></th>
@@ -264,14 +356,14 @@ function Task() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tasks.map(task => {
+                                    {tasks.map((task, index) => {
                                         const category = getCategoryInfo(task.category);
                                         const priorityColor = getPriorityColor(task.priority);
-                                        const hasAction = task.payload && (task.payload.client_id || task.payload.url);
+                                        const hasAction = task.client_id || (task.payload && (task.payload.client_id || task.payload.url));
                                         
                                         return (
                                             <tr key={task.id} className={task.completed ? 'bg-light opacity-75' : ''}>
-                                                <td className="text-center">
+                                                <td className="text-center" data-tour={index === 0 ? "task-checkbox" : undefined}>
                                                     <div className="form-check d-flex justify-content-center">
                                                         <input
                                                             className="form-check-input"
@@ -325,7 +417,7 @@ function Task() {
                                                         </small>
                                                     </div>
                                                 </td>
-                                                <td className="text-end">
+                                                <td className="text-end" data-tour={index === firstActionableIndex ? "task-action" : undefined}>
                                                     {!task.completed && hasAction && (
                                                         <button 
                                                             className="btn btn-icon btn-sm btn-ghost-primary" 
@@ -355,6 +447,26 @@ function Task() {
                     </div>
                 )}
             </div>
+            <SupportWidget
+                pageTitle="Gestione Task"
+                pageDescription="Organizza il tuo lavoro, gestisci i solleciti e monitora le scadenze dei pazienti."
+                pageIcon={FaTasks}
+                docsSection="task"
+                onStartTour={() => setMostraTour(true)}
+                brandName="Suite Clinica"
+                logoSrc="/suitemind.png"
+                accentColor="#85FF00"
+            />
+
+            <GuidedTour
+                steps={filteredTourSteps}
+                isOpen={mostraTour}
+                onClose={() => setMostraTour(false)}
+                onComplete={() => {
+                    setMostraTour(false);
+                    console.log('Tour Task completato');
+                }}
+            />
         </>
     );
 }

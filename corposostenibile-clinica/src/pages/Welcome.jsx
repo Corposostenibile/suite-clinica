@@ -274,23 +274,15 @@ function Welcome() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'formazione' ? (
-        <FormazioneTab data={trainingData} loading={trainingLoading} />
-      ) : activeTab === 'pazienti' ? (
-        <PazientiTab data={pazientiData} loading={pazientiLoading} error={pazientiError} onRetry={() => { setPazientiLoaded(false); }} />
-      ) : activeTab === 'check' ? (
-        <CheckTab data={checkDashData} loading={checkDashLoading} error={checkDashError} onRetry={() => { setCheckDashLoaded(false); }} />
-      ) : activeTab === 'professionisti' ? (
-        <ProfessionistiTab data={profData} loading={profLoading} error={profError} onRetry={() => { setProfLoaded(false); }} />
-      ) : activeTab !== 'panoramica' ? (
+      {activeTab !== 'panoramica' ? (
         <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
           <div className="card-body text-center py-5">
             <div className="mb-4">
               <i className={`${TABS.find(t => t.key === activeTab)?.icon} text-muted`} style={{ fontSize: '4rem', opacity: 0.3 }}></i>
             </div>
-            <h4 className="text-muted mb-2">In arrivo</h4>
+            <h5 className="text-muted mb-3">In implementazione</h5>
             <p className="text-muted mb-0">
-              La sezione {TABS.find(t => t.key === activeTab)?.label} sarà disponibile presto.
+              Da sviluppare quando finito tutto lo sviluppo della piattaforma.
             </p>
           </div>
         </div>

@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import checkService from '../../services/checkService';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { 
+    FaChartLine, 
+    FaCalendarAlt, 
+    FaUsers, 
+    FaFilter, 
+    FaTable,
+    FaInfoCircle,
+    FaLightbulb
+} from 'react-icons/fa';
 
 // Stili per la tabella (stesso stile di ClientiList)
 const tableStyles = {
@@ -217,6 +228,121 @@ function CheckAzienda() {
   const [responses, setResponses] = useState([]);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Tour
+  const [mostraTour, setMostraTour] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // Effetto per avvio automatico tour da Hub Supporto
+  useEffect(() => {
+    if (searchParams.get('startTour') === 'true') {
+      setMostraTour(true);
+    }
+  }, [searchParams]);
+  
+  const tourSteps = [
+    {
+      target: '[data-tour="header"]',
+      title: 'Torre di Controllo',
+      content: 'Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti. Qui puoi monitorare i progressi e intervenire dove necessario.',
+      placement: 'bottom',
+      icon: <FaChartLine size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+    },
+    {
+      target: '[data-tour="kpi-dashboard"]',
+      title: 'I Numeri Chiave (KPI)',
+      content: 'In alto trovi i "termometri" della qualità aziendale. 🟢 Verde (>= 8): Ottimo! 🟡 Giallo (7-7.9): Margine di miglioramento. 🔴 Rosso (< 7): Attenzione, indaga subito.',
+      placement: 'bottom',
+      icon: <FaInfoCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)'
+    },
+    {
+      target: '[data-tour="period-filters"]',
+      title: 'Periodo Temporale',
+      content: 'Scegli l\'orizzonte temporale dei dati: Settimana per il monitoraggio immediato, Mese o Trimestre per analisi di lungo periodo o date Custom.',
+      placement: 'bottom',
+      icon: <FaCalendarAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)'
+    },
+    {
+      target: '[data-tour="prof-filters"]',
+      title: 'Filtri Professionisti',
+      content: 'Vuoi vedere solo l\'area Nutrizione o un singolo Coach? Usa questi filtri per "tagliare" i dati come preferisci e analizzare le performance del team.',
+      placement: 'bottom',
+      icon: <FaUsers size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)'
+    },
+    {
+      target: '[data-tour="status-filters"]',
+      title: 'Filtri Rapidi (Stato)',
+      content: 'Individua subito le criticità con "Voto Negativo" o assicuratevi che tutti i check vengano gestiti filtrando per "Non Letto" (icona ⏳ sulle risposte).',
+      placement: 'bottom',
+      icon: <FaFilter size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)'
+    },
+    {
+      target: '[data-tour="responses-table"]',
+      title: 'Tabella Risposte',
+      content: 'Ogni riga è un check. La spunta verde (✓) indica che il professionista ha letto, la clessidra (⏳) indica che il check è ancora in attesa di feedback.',
+      placement: 'top',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #64748b, #475569)'
+    },
+    {
+      target: '[data-tour="check-record"]',
+      title: 'Vedi Dettagli',
+      content: 'Cliccando su una riga si apre il dettaglio completo. Ora te lo mostro!',
+      placement: 'top',
+      icon: <FaChartLine size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)',
+      action: 'close_modal'
+    },
+    {
+      target: '[data-tour="check-detail-modal"]',
+      title: 'Scheda Completa',
+      content: 'Qui puoi vedere il check nella sua interezza: data, peso e tutti i dettagli inviati dal paziente.',
+      placement: 'left',
+      icon: <FaInfoCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+      action: 'open_modal'
+    },
+    {
+      target: '[data-tour="check-photos"]',
+      title: 'Foto Progressi',
+      content: 'Se presenti, qui vedi le foto caricate (frontale, laterale, posteriore). Cliccandoci sopra puoi ingrandirle.',
+      placement: 'left',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)'
+    },
+    {
+      target: '[data-tour="check-ratings"]',
+      title: 'Valutazioni e Feedback',
+      content: 'Qui vedi i voti dati ai professionisti e i feedback testuali che hanno lasciato in risposta.',
+      placement: 'top',
+      icon: <FaChartLine size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)'
+    },
+    {
+      target: '[data-tour="check-reflections"]',
+      title: 'Riflessioni',
+      content: 'Le note del paziente su cosa ha funzionato, cosa no e gli obiettivi per la prossima settimana.',
+      placement: 'top',
+      icon: <FaLightbulb size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10b981, #059669)'
+    }
+  ];
+
+  const handleTourStepChange = (index, step) => {
+    if (step.action === 'open_modal') {
+      // Simulate opening the first available response
+      if (responses.length > 0) {
+          handleViewCheckResponse(responses[0]);
+      }
+    } else if (step.action === 'close_modal') {
+      setShowCheckResponseModal(false);
+    }
+  };
 
   // Custom date range
   const [showCustomDates, setShowCustomDates] = useState(false);
@@ -429,7 +555,7 @@ function CheckAzienda() {
   return (
     <div className="container-fluid p-0">
       {/* Header - stesso stile di ClientiList */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header">
         <div>
           <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Check Azienda</h4>
           <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
@@ -456,7 +582,7 @@ function CheckAzienda() {
         <div className="card-body py-3 px-4">
           <div className="row g-3 align-items-center">
             {/* Period Filters */}
-            <div className="col-lg-6">
+            <div className="col-lg-6" data-tour="period-filters">
               <div className="d-flex gap-2 flex-nowrap">
                 {[
                   { key: 'week', label: 'Settimana' },
@@ -492,7 +618,7 @@ function CheckAzienda() {
             </div>
 
             {/* KPI Averages */}
-            <div className="col-lg-6">
+            <div className="col-lg-6" data-tour="kpi-dashboard">
               <div className="d-flex flex-wrap gap-3 justify-content-lg-end align-items-center">
                 {/* Nutrizionista */}
                 <div className="d-flex align-items-center gap-2">
@@ -536,10 +662,10 @@ function CheckAzienda() {
                     </span>
                   </div>
 
-                  {/* Quality */}
+                  {/* MPS */}
                   <div className="d-flex align-items-center gap-2">
                     <i className="ri-star-fill text-warning" style={{ fontSize: '18px' }}></i>
-                    <span className="text-muted small d-none d-xl-inline">Quality</span>
+                    <span className="text-muted small d-none d-xl-inline">MPS</span>
                     <span style={getKpiBadgeStyle(stats?.avg_quality)}>
                       {stats?.avg_quality ?? '-'}
                     </span>
@@ -623,7 +749,7 @@ function CheckAzienda() {
         <div className="card-body py-3 px-4">
           <div className="row g-3 align-items-center">
             {/* Professional Type Filter */}
-            <div className="col-lg-6">
+            <div className="col-lg-6" data-tour="prof-filters">
               <div className="d-flex align-items-center gap-3">
                 <span className="text-muted small fw-semibold">Filtra per:</span>
                 <div className="d-flex gap-2">
@@ -701,7 +827,7 @@ function CheckAzienda() {
           </div>
 
           {/* Rating & Read Filters Row */}
-          <div className="row g-3 align-items-center mt-2 pt-3 border-top">
+          <div className="row g-3 align-items-center mt-2 pt-3 border-top" data-tour="status-filters">
             <div className="col-12">
               <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span className="text-muted small fw-semibold">Stato:</span>
@@ -851,7 +977,7 @@ function CheckAzienda() {
             return (
               <>
                 {/* Tabella Risposte */}
-                <div className="card border-0" style={tableStyles.card}>
+                <div className="card border-0" style={tableStyles.card} data-tour="responses-table">
                   <div className="table-responsive">
                     <table className="table mb-0">
                       <thead style={tableStyles.tableHeader}>
@@ -871,6 +997,7 @@ function CheckAzienda() {
                     return (
                       <tr
                         key={`${response.type}-${response.id}`}
+                        data-tour={index === 0 ? "check-record" : undefined}
                         style={{
                           ...tableStyles.row,
                           background: isHovered ? '#f8fafc' : 'transparent',
@@ -1053,7 +1180,7 @@ function CheckAzienda() {
       {/* Check Response Detail Modal */}
       {showCheckResponseModal && selectedCheckResponse && (
         <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowCheckResponseModal(false)}>
-          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" onClick={(e) => e.stopPropagation()} data-tour="check-detail-modal">
             <div className="modal-content" style={{ borderRadius: '16px', overflow: 'hidden' }}>
               <div className="modal-header" style={{
                 background: selectedCheckResponse.type === 'weekly' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
@@ -1095,7 +1222,7 @@ function CheckAzienda() {
 
                     {/* Photos (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
+                      <div className="mb-4" data-tour="check-photos">
                         <h6 className="text-muted mb-3"><i className="ri-camera-line me-2"></i>Foto Progressi</h6>
                         <div className="row g-3">
                           <div className="col-4">
@@ -1159,7 +1286,7 @@ function CheckAzienda() {
                     {/* Ratings */}
                     {(selectedCheckResponse.nutritionist_rating || selectedCheckResponse.psychologist_rating ||
                       selectedCheckResponse.coach_rating || selectedCheckResponse.progress_rating) && (
-                      <div className="mb-4">
+                      <div className="mb-4" data-tour="check-ratings">
                         <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
                         <div className="row g-3">
                           {selectedCheckResponse.nutritionist_rating && (() => {
@@ -1355,7 +1482,7 @@ function CheckAzienda() {
                     )}
 
                     {/* Text Fields - Reflections */}
-                    <div className="mb-4">
+                    <div className="mb-4" data-tour="check-reflections">
                       <h6 className="text-muted mb-3"><i className="ri-lightbulb-line me-2"></i>Riflessioni</h6>
                       <div className="mb-3">
                         <div className="p-3 rounded" style={{ background: '#f0fdf4' }}>
@@ -1428,6 +1555,32 @@ function CheckAzienda() {
           </div>
         </div>
       )}
+      <SupportWidget
+        pageTitle="Check Azienda"
+        pageDescription="Monitora la qualità del servizio, analizza i KPI dei professionisti e gestisci le criticità in tempo reale."
+        pageIcon={FaChartLine}
+        docsSection="check-azienda"
+        onStartTour={() => setMostraTour(true)}
+        brandName="Suite Clinica"
+        logoSrc="/suitemind.png"
+        accentColor="#22c55e"
+      />
+
+      <GuidedTour
+        steps={tourSteps}
+        isOpen={mostraTour}
+        onClose={() => {
+            setMostraTour(false);
+            // Close modal if open when tour closes
+            setShowCheckResponseModal(false);
+        }}
+        onStepChange={handleTourStepChange}
+        onComplete={() => {
+          setMostraTour(false);
+          setShowCheckResponseModal(false);
+          console.log('Tour Check Azienda completato');
+        }}
+      />
     </div>
   );
 }
