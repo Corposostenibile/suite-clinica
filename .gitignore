@@ -69,3 +69,6 @@ Thumbs.db
 backend/corposostenibile/blueprints/documentation/static/
 # DB old suite backups
 backend/backups
+
+# AGENTS.md
+AGENTS.md
