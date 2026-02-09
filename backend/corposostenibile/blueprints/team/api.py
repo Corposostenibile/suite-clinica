@@ -7,6 +7,7 @@ All endpoints are prefixed with /api/team.
 
 import os
 import uuid
+from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
@@ -16,7 +17,11 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, team_members, Origine
+from corposostenibile.models import (
+    User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, 
+    team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory, 
+    ServiceClienteNote, Cliente
+)
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -759,6 +764,202 @@ def api_get_criteria_schema():
         'success': True,
         'schema': CriteriaService.get_schema()
     })
+
+# =============================================================================
+# AI Assignment Endpoints
+# =============================================================================
+
+@team_api_bp.route("/assignments/analyze-lead", methods=["POST"])
+@login_required
+def api_analyze_lead_story():
+    """
+    Analizza la storia del lead con l'AI per estrarre i criteri.
+    Input: { "story": "..." }
+    Output: { "success": true, "analysis": {"summary": "...", "criteria": [...], "suggested_focus": [...]} }
+    """
+    data = request.get_json()
+    if not data or 'story' not in data:
+        return jsonify({'success': False, 'message': 'Storia mancante'}), 400
+        
+    story = data['story']
+    
+    from .ai_matching_service import AIMatchingService
+    try:
+        result = AIMatchingService.extract_lead_criteria(story)
+        
+        # If result is just a list, wrap it in analysis object
+        if isinstance(result, list):
+            analysis = {
+                'summary': 'Analisi completata',
+                'criteria': result,
+                'suggested_focus': []
+            }
+        else:
+            # If it's already a dict, use it as is
+            analysis = result
+            
+        return jsonify({
+            'success': True,
+            'analysis': analysis
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error analyzing lead: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@team_api_bp.route("/assignments/match", methods=["POST"])
+@login_required
+def api_match_professionals():
+    """
+    Trova i professionisti migliori in base ai criteri estratti.
+    Input: { "criteria": ["TAG1", "TAG2"] }
+    Output: { "success": true, "matches": { "nutrizione": [...], ... } }
+    """
+    data = request.get_json()
+    criteria = data.get('criteria', [])
+    
+    from .ai_matching_service import AIMatchingService
+    try:
+        matches = AIMatchingService.match_professionals(criteria)
+        return jsonify({
+            'success': True,
+            'matches': matches
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error matching professionals: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@team_api_bp.route("/assignments/confirm", methods=["POST"])
+@login_required
+def api_confirm_assignment():
+    """
+    Conferma l'assegnazione dei professionisti per un cliente.
+    Input: {
+        "assignment_id": 123,
+        "nutritionist_id": 456,
+        "coach_id": 789,
+        "psychologist_id": 101,
+        "notes": "Note opzionali"
+    }
+    Output: { "success": true, "message": "Assegnazione confermata" }
+    """
+    data = request.get_json()
+    if not data or 'assignment_id' not in data:
+        return jsonify({'success': False, 'message': 'ID assegnazione mancante'}), 400
+        
+    try:
+        assignment = ServiceClienteAssignment.query.get(data['assignment_id'])
+        if not assignment:
+            return jsonify({'success': False, 'message': 'Assegnazione non trovata'}), 404
+            
+        cliente = assignment.cliente
+        if not cliente:
+            return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
+            
+        # Update assignment
+        if data.get('nutritionist_id'):
+            assignment.nutrizionista_assigned_id = data.get('nutritionist_id')
+            assignment.nutrizionista_assigned_at = datetime.utcnow()
+            assignment.nutrizionista_assigned_by = current_user.id
+            
+        if data.get('coach_id'):
+            assignment.coach_assigned_id = data.get('coach_id')
+            assignment.coach_assigned_at = datetime.utcnow()
+            assignment.coach_assigned_by = current_user.id
+            
+        if data.get('psychologist_id'):
+            assignment.psicologa_assigned_id = data.get('psychologist_id')
+            assignment.psicologa_assigned_at = datetime.utcnow()
+            assignment.psicologa_assigned_by = current_user.id
+        
+        # Update status
+        assignment.update_status()
+        
+        # Add notes
+        if data.get('notes'):
+            note = ServiceClienteNote(
+                assignment_id=assignment.id,
+                cliente_id=cliente.cliente_id,
+                note_text=data['notes'],
+                note_type='assignment',
+                created_by=current_user.id
+            )
+            db.session.add(note)
+            
+        # Create history entries
+        motivazione = "Assegnazione manuale da pannello AI"
+        data_inizio = datetime.utcnow().date()
+        
+        if data.get('nutritionist_id'):
+            h_nutri = ClienteProfessionistaHistory(
+                cliente_id=cliente.cliente_id,
+                user_id=data.get('nutritionist_id'),
+                tipo_professionista='nutrizionista',
+                data_dal=data_inizio,
+                motivazione_aggiunta=motivazione,
+                assegnato_da_id=current_user.id,
+                is_active=True
+            )
+            db.session.add(h_nutri)
+            
+            # Add to many-to-many
+            nutri = User.query.get(data.get('nutritionist_id'))
+            if nutri and nutri not in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.append(nutri)
+            
+        if data.get('coach_id'):
+            h_coach = ClienteProfessionistaHistory(
+                cliente_id=cliente.cliente_id,
+                user_id=data.get('coach_id'),
+                tipo_professionista='coach',
+                data_dal=data_inizio,
+                motivazione_aggiunta=motivazione,
+                assegnato_da_id=current_user.id,
+                is_active=True
+            )
+            db.session.add(h_coach)
+            
+            # Add to many-to-many
+            coach = User.query.get(data.get('coach_id'))
+            if coach and coach not in cliente.coaches_multipli:
+                cliente.coaches_multipli.append(coach)
+            
+        if data.get('psychologist_id'):
+            h_psico = ClienteProfessionistaHistory(
+                cliente_id=cliente.cliente_id,
+                user_id=data.get('psychologist_id'),
+                tipo_professionista='psicologa',
+                data_dal=data_inizio,
+                motivazione_aggiunta=motivazione,
+                assegnato_da_id=current_user.id,
+                is_active=True
+            )
+            db.session.add(h_psico)
+            
+            # Add to many-to-many
+            psico = User.query.get(data.get('psychologist_id'))
+            if psico and psico not in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.append(psico)
+
+        # Update Cliente status
+        cliente.service_status = 'assigned'
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Assegnazione completata con successo',
+            'status': assignment.status
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error validating assignment: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error matching professionals: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @team_api_bp.route("/admin-dashboard-stats", methods=["GET"])
 @login_required

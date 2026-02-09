@@ -409,6 +409,10 @@ def api_opportunities():
         'importo_totale': float(opp.importo_totale) if opp.importo_totale else None,
         'processed': opp.processed,
         'error_message': opp.error_message,
+        'pacchetto': opp.pacchetto_comprato,
+        'storia': opp.cliente.storia_cliente if opp.cliente else opp.note_cliente,
+        'cliente_id': opp.cliente_id,
+        'assignment_id': opp.cliente.service_assignment[0].id if opp.cliente and opp.cliente.service_assignment.count() > 0 else None,
         'created_at': opp.created_at.isoformat() if opp.created_at else None,
         'updated_at': opp.updated_at.isoformat() if opp.updated_at else None
     } for opp in pagination.items]
