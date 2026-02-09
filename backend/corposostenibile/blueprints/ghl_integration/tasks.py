@@ -24,6 +24,7 @@ logger = get_task_logger(__name__)
     default_retry_delay=300  # 5 minuti
 )
 def process_acconto_open_webhook(self, payload: Dict[str, Any]):
+    print("DEBUG: Executing process_acconto_open_webhook task!")
     """
     Task Celery per processare webhook acconto_open in background
 
@@ -139,7 +140,7 @@ def send_finance_notification(cliente_id: int, assignment_id: int):
         app = create_app()
         with app.app_context():
             from corposostenibile.models import Cliente, ServiceClienteAssignment, User
-            from corposostenibile.utils.email import send_email
+            from corposostenibile.blueprints.auth.email_utils import send_mail
 
             # Carica i dati
             cliente = Cliente.query.get(cliente_id)
@@ -176,7 +177,7 @@ def send_finance_notification(cliente_id: int, assignment_id: int):
             # Invia email a tutti gli utenti finance
             for user in finance_users:
                 try:
-                    send_email(user.email, subject, body)
+                    send_mail(subject=subject, recipients=[user.email], body=body)
                     logger.info(f"[GHL Task] Finance notification sent to {user.email}")
                 except Exception as e:
                     logger.error(f"[GHL Task] Failed to send email to {user.email}: {e}")
@@ -198,7 +199,7 @@ def send_assignment_notification(cliente_id: int, assignment_id: int):
         app = create_app()
         with app.app_context():
             from corposostenibile.models import Cliente, ServiceClienteAssignment, User
-            from corposostenibile.utils.email import send_email
+            from corposostenibile.blueprints.auth.email_utils import send_mail
 
             # Carica i dati
             cliente = Cliente.query.get(cliente_id)
@@ -237,7 +238,7 @@ def send_assignment_notification(cliente_id: int, assignment_id: int):
             # Invia notifica (per ora a tutti, poi sarà più selettiva)
             for user in service_users[:3]:  # Limita a 3 per non spammare
                 try:
-                    send_email(user.email, subject, body)
+                    send_mail(subject=subject, recipients=[user.email], body=body)
                     logger.info(f"[GHL Task] Assignment notification sent to {user.email}")
                 except Exception as e:
                     logger.error(f"[GHL Task] Failed to send email to {user.email}: {e}")

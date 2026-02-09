@@ -41,7 +41,7 @@ def service_dashboard():
 
     # Applica filtri status
     if status_filter == 'assigning':
-        query = query.filter(ServiceClienteAssignment.status == 'assigning')
+        query = query.filter(ServiceClienteAssignment.status.in_(['assigning', 'pending_assignment']))
     elif status_filter == 'fully_assigned':
         query = query.filter(ServiceClienteAssignment.status == 'fully_assigned')
     elif status_filter == 'active':
@@ -49,7 +49,7 @@ def service_dashboard():
     else:
         # Mostra tutti i clienti post-finance
         query = query.filter(
-            ServiceClienteAssignment.status.in_(['assigning', 'fully_assigned', 'active'])
+            ServiceClienteAssignment.status.in_(['assigning', 'fully_assigned', 'active', 'pending_assignment'])
         )
 
     # Filtro checkup
@@ -96,7 +96,9 @@ def service_dashboard():
 
     # Statistiche
     stats = {
-        'da_assegnare': ServiceClienteAssignment.query.filter_by(status='assigning').count(),
+        'da_assegnare': ServiceClienteAssignment.query.filter(
+            ServiceClienteAssignment.status.in_(['assigning', 'pending_assignment'])
+        ).count(),
         'checkup_pending': ServiceClienteAssignment.query.filter(
             ServiceClienteAssignment.status == 'assigning',
             or_(

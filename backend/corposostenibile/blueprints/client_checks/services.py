@@ -475,38 +475,53 @@ class NotificationService:
     @staticmethod
     def _send_assignment_email(assignment: ClientCheckAssignment) -> None:
         """Invia email di assegnazione a un cliente."""
+        from flask import render_template
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+
         try:
-            if not assignment.cliente.email:
+            recipient = getattr(assignment.cliente, "mail", None) or getattr(
+                assignment.cliente, "email", None
+            )
+            if not recipient or not str(recipient).strip():
                 current_app.logger.warning(
                     f"Cliente {assignment.cliente_id} senza email"
                 )
                 return
-            
+
             # Genera URL pubblico
-            public_url = assignment.get_public_url(
-                base_url=current_app.config.get("BASE_URL", "")
-            )
-            
-            # Prepara i dati per l'email
-            email_data = {
-                "to": assignment.cliente.email,
-                "subject": f"Nuovo questionario: {assignment.form.name}",
-                "template": "client_checks/emails/assignment.html",
-                "context": {
-                    "cliente": assignment.cliente,
-                    "form": assignment.form,
-                    "assignment": assignment,
-                    "public_url": public_url,
-                },
+            base_url = current_app.config.get("BASE_URL", "")
+            public_url = assignment.get_public_url(base_url=base_url)
+
+            context = {
+                "cliente": assignment.cliente,
+                "form": assignment.form,
+                "assignment": assignment,
+                "public_url": public_url,
             }
-            
-            # Invia email (implementazione dipende dal sistema email)
-            # send_email(**email_data)
-            
-            current_app.logger.info(
-                f"Email assegnazione inviata a {assignment.cliente.email}"
+
+            subject = f"Nuovo questionario: {assignment.form.name}"
+            html_body = render_template(
+                "client_checks/emails/assignment.html",
+                **context
             )
-            
+            text_body = (
+                f"Ciao {assignment.cliente.nome_cognome},\n\n"
+                f"Ti è stato assegnato il questionario: {assignment.form.name}\n\n"
+                f"COMPILA QUI: {public_url}\n\n"
+                "— Corpo Sostenibile Suite"
+            )
+
+            send_mail_html(
+                subject=subject,
+                recipients=[recipient],
+                text_body=text_body,
+                html_body=html_body,
+            )
+
+            current_app.logger.info(
+                f"Email assegnazione inviata a {recipient}"
+            )
+
         except Exception as e:
             current_app.logger.error(f"Errore invio email assegnazione: {e}")
     

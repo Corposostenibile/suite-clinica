@@ -240,6 +240,10 @@ class BaseConfig:
     SCHEDULER_MISFIRE_GRACE_TIME: int = int(os.getenv("SCHEDULER_MISFIRE_GRACE_TIME", "300"))  # 5 minuti
     SCHEDULER_TIMEZONE: str = os.getenv("SCHEDULER_TIMEZONE", "UTC")
     
+    # Base URL del backend (per webhook GHL, link email, ecc.)
+    # Necessario per sviluppatori: GHL deve raggiungere il backend dall'esterno
+    BASE_URL: str = os.getenv("BASE_URL", "http://localhost:5001")
+
     # ------------------ GHL (GoHighLevel) Integration ----------------
     GHL_WEBHOOK_SECRET: str | None = os.getenv("GHL_WEBHOOK_SECRET")
     GHL_API_KEY: str | None = os.getenv("GHL_API_KEY")

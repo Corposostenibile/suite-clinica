@@ -58,6 +58,7 @@ function AssegnazioniAI() {
   const [loadingOpportunity, setLoadingOpportunity] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
+  const [webhookUrls, setWebhookUrls] = useState({ opportunity_data_url: '', acconto_open_url: '' });
   const [leadFilter, setLeadFilter] = useState('all'); // all | unassigned | partial | complete | assigned
   const [leadSearch, setLeadSearch] = useState('');
 
@@ -198,6 +199,17 @@ function AssegnazioniAI() {
     if (activeTab === 'webhook-data') fetchOpportunityData();
     if (activeTab === 'professionals') fetchProfessionalsAndSchema();
   }, [activeTab, selectedStatus]);
+
+  useEffect(() => {
+    ghlService.getWebhookUrls().then((result) => {
+      if (result?.success) {
+        setWebhookUrls({
+          opportunity_data_url: result.opportunity_data_url || '',
+          acconto_open_url: result.acconto_open_url || '',
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   // Auto-refresh webhook data
   useEffect(() => {
@@ -625,6 +637,11 @@ function AssegnazioniAI() {
                   </div>
                   <h5 className="text-muted">Nessuna lead in attesa</h5>
                   <p className="text-muted">I nuovi contatti da GHL appariranno qui.</p>
+                  <div className="bg-light rounded p-3 mx-auto mt-3" style={{ maxWidth: '520px' }}>
+                    <p className="small mb-2"><strong>Endpoint webhook:</strong></p>
+                    <code>POST {webhookUrls.opportunity_data_url || 'Caricamento...'}</code>
+                    <p className="small mt-2 mb-0 text-muted">Campi attesi: nome, storia, pacchetto, durata, email</p>
+                  </div>
                 </div>
               ) : filteredLeads.length === 0 ? (
                 <div className="text-center py-5 text-muted">Nessuna lead trovata con i filtri attivi</div>
@@ -653,6 +670,11 @@ function AssegnazioniAI() {
                               <td>
                                 <div className="fw-bold">{opp.nome}</div>
                                 {opp.storia && <small className="text-muted d-block text-truncate" style={{maxWidth: '300px'}}>{opp.storia}</small>}
+                                {opp.email && (
+                                  <small className="d-block">
+                                    <a href={`mailto:${opp.email}`}>{opp.email}</a>
+                                  </small>
+                                )}
                               </td>
                               <td>
                                 <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
@@ -1059,6 +1081,20 @@ function AssegnazioniAI() {
                    </div>
                    
                    <Row className="g-3">
+                       <Col md={12}>
+                           <Card className="bg-light border-0">
+                               <Card.Body className="py-2">
+                                   <label className="text-uppercase text-muted small fw-bold mb-1">Email</label>
+                                   <div>
+                                       {selectedOpportunity.email ? (
+                                           <a href={`mailto:${selectedOpportunity.email}`}>{selectedOpportunity.email}</a>
+                                       ) : (
+                                           <em className="text-muted">Non disponibile</em>
+                                       )}
+                                   </div>
+                               </Card.Body>
+                           </Card>
+                       </Col>
                        <Col md={12}>
                            <Card className="bg-light border-0">
                                <Card.Body>

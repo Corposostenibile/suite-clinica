@@ -56,26 +56,38 @@ get_developer_info() {
     done
 }
 
-# Aggiorna il DATABASE_URL nel file .env in base allo sviluppatore
+# Host esterno per webhook GHL (default: IP del server)
+EXTERNAL_HOST="${EXTERNAL_HOST:-161.97.116.63}"
+
+# Aggiorna il DATABASE_URL e BASE_URL nel file .env in base allo sviluppatore
 update_env_database_url() {
     local dev=$1
     validate_developer "$dev"
     set_project_dir "$dev"
     local info=($(get_developer_info "$dev"))
+    local port="${info[0]}"
     local db_name="${info[2]}"
 
     local new_database_url="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
+    local new_base_url="http://$EXTERNAL_HOST:$port"
     local env_file="$PROJECT_DIR/backend/.env"
 
     if [[ -f "$env_file" ]]; then
-        # Usa sed per sostituire la linea DATABASE_URL esistente
+        # DATABASE_URL
         if grep -q "^DATABASE_URL=" "$env_file"; then
             sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$new_database_url|" "$env_file"
             log_success "DATABASE_URL aggiornato nel file .env per $dev: $new_database_url"
         else
-            # Se non esiste, aggiungilo
             echo "DATABASE_URL=$new_database_url" >> "$env_file"
             log_success "DATABASE_URL aggiunto nel file .env per $dev: $new_database_url"
+        fi
+        # BASE_URL (per webhook GHL - ogni dev ha la sua porta)
+        if grep -q "^BASE_URL=" "$env_file"; then
+            sed -i "s|^BASE_URL=.*|BASE_URL=$new_base_url|" "$env_file"
+            log_success "BASE_URL aggiornato per $dev: $new_base_url"
+        else
+            echo "BASE_URL=$new_base_url" >> "$env_file"
+            log_success "BASE_URL aggiunto nel file .env per $dev: $new_base_url"
         fi
     else
         log_error "File .env non trovato in $PROJECT_DIR"
@@ -102,6 +114,7 @@ show_help() {
     echo "  restart [dev]                            - Riavvia il server."
     echo "  status                                   - Mostra lo stato dei servizi."
     echo "  setup-firewall                           - Configura UFW per aprire le porte necessarie."
+    echo "  logs-pm2 [dev]                           - Mostra i log PM2 (tutti o per ambiente specifico)."
     echo ""
     echo "COMANDI GESTIONE AMBIENTE:"
     echo "  setup [dev]                              - Setup completo iniziale (dipendenze + db + admin)."
@@ -113,6 +126,25 @@ show_help() {
     echo "  $0 fullstack manu                     # Avvia tutto l'ambiente (Flask:5001 + React:3001)."
     echo "  $0 debug manu                         # Sviluppo solo backend."
     echo "  $0 setup-firewall                     # Apre le porte nel firewall."
+    echo "  $0 logs-pm2 manu                      # Log PM2 per ambiente manu."
+}
+
+# Mostra i log PM2 (per server con processi gestiti da PM2)
+logs_pm2() {
+    local dev=$1
+    if ! command -v pm2 &> /dev/null; then
+        log_error "PM2 non trovato. Installa PM2 con: npm install -g pm2"
+        exit 1
+    fi
+    if [[ -n "$dev" ]]; then
+        validate_developer "$dev"
+        local app_name="suite-clinica-$dev"
+        log_info "Avvio log PM2 per $app_name (Ctrl+C per uscire)..."
+        exec pm2 logs "$app_name"
+    else
+        log_info "Avvio log PM2 (tutte le app, Ctrl+C per uscire)..."
+        exec pm2 logs
+    fi
 }
 
 # --- FUNZIONI DI DOCUMENTAZIONE ---
@@ -156,14 +188,32 @@ debug_server() {
         exit 1
     fi
 
+    # Libera la porta se occupata (fuser è più affidabile di grep su ss)
+    free_port() {
+        if command -v fuser &>/dev/null; then
+            fuser -k $port/tcp 2>/dev/null && sleep 2 || true
+        fi
+    }
+    if fuser $port/tcp 2>/dev/null; then
+        log_warning "Porta $port in uso. Libero i processi..."
+        free_port
+    fi
+
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
 
     # Build docs prima di avviare
     build_docs "$dev"
 
-    # Esegue il comando ufficiale di Flask per lo sviluppo
+    # Libera di nuovo la porta subito prima di Flask (qualcosa potrebbe averla occupata durante build_docs)
+    if fuser $port/tcp 2>/dev/null; then
+        log_warning "Porta $port ancora occupata. Libero..."
+        free_port
+    fi
+    if fuser $port/tcp 2>/dev/null; then
+        log_error "Porta $port non liberabile. Esegui in un altro terminale: sudo fuser -k $port/tcp"
+        exit 1
+    fi
 
-    # Esegue il comando ufficiale di Flask per lo sviluppo
     poetry run flask run --host="0.0.0.0" --port="$port" --debug
 }
 
@@ -603,6 +653,12 @@ start_frontend() {
     local info=($(get_developer_info "$dev"))
     local fe_port="${info[3]}"
 
+    # Libera la porta frontend se occupata (evita fallback su altra porta)
+    if command -v fuser &>/dev/null && fuser $fe_port/tcp 2>/dev/null; then
+        log_warning "Porta $fe_port in uso. Libero i processi..."
+        fuser -k $fe_port/tcp 2>/dev/null && sleep 2 || true
+    fi
+
     log_info "Avvio Frontend React (Vite) per $dev sulla porta $fe_port..."
     setup_frontend
     cd "$PROJECT_DIR/corposostenibile-clinica"
@@ -785,6 +841,9 @@ case "$COMMAND" in
         ;;
     status)
         show_status
+        ;;
+    logs-pm2)
+        logs_pm2 "$1"
         ;;
     help|--help|-h)
         show_help
