@@ -99,12 +99,15 @@ function AssegnazioniAI() {
   const fetchProfessionalsAndSchema = async () => {
     setLoadingProfs(true);
     try {
-      const respProfs = await api.get('/team/api/professionals/criteria');
+      const [respProfs, respSchema] = await Promise.all([
+        api.get('/team/professionals/criteria'),
+        api.get('/team/criteria/schema')
+      ]);
+
       if (respProfs.data.success) {
         setProfessionals(respProfs.data.professionals);
       }
 
-      const respSchema = await api.get('/team/api/criteria/schema');
       if (respSchema.data.success) {
         setCriteriaSchema(respSchema.data.schema);
       }
@@ -143,7 +146,7 @@ function AssegnazioniAI() {
   const handleSaveCriteria = async () => {
     if (!editingProf) return;
     try {
-      await api.put(`/team/api/professionals/${editingProf.id}/criteria`, {
+      await api.put(`/team/professionals/${editingProf.id}/criteria`, {
         criteria: tempCriteria
       });
       setShowProfModal(false);

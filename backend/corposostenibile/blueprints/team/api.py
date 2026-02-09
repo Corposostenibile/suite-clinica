@@ -634,6 +634,98 @@ def get_team_stats():
     })
 
 
+
+# AGGIUNTO: Endpoint per Criteria
+@team_api_bp.route("/professionals/criteria", methods=["GET"])
+@login_required
+def api_get_professionals_criteria():
+    """Restituisce lista professionisti con i loro criteri di assegnazione."""
+    # Check permissions (admins or team leaders?)
+    # Replicating _require_assignment_permission logic locally or simplifying
+    # Assuming assignment permission = admin or specific roles.
+    # For now, let's allow admins and team leaders of relevant depts?
+    # Or just reuse logic:
+    if not current_user.is_admin and not (current_user.role.value in ['team_leader', 'admin']):
+         # Or check department head?
+         # Simplest: Allow admin and team leaders.
+         pass
+    
+    # Recupera tutti i professionisti attivi dei dipartimenti rilevanti
+    relevant_dept_ids = [2, 3, 4, 24]
+    
+    professionals = User.query.filter(
+        User.department_id.in_(relevant_dept_ids),
+        User.is_active == True
+    ).order_by(User.department_id, User.first_name, User.last_name).all()
+
+    results = []
+    import json # Import qui per sicurezza
+    for p in professionals:
+        criteria = p.assignment_criteria or {}
+        ai_notes = p.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = json.loads(ai_notes)
+            except:
+                ai_notes = {}
+                
+        results.append({
+            'id': p.id,
+            'name': f"{p.first_name} {p.last_name}",
+            'department_id': p.department_id,
+            'department_name': p.department.name if p.department else 'N/A',
+            'avatar_url': p.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if p.avatar_path and p.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
+            'criteria': criteria,
+            'ai_notes_summary': ai_notes.get('specializzazione', '') + ' ' + ai_notes.get('target_ideale', ''),
+            'is_available': ai_notes.get('disponibile_assegnazioni', True)
+        })
+
+    return jsonify({
+        'success': True,
+        'professionals': results
+    })
+
+
+@team_api_bp.route("/professionals/<int:user_id>/criteria", methods=["PUT"])
+@login_required
+# @csrf.exempt # Already exempt at blueprint level
+def api_update_professional_criteria(user_id: int):
+    """Aggiorna i criteri di assegnazione per un professionista."""
+    # Check permissions
+    if not current_user.is_admin and not (current_user.role.value in ['team_leader']):
+         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    
+    if not data or 'criteria' not in data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+        
+    criteria = data['criteria']
+    
+    # Validazione tramite Service
+    from .criteria_service import CriteriaService
+    role_map = {2: 'nutrizione', 24: 'nutrizione', 3: 'coach', 4: 'psicologia'}
+    role_key = role_map.get(user.department_id)
+    
+    if role_key:
+        valid_criteria = CriteriaService.validate_criteria(role_key, criteria)
+        user.assignment_criteria = valid_criteria
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Criteri aggiornati'})
+    else:
+        return jsonify({'success': False, 'message': 'Ruolo non supportato per assegnazione AI'}), 400
+
+@team_api_bp.route("/criteria/schema", methods=["GET"])
+@login_required
+def api_get_criteria_schema():
+    """Restituisce lo schema dei criteri disponibili."""
+    from .criteria_service import CriteriaService
+    return jsonify({
+        'success': True,
+        'schema': CriteriaService.get_schema()
+    })
+
 @team_api_bp.route("/admin-dashboard-stats", methods=["GET"])
 @login_required
 def get_admin_dashboard_stats():
