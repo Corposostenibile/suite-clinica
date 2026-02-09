@@ -160,7 +160,7 @@ function AssegnazioniAI() {
 
     try {
       // 1. Analyze Lead
-      const resAnalyze = await api.post('/team/assignments/analyze-lead', { lead_text: opp.storia });
+      const resAnalyze = await api.post('/team/assignments/analyze-lead', { story: opp.storia });
       if (resAnalyze.data.success) {
         setAiAnalysis(resAnalyze.data.analysis);
         

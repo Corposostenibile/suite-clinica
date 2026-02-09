@@ -166,34 +166,31 @@ class AIMatchingService:
             # Valid criteria for this prof's role
             role_valid_criteria = CriteriaService.get_criteria_for_role(spec_val)
             
-            score = 0
+            points = 0
             matches = []
-            
-            # Only count matches that are relevant to THIS professional's role
-            # (e.g. a Coach shouldn't get points for IBS if it's not in coach schema, 
-            # though usually keys are shared or specific)
             
             for tag in criteria_list:
                 # Check if tag is in professional's criteria AND is true
                 if tag in prof_criteria and prof_criteria[tag] is True:
                      # Check if it's a valid criteria for their role (double check)
                      if tag in role_valid_criteria:
-                         score += 1
+                         points += 1
                          matches.append(tag)
             
-            # Penalties? Maybe if they are NOT available?
-            # For now, just boolean availability check in frontend or separate flag.
+            # Calculate percentage
+            percentage = int((points / len(criteria_list) * 100)) if criteria_list else 0
             
             # Append result
             results[category].append({
                 'id': prof.id,
                 'name': f"{prof.first_name} {prof.last_name}",
                 'avatar_url': prof.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if prof.avatar_path and prof.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
-                'score': score,
-                'matched_tags': matches,
+                'score': percentage, # Frontend expects percentage in score field
+                'points': points,
+                'match_reasons': matches, # Frontend expects match_reasons
                 'total_criteria': len(criteria_list),
-                'match_percentage': int((score / len(criteria_list) * 100)) if criteria_list else 0,
-                'is_available': True # TODO: check specific availability field if exists
+                'match_percentage': percentage,
+                'is_available': True 
             })
             
         # 3. Sort by Score DESC
