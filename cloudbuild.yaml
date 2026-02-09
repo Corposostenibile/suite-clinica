@@ -16,6 +16,18 @@ steps:
       - --cluster=suite-clinica-cluster-prod
       - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
 
+  # 4. Sync Criteria Layer: Esegue lo script di sincronizzazione criteri caricando i dati dal file Excel
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - exec
+      - deployment/suite-clinica-backend
+      - --
+      - python
+      - scripts/sync_criteria_prod.py
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
 # Configurazione Timeout e Log
 timeout: 1200s
 options:
