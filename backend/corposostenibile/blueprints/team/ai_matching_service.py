@@ -84,8 +84,8 @@ class AIMatchingService:
             """
             
             # Call Gemini
-            # Using the model requested by user or latest available
-            model_name = "gemini-2.0-flash-exp" 
+            # Using stable model version
+            model_name = "gemini-flash-latest" 
             
             response = client.models.generate_content(
                 model=model_name,
