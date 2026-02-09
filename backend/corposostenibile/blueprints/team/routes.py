@@ -213,3 +213,101 @@ def api_toggle_assignment_available(user_id: int):
         db.session.rollback()
         current_app.logger.error(f"Errore toggle disponibilità: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+@team_bp.route("/api/professionals/criteria", methods=["GET"])
+@login_required
+def api_get_professionals_criteria():
+    """Restituisce lista professionisti con i loro criteri di assegnazione."""
+    _require_assignment_permission()
+
+    # Recupera tutti i professionisti attivi dei dipartimenti rilevanti
+    # Dep ID: 2 (Nutrizione), 3 (Coach), 4 (Psicologia), 24 (Nutrizione 2)
+    # Ecludiamo Sales (1), HR (17), etc.
+    relevant_dept_ids = [2, 3, 4, 24]
+    
+    professionals = User.query.filter(
+        User.department_id.in_(relevant_dept_ids),
+        User.is_active == True
+    ).order_by(User.department_id, User.first_name, User.last_name).all()
+
+    results = []
+    for p in professionals:
+        # Recupera criteri
+        criteria = p.assignment_criteria or {}
+        
+        # Recupera note AI (per backward compatibility o visualizzazione)
+        ai_notes = p.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = json.loads(ai_notes)
+            except:
+                ai_notes = {}
+                
+        results.append({
+            'id': p.id,
+            'name': f"{p.first_name} {p.last_name}",
+            'department_id': p.department_id,
+            'department_name': p.department.name if p.department else 'N/A',
+            'avatar_url': p.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if p.avatar_path and p.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
+            'criteria': criteria,
+            'ai_notes_summary': ai_notes.get('specializzazione', '') + ' ' + ai_notes.get('target_ideale', ''),
+            'is_available': ai_notes.get('disponibile_assegnazioni', True)
+        })
+
+    return jsonify({
+        'success': True,
+        'professionals': results
+    })
+
+
+@team_bp.route("/api/professionals/<int:user_id>/criteria", methods=["PUT"])
+@login_required
+@csrf.exempt
+def api_update_professional_criteria(user_id: int):
+    """Aggiorna i criteri di assegnazione per un professionista."""
+    _require_assignment_permission()
+    
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+    
+    if not data or 'criteria' not in data:
+         return jsonify({'success': False, 'message': 'Dati mancanti (criteria richiesto)'}), 400
+         
+    new_criteria = data['criteria']
+    
+    # Validazione base (opzionale, potremmo usare CriteriaService)
+    from .criteria_service import CriteriaService
+    role_map = {2: 'nutrizione', 3: 'coach', 4: 'psicologia', 24: 'nutrizione'}
+    role_key = role_map.get(user.department_id, 'nutrizione')
+    
+    try:
+        validated_criteria = CriteriaService.validate_criteria(role_key, new_criteria)
+        user.assignment_criteria = validated_criteria
+        
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(user, 'assignment_criteria')
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Criteri aggiornati con successo',
+            'criteria': validated_criteria
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Errore aggiornamento criteri user {user_id}: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@team_bp.route("/api/criteria/schema", methods=["GET"])
+@login_required
+def api_get_criteria_schema():
+    """Restituisce lo schema dei criteri disponibili."""
+    _require_assignment_permission()
+    
+    from .criteria_service import CriteriaService
+    return jsonify({
+        'success': True,
+        'schema': CriteriaService.get_schema()
+    })

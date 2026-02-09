@@ -1116,6 +1116,7 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     # ────────────────────────── AI Notes ───────────────────────────────────
     assignment_ai_notes = db.Column(db.JSON, default=dict, comment="Note strutturate per assegnazione automatica AI")
+    assignment_criteria = db.Column(db.JSON, default=dict, comment="Criteri booleani per matching programmatico")
 
     # ────────────────────────── Sicurezza ──────────────────────────────────
     last_password_change_at = db.Column(db.DateTime)
