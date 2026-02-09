@@ -650,17 +650,43 @@ def api_get_professionals_criteria():
          # Simplest: Allow admin and team leaders.
          pass
     
-    # Recupera tutti i professionisti attivi dei dipartimenti rilevanti
-    relevant_dept_ids = [2, 3, 4, 24]
+    # Recupera tutti i professionisti attivi delle specializzazioni rilevanti
+    # Mappatura specializzazioni -> "department_id" (virtuale per compatibilità frontend)
+    # Nutrizione: 2, 24
+    # Coach: 3
+    # Psicologia: 4
+    
+    target_specialties = [
+        'nutrizionista', 'nutrizione', # Nutrizione
+        'coach',                       # Coach
+        'psicologo', 'psicologia'      # Psicologia
+    ]
     
     professionals = User.query.filter(
-        User.department_id.in_(relevant_dept_ids),
+        User.specialty.in_(target_specialties),
         User.is_active == True
-    ).order_by(User.department_id, User.first_name, User.last_name).all()
+    ).order_by(User.first_name, User.last_name).all()
 
     results = []
     import json # Import qui per sicurezza
+    
     for p in professionals:
+        # Determina "department_id" e nome basato su specialty
+        dept_id = 0
+        dept_name = 'N/A'
+        
+        spec_val = p.specialty.value if hasattr(p.specialty, 'value') else str(p.specialty)
+        
+        if spec_val in ['nutrizionista', 'nutrizione']:
+            dept_id = 2 # Nutrizione
+            dept_name = 'Nutrizione'
+        elif spec_val == 'coach':
+            dept_id = 3 # Coach
+            dept_name = 'Coach'
+        elif spec_val in ['psicologo', 'psicologia']:
+            dept_id = 4 # Psicologia
+            dept_name = 'Psicologia'
+            
         criteria = p.assignment_criteria or {}
         ai_notes = p.assignment_ai_notes or {}
         if isinstance(ai_notes, str):
@@ -672,8 +698,8 @@ def api_get_professionals_criteria():
         results.append({
             'id': p.id,
             'name': f"{p.first_name} {p.last_name}",
-            'department_id': p.department_id,
-            'department_name': p.department.name if p.department else 'N/A',
+            'department_id': dept_id,
+            'department_name': dept_name,
             'avatar_url': p.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if p.avatar_path and p.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
             'criteria': criteria,
             'ai_notes_summary': ai_notes.get('specializzazione', '') + ' ' + ai_notes.get('target_ideale', ''),
@@ -705,8 +731,16 @@ def api_update_professional_criteria(user_id: int):
     
     # Validazione tramite Service
     from .criteria_service import CriteriaService
-    role_map = {2: 'nutrizione', 24: 'nutrizione', 3: 'coach', 4: 'psicologia'}
-    role_key = role_map.get(user.department_id)
+    
+    spec_val = user.specialty.value if hasattr(user.specialty, 'value') else str(user.specialty)
+    role_key = None
+    
+    if spec_val in ['nutrizionista', 'nutrizione']:
+        role_key = 'nutrizione'
+    elif spec_val == 'coach':
+        role_key = 'coach'
+    elif spec_val in ['psicologo', 'psicologia']:
+        role_key = 'psicologia'
     
     if role_key:
         valid_criteria = CriteriaService.validate_criteria(role_key, criteria)
