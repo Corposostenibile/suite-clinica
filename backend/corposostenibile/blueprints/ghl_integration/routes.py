@@ -1133,6 +1133,21 @@ def webhook_opportunity_data():
             f"[GHL Webhook] Saved opportunity data: {opp_data.nome} - {opp_data.pacchetto} (ID: {opp_data.id})"
         )
 
+        # Bridge: se email presente, crea Cliente, assegna Check 1/2/3 e invia email
+        if opp_data.email and str(opp_data.email).strip():
+            try:
+                from .opportunity_bridge import process_opportunity_data_bridge
+                bridge_result = process_opportunity_data_bridge(opp_data)
+                current_app.logger.info(
+                    f"[GHL Webhook] Bridge opportunity-data: {bridge_result}"
+                )
+            except Exception as bridge_err:
+                current_app.logger.error(
+                    f"[GHL Webhook] Bridge opportunity-data fallito: {bridge_err}"
+                )
+                import traceback
+                current_app.logger.error(traceback.format_exc())
+
         return jsonify({
             'success': True,
             'message': 'Dati ricevuti con successo',

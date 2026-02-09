@@ -860,6 +860,59 @@ Corpo Sostenibile Suite
             )
 
 
+def send_initial_checks_single_email(
+    cliente: Cliente,
+    assignments: List[ClientCheckAssignment],
+) -> None:
+    """
+    Invia una sola email al cliente con i link ai tre questionari iniziali.
+
+    Usato dal bridge opportunity-data quando GHL invia lead vinta.
+    """
+    from flask import render_template
+    from corposostenibile.blueprints.auth.email_utils import send_mail_html
+
+    recipient = getattr(cliente, "mail", None) or getattr(cliente, "email", None)
+    if not recipient or not str(recipient).strip():
+        current_app.logger.warning(f"Cliente {cliente.cliente_id} senza email, skip invio")
+        return
+
+    base_url = current_app.config.get("BASE_URL", "")
+    items = [
+        {"form": a.form, "public_url": a.get_public_url(base_url=base_url)}
+        for a in assignments
+    ]
+
+    context = {"cliente": cliente, "assignments": items}
+    subject = "I tuoi questionari iniziali"
+    html_body = render_template(
+        "client_checks/emails/assignment_initial_checks.html",
+        **context,
+    )
+    text_lines = [
+        f"Ciao {cliente.nome_cognome},",
+        "",
+        "Benvenuto! Per avviare il tuo percorso ti chiediamo di compilare i tre questionari iniziali:",
+        "",
+    ]
+    for a in assignments:
+        url = a.get_public_url(base_url=base_url)
+        text_lines.append(f"- {a.form.name}: {url}")
+    text_lines.extend(["", "— Corpo Sostenibile Suite"])
+    text_body = "\n".join(text_lines)
+
+    send_mail_html(
+        subject=subject,
+        recipients=[recipient],
+        text_body=text_body,
+        html_body=html_body,
+    )
+
+    current_app.logger.info(
+        f"Email questionari iniziali inviata a {recipient} ({len(assignments)} link)"
+    )
+
+
 # --------------------------------------------------------------------------- #
 #  ReportService - Generazione Report                                        #
 # --------------------------------------------------------------------------- #
