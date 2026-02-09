@@ -1,7 +1,7 @@
 # ==========================================
 # STAGE 1: Frontend Build (Node.js)
 # ==========================================
-FROM node:18-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY corposostenibile-clinica/package*.json ./frontend/
 WORKDIR /app/frontend

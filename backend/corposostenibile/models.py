@@ -12194,6 +12194,18 @@ class BlueprintIntervention(TimestampMixin, db.Model):
     blueprint = relationship("BlueprintRegistry", back_populates="interventions")
     assigned_to = relationship("User", backref="blueprint_interventions")
     project = relationship("DevelopmentProject", backref="blueprint_interventions")
+    sprints = relationship(
+        "DevSprint",
+        secondary="dev_sprint_interventions",
+        back_populates="interventions",
+        overlaps="sprint_assignments,sprint_interventions"
+    )
+    sprint_assignments = relationship(
+        "DevSprintIntervention",
+        back_populates="intervention",
+        overlaps="sprints,interventions",
+        cascade="all, delete-orphan"
+    )
 
 
 class BlueprintMetricsSnapshot(TimestampMixin, db.Model):
@@ -12386,7 +12398,14 @@ class DevSprint(TimestampMixin, db.Model):
     interventions = relationship(
         "BlueprintIntervention",
         secondary="dev_sprint_interventions",
-        backref="sprints"
+        back_populates="sprints",
+        overlaps="sprint_interventions,sprint_assignments"
+    )
+    sprint_interventions = relationship(
+        "DevSprintIntervention",
+        back_populates="sprint",
+        overlaps="interventions,sprints",
+        cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -12431,8 +12450,16 @@ class DevSprintIntervention(db.Model):
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relazioni
-    sprint = relationship("DevSprint", backref="sprint_interventions")
-    intervention = relationship("BlueprintIntervention", backref="sprint_assignments")
+    sprint = relationship(
+        "DevSprint",
+        back_populates="sprint_interventions",
+        overlaps="interventions,sprints"
+    )
+    intervention = relationship(
+        "BlueprintIntervention",
+        back_populates="sprint_assignments",
+        overlaps="interventions,sprints"
+    )
 
     def __repr__(self):
         return f"<SprintIntervention S{self.sprint_id} - I{self.intervention_id} ({self.story_points}pt)>"

@@ -72,3 +72,6 @@ backend/backups
 
 # AGENTS.md
 AGENTS.md
+
+# .agent/rules/clinica.md
+./agent/rules/*

@@ -17,22 +17,38 @@ spec:
       containers:
       - name: backend
         image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
+        imagePullPolicy: Always
+        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "600", "wsgi:app"]
         ports:
         - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 300
+          periodSeconds: 30
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 180
+          periodSeconds: 20
+          timeoutSeconds: 20
         resources:
           requests:
-            cpu: "250m"
-            memory: "1Gi"
-          limits:
-            cpu: "1000m"
+            cpu: "2000m"
             memory: "4Gi"
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
         env:
         - name: FLASK_APP
           value: "corposostenibile"
         - name: FLASK_ENV
           value: "production"
         - name: DATABASE_URL
-          value: "postgresql://suite_clinica:i1[i/Y%y]D%Ihg+h@34.154.153.156:5432/suite_clinica_prod"
+          value: "postgresql://suite_clinica:i1[i/Y%y]D%Ihg+h@127.0.0.1:5432/suite_clinica_prod"
         - name: CELERY_BROKER_URL
           value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.79.144.188:6379/0"
         - name: CELERY_RESULT_BACKEND
@@ -45,3 +61,26 @@ spec:
           value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.79.144.188:6379/5"
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
+        args:
+          - "--port=5432"
+          - "--credentials-file=/secrets/cloudsql/credentials.json"
+          - "suite-clinica:europe-west8:suite-clinica-db-prod"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: sql-proxy-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+      volumes:
+      - name: sql-proxy-key
+        secret:
+          secretName: sql-proxy-key

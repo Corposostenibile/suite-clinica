@@ -42,9 +42,16 @@ def refresh_google_token_http(refresh_token: str) -> dict | None:
         Dict con nuovo token_data o None se fallisce
     """
     try:
+        client_id = current_app.config.get('GOOGLE_CLIENT_ID')
+        client_secret = current_app.config.get('GOOGLE_CLIENT_SECRET')
+
+        if not client_id or not client_secret:
+            logger.warning("GOOGLE_CLIENT_ID o GOOGLE_CLIENT_SECRET non configurato, impossibile procedere col refresh")
+            return None
+
         token_data = {
-            'client_id': current_app.config.get('GOOGLE_CLIENT_ID'),
-            'client_secret': current_app.config.get('GOOGLE_CLIENT_SECRET'),
+            'client_id': client_id,
+            'client_secret': client_secret,
             'refresh_token': refresh_token,
             'grant_type': 'refresh_token'
         }
