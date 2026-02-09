@@ -43,6 +43,8 @@ RUN poetry config virtualenvs.create false \
 
 # Copy backend code
 COPY backend/corposostenibile ./corposostenibile
+COPY backend/scripts ./scripts
+COPY backend/migrations ./migrations
 COPY backend/wsgi.py ./
 
 # Build Documentation (MkDocs) - Production Ready
