@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend@sha256:9a0caed44c64cfbcfb04fdd5b3e4ecdd77614604f9bb03dd475e46ea660dcc2e
+        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
         imagePullPolicy: Always
         command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "3", "--threads", "2", "--timeout", "600", "wsgi:app"]
         ports:
