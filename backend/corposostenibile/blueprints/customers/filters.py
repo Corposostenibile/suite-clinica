@@ -655,6 +655,11 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
                 )
             )
 
+    # Escludi i clienti in 'pending_assignment' dalla vista principale (pazienti)
+    # Compariranno solo nella vista dedicata alle assegnazioni
+    if p.view is None:
+        qry = qry.filter(Cliente.service_status != 'pending_assignment')
+
     # -------- view-based implicit filters (Option B) ------
     if p.view == 'nutrizione':
         # Show if (assigned to a nutritionist) OR (has a nutrition status)

@@ -27,6 +27,7 @@ function AssegnazioniAI() {
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
   const [activeTab, setActiveTab] = useState('webhook-data');
+  const [webhookUrls, setWebhookUrls] = useState({ opportunity_data_url: '', acconto_open_url: '' });
 
   // Carica le assegnazioni
   const fetchAssignments = async () => {
@@ -34,7 +35,7 @@ function AssegnazioniAI() {
     setError(null);
     try {
       const response = await api.get('/ghl/api/assignments', {
-        params: selectedStatus !== 'all' ? { status: selectedStatus } : {}
+        params: { status: selectedStatus }
       });
 
       if (response.data.success !== false) {
@@ -76,6 +77,14 @@ function AssegnazioniAI() {
   useEffect(() => {
     fetchAssignments();
     fetchOpportunityData();
+    ghlService.getWebhookUrls().then((r) => {
+      if (r?.success) {
+        setWebhookUrls({
+          opportunity_data_url: r.opportunity_data_url || '',
+          acconto_open_url: r.acconto_open_url || ''
+        });
+      }
+    }).catch(() => {});
   }, [selectedStatus]);
 
   // Auto-refresh ogni 10 secondi per i dati webhook
@@ -168,9 +177,9 @@ function AssegnazioniAI() {
             <div className="col-6 col-md-6">
               <Card className="border-0 shadow-sm h-100">
                 <Card.Body>
-                  <div className="small text-muted mb-1">URL Webhook:</div>
+                  <div className="small text-muted mb-1">URL Webhook (per questo backend):</div>
                   <code className="bg-light p-2 rounded d-block" style={{ fontSize: '12px' }}>
-                    http://161.97.116.63:5001/ghl/webhook/opportunity-data
+                    {webhookUrls.opportunity_data_url || 'Caricamento...'}
                   </code>
                 </Card.Body>
               </Card>
@@ -209,9 +218,9 @@ function AssegnazioniAI() {
                   </p>
                   <div className="bg-light rounded p-3 mx-auto" style={{ maxWidth: '500px' }}>
                     <p className="small mb-2"><strong>Configura GHL per inviare a:</strong></p>
-                    <code>POST http://161.97.116.63:5001/ghl/webhook/opportunity-data</code>
+                    <code>POST {webhookUrls.opportunity_data_url || 'Caricamento...'}</code>
                     <p className="small mt-2 mb-0 text-muted">
-                      Campi: nome, storia, pacchetto, durata
+                      Campi: nome, storia, pacchetto, durata, email
                     </p>
                   </div>
                 </div>
@@ -416,6 +425,19 @@ function AssegnazioniAI() {
                 </div>
               </div>
 
+              {/* Email */}
+              <div className="col-12">
+                <div className="bg-light rounded p-3">
+                  <h6 className="text-muted mb-2"><i className="ri-mail-line me-2"></i>Email</h6>
+                  <span className={selectedOpportunity.email ? '' : 'text-muted fst-italic'}>
+                    {selectedOpportunity.email || 'Non disponibile'}
+                  </span>
+                  {selectedOpportunity.email && (
+                    <a href={`mailto:${selectedOpportunity.email}`} className="ms-2 small"><i className="ri-external-link-line"></i></a>
+                  )}
+                </div>
+              </div>
+
               {/* Pacchetto e Durata */}
               <div className="col-md-6">
                 <div className="border rounded p-3 h-100">
@@ -482,6 +504,34 @@ function AssegnazioniAI() {
               <div className="col-md-6">
                 <h6 className="text-muted mb-2">Stato</h6>
                 <StatusBadge status={selectedAssignment.status} />
+              </div>
+              <div className="col-12">
+                <hr />
+                <h6 className="text-muted mb-2"><i className="ri-mail-line me-2"></i>Contatti</h6>
+                <div className="row g-2">
+                  <div className="col-md-6">
+                    <div className="bg-light rounded p-2">
+                      <small className="text-muted d-block">Email</small>
+                      <span className={selectedAssignment.cliente_email ? '' : 'text-muted fst-italic'}>
+                        {selectedAssignment.cliente_email || 'Non disponibile'}
+                      </span>
+                      {selectedAssignment.cliente_email && (
+                        <a href={`mailto:${selectedAssignment.cliente_email}`} className="ms-2 small"><i className="ri-external-link-line"></i></a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="bg-light rounded p-2">
+                      <small className="text-muted d-block">Telefono</small>
+                      <span className={selectedAssignment.cliente_cellulare ? '' : 'text-muted fst-italic'}>
+                        {selectedAssignment.cliente_cellulare || 'Non disponibile'}
+                      </span>
+                      {selectedAssignment.cliente_cellulare && (
+                        <a href={`tel:${selectedAssignment.cliente_cellulare}`} className="ms-2 small"><i className="ri-phone-line"></i></a>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="col-md-6">
                 <h6 className="text-muted mb-2">Approvazione Finance</h6>

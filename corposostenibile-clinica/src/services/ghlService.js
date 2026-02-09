@@ -171,6 +171,18 @@ const ghlService = {
   },
 
   // =========================================================================
+  // WEBHOOK URLS (dinamici per sviluppatore)
+  // =========================================================================
+
+  /**
+   * Ottiene gli URL webhook per questo backend (porta corretta per ogni dev)
+   */
+  async getWebhookUrls() {
+    const response = await ghlApi.get('/webhook-urls');
+    return response.data;
+  },
+
+  // =========================================================================
   // OPPORTUNITY DATA (Webhook)
   // =========================================================================
 

@@ -20,6 +20,7 @@ from corposostenibile.models import GHLOpportunity, ServiceClienteAssignment, Cl
 # ============================================================================
 
 @bp.route('/webhook/acconto-open', methods=['POST'])
+@csrf.exempt
 @require_webhook_signature
 def webhook_acconto_open():
     """
@@ -427,13 +428,16 @@ def api_opportunities():
 @require_permission('ghl:view_assignments')
 def api_assignments():
     """
-    API endpoint per ottenere le assegnazioni servizio clienti
+    API endpoint per ottenere le assegnazioni servizio clienti.
+    Include email e telefono del cliente (da Cliente.mail) per contatto.
+    status=all: tutte le assegnazioni.
     """
     status = request.args.get('status', 'pending_finance')
 
-    assignments = ServiceClienteAssignment.query.filter_by(
-        status=status
-    ).order_by(
+    query = ServiceClienteAssignment.query
+    if status != 'all':
+        query = query.filter_by(status=status)
+    assignments = query.order_by(
         ServiceClienteAssignment.created_at.desc()
     ).limit(100).all()
 
@@ -441,6 +445,8 @@ def api_assignments():
         'id': ass.id,
         'cliente_id': ass.cliente_id,
         'cliente_nome': ass.cliente.nome_cognome if ass.cliente else None,
+        'cliente_email': getattr(ass.cliente, 'mail', None) if ass.cliente else None,
+        'cliente_cellulare': getattr(ass.cliente, 'cellulare', None) or getattr(ass.cliente, 'numero_telefono', None) if ass.cliente else None,
         'status': ass.status,
         'finance_approved': ass.finance_approved,
         'checkup_iniziale_fatto': ass.checkup_iniziale_fatto,
@@ -1108,10 +1114,12 @@ def webhook_opportunity_data():
             payload.get('durata_in_giorni') or
             '0'
         )
+        email = custom_data.get('email') or payload.get('email') or payload.get('contact', {}).get('email') or ''
 
         # Crea record nel database
         opp_data = GHLOpportunityData(
             nome=nome,
+            email=email or None,
             storia=storia,
             pacchetto=pacchetto,
             durata=durata,
@@ -1152,6 +1160,7 @@ def api_get_opportunity_data():
             'data': [{
                 'id': d.id,
                 'nome': d.nome,
+                'email': d.email or (d.raw_payload or {}).get('customData', {}).get('email') or (d.raw_payload or {}).get('email'),
                 'storia': d.storia,
                 'pacchetto': d.pacchetto,
                 'durata': d.durata,
@@ -1164,6 +1173,22 @@ def api_get_opportunity_data():
     except Exception as e:
         current_app.logger.error(f"[GHL API] Error fetching opportunity data: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/api/webhook-urls', methods=['GET'])
+def api_webhook_urls():
+    """
+    Restituisce gli URL webhook per questo backend (porta dinamica per sviluppatore).
+    Usato dalla pagina Assegnazioni AI per mostrare l'URL corretto da configurare in GHL.
+    """
+    base = current_app.config.get('BASE_URL', 'http://localhost:5001')
+    base = base.rstrip('/')
+    return jsonify({
+        'success': True,
+        'base_url': base,
+        'opportunity_data_url': f'{base}/ghl/webhook/opportunity-data',
+        'acconto_open_url': f'{base}/ghl/webhook/acconto-open',
+    })
 
 
 # DEBUG ENDPOINT - Pubblico per test (rimuovere in produzione)
@@ -1179,6 +1204,7 @@ def api_get_opportunity_data_debug():
             'data': [{
                 'id': d.id,
                 'nome': d.nome,
+                'email': d.email or (d.raw_payload or {}).get('customData', {}).get('email') or (d.raw_payload or {}).get('email'),
                 'storia': d.storia,
                 'pacchetto': d.pacchetto,
                 'durata': d.durata,
@@ -1207,6 +1233,7 @@ def api_get_opportunity_data_single(item_id):
             'data': {
                 'id': d.id,
                 'nome': d.nome,
+                'email': d.email or (d.raw_payload or {}).get('customData', {}).get('email') or (d.raw_payload or {}).get('email'),
                 'storia': d.storia,
                 'pacchetto': d.pacchetto,
                 'durata': d.durata,

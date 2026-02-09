@@ -5940,26 +5940,66 @@ function ClientiDetail() {
                                    <div className="spinner-border text-primary" role="status"></div>
                                    <p className="mt-2 text-muted">Caricamento risposte...</p>
                                 </div>
-                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] || !initialChecksData[activeInizialiTab].responses ? (
+                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
                                 <div className="text-center py-5">
                                    <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
                                    <h5>Nessun dato disponibile</h5>
-                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
                                 </div>
-                             ) : (
+                             ) : (() => {
+                                const checkData = initialChecksData[activeInizialiTab];
+                                const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
+                                const hasUrl = checkData.url;
+                                if (!hasResponses && hasUrl) {
+                                  return (
+                                    <div>
+                                      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                                        <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
+                                      </div>
+                                      <div className="alert alert-info d-flex align-items-center">
+                                        <i className="ri-link fs-4 me-3"></i>
+                                        <div className="flex-grow-1">
+                                          <strong>Link da inviare al cliente</strong>
+                                          <p className="mb-2 mt-1 text-muted small">Il cliente non ha ancora compilato. Copia il link qui sotto e invialo al cliente per permettergli di compilare il questionario.</p>
+                                          <div className="input-group">
+                                            <input type="text" className="form-control" value={checkData.url} readOnly />
+                                            <button className="btn btn-primary" type="button" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato negli appunti'); }}>
+                                              <i className="ri-file-copy-line me-1"></i>Copia
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                if (!hasResponses && !hasUrl) {
+                                  return (
+                                    <div className="text-center py-5">
+                                      <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
+                                      <h5>Nessun dato disponibile</h5>
+                                      <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                    </div>
+                                  );
+                                }
+                                return (
                                 <div>
                                    <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
                                       <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
-                                      {initialChecksData[activeInizialiTab].completed_at && (
+                                      {checkData.completed_at && (
                                          <span className="badge bg-light text-dark border">
                                             <i className="ri-calendar-event-line me-1"></i>
-                                            Compilato il: {new Date(initialChecksData[activeInizialiTab].completed_at).toLocaleDateString('it-IT')}
+                                            Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
                                          </span>
+                                      )}
+                                      {hasUrl && (
+                                         <button className="btn btn-sm btn-outline-primary ms-2" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
+                                            <i className="ri-file-copy-line me-1"></i>Copia link
+                                         </button>
                                       )}
                                    </div>
                                    
                                    {/* Score for Check 3 */}
-                                   {activeInizialiTab === 'check_3' && initialChecksData.check_3.score !== null && (
+                                   {activeInizialiTab === 'check_3' && initialChecksData.check_3?.score != null && (
                                       <div className="alert alert-info d-flex align-items-center mb-4">
                                          <i className="ri-scales-3-line fs-4 me-3"></i>
                                          <div>
@@ -5973,7 +6013,7 @@ function ClientiDetail() {
 
                                    {/* Responses List */}
                                    <div className="responses-list">
-                                      {Object.entries(initialChecksData[activeInizialiTab].responses).map(([question, answer], idx) => (
+                                      {Object.entries(checkData.responses).map(([question, answer], idx) => (
                                          <div key={idx} className="mb-3 p-3 bg-light rounded-2">
                                             <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>Domanda {idx + 1}</small>
                                             <div className="fw-semibold text-dark mb-1">{question}</div>
@@ -5982,7 +6022,8 @@ function ClientiDetail() {
                                       ))}
                                    </div>
                                 </div>
-                             )}
+                                );
+                             })()}
                           </div>
                        </div>
                     </div>

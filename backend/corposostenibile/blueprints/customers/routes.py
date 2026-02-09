@@ -3074,42 +3074,125 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
     return jsonify(metrics_data)
 
 
-# – INITIAL CHECKS (FROM LEAD) -------------------------------------------- #
+# – INITIAL CHECKS (FROM LEAD o ClientCheckAssignment) -------------------- #
 @api_bp.route("/<int:cliente_id>/initial-checks", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_initial_checks(cliente_id: int) -> Any:
     """
-    Restituisce i dati dei Check 1, 2 e 3 (Iniziali) recuperati dalla Lead originale.
+    Restituisce i dati dei Check 1, 2 e 3 (Iniziali).
+    Priorità: Lead originale (convertiti) > ClientCheckAssignment (es. clienti GHL).
     """
+    from corposostenibile.models import CheckForm, CheckFormTypeEnum
+
     cliente = customers_repo.get_one(cliente_id, eager=True)
-    
-    if not cliente.original_lead:
+    base_url = current_app.config.get("BASE_URL", request.url_root.rstrip("/"))
+
+    # 1. Da Lead originale (cliente convertito da SalesLead)
+    if cliente.original_lead:
+        lead = cliente.original_lead
+        return jsonify({
+            "has_data": True,
+            "source": "lead",
+            "lead_id": lead.id,
+            "checks": {
+                "check_1": {
+                    "completed_at": lead.check1_completed_at.isoformat() if lead.check1_completed_at else None,
+                    "responses": lead.check1_responses,
+                    "url": None
+                },
+                "check_2": {
+                    "completed_at": lead.check2_completed_at.isoformat() if lead.check2_completed_at else None,
+                    "responses": lead.check2_responses,
+                    "url": None
+                },
+                "check_3": {
+                    "completed_at": lead.check3_completed_at.isoformat() if lead.check3_completed_at else None,
+                    "responses": lead.check3_responses,
+                    "score": lead.check3_score,
+                    "type": lead.check3_type,
+                    "url": None
+                }
+            }
+        })
+
+    # 2. Da ClientCheckAssignment (es. clienti creati da GHL)
+    assignments = (
+        db.session.query(ClientCheckAssignment)
+        .join(CheckForm)
+        .filter(
+            ClientCheckAssignment.cliente_id == cliente_id,
+            ClientCheckAssignment.is_active == True,
+            CheckForm.form_type == CheckFormTypeEnum.iniziale
+        )
+        .options(
+            selectinload(ClientCheckAssignment.form),
+            selectinload(ClientCheckAssignment.responses)
+        )
+        .order_by(CheckForm.name)
+        .all()
+    )
+
+    if not assignments:
         return jsonify({
             "has_data": False,
-            "message": "Nessuna lead originale associata a questo cliente."
+            "message": "Nessun check iniziale assegnato a questo cliente."
         })
-        
-    lead = cliente.original_lead
-    
+
+    # Mappa Check 1, 2, 3 per nome form
+    def _check_key_from_form_name(name):
+        if not name:
+            return None
+        n = name.lower()
+        if "check 1" in n or "anagrafica" in n:
+            return "check_1"
+        if "check 2" in n or "fisico" in n:
+            return "check_2"
+        if "check 3" in n or "psico" in n:
+            return "check_3"
+        return None
+
+    check_map = {}
+    for ass in assignments:
+        key = _check_key_from_form_name(ass.form.name if ass.form else None) or f"check_{len(check_map) + 1}"
+        if key in check_map:
+            continue
+        latest_response = ass.responses[0] if ass.responses else None
+        completed_at = None
+        responses_dict = {}
+        if latest_response:
+            completed_at = latest_response.created_at.isoformat() if latest_response.created_at else None
+            responses_dict = latest_response.get_formatted_responses()
+
+        public_url = f"{base_url}/client-checks/public/{ass.token}"
+
+        check_data = {
+            "completed_at": completed_at,
+            "responses": responses_dict,
+            "url": public_url,
+            "response_count": ass.response_count
+        }
+        if key == "check_3":
+            check_data["score"] = None
+            check_data["type"] = None
+        check_map[key] = check_data
+
+    # Riempie check_1, check_2, check_3 se mancanti
+    for k in ["check_1", "check_2", "check_3"]:
+        if k not in check_map:
+            check_map[k] = {
+                "completed_at": None,
+                "responses": {},
+                "url": None,
+                "response_count": 0
+            }
+            if k == "check_3":
+                check_map[k]["score"] = None
+                check_map[k]["type"] = None
+
     return jsonify({
         "has_data": True,
-        "lead_id": lead.id,
-        "checks": {
-            "check_1": {
-                "completed_at": lead.check1_completed_at.isoformat() if lead.check1_completed_at else None,
-                "responses": lead.check1_responses
-            },
-            "check_2": {
-                "completed_at": lead.check2_completed_at.isoformat() if lead.check2_completed_at else None,
-                "responses": lead.check2_responses
-            },
-            "check_3": {
-                "completed_at": lead.check3_completed_at.isoformat() if lead.check3_completed_at else None,
-                "responses": lead.check3_responses,
-                "score": lead.check3_score,
-                "type": lead.check3_type
-            }
-        }
+        "source": "client_check",
+        "checks": check_map
     })
 
 
