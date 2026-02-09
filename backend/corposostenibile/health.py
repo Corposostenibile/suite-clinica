@@ -3,6 +3,7 @@ Health check endpoint per monitoraggio applicazione
 """
 from flask import Blueprint, jsonify
 from corposostenibile.extensions import db
+from sqlalchemy import text
 import redis
 import os
 from datetime import datetime
@@ -23,7 +24,8 @@ def health_check():
     
     # Check database
     try:
-        db.session.execute('SELECT 1')
+        # SQLAlchemy 2.0 richiede l'uso di text() per query testuali
+        db.session.execute(text('SELECT 1'))
         db.session.remove()
         status['services']['database'] = 'ok'
     except Exception as e:
@@ -31,18 +33,11 @@ def health_check():
         status['services']['database'] = f'error: {str(e)}'
     
     # Check Redis (only if configured)
-    redis_url = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+    redis_url = os.getenv('CELERY_BROKER_URL')
     if redis_url:
         try:
-            # Parse Redis URL
-            if redis_url.startswith('redis://'):
-                host = redis_url.split('//')[1].split(':')[0]
-                port = int(redis_url.split(':')[-1].split('/')[0])
-            else:
-                host = 'localhost'
-                port = 6379
-                
-            r = redis.Redis(host=host, port=port, decode_responses=True, socket_connect_timeout=1)
+            # Usa from_url che è più robusto del parsing manuale
+            r = redis.Redis.from_url(redis_url, socket_connect_timeout=1)
             r.ping()
             status['services']['redis'] = 'ok'
         except Exception as e:

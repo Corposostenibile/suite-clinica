@@ -5,7 +5,7 @@ metadata:
   labels:
     app: suite-clinica
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: suite-clinica
@@ -16,9 +16,9 @@ spec:
     spec:
       containers:
       - name: backend
-        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
+        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend@sha256:9a0caed44c64cfbcfb04fdd5b3e4ecdd77614604f9bb03dd475e46ea660dcc2e
         imagePullPolicy: Always
-        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "600", "wsgi:app"]
+        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "3", "--threads", "2", "--timeout", "600", "wsgi:app"]
         ports:
         - containerPort: 8080
         livenessProbe:
@@ -48,7 +48,7 @@ spec:
         - name: FLASK_ENV
           value: "production"
         - name: DATABASE_URL
-          value: "postgresql://suite_clinica:i1[i/Y%y]D%Ihg+h@127.0.0.1:5432/suite_clinica_prod"
+          value: "postgresql://suite_clinica:i1%5Bi%2FY%25y%5DD%25Ihg%2Bh@127.0.0.1:5432/suite_clinica_prod"
         - name: CELERY_BROKER_URL
           value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.79.144.188:6379/0"
         - name: CELERY_RESULT_BACKEND
@@ -61,6 +61,14 @@ spec:
           value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.79.144.188:6379/5"
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
+        - name: SESSION_COOKIE_SECURE
+          value: "false"
+        - name: SESSION_COOKIE_HTTPONLY
+          value: "true"
+        - name: SESSION_COOKIE_SAMESITE
+          value: "Lax"
+        - name: PREFERRED_URL_SCHEME
+          value: "http"
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
         args:
