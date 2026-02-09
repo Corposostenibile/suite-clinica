@@ -69,22 +69,18 @@ class AIMatchingService:
         try:
             # Construct Prompt
             prompt = f"""
-            You are an expert medical and fitness data analyst.
-            Analyze the following patient/client story and identify which of the following criteria tags apply.
-            
-            Valid Criteria Tags:
-            {json.dumps(all_criteria_list, indent=2)}
-            
-            Client Story:
+            Analizza la seguente storia di un cliente per un servizio di nutrizione e benessere:
             "{story}"
             
-            Return ONLY a JSON array of strings containing the exact tags identified. 
-            Example: ["IBS", "DONNE", "ANSIA"]
-            If no tags match, return [].
+            Estrai le seguenti informazioni in formato JSON:
+            1. "summary": Una breve sintesi (2-3 frasi) del profilo e delle necessità principali.
+            2. "criteria": Una lista di tag selezionati ESCLUSIVAMENTE da questo set di criteri validi: {json.dumps(all_criteria_list)}.
+            3. "suggested_focus": Una lista di 2-3 punti chiave su cui il team dovrebbe concentrarsi.
+
+            Formatta la risposta come un oggetto JSON valido.
             """
             
             # Call Gemini
-            # Using stable model version
             model_name = "gemini-flash-latest" 
             
             response = client.models.generate_content(
@@ -97,15 +93,23 @@ class AIMatchingService:
             
             if response.text:
                 try:
-                    extracted_tags = json.loads(response.text)
-                    # Verify tags are valid
-                    valid_tags = [tag for tag in extracted_tags if tag in all_criteria]
-                    return valid_tags
+                    analysis = json.loads(response.text)
+                    # Verify criteria are valid
+                    if 'criteria' in analysis:
+                        analysis['criteria'] = [tag for tag in analysis['criteria'] if tag in all_criteria]
+                    else:
+                        analysis['criteria'] = []
+                    
+                    return {
+                        'summary': analysis.get('summary', 'Sintesi non disponibile'),
+                        'criteria': analysis.get('criteria', []),
+                        'suggested_focus': analysis.get('suggested_focus', [])
+                    }
                 except json.JSONDecodeError:
                     logger.error(f"Failed to parse JSON from AI response: {response.text}")
-                    return []
+                    return {'summary': 'Errore analisi', 'criteria': [], 'suggested_focus': []}
             
-            return []
+            return {'summary': 'Nessuna risposta dall\'AI', 'criteria': [], 'suggested_focus': []}
 
         except Exception as e:
             logger.error(f"Error calling Gemini: {e}")

@@ -146,21 +146,28 @@ function AssegnazioniAI() {
 
   // --- ACTIONS ---
 
-  const handleAnalyzeAI = async (opp) => {
-    if (!opp.storia) {
+  const handleOpenAIModal = (opp) => {
+    setSelectedOpportunity(opp);
+    setAiAnalysis(null);
+    setAiMatches(null);
+    setAssignmentNotes('');
+    setSelectedMatches({ nutrition: '', coach: '', psychology: '' });
+    setShowAIModal(true);
+  };
+
+  const handleRunAIAnalysis = async () => {
+    if (!selectedOpportunity?.storia) {
       alert("Nessuna storia disponibile per l'analisi AI.");
       return;
     }
+    
     setAiLoading(true);
     setAiAnalysis(null);
     setAiMatches(null);
-    setSelectedMatches({ nutrition: '', coach: '', psychology: '' });
-    setSelectedOpportunity(opp);
-    setShowAIModal(true);
 
     try {
       // 1. Analyze Lead
-      const resAnalyze = await api.post('/team/assignments/analyze-lead', { story: opp.storia });
+      const resAnalyze = await api.post('/team/assignments/analyze-lead', { story: selectedOpportunity.storia });
       if (resAnalyze.data.success) {
         setAiAnalysis(resAnalyze.data.analysis);
         
@@ -182,20 +189,30 @@ function AssegnazioniAI() {
       }
     } catch (err) {
       console.error("Errore AI Analysis:", err);
-      // alert("Errore durante l'analisi AI");
-      // Don't close modal, show error inside
+      alert("Errore durante l'analisi AI. Controlla la console.");
     } finally {
       setAiLoading(false);
     }
   };
 
-  const handleConfirmAssignment = async () => {
+  const handleConfirmAssignment = async (role) => {
     if (!selectedOpportunity?.assignment_id) {
-        // Fallback: if no assignment_id (e.g. from webhook only), we might need to handle it or create one.
-        // But for likely use case, assignment should exist or be created by GHL hook.
-        // If missing, we might need to rely on backend to creating it, but confirm endpoint expects ID.
-        // Assuming assignment_id is present in opp data from updated endpoint.
         alert("ID Assegnazione mancante. Impossibile procedere.");
+        return;
+    }
+
+    const roleToIdMap = {
+        'nutrition': selectedMatches.nutrition,
+        'coach': selectedMatches.coach,
+        'psychology': selectedMatches.psychology
+    };
+
+    const nutritionist_id = role === 'nutrition' ? selectedMatches.nutrition : null;
+    const coach_id = role === 'coach' ? selectedMatches.coach : null;
+    const psychologist_id = role === 'psychology' ? selectedMatches.psychology : null;
+
+    if (!nutritionist_id && !coach_id && !psychologist_id) {
+        alert("Seleziona un professionista per procedere.");
         return;
     }
 
@@ -203,18 +220,19 @@ function AssegnazioniAI() {
         setLoading(true);
         const payload = {
             assignment_id: selectedOpportunity.assignment_id,
-            nutritionist_id: selectedMatches.nutrition,
-            coach_id: selectedMatches.coach,
-            psychologist_id: selectedMatches.psychology,
+            nutritionist_id,
+            coach_id,
+            psychologist_id,
             notes: assignmentNotes
         };
         
         const response = await api.post('/team/assignments/confirm', payload);
         if (response.data.success) {
-            setShowAIModal(false);
-            fetchOpportunityData(); // Refresh list
-            fetchAssignments(); // Refresh history
-            alert("Assegnazione completata con successo!");
+            // Update the local assignment status if possible or just refresh
+            fetchOpportunityData(); // Refresh list to see if it's still pending
+            alert("Professionista assegnato con successo!");
+            
+            // If all 3 are assigned, we could close the modal, but usually HM does it one by one
         }
     } catch (err) {
         console.error("Errore conferma:", err);
@@ -370,7 +388,7 @@ function AssegnazioniAI() {
                            <Button variant="outline-primary" size="sm" onClick={() => { setSelectedOpportunity(opp); setShowOpportunityModal(true); }}>
                              <i className="ri-eye-line me-1"></i>Dettagli
                            </Button>
-                           <Button variant="gradient-primary" size="sm" className="ms-2" onClick={() => handleAnalyzeAI(opp)}>
+                           <Button variant="gradient-primary" size="sm" className="ms-2" onClick={() => handleOpenAIModal(opp)}>
                              <i className="ri-magic-line me-1"></i>AI Match
                            </Button>
                          </td>
@@ -617,163 +635,291 @@ function AssegnazioniAI() {
         </Modal.Body>
         <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowOpportunityModal(false)}>Chiudi</Button>
-             {/* Future: Add "Assign with AI" button here */}
+            <Button variant="success" onClick={() => {
+                setShowOpportunityModal(false);
+                handleOpenAIModal(selectedOpportunity);
+            }}>
+                <i className="ri-sparkling-fill me-1"></i> Apri Gestione AI
+            </Button>
         </Modal.Footer>
       </Modal>
 
       {/* AI ASSIGNMENT MODAL */}
       <Modal show={showAIModal} onHide={() => setShowAIModal(false)} size="xl">
-        <Modal.Header closeButton>
+        <Modal.Header 
+            closeButton 
+            className="text-white border-0" 
+            style={{ background: 'linear-gradient(135deg, #45CB85 0%, #239957 100%)' }}
+        >
             <Modal.Title className="d-flex align-items-center">
-                <i className="ri-sparkling-fill text-warning me-2"></i>
-                Analisi e Assegnazione AI
+                <i className="ri-sparkling-fill me-2"></i>
+                SuiteMind - Analisi e Assegnazione AI
             </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="bg-light">
-            {aiLoading ? (
+        <Modal.Body className="bg-light p-4">
+            {aiLoading && !aiAnalysis ? (
                 <div className="text-center py-5">
-                    <Spinner animation="grow" variant="primary" />
-                    <h5 className="mt-3">Analisi in corso...</h5>
-                    <p className="text-muted">L'AI sta analizzando il profilo del cliente e cercando i professionisti migliori.</p>
+                    <div className="mb-4">
+                       <img src="/static/assets/icone/suitemind.png" alt="SuiteMind" style={{height: '100px', width: 'auto'}} className="spin-slow" />
+                    </div>
+                    <h4 className="fw-bold">SuiteMind sta analizzando...</h4>
+                    <p className="text-muted">Sto leggendo la storia del cliente e verificando i match migliori.</p>
+                    <Spinner animation="border" variant="success" className="mt-3" />
                 </div>
-            ) : aiAnalysis ? (
-                <Row>
+            ) : (
+                <Row className="g-4">
                     {/* LEFT: Analysis Result */}
                     <Col lg={4}>
-                        <Card className="border-0 shadow-sm mb-3 h-100">
-                            <Card.Header className="bg-white fw-bold">1. Analisi Cliente</Card.Header>
-                            <Card.Body>
-                                <h6>Sintesi Profilo</h6>
-                                <p className="small text-muted">{aiAnalysis.summary}</p>
-                                
-                                <h6 className="mt-3">Criteri Estratti</h6>
-                                <div className="d-flex flex-wrap gap-1">
-                                    {aiAnalysis.criteria && aiAnalysis.criteria.map(tag => (
-                                        <Badge bg="primary-subtle" text="primary" key={tag} className="border border-primary-subtle">{tag}</Badge>
-                                    ))}
+                        <Card className="border-0 shadow-sm overflow-hidden">
+                            <Card.Header className="bg-white py-3 border-bottom d-flex align-items-center">
+                                <i className="ri-file-search-line fs-4 me-2 text-success"></i>
+                                <span className="fw-bold text-uppercase small">1. Storia e Analisi AI</span>
+                            </Card.Header>
+                            <Card.Body className="p-4" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                                <div className="mb-4">
+                                    <h6 className="fw-bold text-muted small text-uppercase mb-2">Storia del Cliente</h6>
+                                    <div className="bg-white border rounded p-3" style={{ fontSize: '0.85rem', whiteSpace: 'pre-wrap', maxHeight: '250px', overflowY: 'auto' }}>
+                                        {selectedOpportunity?.storia || <em>Nessuna storia presente</em>}
+                                    </div>
                                 </div>
-                                
-                                <h6 className="mt-3">Suggerimenti Tattici</h6>
-                                <ul className="small text-muted ps-3">
-                                    {aiAnalysis.suggested_focus && aiAnalysis.suggested_focus.map((focus, i) => (
-                                        <li key={i}>{focus}</li>
-                                    ))}
-                                </ul>
+
+                                {!aiAnalysis ? (
+                                    <div className="text-center py-4 bg-white rounded border border-dashed">
+                                        <i className="ri-sparkling-line fs-1 text-success opacity-50 mb-2 d-block"></i>
+                                        <p className="small text-muted mb-3">L'AI non ha ancora analizzato questa lead.</p>
+                                        <Button 
+                                            variant="success" 
+                                            size="sm" 
+                                            onClick={handleRunAIAnalysis}
+                                            disabled={aiLoading}
+                                        >
+                                            {aiLoading ? <Spinner size="sm" className="me-1" /> : <i className="ri-play-fill me-1"></i>}
+                                            Avvia Analisi Smart
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="mb-4 mt-3">
+                                            <h6 className="fw-bold text-success small text-uppercase">Sintesi SuiteMind</h6>
+                                            <p className="text-dark bg-white p-3 rounded border border-success-subtle" style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>
+                                                {aiAnalysis.summary}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="mb-4">
+                                            <h6 className="fw-bold text-success small text-uppercase mb-2">Match Criteria</h6>
+                                            <div className="d-flex flex-wrap gap-1">
+                                                {aiAnalysis.criteria?.map(tag => (
+                                                    <Badge bg="success-subtle" text="success" key={tag} className="border border-success-subtle py-2 px-3 rounded-pill" style={{fontSize: '0.75rem'}}>
+                                                        {tag}
+                                                    </Badge>
+                                                )) || <span className="text-muted small">Nessun criterio estratto</span>}
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <h6 className="fw-bold text-success small text-uppercase mb-2">Punti di Forza Match</h6>
+                                            {aiAnalysis.suggested_focus?.map((focus, i) => (
+                                                <div key={i} className="d-flex align-items-start mb-2 small text-muted">
+                                                    <i className="ri-arrow-right-s-line text-success me-1 mt-1"></i>
+                                                    <span>{focus}</span>
+                                                </div>
+                                            )) || <span className="text-muted small">Nessun suggerimento generato</span>}
+                                        </div>
+
+                                        <div className="mt-4 pt-3 border-top">
+                                            <Button 
+                                                variant="outline-success" 
+                                                size="sm" 
+                                                className="w-100"
+                                                onClick={handleRunAIAnalysis}
+                                                disabled={aiLoading}
+                                            >
+                                                <i className="ri-refresh-line me-1"></i> Riprova Analisi
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
                             </Card.Body>
                         </Card>
                     </Col>
                     
                     {/* RIGHT: Matching & Selection */}
                     <Col lg={8}>
-                        <Card className="border-0 shadow-sm h-100">
-                            <Card.Header className="bg-white fw-bold d-flex justify-content-between">
-                                <span>2. Selezione Professionisti</span>
-                                <Badge bg="success">AI Matched</Badge>
+                        <Card className="border-0 shadow-sm overflow-hidden">
+                            <Card.Header className="bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                                <div className="d-flex align-items-center">
+                                    <i className="ri-team-line fs-4 me-2 text-primary"></i>
+                                    <span className="fw-bold text-uppercase small">2. Assegnazione Professionisti</span>
+                                </div>
+                                {aiAnalysis && <Badge bg="success" className="px-3 py-2 rounded-pill shadow-sm">AI POWERED</Badge>}
                             </Card.Header>
-                            <Card.Body>
-                                {/* Nutritionist Row */}
-                                <div className="mb-4">
-                                    <h6 className="d-flex align-items-center mb-2">
-                                        <i className="ri-leaf-line text-success me-2"></i>Nutrizione
-                                    </h6>
-                                    <Form.Select 
-                                        value={selectedMatches.nutrition} 
-                                        onChange={(e) => setSelectedMatches({...selectedMatches, nutrition: e.target.value})}
-                                        className="mb-2"
-                                    >
-                                        <option value="">Seleziona un nutrizionista...</option>
-                                        {aiMatches?.nutrizione?.map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} (Match: {p.score}%) - {p.match_reasons?.join(', ')}
-                                            </option>
-                                        ))}
-                                        <option disabled>--- Altri ---</option>
-                                        {professionals.filter(p => !aiMatches?.nutrizione?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'nutrizione')).map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </Form.Select>
+                            <Card.Body className="p-4" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                                
+                                {/* NUTRITION SECTION */}
+                                <div className="p-4 rounded mb-4 shadow-sm" style={{ background: '#F0FDF4', border: '1px solid #45CB85' }}>
+                                    <div className="d-flex align-items-center justify-content-between mb-3">
+                                        <h6 className="fw-bold text-success mb-0 d-flex align-items-center">
+                                            <i className="ri-restaurant-line me-2 fs-4"></i>
+                                            NUTRIZIONISTA
+                                        </h6>
+                                    </div>
+                                    <Row className="g-3 align-items-end">
+                                        <Col md={9}>
+                                            <label className="small text-muted mb-1 fw-medium">Seleziona Professionista</label>
+                                            <Form.Select 
+                                                value={selectedMatches.nutrition} 
+                                                onChange={(e) => setSelectedMatches({...selectedMatches, nutrition: e.target.value})}
+                                                className="border-success-subtle shadow-none"
+                                            >
+                                                <option value="">-- Scegli Nutrizionista --</option>
+                                                {aiMatches?.nutrizione?.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.name} (Match: {p.score}%)
+                                                    </option>
+                                                ))}
+                                                <option disabled>──────────</option>
+                                                {professionals.filter(p => !aiMatches?.nutrizione?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'nutrizione')).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </Form.Select>
+                                        </Col>
+                                        <Col md={3}>
+                                            <Button 
+                                                variant="success" 
+                                                className="w-100 fw-bold shadow-sm"
+                                                onClick={() => handleConfirmAssignment('nutrition')}
+                                                disabled={loading || !selectedMatches.nutrition}
+                                            >
+                                                <i className="ri-check-line me-1"></i>Assegna
+                                            </Button>
+                                        </Col>
+                                    </Row>
                                     {selectedMatches.nutrition && aiMatches?.nutrizione?.find(p => p.id == selectedMatches.nutrition) && (
-                                        <Alert variant="success" className="py-2 small mb-0">
-                                            <i className="ri-check-line me-1"></i>
-                                            Consigliato perché: {aiMatches.nutrizione.find(p => p.id == selectedMatches.nutrition).match_reasons?.join(', ')}
-                                        </Alert>
+                                        <div className="mt-2 bg-white p-2 rounded small text-success border border-success-subtle d-flex align-items-center">
+                                            <i className="ri-sparkling-line me-2"></i>
+                                            <span>Match ideale per: <strong>{aiMatches.nutrizione.find(p => p.id == selectedMatches.nutrition).match_reasons?.join(', ')}</strong></span>
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Coach Row */}
-                                <div className="mb-4">
-                                    <h6 className="d-flex align-items-center mb-2">
-                                        <i className="ri-run-line text-warning me-2"></i>Coach
-                                    </h6>
-                                    <Form.Select 
-                                        value={selectedMatches.coach} 
-                                        onChange={(e) => setSelectedMatches({...selectedMatches, coach: e.target.value})}
-                                        className="mb-2"
-                                    >
-                                        <option value="">Seleziona un coach...</option>
-                                        {aiMatches?.coach?.map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} (Match: {p.score}%) - {p.match_reasons?.join(', ')}
-                                            </option>
-                                        ))}
-                                        <option disabled>--- Altri ---</option>
-                                        {professionals.filter(p => !aiMatches?.coach?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'coach')).map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </Form.Select>
+                                {/* COACH SECTION */}
+                                <div className="p-4 rounded mb-4 shadow-sm" style={{ background: '#F0F9FF', border: '1px solid #487FFF' }}>
+                                    <div className="d-flex align-items-center justify-content-between mb-3">
+                                        <h6 className="fw-bold text-primary mb-0 d-flex align-items-center">
+                                            <i className="ri-run-line me-2 fs-4"></i>
+                                            COACH
+                                        </h6>
+                                    </div>
+                                    <Row className="g-3 align-items-end">
+                                        <Col md={9}>
+                                            <label className="small text-muted mb-1 fw-medium">Seleziona Professionista</label>
+                                            <Form.Select 
+                                                value={selectedMatches.coach} 
+                                                onChange={(e) => setSelectedMatches({...selectedMatches, coach: e.target.value})}
+                                                className="border-primary-subtle shadow-none"
+                                            >
+                                                <option value="">-- Scegli Coach --</option>
+                                                {aiMatches?.coach?.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.name} (Match: {p.score}%)
+                                                    </option>
+                                                ))}
+                                                <option disabled>──────────</option>
+                                                {professionals.filter(p => !aiMatches?.coach?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'coach')).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </Form.Select>
+                                        </Col>
+                                        <Col md={3}>
+                                            <Button 
+                                                variant="primary" 
+                                                className="w-100 fw-bold shadow-sm"
+                                                onClick={() => handleConfirmAssignment('coach')}
+                                                disabled={loading || !selectedMatches.coach}
+                                            >
+                                                <i className="ri-check-line me-1"></i>Assegna
+                                            </Button>
+                                        </Col>
+                                    </Row>
+                                    {selectedMatches.coach && aiMatches?.coach?.find(p => p.id == selectedMatches.coach) && (
+                                        <div className="mt-2 bg-white p-2 rounded small text-primary border border-primary-subtle d-flex align-items-center">
+                                            <i className="ri-sparkling-line me-2"></i>
+                                            <span>Match ideale per: <strong>{aiMatches.coach.find(p => p.id == selectedMatches.coach).match_reasons?.join(', ')}</strong></span>
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                {/* Psychology Row */}
-                                <div className="mb-4">
-                                    <h6 className="d-flex align-items-center mb-2">
-                                        <i className="ri-mental-health-line text-info me-2"></i>Psicologia
-                                    </h6>
-                                    <Form.Select 
-                                        value={selectedMatches.psychology} 
-                                        onChange={(e) => setSelectedMatches({...selectedMatches, psychology: e.target.value})}
-                                        className="mb-2"
-                                    >
-                                        <option value="">Seleziona uno psicologo...</option>
-                                        {aiMatches?.psicologia?.map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} (Match: {p.score}%) - {p.match_reasons?.join(', ')}
-                                            </option>
-                                        ))}
-                                        <option disabled>--- Altri ---</option>
-                                        {professionals.filter(p => !aiMatches?.psicologia?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'psicologia')).map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </Form.Select>
+
+                                {/* PSY SECTION */}
+                                <div className="p-4 rounded mb-0 shadow-sm" style={{ background: '#FFF7ED', border: '1px solid #F0AD4E' }}>
+                                    <div className="d-flex align-items-center justify-content-between mb-3">
+                                        <h6 className="fw-bold text-warning mb-0 d-flex align-items-center" style={{color: '#D97706 !important'}}>
+                                            <i className="ri-mental-health-line me-2 fs-4"></i>
+                                            PSICOLOGIA
+                                        </h6>
+                                    </div>
+                                    <Row className="g-3 align-items-end">
+                                        <Col md={9}>
+                                            <label className="small text-muted mb-1 fw-medium">Seleziona Professionista</label>
+                                            <Form.Select 
+                                                value={selectedMatches.psychology} 
+                                                onChange={(e) => setSelectedMatches({...selectedMatches, psychology: e.target.value})}
+                                                className="border-warning-subtle shadow-none"
+                                            >
+                                                <option value="">-- Scegli Psicologo --</option>
+                                                {aiMatches?.psicologia?.map(p => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.name} (Match: {p.score}%)
+                                                    </option>
+                                                ))}
+                                                <option disabled>──────────</option>
+                                                {professionals.filter(p => !aiMatches?.psicologia?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'psicologia')).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </Form.Select>
+                                        </Col>
+                                        <Col md={3}>
+                                            <Button 
+                                                variant="warning" 
+                                                className="w-100 fw-bold shadow-sm text-white"
+                                                onClick={() => handleConfirmAssignment('psychology')}
+                                                disabled={loading || !selectedMatches.psychology}
+                                            >
+                                                <i className="ri-check-line me-1"></i>Assegna
+                                            </Button>
+                                        </Col>
+                                    </Row>
+                                    {selectedMatches.psychology && aiMatches?.psicologia?.find(p => p.id == selectedMatches.psychology) && (
+                                        <div className="mt-2 bg-white p-2 rounded small text-warning border border-warning-subtle d-flex align-items-center">
+                                            <i className="ri-sparkling-line me-2"></i>
+                                            <span>Match ideale per: <strong>{aiMatches.psicologia.find(p => p.id == selectedMatches.psychology).match_reasons?.join(', ')}</strong></span>
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                <Form.Group className="mb-3">
-                                    <Form.Label>Note Assegnazione</Form.Label>
+
+                                <div className="mt-4 border-top pt-3">
+                                    <label className="form-label small fw-bold text-uppercase text-muted">Note Generali Assegnazione</label>
                                     <Form.Control 
                                         as="textarea" 
-                                        rows={3} 
-                                        placeholder="Aggiungi note per il team..."
+                                        rows={2} 
+                                        placeholder="Note opzionali per tutto il team..."
                                         value={assignmentNotes}
                                         onChange={(e) => setAssignmentNotes(e.target.value)}
+                                        className="shadow-none border-light-subtle bg-white"
+                                        style={{fontSize: '0.85rem'}}
                                     />
-                                </Form.Group>
+                                </div>
                             </Card.Body>
                         </Card>
                     </Col>
                 </Row>
-            ) : (
-                <div className="text-center py-5 text-danger">
-                    <i className="ri-error-warning-line fs-1"></i>
-                    <p>Impossibile completare l'analisi. Riprova più tardi.</p>
-                </div>
             )}
         </Modal.Body>
-        <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowAIModal(false)}>Annulla</Button>
-            <Button variant="success" onClick={handleConfirmAssignment} disabled={aiLoading || !aiAnalysis}>
-                <i className="ri-check-double-line me-1"></i>Conferma Assegnazione
-            </Button>
+        <Modal.Footer className="bg-white border-top">
+            <Button variant="secondary" onClick={() => setShowAIModal(false)} className="px-4">Chiudi</Button>
         </Modal.Footer>
       </Modal>
+
 
       {/* Existing Assignment Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)}>
