@@ -196,8 +196,10 @@ function AssegnazioniAI() {
   };
 
   const handleConfirmAssignment = async (role) => {
-    if (!selectedOpportunity?.assignment_id) {
-        alert("ID Assegnazione mancante. Impossibile procedere.");
+    // Possiamo procedere se abbiamo un assignment_id (cliente esistente)
+    // O se abbiamo un id (lead da GHLOpportunityData)
+    if (!selectedOpportunity?.assignment_id && !selectedOpportunity?.id) {
+        alert("ID Assegnazione o Lead mancante. Impossibile procedere.");
         return;
     }
 
@@ -220,6 +222,7 @@ function AssegnazioniAI() {
         setLoading(true);
         const payload = {
             assignment_id: selectedOpportunity.assignment_id,
+            opportunity_data_id: !selectedOpportunity.assignment_id ? selectedOpportunity.id : null,
             nutritionist_id,
             coach_id,
             psychologist_id,

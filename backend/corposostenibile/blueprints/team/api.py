@@ -20,7 +20,7 @@ from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, 
     team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory, 
-    ServiceClienteNote, Cliente
+    ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity
 )
 
 
@@ -845,13 +845,67 @@ def api_confirm_assignment():
     Output: { "success": true, "message": "Assegnazione confermata" }
     """
     data = request.get_json()
-    if not data or 'assignment_id' not in data:
-        return jsonify({'success': False, 'message': 'ID assegnazione mancante'}), 400
+    if not data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+        
+    assignment_id = data.get('assignment_id')
+    opportunity_data_id = data.get('opportunity_data_id')
+
+    if not assignment_id and not opportunity_data_id:
+        return jsonify({'success': False, 'message': 'ID assegnazione o ID Lead mancante'}), 400
         
     try:
-        assignment = ServiceClienteAssignment.query.get(data['assignment_id'])
+        assignment = None
+        
+        # Se abbiamo assignment_id, usiamolo direttamente
+        if assignment_id:
+            assignment = ServiceClienteAssignment.query.get(assignment_id)
+            
+        # Altrimenti, creiamo l'assegnazione da GHLOpportunityData
+        elif opportunity_data_id:
+            opp_data = GHLOpportunityData.query.get(opportunity_data_id)
+            if not opp_data:
+                return jsonify({'success': False, 'message': 'Lead non trovato'}), 404
+            
+            # Estrai email dal payload se possibile
+            payload = opp_data.raw_payload or {}
+            email = payload.get('email') or payload.get('contact', {}).get('email')
+            
+            if not email:
+                # Fallback email se non trovata nel payload
+                email = f"lead-{opp_data.id}@ghl-lead.com"
+                
+            # Verifica se esiste già un cliente con questa email
+            cliente = Cliente.query.filter_by(mail=email).first()
+            if not cliente:
+                cliente = Cliente(
+                    nome_cognome=opp_data.nome,
+                    mail=email,
+                    storia_cliente=opp_data.storia,
+                    programma_attuale=opp_data.pacchetto,
+                    acquisition_source='ghl_manual_ai',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(cliente)
+                db.session.flush()
+                
+            # Crea o trova assignment
+            assignment = ServiceClienteAssignment.query.filter_by(cliente_id=cliente.cliente_id).first()
+            if not assignment:
+                assignment = ServiceClienteAssignment(
+                    cliente_id=cliente.cliente_id,
+                    status='pending_assignment',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(assignment)
+                db.session.flush()
+            
+            # Segna lead come processato
+            opp_data.processed = True
+            db.session.add(opp_data)
+
         if not assignment:
-            return jsonify({'success': False, 'message': 'Assegnazione non trovata'}), 404
+            return jsonify({'success': False, 'message': 'Impossibile trovare o creare l\'assegnazione'}), 404
             
         cliente = assignment.cliente
         if not cliente:
