@@ -1433,11 +1433,48 @@ class User(UserMixin, TimestampMixin, db.Model):
             self.trial_stage += 1
             if self.trial_stage == 3:
                 # Diventa user ufficiale
+                self._migrate_trial_assignments()
                 self.is_trial = False
                 self.trial_promoted_at = datetime.utcnow()
             db.session.commit()
             return True
         return False
+    
+    def _migrate_trial_assignments(self):
+        """Migra le assegnazioni trial alle tabelle normali in base alla specialty."""
+        from corposostenibile.models import (
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi,
+            TipoProfessionistaEnum
+        )
+        
+        # Determina la tabella di destinazione in base alla specialty
+        table_map = {
+            TipoProfessionistaEnum.nutrizionista: cliente_nutrizionisti,
+            TipoProfessionistaEnum.coach: cliente_coaches,
+            TipoProfessionistaEnum.psicologa: cliente_psicologi,
+        }
+        
+        target_table = table_map.get(self.specialty)
+        if not target_table or not self.trial_assigned_clients:
+            return
+        
+        # Migra ogni assegnazione trial alla tabella normale
+        for assignment in self.trial_assigned_clients:
+            # Verifica che non esista già l'assegnazione normale
+            existing = db.session.execute(
+                db.select(target_table).where(
+                    target_table.c.cliente_id == assignment.cliente_id,
+                    target_table.c.user_id == self.id
+                )
+            ).first()
+            
+            if not existing:
+                # Inserisci nella tabella normale
+                stmt = target_table.insert().values(
+                    cliente_id=assignment.cliente_id,
+                    user_id=self.id
+                )
+                db.session.execute(stmt)
 
     # ────────────────────────── Flask-Login ────────────────────────────────
     def get_id(self) -> str:             # type: ignore[override]
