@@ -1416,11 +1416,47 @@ class User(UserMixin, TimestampMixin, db.Model):
             self.trial_stage += 1
             if self.trial_stage == 3:
                 # Diventa user ufficiale
+                self._migrate_trial_assignments()
                 self.is_trial = False
                 self.trial_promoted_at = datetime.utcnow()
             db.session.commit()
             return True
         return False
+
+    def _migrate_trial_assignments(self):
+        """Migra le assegnazioni trial alle tabelle normali in base alla specialty."""
+        from corposostenibile.models import (
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi,
+            TipoProfessionistaEnum
+        )
+        
+        # Mappa robusta delle specializzazioni agli attributi ORM (backrefs da Cliente)
+        target_attr = None
+        # Converti specialty in stringa per confonto sicuro
+        spec = str(self.specialty.value if hasattr(self.specialty, 'value') else self.specialty).lower()
+        
+        if spec in ['nutrizionista', 'nutrizione']:
+            target_attr = 'clienti_nutrizionista_multi'
+        elif spec == 'coach':
+            target_attr = 'clienti_coach_multi'
+        elif spec in ['psicologa', 'psicologo', 'psicologia']:
+            target_attr = 'clienti_psicologa_multi'
+        
+        if target_attr is None:
+            return
+            
+        # trial_assigned_clients è una lista (InstrumentedList) di oggetti Cliente
+        trial_clients = self.trial_assigned_clients
+        if not trial_clients:
+            return
+        
+        # Ottieni la lista ORM di destinazione (es. self.clienti_nutrizionista_multi)
+        target_list = getattr(self, target_attr)
+        
+        # Migra ogni cliente usando l'ORM
+        for cliente in trial_clients:
+            if cliente not in target_list:
+                target_list.append(cliente)
 
     # ────────────────────────── Flask-Login ────────────────────────────────
     def get_id(self) -> str:             # type: ignore[override]
