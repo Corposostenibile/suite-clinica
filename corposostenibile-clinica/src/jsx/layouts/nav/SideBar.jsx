@@ -86,6 +86,10 @@ const SideBar = () => {
                 if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
                   return false;
                 }
+                // Nascondi Assegnazioni per utenti professionisti
+                if (item.title === 'Assegnazioni' && user?.role === 'professionista' && !user?.is_admin) {
+                  return false;
+                }
                 return true;
               })
           ).map((data, index) => {

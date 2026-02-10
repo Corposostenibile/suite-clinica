@@ -60,6 +60,7 @@ import { GHLSettings, OriginSettings } from './pages/admin';
 
 // Components
 import AdminRoute from './components/AdminRoute';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 // Public pages (no auth required)
 import {
@@ -105,7 +106,11 @@ function App() {
             <Route path="/teams-modifica/:id" element={<TeamsAdd />} />
 
             {/* AI Assignments */}
-            <Route path="/assegnazioni-ai" element={<AssegnazioniAI />} />
+            <Route path="/assegnazioni-ai" element={
+              <RoleProtectedRoute deniedRoles={['professionista']}>
+                <AssegnazioniAI />
+              </RoleProtectedRoute>
+            } />
 
             {/* In Prova (Trial Users) */}
             <Route path="/in-prova" element={<TrialUsersList />} />
