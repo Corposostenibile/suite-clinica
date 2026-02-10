@@ -37,11 +37,11 @@ spec:
           timeoutSeconds: 20
         resources:
           requests:
-            cpu: "500m"
-            memory: "1Gi"
+            cpu: "2"
+            memory: "4Gi"
           limits:
-            cpu: "1000m"
-            memory: "2Gi"
+            cpu: "4"
+            memory: "8Gi"
         env:
         - name: FLASK_APP
           value: "corposostenibile"

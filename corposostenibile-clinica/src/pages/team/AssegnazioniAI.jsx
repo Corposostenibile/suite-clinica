@@ -28,6 +28,18 @@ const DEPT_LABELS = {
   24: 'Nutrizione 2'
 };
 
+const LEAD_STATUS_STYLES = {
+  unassigned: { label: 'Da assegnare', bg: 'secondary-subtle', text: 'secondary' },
+  partial: { label: 'Parziali', bg: 'warning-subtle', text: 'warning' },
+  complete: { label: 'Completate', bg: 'success-subtle', text: 'success' },
+};
+
+const ROLE_ANALYSIS_KEYS = {
+  nutrition: ['nutrition', 'nutrizione', 'nutrizionista'],
+  coach: ['coach'],
+  psychology: ['psychology', 'psicologia', 'psicologo', 'psicologa'],
+};
+
 function AssegnazioniAI() {
   // Stati Generali
   const [activeTab, setActiveTab] = useState('webhook-data');
@@ -46,6 +58,8 @@ function AssegnazioniAI() {
   const [loadingOpportunity, setLoadingOpportunity] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
+  const [leadFilter, setLeadFilter] = useState('all'); // all | unassigned | partial | complete | assigned
+  const [leadSearch, setLeadSearch] = useState('');
 
   // Stati Professionisti (Criteri)
   const [professionals, setProfessionals] = useState([]);
@@ -126,6 +140,34 @@ function AssegnazioniAI() {
     return false;
   };
 
+  const getLeadAssignmentFlags = (opp) => {
+    const assignments = opp?.assignments || {};
+    return {
+      nutrition: !!assignments.nutritionist_id,
+      coach: !!assignments.coach_id,
+      psychology: !!assignments.psychologist_id
+    };
+  };
+
+  const isLeadAssigned = (opp) => {
+    const flags = getLeadAssignmentFlags(opp);
+    return flags.nutrition || flags.coach || flags.psychology;
+  };
+
+  const isLeadFullyAssigned = (opp) => {
+    const flags = getLeadAssignmentFlags(opp);
+    return flags.nutrition && flags.coach && flags.psychology;
+  };
+
+  const getStoredAnalysisForRole = (existing, role) => {
+    if (!existing || !role) return null;
+    const keys = ROLE_ANALYSIS_KEYS[role] || [role];
+    const matchKey = keys.find((k) => existing[k]);
+    if (matchKey) return existing[matchKey];
+    if (existing.summary || existing.criteria) return existing; // legacy flat format
+    return null;
+  };
+
   const fetchProfessionalsAndSchema = async () => {
     setLoadingProfs(true);
     try {
@@ -194,17 +236,7 @@ function AssegnazioniAI() {
     let relevantAnalysis = null;
 
     if (existing) {
-        if (existing[role]) {
-            // New structure match
-            relevantAnalysis = existing[role];
-        } else if (existing.criteria && !existing.nutrition && !existing.coach && !existing.psychology) {
-            // Legacy structure (fallback) - treat as generic valid for all? 
-            // Better to re-analyze for specific role to be safe, unless we want to reuse generic.
-            // Let's reuse generic if present for now to save tokens, or maybe not?
-            // Client asked for SPECIFIC analysis. So let's ignore legacy generic analysis for specific flows 
-            // unless we want to migrate it. Let's force re-analysis for better quality.
-            /* ignore legacy */
-        }
+      relevantAnalysis = getStoredAnalysisForRole(existing, role);
     }
 
     if (relevantAnalysis) {
@@ -454,6 +486,41 @@ function AssegnazioniAI() {
     );
   };
 
+  const leadStats = useMemo(() => {
+    const total = opportunityData.length;
+    const withAssignments = opportunityData.filter(isLeadAssigned).length;
+    const fullyAssigned = opportunityData.filter(isLeadFullyAssigned).length;
+    const partialAssigned = Math.max(withAssignments - fullyAssigned, 0);
+    return { total, withAssignments, fullyAssigned, partialAssigned };
+  }, [opportunityData]);
+
+  const filteredLeads = useMemo(() => {
+    let rows = opportunityData;
+
+    if (leadSearch.trim()) {
+      const q = leadSearch.trim().toLowerCase();
+      rows = rows.filter((opp) => (
+        (opp.nome || '').toLowerCase().includes(q) ||
+        (opp.pacchetto || '').toLowerCase().includes(q) ||
+        (opp.storia || '').toLowerCase().includes(q)
+      ));
+    }
+
+    if (leadFilter === 'unassigned') rows = rows.filter((opp) => !isLeadAssigned(opp));
+    if (leadFilter === 'assigned') rows = rows.filter(isLeadAssigned);
+    if (leadFilter === 'partial') rows = rows.filter((opp) => isLeadAssigned(opp) && !isLeadFullyAssigned(opp));
+    if (leadFilter === 'complete') rows = rows.filter(isLeadFullyAssigned);
+
+    return rows;
+  }, [opportunityData, leadFilter, leadSearch]);
+
+  const hasStoredAnalysis = useMemo(() => {
+    if (!activeRoleFlow || !selectedOpportunity?.ai_analysis) return false;
+    const existing = selectedOpportunity.ai_analysis;
+    const stored = getStoredAnalysisForRole(existing, activeRoleFlow);
+    return !!(stored?.summary || stored?.criteria?.length);
+  }, [activeRoleFlow, selectedOpportunity]);
+
   return (
     <>
       <ToastContainer position="top-end" className="p-3" style={{ zIndex: 2000 }}>
@@ -494,57 +561,161 @@ function AssegnazioniAI() {
         
         {/* TAB 1: Lead da Assegnare (Webhook) */}
         <Tab eventKey="webhook-data" title={<><i className="ri-inbox-archive-line me-2"></i>Lead da Assegnare ({opportunityData.length})</>}>
-          <Card className="border-0 shadow-sm">
-             <Card.Body className="p-0">
-               {loadingOpportunity && opportunityData.length === 0 ? (
-                 <div className="text-center py-5">
-                   <Spinner animation="border" variant="primary" />
-                   <p className="text-muted mt-2">Caricamento lead...</p>
-                 </div>
-               ) : opportunityData.length === 0 ? (
-                 <div className="text-center py-5">
-                   <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{width: '80px', height: '80px'}}>
-                     <i className="ri-checkbox-circle-line text-muted" style={{fontSize: '36px'}}></i>
-                   </div>
-                   <h5 className="text-muted">Nessuna lead in attesa</h5>
-                   <p className="text-muted">I nuovi contatti da GHL appariranno qui.</p>
-                 </div>
-               ) : (
-                 <Table responsive hover className="mb-0">
-                   <thead className="bg-light">
-                     <tr>
-                       <th>Cliente</th>
-                       <th>Pacchetto/Info</th>
-                       <th>Ricevuto</th>
-                       <th className="text-end">Azioni</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {opportunityData.map((opp) => (
-                       <tr key={opp.id}>
-                         <td>
-                           <div className="fw-bold">{opp.nome}</div>
-                           {opp.storia && <small className="text-muted d-block text-truncate" style={{maxWidth: '300px'}}>{opp.storia}</small>}
-                         </td>
-                         <td>
-                           <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
-                           <span className="small text-muted">{opp.durata} gg</span>
-                         </td>
-                         <td><small>{formatDate(opp.received_at)}</small></td>
-                         <td className="text-end">
-                           <Button variant="outline-primary" size="sm" onClick={() => { setSelectedOpportunity(opp); setShowOpportunityModal(true); }}>
-                             <i className="ri-eye-line me-1"></i>Dettagli
-                           </Button>
-                           <Button variant="gradient-ai" size="sm" className="ms-2 shadow-sm" onClick={() => handleOpenAIModal(opp)}>
-                             <i className="ri-sparkling-fill me-1"></i>AI Match
-                           </Button>
-                         </td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </Table>
-               )}
-             </Card.Body>
+          <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-3">
+            <ButtonGroup>
+              <Button variant={leadFilter === 'all' ? 'primary' : 'outline-primary'} onClick={() => setLeadFilter('all')}>Tutte</Button>
+              <Button variant={leadFilter === 'unassigned' ? 'primary' : 'outline-primary'} onClick={() => setLeadFilter('unassigned')}>Da assegnare</Button>
+              <Button variant={leadFilter === 'assigned' ? 'primary' : 'outline-primary'} onClick={() => setLeadFilter('assigned')}>Con assegnazioni</Button>
+              <Button variant={leadFilter === 'partial' ? 'primary' : 'outline-primary'} onClick={() => setLeadFilter('partial')}>Parziali</Button>
+              <Button variant={leadFilter === 'complete' ? 'primary' : 'outline-primary'} onClick={() => setLeadFilter('complete')}>Completate</Button>
+            </ButtonGroup>
+
+            <Form.Control
+              type="search"
+              placeholder="Cerca lead, pacchetto o note..."
+              value={leadSearch}
+              onChange={(e) => setLeadSearch(e.target.value)}
+              style={{ maxWidth: '420px', width: '100%' }}
+            />
+          </div>
+
+          {opportunityData.length > 0 && (
+            <Row className="g-3 mb-3" data-tour="stats">
+              {[
+                { label: 'Lead Totali', value: leadStats.total, icon: 'ri-inbox-archive-line', bg: 'primary' },
+                { label: 'Con Assegnazioni', value: leadStats.withAssignments, icon: 'ri-user-follow-line', bg: 'success' },
+                { label: 'Parziali', value: leadStats.partialAssigned, icon: 'ri-alert-line', bg: 'warning' },
+                { label: 'Completate', value: leadStats.fullyAssigned, icon: 'ri-check-double-line', customBg: '#64748b' },
+              ].map((stat, idx) => (
+                <Col key={idx} md={3} sm={6}>
+                  <div
+                    className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
+                    style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
+                  >
+                    <div className="card-body py-3">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div>
+                          <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
+                          <span className="text-white opacity-75 small">{stat.label}</span>
+                        </div>
+                        <div
+                          className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                          style={{ width: '48px', height: '48px' }}
+                        >
+                          <i className={`${stat.icon} text-white fs-4`}></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          )}
+
+          <Card className="border-0 shadow-sm bg-white">
+            <Card.Body className="p-0">
+              {loadingOpportunity && opportunityData.length === 0 ? (
+                <div className="text-center py-5">
+                  <Spinner animation="border" variant="primary" />
+                  <p className="text-muted mt-2">Caricamento lead...</p>
+                </div>
+              ) : opportunityData.length === 0 ? (
+                <div className="text-center py-5">
+                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{width: '80px', height: '80px'}}>
+                    <i className="ri-checkbox-circle-line text-muted" style={{fontSize: '36px'}}></i>
+                  </div>
+                  <h5 className="text-muted">Nessuna lead in attesa</h5>
+                  <p className="text-muted">I nuovi contatti da GHL appariranno qui.</p>
+                </div>
+              ) : filteredLeads.length === 0 ? (
+                <div className="text-center py-5 text-muted">Nessuna lead trovata con i filtri attivi</div>
+              ) : (
+                (() => {
+                  const renderLeadTable = (rows) => (
+                    <Table responsive hover className="mb-0 bg-white">
+                      <thead className="bg-light">
+                        <tr>
+                          <th>Cliente</th>
+                          <th>Pacchetto/Info</th>
+                          <th>Assegnazioni</th>
+                          <th>Ricevuto</th>
+                          <th className="text-end">Azioni</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((opp) => {
+                          const flags = getLeadAssignmentFlags(opp);
+                          const assignedCount = Object.values(flags).filter(Boolean).length;
+                          const statusKey = assignedCount === 0 ? 'unassigned' : (assignedCount === 3 ? 'complete' : 'partial');
+                          const status = LEAD_STATUS_STYLES[statusKey];
+
+                          return (
+                            <tr key={opp.id}>
+                              <td>
+                                <div className="fw-bold">{opp.nome}</div>
+                                {opp.storia && <small className="text-muted d-block text-truncate" style={{maxWidth: '300px'}}>{opp.storia}</small>}
+                              </td>
+                              <td>
+                                <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
+                                <span className="small text-muted">{opp.durata} gg</span>
+                              </td>
+                              <td>
+                                <div className="d-flex align-items-center flex-wrap gap-2">
+                                  <div className="d-flex gap-1">
+                                    <Badge bg={flags.nutrition ? 'success' : 'light'} text={flags.nutrition ? 'white' : 'dark'} className="border" title="Nutrizione">N</Badge>
+                                    <Badge bg={flags.coach ? 'success' : 'light'} text={flags.coach ? 'white' : 'dark'} className="border" title="Coach">C</Badge>
+                                    <Badge bg={flags.psychology ? 'success' : 'light'} text={flags.psychology ? 'white' : 'dark'} className="border" title="Psicologia">P</Badge>
+                                  </div>
+                                  <Badge bg={status.bg} text={status.text} className="border">{status.label}</Badge>
+                                  <span className="small text-muted">{assignedCount}/3</span>
+                                </div>
+                              </td>
+                              <td><small>{formatDate(opp.received_at)}</small></td>
+                              <td className="text-end">
+                                <Button variant="outline-primary" size="sm" onClick={() => { setSelectedOpportunity(opp); setShowOpportunityModal(true); }}>
+                                  <i className="ri-eye-line me-1"></i>Dettagli
+                                </Button>
+                                <Button variant="gradient-ai" size="sm" className="ms-2 shadow-sm" onClick={() => handleOpenAIModal(opp)}>
+                                  <i className="ri-sparkling-fill me-1"></i>AI Match
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
+                  );
+
+                  if (leadFilter !== 'all') {
+                    return renderLeadTable(filteredLeads);
+                  }
+
+                  const groups = [
+                    { key: 'unassigned', title: LEAD_STATUS_STYLES.unassigned.label, badge: LEAD_STATUS_STYLES.unassigned, rows: filteredLeads.filter((opp) => !isLeadAssigned(opp)) },
+                    { key: 'partial', title: LEAD_STATUS_STYLES.partial.label, badge: LEAD_STATUS_STYLES.partial, rows: filteredLeads.filter((opp) => isLeadAssigned(opp) && !isLeadFullyAssigned(opp)) },
+                    { key: 'complete', title: LEAD_STATUS_STYLES.complete.label, badge: LEAD_STATUS_STYLES.complete, rows: filteredLeads.filter(isLeadFullyAssigned) },
+                  ].filter(group => group.rows.length > 0);
+
+                  return (
+                    <div className="p-3">
+                      {groups.map((group, index) => (
+                        <div key={group.key} className={index > 0 ? 'mt-4' : ''}>
+                          <div className="fw-semibold text-muted mb-2 d-flex align-items-center gap-2">
+                            <span>{group.title}</span>
+                            <Badge bg={group.badge.bg} text={group.badge.text} className="border">
+                              {group.rows.length}
+                            </Badge>
+                          </div>
+                          <div className="border rounded bg-white">
+                            {renderLeadTable(group.rows)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+            </Card.Body>
           </Card>
         </Tab>
 
@@ -927,6 +1098,15 @@ function AssegnazioniAI() {
                         <h5 className="fw-bold mb-2">Scegli il percorso di assegnazione</h5>
                         <p className="text-muted small">Seleziona il professionista da assegnare a <strong>{selectedOpportunity?.nome}</strong>.<br/>L'IA analizzerà il profilo specificamente per il ruolo richiesto.</p>
                     </div>
+                    {(() => {
+                      const analysisFor = (role) => getStoredAnalysisForRole(selectedOpportunity?.ai_analysis, role);
+                      const analysisBadge = (role) => (
+                        analysisFor(role) ? (
+                          <span className="badge bg-success-subtle text-success border rounded-pill px-2 py-1">Analisi pronta</span>
+                        ) : null
+                      );
+                      const analysisBtnLabel = (role) => (analysisFor(role) ? 'Usa Analisi' : 'Avvia Analisi');
+                      return (
                     <Row className="g-3 justify-content-center">
                         <Col md={4}>
                             <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('nutrition')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
@@ -935,7 +1115,10 @@ function AssegnazioniAI() {
                                 </div>
                                 <h6 className="fw-bold mb-2">Nutrizionista</h6>
                                 <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Abitudini alimentari, obiettivi di peso e preferenze dietetiche.</p>
-                                <Button variant="outline-success" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none" style={{fontSize: '0.85rem'}}>Avvia Analisi <i className="ri-arrow-right-s-line ms-1"></i></Button>
+                                {analysisBadge('nutrition')}
+                                <Button variant="outline-success" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none mt-2" style={{fontSize: '0.85rem'}}>
+                                  {analysisBtnLabel('nutrition')} <i className="ri-arrow-right-s-line ms-1"></i>
+                                </Button>
                             </Card>
                         </Col>
                         
@@ -946,7 +1129,10 @@ function AssegnazioniAI() {
                                 </div>
                                 <h6 className="fw-bold mb-2">Coach</h6>
                                 <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Livello fitness, obiettivi di allenamento e stile di vita.</p>
-                                <Button variant="outline-primary" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none" style={{fontSize: '0.85rem'}}>Avvia Analisi <i className="ri-arrow-right-s-line ms-1"></i></Button>
+                                {analysisBadge('coach')}
+                                <Button variant="outline-primary" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none mt-2" style={{fontSize: '0.85rem'}}>
+                                  {analysisBtnLabel('coach')} <i className="ri-arrow-right-s-line ms-1"></i>
+                                </Button>
                             </Card>
                         </Col>
                         
@@ -957,10 +1143,15 @@ function AssegnazioniAI() {
                                 </div>
                                 <h6 className="fw-bold mb-2">Psicologo</h6>
                                 <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Aspetti emotivi, relazione con il cibo e gestione stress.</p>
-                                <Button variant="outline-warning" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none text-dark" style={{fontSize: '0.85rem'}}>Avvia Analisi <i className="ri-arrow-right-s-line ms-1"></i></Button>
+                                {analysisBadge('psychology')}
+                                <Button variant="outline-warning" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none text-dark mt-2" style={{fontSize: '0.85rem'}}>
+                                  {analysisBtnLabel('psychology')} <i className="ri-arrow-right-s-line ms-1"></i>
+                                </Button>
                             </Card>
                         </Col>
                     </Row>
+                      );
+                    })()}
                 </div>
             ) : assignmentSuccess ? (
                 // SCHERMATA DI SUCCESSO
@@ -1042,6 +1233,22 @@ function AssegnazioniAI() {
                                                 <>
                                                     <Spinner animation="border" variant="success" className="mb-3" />
                                                     <p className="nm-0 text-muted small">Analisi in corso...</p>
+                                                </>
+                                            ) : hasStoredAnalysis ? (
+                                                <>
+                                                    <div className="bg-success-subtle rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style={{width: '64px', height: '64px'}}>
+                                                        <i className="ri-check-line text-success fs-3"></i>
+                                                    </div>
+                                                    <p className="small text-muted mb-3">Analisi già disponibile per questo ruolo.</p>
+                                                    <Button
+                                                        variant="outline-secondary"
+                                                        size="sm"
+                                                        className="w-100 rounded-pill"
+                                                        onClick={() => handleRunAIAnalysis()}
+                                                        disabled={aiLoading}
+                                                    >
+                                                        <i className="ri-refresh-line me-1"></i> Aggiorna Analisi
+                                                    </Button>
                                                 </>
                                             ) : (
                                                 <>
