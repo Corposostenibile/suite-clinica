@@ -2642,6 +2642,17 @@ def api_origins_delete(origin_id):
 @api_bp.route("/", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_list() -> Any:
+    """Get list of customers with trial user access control."""
+    # Trial user access check
+    if current_user.is_authenticated and current_user.is_trial:
+        if current_user.trial_stage < 2:
+            # Stage 1: No access to customers list
+            return jsonify({
+                "data": [],
+                "pagination": {"page": 1, "pages": 0, "total": 0},
+                "message": "Accesso clienti non disponibile in Stage 1"
+            })
+    
     params = parse_filter_args(request.args)
 
     # Filtro per Influencer: vincola all'origine assegnata
@@ -2652,6 +2663,9 @@ def api_list() -> Any:
             origine_ids = []
         params = replace(params, origine_ids=origine_ids)
 
+    # Apply trial user filter to query
+    from corposostenibile.blueprints.customers.trial_integration import apply_trial_user_filter
+    
     pagination = customers_repo.list(
         filters=params,
         order_by=request.args.get("order_by"),
@@ -2659,6 +2673,15 @@ def api_list() -> Any:
         per_page=request.args.get("per_page", 50, type=int),
         eager=True,
     )
+    
+    # Filter results for trial users (additional safety layer)
+    if current_user.is_authenticated and current_user.is_trial and current_user.trial_stage == 2:
+        # Stage 2: Only show assigned clients
+        assigned_ids = {c.cliente_id for c in current_user.trial_assigned_clients}
+        filtered_items = [item for item in pagination.items if item.cliente_id in assigned_ids]
+        pagination.items = filtered_items
+        pagination.total = len(filtered_items)
+    
     return jsonify(
         {
             "data": clienti_schema.dump(pagination.items),
@@ -2673,6 +2696,23 @@ def api_list() -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_detail(cliente_id: int) -> Any:
+    """Get customer detail with trial user access control."""
+    # Trial user access check
+    if current_user.is_authenticated and current_user.is_trial:
+        if current_user.trial_stage < 2:
+            # Stage 1: No access to any customer
+            return jsonify({
+                "error": "Accesso non autorizzato",
+                "message": "Non hai accesso ai clienti in Stage 1"
+            }), HTTPStatus.FORBIDDEN
+        elif current_user.trial_stage == 2:
+            # Stage 2: Only assigned clients
+            if not current_user.can_view_client(cliente_id):
+                return jsonify({
+                    "error": "Accesso non autorizzato",
+                    "message": "Puoi visualizzare solo i clienti assegnati a te"
+                }), HTTPStatus.FORBIDDEN
+    
     cliente = customers_repo.get_one(cliente_id, eager=True)
     return jsonify({"data": cliente_schema.dump(cliente)})
 
