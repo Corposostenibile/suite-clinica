@@ -774,33 +774,95 @@ def api_get_criteria_schema():
 def api_analyze_lead_story():
     """
     Analizza la storia del lead con l'AI per estrarre i criteri.
-    Input: { "story": "..." }
-    Output: { "success": true, "analysis": {"summary": "...", "criteria": [...], "suggested_focus": [...]} }
+    Supporta la persistenza se viene passato opportunity_id o assignment_id.
     """
     data = request.get_json()
-    if not data or 'story' not in data:
+    if not data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+        
+    story = data.get('story')
+    opportunity_id = data.get('opportunity_id')
+    assignment_id = data.get('assignment_id')
+    role = data.get('role') # 'nutrition', 'coach', 'psychology', or None (legacy)
+    force_refresh = data.get('force_refresh', False)
+
+    # 1. Tenta di recuperare dai dati già salvati (se non forzato)
+    existing_analysis = None
+    existing_obj = None # Store the object to update later
+    
+    if assignment_id:
+        existing_obj = ServiceClienteAssignment.query.get(assignment_id)
+        if existing_obj:
+            existing_analysis = existing_obj.ai_analysis
+    elif opportunity_id:
+        existing_obj = GHLOpportunityData.query.get(opportunity_id)
+        if existing_obj:
+            existing_analysis = existing_obj.ai_analysis
+
+    if not force_refresh and existing_analysis:
+        # Se è un formato nuovo (dizionario con chiavi ruolo)
+        if role and isinstance(existing_analysis, dict) and role in existing_analysis:
+             return jsonify({
+                'success': True,
+                'analysis': existing_analysis[role], # Restituisci solo la parte richiesta
+                'full_analysis': existing_analysis,
+                'cached': True
+            })
+        # Se non è specificato ruolo e abbiamo dati (comportamento legacy o full)
+        elif not role:
+             return jsonify({
+                'success': True,
+                'analysis': existing_analysis,
+                'cached': True
+            })
+
+    # 2. Se non abbiamo cache per il ruolo richiesto, procediamo con l'analisi AI
+    if not story:
         return jsonify({'success': False, 'message': 'Storia mancante'}), 400
         
-    story = data['story']
-    
     from .ai_matching_service import AIMatchingService
     try:
-        result = AIMatchingService.extract_lead_criteria(story)
+        # Passiamo il role al service
+        result = AIMatchingService.extract_lead_criteria(story, target_role=role)
         
-        # If result is just a list, wrap it in analysis object
-        if isinstance(result, list):
-            analysis = {
-                'summary': 'Analisi completata',
-                'criteria': result,
-                'suggested_focus': []
-            }
-        else:
-            # If it's already a dict, use it as is
-            analysis = result
+        # Formattazione risultato standardizzata dal service
+        analysis_part = result
+            
+        # 3. Salva nel database per persistenza (Merge con esistente)
+        if existing_obj:
+            current_data = dict(existing_obj.ai_analysis) if existing_obj.ai_analysis else {}
+            
+            if role:
+                # Aggiorna solo la chiave del ruolo
+                current_data[role] = analysis_part
+            else:
+                # Legacy/Full overwrite se non c'è ruolo
+                current_data = analysis_part
+
+            existing_obj.ai_analysis = current_data
+            
+            if assignment_id:
+                existing_obj.ai_suggested_at = datetime.utcnow()
+            elif opportunity_id:
+                existing_obj.ai_analyzed_at = datetime.utcnow()
+                
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'analysis': analysis_part
+            })
             
         return jsonify({
             'success': True,
-            'analysis': analysis
+            'analysis': analysis_part,
+            'warning': 'Not saved (no ID provided)'
+        })
+            
+        return jsonify({
+            'success': True,
+            'analysis': analysis,
+            'cached': False
         })
     except Exception as e:
         current_app.logger.error(f"Error analyzing lead: {e}")
@@ -912,6 +974,10 @@ def api_confirm_assignment():
             return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
             
         # Update assignment
+        if data.get('ai_analysis'):
+            assignment.ai_analysis = data.get('ai_analysis')
+            assignment.ai_suggested_at = datetime.utcnow()
+            
         if data.get('nutritionist_id'):
             assignment.nutrizionista_assigned_id = data.get('nutritionist_id')
             assignment.nutrizionista_assigned_at = datetime.utcnow()

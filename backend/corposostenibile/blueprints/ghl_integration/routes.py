@@ -451,6 +451,7 @@ def api_assignments():
         'nutrizionista_assigned': ass.nutrizionista_assigned_id is not None,
         'coach_assigned': ass.coach_assigned_id is not None,
         'psicologa_assigned': ass.psicologa_assigned_id is not None,
+        'ai_analysis': ass.ai_analysis,
         'created_at': ass.created_at.isoformat() if ass.created_at else None
     } for ass in assignments]
 
@@ -1188,7 +1189,8 @@ def api_get_opportunity_data_debug():
                 'durata': d.durata,
                 'received_at': d.received_at.isoformat() if d.received_at else None,
                 'ip_address': d.ip_address,
-                'processed': d.processed
+                'processed': d.processed,
+                'ai_analysis': d.ai_analysis
             } for d in data],
             'total': len(data)
         })
@@ -1215,9 +1217,10 @@ def api_get_opportunity_data_single(item_id):
                 'pacchetto': d.pacchetto,
                 'durata': d.durata,
                 'received_at': d.received_at.isoformat() if d.received_at else None,
+                'processed': d.processed,
+                'ai_analysis': d.ai_analysis,
                 'ip_address': d.ip_address,
-                'raw_payload': d.raw_payload,
-                'processed': d.processed
+                'raw_payload': d.raw_payload
             }
         })
     except Exception as e:

@@ -63,6 +63,7 @@ function AssegnazioniAI() {
   const [aiMatches, setAiMatches] = useState(null);
   const [selectedMatches, setSelectedMatches] = useState({ nutrition: '', coach: '', psychology: '' });
   const [assignmentNotes, setAssignmentNotes] = useState('');
+  const [activeRoleFlow, setActiveRoleFlow] = useState(null); // null, 'nutrition', 'coach', 'psychology'
 
   // --- FETCH DATA ---
 
@@ -152,46 +153,99 @@ function AssegnazioniAI() {
     setAiMatches(null);
     setAssignmentNotes('');
     setSelectedMatches({ nutrition: '', coach: '', psychology: '' });
+    setActiveRoleFlow(null); // Reset flow
     setShowAIModal(true);
   };
 
-  const handleRunAIAnalysis = async () => {
-    if (!selectedOpportunity?.storia) {
+  const handleSelectRoleFlow = (role) => {
+    setActiveRoleFlow(role);
+    setAiAnalysis(null);
+    setAiMatches(null);
+
+    // Check if we already have analysis for this role
+    const existing = selectedOpportunity?.ai_analysis;
+    // Handle both legacy (flat) and new (keyed) structure appropriately
+    // Legacy: existing has 'criteria' directly. New: existing[role] has 'criteria'.
+    
+    let relevantAnalysis = null;
+
+    if (existing) {
+        if (existing[role]) {
+            // New structure match
+            relevantAnalysis = existing[role];
+        } else if (existing.criteria && !existing.nutrition && !existing.coach && !existing.psychology) {
+            // Legacy structure (fallback) - treat as generic valid for all? 
+            // Better to re-analyze for specific role to be safe, unless we want to reuse generic.
+            // Let's reuse generic if present for now to save tokens, or maybe not?
+            // Client asked for SPECIFIC analysis. So let's ignore legacy generic analysis for specific flows 
+            // unless we want to migrate it. Let's force re-analysis for better quality.
+            /* ignore legacy */
+        }
+    }
+
+    if (relevantAnalysis) {
+        setAiAnalysis(relevantAnalysis);
+        handleRunMatching(relevantAnalysis.criteria);
+    } else {
+        handleRunAIAnalysis(selectedOpportunity, role);
+    }
+  };
+
+  const handleRunAIAnalysis = async (targetOpp = null, role = null) => {
+    const opp = targetOpp || selectedOpportunity;
+    const targetRole = role || activeRoleFlow;
+    
+    if (!opp?.storia) {
       alert("Nessuna storia disponibile per l'analisi AI.");
       return;
     }
     
     setAiLoading(true);
-    setAiAnalysis(null);
-    setAiMatches(null);
-
+    
     try {
       // 1. Analyze Lead
-      const resAnalyze = await api.post('/team/assignments/analyze-lead', { story: selectedOpportunity.storia });
+      const resAnalyze = await api.post('/team/assignments/analyze-lead', { 
+        story: opp.storia,
+        opportunity_id: opp.id,
+        assignment_id: opp.assignment_id,
+        role: targetRole
+      });
+      
       if (resAnalyze.data.success) {
-        setAiAnalysis(resAnalyze.data.analysis);
+        const analysis = resAnalyze.data.analysis;
+        setAiAnalysis(analysis);
+        
+        // Update local opportunity object with new analysis to avoid re-fetching immediately
+        // (Optional but good for UX)
         
         // 2. Match Professionals
-        const criteria = resAnalyze.data.analysis.criteria || [];
-        const resMatch = await api.post('/team/assignments/match', { criteria });
-        
-        if (resMatch.data.success) {
-            setAiMatches(resMatch.data.matches);
-            
-            // Pre-select first best match if available
-            const matches = resMatch.data.matches;
-            setSelectedMatches({
-                nutrition: matches.nutrizione?.[0]?.id || '',
-                coach: matches.coach?.[0]?.id || '',
-                psychology: matches.psicologia?.[0]?.id || ''
-            });
-        }
+        await handleRunMatching(analysis.criteria);
       }
     } catch (err) {
       console.error("Errore AI Analysis:", err);
       alert("Errore durante l'analisi AI. Controlla la console.");
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleRunMatching = async (criteria) => {
+    try {
+        const resMatch = await api.post('/team/assignments/match', { criteria });
+        
+        if (resMatch.data.success) {
+            const matches = resMatch.data.matches;
+            setAiMatches(matches);
+            
+            // Pre-select first best match if available
+            setSelectedMatches({
+                nutrition: matches.nutrizione?.[0]?.id || '',
+                coach: matches.coach?.[0]?.id || '',
+                psychology: matches.psicologia?.[0]?.id || ''
+            });
+        }
+    } catch (err) {
+        console.error("Errore Matching:", err);
     }
   };
 
@@ -202,12 +256,6 @@ function AssegnazioniAI() {
         alert("ID Assegnazione o Lead mancante. Impossibile procedere.");
         return;
     }
-
-    const roleToIdMap = {
-        'nutrition': selectedMatches.nutrition,
-        'coach': selectedMatches.coach,
-        'psychology': selectedMatches.psychology
-    };
 
     const nutritionist_id = role === 'nutrition' ? selectedMatches.nutrition : null;
     const coach_id = role === 'coach' ? selectedMatches.coach : null;
@@ -226,7 +274,8 @@ function AssegnazioniAI() {
             nutritionist_id,
             coach_id,
             psychologist_id,
-            notes: assignmentNotes
+            notes: assignmentNotes,
+            ai_analysis: aiAnalysis
         };
         
         const response = await api.post('/team/assignments/confirm', payload);
@@ -463,11 +512,11 @@ function AssegnazioniAI() {
                                         </td>
                                         <td>
                                             <div className="d-flex flex-wrap gap-1">
-                                                {Object.entries(prof.criteria || {}).filter(([_, v]) => v).slice(0, 5).map(([k, _]) => (
+                                                {Object.entries(prof.criteria || {}).filter(([, v]) => v).slice(0, 5).map(([k]) => (
                                                     <Badge bg="light" text="dark" className="border" key={k} style={{fontSize: '11px'}}>{k}</Badge>
                                                 ))}
-                                                {Object.entries(prof.criteria || {}).filter(([_, v]) => v).length > 5 && (
-                                                    <Badge bg="light" text="muted" className="border" style={{fontSize: '11px'}}>+{Object.entries(prof.criteria || {}).filter(([_, v]) => v).length - 5} altri</Badge>
+                                                {Object.entries(prof.criteria || {}).filter(([, v]) => v).length > 5 && (
+                                                    <Badge bg="light" text="muted" className="border" style={{fontSize: '11px'}}>+{Object.entries(prof.criteria || {}).filter(([, v]) => v).length - 5} altri</Badge>
                                                 )}
                                                 {Object.values(prof.criteria || {}).filter(v => v).length === 0 && <span className="text-muted small">-</span>}
                                             </div>
@@ -648,280 +697,377 @@ function AssegnazioniAI() {
       </Modal>
 
       {/* AI ASSIGNMENT MODAL */}
-      <Modal show={showAIModal} onHide={() => setShowAIModal(false)} size="xl">
-        <Modal.Header 
-            closeButton 
-            className="text-white border-0" 
-            style={{ background: 'linear-gradient(135deg, #45CB85 0%, #239957 100%)' }}
-        >
+      <Modal show={showAIModal} onHide={() => setShowAIModal(false)} size="xl" centered>
+        <Modal.Header closeButton className="border-bottom-0 bg-light">
             <Modal.Title className="d-flex align-items-center">
-                <i className="ri-sparkling-fill me-2"></i>
-                SuiteMind - Analisi e Assegnazione AI
+                <i className="ri-robot-2-line me-2 text-success"></i>
+                <span className="fw-bold">SuiteMind Assignment</span>
+                {activeRoleFlow && (
+                    <Badge bg="white" text="dark" className="ms-3 border shadow-sm fw-normal">
+                        {activeRoleFlow === 'nutrition' && 'Nutrizione'}
+                        {activeRoleFlow === 'coach' && 'Coaching'}
+                        {activeRoleFlow === 'psychology' && 'Psicologia'}
+                    </Badge>
+                )}
             </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="bg-light p-4">
-            {aiLoading && !aiAnalysis ? (
-                <div className="text-center py-5">
-                    <div className="mb-4">
-                       <img src="/static/assets/icone/suitemind.png" alt="SuiteMind" style={{height: '100px', width: 'auto'}} className="spin-slow" />
+        <Modal.Body className="bg-light p-0">
+            {!activeRoleFlow ? (
+                // SELEZIONE RUOLO
+                <div className="py-4 px-3 mx-auto" style={{ maxWidth: '900px' }}>
+                    <div className="text-center mb-4">
+                        <h5 className="fw-bold mb-2">Scegli il percorso di assegnazione</h5>
+                        <p className="text-muted small">Seleziona il professionista da assegnare a <strong>{selectedOpportunity?.nome}</strong>.<br/>L'IA analizzerà il profilo specificamente per il ruolo richiesto.</p>
                     </div>
-                    <h4 className="fw-bold">SuiteMind sta analizzando...</h4>
-                    <p className="text-muted">Sto leggendo la storia del cliente e verificando i match migliori.</p>
-                    <Spinner animation="border" variant="success" className="mt-3" />
+                    
+                    <Row className="g-3 justify-content-center">
+                        <Col md={4}>
+                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('nutrition')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
+                                <div className="mb-2 mx-auto bg-success-subtle rounded-circle d-flex align-items-center justify-content-center" style={{width: '60px', height: '60px'}}>
+                                    <i className="ri-restaurant-line fs-3 text-success"></i>
+                                </div>
+                                <h6 className="fw-bold mb-2">Nutrizionista</h6>
+                                <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Abitudini alimentari, obiettivi di peso e preferenze dietetiche.</p>
+                                <Button variant="outline-success" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none" style={{fontSize: '0.85rem'}}>Avvia Analisi <i className="ri-arrow-right-s-line ms-1"></i></Button>
+                            </Card>
+                        </Col>
+                        
+                        <Col md={4}>
+                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('coach')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
+                                <div className="mb-2 mx-auto bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center" style={{width: '60px', height: '60px'}}>
+                                    <i className="ri-run-line fs-3 text-primary"></i>
+                                </div>
+                                <h6 className="fw-bold mb-2">Coach</h6>
+                                <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Livello fitness, obiettivi di allenamento e stile di vita.</p>
+                                <Button variant="outline-primary" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none" style={{fontSize: '0.85rem'}}>Avvia Analisi <i className="ri-arrow-right-s-line ms-1"></i></Button>
+                            </Card>
+                        </Col>
+                        
+                        <Col md={4}>
+                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('psychology')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
+                                <div className="mb-2 mx-auto bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center" style={{width: '60px', height: '60px'}}>
+                                    <i className="ri-mental-health-line fs-3 text-warning" style={{color: '#d97706'}}></i>
+                                </div>
+                                <h6 className="fw-bold mb-2">Psicologo</h6>
+                                <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Aspetti emotivi, relazione con il cibo e gestione stress.</p>
+                                <Button variant="outline-warning" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none text-dark" style={{fontSize: '0.85rem'}}>Avvia Analisi <i className="ri-arrow-right-s-line ms-1"></i></Button>
+                            </Card>
+                        </Col>
+                    </Row>
                 </div>
             ) : (
-                <Row className="g-4">
-                    {/* LEFT: Analysis Result */}
-                    <Col lg={4}>
-                        <Card className="border-0 shadow-sm overflow-hidden">
-                            <Card.Header className="bg-white py-3 border-bottom d-flex align-items-center">
-                                <i className="ri-file-search-line fs-4 me-2 text-success"></i>
-                                <span className="fw-bold text-uppercase small">1. Storia e Analisi AI</span>
-                            </Card.Header>
-                            <Card.Body className="p-4" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-                                <div className="mb-4">
-                                    <h6 className="fw-bold text-muted small text-uppercase mb-2">Storia del Cliente</h6>
-                                    <div className="bg-white border rounded p-3" style={{ fontSize: '0.85rem', whiteSpace: 'pre-wrap', maxHeight: '250px', overflowY: 'auto' }}>
-                                        {selectedOpportunity?.storia || <em>Nessuna storia presente</em>}
-                                    </div>
-                                </div>
+                // FLUSSO ATTIVO (Analisi + Match)
+                <div className="d-flex flex-column" style={{ minHeight: '600px', maxHeight: '80vh' }}>
+                    <div className="px-4 py-2 bg-white border-bottom d-flex align-items-center sticky-top" style={{zIndex: 10}}>
+                        <Button variant="link" className="text-decoration-none text-muted p-0 me-3" onClick={() => setActiveRoleFlow(null)}>
+                            <i className="ri-arrow-left-line me-1"></i>Indietro
+                        </Button>
+                        <small className="text-muted">Analisi in corso per: <strong>{selectedOpportunity?.nome}</strong></small>
+                    </div>
 
-                                {!aiAnalysis ? (
-                                    <div className="text-center py-4 bg-white rounded border border-dashed">
-                                        <i className="ri-sparkling-line fs-1 text-success opacity-50 mb-2 d-block"></i>
-                                        <p className="small text-muted mb-3">L'AI non ha ancora analizzato questa lead.</p>
-                                        <Button 
-                                            variant="success" 
-                                            size="sm" 
-                                            onClick={handleRunAIAnalysis}
-                                            disabled={aiLoading}
-                                        >
-                                            {aiLoading ? <Spinner size="sm" className="me-1" /> : <i className="ri-play-fill me-1"></i>}
-                                            Avvia Analisi Smart
-                                        </Button>
+                    <div className="flex-grow-1 overflow-auto">
+                        <Row className="g-0 m-0">
+                            {/* LEFT: Analysis & Story */}
+                            <Col lg={4} className="border-end bg-white custom-scrollbar p-0">
+                                <div className="p-4">
+                                <Card className="border-0 shadow-sm mb-4">
+                                    <Card.Header className="bg-white py-3 border-bottom d-flex align-items-center">
+                                        <i className="ri-file-search-line fs-5 me-2 text-success"></i>
+                                        <span className="fw-bold text-uppercase small">Analisi AI</span>
+                                    </Card.Header>
+                                    <Card.Body className="p-4">
+                                    <div className="mb-4">
+                                        <h6 className="fw-bold text-muted small text-uppercase mb-2">Storia del Cliente</h6>
+                                        <div className="bg-light border rounded p-3 text-muted" style={{ fontSize: '0.85rem', whiteSpace: 'pre-wrap', maxHeight: '150px', overflowY: 'auto' }}>
+                                            {selectedOpportunity?.storia || <em>Nessuna storia presente</em>}
+                                        </div>
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className="mb-4 mt-3">
-                                            <h6 className="fw-bold text-success small text-uppercase">Sintesi SuiteMind</h6>
-                                            <p className="text-dark bg-white p-3 rounded border border-success-subtle" style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>
-                                                {aiAnalysis.summary}
-                                            </p>
+
+                                    {!aiAnalysis ? (
+                                        <div className="text-center py-5">
+                                            {aiLoading ? (
+                                                <>
+                                                    <Spinner animation="border" variant="success" className="mb-3" />
+                                                    <p className="nm-0 text-muted small">Analisi in corso...</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <i className="ri-sparkling-line fs-1 text-success opacity-50 mb-2 d-block"></i>
+                                                    <p className="small text-muted mb-3">Pronto per l'analisi</p>
+                                                    <Button 
+                                                        variant="success" 
+                                                        size="sm" 
+                                                        className="w-100 rounded-pill"
+                                                        onClick={() => handleRunAIAnalysis()}
+                                                        disabled={aiLoading}
+                                                    >
+                                                        Avvia Analisi
+                                                    </Button>
+                                                </>
+                                            )}
                                         </div>
-                                        
-                                        <div className="mb-4">
-                                            <h6 className="fw-bold text-success small text-uppercase mb-2">Match Criteria</h6>
-                                            <div className="d-flex flex-wrap gap-1">
-                                                {aiAnalysis.criteria?.map(tag => (
-                                                    <Badge bg="success-subtle" text="success" key={tag} className="border border-success-subtle py-2 px-3 rounded-pill" style={{fontSize: '0.75rem'}}>
-                                                        {tag}
-                                                    </Badge>
-                                                )) || <span className="text-muted small">Nessun criterio estratto</span>}
-                                            </div>
-                                        </div>
-                                        
-                                        <div>
-                                            <h6 className="fw-bold text-success small text-uppercase mb-2">Punti di Forza Match</h6>
-                                            {aiAnalysis.suggested_focus?.map((focus, i) => (
-                                                <div key={i} className="d-flex align-items-start mb-2 small text-muted">
-                                                    <i className="ri-arrow-right-s-line text-success me-1 mt-1"></i>
-                                                    <span>{focus}</span>
+                                    ) : (
+                                        <>
+                                            <div className="mb-4">
+                                                <h6 className="fw-bold text-success small text-uppercase">Sintesi</h6>
+                                                <div className="text-dark bg-white p-3 rounded border border-success-subtle shadow-sm" style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>
+                                                    {aiAnalysis.summary}
                                                 </div>
-                                            )) || <span className="text-muted small">Nessun suggerimento generato</span>}
-                                        </div>
+                                            </div>
+                                            
+                                            <div className="mb-4">
+                                                <h6 className="fw-bold text-success small text-uppercase mb-2">Match Criteria</h6>
+                                                <div className="d-flex flex-wrap gap-1">
+                                                    {(aiAnalysis.criteria && aiAnalysis.criteria.length > 0) ? (
+                                                        aiAnalysis.criteria.map(tag => (
+                                                            <Badge bg="success-subtle" text="success" key={tag} className="border border-success-subtle py-2 px-3 rounded-pill" style={{fontSize: '0.75rem'}}>
+                                                                {tag}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-muted small fst-italic">Nessun criterio specifico estratto</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            {aiAnalysis.suggested_focus && aiAnalysis.suggested_focus.length > 0 && (
+                                            <div>
+                                                <h6 className="fw-bold text-success small text-uppercase mb-2">Focus Suggerito</h6>
+                                                {aiAnalysis.suggested_focus.map((focus, i) => (
+                                                    <div key={i} className="d-flex align-items-start mb-2 small text-muted">
+                                                        <i className="ri-check-line text-success me-2 mt-1"></i>
+                                                        <span>{focus}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            )}
 
-                                        <div className="mt-4 pt-3 border-top">
-                                            <Button 
-                                                variant="outline-success" 
-                                                size="sm" 
-                                                className="w-100"
-                                                onClick={handleRunAIAnalysis}
-                                                disabled={aiLoading}
-                                            >
-                                                <i className="ri-refresh-line me-1"></i> Riprova Analisi
-                                            </Button>
-                                        </div>
-                                    </>
-                                )}
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    
-                    {/* RIGHT: Matching & Selection */}
-                    <Col lg={8}>
-                        <Card className="border-0 shadow-sm overflow-hidden">
-                            <Card.Header className="bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center">
-                                    <i className="ri-team-line fs-4 me-2 text-primary"></i>
-                                    <span className="fw-bold text-uppercase small">2. Assegnazione Professionisti</span>
+                                            <div className="mt-4 pt-3 border-top">
+                                                <Button 
+                                                    variant="outline-secondary" 
+                                                    size="sm" 
+                                                    className="w-100"
+                                                    onClick={() => handleRunAIAnalysis()}
+                                                    disabled={aiLoading}
+                                                >
+                                                    <i className="ri-refresh-line me-1"></i> Aggiorna Analisi
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+                                    </Card.Body>
+                                </Card>
                                 </div>
-                                {aiAnalysis && <Badge bg="success" className="px-3 py-2 rounded-pill shadow-sm">AI POWERED</Badge>}
-                            </Card.Header>
-                            <Card.Body className="p-4" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                            </Col>
+                            
+                            {/* RIGHT: Matching & Selection */}
+                            <Col lg={8} className="bg-light custom-scrollbar">
+                                <div className="p-4 overflow-auto">
+                                {/* Contextual Matching UI based on role */}
                                 
                                 {/* NUTRITION SECTION */}
-                                <div className="p-4 rounded mb-4 shadow-sm" style={{ background: '#F0FDF4', border: '1px solid #45CB85' }}>
-                                    <div className="d-flex align-items-center justify-content-between mb-3">
-                                        <h6 className="fw-bold text-success mb-0 d-flex align-items-center">
-                                            <i className="ri-restaurant-line me-2 fs-4"></i>
-                                            NUTRIZIONISTA
-                                        </h6>
+                                {(activeRoleFlow === 'nutrition') && (
+                                <div className="p-4 rounded mb-4 shadow-sm bg-white border border-success-subtle">
+                                    <div className="d-flex align-items-center justify-content-between mb-4">
+                                        <h5 className="fw-bold text-success mb-0 d-flex align-items-center">
+                                            <div className="bg-success-subtle rounded-circle p-2 me-3 d-flex align-items-center justify-content-center" style={{width: 40, height: 40}}>
+                                                <i className="ri-restaurant-line fs-5 text-success"></i>
+                                            </div>
+                                            Assegnazione Nutrizionista
+                                        </h5>
+                                        {aiAnalysis && <Badge bg="success" className="px-3 py-2 rounded-pill shadow-sm">AI MATCHED</Badge>}
                                     </div>
+
                                     <Row className="g-3 align-items-end">
-                                        <Col md={9}>
-                                            <label className="small text-muted mb-1 fw-medium">Seleziona Professionista</label>
+                                        <Col md={12} className="mb-3">
+                                            <label className="small text-muted mb-2 fw-bold text-uppercase">Professionista Consigliato</label>
                                             <Form.Select 
+                                                size="lg"
                                                 value={selectedMatches.nutrition} 
                                                 onChange={(e) => setSelectedMatches({...selectedMatches, nutrition: e.target.value})}
-                                                className="border-success-subtle shadow-none"
+                                                className="border-success shadow-sm form-select-lg"
                                             >
-                                                <option value="">-- Scegli Nutrizionista --</option>
+                                                <option value="">-- Seleziona un Nutrizionista --</option>
                                                 {aiMatches?.nutrizione?.map(p => (
                                                     <option key={p.id} value={p.id}>
                                                         {p.name} (Match: {p.score}%)
                                                     </option>
                                                 ))}
-                                                <option disabled>──────────</option>
+                                                {aiMatches?.nutrizione?.length > 0 && <option disabled>──────────</option>}
                                                 {professionals.filter(p => !aiMatches?.nutrizione?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'nutrizione')).map(p => (
                                                     <option key={p.id} value={p.id}>{p.name}</option>
                                                 ))}
                                             </Form.Select>
                                         </Col>
-                                        <Col md={3}>
-                                            <Button 
-                                                variant="success" 
-                                                className="w-100 fw-bold shadow-sm"
-                                                onClick={() => handleConfirmAssignment('nutrition')}
-                                                disabled={loading || !selectedMatches.nutrition}
-                                            >
-                                                <i className="ri-check-line me-1"></i>Assegna
-                                            </Button>
-                                        </Col>
                                     </Row>
-                                    {selectedMatches.nutrition && aiMatches?.nutrizione?.find(p => p.id == selectedMatches.nutrition) && (
-                                        <div className="mt-2 bg-white p-2 rounded small text-success border border-success-subtle d-flex align-items-center">
-                                            <i className="ri-sparkling-line me-2"></i>
-                                            <span>Match ideale per: <strong>{aiMatches.nutrizione.find(p => p.id == selectedMatches.nutrition).match_reasons?.join(', ')}</strong></span>
-                                        </div>
+
+                                    {selectedMatches.nutrition && (aiMatches?.nutrizione?.find(p => p.id == selectedMatches.nutrition)?.match_reasons?.length > 0) && (
+                                        <Alert variant="success" className="mt-3 border-0 bg-success-subtle text-success d-flex align-items-center">
+                                            <i className="ri-magic-line fs-4 me-3"></i>
+                                            <div>
+                                                <strong>Ottima scelta!</strong><br/>
+                                                <span className="small">Questo professionista è ideale per: {aiMatches.nutrizione.find(p => p.id == selectedMatches.nutrition).match_reasons?.join(', ')}</span>
+                                            </div>
+                                        </Alert>
                                     )}
+
+                                    <div className="mt-4 pt-3 border-top d-flex justify-content-end">
+                                        <Button 
+                                            variant="success" 
+                                            size="lg"
+                                            className="px-5 fw-bold shadow-sm rounded-pill"
+                                            onClick={() => handleConfirmAssignment('nutrition')}
+                                            disabled={loading || !selectedMatches.nutrition}
+                                        >
+                                            Conferma Assegnazione <i className="ri-arrow-right-line ms-2"></i>
+                                        </Button>
+                                    </div>
                                 </div>
+                                )}
 
                                 {/* COACH SECTION */}
-                                <div className="p-4 rounded mb-4 shadow-sm" style={{ background: '#F0F9FF', border: '1px solid #487FFF' }}>
-                                    <div className="d-flex align-items-center justify-content-between mb-3">
-                                        <h6 className="fw-bold text-primary mb-0 d-flex align-items-center">
-                                            <i className="ri-run-line me-2 fs-4"></i>
-                                            COACH
-                                        </h6>
+                                {(activeRoleFlow === 'coach') && (
+                                <div className="p-4 rounded mb-4 shadow-sm bg-white border border-primary-subtle">
+                                    <div className="d-flex align-items-center justify-content-between mb-4">
+                                        <h5 className="fw-bold text-primary mb-0 d-flex align-items-center">
+                                            <div className="bg-primary-subtle rounded-circle p-2 me-3 d-flex align-items-center justify-content-center" style={{width: 40, height: 40}}>
+                                                <i className="ri-run-line fs-5 text-primary"></i>
+                                            </div>
+                                            Assegnazione Coach
+                                        </h5>
+                                        {aiAnalysis && <Badge bg="primary" className="px-3 py-2 rounded-pill shadow-sm">AI MATCHED</Badge>}
                                     </div>
+
                                     <Row className="g-3 align-items-end">
-                                        <Col md={9}>
-                                            <label className="small text-muted mb-1 fw-medium">Seleziona Professionista</label>
+                                        <Col md={12} className="mb-3">
+                                            <label className="small text-muted mb-2 fw-bold text-uppercase">Professionista Consigliato</label>
                                             <Form.Select 
+                                                 size="lg"
                                                 value={selectedMatches.coach} 
                                                 onChange={(e) => setSelectedMatches({...selectedMatches, coach: e.target.value})}
-                                                className="border-primary-subtle shadow-none"
+                                                className="border-primary shadow-sm form-select-lg"
                                             >
-                                                <option value="">-- Scegli Coach --</option>
+                                                <option value="">-- Seleziona un Coach --</option>
                                                 {aiMatches?.coach?.map(p => (
                                                     <option key={p.id} value={p.id}>
                                                         {p.name} (Match: {p.score}%)
                                                     </option>
                                                 ))}
-                                                <option disabled>──────────</option>
+                                                {aiMatches?.coach?.length > 0 && <option disabled>──────────</option>}
                                                 {professionals.filter(p => !aiMatches?.coach?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'coach')).map(p => (
                                                     <option key={p.id} value={p.id}>{p.name}</option>
                                                 ))}
                                             </Form.Select>
                                         </Col>
-                                        <Col md={3}>
-                                            <Button 
-                                                variant="primary" 
-                                                className="w-100 fw-bold shadow-sm"
-                                                onClick={() => handleConfirmAssignment('coach')}
-                                                disabled={loading || !selectedMatches.coach}
-                                            >
-                                                <i className="ri-check-line me-1"></i>Assegna
-                                            </Button>
-                                        </Col>
                                     </Row>
-                                    {selectedMatches.coach && aiMatches?.coach?.find(p => p.id == selectedMatches.coach) && (
-                                        <div className="mt-2 bg-white p-2 rounded small text-primary border border-primary-subtle d-flex align-items-center">
-                                            <i className="ri-sparkling-line me-2"></i>
-                                            <span>Match ideale per: <strong>{aiMatches.coach.find(p => p.id == selectedMatches.coach).match_reasons?.join(', ')}</strong></span>
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* PSY SECTION */}
-                                <div className="p-4 rounded mb-0 shadow-sm" style={{ background: '#FFF7ED', border: '1px solid #F0AD4E' }}>
-                                    <div className="d-flex align-items-center justify-content-between mb-3">
-                                        <h6 className="fw-bold text-warning mb-0 d-flex align-items-center" style={{color: '#D97706 !important'}}>
-                                            <i className="ri-mental-health-line me-2 fs-4"></i>
-                                            PSICOLOGIA
-                                        </h6>
+                                    {selectedMatches.coach && (aiMatches?.coach?.find(p => p.id == selectedMatches.coach)?.match_reasons?.length > 0) && (
+                                        <Alert variant="primary" className="mt-3 border-0 bg-primary-subtle text-primary d-flex align-items-center">
+                                            <i className="ri-magic-line fs-4 me-3"></i>
+                                            <div>
+                                                <strong>Ottima scelta!</strong><br/>
+                                                <span className="small">Questo professionista è ideale per: {aiMatches.coach.find(p => p.id == selectedMatches.coach).match_reasons?.join(', ')}</span>
+                                            </div>
+                                        </Alert>
+                                    )}
+
+                                    <div className="mt-4 pt-3 border-top d-flex justify-content-end">
+                                        <Button 
+                                            variant="primary" 
+                                            size="lg"
+                                            className="px-5 fw-bold shadow-sm rounded-pill"
+                                            onClick={() => handleConfirmAssignment('coach')}
+                                            disabled={loading || !selectedMatches.coach}
+                                        >
+                                            Conferma Assegnazione <i className="ri-arrow-right-line ms-2"></i>
+                                        </Button>
                                     </div>
+                                </div>
+                                )}
+
+                                {/* PSYCHOLOGY SECTION */}
+                                {(activeRoleFlow === 'psychology') && (
+                                <div className="p-4 rounded mb-4 shadow-sm bg-white border border-warning-subtle">
+                                    <div className="d-flex align-items-center justify-content-between mb-4">
+                                        <h5 className="fw-bold text-warning mb-0 d-flex align-items-center" style={{color: '#d97706'}}>
+                                            <div className="bg-warning-subtle rounded-circle p-2 me-3 d-flex align-items-center justify-content-center" style={{width: 40, height: 40}}>
+                                                <i className="ri-mental-health-line fs-5 text-warning" style={{color: '#d97706'}}></i>
+                                            </div>
+                                            Assegnazione Psicologo
+                                        </h5>
+                                        {aiAnalysis && <Badge bg="warning" className="px-3 py-2 rounded-pill shadow-sm text-white">AI MATCHED</Badge>}
+                                    </div>
+
                                     <Row className="g-3 align-items-end">
-                                        <Col md={9}>
-                                            <label className="small text-muted mb-1 fw-medium">Seleziona Professionista</label>
+                                        <Col md={12} className="mb-3">
+                                            <label className="small text-muted mb-2 fw-bold text-uppercase">Professionista Consigliato</label>
                                             <Form.Select 
+                                                 size="lg"
                                                 value={selectedMatches.psychology} 
                                                 onChange={(e) => setSelectedMatches({...selectedMatches, psychology: e.target.value})}
-                                                className="border-warning-subtle shadow-none"
+                                                className="border-warning shadow-sm form-select-lg"
                                             >
-                                                <option value="">-- Scegli Psicologo --</option>
+                                                <option value="">-- Seleziona uno Psicologo --</option>
                                                 {aiMatches?.psicologia?.map(p => (
                                                     <option key={p.id} value={p.id}>
                                                         {p.name} (Match: {p.score}%)
                                                     </option>
                                                 ))}
-                                                <option disabled>──────────</option>
+                                                {aiMatches?.psicologia?.length > 0 && <option disabled>──────────</option>}
                                                 {professionals.filter(p => !aiMatches?.psicologia?.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === 'psicologia')).map(p => (
                                                     <option key={p.id} value={p.id}>{p.name}</option>
                                                 ))}
                                             </Form.Select>
                                         </Col>
-                                        <Col md={3}>
-                                            <Button 
-                                                variant="warning" 
-                                                className="w-100 fw-bold shadow-sm text-white"
-                                                onClick={() => handleConfirmAssignment('psychology')}
-                                                disabled={loading || !selectedMatches.psychology}
-                                            >
-                                                <i className="ri-check-line me-1"></i>Assegna
-                                            </Button>
-                                        </Col>
                                     </Row>
-                                    {selectedMatches.psychology && aiMatches?.psicologia?.find(p => p.id == selectedMatches.psychology) && (
-                                        <div className="mt-2 bg-white p-2 rounded small text-warning border border-warning-subtle d-flex align-items-center">
-                                            <i className="ri-sparkling-line me-2"></i>
-                                            <span>Match ideale per: <strong>{aiMatches.psicologia.find(p => p.id == selectedMatches.psychology).match_reasons?.join(', ')}</strong></span>
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className="mt-4 border-top pt-3">
+                                    {selectedMatches.psychology && (aiMatches?.psicologia?.find(p => p.id == selectedMatches.psychology)?.match_reasons?.length > 0) && (
+                                        <Alert variant="warning" className="mt-3 border-0 bg-warning-subtle text-warning d-flex align-items-center" style={{color: '#d97706'}}>
+                                            <i className="ri-magic-line fs-4 me-3"></i>
+                                            <div>
+                                                <strong>Ottima scelta!</strong><br/>
+                                                <span className="small">Questo professionista è ideale per: {aiMatches.psicologia.find(p => p.id == selectedMatches.psychology).match_reasons?.join(', ')}</span>
+                                            </div>
+                                        </Alert>
+                                    )}
+
+                                    <div className="mt-4 pt-3 border-top d-flex justify-content-end">
+                                        <Button 
+                                            variant="warning" 
+                                            size="lg"
+                                            className="px-5 fw-bold shadow-sm rounded-pill text-white"
+                                            onClick={() => handleConfirmAssignment('psychology')}
+                                            disabled={loading || !selectedMatches.psychology}
+                                        >
+                                            Conferma Assegnazione <i className="ri-arrow-right-line ms-2"></i>
+                                        </Button>
+                                    </div>
+                                </div>
+                                )}
+                                
+                                <div className="mt-4">
                                     <label className="form-label small fw-bold text-uppercase text-muted">Note Generali Assegnazione</label>
                                     <Form.Control 
                                         as="textarea" 
-                                        rows={2} 
-                                        placeholder="Note opzionali per tutto il team..."
+                                        rows={3} 
+                                        placeholder="Note opzionali visibili al professionista..."
                                         value={assignmentNotes}
                                         onChange={(e) => setAssignmentNotes(e.target.value)}
-                                        className="shadow-none border-light-subtle bg-white"
-                                        style={{fontSize: '0.85rem'}}
+                                        className="shadow-sm border-light-subtle bg-white rounded"
                                     />
                                 </div>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
+                                </div>
+                            </Col>
+                        </Row>
+                    </div>
+                </div>
             )}
         </Modal.Body>
         <Modal.Footer className="bg-white border-top">
             <Button variant="secondary" onClick={() => setShowAIModal(false)} className="px-4">Chiudi</Button>
         </Modal.Footer>
       </Modal>
+
 
 
       {/* Existing Assignment Modal */}

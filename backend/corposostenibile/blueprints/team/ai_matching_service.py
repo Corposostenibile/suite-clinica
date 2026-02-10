@@ -38,22 +38,38 @@ class AIMatchingService:
         return genai.Client(api_key=api_key)
 
     @classmethod
-    def extract_lead_criteria(cls, story: str) -> List[str]:
+    def extract_lead_criteria(cls, story: str, target_role: str = None) -> Dict[str, Any]:
         """
         Uses Gemini to extract criteria tags from the lead's story.
-        Returns a list of strings (tags found in the story).
+        If target_role is provided ('nutrition', 'coach', 'psychology'), 
+        analyzes specifically for that domain.
         """
         if not story:
-            return []
+            return {}
 
         client = cls._get_client()
         schema = CriteriaService.get_schema()
         
-        # Flatten schema to a set of unique labels for the prompt
-        all_criteria = set()
-        for valid_list in schema.values():
-            all_criteria.update(valid_list)
-        all_criteria_list = sorted(list(all_criteria))
+        # Determine valid criteria subset
+        allowed_criteria = set()
+        role_prompt_context = ""
+        
+        if target_role == 'nutrition':
+            allowed_criteria.update(schema.get('nutrizione', []))
+            role_prompt_context = "Focalizzati esclusivamente sugli aspetti nutrizionali, abitudini alimentari e obiettivi di peso."
+        elif target_role == 'coach':
+            allowed_criteria.update(schema.get('coach', []))
+            role_prompt_context = "Focalizzati esclusivamente sugli obiettivi di allenamento, fitness, stile di vita e motivazione."
+        elif target_role == 'psychology':
+            allowed_criteria.update(schema.get('psicologia', []))
+            role_prompt_context = "Focalizzati esclusivamente sugli aspetti psicologici, emotivi, stress e relazione con il cibo."
+        else:
+            # Fallback (legacy or full): include all
+            for valid_list in schema.values():
+                allowed_criteria.update(valid_list)
+            role_prompt_context = "Fornisci un'analisi generale del profilo."
+
+        all_criteria_list = sorted(list(allowed_criteria))
 
         # Mock response if no client or key
         if not client:
@@ -64,20 +80,28 @@ class AIMatchingService:
             for tag in all_criteria_list:
                 if tag.lower() in story_lower:
                     found.append(tag)
-            return found
+            
+            return {
+                'summary': f"Analisi mock ({target_role or 'generale'})",
+                'criteria': found,
+                'suggested_focus': ['Mock focus 1', 'Mock focus 2']
+            }
 
         try:
             # Construct Prompt
             prompt = f"""
-            Analizza la seguente storia di un cliente per un servizio di nutrizione e benessere:
+            Analizza la seguente storia di un cliente per un servizio di nutrizione e benessere.
+            {role_prompt_context}
+            
+            Storia Cliente:
             "{story}"
             
             Estrai le seguenti informazioni in formato JSON:
-            1. "summary": Una breve sintesi (2-3 frasi) del profilo e delle necessità principali.
+            1. "summary": Una breve sintesi (2-3 frasi) del profilo focalizzata sul dominio richiesto.
             2. "criteria": Una lista di tag selezionati ESCLUSIVAMENTE da questo set di criteri validi: {json.dumps(all_criteria_list)}.
-            3. "suggested_focus": Una lista di 2-3 punti chiave su cui il team dovrebbe concentrarsi.
+            3. "suggested_focus": Una lista di 2-3 punti chiave su cui il professionista ({target_role or 'team'}) dovrebbe concentrarsi.
 
-            Formatta la risposta come un oggetto JSON valido.
+            Formatta la risposta come un oggetto JSON valido con chiavi: "summary", "criteria", "suggested_focus".
             """
             
             # Call Gemini
@@ -95,14 +119,12 @@ class AIMatchingService:
                 try:
                     analysis = json.loads(response.text)
                     # Verify criteria are valid
-                    if 'criteria' in analysis:
-                        analysis['criteria'] = [tag for tag in analysis['criteria'] if tag in all_criteria]
-                    else:
-                        analysis['criteria'] = []
+                    extracted = analysis.get('criteria', [])
+                    valid_extracted = [tag for tag in extracted if tag in allowed_criteria]
                     
                     return {
                         'summary': analysis.get('summary', 'Sintesi non disponibile'),
-                        'criteria': analysis.get('criteria', []),
+                        'criteria': valid_extracted,
                         'suggested_focus': analysis.get('suggested_focus', [])
                     }
                 except json.JSONDecodeError:
@@ -113,7 +135,7 @@ class AIMatchingService:
 
         except Exception as e:
             logger.error(f"Error calling Gemini: {e}")
-            return []
+            return {'summary': 'Errore sistemico', 'criteria': [], 'suggested_focus': []}
 
     @classmethod
     def match_professionals(cls, criteria_list: List[str]) -> Dict[str, List[Dict[str, Any]]]:
