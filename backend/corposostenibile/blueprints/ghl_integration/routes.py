@@ -1172,6 +1172,32 @@ def api_get_opportunity_data():
 
 
 # DEBUG ENDPOINT - Pubblico per test (rimuovere in produzione)
+def _get_current_assignments_for_opp(opp_data):
+    """Recupera le assegnazioni correnti per un'opportunità GHL."""
+    from corposostenibile.models import Cliente, ServiceClienteAssignment
+    
+    # Trova email nel payload
+    payload = opp_data.raw_payload or {}
+    email = payload.get('email') or payload.get('contact', {}).get('email')
+    
+    if not email:
+        return {}
+        
+    cliente = Cliente.query.filter_by(mail=email).first()
+    if not cliente:
+        return {}
+        
+    assignment = ServiceClienteAssignment.query.filter_by(cliente_id=cliente.cliente_id).first()
+    if not assignment:
+        return {}
+        
+    return {
+        'nutritionist_id': assignment.nutrizionista_assigned_id,
+        'coach_id': assignment.coach_assigned_id,
+        'psychologist_id': assignment.psicologa_assigned_id
+    }
+
+
 @bp.route('/api/opportunity-data-debug', methods=['GET'])
 def api_get_opportunity_data_debug():
     """DEBUG: Recupera dati senza autenticazione."""
@@ -1190,7 +1216,8 @@ def api_get_opportunity_data_debug():
                 'received_at': d.received_at.isoformat() if d.received_at else None,
                 'ip_address': d.ip_address,
                 'processed': d.processed,
-                'ai_analysis': d.ai_analysis
+                'ai_analysis': d.ai_analysis,
+                'assignments': _get_current_assignments_for_opp(d)
             } for d in data],
             'total': len(data)
         })
@@ -1220,7 +1247,8 @@ def api_get_opportunity_data_single(item_id):
                 'processed': d.processed,
                 'ai_analysis': d.ai_analysis,
                 'ip_address': d.ip_address,
-                'raw_payload': d.raw_payload
+                'raw_payload': d.raw_payload,
+                'assignments': _get_current_assignments_for_opp(d)
             }
         })
     except Exception as e:

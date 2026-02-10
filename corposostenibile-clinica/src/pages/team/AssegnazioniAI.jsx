@@ -64,6 +64,9 @@ function AssegnazioniAI() {
   const [selectedMatches, setSelectedMatches] = useState({ nutrition: '', coach: '', psychology: '' });
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [activeRoleFlow, setActiveRoleFlow] = useState(null); // null, 'nutrition', 'coach', 'psychology'
+  const [assignmentSuccess, setAssignmentSuccess] = useState(false);
+  const [lastAssignedProf, setLastAssignedProf] = useState(null);
+  const [hasNewInteraction, setHasNewInteraction] = useState(false);
 
   // --- FETCH DATA ---
 
@@ -98,12 +101,25 @@ function AssegnazioniAI() {
       const result = await ghlService.getOpportunityData();
       if (result.success) {
         setOpportunityData(result.data || []);
+        return result.data || [];
       }
     } catch (err) {
       console.error('Errore opportunity data:', err);
     } finally {
       setLoadingOpportunity(false);
     }
+    return null;
+  };
+
+  const isAlreadyAssigned = (role) => {
+    const saved = selectedOpportunity?.assignments;
+    if (!saved) return false;
+    
+    if (role === 'nutrition') return selectedMatches.nutrition == saved.nutritionist_id;
+    if (role === 'coach') return selectedMatches.coach == saved.coach_id;
+    if (role === 'psychology') return selectedMatches.psychology == saved.psychologist_id;
+    
+    return false;
   };
 
   const fetchProfessionalsAndSchema = async () => {
@@ -154,6 +170,9 @@ function AssegnazioniAI() {
     setAssignmentNotes('');
     setSelectedMatches({ nutrition: '', coach: '', psychology: '' });
     setActiveRoleFlow(null); // Reset flow
+    setAssignmentSuccess(false);
+    setLastAssignedProf(null);
+    setHasNewInteraction(false);
     setShowAIModal(true);
   };
 
@@ -161,6 +180,7 @@ function AssegnazioniAI() {
     setActiveRoleFlow(role);
     setAiAnalysis(null);
     setAiMatches(null);
+    setHasNewInteraction(false);
 
     // Check if we already have analysis for this role
     const existing = selectedOpportunity?.ai_analysis;
@@ -220,6 +240,7 @@ function AssegnazioniAI() {
         
         // 2. Match Professionals
         await handleRunMatching(analysis.criteria);
+        setHasNewInteraction(true);
       }
     } catch (err) {
       console.error("Errore AI Analysis:", err);
@@ -280,11 +301,19 @@ function AssegnazioniAI() {
         
         const response = await api.post('/team/assignments/confirm', payload);
         if (response.data.success) {
-            // Update the local assignment status if possible or just refresh
-            fetchOpportunityData(); // Refresh list to see if it's still pending
-            alert("Professionista assegnato con successo!");
+            // Success visual feedback
+            const profId = role === 'nutrition' ? selectedMatches.nutrition : (role === 'coach' ? selectedMatches.coach : selectedMatches.psychology);
+            const prof = professionals.find(p => p.id == profId);
+            setLastAssignedProf(prof);
+            setAssignmentSuccess(true);
+            setHasNewInteraction(false);
             
-            // If all 3 are assigned, we could close the modal, but usually HM does it one by one
+            // Refetch data and update selected opportunity to reflect new state
+            const refreshed = await fetchOpportunityData();
+            if (refreshed && Array.isArray(refreshed)) {
+              const updated = refreshed.find(o => o.id === selectedOpportunity.id);
+              if (updated) setSelectedOpportunity(updated);
+            }
         }
     } catch (err) {
         console.error("Errore conferma:", err);
@@ -440,8 +469,8 @@ function AssegnazioniAI() {
                            <Button variant="outline-primary" size="sm" onClick={() => { setSelectedOpportunity(opp); setShowOpportunityModal(true); }}>
                              <i className="ri-eye-line me-1"></i>Dettagli
                            </Button>
-                           <Button variant="gradient-primary" size="sm" className="ms-2" onClick={() => handleOpenAIModal(opp)}>
-                             <i className="ri-magic-line me-1"></i>AI Match
+                           <Button variant="gradient-ai" size="sm" className="ms-2 shadow-sm" onClick={() => handleOpenAIModal(opp)}>
+                             <i className="ri-sparkling-fill me-1"></i>AI Match
                            </Button>
                          </td>
                        </tr>
@@ -719,7 +748,6 @@ function AssegnazioniAI() {
                         <h5 className="fw-bold mb-2">Scegli il percorso di assegnazione</h5>
                         <p className="text-muted small">Seleziona il professionista da assegnare a <strong>{selectedOpportunity?.nome}</strong>.<br/>L'IA analizzerà il profilo specificamente per il ruolo richiesto.</p>
                     </div>
-                    
                     <Row className="g-3 justify-content-center">
                         <Col md={4}>
                             <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('nutrition')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
@@ -754,6 +782,52 @@ function AssegnazioniAI() {
                             </Card>
                         </Col>
                     </Row>
+                </div>
+            ) : assignmentSuccess ? (
+                // SCHERMATA DI SUCCESSO
+                <div className="py-5 px-4 text-center d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '500px' }}>
+                    <div className="success-checkmark mb-4">
+                        <div className="check-icon bg-success text-white rounded-circle d-flex align-items-center justify-content-center shadow-lg" style={{ width: '100px', height: '100px' }}>
+                            <i className="ri-checkbox-circle-fill" style={{ fontSize: '60px' }}></i>
+                        </div>
+                    </div>
+                    
+                    <h2 className="fw-bold mb-2">Assegnazione Completata!</h2>
+                    <p className="text-muted fs-5 mb-4">Hai assegnato correttamente <strong>{lastAssignedProf?.name}</strong> a <strong>{selectedOpportunity?.nome}</strong>.</p>
+                    
+                    <div className="bg-white p-3 rounded border shadow-sm mb-5 d-flex align-items-center" style={{ minWidth: '300px' }}>
+                        <div className="bg-success-subtle p-2 rounded-circle me-3">
+                            <i className="ri-user-follow-line text-success fs-4"></i>
+                        </div>
+                        <div className="text-start">
+                            <div className="small text-muted text-uppercase fw-bold">Ruolo</div>
+                            <div className="fw-bold fs-6">
+                                {activeRoleFlow === 'nutrition' && 'Nutrizionista'}
+                                {activeRoleFlow === 'coach' && 'Coach'}
+                                {activeRoleFlow === 'psychology' && 'Psicologo'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="d-flex gap-3">
+                        <Button 
+                            variant="outline-secondary" 
+                            className="px-4 rounded-pill"
+                            onClick={() => {
+                                setAssignmentSuccess(false);
+                                setActiveRoleFlow(null);
+                            }}
+                        >
+                            Torna ai Ruoli
+                        </Button>
+                        <Button 
+                            variant="success" 
+                            className="px-5 rounded-pill shadow-sm fw-bold"
+                            onClick={() => setShowAIModal(false)}
+                        >
+                            Chiudi Gestione
+                        </Button>
+                    </div>
                 </div>
             ) : (
                 // FLUSSO ATTIVO (Analisi + Match)
@@ -884,7 +958,10 @@ function AssegnazioniAI() {
                                             <Form.Select 
                                                 size="lg"
                                                 value={selectedMatches.nutrition} 
-                                                onChange={(e) => setSelectedMatches({...selectedMatches, nutrition: e.target.value})}
+                                                onChange={(e) => {
+                                                    setSelectedMatches({...selectedMatches, nutrition: e.target.value});
+                                                    setHasNewInteraction(true);
+                                                }}
                                                 className="border-success shadow-sm form-select-lg"
                                             >
                                                 <option value="">-- Seleziona un Nutrizionista --</option>
@@ -917,8 +994,9 @@ function AssegnazioniAI() {
                                             size="lg"
                                             className="px-5 fw-bold shadow-sm rounded-pill"
                                             onClick={() => handleConfirmAssignment('nutrition')}
-                                            disabled={loading || !selectedMatches.nutrition}
+                                            disabled={loading || !selectedMatches.nutrition || (!hasNewInteraction && isAlreadyAssigned('nutrition'))}
                                         >
+                                            {loading && <Spinner size="sm" animation="border" className="me-2" />}
                                             Conferma Assegnazione <i className="ri-arrow-right-line ms-2"></i>
                                         </Button>
                                     </div>
@@ -944,7 +1022,10 @@ function AssegnazioniAI() {
                                             <Form.Select 
                                                  size="lg"
                                                 value={selectedMatches.coach} 
-                                                onChange={(e) => setSelectedMatches({...selectedMatches, coach: e.target.value})}
+                                                onChange={(e) => {
+                                                    setSelectedMatches({...selectedMatches, coach: e.target.value});
+                                                    setHasNewInteraction(true);
+                                                }}
                                                 className="border-primary shadow-sm form-select-lg"
                                             >
                                                 <option value="">-- Seleziona un Coach --</option>
@@ -973,12 +1054,13 @@ function AssegnazioniAI() {
 
                                     <div className="mt-4 pt-3 border-top d-flex justify-content-end">
                                         <Button 
-                                            variant="primary" 
+                                            variant="success" 
                                             size="lg"
                                             className="px-5 fw-bold shadow-sm rounded-pill"
                                             onClick={() => handleConfirmAssignment('coach')}
-                                            disabled={loading || !selectedMatches.coach}
+                                            disabled={loading || !selectedMatches.coach || (!hasNewInteraction && isAlreadyAssigned('coach'))}
                                         >
+                                            {loading && <Spinner size="sm" animation="border" className="me-2" />}
                                             Conferma Assegnazione <i className="ri-arrow-right-line ms-2"></i>
                                         </Button>
                                     </div>
@@ -1004,7 +1086,10 @@ function AssegnazioniAI() {
                                             <Form.Select 
                                                  size="lg"
                                                 value={selectedMatches.psychology} 
-                                                onChange={(e) => setSelectedMatches({...selectedMatches, psychology: e.target.value})}
+                                                onChange={(e) => {
+                                                    setSelectedMatches({...selectedMatches, psychology: e.target.value});
+                                                    setHasNewInteraction(true);
+                                                }}
                                                 className="border-warning shadow-sm form-select-lg"
                                             >
                                                 <option value="">-- Seleziona uno Psicologo --</option>
@@ -1033,12 +1118,13 @@ function AssegnazioniAI() {
 
                                     <div className="mt-4 pt-3 border-top d-flex justify-content-end">
                                         <Button 
-                                            variant="warning" 
+                                            variant="success" 
                                             size="lg"
                                             className="px-5 fw-bold shadow-sm rounded-pill text-white"
                                             onClick={() => handleConfirmAssignment('psychology')}
-                                            disabled={loading || !selectedMatches.psychology}
+                                            disabled={loading || !selectedMatches.psychology || (!hasNewInteraction && isAlreadyAssigned('psychology'))}
                                         >
+                                            {loading && <Spinner size="sm" animation="border" className="me-2" />}
                                             Conferma Assegnazione <i className="ri-arrow-right-line ms-2"></i>
                                         </Button>
                                     </div>
@@ -1105,6 +1191,26 @@ function AssegnazioniAI() {
       <style>{`
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .btn-gradient-ai {
+            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+            border: none;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-gradient-ai:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            color: white;
+        }
+
+        .success-checkmark {
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
       `}</style>
     </>
   );
