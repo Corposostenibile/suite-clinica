@@ -254,6 +254,9 @@ def _user_to_dict(user: User) -> dict:
         "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
         "specialty": user.specialty.value if hasattr(user, 'specialty') and user.specialty else None,
         "avatar_path": user.avatar_path,
+        "is_trial": user.is_trial if hasattr(user, 'is_trial') else False,
+        "trial_stage": user.trial_stage if hasattr(user, 'trial_stage') else None,
+        "trial_supervisor_id": user.trial_supervisor_id if hasattr(user, 'trial_supervisor_id') else None,
     }
 
 
