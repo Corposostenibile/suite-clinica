@@ -27,6 +27,10 @@ const SideBar = () => {
 
   const { user } = useAuth();
 
+  // DEBUG: Verifica contenuto user
+  console.log('🔍 SideBar - User object:', user);
+  console.log('🔍 is_trial:', user?.is_trial, 'trial_stage:', user?.trial_stage);
+
   const [state, setState] = useReducer(reducer, initialState);
   const handleMenuActive = status => {
     setState({ active: status });
@@ -79,10 +83,27 @@ const SideBar = () => {
 
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
-          {(user?.role === 'influencer' 
+          {(user?.role === 'influencer'
             ? MenuList.filter(item => ['Pazienti', 'Profilo', 'CLIENTI', 'TEAM'].includes(item.title))
-            : MenuList.filter(item => {
-                // Nascondi Quality per utenti non admin
+            : user?.is_trial
+              ? MenuList.filter(item => {
+                // Trial users - filtra per stage
+                if (user.trial_stage === 1) {
+                  // Stage 1: Solo Dashboard e Formazione
+                  return ['Dashboard', 'Formazione', 'MAIN MENU'].includes(item.title);
+                } else if (user.trial_stage === 2) {
+                  // Stage 2: Dashboard, Formazione + Pazienti
+                  return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
+                } else {
+                  // Stage 3+ (già promosso): menu completo
+                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
+                    return false;
+                  }
+                  return true;
+                }
+              })
+              : MenuList.filter(item => {
+                // Utenti normali: nascondi Quality per non-admin
                 if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
                   return false;
                 }
