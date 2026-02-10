@@ -667,7 +667,9 @@ def api_get_professionals_criteria():
         'psicologo', 'psicologia'      # Psicologia
     ]
     
-    professionals = User.query.filter(
+    professionals = User.query.options(
+        selectinload(User.teams)
+    ).filter(
         User.specialty.in_(target_specialties),
         User.is_active == True
     ).order_by(User.first_name, User.last_name).all()
@@ -708,7 +710,15 @@ def api_get_professionals_criteria():
             'avatar_url': p.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if p.avatar_path and p.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
             'criteria': criteria,
             'ai_notes_summary': ai_notes.get('specializzazione', '') + ' ' + ai_notes.get('target_ideale', ''),
-            'is_available': ai_notes.get('disponibile_assegnazioni', True)
+            'is_available': ai_notes.get('disponibile_assegnazioni', True),
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None
+                }
+                for t in (p.teams or [])
+            ],
         })
 
     return jsonify({

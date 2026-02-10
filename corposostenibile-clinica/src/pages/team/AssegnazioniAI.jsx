@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Table, Badge, Card, Spinner, Alert, Button, ButtonGroup, Modal, Tab, Tabs, Form, Row, Col } from 'react-bootstrap';
+import { useState, useEffect, useMemo } from 'react';
+import { Table, Badge, Card, Spinner, Alert, Button, ButtonGroup, Modal, Tab, Tabs, Form, Row, Col, Toast, ToastContainer } from 'react-bootstrap';
 import api from '../../services/api';
 import ghlService from '../../services/ghlService';
+import { TEAM_TYPE_COLORS } from '../../services/teamService';
 
 // Stati possibili delle assegnazioni
 const STATUS_CONFIG = {
@@ -55,6 +56,9 @@ function AssegnazioniAI() {
   const [tempCriteria, setTempCriteria] = useState({});
   const [profFilter, setProfFilter] = useState('all'); // 'all', 'nutrizione', 'coach', 'psicologia'
   const [searchTerm, setSearchTerm] = useState('');
+  const [teamFilter, setTeamFilter] = useState('all'); // 'all' | teamId (string)
+  const [criteriaStatus, setCriteriaStatus] = useState(null); // { type, message }
+  const [toastState, setToastState] = useState({ show: false, message: '', variant: 'success' });
 
   // Stati AI Modal
   const [showAIModal, setShowAIModal] = useState(false);
@@ -326,6 +330,7 @@ function AssegnazioniAI() {
   const handleEditCriteria = (prof) => {
     setEditingProf(prof);
     setTempCriteria(prof.criteria || {});
+    setCriteriaStatus(null);
     setShowProfModal(true);
   };
 
@@ -336,11 +341,13 @@ function AssegnazioniAI() {
         criteria: tempCriteria
       });
       setShowProfModal(false);
+      setCriteriaStatus({ type: 'success', message: 'Criteri aggiornati con successo.' });
+      setToastState({ show: true, message: 'Criteri salvati', variant: 'success' });
       fetchProfessionalsAndSchema(); // Reload
-      alert('Criteri aggiornati con successo!');
     } catch (err) {
       console.error('Errore salvataggio criteri:', err);
-      alert('Errore durante il salvataggio.');
+      setCriteriaStatus({ type: 'error', message: 'Errore durante il salvataggio dei criteri.' });
+      setToastState({ show: true, message: 'Errore nel salvataggio', variant: 'danger' });
     }
   };
 
@@ -349,6 +356,16 @@ function AssegnazioniAI() {
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  const toggleAllCriteria = (keys, value) => {
+    setTempCriteria(prev => {
+      const updated = { ...prev };
+      keys.forEach(k => {
+        updated[k] = value;
+      });
+      return updated;
+    });
   };
 
   const getFilteredProfessionals = () => {
@@ -368,8 +385,48 @@ function AssegnazioniAI() {
       filtered = filtered.filter(p => p.name.toLowerCase().includes(lowerTerm));
     }
 
+    // 3. Filtro per Team
+    if (teamFilter !== 'all') {
+      const teamId = Number(teamFilter);
+      filtered = filtered.filter(p => (p.teams || []).some(t => t.id === teamId));
+    } else {
+      filtered = filtered.filter(p => (p.teams || []).length > 0);
+    }
+
     return filtered;
   };
+
+  const showTeamGrouping = teamFilter === 'all';
+
+  const teamOptions = useMemo(() => {
+    const roleFiltered = profFilter === 'all'
+      ? professionals
+      : professionals.filter(p => (DEPT_ROLE_MAP[p.department_id] || 'other') === profFilter);
+
+    const teamMap = new Map();
+    roleFiltered.forEach(p => {
+      (p.teams || []).forEach(t => {
+        if (!teamMap.has(t.id)) teamMap.set(t.id, t);
+      });
+    });
+
+    const options = Array.from(teamMap.values());
+    options.sort((a, b) => {
+      const aType = a.team_type || '';
+      const bType = b.team_type || '';
+      if (aType !== bType) return aType.localeCompare(bType);
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    return options;
+  }, [professionals, profFilter]);
+
+  useEffect(() => {
+    if (teamFilter === 'all' || teamFilter === 'none') return;
+    const teamId = Number(teamFilter);
+    const exists = teamOptions.some(t => t.id === teamId);
+    if (!exists) setTeamFilter('all');
+  }, [teamOptions, teamFilter]);
 
   // --- RENDER HELPERS ---
 
@@ -399,6 +456,15 @@ function AssegnazioniAI() {
 
   return (
     <>
+      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 2000 }}>
+        <Toast bg={toastState.variant} onClose={() => setToastState(prev => ({ ...prev, show: false }))} show={toastState.show} delay={2500} autohide>
+          <Toast.Body className="text-white d-flex align-items-center gap-2">
+            <i className={toastState.variant === 'success' ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'}></i>
+            {toastState.message}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
+
       {/* Header */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
@@ -492,12 +558,25 @@ function AssegnazioniAI() {
                     <Button variant={profFilter === 'psicologia' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('psicologia')}>Psicologia</Button>
                 </ButtonGroup>
                 
-                <div style={{ maxWidth: '300px', width: '100%' }}>
+                <div className="d-flex flex-wrap gap-2" style={{ maxWidth: '520px', width: '100%' }}>
+                    <Form.Select
+                        value={teamFilter}
+                        onChange={(e) => setTeamFilter(e.target.value)}
+                        style={{ minWidth: '200px', flex: 1 }}
+                    >
+                        <option value="all">Tutti i team</option>
+                        {teamOptions.map(team => (
+                            <option key={team.id} value={team.id}>
+                                {team.team_type ? `${team.team_type.charAt(0).toUpperCase() + team.team_type.slice(1)} - ` : ''}{team.name}
+                            </option>
+                        ))}
+                    </Form.Select>
                     <Form.Control 
                         type="search" 
                         placeholder="Cerca professionista..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ minWidth: '200px', flex: 1 }}
                     />
                 </div>
             </div>
@@ -507,65 +586,139 @@ function AssegnazioniAI() {
             ) : (
                 <Card className="border-0 shadow-sm">
                     <Card.Body className="p-0">
-                        <Table responsive hover className="mb-0 align-middle">
-                            <thead className="bg-light">
-                                <tr>
-                                    <th style={{width: '30%'}}>Professionista</th>
-                                    <th>Stato</th>
-                                    <th style={{width: '40%'}}>Criteri Specializzazione</th>
-                                    <th className="text-end">Azioni</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {getFilteredProfessionals().map(prof => (
-                                    <tr key={prof.id}>
-                                        <td>
-                                            <div className="d-flex align-items-center">
-                                                <img 
-                                                    src={prof.avatar_url} 
-                                                    alt={prof.name} 
-                                                    className="rounded-circle me-3" 
-                                                    style={{width: '40px', height: '40px', objectFit: 'cover'}} 
-                                                />
-                                                <div>
-                                                    <div className="fw-bold">{prof.name}</div>
-                                                    <small className="text-muted">{DEPT_LABELS[prof.department_id] || 'N/A'}</small>
-                                                </div>
+                        {(() => {
+                            const filtered = getFilteredProfessionals();
+
+                            const renderTable = (rows) => (
+                                <Table responsive hover className="mb-0 align-middle">
+                                    <thead className="bg-light">
+                                        <tr>
+                                            <th style={{width: '30%'}}>Professionista</th>
+                                            <th style={{width: '25%'}}>Team</th>
+                                            <th>Stato</th>
+                                            <th style={{width: '40%'}}>Criteri Specializzazione</th>
+                                            <th className="text-end">Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rows.map(prof => (
+                                            <tr key={prof.id}>
+                                                <td>
+                                                    <div className="d-flex align-items-center">
+                                                        <img 
+                                                            src={prof.avatar_url} 
+                                                            alt={prof.name} 
+                                                            className="rounded-circle me-3" 
+                                                            style={{width: '40px', height: '40px', objectFit: 'cover'}} 
+                                                        />
+                                                        <div>
+                                                            <div className="fw-bold">{prof.name}</div>
+                                                            <small className="text-muted">{DEPT_LABELS[prof.department_id] || 'N/A'}</small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {prof.teams && prof.teams.length > 0 ? (
+                                                        <div className="d-flex flex-wrap gap-1">
+                                                            {prof.teams.map(team => (
+                                                                <Badge
+                                                                    key={team.id}
+                                                                    bg={TEAM_TYPE_COLORS[team.team_type] || 'secondary'}
+                                                                    className="text-white"
+                                                                    style={{ fontSize: '11px' }}
+                                                                >
+                                                                    {team.name}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted small">Senza team</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {prof.is_available ? 
+                                                        <Badge bg="success-subtle" text="success" className="border border-success-subtle"><i className="ri-check-line me-1"></i>Disponibile</Badge> : 
+                                                        <Badge bg="secondary-subtle" text="secondary" className="border border-secondary-subtle"><i className="ri-close-line me-1"></i>Non disp.</Badge>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <div className="d-flex flex-wrap gap-1">
+                                                        {Object.entries(prof.criteria || {}).filter(([, v]) => v).slice(0, 5).map(([k]) => (
+                                                            <Badge bg="light" text="dark" className="border" key={k} style={{fontSize: '11px'}}>{k}</Badge>
+                                                        ))}
+                                                        {Object.entries(prof.criteria || {}).filter(([, v]) => v).length > 5 && (
+                                                            <Badge bg="light" text="muted" className="border" style={{fontSize: '11px'}}>+{Object.entries(prof.criteria || {}).filter(([, v]) => v).length - 5} altri</Badge>
+                                                        )}
+                                                        {Object.values(prof.criteria || {}).filter(v => v).length === 0 && <span className="text-muted small">-</span>}
+                                                    </div>
+                                                </td>
+                                                <td className="text-end">
+                                                    <Button variant="outline-primary" size="sm" onClick={() => handleEditCriteria(prof)}>
+                                                        <i className="ri-settings-3-line"></i>
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            );
+
+                            if (!showTeamGrouping) {
+                                if (filtered.length === 0) {
+                                    return (
+                                        <Table responsive className="mb-0 align-middle">
+                                            <tbody>
+                                                <tr>
+                                                    <td colSpan="5" className="text-center py-4 text-muted">
+                                                        Nessun professionista trovato
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </Table>
+                                    );
+                                }
+                                return renderTable(filtered);
+                            }
+
+                            const groups = [];
+                            teamOptions.forEach(team => {
+                                const members = filtered.filter(p => (p.teams || []).some(t => t.id === team.id));
+                                if (members.length > 0) {
+                                    groups.push({
+                                        key: `team-${team.id}`,
+                                        title: team.team_type ? `${team.team_type.charAt(0).toUpperCase() + team.team_type.slice(1)} - ${team.name}` : team.name,
+                                        rows: members
+                                    });
+                                }
+                            });
+
+                            if (groups.length === 0) {
+                                return (
+                                    <Table responsive className="mb-0 align-middle">
+                                        <tbody>
+                                            <tr>
+                                                <td colSpan="5" className="text-center py-4 text-muted">
+                                                    Nessun professionista trovato
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </Table>
+                                );
+                            }
+
+                            return (
+                                <div className="p-3">
+                                    {groups.map((group, index) => (
+                                        <div key={group.key} className={index > 0 ? 'mt-4' : ''}>
+                                            <div className="fw-semibold text-muted mb-2">{group.title}</div>
+                                            <div className="border rounded">
+                                                {renderTable(group.rows)}
                                             </div>
-                                        </td>
-                                        <td>
-                                            {prof.is_available ? 
-                                                <Badge bg="success-subtle" text="success" className="border border-success-subtle"><i className="ri-check-line me-1"></i>Disponibile</Badge> : 
-                                                <Badge bg="secondary-subtle" text="secondary" className="border border-secondary-subtle"><i className="ri-close-line me-1"></i>Non disp.</Badge>
-                                            }
-                                        </td>
-                                        <td>
-                                            <div className="d-flex flex-wrap gap-1">
-                                                {Object.entries(prof.criteria || {}).filter(([, v]) => v).slice(0, 5).map(([k]) => (
-                                                    <Badge bg="light" text="dark" className="border" key={k} style={{fontSize: '11px'}}>{k}</Badge>
-                                                ))}
-                                                {Object.entries(prof.criteria || {}).filter(([, v]) => v).length > 5 && (
-                                                    <Badge bg="light" text="muted" className="border" style={{fontSize: '11px'}}>+{Object.entries(prof.criteria || {}).filter(([, v]) => v).length - 5} altri</Badge>
-                                                )}
-                                                {Object.values(prof.criteria || {}).filter(v => v).length === 0 && <span className="text-muted small">-</span>}
-                                            </div>
-                                        </td>
-                                        <td className="text-end">
-                                            <Button variant="outline-primary" size="sm" onClick={() => handleEditCriteria(prof)}>
-                                                <i className="ri-settings-3-line"></i>
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {getFilteredProfessionals().length === 0 && (
-                                    <tr>
-                                        <td colSpan="4" className="text-center py-4 text-muted">
-                                            Nessun professionista trovato
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </Table>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </Card.Body>
                 </Card>
             )}
@@ -639,14 +792,23 @@ function AssegnazioniAI() {
         <Modal.Body>
             {editingProf && (
                 <>
-                    <Alert variant="info" className="d-flex align-items-center">
-                        <i className="ri-information-line fs-4 me-2"></i>
-                        <div>
-                            Seleziona le specializzazioni per <strong>{DEPT_LABELS[editingProf.department_id]}</strong>.
-                            <br/>
-                            <small>Questi tag verranno usati dall'AI per suggerire questo professionista ai pazienti con caratteristiche simili.</small>
+                    <div className="rounded-3 p-3 mb-3" style={{ background: 'linear-gradient(135deg, #f0f7ff 0%, #e8f5ff 100%)', border: '1px solid #d6e9ff' }}>
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                            <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: 36, height: 36, background: '#fff', border: '1px solid #d6e9ff' }}>
+                                <i className="ri-magic-line text-primary"></i>
+                            </div>
+                            <div>
+                                <div className="fw-semibold mb-0">Criteri per {DEPT_LABELS[editingProf.department_id]}</div>
+                                <div className="text-muted small">Servono all'AI per proporre il professionista giusto.</div>
+                            </div>
                         </div>
-                    </Alert>
+                        {criteriaStatus && criteriaStatus.type === 'error' && (
+                            <div className="mt-2 d-inline-flex align-items-center gap-2 px-3 py-2 rounded" style={{ background: '#ffe8e8', border: '1px solid #ffc6c6' }}>
+                                <i className="ri-error-warning-line text-danger"></i>
+                                <span className="text-danger small">{criteriaStatus.message}</span>
+                            </div>
+                        )}
+                    </div>
                     
                     {(() => {
                         const roleKey = DEPT_ROLE_MAP[editingProf.department_id];
@@ -654,23 +816,40 @@ function AssegnazioniAI() {
                         
                         if (criteriaList.length === 0) return <Alert variant="warning">Nessuno schema criteri trovato per questo ruolo.</Alert>;
 
+                        const selectedCount = criteriaList.filter(c => tempCriteria[c]).length;
+
                         return (
-                            <div className="d-flex flex-wrap gap-2">
-                                {criteriaList.map(crit => (
-                                    <div key={crit} className="form-check form-check-inline border rounded p-2 m-0 bg-white shadow-sm" style={{minWidth: '200px'}}>
-                                        <input 
-                                            className="form-check-input" 
-                                            type="checkbox" 
-                                            id={`check-${crit}`}
-                                            checked={!!tempCriteria[crit]}
-                                            onChange={() => toggleCriterion(crit)}
-                                            style={{cursor: 'pointer'}}
-                                        />
-                                        <label className="form-check-label w-100 ms-1 fw-medium" htmlFor={`check-${crit}`} style={{cursor: 'pointer'}}>
-                                            {crit}
-                                        </label>
+                            <div className="d-flex flex-column gap-3">
+                                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                    <div className="fw-semibold">
+                                        Criteri disponibili: {criteriaList.length} · Selezionati: {selectedCount}
                                     </div>
-                                ))}
+                                    <div className="d-flex gap-2">
+                                        <Button size="sm" variant="outline-secondary" onClick={() => toggleAllCriteria(criteriaList, false)}>
+                                            <i className="ri-eraser-line me-1"></i>Deseleziona tutto
+                                        </Button>
+                                        <Button size="sm" variant="outline-primary" onClick={() => toggleAllCriteria(criteriaList, true)}>
+                                            <i className="ri-check-double-line me-1"></i>Seleziona tutto
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="d-grid" style={{gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px'}}>
+                                    {criteriaList.map(crit => {
+                                        const active = !!tempCriteria[crit];
+                                        return (
+                                            <Button
+                                                key={crit}
+                                                variant={active ? 'primary' : 'outline-secondary'}
+                                                className="d-flex align-items-center justify-content-between"
+                                                onClick={() => toggleCriterion(crit)}
+                                            >
+                                                <span className="text-start">{crit}</span>
+                                                {active ? <i className="ri-check-line ms-2"></i> : <i className="ri-add-line ms-2"></i>}
+                                            </Button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         );
                     })()}
