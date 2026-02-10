@@ -49,9 +49,17 @@ def get_value(cell, shared_strings):
     return val
 
 def process_sheet(z, sheet_filename, role_key):
-    """Process a single sheet and return a dict {User: {Criterion: bool}}."""
+    """Process a single sheet and return a dict {User: {'criteria': {}, 'specialty': str}}."""
     print(f"--- Processing {role_key} ({sheet_filename}) ---")
-    data = {} # { "Nome Cognome": { "Criterio": True/False } }
+    data = {} # { "Nome Cognome": { "criteria": {}, "specialty": "..." } }
+    
+    # Map role_key to DB specialty
+    specialty_map = {
+        'NUTRI': 'nutrizionista',
+        'PSICO': 'psicologia',
+        'COACH': 'coach'
+    }
+    target_specialty = specialty_map.get(role_key)
     
     with z.open(f'xl/{sheet_filename}') as f:
         tree = ET.parse(f)
@@ -69,13 +77,6 @@ def process_sheet(z, sheet_filename, role_key):
 
         # Parse Header (Row 1)
         header_row = rows[0]
-        headers = [] # List of (col_idx, criteria_name)
-        
-        # Map column letter (e.g. 'A', 'B', 'AA') to index is complex, 
-        # so we iterate cells. But cells might be sparse.
-        # Simple assumption: Header row has all columns populated sequentially?
-        # Let's trust the cell 'r' attribute like "A1", "B1".
-        
         col_map = {} # 'A' -> 'Nome', 'B' -> 'UOMINI'
         
         for cell in header_row.findall('ns:c', ns):
@@ -84,7 +85,6 @@ def process_sheet(z, sheet_filename, role_key):
             val = get_value(cell, shared_strings)
             if val:
                 col_map[col_letter] = normalize_key(val)
-                # print(f"  Column {col_letter}: {val}")
 
         # Parse Data Rows (Row 2+)
         for row in rows[1:]:
@@ -101,7 +101,6 @@ def process_sheet(z, sheet_filename, role_key):
                 continue
                 
             prof_name = prof_name.strip()
-            # Special case cleanup (remove trailing spaces, etc)
             
             criteria_map = {}
             # Iterate all other columns
@@ -109,14 +108,14 @@ def process_sheet(z, sheet_filename, role_key):
                 if letter == 'A': continue # Skip Name
                 
                 cell_val = col_values.get(letter, "").strip().upper() if col_values.get(letter) else ""
-                
-                # Logic: "SI", "Sì", "Si" -> True. Anything else -> False?
-                # Check empty strings
                 is_active = cell_val in ['SI', 'SÌ', 'YES', 'X']
                 criteria_map[header] = is_active
                 
-            data[prof_name] = criteria_map
-            print(f"  Parsed: {prof_name} ({sum(criteria_map.values())} active criteria)")
+            data[prof_name] = {
+                'criteria': criteria_map,
+                'specialty': target_specialty
+            }
+            print(f"  Parsed: {prof_name} ({sum(criteria_map.values())} active criteria) as {target_specialty}")
             
     return data
 
@@ -124,21 +123,17 @@ def sync_db(all_data):
     """Sync parsed data with Database Users."""
     print("\n--- Syncing with Database ---")
     
-    # Get all users (professionals)
-    # We match by Name (First Last or Last First?)
-    # DB has first_name, last_name.
-    # Excel has "Nome Professionista" (e.g. "ALESSANDRA ARCOLEO")
-    
     users = User.query.all()
     
     updated_count = 0
     not_found = []
     
-    for prof_name, criteria in all_data.items():
+    for prof_name, info in all_data.items():
+        criteria = info['criteria']
+        target_specialty = info['specialty']
+        
         # Try to match user
         matched_user = None
-        
-        # Normalize search name
         search_name = prof_name.lower().replace("  ", " ")
         
         for u in users:
@@ -150,17 +145,10 @@ def sync_db(all_data):
                 break
         
         if matched_user:
-            print(f"✅ Matched: '{prof_name}' -> ID {matched_user.id} ({matched_user.email})")
-            
-            # Merge or Overwrite? 
-            # Strategy: Overwrite criteria that are parsed. 
-            # Note: The parsed 'criteria' dict contains ALL parsed headers with True/False.
-            
-            # Use CriteriaService to validate (optional, but good practice)
-            # valid_criteria = CriteriaService.validate_criteria(matched_user.role.value, criteria)
-            # Just save the raw boolean map for now as schemas align with parsing
+            print(f"✅ Matched: '{prof_name}' -> ID {matched_user.id} ({matched_user.email}) | Specialty: {target_specialty}")
             
             matched_user.assignment_criteria = criteria
+            matched_user.specialty = target_specialty
             updated_count += 1
         else:
             print(f"⚠️  Not Found in DB: '{prof_name}'")
