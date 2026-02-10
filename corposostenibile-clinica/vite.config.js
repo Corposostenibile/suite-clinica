@@ -73,6 +73,11 @@ export default defineConfig({
         target: backendUrl,
         changeOrigin: true,
       },
+      // Proxy Team routes (including trial users API)
+      '/team': {
+        target: backendUrl,
+        changeOrigin: true,
+      },
       // Proxy Documentation (MkDocs)
       '/documentation': {
         target: backendUrl,

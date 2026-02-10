@@ -93,7 +93,7 @@ def _serialize_trial_user(user, include_clients=False):
         'team': {
             'id': user.teams[0].id,
             'name': user.teams[0].name
-        } if user.teams else None,
+        } if user.teams and len(user.teams) > 0 else None,
         'supervisor': {
             'id': user.trial_supervisor.id,
             'full_name': user.trial_supervisor.full_name,
