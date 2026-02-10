@@ -1447,34 +1447,33 @@ class User(UserMixin, TimestampMixin, db.Model):
             TipoProfessionistaEnum
         )
         
-        # Determina la tabella di destinazione in base alla specialty
-        table_map = {
-            TipoProfessionistaEnum.nutrizionista: cliente_nutrizionisti,
-            TipoProfessionistaEnum.coach: cliente_coaches,
-            TipoProfessionistaEnum.psicologa: cliente_psicologi,
-        }
+        # Mappa robusta delle specializzazioni agli attributi ORM (backrefs da Cliente)
+        target_attr = None
+        # Converti specialty in stringa per confonto sicuro
+        spec = str(self.specialty.value if hasattr(self.specialty, 'value') else self.specialty).lower()
         
-        target_table = table_map.get(self.specialty)
-        if not target_table or not self.trial_assigned_clients:
+        if spec in ['nutrizionista', 'nutrizione']:
+            target_attr = 'clienti_nutrizionista_multi'
+        elif spec == 'coach':
+            target_attr = 'clienti_coach_multi'
+        elif spec in ['psicologa', 'psicologo', 'psicologia']:
+            target_attr = 'clienti_psicologa_multi'
+        
+        if target_attr is None:
+            return
+            
+        # trial_assigned_clients è una lista (InstrumentedList) di oggetti Cliente
+        trial_clients = self.trial_assigned_clients
+        if not trial_clients:
             return
         
-        # Migra ogni assegnazione trial alla tabella normale
-        for assignment in self.trial_assigned_clients:
-            # Verifica che non esista già l'assegnazione normale
-            existing = db.session.execute(
-                db.select(target_table).where(
-                    target_table.c.cliente_id == assignment.cliente_id,
-                    target_table.c.user_id == self.id
-                )
-            ).first()
-            
-            if not existing:
-                # Inserisci nella tabella normale
-                stmt = target_table.insert().values(
-                    cliente_id=assignment.cliente_id,
-                    user_id=self.id
-                )
-                db.session.execute(stmt)
+        # Ottieni la lista ORM di destinazione (es. self.clienti_nutrizionista_multi)
+        target_list = getattr(self, target_attr)
+        
+        # Migra ogni cliente usando l'ORM
+        for cliente in trial_clients:
+            if cliente not in target_list:
+                target_list.append(cliente)
 
     # ────────────────────────── Flask-Login ────────────────────────────────
     def get_id(self) -> str:             # type: ignore[override]
