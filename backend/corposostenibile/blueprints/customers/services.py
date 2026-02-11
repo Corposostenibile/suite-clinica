@@ -244,9 +244,15 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
     """
     Controlla se tutti i servizi assegnati (con almeno un professionista) sono in ghost.
     Se sì, aggiorna automaticamente lo stato_cliente a 'ghost'.
+    Se il cliente è in ghost e almeno un servizio assegnato esce da ghost, riattiva (stato_cliente = 'attivo').
+
+    Considera assegnato un servizio se il cliente ha:
+    - professionisti multipli (lista non vuota) O
+    - professionista singolo (nutrizionista_id/coach_id/psicologa_id) O
+    - nome professionista legacy (nutrizionista/coach/psicologa stringa).
 
     Returns:
-        bool: True se lo stato_cliente è stato aggiornato a ghost, False altrimenti
+        bool: True se lo stato_cliente è stato aggiornato (ghost o attivo), False altrimenti
     """
     from datetime import datetime
 
@@ -258,31 +264,52 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
             return stato.value
         return str(stato)
 
-    # Servizi da controllare (solo quelli con almeno un professionista assegnato)
+    def _has_nutrizione(cliente):
+        return (
+            (cliente.nutrizionisti_multipli and len(cliente.nutrizionisti_multipli) > 0)
+            or cliente.nutrizionista_id
+            or (getattr(cliente, 'nutrizionista', None) and str(cliente.nutrizionista).strip())
+        )
+
+    def _has_coach(cliente):
+        return (
+            (cliente.coaches_multipli and len(cliente.coaches_multipli) > 0)
+            or cliente.coach_id
+            or (getattr(cliente, 'coach', None) and str(cliente.coach).strip())
+        )
+
+    def _has_psicologia(cliente):
+        return (
+            (cliente.psicologi_multipli and len(cliente.psicologi_multipli) > 0)
+            or cliente.psicologa_id
+            or (getattr(cliente, 'psicologa', None) and str(cliente.psicologa).strip())
+        )
+
+    # Servizi da controllare (solo quelli con almeno un professionista assegnato: multipli o singolo)
     servizi_assegnati = []
 
-    # Controlla nutrizione
-    if cliente.nutrizionisti_multipli and len(cliente.nutrizionisti_multipli) > 0:
+    if _has_nutrizione(cliente):
+        count = len(cliente.nutrizionisti_multipli) if cliente.nutrizionisti_multipli else 1
         servizi_assegnati.append({
             'nome': 'nutrizione',
             'stato': _get_stato_value(cliente.stato_nutrizione),
-            'professionisti_count': len(cliente.nutrizionisti_multipli)
+            'professionisti_count': count,
         })
 
-    # Controlla coaching
-    if cliente.coaches_multipli and len(cliente.coaches_multipli) > 0:
+    if _has_coach(cliente):
+        count = len(cliente.coaches_multipli) if cliente.coaches_multipli else 1
         servizi_assegnati.append({
             'nome': 'coaching',
             'stato': _get_stato_value(cliente.stato_coach),
-            'professionisti_count': len(cliente.coaches_multipli)
+            'professionisti_count': count,
         })
 
-    # Controlla psicologia
-    if cliente.psicologi_multipli and len(cliente.psicologi_multipli) > 0:
+    if _has_psicologia(cliente):
+        count = len(cliente.psicologi_multipli) if cliente.psicologi_multipli else 1
         servizi_assegnati.append({
             'nome': 'psicologia',
             'stato': _get_stato_value(cliente.stato_psicologia),
-            'professionisti_count': len(cliente.psicologi_multipli)
+            'professionisti_count': count,
         })
 
     # Se non ci sono servizi assegnati, non fare nulla
@@ -295,20 +322,23 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
     # Controlla se TUTTI i servizi assegnati sono in ghost
     servizi_in_ghost = [s for s in servizi_assegnati if s['stato'] and s['stato'] == 'ghost']
     tutti_ghost = len(servizi_in_ghost) == len(servizi_assegnati)
+    almeno_uno_non_ghost = any(
+        s['stato'] and s['stato'] != 'ghost' for s in servizi_assegnati
+    )
 
     current_app.logger.info(
         f"Cliente {cliente.cliente_id} - Servizi assegnati: {len(servizi_assegnati)}, "
         f"In ghost: {len(servizi_in_ghost)}, Tutti ghost: {tutti_ghost}"
     )
 
-    # Se tutti i servizi assegnati sono in ghost E lo stato cliente non è già ghost
     stato_cliente_value = _get_stato_value(cliente.stato_cliente)
+
+    # Se tutti i servizi assegnati sono in ghost → stato_cliente = ghost
     if tutti_ghost and stato_cliente_value != 'ghost':
         old_stato = cliente.stato_cliente
         cliente.stato_cliente = StatoClienteEnum.ghost
         cliente.stato_cliente_data = datetime.utcnow()
 
-        # Log automatico
         db.session.add(
             ActivityLog(
                 cliente_id=cliente.cliente_id,
@@ -322,6 +352,28 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
         current_app.logger.info(
             f"Cliente {cliente.cliente_id} - Stato cliente aggiornato automaticamente a GHOST "
             f"(tutti i servizi assegnati sono in ghost)"
+        )
+        return True
+
+    # Se il cliente è in ghost e almeno un servizio assegnato non è ghost → riattiva
+    if stato_cliente_value == 'ghost' and almeno_uno_non_ghost:
+        old_stato = cliente.stato_cliente
+        cliente.stato_cliente = StatoClienteEnum.attivo
+        cliente.stato_cliente_data = datetime.utcnow()
+
+        db.session.add(
+            ActivityLog(
+                cliente_id=cliente.cliente_id,
+                field='stato_cliente',
+                before='ghost',
+                after='attivo',
+                user_id=_user_id(updated_by_user),
+            )
+        )
+
+        current_app.logger.info(
+            f"Cliente {cliente.cliente_id} - Stato cliente riattivato ad ATTIVO "
+            f"(almeno un servizio assegnato non è più in ghost)"
         )
         return True
 
@@ -709,6 +761,13 @@ def update_cliente(
     readonly = {"cliente_id", "created_at", "updated_at", "created_by"}
     changes: Dict[str, Tuple[Any, Any]] = {}
 
+    def _is_ghost_val(val) -> bool:
+        if val is None:
+            return False
+        v = getattr(val, "value", val)
+        return str(v) == "ghost"
+
+    stato_cliente_prima = getattr(cliente, "stato_cliente", None)
     with _commit_or_rollback():
         # Traccia i cambiamenti delle patologie PRIMA di modificare i valori
         _track_patologie_changes(cliente, data)
@@ -820,6 +879,22 @@ def update_cliente(
 
     if changes:
         emit_updated(cliente, user_id=_user_id(updated_by_user), changed=list(changes))
+
+    # Webhook GHL: quando il paziente passa in ghost (manuale, automatico in service o nel model)
+    transitioned_to_ghost = not _is_ghost_val(stato_cliente_prima) and _is_ghost_val(
+        getattr(cliente, "stato_cliente", None)
+    )
+    if transitioned_to_ghost:
+        try:
+            from corposostenibile.blueprints.ghl_integration.outbound import send_ghost_webhook_to_ghl
+            send_ghost_webhook_to_ghl(cliente)
+        except Exception as e:  # best-effort, non bloccare il flusso
+            current_app.logger.warning(
+                "Invio webhook GHL ghost per cliente %s fallito: %s",
+                cliente.cliente_id,
+                e,
+            )
+
     current_app.logger.info("Aggiornato cliente %s (%d campi)", cliente.cliente_id, len(changes))
     return cliente
 
