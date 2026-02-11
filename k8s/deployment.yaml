@@ -69,6 +69,11 @@ spec:
           value: "Lax"
         - name: PREFERRED_URL_SCHEME
           value: "http"
+        - name: UPLOAD_FOLDER
+          value: "/var/corposostenibile/uploads"
+        volumeMounts:
+        - name: uploads-storage
+          mountPath: /var/corposostenibile/uploads
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
         args:
@@ -92,3 +97,6 @@ spec:
       - name: sql-proxy-key
         secret:
           secretName: sql-proxy-key
+      - name: uploads-storage
+        persistentVolumeClaim:
+          claimName: uploads-pvc

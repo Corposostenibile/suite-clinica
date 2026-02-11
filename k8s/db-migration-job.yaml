@@ -15,7 +15,7 @@ spec:
         imagePullPolicy: Always
         env:
         - name: NEW_SUITE_BACKUP
-          value: /data/backups/new_suite_backups/db_backup_20260202_154552.sql
+          value: /data/backups/new_suite_backups/schema_latest.sql
         - name: OLD_SUITE_BACKUP
           value: /data/backups/old_suite_backups/db_backup_20260205_121004.dump
         - name: OUTPUT_FILE

@@ -3,6 +3,7 @@ import os
 import sys
 import subprocess
 from collections import OrderedDict
+from datetime import datetime
 
 def parse_sql_dump(file_path):
     """Parses a PostgreSQL dump file to extract table definitions and their columns."""
@@ -61,7 +62,7 @@ def to_sql_value(val, col_type=''):
 
 # Rigorous order to respect Foreign Keys
 TABLE_PRIORITY = [
-    'users', 'departments', 'teams', 'origins', 'finance_packages', 
+    'users', 'departments', 'teams', 'team_members', 'origins', 'finance_packages', 
     'ghl_opportunities', 'clienti', 'clienti_version', 'cartelle_cliniche', 
     'service_cliente_assignments', 'anonymous_surveys', 'anonymous_survey_responses',
     'check_forms', 'check_form_fields',
@@ -107,10 +108,80 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             if len(row_values) == len(current_cols):
                 table_data[current_table].append(dict(zip(current_cols, row_values)))
 
+    # Artificial team members generation if missing
+    if 'team_members' not in table_data and 'users' in table_data:
+        print("Generating team associations from provided ORGANIGRAMMA...")
+        table_data['team_members'] = []
+        
+        # Helper to find user ID by name
+        def find_user(first, last):
+            for u in table_data['users']:
+                if u.get('first_name', '').strip().lower() == first.lower() and \
+                   u.get('last_name', '').strip().lower() == last.lower():
+                    return u.get('id')
+            return None
+
+        # Hardcoded mapping based on user input
+        organigramma = {
+            '1': [ # Nutrizione Team 1
+                ('Filippo', 'Feliciani'), ('Alessandra', 'Arcoleo'), ('Caterina', 'Esposito'), 
+                ('Chiara', 'Giombolini'), ('Elisa', 'Menichelli'), ('Federica', 'Cutolo'), 
+                ('Giorgia', 'Leone'), ('Giorgia', 'Santi'), ('Jessica', 'Di Colli'), 
+                ('Maria Vittoria', 'Sallicano'), ('Marilena', 'Franco'), ('Marta', 'Buccilli'), 
+                ('Martina', 'Mantovani'), ('Michela', 'Pagnani'), ('Sara', 'Goffi'), ('Valeria', 'Loliva')
+            ],
+            '2': [ # Nutrizione Team 2
+                ('Isabella', 'Rossi'), ('Alice', 'Aresti'), ('Alice', 'Surbone'), 
+                ('Florinda', 'Masciello'), ('Francesca', 'Abatini'), ('Gianluca', 'Marino'), 
+                ('Gianna', 'Sannelli'), ('Isabella', 'Venticinque'), ('Mara', 'Adreola'), 
+                ('Marisa', 'Piras'), ('Martina', 'Roberti'), ('Nicola', 'Fassetta'), 
+                ('Nicolò Lorenzo', 'Marinelli'), ('Rossana', 'Picerno'), ('Silvia', 'Testoni'), 
+                ('Virginia', 'Vitelli')
+            ],
+            '3': [ # Nutrizione Team 3
+                ('Alice', 'Posenato'), ('Andrea', 'Tuacris'), ('Bianca', 'Balzarini'), 
+                ('Caterina', 'Scarano'), ('Chiara', 'D\'Addesa'), ('Elisa', 'Mancini'), 
+                ('Francesca', 'Ceppetelli'), ('Francesca', 'Tornese'), ('Giammarco', 'Lamanda'), 
+                ('Rossella', 'Cariglia'), ('Sabine', 'Ardiccioni'), ('Silvia Maria', 'Scoletta'), 
+                ('Valentina', 'Botondi')
+            ],
+            '4': [ # Nutrizione Team 4
+                ('Alice', 'Posenato'), ('Carlotta', 'Sed'), ('Francesca', 'Valentini'), 
+                ('Gaia', 'Sala'), ('Marta', 'Bendusi'), ('Noemi', 'Di Natale'), ('Virginia', 'Bonazzi')
+            ],
+            '5': [ # Psicologia Team 1
+                ('Delia', 'De Santis'), ('Alice', 'Lampone'), ('Angela', 'Velletri'), 
+                ('Claudia', 'Milione'), ('Giorgia', 'Del Bianco'), ('Martina', 'Calvi'), 
+                ('Martina', 'Loccisano')
+            ],
+            '6': [ # Psicologia Team 2
+                ('Francesca', 'Zaccaro'), ('Angel Disney', 'Armenise'), ('Aurora', 'Valente'), 
+                ('Barbara', 'Visalli'), ('Denise', 'Caravano'), ('Germana', 'Morganti'), ('Manny', 'Aiello')
+            ]
+        }
+
+        found_count = 0
+        for t_id, members in organigramma.items():
+            for first, last in members:
+                u_id = find_user(first, last)
+                if u_id:
+                    table_data['team_members'].append({
+                        'team_id': t_id,
+                        'user_id': u_id,
+                        'joined_at': datetime.now().isoformat()
+                    })
+                    found_count += 1
+                else:
+                    print(f"Warning: Could not find user {first} {last} in database.")
+        
+        print(f"Successfully mapped {found_count} members to teams based on organigramma.")
+
     # 2. Ordered writing
     with open(output_path, 'w', encoding='utf-8') as outfile:
         outfile.write("-- AUTOMATED MIGRATION DUMP\n")
-        outfile.write("SET search_path TO public;\n\n")
+        outfile.write("SET search_path TO public;\n")
+        # Direct SQL cleanup to ensure no leftovers from previous failed attempts
+        outfile.write("TRUNCATE TABLE public.team_members CASCADE;\n\n") 
         
         sorted_tables = [t for t in TABLE_PRIORITY if t in table_data]
         sorted_tables += [t for t in table_data if t not in TABLE_PRIORITY]
@@ -198,10 +269,12 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                             if col == 'team_type':
                                 dept_id = str(row.get('department_id'))
                                 if dept_id in ['2', '24']: val = 'nutrizione'
-                                elif dept_id == '3': val = 'coaching'
+                                elif dept_id == '3': val = 'coach'
                                 elif dept_id == '4': val = 'psicologia'
-                                else: val = 'clinico'
-
+                                else: val = 'nutrizione' # Default safe value
+                            elif col == 'is_active':
+                                val = True
+                        
                         # General boolean defaults for NOT NULL columns
                         if val is None and 'boolean' in col_type.lower():
                             val = False
@@ -212,7 +285,10 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                 
                 if batch_vals:
                     final_cols = [f'"{c}"' for c in valid_new_cols]
-                    if composite_pk and all_pk_present:
+                    if table == 'teams' and all_pk_present:
+                        update_cols = [f'"{c}" = EXCLUDED."{c}"' for c in valid_new_cols if c != 'id']
+                        outfile.write(f"INSERT INTO public.{table} ({', '.join(final_cols)}) VALUES {', '.join(batch_vals)} ON CONFLICT (id) DO UPDATE SET {', '.join(update_cols)};\n")
+                    elif composite_pk and all_pk_present:
                         outfile.write(f"INSERT INTO public.{table} ({', '.join(final_cols)}) VALUES {', '.join(batch_vals)} ON CONFLICT ({composite_pk}) DO NOTHING;\n")
                     elif pk_name and all_pk_present:
                         outfile.write(f"INSERT INTO public.{table} ({', '.join(final_cols)}) VALUES {', '.join(batch_vals)} ON CONFLICT ({pk_name}) DO NOTHING;\n")

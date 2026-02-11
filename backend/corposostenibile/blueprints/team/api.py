@@ -640,31 +640,17 @@ def get_team_stats():
 
 
 
-# AGGIUNTO: Endpoint per Criteria
 @team_api_bp.route("/professionals/criteria", methods=["GET"])
 @login_required
 def api_get_professionals_criteria():
     """Restituisce lista professionisti con i loro criteri di assegnazione."""
-    # Check permissions (admins or team leaders?)
-    # Replicating _require_assignment_permission logic locally or simplifying
-    # Assuming assignment permission = admin or specific roles.
-    # For now, let's allow admins and team leaders of relevant depts?
-    # Or just reuse logic:
-    if not current_user.is_admin and not (current_user.role.value in ['team_leader', 'admin']):
-         # Or check department head?
-         # Simplest: Allow admin and team leaders.
-         pass
+    current_app.logger.info(f"Fetching professionals criteria for user {current_user.id}")
     
-    # Recupera tutti i professionisti attivi delle specializzazioni rilevanti
-    # Mappatura specializzazioni -> "department_id" (virtuale per compatibilità frontend)
-    # Nutrizione: 2, 24
-    # Coach: 3
-    # Psicologia: 4
-    
+    # Target specialties using Enum instances for robustness
     target_specialties = [
-        'nutrizionista', 'nutrizione', # Nutrizione
-        'coach',                       # Coach
-        'psicologo', 'psicologia'      # Psicologia
+        UserSpecialtyEnum.nutrizionista, UserSpecialtyEnum.nutrizione,
+        UserSpecialtyEnum.coach,
+        UserSpecialtyEnum.psicologo, UserSpecialtyEnum.psicologia
     ]
     
     professionals = User.query.options(
@@ -674,15 +660,20 @@ def api_get_professionals_criteria():
         User.is_active == True
     ).order_by(User.first_name, User.last_name).all()
 
+    current_app.logger.info(f"Found {len(professionals)} professionals with target specialties")
+
     results = []
-    import json # Import qui per sicurezza
+    import json
     
     for p in professionals:
         # Determina "department_id" e nome basato su specialty
         dept_id = 0
         dept_name = 'N/A'
         
+        # Get value safely
         spec_val = p.specialty.value if hasattr(p.specialty, 'value') else str(p.specialty)
+        if spec_val.startswith('UserSpecialtyEnum.'):
+            spec_val = spec_val.split('.')[-1]
         
         if spec_val in ['nutrizionista', 'nutrizione']:
             dept_id = 2 # Nutrizione

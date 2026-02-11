@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: suite-clinica-uploads-migration
+  labels:
+    app: suite-clinica
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrator
+        image: google/cloud-sdk:slim
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -euo pipefail
+          echo "[migration] Starting uploads migration from GCS..."
+          
+          # Check if target directory is empty or if we should proceed
+          if [ "$(ls -A /var/corposostenibile/uploads/)" ]; then
+             echo "[migration] Warning: /var/corposostenibile/uploads/ is not empty. Proceeding with extraction..."
+          fi
+
+          echo "[migration] Downloading and extracting (this may take a long time for 70GB)..."
+          # We use a pipe to avoid saving the 70GB .tar.gz file to disk
+          gsutil cat gs://suite-clinica-backups/backup_20260205_141330/uploads_backup_20260205_121004.tar.gz | tar -xzf - -C /var/corposostenibile/uploads/
+          
+          echo "[migration] Extraction complete. Checking results..."
+          du -sh /var/corposostenibile/uploads/
+          ls -F /var/corposostenibile/uploads/ | head -n 20
+          
+          echo "[migration] Done."
+        volumeMounts:
+        - name: uploads-storage
+          mountPath: /var/corposostenibile/uploads
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      volumes:
+      - name: uploads-storage
+        persistentVolumeClaim:
+          claimName: uploads-pvc

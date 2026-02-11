@@ -421,9 +421,8 @@ function AssegnazioniAI() {
     if (teamFilter !== 'all') {
       const teamId = Number(teamFilter);
       filtered = filtered.filter(p => (p.teams || []).some(t => t.id === teamId));
-    } else {
-      filtered = filtered.filter(p => (p.teams || []).length > 0);
     }
+    // Rimosso else che filtrava i professionisti senza team quando teamFilter era 'all'
 
     return filtered;
   };
@@ -862,6 +861,16 @@ function AssegnazioniAI() {
                                     });
                                 }
                             });
+
+                            // Aggiunto: Gestione professionisti senza team
+                            const noTeamMembers = filtered.filter(p => !p.teams || p.teams.length === 0);
+                            if (noTeamMembers.length > 0) {
+                                groups.push({
+                                    key: 'no-team',
+                                    title: 'Senza Team / Da assegnare',
+                                    rows: noTeamMembers
+                                });
+                            }
 
                             if (groups.length === 0) {
                                 return (
