@@ -3253,7 +3253,7 @@ function ClientiDetail() {
                               <option value="attivo">Attivo</option>
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
-                              <option value="stop">Stop</option>
+                              <option value="stop">Ex-Cliente</option>
                               <option value="insoluto">Insoluto</option>
                               <option value="freeze">Freeze</option>
                             </select>
@@ -4279,7 +4279,7 @@ function ClientiDetail() {
                               <option value="attivo">Attivo</option>
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
-                              <option value="stop">Stop</option>
+                              <option value="stop">Ex-Cliente</option>
                               <option value="insoluto">Insoluto</option>
                               <option value="freeze">Freeze</option>
                             </select>
@@ -5230,7 +5230,7 @@ function ClientiDetail() {
                               <option value="attivo">Attivo</option>
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
-                              <option value="stop">Stop</option>
+                              <option value="stop">Ex-Cliente</option>
                               <option value="insoluto">Insoluto</option>
                               <option value="freeze">Freeze</option>
                             </select>

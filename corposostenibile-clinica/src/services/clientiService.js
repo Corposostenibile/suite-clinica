@@ -17,7 +17,7 @@ export const STATO_LABELS = {
   attivo: 'Attivo',
   ghost: 'Ghost',
   pausa: 'Pausa',
-  stop: 'Stop',
+  stop: 'Ex-Cliente',
   insoluto: 'Insoluto',
   freeze: 'Freeze',
 };
@@ -45,7 +45,7 @@ export const TIPOLOGIA_LABELS = {
   a: 'VIP',
   b: 'Premium',
   c: 'Standard',
-  stop: 'Stop',
+  stop: 'Ex-Cliente',
   recupero: 'Recupero',
   pausa_gt_30: 'Pausa > 30gg',
 };
@@ -130,7 +130,7 @@ export const STATI_PROFESSIONISTA_LABELS = {
   attivo: 'Attivo',
   ghost: 'Ghost',
   pausa: 'Pausa',
-  stop: 'Stop',
+  stop: 'Ex-Cliente',
 };
 
 export const STATI_PROFESSIONISTA_COLORS = {
