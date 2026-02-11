@@ -5,20 +5,20 @@ Abbiamo completato la fase di ottimizzazione estrema (Lean Infrastructure) per m
 
 *   **Database (Cloud SQL):** Migrato a un'istanza dinamica da **10GB SSD** in configurazione **Single Zone (Zonal)**. Abbiamo rimosso l'Alta Affidabilità (HA) per questa fase, dimezzando i costi operativi del database. Abilitato **Auto-Resize**.
 *   **Cache & Queue (Memorystore Redis):** Istanza da **1GB BASIC**. Gestisce Celery (code di lavoro), WebSocket (notifiche real-time) e cache. Abbiamo ridotto questa risorsa dell'80% per allinearla al carico reale attuale.
-*   **Computing (GKE Autopilot):** Carico distribuito su nodi variabili. Abbiamo ridotto le prenotazioni del backend a **1GB RAM** per permettere un consolidamento aggressivo delle macchine.
+*   **Computing (GKE Autopilot):** Configurazione a **istanza singola (1 Pod)**. Questa scelta garantisce il massimo risparmio economico e semplifica la gestione dello storage dei file. Il sistema è pronto a scalare su più istanze solo se il traffico reale lo renderà strettamente necessario.
 *   **Storage Upload:** Utilizzo di **200GB HDD Standard**. Una scelta strategica: i file statici (immagini/PDF) non richiedono la velocità degli SSD, permettendoci di risparmiare circa il 70% sui costi di storage per i file.
 
 ---
 
 ## 2. Piano di Scalabilità Graduale (200 - 1000 Utenti)
 
-| Utenti | Nodi GKE | Database (vCPU/RAM) | Redis Cache | Costo Est. Mensile |
+| Utenti | Risorse GKE | Database (vCPU/RAM) | Redis Cache | Costo Est. Mensile |
 | :--- | :--- | :--- | :--- | :--- |
-| **200** | 2 Nodi | 2 vCPU / 7.5GB | 1GB (Basic) | €300 - €400 |
-| **400** | 3 Nodi | 2 vCPU / 7.5GB | 2GB (Basic) | €450 - €600 |
-| **600** | 4 Nodi | 4 vCPU / 15GB | 5GB (HA) | €800 - €1.000 |
-| **800** | 5 Nodi | 4 vCPU / 15GB | 10GB | €1.200 - €1.400 |
-| **1000** | 6-8 Nodi | 8 vCPU / 30GB (HA) | 20GB | €1.800+ |
+| **200** | 1 Pod | 2 vCPU / 7.5GB | 1GB (Basic) | €250 - €350 |
+| **400** | 1 Pod | 2 vCPU / 7.5GB | 2GB (Basic) | €400 - €500 |
+| **600** | 1-2 Pod | 4 vCPU / 15GB | 5GB (HA) | €700 - €900 |
+| **800** | 2 Pod | 4 vCPU / 15GB | 10GB | €1.000 - €1.200 |
+| **1000** | 2-3 Pod | 8 vCPU / 30GB | 20GB | €1.500+ |
 
 **Logica di Scalabilità:**
 - **Storage:** Cresce automaticamente (Pay-as-you-grow).
