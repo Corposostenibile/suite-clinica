@@ -1,1 +1,39 @@
-Single-database configuration for Flask.
+# Migrazioni database (Flask-Migrate / Alembic)
+
+## Applicare le migrazioni
+
+Il progetto usa **Poetry**; Flask non è installato globalmente. Esegui sempre dalla cartella **backend**:
+
+### 1. Configura FLASK_APP
+
+Aggiungi nel tuo `.env` (o esporta in sessione):
+
+```bash
+export FLASK_APP=wsgi:app
+```
+
+Oppure assicurati che nel file `.env` ci sia:
+
+```
+FLASK_APP=wsgi:app
+```
+
+### 2. Esegui l’upgrade
+
+```bash
+cd /path/to/suite-clinica/backend
+poetry run flask db upgrade
+```
+
+Se hai attivato il virtualenv con `poetry shell`:
+
+```bash
+cd /path/to/suite-clinica/backend
+flask db upgrade
+```
+
+### Comandi utili
+
+- **Stato migrazioni:** `poetry run flask db current`
+- **Storia:** `poetry run flask db history`
+- **Nuova migrazione (dopo aver modificato i model):** `poetry run flask db revision --autogenerate -m "descrizione"`

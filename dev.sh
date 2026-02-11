@@ -118,6 +118,7 @@ show_help() {
     echo ""
     echo "COMANDI GESTIONE AMBIENTE:"
     echo "  setup [dev]                              - Setup completo iniziale (dipendenze + db + admin)."
+    echo "  db-upgrade [dev]                         - Applica le migrazioni database (es. dopo un pull)."
     echo "  clear [dev]                              - Pulisce completamente l'ambiente."
     echo "  recreate [dev]                           - Ricrea completamente l'ambiente da zero."
     echo "  reset-db [dev]                           - Resetta il database (elimina tutto, setup e crea admin)."
@@ -125,6 +126,7 @@ show_help() {
     echo "ESEMPI:"
     echo "  $0 fullstack manu                     # Avvia tutto l'ambiente (Flask:5001 + React:3001)."
     echo "  $0 debug manu                         # Sviluppo solo backend."
+    echo "  $0 db-upgrade samu                    # Applica migrazioni DB (dopo pull o nuove migration)."
     echo "  $0 setup-firewall                     # Apre le porte nel firewall."
     echo "  $0 logs-pm2 manu                      # Log PM2 per ambiente manu."
 }
@@ -471,8 +473,10 @@ db_upgrade() {
     local db_name="${info[2]}"
     cd "$PROJECT_DIR/backend"
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
-    log_info "Applicazione migrazioni per $dev..."
+    export FLASK_APP=wsgi:app
+    log_info "Applicazione migrazioni per $dev (database: $db_name)..."
     poetry run flask db upgrade
+    log_success "Migrazioni applicate."
 }
 setup_environment() {
     local dev=$1

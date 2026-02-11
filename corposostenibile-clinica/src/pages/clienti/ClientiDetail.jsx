@@ -683,6 +683,12 @@ function ClientiDetail() {
     data_inizio_abbonamento: '',
     durata_programma_giorni: '',
     data_rinnovo: '',
+    data_inizio_nutrizione: '',
+    data_scadenza_nutrizione: '',
+    data_inizio_coach: '',
+    data_scadenza_coach: '',
+    data_inizio_psicologia: '',
+    data_scadenza_psicologia: '',
     modalita_pagamento: '',
     rate_cliente_sales: '',
     note_rinnovo: '',
@@ -1796,6 +1802,12 @@ function ClientiDetail() {
       data_inizio_abbonamento: c.data_inizio_abbonamento || c.dataInizioAbbonamento || '',
       durata_programma_giorni: c.durata_programma_giorni || c.durataProgrammaGiorni || '',
       data_rinnovo: c.data_rinnovo || c.dataRinnovo || '',
+      data_inizio_nutrizione: c.data_inizio_nutrizione || c.dataInizioNutrizione || '',
+      data_scadenza_nutrizione: c.data_scadenza_nutrizione || c.dataScadenzaNutrizione || '',
+      data_inizio_coach: c.data_inizio_coach || c.dataInizioCoach || '',
+      data_scadenza_coach: c.data_scadenza_coach || c.dataScadenzaCoach || '',
+      data_inizio_psicologia: c.data_inizio_psicologia || c.dataInizioPsicologia || '',
+      data_scadenza_psicologia: c.data_scadenza_psicologia || c.dataScadenzaPsicologia || '',
       modalita_pagamento: c.modalita_pagamento || c.modalitaPagamento || '',
       rate_cliente_sales: c.rate_cliente_sales || c.rateClienteSales || '',
       note_rinnovo: c.note_rinnovo || c.noteRinnovo || '',
@@ -2571,10 +2583,10 @@ function ClientiDetail() {
                     </div>
                   </div>
 
-                  {/* Date */}
+                  {/* Date abbonamento generali (legacy / riepilogo) */}
                   <div className="col-12" data-tour="programma-date">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      Date Abbonamento
+                      Date Abbonamento (generale)
                     </h6>
                     <div className="row g-3">
                       <div className="col-md-6">
@@ -2587,13 +2599,106 @@ function ClientiDetail() {
                         />
                       </div>
                       <div className="col-md-6">
-                        <label className="form-label small text-muted">Data Rinnovo</label>
+                        <label className="form-label small text-muted">Data Scadenza</label>
                         <input
                           type="date"
                           className="form-control"
                           value={formData.data_rinnovo}
                           onChange={(e) => handleInputChange('data_rinnovo', e.target.value)}
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date per piano (Nutrizione, Coach, Psicologia) */}
+                  <div className="col-12" data-tour="programma-date-per-piano">
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      Date per piano
+                    </h6>
+                    <div className="row g-3">
+                      {/* Nutrizione */}
+                      <div className="col-12">
+                        <div className="card border-0 bg-light rounded-3 p-3">
+                          <div className="small fw-semibold text-muted mb-2">
+                            <i className="ri-heart-pulse-line me-1"></i> Nutrizione
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Inizio</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_inizio_nutrizione || ''}
+                                onChange={(e) => handleInputChange('data_inizio_nutrizione', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_scadenza_nutrizione || ''}
+                                onChange={(e) => handleInputChange('data_scadenza_nutrizione', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Coach */}
+                      <div className="col-12">
+                        <div className="card border-0 bg-light rounded-3 p-3">
+                          <div className="small fw-semibold text-muted mb-2">
+                            <i className="ri-run-line me-1"></i> Coach
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Inizio</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_inizio_coach || ''}
+                                onChange={(e) => handleInputChange('data_inizio_coach', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_scadenza_coach || ''}
+                                onChange={(e) => handleInputChange('data_scadenza_coach', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Psicologia */}
+                      <div className="col-12">
+                        <div className="card border-0 bg-light rounded-3 p-3">
+                          <div className="small fw-semibold text-muted mb-2">
+                            <i className="ri-mental-health-line me-1"></i> Psicologia
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Inizio</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_inizio_psicologia || ''}
+                                onChange={(e) => handleInputChange('data_inizio_psicologia', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_scadenza_psicologia || ''}
+                                onChange={(e) => handleInputChange('data_scadenza_psicologia', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

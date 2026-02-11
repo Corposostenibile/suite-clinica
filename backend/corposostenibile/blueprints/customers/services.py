@@ -380,6 +380,102 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
     return False
 
 
+def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> bool:
+    """
+    Controlla se tutti i servizi assegnati sono in pausa.
+    Se sì, aggiorna automaticamente lo stato_cliente a 'pausa'.
+    Se il cliente è in pausa e almeno un servizio esce da pausa, riattiva (stato_cliente = 'attivo').
+    Stessa logica di _check_and_update_global_ghost_status ma per pausa.
+    """
+    from datetime import datetime
+
+    def _get_stato_value(stato) -> str | None:
+        if stato is None:
+            return None
+        if hasattr(stato, 'value'):
+            return stato.value
+        return str(stato)
+
+    def _has_nutrizione(c):
+        return (
+            (c.nutrizionisti_multipli and len(c.nutrizionisti_multipli) > 0)
+            or c.nutrizionista_id
+            or (getattr(c, 'nutrizionista', None) and str(c.nutrizionista).strip())
+        )
+
+    def _has_coach(c):
+        return (
+            (c.coaches_multipli and len(c.coaches_multipli) > 0)
+            or c.coach_id
+            or (getattr(c, 'coach', None) and str(c.coach).strip())
+        )
+
+    def _has_psicologia(c):
+        return (
+            (c.psicologi_multipli and len(c.psicologi_multipli) > 0)
+            or c.psicologa_id
+            or (getattr(c, 'psicologa', None) and str(c.psicologa).strip())
+        )
+
+    servizi_assegnati = []
+    if _has_nutrizione(cliente):
+        count = len(cliente.nutrizionisti_multipli) if cliente.nutrizionisti_multipli else 1
+        servizi_assegnati.append({'nome': 'nutrizione', 'stato': _get_stato_value(cliente.stato_nutrizione), 'professionisti_count': count})
+    if _has_coach(cliente):
+        count = len(cliente.coaches_multipli) if cliente.coaches_multipli else 1
+        servizi_assegnati.append({'nome': 'coaching', 'stato': _get_stato_value(cliente.stato_coach), 'professionisti_count': count})
+    if _has_psicologia(cliente):
+        count = len(cliente.psicologi_multipli) if cliente.psicologi_multipli else 1
+        servizi_assegnati.append({'nome': 'psicologia', 'stato': _get_stato_value(cliente.stato_psicologia), 'professionisti_count': count})
+
+    if not servizi_assegnati:
+        return False
+
+    servizi_in_pausa = [s for s in servizi_assegnati if s['stato'] and s['stato'] == 'pausa']
+    tutti_pausa = len(servizi_in_pausa) == len(servizi_assegnati)
+    almeno_uno_non_pausa = any(s['stato'] and s['stato'] != 'pausa' for s in servizi_assegnati)
+    stato_cliente_value = _get_stato_value(cliente.stato_cliente)
+
+    if tutti_pausa and stato_cliente_value != 'pausa':
+        old_stato = cliente.stato_cliente
+        cliente.stato_cliente = StatoClienteEnum.pausa
+        cliente.stato_cliente_data = datetime.utcnow()
+        db.session.add(
+            ActivityLog(
+                cliente_id=cliente.cliente_id,
+                field='stato_cliente',
+                before=_get_stato_value(old_stato),
+                after='pausa',
+                user_id=_user_id(updated_by_user),
+            )
+        )
+        current_app.logger.info(
+            f"Cliente {cliente.cliente_id} - Stato cliente aggiornato automaticamente a PAUSA "
+            f"(tutti i servizi assegnati sono in pausa)"
+        )
+        return True
+
+    if stato_cliente_value == 'pausa' and almeno_uno_non_pausa:
+        cliente.stato_cliente = StatoClienteEnum.attivo
+        cliente.stato_cliente_data = datetime.utcnow()
+        db.session.add(
+            ActivityLog(
+                cliente_id=cliente.cliente_id,
+                field='stato_cliente',
+                before='pausa',
+                after='attivo',
+                user_id=_user_id(updated_by_user),
+            )
+        )
+        current_app.logger.info(
+            f"Cliente {cliente.cliente_id} - Stato cliente riattivato ad ATTIVO "
+            f"(almeno un servizio assegnato non è più in pausa)"
+        )
+        return True
+
+    return False
+
+
 def _handle_call_to_status_trigger(
     cliente: Cliente,
     data: Mapping[str, Any],
@@ -767,6 +863,12 @@ def update_cliente(
         v = getattr(val, "value", val)
         return str(v) == "ghost"
 
+    def _is_pausa_val(val) -> bool:
+        if val is None:
+            return False
+        v = getattr(val, "value", val)
+        return str(v) == "pausa"
+
     stato_cliente_prima = getattr(cliente, "stato_cliente", None)
     with _commit_or_rollback():
         # Traccia i cambiamenti delle patologie PRIMA di modificare i valori
@@ -862,8 +964,9 @@ def update_cliente(
         if stati_servizi_modificati or professionisti_modificati:
             # Flush per assicurarsi che le modifiche siano visibili
             db.session.flush()
-            # Controlla e aggiorna automaticamente stato_cliente se necessario
+            # Controlla e aggiorna automaticamente stato_cliente (ghost e pausa) se necessario
             _check_and_update_global_ghost_status(cliente, updated_by_user)
+            _check_and_update_global_pausa_status(cliente, updated_by_user)
 
         # changelog
         for field, (before, after) in changes.items():
@@ -891,6 +994,20 @@ def update_cliente(
         except Exception as e:  # best-effort, non bloccare il flusso
             current_app.logger.warning(
                 "Invio webhook GHL ghost per cliente %s fallito: %s",
+                cliente.cliente_id,
+                e,
+            )
+
+    transitioned_to_pausa = not _is_pausa_val(stato_cliente_prima) and _is_pausa_val(
+        getattr(cliente, "stato_cliente", None)
+    )
+    if transitioned_to_pausa:
+        try:
+            from corposostenibile.blueprints.ghl_integration.outbound import send_pausa_webhook_to_ghl
+            send_pausa_webhook_to_ghl(cliente)
+        except Exception as e:
+            current_app.logger.warning(
+                "Invio webhook GHL pausa per cliente %s fallito: %s",
                 cliente.cliente_id,
                 e,
             )

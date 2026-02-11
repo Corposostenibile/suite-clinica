@@ -1,9 +1,9 @@
 """
 Invio dati dalla Suite verso GHL (webhook outbound).
 
-Quando un paziente passa in stato ghost (manualmente o automaticamente),
-viene inviato un POST al webhook configurato (GHL_WEBHOOK_GHOST_URL) con
-tutti i dati necessari del paziente per aggiornare GHL.
+Quando un paziente passa in stato ghost o pausa (manualmente o automaticamente),
+viene inviato un POST al webhook configurato (GHL_WEBHOOK_GHOST_URL / GHL_WEBHOOK_PAUSA_URL)
+con tutti i dati necessari del paziente per aggiornare GHL.
 """
 
 from datetime import datetime
@@ -31,15 +31,10 @@ def _dt_iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
 
 
-def build_ghost_payload(cliente: Cliente) -> Dict[str, Any]:
-    """
-    Costruisce il payload da inviare a GHL quando un paziente va in ghost.
-
-    Include i dati necessari per identificare il contatto in GHL e gli stati
-    dei servizi (nutrizione, coach, psicologia).
-    """
+def _build_cliente_payload(cliente: Cliente, event: str) -> Dict[str, Any]:
+    """Payload cliente condiviso per ghost e pausa."""
     return {
-        "event": "cliente_ghost",
+        "event": event,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "cliente": {
             "cliente_id": cliente.cliente_id,
@@ -61,6 +56,11 @@ def build_ghost_payload(cliente: Cliente) -> Dict[str, Any]:
             "tipologia_cliente": _stato_value(getattr(cliente, "tipologia_cliente", None)),
         },
     }
+
+
+def build_ghost_payload(cliente: Cliente) -> Dict[str, Any]:
+    """Payload da inviare a GHL quando un paziente va in ghost."""
+    return _build_cliente_payload(cliente, "cliente_ghost")
 
 
 def send_ghost_webhook_to_ghl(cliente: Cliente) -> bool:
@@ -107,6 +107,58 @@ def send_ghost_webhook_to_ghl(cliente: Cliente) -> bool:
     except requests.RequestException as e:
         current_app.logger.exception(
             "[GHL Outbound] Errore invio webhook ghost per cliente %s: %s",
+            cliente.cliente_id,
+            e,
+        )
+        return False
+
+
+def build_pausa_payload(cliente: Cliente) -> Dict[str, Any]:
+    """Payload da inviare a GHL quando un paziente va in pausa."""
+    return _build_cliente_payload(cliente, "cliente_pausa")
+
+
+def send_pausa_webhook_to_ghl(cliente: Cliente) -> bool:
+    """
+    Invia a GHL un webhook con i dati del paziente quando passa in pausa.
+
+    Usa GHL_WEBHOOK_PAUSA_URL. Se non configurata, non fa nulla.
+    Best-effort: errori loggati, non sollevati.
+    """
+    url = current_app.config.get("GHL_WEBHOOK_PAUSA_URL")
+    if not url or not str(url).strip():
+        current_app.logger.debug(
+            "GHL_WEBHOOK_PAUSA_URL non configurato; skip invio webhook pausa per cliente %s",
+            cliente.cliente_id,
+        )
+        return False
+
+    payload = build_pausa_payload(cliente)
+    try:
+        resp = requests.post(
+            url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=15,
+        )
+        if resp.ok:
+            current_app.logger.info(
+                "[GHL Outbound] Webhook pausa inviato per cliente %s (%s) -> %s",
+                cliente.cliente_id,
+                cliente.nome_cognome,
+                url,
+            )
+            return True
+        current_app.logger.warning(
+            "[GHL Outbound] Webhook pausa risposta non 2xx per cliente %s: %s %s",
+            cliente.cliente_id,
+            resp.status_code,
+            resp.text[:200],
+        )
+        return False
+    except requests.RequestException as e:
+        current_app.logger.exception(
+            "[GHL Outbound] Errore invio webhook pausa per cliente %s: %s",
             cliente.cliente_id,
             e,
         )

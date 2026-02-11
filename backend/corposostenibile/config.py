@@ -251,6 +251,8 @@ class BaseConfig:
     GHL_API_BASE_URL: str = os.getenv("GHL_API_BASE_URL", "https://rest.gohighlevel.com/v1")
     # URL webhook outbound: quando un paziente va in ghost (manuale o automatico), viene inviato un POST con i dati
     GHL_WEBHOOK_GHOST_URL: str | None = os.getenv("GHL_WEBHOOK_GHOST_URL")
+    # URL webhook outbound: quando un paziente va in pausa (manuale o automatico), viene inviato un POST con i dati
+    GHL_WEBHOOK_PAUSA_URL: str | None = os.getenv("GHL_WEBHOOK_PAUSA_URL")
 
     # ------------------ Respond.io Integration -----------------------
     RESPOND_IO_API_TOKEN: str | None = os.getenv("RESPOND_IO_API_TOKEN")
