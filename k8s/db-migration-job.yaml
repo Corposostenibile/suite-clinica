@@ -5,10 +5,36 @@ metadata:
   labels:
     app: suite-clinica
 spec:
+  # Elimina automaticamente il Job 10 minuti (600s) dopo il completamento
+  ttlSecondsAfterFinished: 600
   backoffLimit: 0
   template:
     spec:
       restartPolicy: Never
+      
+      # K8s 1.29+ Native Sidecar: Il proxy viene definito qui ma gira come sidecar
+      initContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
+        restartPolicy: Always  # <--- Questo lo rende un Sidecar che muore col main container
+        args:
+          - "--port=5432"
+          - "--credentials-file=/secrets/cloudsql/credentials.json"
+          - "suite-clinica:europe-west8:suite-clinica-db-prod"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        volumeMounts:
+        - name: sql-proxy-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+
       containers:
       - name: migrator
         image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:migration-debug-6
@@ -63,25 +89,7 @@ spec:
           limits:
             cpu: "2"
             memory: "8Gi"
-      - name: cloud-sql-proxy
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
-        args:
-          - "--port=5432"
-          - "--credentials-file=/secrets/cloudsql/credentials.json"
-          - "suite-clinica:europe-west8:suite-clinica-db-prod"
-        securityContext:
-          runAsNonRoot: true
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "50m"
-          limits:
-            memory: "256Mi"
-            cpu: "250m"
-        volumeMounts:
-        - name: sql-proxy-key
-          mountPath: /secrets/cloudsql
-          readOnly: true
+            
       volumes:
       - name: db-backups
         persistentVolumeClaim:

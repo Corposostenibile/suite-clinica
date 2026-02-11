@@ -5,9 +5,26 @@ metadata:
   labels:
     app: suite-clinica
 spec:
+  ttlSecondsAfterFinished: 600
   template:
     spec:
       restartPolicy: Never
+      
+      initContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
+        restartPolicy: Always
+        args:
+          - "--port=5432"
+          - "--credentials-file=/secrets/cloudsql/credentials.json"
+          - "suite-clinica:europe-west8:suite-clinica-db-prod"
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+        - name: sql-proxy-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+          
       containers:
       - name: backup-tool
         image: postgres:16-alpine
@@ -55,18 +72,7 @@ spec:
         volumeMounts:
         - name: db-backups
           mountPath: /data/backups
-      - name: cloud-sql-proxy
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
-        args:
-          - "--port=5432"
-          - "--credentials-file=/secrets/cloudsql/credentials.json"
-          - "suite-clinica:europe-west8:suite-clinica-db-prod"
-        securityContext:
-          runAsNonRoot: true
-        volumeMounts:
-        - name: sql-proxy-key
-          mountPath: /secrets/cloudsql
-          readOnly: true
+          
       volumes:
       - name: db-backups
         persistentVolumeClaim:

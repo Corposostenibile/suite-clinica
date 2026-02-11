@@ -5,6 +5,7 @@ metadata:
   labels:
     app: suite-clinica
 spec:
+  ttlSecondsAfterFinished: 600
   backoffLimit: 0
   template:
     spec:
