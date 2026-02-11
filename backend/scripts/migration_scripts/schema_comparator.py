@@ -4,6 +4,38 @@ import sys
 import subprocess
 from collections import OrderedDict
 from datetime import datetime
+from werkzeug.security import generate_password_hash
+
+def generate_admin_user_sql():
+    """Genera SQL per garantire l'esistenza dell'utente admin."""
+    admin_email = "dev@corposostenibile.it"
+    # Genera hash scrypt (compatibile con werkzeug default)
+    password_hash = generate_password_hash("Dev123?")
+    
+    # SQL per inserire o aggiornare l'admin
+    sql = f"""
+    -- Garantire utente admin di default
+    INSERT INTO public.users (
+        email, password_hash, first_name, last_name, is_admin, is_active, role, is_external, created_at, updated_at
+    ) VALUES (
+        '{admin_email}', 
+        '{password_hash}', 
+        'Dev', 
+        'Admin', 
+        true, 
+        true, 
+        'admin',
+        false, 
+        NOW(), 
+        NOW()
+    )
+    ON CONFLICT (email) DO UPDATE SET 
+        password_hash = EXCLUDED.password_hash,
+        is_admin = true,
+        is_active = true,
+        role = 'admin';
+    """
+    return sql
 
 def parse_sql_dump(file_path):
     """Parses a PostgreSQL dump file to extract table definitions and their columns."""
@@ -303,6 +335,10 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             
             if id_col in new_schema_def[table]:
                 outfile.write(f"SELECT setval(pg_get_serial_sequence('\"{table}\"', '{id_col}'), coalesce(max({id_col}), 1)) FROM \"{table}\" WHERE EXISTS (SELECT 1 FROM \"{table}\");\n")
+        
+        # Inject Admin User creation
+        print("Injecting Admin User creation SQL...")
+        outfile.write(generate_admin_user_sql())
 
     print(f"\nSuccess. Migrated dump ready: {output_path}")
 
