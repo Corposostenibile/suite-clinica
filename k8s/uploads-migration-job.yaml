@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: suite-clinica-uploads-migration
+  labels:
+    app: suite-clinica
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        topology.kubernetes.io/zone: europe-west8-c
+      containers:
+      - name: migrator
+        image: google/cloud-sdk:slim
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -euo pipefail
+          echo "[migration] Activating Service Account..."
+          gcloud auth activate-service-account --key-file=/secrets/cloudsql/credentials.json
+          
+          echo "[migration] Starting FAST uploads migration..."
+          gsutil cat gs://suite-clinica-backups/backup_20260205_141330/uploads_backup_20260205_121004.tar.gz | tar -xzf - -C /var/corposostenibile/uploads/
+          
+          echo "[migration] Done."
+        volumeMounts:
+        - name: uploads-storage
+          mountPath: /var/corposostenibile/uploads
+        - name: service-account-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+      volumes:
+      - name: uploads-storage
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+      - name: service-account-key
+        secret:
+          secretName: sql-proxy-key
