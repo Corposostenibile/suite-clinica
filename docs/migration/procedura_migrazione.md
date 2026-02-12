@@ -42,8 +42,12 @@ kubectl create configmap migration-script-config --from-file=backend/scripts/mig
 
 ### 3. Avvio del Job
 Assicurarsi che il file `k8s/db-migration-job.yaml` punti all'immagine corretta e monti la ConfigMap.
+Verificare inoltre che `OLD_SUITE_BACKUP` nel Job punti a un file realmente presente in `/data/backups/old_suite_backups/`.
 
 ```bash
+# Se presente, rimuovi il pod manuale di debug (può bloccare il PVC per multi-attach)
+kubectl delete pod manual-db-migrator --ignore-not-found
+
 # Elimina eventuali job precedenti
 kubectl delete job suite-clinica-db-migration --ignore-not-found
 
@@ -54,6 +58,29 @@ kubectl apply -f k8s/db-migration-job.yaml
 POD_NAME=$(kubectl get pods -l job-name=suite-clinica-db-migration --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 kubectl logs -f $POD_NAME -c migrator
 ```
+
+### 3.1 Diagnostica Rapida (se il Job fallisce)
+
+```bash
+# Stato pod del job
+kubectl get pods -l job-name=suite-clinica-db-migration -o wide
+
+# Eventi e motivo del fallimento (mount, secret, configmap, immagine, ecc.)
+kubectl describe pod -l job-name=suite-clinica-db-migration
+
+# Log container migrator
+kubectl logs -l job-name=suite-clinica-db-migration -c migrator --tail=200
+
+# Log Cloud SQL Proxy (connessione DB)
+kubectl logs -l job-name=suite-clinica-db-migration -c cloud-sql-proxy --tail=200
+```
+
+Errori comuni:
+- `OLD_SUITE_BACKUP not found`: path dump vecchia suite non valido o file assente nel PVC.
+- `Multi-Attach error for volume ... db-backups-pvc`: esiste un altro pod (es. `manual-db-migrator`) che sta già montando il PVC.
+- `configmap "migration-script-config" not found`: rieseguire la creazione ConfigMap (step 2).
+- `secret "db-credentials" / "sql-proxy-key" not found`: secret mancanti nel namespace corrente.
+- `pg_isready timeout` o errori proxy: credenziali Cloud SQL o connectivity issue verso istanza DB.
 
 ### 4. Migrazione degli Upload
 I file di upload vengono migrati direttamente da un bucket Google Cloud Storage a un PVC dedicato (`uploads-pvc`).

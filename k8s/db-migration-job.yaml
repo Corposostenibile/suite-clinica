@@ -69,8 +69,27 @@ spec:
         args:
         - |
           set -euo pipefail
+          echo "[migration] preflight checks..."
+          if [ ! -f "$NEW_SUITE_BACKUP" ]; then
+            echo "[migration][error] NEW_SUITE_BACKUP not found: $NEW_SUITE_BACKUP"
+            ls -lah /data/backups/new_suite_backups || true
+            exit 1
+          fi
+          if [ ! -f "$OLD_SUITE_BACKUP" ]; then
+            echo "[migration][error] OLD_SUITE_BACKUP not found: $OLD_SUITE_BACKUP"
+            ls -lah /data/backups/old_suite_backups || true
+            exit 1
+          fi
+          echo "[migration] waiting for Cloud SQL Proxy..."
+          until pg_isready -h "${PGHOST}" -p "${PGPORT}"; do
+            sleep 2
+          done
           echo "[migration] generating migrated dump..."
           python scripts/migration_scripts/schema_comparator.py
+          if [ ! -s "$OUTPUT_FILE" ]; then
+            echo "[migration][error] generated dump is empty: $OUTPUT_FILE"
+            exit 1
+          fi
           echo "[migration] applying migrated dump to target DB (ignoring errors to proceed)..."
           psql -v ON_ERROR_STOP=0 -f "$OUTPUT_FILE" || true
           echo "[migration] done"
@@ -84,11 +103,11 @@ spec:
           subPath: schema_comparator.py
         resources:
           requests:
-            cpu: "1"
-            memory: "6Gi"
+            cpu: "250m"
+            memory: "512Mi"
           limits:
             cpu: "2"
-            memory: "8Gi"
+            memory: "2Gi"
             
       volumes:
       - name: db-backups
