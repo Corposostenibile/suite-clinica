@@ -9,43 +9,62 @@ from werkzeug.security import generate_password_hash
 DEFAULT_IMPORTED_PASSWORD_HASH = generate_password_hash("Dev123?")
 
 # =============================================================================
-# ORGANIGRAMMA UFFICIALE 2026
+# ORGANIGRAMMA UFFICIALE 2026 (AUTORITATIVO PER MIGRAZIONE TEAM)
 # =============================================================================
-OFFICIAL_ORGANIGRAMMA = {
-    'nutrizione': {
-        'team_leaders': ['Filippo Feliciani', 'Isabella Rossi', 'Alice Posenato'],
-        'teams': {
-            '1': ['Alessandra Arcoleo', 'Caterina Esposito', 'Chiara Giombolini', 'Elisa Menichelli', 'Federica Cutolo', 'Giorgia Leone', 'Giorgia Santi', 'Jessica Di Colli', 'Maria Vittoria Sallicano', 'Marilena Franco', 'Marta Buccilli', 'Martina Mantovani', 'Michela Pagnani', 'Sara Goffi', 'Valeria Loliva'],
-            '2': ['Alice Aresti', 'Alice Surbone', 'Florinda Masciello', 'Francesca Abatini', 'Gianluca Marino', 'Gianna Sannelli', 'Isabella Venticinque', 'Mara Adreola', 'Marisa Piras', 'Martina Roberti', 'Nicola Fassetta', 'Nicolò Lorenzo Marinelli', 'Rossana Picerno', 'Silvia Testoni', 'Virginia Vitelli'],
-            '3': ['Andrea Tuacris', 'Bianca Balzarini', 'Caterina Scarano', 'Chiara D\'Addesa', 'Elisa Mancini', 'Francesca Ceppetelli', 'Francesca Tornese', 'Giammarco Lamanda', 'Rossella Cariglia', 'Sabine Ardiccioni', 'Silvia Maria Scoletta', 'Valentina Botondi'],
-            '4': ['Carlotta Sed', 'Francesca Valentini', 'Gaia Sala', 'Marta Bendusi', 'Noemi Di Natale', 'Virginia Bonazzi']
-        }
+OFFICIAL_TEAMS = OrderedDict({
+    '1': {
+        'name': 'Nutrizione - Team 1',
+        'team_type': 'nutrizione',
+        'leader': 'Filippo Feliciani',
+        'members': ['Alessandra Arcoleo', 'Caterina Esposito', 'Chiara Giombolini', 'Elisa Menichelli', 'Federica Cutolo', 'Giorgia Leone', 'Giorgia Santi', 'Jessica Di Colli', 'Maria Vittoria Sallicano', 'Marilena Franco', 'Marta Buccilli', 'Martina Mantovani', 'Michela Pagnani', 'Sara Goffi', 'Valeria Loliva'],
     },
-    'psicologia': {
-        'team_leaders': ['Delia De Santis', 'Francesca Zaccaro'],
-        'teams': {
-            '5': ['Alice Lampone', 'Angela Velletri', 'Claudia Milione', 'Giorgia Del Bianco', 'Martina Calvi', 'Martina Loccisano'],
-            '6': ['Angel Disney Armenise', 'Aurora Valente', 'Barbara Visalli', 'Denise Caravano', 'Germana Morganti', 'Manny Aiello']
-        }
+    '2': {
+        'name': 'Nutrizione - Team 2',
+        'team_type': 'nutrizione',
+        'leader': 'Isabella Rossi',
+        'members': ['Alice Aresti', 'Alice Surbone', 'Florinda Masciello', 'Francesca Abatini', 'Gianluca Marino', 'Gianna Sannelli', 'Isabella Venticinque', 'Mara Adreola', 'Marisa Piras', 'Martina Roberti', 'Nicola Fassetta', 'Nicolò Lorenzo Marinelli', 'Rossana Picerno', 'Silvia Testoni', 'Virginia Vitelli'],
     },
-    'coach': {
-        'team_leaders': ['Lorenzo Sambri'],
-        'teams': {
-            '7': ['Alessandra Di Lisciandro', 'Angbonon Ange Olivier Bile', 'Angelo Lacorte', 'Claudio Lopiano', 'Danilo Bonifati', 'Federico De Bene', 'Francesco Falcone', 'Giovanna Pirina', 'Giuseppe Summa', 'Ilaria Galesi', 'Marco Fratini', 'Matteo Test User', 'Nino Helera', 'Rebecca Masseroni', 'Ruggiero Balzano', 'Sara Paganotto', 'Valentina Carisio']
-        }
-    }
-}
+    '3': {
+        'name': 'Nutrizione - Team 3',
+        'team_type': 'nutrizione',
+        'leader': 'Alice Posenato',
+        'members': ['Andrea Tuacris', 'Bianca Balzarini', 'Caterina Scarano', 'Chiara D\'Addesa', 'Elisa Mancini', 'Francesca Ceppetelli', 'Francesca Tornese', 'Giammarco Lamanda', 'Rossella Cariglia', 'Sabine Ardiccioni', 'Silvia Maria Scoletta', 'Valentina Botondi'],
+    },
+    '4': {
+        'name': 'Nutrizione - Team 4',
+        'team_type': 'nutrizione',
+        'leader': 'Alice Posenato',
+        'members': ['Carlotta Sed', 'Francesca Valentini', 'Gaia Sala', 'Marta Bendusi', 'Noemi Di Natale', 'Virginia Bonazzi'],
+    },
+    '5': {
+        'name': 'Psicologia - Team 1',
+        'team_type': 'psicologia',
+        'leader': 'Delia De Santis',
+        'members': ['Alice Lampone', 'Angela Velletri', 'Claudia Milione', 'Giorgia Del Bianco', 'Martina Calvi', 'Martina Loccisano'],
+    },
+    '6': {
+        'name': 'Psicologia - Team 2',
+        'team_type': 'psicologia',
+        'leader': 'Francesca Zaccaro',
+        'members': ['Angel Disney Armenise', 'Aurora Valente', 'Barbara Visalli', 'Denise Caravano', 'Germana Morganti', 'Manny Aiello'],
+    },
+    '7': {
+        'name': 'Coach',
+        'team_type': 'coach',
+        'leader': 'Lorenzo Sambri',
+        'members': ['Alessandra Di Lisciandro', 'Angbonon Ange Olivier Bile', 'Angelo Lacorte', 'Claudio Lopiano', 'Danilo Bonifati', 'Federico De Bene', 'Francesco Falcone', 'Giovanna Pirina', 'Giuseppe Summa', 'Ilaria Galesi', 'Marco Fratini', 'Matteo Test User', 'Nino Helera', 'Rebecca Masseroni', 'Ruggiero Balzano', 'Sara Paganotto', 'Valentina Carisio'],
+    },
+})
 
 def get_professional_info(first_name, last_name):
     full_name = f"{first_name} {last_name}".strip().lower()
-    for specialty, data in OFFICIAL_ORGANIGRAMMA.items():
-        if any(tl.lower() == full_name for tl in data['team_leaders']):
-            spec_map = {'nutrizione': 'nutrizionista', 'psicologia': 'psicologo', 'coach': 'coach'}
+    for team in OFFICIAL_TEAMS.values():
+        specialty = team['team_type']
+        spec_map = {'nutrizione': 'nutrizionista', 'psicologia': 'psicologo', 'coach': 'coach'}
+        if team['leader'].lower() == full_name:
             return spec_map[specialty], 'team_leader'
-        for team_id, members in data['teams'].items():
-            if any(m.lower() == full_name for m in members):
-                spec_map = {'nutrizione': 'nutrizionista', 'psicologia': 'psicologo', 'coach': 'coach'}
-                return spec_map[specialty], 'professionista'
+        if any(m.lower() == full_name for m in team['members']):
+            return spec_map[specialty], 'professionista'
     return None, None
 
 def generate_admin_user_sql():
@@ -344,18 +363,48 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             if c.get(col) is not None and str(c.get(col)) not in allowed_user_ids:
                 c[col] = None
 
-    existing_team_ids = {
-        str(t.get('id')).strip()
+    # Build official teams as source of truth to avoid stale/swapped teams from legacy dumps.
+    # Keep legacy department_id when possible.
+    legacy_team_by_id = {
+        str(t.get('id')).strip(): t
         for t in table_data.get('teams', [])
         if t.get('id') is not None
     }
-    table_data['team_members'] = table_data.get('team_members', [])
-    for spec, data in OFFICIAL_ORGANIGRAMMA.items():
-        for t_id, members in data['teams'].items():
-            for m in members:
-                found_id = name_to_id.get(m.lower())
-                if found_id and str(t_id) in existing_team_ids:
-                    table_data['team_members'].append({'team_id': t_id, 'user_id': found_id, 'joined_at': datetime.now().isoformat()})
+    table_data['teams'] = []
+    for team_id, team in OFFICIAL_TEAMS.items():
+        legacy_team = legacy_team_by_id.get(team_id, {})
+        leader_id = name_to_id.get(team['leader'].lower())
+        table_data['teams'].append({
+            'id': int(team_id),
+            'name': team['name'],
+            'team_type': team['team_type'],
+            'head_id': leader_id,
+            'department_id': legacy_team.get('department_id'),
+            'is_active': True,
+            'description': legacy_team.get('description') or team['name'],
+            'created_at': legacy_team.get('created_at') or datetime.now().isoformat(),
+            'updated_at': legacy_team.get('updated_at') or datetime.now().isoformat(),
+        })
+
+    # Rebuild team_members from official organigram and include leaders as team members.
+    team_members = []
+    seen_memberships = set()
+    for team_id, team in OFFICIAL_TEAMS.items():
+        person_names = [team['leader']] + list(team['members'])
+        for person_name in person_names:
+            found_id = name_to_id.get(person_name.lower())
+            if not found_id:
+                continue
+            membership_key = (int(team_id), str(found_id))
+            if membership_key in seen_memberships:
+                continue
+            seen_memberships.add(membership_key)
+            team_members.append({
+                'team_id': int(team_id),
+                'user_id': found_id,
+                'joined_at': datetime.now().isoformat(),
+            })
+    table_data['team_members'] = team_members
 
     with open(output_path, 'w', encoding='utf-8') as outfile:
         outfile.write("SET search_path TO public;\n")
