@@ -11,7 +11,8 @@ steps:
   - name: 'gcr.io/cloud-builders/gke-deploy'
     args:
       - run
-      - --filename=k8s/
+      - --filename=k8s/deployment.yaml
+      - --filename=k8s/service.yaml
       - --location=europe-west8
       - --cluster=suite-clinica-cluster-prod
       - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
