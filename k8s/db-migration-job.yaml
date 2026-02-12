@@ -5,8 +5,8 @@ metadata:
   labels:
     app: suite-clinica
 spec:
-  # Elimina automaticamente il Job 10 minuti (600s) dopo il completamento
-  ttlSecondsAfterFinished: 600
+  # Elimina automaticamente il Job poco dopo il completamento
+  ttlSecondsAfterFinished: 30
   backoffLimit: 0
   template:
     spec:
@@ -104,7 +104,7 @@ spec:
         resources:
           requests:
             cpu: "250m"
-            memory: "512Mi"
+            memory: "128Mi"
           limits:
             cpu: "2"
             memory: "2Gi"

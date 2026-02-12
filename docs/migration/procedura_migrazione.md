@@ -102,3 +102,6 @@ Il job scarica l'archivio `.tar.gz` tramite pipe ed estrae i file direttamente i
 - **Errori SQL**: Nel Job è impostato `psql -v ON_ERROR_STOP=0` per permettere alla migrazione di procedere anche se alcuni record orfani o sporchi del vecchio DB violano i vincoli di integrità.
 - **Idempotenza**: Lo script usa `ON CONFLICT (...) DO NOTHING` per le tabelle principali. Se rilanciato, non duplicherà i dati esistenti.
 - **Sequenze ID**: Lo script genera automaticamente i comandi `SELECT setval(...)` alla fine per sincronizzare i contatori degli ID autoincrementali con i dati migrati.
+- **Filtro utenti/professionisti**: la migrazione importa tutti gli utenti non professionisti; per i ruoli `professionista`/`team_leader` importa solo i nominativi presenti in `OFFICIAL_ORGANIGRAMMA`. In questo modo `/team-lista` non mostra professionisti fuori lista ufficiale.
+- **Campi obbligatori utenti**: durante la generazione dump vengono normalizzati `role`, `specialty` e booleani (`is_admin`, `is_active`, `is_external`, `is_trial`) per evitare errori `NOT NULL`/enum su `users`.
+- **ConfigMap obbligatoria dopo modifiche script**: se si modifica `schema_comparator.py`, rieseguire sempre lo step 2 (update `migration-script-config`) prima di rilanciare il Job.

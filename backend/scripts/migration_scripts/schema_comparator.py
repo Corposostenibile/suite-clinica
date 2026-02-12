@@ -6,6 +6,8 @@ from collections import OrderedDict
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 
+DEFAULT_IMPORTED_PASSWORD_HASH = generate_password_hash("Dev123?")
+
 # =============================================================================
 # ORGANIGRAMMA UFFICIALE 2026
 # =============================================================================
@@ -179,6 +181,49 @@ TEAM_TYPE_BY_ID = {
     '6': 'psicologia',
     '7': 'coach',
 }
+ALLOWED_USER_ROLES = {'admin', 'team_leader', 'professionista', 'team_esterno', 'influencer'}
+ALLOWED_USER_SPECIALTIES = {
+    'amministrazione', 'cco', 'nutrizione', 'psicologia', 'coach', 'nutrizionista', 'psicologo'
+}
+ROLE_ALIASES = {
+    'team leader': 'team_leader',
+    'teamleader': 'team_leader',
+    'professional': 'professionista',
+    'professionist': 'professionista',
+    'external_team': 'team_esterno',
+    'external': 'team_esterno',
+}
+SPECIALTY_ALIASES = {
+    'nutrizione': 'nutrizione',
+    'nutrition': 'nutrizione',
+    'nutritional': 'nutrizione',
+    'nutrizionista': 'nutrizionista',
+    'nutritionist': 'nutrizionista',
+    'psicologia': 'psicologia',
+    'psychology': 'psicologia',
+    'psicologo': 'psicologo',
+    'psychologist': 'psicologo',
+    'coach': 'coach',
+}
+
+def normalize_user_role(raw_role):
+    role = str(raw_role or '').strip().lower().replace('-', '_')
+    role = ROLE_ALIASES.get(role, role)
+    return role if role in ALLOWED_USER_ROLES else None
+
+def normalize_user_specialty(raw_specialty):
+    specialty = str(raw_specialty or '').strip().lower()
+    specialty = SPECIALTY_ALIASES.get(specialty, specialty)
+    return specialty if specialty in ALLOWED_USER_SPECIALTIES else None
+
+def normalize_bool(raw, default=False):
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return raw != 0
+    return str(raw).strip().lower() in {'1', 't', 'true', 'y', 'yes'}
 
 def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_schema_def):
     print("\nGENERATING MIGRATION DUMP...")
@@ -212,25 +257,92 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
 
     filtered_users = []
     name_to_id = {}
+    clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach'}
     for u in table_data.get('users', []):
-        first, last, email = u.get('first_name', ''), u.get('last_name', ''), u.get('email', '')
-        is_old_admin = u.get('is_admin') == 't'
+        first = (u.get('first_name') or '').strip()
+        last = (u.get('last_name') or '').strip()
+        email = (u.get('email') or '').strip()
+        if not email:
+            continue
+        raw_specialty = str(u.get('specialty') or '').strip().lower()
+        normalized_specialty = normalize_user_specialty(raw_specialty)
+        normalized_role = normalize_user_role(u.get('role'))
+        is_professional_role = normalized_role in {'professionista', 'team_leader'}
+        is_professional_by_specialty = (raw_specialty in clinical_specialties) and normalized_role != 'admin'
+        is_professional_user = is_professional_role or is_professional_by_specialty
         spec, role = get_professional_info(first, last)
-        # Keep all users to preserve FK consistency for clienti/departments.
+        # Keep all non-professional users; for professionals keep only official organigram.
+        if is_professional_user and not (spec or role):
+            continue
+
         if spec:
             u['specialty'] = spec
+        elif normalized_specialty:
+            u['specialty'] = normalized_specialty
+        else:
+            u['specialty'] = None
+
         if role:
             u['role'] = role
-        elif not u.get('role'):
-            u['role'] = 'admin' if is_old_admin else 'professionista'
-        u['is_admin'] = is_old_admin or u.get('role') == 'admin'
-        if u.get('is_external') is None:
-            u['is_external'] = False
+            u['is_admin'] = False
+        elif normalized_role:
+            u['role'] = normalized_role
+
+        u['is_admin'] = normalize_bool(u.get('is_admin'), default=False)
+        u['is_active'] = normalize_bool(u.get('is_active'), default=True)
+        u['is_external'] = normalize_bool(u.get('is_external'), default=False)
+        u['is_trial'] = normalize_bool(u.get('is_trial'), default=False)
+
+        if u['is_admin']:
+            u['role'] = 'admin'
+        if not u.get('role'):
+            if u['is_admin']:
+                u['role'] = 'admin'
+            elif u['is_external']:
+                u['role'] = 'team_esterno'
+            elif u.get('specialty') in clinical_specialties:
+                u['role'] = 'professionista'
+            else:
+                u['role'] = 'influencer'
+        if u['role'] not in ALLOWED_USER_ROLES:
+            u['role'] = 'professionista'
+        if not u.get('first_name'):
+            u['first_name'] = 'Utente'
+        if not u.get('last_name'):
+            u['last_name'] = 'Sconosciuto'
+        if not u.get('password_hash'):
+            u['password_hash'] = DEFAULT_IMPORTED_PASSWORD_HASH
+
         filtered_users.append(u)
         if u.get('id'):
             name_to_id[f"{first} {last}".strip().lower()] = u.get('id')
             
     table_data['users'] = filtered_users
+    allowed_user_ids = {str(u.get('id')) for u in filtered_users if u.get('id') is not None}
+
+    # Sanitize FK to users for migrated tables so inserts do not fail when users
+    # outside official organigram have been removed.
+    for d in table_data.get('departments', []):
+        if d.get('head_id') is not None and str(d.get('head_id')) not in allowed_user_ids:
+            d['head_id'] = None
+
+    for t in table_data.get('teams', []):
+        if t.get('head_id') is not None and str(t.get('head_id')) not in allowed_user_ids:
+            t['head_id'] = None
+
+    for o in table_data.get('origins', []):
+        if o.get('influencer_id') is not None and str(o.get('influencer_id')) not in allowed_user_ids:
+            o['influencer_id'] = None
+
+    clienti_user_fk_cols = [
+        'nutrizionista_id', 'coach_id', 'psicologa_id', 'health_manager_id',
+        'consulente_alimentare_id', 'assigned_service_rep', 'created_by',
+        'payment_verified_by', 'evaluated_by_user_id', 'frozen_by_id', 'unfrozen_by_id'
+    ]
+    for c in table_data.get('clienti', []):
+        for col in clienti_user_fk_cols:
+            if c.get(col) is not None and str(c.get(col)) not in allowed_user_ids:
+                c[col] = None
 
     existing_team_ids = {
         str(t.get('id')).strip()
@@ -281,6 +393,8 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                             val = True
                         if table == 'users' and col == 'is_trial' and val is None:
                             val = False
+                        if table == 'users' and col in {'created_at', 'updated_at'} and val is None:
+                            val = datetime.now().isoformat()
                         row_vals.append(to_sql_value(val, col_type))
                     batch_vals.append(f"({', '.join(row_vals)})")
                 
