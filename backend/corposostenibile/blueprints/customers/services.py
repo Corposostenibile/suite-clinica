@@ -875,9 +875,19 @@ def update_cliente(
         _track_patologie_changes(cliente, data)
         _track_patologie_psico_changes(cliente, data)
 
+        # Se il payload contiene cambi di stato servizi, lo stato_cliente verrà
+        # ricalcolato automaticamente (_check_and_update_global_ghost/pausa_status).
+        # Evitiamo che il valore "vecchio" di stato_cliente inviato dal frontend
+        # sovrascriva quello appena calcolato.
+        _servizi_stato_keys = {'stato_nutrizione', 'stato_coach', 'stato_psicologia'}
+        _has_service_state_change = bool(_servizi_stato_keys & data.keys())
+
         # Gestione campi normali
         for k, v in data.items():
             if k in readonly or not hasattr(cliente, k):
+                continue
+            # Skip stato_cliente se stiamo modificando stati servizi (sarà ricalcolato)
+            if k == 'stato_cliente' and _has_service_state_change:
                 continue
             old = getattr(cliente, k)
             if v != old:

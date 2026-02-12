@@ -17,21 +17,12 @@ depends_on = None
 
 
 def upgrade():
-    # Tabella principale
     op.add_column('clienti', sa.Column('data_inizio_nutrizione', sa.Date(), nullable=True))
     op.add_column('clienti', sa.Column('data_scadenza_nutrizione', sa.Date(), nullable=True))
     op.add_column('clienti', sa.Column('data_inizio_coach', sa.Date(), nullable=True))
     op.add_column('clienti', sa.Column('data_scadenza_coach', sa.Date(), nullable=True))
     op.add_column('clienti', sa.Column('data_inizio_psicologia', sa.Date(), nullable=True))
     op.add_column('clienti', sa.Column('data_scadenza_psicologia', sa.Date(), nullable=True))
-
-    # Tabella di versioning (SQLAlchemy-Continuum)
-    op.add_column('clienti_version', sa.Column('data_inizio_nutrizione', sa.Date(), nullable=True))
-    op.add_column('clienti_version', sa.Column('data_scadenza_nutrizione', sa.Date(), nullable=True))
-    op.add_column('clienti_version', sa.Column('data_inizio_coach', sa.Date(), nullable=True))
-    op.add_column('clienti_version', sa.Column('data_scadenza_coach', sa.Date(), nullable=True))
-    op.add_column('clienti_version', sa.Column('data_inizio_psicologia', sa.Date(), nullable=True))
-    op.add_column('clienti_version', sa.Column('data_scadenza_psicologia', sa.Date(), nullable=True))
 
 
 def downgrade():
@@ -41,10 +32,3 @@ def downgrade():
     op.drop_column('clienti', 'data_inizio_coach')
     op.drop_column('clienti', 'data_scadenza_nutrizione')
     op.drop_column('clienti', 'data_inizio_nutrizione')
-
-    op.drop_column('clienti_version', 'data_scadenza_psicologia')
-    op.drop_column('clienti_version', 'data_inizio_psicologia')
-    op.drop_column('clienti_version', 'data_scadenza_coach')
-    op.drop_column('clienti_version', 'data_inizio_coach')
-    op.drop_column('clienti_version', 'data_scadenza_nutrizione')
-    op.drop_column('clienti_version', 'data_inizio_nutrizione')
