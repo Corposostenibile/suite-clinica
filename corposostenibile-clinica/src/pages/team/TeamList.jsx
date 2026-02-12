@@ -22,10 +22,42 @@ const SPECIALTY_GRADIENTS = {
 // Fallback gradient per membri senza specializzazione
 const DEFAULT_GRADIENT = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
+const normalizeAvatarPath = (avatarPath) => {
+  if (!avatarPath) return null;
+  const rawPath = String(avatarPath).trim();
+  if (!rawPath) return null;
+
+  // Keep data/blob URLs as is.
+  if (/^(data:|blob:)/i.test(rawPath)) return rawPath;
+
+  // Normalize legacy absolute URLs to same-origin upload paths.
+  if (/^https?:\/\//i.test(rawPath) || rawPath.startsWith('//')) {
+    try {
+      const parsed = new URL(rawPath, window.location.origin);
+      const pathname = parsed.pathname || '';
+      if (pathname.startsWith('/uploads/')) return `${pathname}${parsed.search || ''}`;
+      if (pathname.startsWith('/avatars/')) return `/uploads${pathname}${parsed.search || ''}`;
+      if (pathname.startsWith('/')) return `${pathname}${parsed.search || ''}`;
+      return `/uploads/avatars/${pathname}${parsed.search || ''}`;
+    } catch {
+      return rawPath;
+    }
+  }
+
+  if (rawPath.startsWith('/uploads/')) return rawPath;
+  if (rawPath.startsWith('uploads/')) return `/${rawPath}`;
+  if (rawPath.startsWith('/avatars/')) return `/uploads${rawPath}`;
+  if (rawPath.startsWith('avatars/')) return `/uploads/${rawPath}`;
+  if (rawPath.startsWith('/')) return rawPath;
+
+  return `/uploads/avatars/${rawPath}`;
+};
+
 function TeamList() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [members, setMembers] = useState([]);
+  const [brokenAvatars, setBrokenAvatars] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [globalStats, setGlobalStats] = useState(null);
@@ -252,7 +284,11 @@ function TeamList() {
         <>
           {/* Team Grid */}
           <div className="row g-4">
-            {members.map((member) => (
+            {members.map((member) => {
+              const avatarSrc = normalizeAvatarPath(member.avatar_path);
+              const showAvatar = avatarSrc && !brokenAvatars[member.id];
+
+              return (
               <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
                 <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
                   {/* Gradient Header - colore basato su specializzazione */}
@@ -279,12 +315,13 @@ function TeamList() {
 
                     {/* Avatar */}
                     <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
-                      {member.avatar_path ? (
+                      {showAvatar ? (
                         <img
-                          src={member.avatar_path}
+                          src={avatarSrc}
                           alt={member.full_name}
                           className="rounded-circle border border-3 border-white shadow-sm"
                           style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }}
+                          onError={() => setBrokenAvatars(prev => ({ ...prev, [member.id]: true }))}
                         />
                       ) : (
                         <div
@@ -368,7 +405,8 @@ function TeamList() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Pagination */}
