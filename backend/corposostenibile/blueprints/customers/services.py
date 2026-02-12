@@ -883,12 +883,24 @@ def update_cliente(
         _servizi_stato_keys = {'stato_nutrizione', 'stato_coach', 'stato_psicologia'}
         _has_service_state_change = bool(_servizi_stato_keys & data.keys())
 
+        # Se stiamo aggiornando uno stato servizio (pausa → attivo), update_stato_servizio
+        # può estendere data_scadenza_*; non sovrascrivere con il valore dal payload (vecchio).
+        _scadenza_skip_if_stato_updated = {
+            'data_scadenza_nutrizione': 'stato_nutrizione',
+            'data_scadenza_coach': 'stato_coach',
+            'data_scadenza_psicologia': 'stato_psicologia',
+        }
+
         # Gestione campi normali
         for k, v in data.items():
             if k in readonly or not hasattr(cliente, k):
                 continue
             # Skip stato_cliente se stiamo modificando stati servizi (sarà ricalcolato)
             if k == 'stato_cliente' and _has_service_state_change:
+                continue
+            # Non applicare data_scadenza_* dal payload se stiamo aggiornando lo stato di quel servizio:
+            # update_stato_servizio può aver già esteso la scadenza (riattivazione da pausa).
+            if k in _scadenza_skip_if_stato_updated and _scadenza_skip_if_stato_updated[k] in data:
                 continue
             old = getattr(cliente, k)
             if v != old:

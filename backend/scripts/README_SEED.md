@@ -176,6 +176,18 @@ Dopo aver eseguito lo script:
    - Verifica che ci siano i 3 team
    - Controlla che ogni team abbia i membri assegnati
 
+## Script: Test estensione scadenza in pausa
+
+Per testare la logica che estende la data di scadenza del piano quando un paziente esce dalla pausa:
+
+```bash
+cd backend && poetry run python scripts/seed_test_pausa_scadenza.py
+```
+
+Requisiti: almeno un nutrizionista e un coach in DB (es. dopo `seed_test_data.py`).
+
+Crea 3 clienti con nome "Test Scadenza Pausa - ...", in stato **Pausa** da 5 giorni (data riferimento 12/02/2026), con scadenza piano 20/02/2026. Riattivandoli in UI (stato → Attivo) la scadenza deve diventare 25/02/2026. Vedi docstring nello script per i dettagli.
+
 ## Note
 
 ⚠️ **SOLO PER SVILUPPO**: Questo script è pensato SOLO per ambienti di sviluppo. Non usare in produzione!

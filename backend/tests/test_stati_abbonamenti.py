@@ -228,6 +228,120 @@ class TestExtendScadenzaAfterPausa:
         assert c.data_scadenza_nutrizione is None
 
 
+class TestUpdateStatoServizioEstendeScadenza:
+    """
+    Test che update_stato_servizio (pausa → attivo) estenda la data di scadenza
+    del piano per i giorni di pausa. Usa date fisse (12/02/2026) per risultato deterministico.
+    """
+
+    def test_riattivazione_da_pausa_estende_data_scadenza_nutrizione(self):
+        from datetime import date, datetime as dt
+        from unittest.mock import patch, MagicMock
+        from corposostenibile.models import Cliente, StatoClienteEnum
+
+        oggi_fake = dt(2026, 2, 12, 12, 0, 0)
+        pausa_start = dt(2026, 2, 7, 10, 0, 0)
+        scadenza_prima = date(2026, 2, 20)
+        scadenza_attesa = date(2026, 2, 25)  # +5 giorni
+
+        class FakeCliente:
+            pass
+        c = FakeCliente()
+        c.stato_nutrizione = StatoClienteEnum.pausa
+        c.stato_nutrizione_data = pausa_start
+        c.data_scadenza_nutrizione = scadenza_prima
+        c.stato_coach = None
+        c.stato_coach_data = None
+        c.stato_psicologia = None
+        c.stato_psicologia_data = None
+        c.cliente_id = 9999
+        c._registra_cambio_stato_storico = MagicMock()
+        c.check_stato_globale_ghost = MagicMock()
+        c._extend_scadenza_after_pausa = lambda servizio, pausa_start: Cliente._extend_scadenza_after_pausa(c, servizio, pausa_start)
+        c.notify_service_ghost_status = MagicMock()
+
+        real_datetime = __import__('datetime').datetime
+        class FakeDateTime(real_datetime):
+            @classmethod
+            def utcnow(cls):
+                return oggi_fake
+        FakeDateTime.min = real_datetime.min
+        FakeDateTime.combine = real_datetime.combine
+
+        with patch('datetime.datetime', FakeDateTime):
+            Cliente.update_stato_servizio(c, 'nutrizione', StatoClienteEnum.attivo)
+
+        got = c.data_scadenza_nutrizione
+        got_date = got.date() if hasattr(got, 'date') else got
+        assert got_date == scadenza_attesa, f"Scadenza attesa {scadenza_attesa}, ottenuta {got_date}"
+
+    def test_riattivazione_da_pausa_estende_data_scadenza_coach(self):
+        from datetime import date, datetime as dt
+        from unittest.mock import patch, MagicMock
+        from corposostenibile.models import Cliente, StatoClienteEnum
+
+        oggi_fake = dt(2026, 2, 12, 12, 0, 0)
+        pausa_start = dt(2026, 2, 5, 10, 0, 0)  # 7 giorni fa
+        scadenza_prima = date(2026, 2, 28)
+        scadenza_attesa = date(2026, 3, 7)  # +7 giorni
+
+        class FakeCliente:
+            pass
+        c = FakeCliente()
+        c.stato_nutrizione = None
+        c.stato_nutrizione_data = None
+        c.stato_coach = StatoClienteEnum.pausa
+        c.stato_coach_data = pausa_start
+        c.data_scadenza_coach = scadenza_prima
+        c.stato_psicologia = None
+        c.stato_psicologia_data = None
+        c.cliente_id = 9999
+        c._registra_cambio_stato_storico = MagicMock()
+        c.check_stato_globale_ghost = MagicMock()
+        c._extend_scadenza_after_pausa = lambda servizio, pausa_start: Cliente._extend_scadenza_after_pausa(c, servizio, pausa_start)
+        c.notify_service_ghost_status = MagicMock()
+
+        real_datetime = __import__('datetime').datetime
+        class FakeDateTime(real_datetime):
+            @classmethod
+            def utcnow(cls):
+                return oggi_fake
+        FakeDateTime.min = real_datetime.min
+        FakeDateTime.combine = real_datetime.combine
+
+        with patch('datetime.datetime', FakeDateTime):
+            Cliente.update_stato_servizio(c, 'coach', StatoClienteEnum.attivo)
+
+        got = c.data_scadenza_coach
+        got_date = got.date() if hasattr(got, 'date') else got
+        assert got_date == scadenza_attesa, f"Scadenza attesa {scadenza_attesa}, ottenuta {got_date}"
+
+    def test_cambio_stato_senza_uscita_da_pausa_non_estende_scadenza(self):
+        """Se lo stato non era pausa (es. attivo → ghost), la scadenza non viene toccata."""
+        from datetime import date, datetime as dt
+        from unittest.mock import MagicMock
+        from corposostenibile.models import Cliente, StatoClienteEnum
+
+        class FakeCliente:
+            pass
+        c = FakeCliente()
+        c.stato_nutrizione = StatoClienteEnum.attivo
+        c.stato_nutrizione_data = dt(2026, 2, 1)
+        c.data_scadenza_nutrizione = date(2026, 3, 1)
+        c.stato_coach = None
+        c.stato_coach_data = None
+        c.stato_psicologia = None
+        c.stato_psicologia_data = None
+        c.cliente_id = 9999
+        c._registra_cambio_stato_storico = MagicMock()
+        c.check_stato_globale_ghost = MagicMock()
+        c.notify_service_ghost_status = MagicMock()
+
+        Cliente.update_stato_servizio(c, 'nutrizione', StatoClienteEnum.ghost)
+
+        assert c.data_scadenza_nutrizione == date(2026, 3, 1)
+
+
 # ─────────────────────────── Labels Ex-Cliente ───────────────────────────── #
 # Le label "Ex-Cliente" (al posto di "Stop") sono definite nel frontend
 # (corposostenibile-clinica/src/services/clientiService.js: STATO_LABELS, ecc.).
