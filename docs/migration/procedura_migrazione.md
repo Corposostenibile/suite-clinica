@@ -81,6 +81,8 @@ Errori comuni:
 - `configmap "migration-script-config" not found`: rieseguire la creazione ConfigMap (step 2).
 - `secret "db-credentials" / "sql-proxy-key" not found`: secret mancanti nel namespace corrente.
 - `pg_isready timeout` o errori proxy: credenziali Cloud SQL o connectivity issue verso istanza DB.
+- `Evicted: exceeded local ephemeral storage limit`: il pod ha saturato disco temporaneo locale. La versione aggiornata del Job usa temp su PVC (`/data/backups/migration_output/tmp`) e risorse `ephemeral-storage` aumentate.
+- `SIGTERM` durante la generazione/import: in Autopilot può avvenire per scale-down/defrag del nodo; verificare eventi del namespace e rilanciare il Job.
 
 ### 4. Migrazione degli Upload
 I file di upload vengono migrati direttamente da un bucket Google Cloud Storage a un PVC dedicato (`uploads-pvc`).
@@ -99,9 +101,14 @@ kubectl logs -f job/suite-clinica-uploads-migration
 Il job scarica l'archivio `.tar.gz` tramite pipe ed estrae i file direttamente in `/var/corposostenibile/uploads/` nel PVC, evitando di occupare spazio temporaneo sul disco del pod.
 
 ## Note Tecniche Importanti
+- **Ordine di import FK-aware**: lo script genera SQL ordinando le tabelle per dipendenze foreign key (prima principali, poi dipendenti) per ridurre errori FK non necessari.
 - **Errori SQL**: Nel Job è impostato `psql -v ON_ERROR_STOP=0` per permettere alla migrazione di procedere anche se alcuni record orfani o sporchi del vecchio DB violano i vincoli di integrità.
 - **Idempotenza**: Lo script usa `ON CONFLICT (...) DO NOTHING` per le tabelle principali. Se rilanciato, non duplicherà i dati esistenti.
 - **Sequenze ID**: Lo script genera automaticamente i comandi `SELECT setval(...)` alla fine per sincronizzare i contatori degli ID autoincrementali con i dati migrati.
-- **Filtro utenti/professionisti**: la migrazione importa tutti gli utenti non professionisti; per i ruoli `professionista`/`team_leader` importa solo i nominativi presenti in `OFFICIAL_ORGANIGRAMMA`. In questo modo `/team-lista` non mostra professionisti fuori lista ufficiale.
+- **Import completo**: lo script importa tutte le tabelle presenti nel dump old che esistono anche nello schema target.
+- **Esclusione tabelle rumorose**: `activity_log` è esclusa di default dalla migrazione tramite `MIGRATION_EXCLUDED_TABLES` per evitare cascata di errori su FK storici non essenziali.
+- **Modalità organigramma (opzionale)**: impostando `STRICT_ORGANIGRAM=1` lo script torna al comportamento restrittivo (filtra professionisti fuori organigramma ufficiale e ricostruisce `teams`/`team_members`).
+- **Dati Check Azienda**: la migrazione deve includere anche le tabelle `weekly_checks`, `weekly_check_responses` e `weekly_check_link_assignments` (oltre a `dca_*` e `minor_*` se presenti), altrimenti la pagina `/check-azienda` risulta vuota anche con applicazione funzionante.
 - **Campi obbligatori utenti**: durante la generazione dump vengono normalizzati `role`, `specialty` e booleani (`is_admin`, `is_active`, `is_external`, `is_trial`) per evitare errori `NOT NULL`/enum su `users`.
+- **Temp su PVC obbligatorio**: il Job imposta `TMPDIR` e `MIGRATION_TMP_DIR` su `/data/backups/migration_output/tmp`; evitare `/tmp` locale per non incorrere in eviction.
 - **ConfigMap obbligatoria dopo modifiche script**: se si modifica `schema_comparator.py`, rieseguire sempre lo step 2 (update `migration-script-config`) prima di rilanciare il Job.

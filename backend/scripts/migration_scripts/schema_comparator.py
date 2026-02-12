@@ -2,6 +2,7 @@ import re
 import os
 import sys
 import subprocess
+import tempfile
 from collections import OrderedDict
 from datetime import datetime
 from werkzeug.security import generate_password_hash
@@ -94,6 +95,8 @@ def generate_admin_user_sql():
 
 def parse_sql_dump(file_path):
     schema = {}
+    enum_defs = {}
+    fk_deps = {}
     print(f"Parsing {file_path} (new attempt)...")
     
     def get_lines(path, use_pg_restore=False):
@@ -162,6 +165,37 @@ def parse_sql_dump(file_path):
                 in_table_definition = True
     
     print(f"Tables found: {list(schema.keys())}")
+
+    # Parse enum definitions from schema text to normalize invalid legacy enum values.
+    try:
+        schema_text = "".join(all_lines)
+        enum_pattern = re.compile(
+            r"CREATE TYPE\s+(?:\"?public\"?\.)?\"?(\w+)\"?\s+AS ENUM\s*\((.*?)\);",
+            re.IGNORECASE | re.DOTALL,
+        )
+        enum_val_pattern = re.compile(r"'((?:''|[^'])*)'")
+        for m in enum_pattern.finditer(schema_text):
+            enum_name = m.group(1).strip().lower()
+            raw_values = m.group(2)
+            vals = []
+            for vm in enum_val_pattern.finditer(raw_values):
+                vals.append(vm.group(1).replace("''", "'"))
+            if vals:
+                enum_defs[enum_name] = set(vals)
+
+        # Parse FK dependencies to order inserts: referenced tables first.
+        fk_pattern = re.compile(
+            r'ALTER TABLE ONLY\s+(?:\"?public\"?\.)?\"?(\w+)\"?.*?FOREIGN KEY\s*\(.*?\)\s*REFERENCES\s+(?:\"?public\"?\.)?\"?(\w+)\"?',
+            re.IGNORECASE | re.DOTALL,
+        )
+        for m in fk_pattern.finditer(schema_text):
+            child = m.group(1)
+            parent = m.group(2)
+            if child == parent:
+                continue
+            fk_deps.setdefault(child, set()).add(parent)
+    except Exception as exc:
+        print(f"Warning: enum parsing failed: {exc}")
     
     # Static Fallback if parsing fails
     if not schema:
@@ -175,7 +209,7 @@ def parse_sql_dump(file_path):
             'clienti': {'cliente_id': 'int', 'nome_cognome': 'v', 'mail': 'v', 'nutrizionista_id': 'int', 'coach_id': 'int', 'psicologa_id': 'int', 'health_manager_id': 'int', 'storia_cliente': 'v', 'programma_attuale': 'v', 'stato_cliente': 'v'},
             'weekly_checks': {'id': 'int', 'cliente_id': 'int', 'check_date': 't'}
         }
-    return schema
+    return schema, enum_defs, fk_deps
 
 def unescape_copy(val):
     if val == r'\N' or val is None: return None
@@ -189,8 +223,30 @@ def to_sql_value(val, col_type=''):
         val = val.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
     return f"'{val}'"
 
-TABLE_PRIORITY = ['users', 'departments', 'teams', 'team_members', 'origins', 'clienti']
-MIGRATION_TABLES = set(TABLE_PRIORITY)
+TABLE_PRIORITY = [
+    'users',
+    'departments',
+    'teams',
+    'team_members',
+    'origins',
+    'clienti',
+    'weekly_checks',
+    'weekly_check_responses',
+    'weekly_check_link_assignments',
+    'dca_checks',
+    'dca_check_responses',
+    'minor_checks',
+    'minor_check_responses',
+]
+MIGRATION_TABLES = None
+EXCLUDED_TABLES = {
+    t.strip()
+    for t in os.environ.get('MIGRATION_EXCLUDED_TABLES', 'activity_log,global_activity_log').split(',')
+    if t.strip()
+}
+# Optional compatibility mode: keep old behavior that filters professionals to OFFICIAL_TEAMS
+# and rebuilds teams/team_members from official organigram.
+STRICT_ORGANIGRAM = os.environ.get('STRICT_ORGANIGRAM', '0').strip().lower() in {'1', 'true', 'yes'}
 TEAM_TYPE_BY_ID = {
     '1': 'nutrizione',
     '2': 'nutrizione',
@@ -224,6 +280,21 @@ SPECIALTY_ALIASES = {
     'psychologist': 'psicologo',
     'coach': 'coach',
 }
+ENUM_ALIASES = {
+    'checksaltatienum': {
+        'tre_plus': '3_plus',
+    },
+    'ticketurgencyenum': {
+        'alta': '1',
+        'media': '2',
+        'bassa': '3',
+    },
+    'tipopagamentointernoenum': {
+        'primo_pagamento': 'deposito_iniziale',
+        'primo': 'deposito_iniziale',
+        'first_payment': 'deposito_iniziale',
+    },
+}
 
 def normalize_user_role(raw_role):
     role = str(raw_role or '').strip().lower().replace('-', '_')
@@ -244,12 +315,288 @@ def normalize_bool(raw, default=False):
         return raw != 0
     return str(raw).strip().lower() in {'1', 't', 'true', 'y', 'yes'}
 
-def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_schema_def):
+def table_is_included(table_name, new_schema_def):
+    if table_name in EXCLUDED_TABLES:
+        return False
+    if table_name not in new_schema_def:
+        return False
+    if MIGRATION_TABLES is not None and table_name not in MIGRATION_TABLES:
+        return False
+    return True
+
+def order_tables_by_fk(inserted_tables, fk_deps):
+    tables = list(OrderedDict.fromkeys(inserted_tables))
+    table_set = set(tables)
+    parents = {t: set() for t in tables}
+    children = {t: set() for t in tables}
+    indegree = {t: 0 for t in tables}
+
+    for child in tables:
+        for parent in fk_deps.get(child, set()):
+            if parent not in table_set:
+                continue
+            if parent == child:
+                continue
+            if parent in parents[child]:
+                continue
+            parents[child].add(parent)
+            children[parent].add(child)
+            indegree[child] += 1
+
+    # Boost common roots first when possible.
+    preferred_roots = ['users', 'departments', 'teams', 'team_members', 'clienti']
+    queue = [t for t in preferred_roots if t in indegree and indegree[t] == 0]
+    for t in sorted(tables):
+        if indegree[t] == 0 and t not in queue:
+            queue.append(t)
+
+    ordered = []
+    while queue:
+        node = queue.pop(0)
+        if node in ordered:
+            continue
+        ordered.append(node)
+        for ch in sorted(children[node]):
+            indegree[ch] -= 1
+            if indegree[ch] == 0:
+                queue.append(ch)
+
+    # Fallback for cycles/unparsed constraints.
+    if len(ordered) != len(tables):
+        for t in tables:
+            if t not in ordered:
+                ordered.append(t)
+    return ordered
+
+
+def sanitize_for_column(raw_value, col_type, enum_defs):
+    if raw_value is None:
+        return None
+    col_type_norm = str(col_type or '').strip().lower()
+    val = str(raw_value)
+    if val == '':
+        if any(k in col_type_norm for k in ('int', 'numeric', 'decimal', 'double precision', 'real', 'date', 'time')):
+            return None
+    enum_values = enum_defs.get(col_type_norm)
+    if enum_values:
+        low = val.strip().lower().replace('-', '_').replace(' ', '_')
+        alias_map = ENUM_ALIASES.get(col_type_norm, {})
+        candidate = alias_map.get(low, val.strip())
+        if candidate in enum_values:
+            return candidate
+        if low in enum_values:
+            return low
+        # Unknown enum labels are nulled so import can continue.
+        return None
+    if col_type_norm == 'boolean':
+        low = val.strip().lower()
+        if low in {'1', 't', 'true', 'y', 'yes'}:
+            return True
+        if low in {'0', 'f', 'false', 'n', 'no'}:
+            return False
+        return None
+    return val
+
+def apply_default_value(table, col, value, row):
+    if table == 'teams' and col == 'team_type' and value is None:
+        team_id = str(row.get('id', '')).strip()
+        return TEAM_TYPE_BY_ID.get(team_id, 'nutrizione')
+    if table == 'teams' and col == 'is_active' and value is None:
+        return True
+    if table == 'users' and col == 'is_trial' and value is None:
+        return False
+    if table == 'users' and col in {'created_at', 'updated_at'} and value is None:
+        return datetime.now().isoformat()
+    return value
+
+def discover_tables_in_dump(old_dump_path, new_schema_def):
+    re_table_data = re.compile(r'TABLE DATA\s+public\s+("?)(\w+)\1', re.IGNORECASE)
+    found = []
+    seen = set()
+    proc = subprocess.run(
+        ['pg_restore', '-l', old_dump_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False
+    )
+    for raw in proc.stdout.splitlines():
+        m = re_table_data.search(raw)
+        if not m:
+            continue
+        table = m.group(2)
+        if not table_is_included(table, new_schema_def):
+            continue
+        if table not in seen:
+            seen.add(table)
+            found.append(table)
+    return found
+
+def write_sequences_block(outfile, inserted_tables):
+    if not inserted_tables:
+        return
+    inserted_tables_sql = ", ".join(f"'{t}'" for t in inserted_tables)
+    outfile.write(
+        "DO $$\n"
+        "DECLARE r RECORD;\n"
+        "DECLARE max_id BIGINT;\n"
+        "BEGIN\n"
+        "  FOR r IN\n"
+        "    SELECT c.table_name, c.column_name,\n"
+        "           pg_get_serial_sequence(format('%I.%I', c.table_schema, c.table_name), c.column_name) AS seq_name\n"
+        "    FROM information_schema.columns c\n"
+        "    WHERE c.table_schema = 'public'\n"
+        f"      AND c.table_name IN ({inserted_tables_sql})\n"
+        "      AND c.column_default LIKE 'nextval(%'\n"
+        "  LOOP\n"
+        "    IF r.seq_name IS NOT NULL THEN\n"
+        "      EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I.%I', r.column_name, 'public', r.table_name) INTO max_id;\n"
+        "      EXECUTE format('SELECT setval(%L, GREATEST(%s, 1), true)', r.seq_name, max_id);\n"
+        "    END IF;\n"
+        "  END LOOP;\n"
+        "END$$;\n"
+    )
+
+def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def, enum_defs, fk_deps):
+    print("\nGENERATING MIGRATION DUMP (streaming)...")
+    tables_in_dump = discover_tables_in_dump(old_dump_path, new_schema_def)
+    insert_batch_size = int(os.environ.get('MIGRATION_INSERT_BATCH_SIZE', '1'))
+    if insert_batch_size < 1:
+        insert_batch_size = 1
+
+    re_copy = re.compile(r'COPY\s+(?:public\.)?\"?(\w+)\"?\s+\((.*?)\)\s+FROM\s+stdin;', re.IGNORECASE)
+    process = subprocess.Popen(
+        ['pg_restore', '-f', '-', old_dump_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True
+    )
+
+    tmp_base_dir = os.environ.get('MIGRATION_TMP_DIR', '/tmp')
+    os.makedirs(tmp_base_dir, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(prefix='migration_tables_', dir=tmp_base_dir)
+    table_file_paths = {}
+    inserted_tables = []
+    inserted_tables_seen = set()
+
+    def get_table_file_path(table_name):
+        path = table_file_paths.get(table_name)
+        if not path:
+            path = os.path.join(temp_dir, f'{table_name}.sql')
+            table_file_paths[table_name] = path
+        return path
+
+    def append_table_sql(table_name, sql_line):
+        path = get_table_file_path(table_name)
+        with open(path, 'a', encoding='utf-8') as tf:
+            tf.write(sql_line)
+
+    try:
+        in_copy = False
+        current_table = None
+        current_cols = []
+        mapped_cols = []
+        pending_values = []
+
+        def flush_pending():
+            nonlocal pending_values
+            if not pending_values or not current_table or not mapped_cols:
+                return
+            final_cols_quoted = ", ".join(f'"{col}"' for col, _ in mapped_cols)
+            append_table_sql(
+                current_table,
+                f"INSERT INTO public.{current_table} ({final_cols_quoted}) VALUES {', '.join(pending_values)} ON CONFLICT DO NOTHING;\n"
+            )
+            pending_values = []
+
+        for raw_line in process.stdout:
+            line = raw_line.rstrip('\n\r')
+            m = re_copy.search(line)
+            if m:
+                flush_pending()
+                tbl = m.group(1)
+                cols = [c.strip().strip('"') for c in m.group(2).split(',')]
+                if table_is_included(tbl, new_schema_def):
+                    in_copy = True
+                    current_table = tbl
+                    current_cols = cols
+                    mapped_cols = [(col, new_schema_def[tbl].get(col, '')) for col in current_cols if col in new_schema_def[tbl]]
+                    if current_table not in inserted_tables_seen:
+                        inserted_tables_seen.add(current_table)
+                        inserted_tables.append(current_table)
+                else:
+                    in_copy = True
+                    current_table = None
+                    current_cols = []
+                    mapped_cols = []
+                continue
+
+            if not in_copy:
+                continue
+
+            if line == r'\.':
+                flush_pending()
+                in_copy = False
+                current_table = None
+                current_cols = []
+                mapped_cols = []
+                continue
+
+            if not current_table or not mapped_cols:
+                continue
+
+            row_values = [unescape_copy(v) for v in line.split('\t')]
+            if len(row_values) != len(current_cols):
+                continue
+            row = dict(zip(current_cols, row_values))
+            sql_values = []
+            for col, col_type in mapped_cols:
+                val = sanitize_for_column(row.get(col), col_type, enum_defs)
+                val = apply_default_value(current_table, col, val, row)
+                sql_values.append(to_sql_value(val, col_type))
+            pending_values.append(f"({', '.join(sql_values)})")
+            if len(pending_values) >= insert_batch_size:
+                flush_pending()
+
+        flush_pending()
+        process.wait()
+
+        ordered_tables = order_tables_by_fk(inserted_tables, fk_deps)
+        with open(output_path, 'w', encoding='utf-8') as outfile:
+            outfile.write("SET search_path TO public;\n")
+            if tables_in_dump:
+                truncate_tables = ", ".join(f"public.{t}" for t in tables_in_dump)
+                outfile.write(f"TRUNCATE TABLE {truncate_tables} CASCADE;\n")
+            for table in ordered_tables:
+                table_path = table_file_paths.get(table)
+                if not table_path or not os.path.exists(table_path):
+                    continue
+                with open(table_path, 'r', encoding='utf-8') as tf:
+                    for line in tf:
+                        outfile.write(line)
+            outfile.write(generate_admin_user_sql())
+            write_sequences_block(outfile, ordered_tables)
+    finally:
+        for path in table_file_paths.values():
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        try:
+            os.rmdir(temp_dir)
+        except OSError:
+            pass
+
+def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_schema_def, enum_defs, fk_deps):
     print("\nGENERATING MIGRATION DUMP...")
     if not new_schema_def:
         print("CRITICAL ERROR: No tables found in schema.")
         sys.exit(1)
-        
+
+    if not STRICT_ORGANIGRAM:
+        generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def, enum_defs, fk_deps)
+        return
+
     table_data = OrderedDict()
     process = subprocess.Popen(['pg_restore', '-f', '-', old_dump_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     current_table = None
@@ -259,8 +606,7 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
         match_copy = re.search(r'COPY (?:public\.)?\"?(\w+)\"? \((.*?)\) FROM stdin;', line, re.IGNORECASE)
         if match_copy:
             current_table = match_copy.group(1)
-            # Keep memory bounded: process only tables needed for this migration.
-            if current_table not in new_schema_def or current_table not in MIGRATION_TABLES:
+            if not table_is_included(current_table, new_schema_def):
                 current_table = None
                 continue
             current_cols = [c.strip().strip('"') for c in match_copy.group(2).split(',')]
@@ -289,10 +635,12 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
         is_professional_role = normalized_role in {'professionista', 'team_leader'}
         is_professional_by_specialty = (raw_specialty in clinical_specialties) and normalized_role != 'admin'
         is_professional_user = is_professional_role or is_professional_by_specialty
-        spec, role = get_professional_info(first, last)
-        # Keep all non-professional users; for professionals keep only official organigram.
-        if is_professional_user and not (spec or role):
-            continue
+        spec, role = (None, None)
+        if STRICT_ORGANIGRAM:
+            spec, role = get_professional_info(first, last)
+            # Keep all non-professional users; for professionals keep only official organigram.
+            if is_professional_user and not (spec or role):
+                continue
 
         if spec:
             u['specialty'] = spec
@@ -363,78 +711,96 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             if c.get(col) is not None and str(c.get(col)) not in allowed_user_ids:
                 c[col] = None
 
-    # Build official teams as source of truth to avoid stale/swapped teams from legacy dumps.
-    # Keep legacy department_id when possible.
-    legacy_team_by_id = {
-        str(t.get('id')).strip(): t
-        for t in table_data.get('teams', [])
-        if t.get('id') is not None
+    check_user_fk_cols_by_table = {
+        'weekly_checks': ['assigned_by_id', 'deactivated_by_id'],
+        'weekly_check_link_assignments': ['assigned_to_user_id'],
+        'dca_checks': ['assigned_by_id', 'deactivated_by_id'],
+        'minor_checks': ['assigned_by_id', 'deactivated_by_id'],
+        'client_check_assignments': ['assigned_by_id'],
     }
-    table_data['teams'] = []
-    for team_id, team in OFFICIAL_TEAMS.items():
-        legacy_team = legacy_team_by_id.get(team_id, {})
-        leader_id = name_to_id.get(team['leader'].lower())
-        table_data['teams'].append({
-            'id': int(team_id),
-            'name': team['name'],
-            'team_type': team['team_type'],
-            'head_id': leader_id,
-            'department_id': legacy_team.get('department_id'),
-            'is_active': True,
-            'description': legacy_team.get('description') or team['name'],
-            'created_at': legacy_team.get('created_at') or datetime.now().isoformat(),
-            'updated_at': legacy_team.get('updated_at') or datetime.now().isoformat(),
-        })
+    for table_name, fk_cols in check_user_fk_cols_by_table.items():
+        for row in table_data.get(table_name, []):
+            for col in fk_cols:
+                if row.get(col) is not None and str(row.get(col)) not in allowed_user_ids:
+                    row[col] = None
 
-    # Rebuild team_members from official organigram and include leaders as team members.
-    team_members = []
-    seen_memberships = set()
-    for team_id, team in OFFICIAL_TEAMS.items():
-        person_names = [team['leader']] + list(team['members'])
-        for person_name in person_names:
-            found_id = name_to_id.get(person_name.lower())
-            if not found_id:
-                continue
-            membership_key = (int(team_id), str(found_id))
-            if membership_key in seen_memberships:
-                continue
-            seen_memberships.add(membership_key)
-            team_members.append({
-                'team_id': int(team_id),
-                'user_id': found_id,
-                'joined_at': datetime.now().isoformat(),
+    if STRICT_ORGANIGRAM:
+        # Build official teams as source of truth to avoid stale/swapped teams from legacy dumps.
+        # Keep legacy department_id when possible.
+        legacy_team_by_id = {
+            str(t.get('id')).strip(): t
+            for t in table_data.get('teams', [])
+            if t.get('id') is not None
+        }
+        table_data['teams'] = []
+        for team_id, team in OFFICIAL_TEAMS.items():
+            legacy_team = legacy_team_by_id.get(team_id, {})
+            leader_id = name_to_id.get(team['leader'].lower())
+            table_data['teams'].append({
+                'id': int(team_id),
+                'name': team['name'],
+                'team_type': team['team_type'],
+                'head_id': leader_id,
+                'department_id': legacy_team.get('department_id'),
+                'is_active': True,
+                'description': legacy_team.get('description') or team['name'],
+                'created_at': legacy_team.get('created_at') or datetime.now().isoformat(),
+                'updated_at': legacy_team.get('updated_at') or datetime.now().isoformat(),
             })
-    table_data['team_members'] = team_members
+
+        # Rebuild team_members from official organigram and include leaders as team members.
+        team_members = []
+        seen_memberships = set()
+        for team_id, team in OFFICIAL_TEAMS.items():
+            person_names = [team['leader']] + list(team['members'])
+            for person_name in person_names:
+                found_id = name_to_id.get(person_name.lower())
+                if not found_id:
+                    continue
+                membership_key = (int(team_id), str(found_id))
+                if membership_key in seen_memberships:
+                    continue
+                seen_memberships.add(membership_key)
+                team_members.append({
+                    'team_id': int(team_id),
+                    'user_id': found_id,
+                    'joined_at': datetime.now().isoformat(),
+                })
+        table_data['team_members'] = team_members
 
     with open(output_path, 'w', encoding='utf-8') as outfile:
         outfile.write("SET search_path TO public;\n")
-        outfile.write("TRUNCATE TABLE public.users CASCADE;\n")
-        outfile.write("TRUNCATE TABLE public.team_members CASCADE;\n")
-        
+        tables_with_data = [t for t, rows in table_data.items() if rows]
+        if tables_with_data:
+            truncate_tables = ", ".join(f"public.{t}" for t in tables_with_data)
+            outfile.write(f"TRUNCATE TABLE {truncate_tables} CASCADE;\n")
+
+        insert_batch_size = int(os.environ.get('MIGRATION_INSERT_BATCH_SIZE', '1'))
+        if insert_batch_size < 1:
+            insert_batch_size = 1
+
         all_tables = [t for t in TABLE_PRIORITY if t in table_data] + [t for t in table_data if t not in TABLE_PRIORITY]
         seen = set()
+        inserted_tables = []
         for table in all_tables:
             if table in seen or table not in table_data: continue
             seen.add(table)
             rows = table_data[table]
             if not rows: continue
+            inserted_tables.append(table)
             
-            valid_new_cols = list(new_schema_def[table].keys())
-            if table == 'clienti':
-                pk = 'cliente_id'
-            elif table == 'team_members':
-                pk = 'team_id, user_id'
-            else:
-                pk = 'id'
+            source_cols = [c for c in rows[0].keys() if c in new_schema_def[table]]
+            if not source_cols:
+                continue
             
-            for i in range(0, len(rows), 500):
-                batch = rows[i:i+500]
+            for i in range(0, len(rows), insert_batch_size):
+                batch = rows[i:i+insert_batch_size]
                 batch_vals = []
                 for row in batch:
                     row_vals = []
-                    for col in valid_new_cols:
+                    for col in source_cols:
                         col_type = new_schema_def[table].get(col, '')
-                        val = row.get(col)
+                        val = sanitize_for_column(row.get(col), col_type, enum_defs)
                         if table == 'teams' and col == 'team_type' and val is None:
                             team_id = str(row.get('id', '')).strip()
                             val = TEAM_TYPE_BY_ID.get(team_id, 'nutrizione')
@@ -447,18 +813,37 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                         row_vals.append(to_sql_value(val, col_type))
                     batch_vals.append(f"({', '.join(row_vals)})")
                 
-                final_cols_quoted = ', '.join(f'"{c}"' for c in valid_new_cols)
+                final_cols_quoted = ', '.join(f'"{c}"' for c in source_cols)
                 
-                outfile.write(f"INSERT INTO public.{table} ({final_cols_quoted}) VALUES {', '.join(batch_vals)} ON CONFLICT ({pk}) DO NOTHING;\n")
+                outfile.write(f"INSERT INTO public.{table} ({final_cols_quoted}) VALUES {', '.join(batch_vals)} ON CONFLICT DO NOTHING;\n")
         
         outfile.write(generate_admin_user_sql())
-        for table in ['users', 'departments', 'teams', 'clienti']:
-            id_col = 'cliente_id' if table == 'clienti' else 'id'
-            outfile.write(f"SELECT setval(pg_get_serial_sequence('\"{table}\"', '{id_col}'), coalesce(max({id_col}), 1)) FROM \"{table}\" WHERE EXISTS (SELECT 1 FROM \"{table}\");\n")
+        if inserted_tables:
+            inserted_tables_sql = ", ".join(f"'{t}'" for t in inserted_tables)
+            outfile.write(
+                "DO $$\n"
+                "DECLARE r RECORD;\n"
+                "DECLARE max_id BIGINT;\n"
+                "BEGIN\n"
+                "  FOR r IN\n"
+                "    SELECT c.table_name, c.column_name,\n"
+                "           pg_get_serial_sequence(format('%I.%I', c.table_schema, c.table_name), c.column_name) AS seq_name\n"
+                "    FROM information_schema.columns c\n"
+                "    WHERE c.table_schema = 'public'\n"
+                f"      AND c.table_name IN ({inserted_tables_sql})\n"
+                "      AND c.column_default LIKE 'nextval(%'\n"
+                "  LOOP\n"
+                "    IF r.seq_name IS NOT NULL THEN\n"
+                "      EXECUTE format('SELECT COALESCE(MAX(%I), 0) FROM %I.%I', r.column_name, 'public', r.table_name) INTO max_id;\n"
+                "      EXECUTE format('SELECT setval(%L, GREATEST(%s, 1), true)', r.seq_name, max_id);\n"
+                "    END IF;\n"
+                "  END LOOP;\n"
+                "END$$;\n"
+            )
 
 if __name__ == "__main__":
     NEW_SUITE_BACKUP = os.environ.get('NEW_SUITE_BACKUP', 'new_schema.sql')
     OLD_SUITE_BACKUP = os.environ.get('OLD_SUITE_BACKUP', 'old_suite.dump')
     OUTPUT_FILE = os.environ.get('OUTPUT_FILE', 'migrated_db.sql')
-    schema_def = parse_sql_dump(NEW_SUITE_BACKUP)
-    generate_migrated_dump(NEW_SUITE_BACKUP, OLD_SUITE_BACKUP, OUTPUT_FILE, schema_def)
+    schema_def, enum_defs, fk_deps = parse_sql_dump(NEW_SUITE_BACKUP)
+    generate_migrated_dump(NEW_SUITE_BACKUP, OLD_SUITE_BACKUP, OUTPUT_FILE, schema_def, enum_defs, fk_deps)
