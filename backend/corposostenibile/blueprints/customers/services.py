@@ -319,7 +319,7 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
         )
         return False
 
-    # Controlla se TUTTI i servizi assegnati sono in ghost
+    # Controlla se TUTTI i servizi assegnati (tutti i professionisti del paziente) sono in ghost
     servizi_in_ghost = [s for s in servizi_assegnati if s['stato'] and s['stato'] == 'ghost']
     tutti_ghost = len(servizi_in_ghost) == len(servizi_assegnati)
     almeno_uno_non_ghost = any(
@@ -333,7 +333,7 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
 
     stato_cliente_value = _get_stato_value(cliente.stato_cliente)
 
-    # Se tutti i servizi assegnati sono in ghost → stato_cliente = ghost
+    # Se tutti i professionisti (anche uno solo) hanno il paziente in ghost → stato_cliente = ghost
     if tutti_ghost and stato_cliente_value != 'ghost':
         old_stato = cliente.stato_cliente
         cliente.stato_cliente = StatoClienteEnum.ghost
@@ -431,6 +431,7 @@ def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> 
     if not servizi_assegnati:
         return False
 
+    # Se tutti i professionisti (anche uno solo) hanno il paziente in pausa → stato_cliente = pausa
     servizi_in_pausa = [s for s in servizi_assegnati if s['stato'] and s['stato'] == 'pausa']
     tutti_pausa = len(servizi_in_pausa) == len(servizi_assegnati)
     almeno_uno_non_pausa = any(s['stato'] and s['stato'] != 'pausa' for s in servizi_assegnati)

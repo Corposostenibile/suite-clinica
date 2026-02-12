@@ -2317,7 +2317,8 @@ class Cliente(TimestampMixin, db.Model):
     def check_stato_globale_ghost(self):
         """
         Verifica se il cliente deve andare in ghost globale.
-        Il cliente va in ghost se TUTTI i servizi che ha sono in ghost.
+        Il cliente va in ghost se TUTTI i suoi professionisti (anche uno solo) lo hanno in ghost.
+        Per tornare attivo basta che almeno un professionista lo riattivi.
         """
         from datetime import datetime
         
@@ -2343,28 +2344,27 @@ class Cliente(TimestampMixin, db.Model):
         if not stati_attivi:
             return
         
-        # Se TUTTI gli stati attivi sono ghost, metti il cliente in ghost
-        if all(stato == StatoClienteEnum.ghost for stato in stati_attivi):
-            if self.stato_cliente != StatoClienteEnum.ghost:
-                old_stato = self.stato_cliente
-                self.stato_cliente = StatoClienteEnum.ghost
-                self.stato_cliente_data = datetime.utcnow()
-                
-                # Invia notifiche ai professionisti
-                self.notify_professionals_ghost_status(old_stato)
-        # Se almeno uno non è ghost e il cliente è ghost, riattiva
+        # Se TUTTI i professionisti (anche uno solo) hanno il paziente in ghost → stato_cliente = ghost
+        tutti_ghost = all(stato == StatoClienteEnum.ghost for stato in stati_attivi)
+        if tutti_ghost and self.stato_cliente != StatoClienteEnum.ghost:
+            old_stato = self.stato_cliente
+            self.stato_cliente = StatoClienteEnum.ghost
+            self.stato_cliente_data = datetime.utcnow()
+            self.notify_professionals_ghost_status(old_stato)
+        # Se almeno uno non è ghost e il cliente è ghost, riattiva (basta un professionista)
         elif self.stato_cliente == StatoClienteEnum.ghost:
             if any(stato != StatoClienteEnum.ghost for stato in stati_attivi):
                 self.stato_cliente = StatoClienteEnum.attivo
                 self.stato_cliente_data = datetime.utcnow()
 
-        # Stessa logica per pausa: se TUTTI i servizi sono in pausa → stato_cliente = pausa
+        # Stessa logica per pausa
         self.check_stato_globale_pausa()
 
     def check_stato_globale_pausa(self):
         """
         Verifica se il cliente deve andare in pausa globale.
-        Il cliente va in pausa se TUTTI i servizi che ha sono in pausa.
+        Il cliente va in pausa se TUTTI i suoi professionisti (anche uno solo) lo hanno in pausa.
+        Per tornare attivo basta che almeno un professionista lo riattivi.
         """
         from datetime import datetime
 
@@ -2382,10 +2382,11 @@ class Cliente(TimestampMixin, db.Model):
         if not stati_attivi:
             return
 
-        if all(stato == StatoClienteEnum.pausa for stato in stati_attivi):
-            if self.stato_cliente != StatoClienteEnum.pausa:
-                self.stato_cliente = StatoClienteEnum.pausa
-                self.stato_cliente_data = datetime.utcnow()
+        # Se TUTTI i professionisti (anche uno solo) hanno il paziente in pausa → stato_cliente = pausa
+        tutti_pausa = all(stato == StatoClienteEnum.pausa for stato in stati_attivi)
+        if tutti_pausa and self.stato_cliente != StatoClienteEnum.pausa:
+            self.stato_cliente = StatoClienteEnum.pausa
+            self.stato_cliente_data = datetime.utcnow()
         elif self.stato_cliente == StatoClienteEnum.pausa:
             if any(stato != StatoClienteEnum.pausa for stato in stati_attivi):
                 self.stato_cliente = StatoClienteEnum.attivo

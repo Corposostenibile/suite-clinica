@@ -1,8 +1,10 @@
 """
 Test per le modifiche del branch feature/stati-abbonamenti-paziente:
 
-- Ghost globale: quando tutti i professionisti assegnati mettono in ghost → stato_cliente = ghost
-- Pausa globale: quando tutti mettono in pausa → stato_cliente = pausa; riattivazione
+- Ghost globale: quando tutti i professionisti del paziente (anche uno solo) lo mettono in ghost
+  → stato_cliente = ghost
+- Pausa globale: quando tutti (anche uno solo) lo mettono in pausa → stato_cliente = pausa
+- Riattivazione: basta un solo professionista che riattiva → stato_cliente = attivo
 - Ricalcolo data scadenza: alla riattivazione da pausa, data_scadenza_* += durata pausa
 - Payload webhook outbound GHL (ghost/pausa)
 
@@ -99,6 +101,7 @@ class TestCheckGlobalGhostStatus:
     """Test _check_and_update_global_ghost_status (logica servizi assegnati, senza DB)."""
 
     def test_ghost_globale_con_solo_nutrizionista_in_ghost(self):
+        """Con un solo professionista in ghost, lo stato generale va in ghost (tutti = quello uno)."""
         from corposostenibile import create_app
         from corposostenibile.blueprints.customers.services import _check_and_update_global_ghost_status
         from corposostenibile.models import StatoClienteEnum
@@ -111,11 +114,30 @@ class TestCheckGlobalGhostStatus:
                     stato_nutrizione=StatoClienteEnum.ghost,
                     stato_cliente=StatoClienteEnum.attivo,
                 )
-                assert c.stato_cliente == StatoClienteEnum.attivo
+                _check_and_update_global_ghost_status(c, None)
+                assert c.stato_cliente == StatoClienteEnum.ghost
+
+    def test_ghost_globale_quando_tutti_i_due_professionisti_in_ghost(self):
+        """Con due professionisti (es. nutrizione + coach), se entrambi in ghost → stato_cliente = ghost."""
+        from corposostenibile import create_app
+        from corposostenibile.blueprints.customers.services import _check_and_update_global_ghost_status
+        from corposostenibile.models import StatoClienteEnum
+
+        app = create_app("testing")
+        with app.app_context():
+            with patch("corposostenibile.blueprints.customers.services.db.session.add"):
+                c = _make_mock_cliente(
+                    nutrizionista_id=1,
+                    coach_id=2,
+                    stato_nutrizione=StatoClienteEnum.ghost,
+                    stato_coach=StatoClienteEnum.ghost,
+                    stato_cliente=StatoClienteEnum.attivo,
+                )
                 _check_and_update_global_ghost_status(c, None)
                 assert c.stato_cliente == StatoClienteEnum.ghost
 
     def test_pausa_globale_con_solo_coach_in_pausa(self):
+        """Con un solo professionista in pausa, lo stato generale va in pausa (tutti = quello uno)."""
         from corposostenibile import create_app
         from corposostenibile.blueprints.customers.services import _check_and_update_global_pausa_status
         from corposostenibile.models import StatoClienteEnum
@@ -125,6 +147,25 @@ class TestCheckGlobalGhostStatus:
             with patch("corposostenibile.blueprints.customers.services.db.session.add"):
                 c = _make_mock_cliente(
                     coach_id=1,
+                    stato_coach=StatoClienteEnum.pausa,
+                    stato_cliente=StatoClienteEnum.attivo,
+                )
+                _check_and_update_global_pausa_status(c, None)
+                assert c.stato_cliente == StatoClienteEnum.pausa
+
+    def test_pausa_globale_quando_tutti_i_due_professionisti_in_pausa(self):
+        """Con due professionisti, se entrambi in pausa → stato_cliente = pausa."""
+        from corposostenibile import create_app
+        from corposostenibile.blueprints.customers.services import _check_and_update_global_pausa_status
+        from corposostenibile.models import StatoClienteEnum
+
+        app = create_app("testing")
+        with app.app_context():
+            with patch("corposostenibile.blueprints.customers.services.db.session.add"):
+                c = _make_mock_cliente(
+                    nutrizionista_id=1,
+                    coach_id=2,
+                    stato_nutrizione=StatoClienteEnum.pausa,
                     stato_coach=StatoClienteEnum.pausa,
                     stato_cliente=StatoClienteEnum.attivo,
                 )
