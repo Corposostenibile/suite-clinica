@@ -1915,7 +1915,9 @@ def update_multiple_fields(cliente_id: int):
         'acconto': 'stop',
         'ghosting': 'ghost',
         'inattivo': 'stop',
-        'sospeso': 'pausa'
+        'sospeso': 'pausa',
+        'insoluto': 'stop',
+        'freeze': 'pausa',
     }
     
     try:
@@ -2758,10 +2760,6 @@ def api_admin_dashboard_stats() -> Any:
         Cliente.stato_cliente == "pausa").scalar() or 0
     stop = db.session.query(func.count(Cliente.cliente_id)).filter(
         Cliente.stato_cliente == "stop").scalar() or 0
-    insoluto = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "insoluto").scalar() or 0
-    freeze = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "freeze").scalar() or 0
     new_month = db.session.query(func.count(Cliente.cliente_id)).filter(
         Cliente.created_at >= first_day_month).scalar() or 0
     in_scadenza = db.session.query(func.count(Cliente.cliente_id)).filter(
@@ -2784,10 +2782,12 @@ def api_admin_dashboard_stats() -> Any:
         .group_by(Cliente.stato_cliente)
         .all()
     )
-    status_distribution = [
-        {"status": (s.value if hasattr(s, 'value') else str(s)) if s else "non_definito", "count": c}
-        for s, c in status_rows
-    ]
+    status_distribution_acc = {}
+    for s, c in status_rows:
+        raw_status = (s.value if hasattr(s, "value") else str(s)) if s else "non_definito"
+        normalized_status = {"insoluto": "stop", "freeze": "pausa"}.get(raw_status, raw_status)
+        status_distribution_acc[normalized_status] = status_distribution_acc.get(normalized_status, 0) + c
+    status_distribution = [{"status": k, "count": v} for k, v in status_distribution_acc.items()]
 
     # ─── TIPOLOGIA DISTRIBUTION ──────────────────────────────────────── #
     tipologia_rows = (
@@ -2807,7 +2807,12 @@ def api_admin_dashboard_stats() -> Any:
             .group_by(col)
             .all()
         )
-        return {((s.value if hasattr(s, 'value') else str(s)) if s else "non_definito"): c for s, c in rows}
+        out = {}
+        for s, c in rows:
+            raw_status = ((s.value if hasattr(s, "value") else str(s)) if s else "non_definito")
+            normalized_status = {"insoluto": "stop", "freeze": "pausa"}.get(raw_status, raw_status)
+            out[normalized_status] = out.get(normalized_status, 0) + c
+        return out
 
     nutrizione_stats = get_service_stats(Cliente.stato_nutrizione)
     coach_stats = get_service_stats(Cliente.stato_coach)
@@ -2901,8 +2906,6 @@ def api_admin_dashboard_stats() -> Any:
             "ghost": ghost,
             "pausa": pausa,
             "stop": stop,
-            "insoluto": insoluto,
-            "freeze": freeze,
             "newMonth": new_month,
             "newPrevMonth": new_prev_month,
             "inScadenza": in_scadenza,

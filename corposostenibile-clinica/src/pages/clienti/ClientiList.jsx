@@ -116,8 +116,6 @@ const STATO_BADGE_STYLES = {
   ghost: { background: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)', color: '#fff' },
   pausa: { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff' },
   stop: { background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff' },
-  insoluto: { background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff' },
-  freeze: { background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff' },
 };
 
 // Colori ruoli per avatar

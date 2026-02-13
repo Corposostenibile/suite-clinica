@@ -1744,6 +1744,14 @@ class Cliente(TimestampMixin, db.Model):
     # giorni_rimanenti rimosso - ora usiamo giorni_rimanenti_calcolati (property)
     in_scadenza             = db.Column(db.String(20))  # Boolean o "Interno"
 
+    # Date abbonamento per piano (nutrizione, coach, psicologia)
+    data_inizio_nutrizione   = db.Column(db.Date, comment="Data inizio piano nutrizione")
+    data_scadenza_nutrizione = db.Column(db.Date, comment="Data scadenza piano nutrizione")
+    data_inizio_coach        = db.Column(db.Date, comment="Data inizio piano coach")
+    data_scadenza_coach      = db.Column(db.Date, comment="Data scadenza piano coach")
+    data_inizio_psicologia   = db.Column(db.Date, comment="Data inizio piano psicologia")
+    data_scadenza_psicologia = db.Column(db.Date, comment="Data scadenza piano psicologia")
+
     # Team / pagamento / tipologia
     di_team                 = db.Column(_def(TeamEnum))
     modalita_pagamento      = db.Column(_def(PagamentoEnum))
@@ -2110,27 +2118,81 @@ class Cliente(TimestampMixin, db.Model):
             self.stato_psicologia_data = datetime.utcnow()
     
     # ───────────────────────── METODI STATO ──────────────────────── #
+    def _extend_scadenza_after_pausa(self, servizio: str, pausa_start):
+        """
+        Dopo la riattivazione da pausa, estende la data di scadenza del piano
+        aggiungendo i giorni trascorsi in pausa.
+        """
+        from datetime import datetime, timedelta
+
+        if pausa_start is None:
+            return
+
+        now = datetime.utcnow()
+        if hasattr(pausa_start, "date"):
+            pausa_start = pausa_start.date() if getattr(pausa_start, "date", None) else pausa_start
+
+        now_date = now.date() if hasattr(now, "date") else now
+        if hasattr(pausa_start, "days"):
+            return
+
+        try:
+            pause_days = (now_date - pausa_start).days
+        except (TypeError, AttributeError):
+            return
+
+        if pause_days <= 0:
+            return
+
+        scadenza_map = {
+            "nutrizione": "data_scadenza_nutrizione",
+            "coach": "data_scadenza_coach",
+            "psicologia": "data_scadenza_psicologia",
+        }
+        scadenza_attr = scadenza_map.get(servizio)
+        if not scadenza_attr:
+            return
+
+        current = getattr(self, scadenza_attr, None)
+        if not current:
+            return
+        if hasattr(current, "date"):
+            current = current.date()
+
+        try:
+            nuova_scadenza = current + timedelta(days=pause_days)
+            setattr(self, scadenza_attr, nuova_scadenza)
+        except (TypeError, ValueError):
+            return
+
     def update_stato_servizio(self, servizio: str, nuovo_stato: StatoClienteEnum):
         """Aggiorna lo stato di un servizio e la relativa data."""
         from datetime import datetime
 
         vecchio_stato = None
         stato_cambiato = False
+        pausa_start = None
 
         if servizio == 'nutrizione':
             vecchio_stato = self.stato_nutrizione
+            if vecchio_stato == StatoClienteEnum.pausa and nuovo_stato != StatoClienteEnum.pausa:
+                pausa_start = self.stato_nutrizione_data
             if self.stato_nutrizione != nuovo_stato:
                 self.stato_nutrizione = nuovo_stato
                 self.stato_nutrizione_data = datetime.utcnow()
                 stato_cambiato = True
         elif servizio == 'coach':
             vecchio_stato = self.stato_coach
+            if vecchio_stato == StatoClienteEnum.pausa and nuovo_stato != StatoClienteEnum.pausa:
+                pausa_start = self.stato_coach_data
             if self.stato_coach != nuovo_stato:
                 self.stato_coach = nuovo_stato
                 self.stato_coach_data = datetime.utcnow()
                 stato_cambiato = True
         elif servizio == 'psicologia':
             vecchio_stato = self.stato_psicologia
+            if vecchio_stato == StatoClienteEnum.pausa and nuovo_stato != StatoClienteEnum.pausa:
+                pausa_start = self.stato_psicologia_data
             if self.stato_psicologia != nuovo_stato:
                 self.stato_psicologia = nuovo_stato
                 self.stato_psicologia_data = datetime.utcnow()
@@ -2139,6 +2201,8 @@ class Cliente(TimestampMixin, db.Model):
         # Registra il cambio di stato nello storico
         if stato_cambiato:
             self._registra_cambio_stato_storico(servizio, nuovo_stato)
+            if pausa_start is not None:
+                self._extend_scadenza_after_pausa(servizio, pausa_start)
 
         # Se lo stato è cambiato in ghost, notifica gli altri professionisti
         if vecchio_stato != nuovo_stato and nuovo_stato == StatoClienteEnum.ghost:
@@ -2245,6 +2309,41 @@ class Cliente(TimestampMixin, db.Model):
         # Se almeno uno non è ghost e il cliente è ghost, riattiva
         elif self.stato_cliente == StatoClienteEnum.ghost:
             if any(stato != StatoClienteEnum.ghost for stato in stati_attivi):
+                self.stato_cliente = StatoClienteEnum.attivo
+                self.stato_cliente_data = datetime.utcnow()
+
+        self.check_stato_globale_pausa()
+
+    def check_stato_globale_pausa(self):
+        """
+        Verifica se il cliente deve andare in pausa globale.
+        Il cliente va in pausa se tutti i servizi assegnati sono in pausa.
+        """
+        from datetime import datetime
+
+        stati_attivi = []
+
+        if self.nutrizionisti_multipli or self.nutrizionista_id or self.nutrizionista:
+            if self.stato_nutrizione:
+                stati_attivi.append(self.stato_nutrizione)
+
+        if self.coaches_multipli or self.coach_id or self.coach:
+            if self.stato_coach:
+                stati_attivi.append(self.stato_coach)
+
+        if self.psicologi_multipli or self.psicologa_id or self.psicologa:
+            if self.stato_psicologia:
+                stati_attivi.append(self.stato_psicologia)
+
+        if not stati_attivi:
+            return
+
+        tutti_pausa = all(stato == StatoClienteEnum.pausa for stato in stati_attivi)
+        if tutti_pausa and self.stato_cliente != StatoClienteEnum.pausa:
+            self.stato_cliente = StatoClienteEnum.pausa
+            self.stato_cliente_data = datetime.utcnow()
+        elif self.stato_cliente == StatoClienteEnum.pausa:
+            if any(stato != StatoClienteEnum.pausa for stato in stati_attivi):
                 self.stato_cliente = StatoClienteEnum.attivo
                 self.stato_cliente_data = datetime.utcnow()
     

@@ -31,18 +31,14 @@ const STATUS_GRADIENTS = {
   attivo: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
   pausa: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
   ghost: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  insoluto: 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)',
   stop: 'linear-gradient(135deg, #ed213a 0%, #93291e 100%)',
-  freeze: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
 };
 
 const STATUS_COLORS = {
   attivo: 'success',
   pausa: 'warning',
   ghost: 'secondary',
-  insoluto: 'danger',
   stop: 'danger',
-  freeze: 'info',
 };
 
 // Figura di riferimento labels
@@ -683,6 +679,12 @@ function ClientiDetail() {
     data_inizio_abbonamento: '',
     durata_programma_giorni: '',
     data_rinnovo: '',
+    data_inizio_nutrizione: '',
+    data_scadenza_nutrizione: '',
+    data_inizio_coach: '',
+    data_scadenza_coach: '',
+    data_inizio_psicologia: '',
+    data_scadenza_psicologia: '',
     modalita_pagamento: '',
     rate_cliente_sales: '',
     note_rinnovo: '',
@@ -1796,6 +1798,12 @@ function ClientiDetail() {
       data_inizio_abbonamento: c.data_inizio_abbonamento || c.dataInizioAbbonamento || '',
       durata_programma_giorni: c.durata_programma_giorni || c.durataProgrammaGiorni || '',
       data_rinnovo: c.data_rinnovo || c.dataRinnovo || '',
+      data_inizio_nutrizione: c.data_inizio_nutrizione || c.dataInizioNutrizione || '',
+      data_scadenza_nutrizione: c.data_scadenza_nutrizione || c.dataScadenzaNutrizione || '',
+      data_inizio_coach: c.data_inizio_coach || c.dataInizioCoach || '',
+      data_scadenza_coach: c.data_scadenza_coach || c.dataScadenzaCoach || '',
+      data_inizio_psicologia: c.data_inizio_psicologia || c.dataInizioPsicologia || '',
+      data_scadenza_psicologia: c.data_scadenza_psicologia || c.dataScadenzaPsicologia || '',
       modalita_pagamento: c.modalita_pagamento || c.modalitaPagamento || '',
       rate_cliente_sales: c.rate_cliente_sales || c.rateClienteSales || '',
       note_rinnovo: c.note_rinnovo || c.noteRinnovo || '',
@@ -2571,10 +2579,10 @@ function ClientiDetail() {
                     </div>
                   </div>
 
-                  {/* Date */}
+                  {/* Date abbonamento generali (legacy / riepilogo) */}
                   <div className="col-12" data-tour="programma-date">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      Date Abbonamento
+                      Date Abbonamento (generale)
                     </h6>
                     <div className="row g-3">
                       <div className="col-md-6">
@@ -2587,13 +2595,106 @@ function ClientiDetail() {
                         />
                       </div>
                       <div className="col-md-6">
-                        <label className="form-label small text-muted">Data Rinnovo</label>
+                        <label className="form-label small text-muted">Data Scadenza</label>
                         <input
                           type="date"
                           className="form-control"
                           value={formData.data_rinnovo}
                           onChange={(e) => handleInputChange('data_rinnovo', e.target.value)}
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date per piano (Nutrizione, Coach, Psicologia) */}
+                  <div className="col-12" data-tour="programma-date-per-piano">
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      Date per piano
+                    </h6>
+                    <div className="row g-3">
+                      {/* Nutrizione */}
+                      <div className="col-12">
+                        <div className="card border-0 bg-light rounded-3 p-3">
+                          <div className="small fw-semibold text-muted mb-2">
+                            <i className="ri-heart-pulse-line me-1"></i> Nutrizione
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Inizio</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_inizio_nutrizione || ''}
+                                onChange={(e) => handleInputChange('data_inizio_nutrizione', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_scadenza_nutrizione || ''}
+                                onChange={(e) => handleInputChange('data_scadenza_nutrizione', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Coach */}
+                      <div className="col-12">
+                        <div className="card border-0 bg-light rounded-3 p-3">
+                          <div className="small fw-semibold text-muted mb-2">
+                            <i className="ri-run-line me-1"></i> Coach
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Inizio</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_inizio_coach || ''}
+                                onChange={(e) => handleInputChange('data_inizio_coach', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_scadenza_coach || ''}
+                                onChange={(e) => handleInputChange('data_scadenza_coach', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Psicologia */}
+                      <div className="col-12">
+                        <div className="card border-0 bg-light rounded-3 p-3">
+                          <div className="small fw-semibold text-muted mb-2">
+                            <i className="ri-mental-health-line me-1"></i> Psicologia
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Inizio</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_inizio_psicologia || ''}
+                                onChange={(e) => handleInputChange('data_inizio_psicologia', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
+                              <input
+                                type="date"
+                                className="form-control form-control-sm"
+                                value={formData.data_scadenza_psicologia || ''}
+                                onChange={(e) => handleInputChange('data_scadenza_psicologia', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3253,9 +3354,7 @@ function ClientiDetail() {
                               <option value="attivo">Attivo</option>
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
-                              <option value="stop">Stop</option>
-                              <option value="insoluto">Insoluto</option>
-                              <option value="freeze">Freeze</option>
+                              <option value="stop">Ex-Cliente</option>
                             </select>
                             {c.stato_nutrizione_data && (
                               <small className="text-muted" style={{ fontSize: '0.7rem' }}>
@@ -4279,9 +4378,7 @@ function ClientiDetail() {
                               <option value="attivo">Attivo</option>
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
-                              <option value="stop">Stop</option>
-                              <option value="insoluto">Insoluto</option>
-                              <option value="freeze">Freeze</option>
+                              <option value="stop">Ex-Cliente</option>
                             </select>
                             {c.stato_coach_data && (
                               <small className="text-muted" style={{ fontSize: '0.7rem' }}>
@@ -5230,9 +5327,7 @@ function ClientiDetail() {
                               <option value="attivo">Attivo</option>
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
-                              <option value="stop">Stop</option>
-                              <option value="insoluto">Insoluto</option>
-                              <option value="freeze">Freeze</option>
+                              <option value="stop">Ex-Cliente</option>
                             </select>
                             {c.stato_psicologia_data && (
                               <small className="text-muted" style={{ fontSize: '0.7rem' }}>
@@ -5940,26 +6035,66 @@ function ClientiDetail() {
                                    <div className="spinner-border text-primary" role="status"></div>
                                    <p className="mt-2 text-muted">Caricamento risposte...</p>
                                 </div>
-                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] || !initialChecksData[activeInizialiTab].responses ? (
+                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
                                 <div className="text-center py-5">
                                    <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
                                    <h5>Nessun dato disponibile</h5>
-                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
                                 </div>
-                             ) : (
+                             ) : (() => {
+                                const checkData = initialChecksData[activeInizialiTab];
+                                const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
+                                const hasUrl = checkData.url;
+                                if (!hasResponses && hasUrl) {
+                                  return (
+                                    <div>
+                                      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                                        <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
+                                      </div>
+                                      <div className="alert alert-info d-flex align-items-center">
+                                        <i className="ri-link fs-4 me-3"></i>
+                                        <div className="flex-grow-1">
+                                          <strong>Link da inviare al cliente</strong>
+                                          <p className="mb-2 mt-1 text-muted small">Il cliente non ha ancora compilato. Copia il link qui sotto e invialo al cliente per permettergli di compilare il questionario.</p>
+                                          <div className="input-group">
+                                            <input type="text" className="form-control" value={checkData.url} readOnly />
+                                            <button className="btn btn-primary" type="button" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato negli appunti'); }}>
+                                              <i className="ri-file-copy-line me-1"></i>Copia
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                if (!hasResponses && !hasUrl) {
+                                  return (
+                                    <div className="text-center py-5">
+                                      <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
+                                      <h5>Nessun dato disponibile</h5>
+                                      <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                    </div>
+                                  );
+                                }
+                                return (
                                 <div>
                                    <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
                                       <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
-                                      {initialChecksData[activeInizialiTab].completed_at && (
+                                      {checkData.completed_at && (
                                          <span className="badge bg-light text-dark border">
                                             <i className="ri-calendar-event-line me-1"></i>
-                                            Compilato il: {new Date(initialChecksData[activeInizialiTab].completed_at).toLocaleDateString('it-IT')}
+                                            Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
                                          </span>
+                                      )}
+                                      {hasUrl && (
+                                         <button className="btn btn-sm btn-outline-primary ms-2" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
+                                            <i className="ri-file-copy-line me-1"></i>Copia link
+                                         </button>
                                       )}
                                    </div>
                                    
                                    {/* Score for Check 3 */}
-                                   {activeInizialiTab === 'check_3' && initialChecksData.check_3.score !== null && (
+                                   {activeInizialiTab === 'check_3' && initialChecksData.check_3?.score != null && (
                                       <div className="alert alert-info d-flex align-items-center mb-4">
                                          <i className="ri-scales-3-line fs-4 me-3"></i>
                                          <div>
@@ -5973,7 +6108,7 @@ function ClientiDetail() {
 
                                    {/* Responses List */}
                                    <div className="responses-list">
-                                      {Object.entries(initialChecksData[activeInizialiTab].responses).map(([question, answer], idx) => (
+                                      {Object.entries(checkData.responses).map(([question, answer], idx) => (
                                          <div key={idx} className="mb-3 p-3 bg-light rounded-2">
                                             <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>Domanda {idx + 1}</small>
                                             <div className="fw-semibold text-dark mb-1">{question}</div>
@@ -5982,7 +6117,8 @@ function ClientiDetail() {
                                       ))}
                                    </div>
                                 </div>
-                             )}
+                                );
+                             })()}
                           </div>
                        </div>
                     </div>

@@ -72,14 +72,28 @@ class EnumField(fields.Field):
         super().__init__(**kwargs)
         self.enum = enum
 
+    @staticmethod
+    def _normalize_stato_cliente_value(value: Any) -> Any:
+        """Normalizza valori legacy/non ufficiali per gli stati cliente."""
+        mapping = {
+            "cliente": "attivo",
+            "ex_cliente": "stop",
+            "acconto": "stop",
+            "ghosting": "ghost",
+            "insoluto": "stop",
+            "freeze": "pausa",
+        }
+        return mapping.get(value, value)
+
     # ----- dump ------------------------------------------------------------ #
     def _serialize(self, value, attr, obj, **kwargs):  # noqa: ANN001
         if value is None:
             return None
         # Handle both enum objects and string values
-        if hasattr(value, 'value'):
-            return value.value
-        return str(value)
+        raw = value.value if hasattr(value, "value") else str(value)
+        if self.enum.__name__ == "StatoClienteEnum":
+            raw = self._normalize_stato_cliente_value(raw)
+        return raw
 
     # ----- load ------------------------------------------------------------ #
     def _deserialize(self, value, attr, data, **kwargs):  # noqa: ANN001
@@ -90,13 +104,7 @@ class EnumField(fields.Field):
         
         # Mappatura per vecchi valori StatoClienteEnum
         if self.enum.__name__ == 'StatoClienteEnum':
-            stato_mapping = {
-                'cliente': 'attivo',
-                'ex_cliente': 'stop',
-                'acconto': 'stop',
-                'ghosting': 'ghost'
-            }
-            value = stato_mapping.get(value, value)
+            value = self._normalize_stato_cliente_value(value)
             
             # Log per debug
             import logging
