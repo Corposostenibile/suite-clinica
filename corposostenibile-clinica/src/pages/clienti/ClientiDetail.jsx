@@ -1374,24 +1374,7 @@ function ClientiDetail() {
       formData.append('notes', trainingPlanForm.notes || '');
       formData.append('piano_allenamento_file', trainingPlanFile);
 
-      const response = await fetch(`/customers/${id}/training/add`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        try {
-          const errData = JSON.parse(text);
-          alert(errData.error || `Errore ${response.status}`);
-        } catch {
-          alert(`Errore ${response.status}`);
-        }
-        return;
-      }
-
-      const data = await response.json();
+      const data = await clientiService.addTrainingPlan(id, formData);
       if (data.ok || data.plan_id) {
         setShowAddTrainingPlanModal(false);
         setTrainingPlanForm({ name: '', start_date: '', end_date: '', notes: '' });
@@ -1402,7 +1385,24 @@ function ClientiDetail() {
       }
     } catch (err) {
       console.error('Error adding training plan:', err);
-      alert('Errore durante il salvataggio del piano');
+      if (err?.response?.data?.error) {
+        alert(err.response.data.error);
+        return;
+      }
+      if (err?.response?.status) {
+        alert(`Errore ${err.response.status} durante il salvataggio del piano`);
+        return;
+      }
+      const fileSizeMb = trainingPlanFile ? (trainingPlanFile.size / (1024 * 1024)).toFixed(2) : null;
+      const isNetworkReset = err?.message?.toLowerCase().includes('failed to fetch');
+      if (isNetworkReset) {
+        alert(
+          `Connessione interrotta dal server durante l'upload (${fileSizeMb ? `${fileSizeMb} MB` : 'dimensione file non disponibile'}). ` +
+          'Verifica limite upload lato server/reverse proxy e riprova con un PDF più piccolo.'
+        );
+      } else {
+        alert('Errore durante il salvataggio del piano: ' + err.message);
+      }
     } finally {
       setSavingTrainingPlan(false);
     }

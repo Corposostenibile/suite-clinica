@@ -488,12 +488,34 @@ def create_app(config_name: str | None = None) -> Flask:
             return redirect('/login')
 
         # Paths that should NOT be intercepted (handled by Flask)
-        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/', '/quality/api/', '/documentation/', '/ghl/', '/review/api/', '/health', '/auth/')
+        _flask_prefixes = (
+            '/api/',
+            '/customers/',
+            '/uploads/',
+            '/oauth/',
+            '/static/',
+            '/quality/api/',
+            '/documentation/',
+            '/ghl/',
+            '/review/api/',
+            '/health',
+            '/auth/',
+        )
 
         @app.before_request
         def serve_spa_for_pages():
             """Intercept page requests and serve React SPA instead of Jinja templates."""
             path = flask_request.path
+
+            # SPA fallback must never intercept API/form submissions.
+            if flask_request.method not in ("GET", "HEAD"):
+                return None
+
+            # Only serve SPA for real browser page navigations.
+            accepts = flask_request.accept_mimetypes
+            wants_html = accepts.accept_html and accepts["text/html"] >= accepts["application/json"]
+            if not wants_html:
+                return None
 
             # Let Flask handle API, uploads, OAuth, and static routes
             if any(path.startswith(p) for p in _flask_prefixes):

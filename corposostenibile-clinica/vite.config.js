@@ -18,6 +18,8 @@ export default defineConfig({
       '/customers': {
         target: 'http://127.0.0.1:5001',
         changeOrigin: true,
+        timeout: 300000,
+        proxyTimeout: 300000,
       },
       // Proxy static assets
       '/static': {

@@ -801,6 +801,20 @@ const clientiService = {
   },
 
   /**
+   * Add a new training plan
+   * @param {number} clienteId - Client ID
+   * @param {FormData} formData - Form data with name, start_date, end_date, notes, piano_allenamento_file
+   * @returns {Promise} - { ok, plan_id, message }
+   */
+  async addTrainingPlan(clienteId, formData) {
+    const response = await axios.post(`/customers/${clienteId}/training/add`, formData, {
+      withCredentials: true,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  /**
    * Get training plan versions
    * @param {number} clienteId - Client ID
    * @param {number} planId - Plan ID

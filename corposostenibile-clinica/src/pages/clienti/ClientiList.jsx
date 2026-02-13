@@ -8,6 +8,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
+import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 
 // Stili per la tabella professionale
@@ -116,6 +117,8 @@ const STATO_BADGE_STYLES = {
   ghost: { background: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)', color: '#fff' },
   pausa: { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff' },
   stop: { background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff' },
+  insoluto: { background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff' },
+  freeze: { background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff' },
 };
 
 // Colori ruoli per avatar
@@ -212,6 +215,30 @@ function ClientiList() {
     nutrizionista: searchParams.get('nutrizionista') || '',
     coach: searchParams.get('coach') || '',
     psicologa: searchParams.get('psicologa') || '',
+    // Advanced Filters
+    check_day: searchParams.get('check_day') || '',
+    reach_out: searchParams.get('reach_out') || '',
+    trasformazione_fisica: searchParams.get('trasformazione_fisica') || '',
+    trasformazione_fisica_condivisa: searchParams.get('trasformazione_fisica_condivisa') || '',
+    allenamento_dal_from: searchParams.get('allenamento_dal_from') || '',
+    allenamento_dal_to: searchParams.get('allenamento_dal_to') || '',
+    nuovo_allenamento_il_from: searchParams.get('nuovo_allenamento_il_from') || '',
+    nuovo_allenamento_il_to: searchParams.get('nuovo_allenamento_il_to') || '',
+    marketing_usabile: searchParams.get('marketing_usabile') || '',
+    marketing_stories: searchParams.get('marketing_stories') || '',
+    marketing_carosello: searchParams.get('marketing_carosello') || '',
+    marketing_videofeedback: searchParams.get('marketing_videofeedback') || '',
+    missing_check_day: searchParams.get('missing_check_day') || '',
+    missing_check_saltati: searchParams.get('missing_check_saltati') || '',
+    missing_reach_out: searchParams.get('missing_reach_out') || '',
+    missing_stato_nutrizione: searchParams.get('missing_stato_nutrizione') || '',
+    missing_stato_chat_nutrizione: searchParams.get('missing_stato_chat_nutrizione') || '',
+    missing_stato_coach: searchParams.get('missing_stato_coach') || '',
+    missing_stato_chat_coaching: searchParams.get('missing_stato_chat_coaching') || '',
+    missing_stato_psicologia: searchParams.get('missing_stato_psicologia') || '',
+    missing_stato_chat_psicologia: searchParams.get('missing_stato_chat_psicologia') || '',
+    missing_piano_dieta: searchParams.get('missing_piano_dieta') || '',
+    missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '',
   });
 
   // Fetch stats and professionisti on mount
@@ -244,6 +271,30 @@ function ClientiList() {
         nutrizionista_id: filters.nutrizionista || undefined,
         coach_id: filters.coach || undefined,
         psicologa_id: filters.psicologa || undefined,
+        // Advanced
+        check_day: filters.check_day || undefined,
+        reach_out: filters.reach_out || undefined,
+        trasformazione_fisica: filters.trasformazione_fisica || undefined,
+        trasformazione_fisica_condivisa: filters.trasformazione_fisica_condivisa || undefined,
+        allenamento_dal_from: filters.allenamento_dal_from || undefined,
+        allenamento_dal_to: filters.allenamento_dal_to || undefined,
+        nuovo_allenamento_il_from: filters.nuovo_allenamento_il_from || undefined,
+        nuovo_allenamento_il_to: filters.nuovo_allenamento_il_to || undefined,
+        marketing_usabile: filters.marketing_usabile || undefined,
+        marketing_stories: filters.marketing_stories || undefined,
+        marketing_carosello: filters.marketing_carosello || undefined,
+        marketing_videofeedback: filters.marketing_videofeedback || undefined,
+        missing_check_day: filters.missing_check_day || undefined,
+        missing_check_saltati: filters.missing_check_saltati || undefined,
+        missing_reach_out: filters.missing_reach_out || undefined,
+        missing_stato_nutrizione: filters.missing_stato_nutrizione || undefined,
+        missing_stato_chat_nutrizione: filters.missing_stato_chat_nutrizione || undefined,
+        missing_stato_coach: filters.missing_stato_coach || undefined,
+        missing_stato_chat_coaching: filters.missing_stato_chat_coaching || undefined,
+        missing_stato_psicologia: filters.missing_stato_psicologia || undefined,
+        missing_stato_chat_psicologia: filters.missing_stato_chat_psicologia || undefined,
+        missing_piano_dieta: filters.missing_piano_dieta || undefined,
+        missing_piano_allenamento: filters.missing_piano_allenamento || undefined,
       };
 
       const data = await clientiService.getClienti(params);
@@ -282,18 +333,21 @@ function ClientiList() {
   };
 
   const resetFilters = () => {
-    setFilters({ search: '', stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '' });
+    setFilters({
+      search: '', stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '',
+      check_day: '', reach_out: '', trasformazione_fisica: '', trasformazione_fisica_condivisa: '',
+      allenamento_dal_from: '', allenamento_dal_to: '', nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
+      marketing_usabile: '', marketing_stories: '', marketing_carosello: '', marketing_videofeedback: '',
+      missing_check_day: '', missing_check_saltati: '', missing_reach_out: '',
+      missing_stato_nutrizione: '', missing_stato_chat_nutrizione: '',
+      missing_stato_coach: '', missing_stato_chat_coaching: '',
+      missing_stato_psicologia: '', missing_stato_chat_psicologia: '',
+      missing_piano_dieta: '', missing_piano_allenamento: ''
+    });
     setSearchParams(new URLSearchParams());
   };
 
-  // Filter professionisti by role
-  const nutrizionisti = professionisti.filter(p =>
-    p.specialty === 'nutrizione' || p.specialty === 'nutrizionista'
-  );
-  const coaches = professionisti.filter(p => p.specialty === 'coach');
-  const psicologi = professionisti.filter(p =>
-    p.specialty === 'psicologia' || p.specialty === 'psicologo'
-  );
+
 
   // Helper per formattare le date
   const formatDate = (dateStr) => {
@@ -399,81 +453,12 @@ function ClientiList() {
       </div>
 
       {/* Filters */}
-      <div className="card shadow-sm border-0 mb-4" data-tour="filters">
-        <div className="card-body py-3">
-          <div className="row g-2 align-items-center">
-            <div className="col-lg-3">
-              <div className="position-relative">
-                <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
-                <input
-                  type="text"
-                  className="form-control bg-light border-0"
-                  placeholder="Cerca paziente..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  style={{ paddingLeft: '36px' }}
-                />
-              </div>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.stato}
-                onChange={(e) => handleFilterChange('stato', e.target.value)}
-              >
-                <option value="">Stato Cliente</option>
-                {Object.entries(STATO_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.tipologia}
-                onChange={(e) => handleFilterChange('tipologia', e.target.value)}
-              >
-                <option value="">Tipologia</option>
-                {Object.entries(TIPOLOGIA_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.nutrizionista}
-                onChange={(e) => handleFilterChange('nutrizionista', e.target.value)}
-              >
-                <option value="">Nutrizionista</option>
-                {nutrizionisti.map(p => (
-                  <option key={p.id} value={p.id}>{p.full_name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.coach}
-                onChange={(e) => handleFilterChange('coach', e.target.value)}
-              >
-                <option value="">Coach</option>
-                {coaches.map(p => (
-                  <option key={p.id} value={p.id}>{p.full_name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-1">
-              <button
-                className="btn btn-outline-secondary w-100"
-                onClick={resetFilters}
-              >
-                <i className="ri-refresh-line me-1"></i>Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ClientiFilters
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onReset={resetFilters}
+        professionisti={professionisti}
+      />
 
       {/* Content */}
       {loading ? (
