@@ -3749,6 +3749,29 @@ def get_professionisti_history(cliente_id: int):
                 "has_history": False,
             })
 
+    # Health Manager (singolo)
+    if cliente.health_manager_user:
+        hm_user = cliente.health_manager_user
+        if not any(
+            h["professionista_id"] == hm_user.id and h["tipo_professionista"] == "health_manager" and h["is_active"]
+            for h in history_list
+        ):
+            legacy_assignments.append({
+                "id": None,
+                "tipo_professionista": "health_manager",
+                "professionista_nome": hm_user.full_name or hm_user.email,
+                "professionista_id": hm_user.id,
+                "avatar_path": hm_user.avatar_path,
+                "data_dal": None,
+                "data_al": None,
+                "motivazione_aggiunta": None,
+                "motivazione_interruzione": None,
+                "assegnato_da": None,
+                "interrotto_da": None,
+                "is_active": True,
+                "has_history": False,
+            })
+
     # Combina e ordina per data (legacy senza data vanno in fondo)
     all_history = history_list + legacy_assignments
 

@@ -243,6 +243,7 @@ class UserRoleEnum(str, Enum):
     professionista = "professionista"
     team_esterno = "team_esterno"
     influencer = "influencer"
+    health_manager = "health_manager"
 
 
 class UserSpecialtyEnum(str, Enum):

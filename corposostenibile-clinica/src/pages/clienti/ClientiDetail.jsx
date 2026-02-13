@@ -1680,15 +1680,17 @@ function ClientiDetail() {
 
   const fetchAvailableProfessionals = async () => {
     try {
-      const [nutri, coach, psico] = await Promise.all([
+      const [nutri, coach, psico, hm] = await Promise.all([
         teamService.getAvailableProfessionals('nutrizione'),
         teamService.getAvailableProfessionals('coach'),
         teamService.getAvailableProfessionals('psicologia'),
+        teamService.getAvailableProfessionals('health_manager'),
       ]);
       setAvailableProfessionals({
         nutrizionista: nutri.professionals || [],
         coach: coach.professionals || [],
         psicologa: psico.professionals || [],
+        health_manager: hm.professionals || [],
       });
     } catch (err) {
       console.error('Error fetching available professionals:', err);
@@ -3104,15 +3106,83 @@ function ClientiDetail() {
                   {teamSubTab === 'esterno' && (
                     <div className="col-12" data-tour="team-esterno">
                       <div className="card border">
-                        <div className="card-body text-center py-5">
-                          <div className="mb-3">
-                            <i className="ri-cloud-line text-muted" style={{ fontSize: '3rem' }}></i>
+                        <div className="card-body p-3">
+                          <div className="d-flex align-items-center justify-content-between mb-2">
+                            <div className="d-flex align-items-center">
+                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                   style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-user-star-line text-primary" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Health Manager</span>
+                            </div>
+                            <button
+                              className="btn btn-primary btn-sm d-flex align-items-center justify-content-center"
+                              onClick={() => handleOpenAssignModal('health_manager')}
+                              title="Assegna Health Manager"
+                              style={{ width: '26px', height: '26px', padding: 0 }}
+                            >
+                              <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                            </button>
                           </div>
-                          <h5 className="text-muted mb-2">Integrazione CRM</h5>
-                          <p className="text-muted mb-0" style={{ maxWidth: '400px', margin: '0 auto' }}>
-                            Questa sezione verrà collegata via API al CRM per recuperare automaticamente
-                            i dati di <strong>Health Manager</strong> e <strong>Sales</strong> associati al cliente.
-                          </p>
+                          {(formData.healthManagerUser || getActiveProfessionals('health_manager')[0]) ? (
+                            (() => {
+                              const hmAssignment = getActiveProfessionals('health_manager')[0];
+                              const hmUser = formData.healthManagerUser || (hmAssignment && {
+                                id: hmAssignment.professionista_id,
+                                full_name: hmAssignment.professionista_nome,
+                                avatar_path: hmAssignment.avatar_path,
+                              });
+                              if (!hmUser) return null;
+                              return (
+                                <div className="d-flex align-items-center justify-content-between p-2 bg-light rounded">
+                                  <div className="d-flex align-items-center">
+                                    {hmUser.avatar_path ? (
+                                      <img
+                                        src={hmUser.avatar_path}
+                                        alt=""
+                                        className="rounded-circle me-2"
+                                        style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                      />
+                                    ) : (
+                                      <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
+                                           style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                        {(hmUser.full_name || '')
+                                          .split(' ')
+                                          .map((n) => n[0])
+                                          .join('')
+                                          .substring(0, 2)
+                                          .toUpperCase() || '??'}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <small className="d-block fw-medium">{hmUser.full_name || 'Health Manager'}</small>
+                                      {hmAssignment?.data_dal && (
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {hmAssignment.data_dal}</small>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <button
+                                    className="btn btn-sm btn-link text-danger p-0"
+                                    onClick={() => handleOpenInterruptModal(hmAssignment || {
+                                      tipo_professionista: 'health_manager',
+                                      professionista_id: hmUser.id,
+                                      professionista_nome: hmUser.full_name,
+                                      avatar_path: hmUser.avatar_path,
+                                      data_dal: hmAssignment?.data_dal || null,
+                                      is_active: true,
+                                      has_history: !!hmAssignment?.id,
+                                      id: hmAssignment?.id,
+                                    })}
+                                    title="Rimuovi"
+                                  >
+                                    <i className="ri-close-line"></i>
+                                  </button>
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <small className="text-muted">Nessun Health Manager assegnato</small>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -447,6 +447,8 @@ function TeamAdd() {
                       {formData.role === 'team_leader' && 'Gestisce un team di professionisti'}
                       {formData.role === 'professionista' && 'Nutrizionista, Psicologo o Coach'}
                       {formData.role === 'team_esterno' && 'Collaboratore esterno'}
+                      {formData.role === 'influencer' && 'Gestione origine e visibilità clienti'}
+                      {formData.role === 'health_manager' && 'Health Manager – gestione pazienti e onboarding'}
                     </small>
                   </div>
                   <div className="col-md-6">
@@ -468,7 +470,7 @@ function TeamAdd() {
                   </div>
 
                   {/* Max Clients for Professionals */}
-                  {(formData.role === 'professionista' || formData.role === 'team_leader') && (
+                  {(formData.role === 'professionista' || formData.role === 'team_leader' || formData.role === 'health_manager') && (
                     <div className="col-md-6 animate__animated animate__fadeIn">
                       <label className="form-label">Numero Massimo Clienti</label>
                       <input
