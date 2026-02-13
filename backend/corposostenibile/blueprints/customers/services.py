@@ -1636,7 +1636,8 @@ def freeze_cliente(cliente_id: int, user, reason: str = None) -> dict:
 
     try:
         # 1. Aggiorna stato cliente
-        cliente.stato_cliente = StatoClienteEnum.freeze
+        # "freeze" non è più uno stato ufficiale: usiamo PAUSA come stato globale.
+        cliente.stato_cliente = StatoClienteEnum.pausa
         cliente.is_frozen = True
         cliente.freeze_date = datetime.utcnow()
         cliente.freeze_reason = reason
@@ -1660,7 +1661,7 @@ def freeze_cliente(cliente_id: int, user, reason: str = None) -> dict:
                 user_id=user.id,
                 field="stato_cliente",
                 before=str(cliente.stato_cliente.value) if cliente.stato_cliente else "attivo",
-                after="freeze",
+                after="pausa",
                 ts=datetime.utcnow()
             )
             db.session.add(log)
@@ -1744,7 +1745,7 @@ def unfreeze_cliente(cliente_id: int, user, resolution: str = None) -> dict:
                 cliente_id=cliente_id,
                 user_id=user.id,
                 field="stato_cliente",
-                before="freeze",
+                before="pausa",
                 after="attivo",
                 ts=datetime.utcnow()
             )

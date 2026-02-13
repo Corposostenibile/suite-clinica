@@ -144,8 +144,6 @@ class StatoClienteEnum(str, Enum):
     ghost = "ghost"
     pausa = "pausa"
     stop = "stop"
-    insoluto = "insoluto"
-    freeze = "freeze"  # NUOVO: stato per blocco temporaneo gestito da Health Manager
 
 
 class CheckSaltatiEnum(str, Enum):
