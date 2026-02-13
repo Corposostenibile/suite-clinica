@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Dict, Any
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -75,6 +76,45 @@ from .helpers import (
     get_client_ip,
     get_user_agent,
 )
+
+
+def _frontend_base_url() -> str:
+    """
+    Calcola il base URL del frontend pubblico per i link dei check.
+    Priorita:
+    1) Config applicativa esplicita
+    2) Header Origin della richiesta browser
+    3) Header Referer
+    4) Header forwardati dal proxy
+    5) Host della richiesta corrente
+    """
+    configured = (
+        current_app.config.get("FRONTEND_BASE_URL")
+        or current_app.config.get("FRONTEND_URL")
+        or ""
+    ).strip()
+    if configured:
+        return configured.rstrip("/")
+
+    origin = (request.headers.get("Origin") or "").strip()
+    if origin:
+        parsed = urlparse(origin)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+    referer = (request.headers.get("Referer") or "").strip()
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+    forwarded_host = (request.headers.get("X-Forwarded-Host") or "").split(",")[0].strip()
+    if forwarded_host:
+        forwarded_proto = (request.headers.get("X-Forwarded-Proto") or request.scheme).split(",")[0].strip()
+        scheme = forwarded_proto if forwarded_proto else request.scheme
+        return f"{scheme}://{forwarded_host}"
+
+    return request.host_url.rstrip("/")
 
 # --------------------------------------------------------------------------- #
 #  Blueprint setup                                                            #
@@ -1314,8 +1354,7 @@ def generate_weekly_check_link(cliente_id: int):
             token = existing_check.token
             # URL React frontend
             # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+            base_url = _frontend_base_url()
             check_url = f"{base_url}/check/weekly/{token}"
 
             current_app.logger.info(
@@ -1353,8 +1392,7 @@ def generate_weekly_check_link(cliente_id: int):
 
         # URL React frontend
         # Use React frontend port in development
-        host = request.host
-        base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
         check_url = f"{base_url}/check/weekly/{token}"
 
         current_app.logger.info(f"[WEEKLY_CHECK] Nuovo link PERMANENTE per {cliente.nome_cognome}: {check_url}")
@@ -1569,8 +1607,7 @@ def generate_dca_check_link(cliente_id: int):
             token = existing_check.token
             # URL React frontend
             # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+            base_url = _frontend_base_url()
             check_url = f"{base_url}/check/dca/{token}"
 
             current_app.logger.info(
@@ -1608,8 +1645,7 @@ def generate_dca_check_link(cliente_id: int):
 
         # URL React frontend
         # Use React frontend port in development
-        host = request.host
-        base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
         check_url = f"{base_url}/check/dca/{token}"
 
         current_app.logger.info(f"[DCA_CHECK] Nuovo link PERMANENTE per {cliente.nome_cognome}: {check_url}")
@@ -2120,8 +2156,7 @@ def generate_minor_check_link(cliente_id: int):
             token = existing_check.token
             # URL React frontend
             # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+            base_url = _frontend_base_url()
             check_url = f"{base_url}/check/minor/{token}"
 
             current_app.logger.info(
@@ -2159,8 +2194,7 @@ def generate_minor_check_link(cliente_id: int):
 
         # URL React frontend
         # Use React frontend port in development
-        host = request.host
-        base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
         check_url = f"{base_url}/check/minor/{token}"
 
         current_app.logger.info(f"[MINOR_CHECK] Nuovo link PERMANENTE per {cliente.nome_cognome}: {check_url}")
@@ -2601,14 +2635,7 @@ def api_cliente_checks(cliente_id: int):
     try:
         cliente = Cliente.query.get_or_404(cliente_id)
 
-        # Base URL for React frontend (port 3000 in development)
-        host = request.host
-        if 'localhost' in host or '127.0.0.1' in host:
-            base_url = "http://localhost:3000"
-        else:
-            # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
 
         result = {
             "success": True,
@@ -2744,14 +2771,7 @@ def api_generate_check_link(check_type: str, cliente_id: int):
         else:  # minor
             Model = MinorCheck
 
-        # Base URL for React frontend (port 3000 in development)
-        host = request.host
-        if 'localhost' in host or '127.0.0.1' in host:
-            base_url = "http://localhost:3000"
-        else:
-            # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
 
         # Check for existing active assignment
         existing = Model.query.filter_by(cliente_id=cliente_id, is_active=True).first()
@@ -3563,6 +3583,7 @@ def api_get_professionisti_by_type(prof_type: str):
 # ============================================================================
 
 @csrf.exempt
+@api_bp.route("/public/<check_type>/<token>", methods=["GET"])
 @client_checks_bp.route("/api/public/<check_type>/<token>", methods=["GET"])
 def api_public_get_check_info(check_type: str, token: str):
     """
@@ -3615,7 +3636,7 @@ def api_public_get_check_info(check_type: str, token: str):
                 "ruolo": "Psicologo/a"
             })
 
-        return jsonify({
+        response = jsonify({
             "success": True,
             "check": {
                 "id": check.id,
@@ -3629,6 +3650,11 @@ def api_public_get_check_info(check_type: str, token: str):
             },
             "professionisti": professionisti
         })
+        # Prevent browser/proxy conditional caching (304) on this endpoint.
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
     except Exception as e:
         current_app.logger.error(f"[API_PUBLIC] Errore get check info: {e}", exc_info=True)
@@ -3636,6 +3662,7 @@ def api_public_get_check_info(check_type: str, token: str):
 
 
 @csrf.exempt
+@api_bp.route("/public/weekly/<token>", methods=["POST"])
 @client_checks_bp.route("/api/public/weekly/<token>", methods=["POST"])
 def api_public_submit_weekly(token: str):
     """
@@ -3723,6 +3750,7 @@ def api_public_submit_weekly(token: str):
 
 
 @csrf.exempt
+@api_bp.route("/public/dca/<token>", methods=["POST"])
 @client_checks_bp.route("/api/public/dca/<token>", methods=["POST"])
 def api_public_submit_dca(token: str):
     """
@@ -3793,6 +3821,7 @@ def api_public_submit_dca(token: str):
 
 
 @csrf.exempt
+@api_bp.route("/public/minor/<token>", methods=["POST"])
 @client_checks_bp.route("/api/public/minor/<token>", methods=["POST"])
 def api_public_submit_minor(token: str):
     """

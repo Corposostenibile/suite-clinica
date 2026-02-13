@@ -382,7 +382,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Cosa ha funzionato bene per te questa settimana?
+                Cosa ha funzionato bene per te la settimana scorsa?
               </label>
               <textarea
                 className="form-control"
@@ -395,7 +395,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Cosa NON ha funzionato bene?
+                Cosa NON ha funzionato bene per te la settimana scorsa?
               </label>
               <textarea
                 className="form-control"
@@ -408,7 +408,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Cosa hai imparato?
+                Cosa hai imparato da ciò che ha funzionato e non ha funzionato?
               </label>
               <textarea
                 className="form-control"
@@ -434,7 +434,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Infortuni o altro di cui devo essere messo a conoscenza?
+                Infortuni o qualcosa di cui devo essere messo a conoscenza?
               </label>
               <textarea
                 className="form-control"
@@ -459,13 +459,13 @@ function WeeklyCheckForm() {
             </p>
 
             {[
-              { field: 'digestion_rating', label: 'Digestione', min: 'Pessima', max: 'Eccellente' },
-              { field: 'energy_rating', label: 'Energia', min: 'Molto bassa', max: 'Altissima' },
-              { field: 'strength_rating', label: 'Forza', min: 'Molto bassa', max: 'Elevata' },
-              { field: 'hunger_rating', label: 'Fame', min: 'Nessuna', max: 'Moltissima' },
-              { field: 'sleep_rating', label: 'Qualità del sonno', min: 'Pessimo', max: 'Eccellente' },
-              { field: 'mood_rating', label: 'Umore', min: 'Pessimo', max: 'Eccellente' },
-              { field: 'motivation_rating', label: 'Motivazione', min: 'Minima', max: 'Massima' },
+              { field: 'digestion_rating', label: 'Valuta la tua digestione questa settimana:', min: 'Pessima', max: 'Eccellente' },
+              { field: 'energy_rating', label: 'Valuta i tuoi livelli di energia questa settimana:', min: 'Molto bassa', max: 'Altissima' },
+              { field: 'strength_rating', label: 'Valuta il tuo livello di forza questa settimana:', min: 'Molto bassa', max: 'Elevata' },
+              { field: 'hunger_rating', label: 'Valuta il tuo livello di fame questa settimana:', min: 'Non ho avuto fame', max: 'Famissima' },
+              { field: 'sleep_rating', label: 'Valuta la tua qualità del sonno:', min: 'Pessimo', max: 'Eccellente' },
+              { field: 'mood_rating', label: 'Valuta il tuo umore questa settimana:', min: 'Pessimo', max: 'Eccellente' },
+              { field: 'motivation_rating', label: 'Valuta la tua motivazione questa settimana:', min: 'Minima', max: 'Massima' },
             ].map(item => (
               <div key={item.field} className="mb-4 p-3 rounded" style={{ background: '#f8fafc' }}>
                 <label className="form-label fw-medium d-block text-center mb-3">
@@ -490,7 +490,7 @@ function WeeklyCheckForm() {
             </h5>
 
             <div className="mb-4">
-              <label className="form-label fw-medium">Peso attuale (kg)</label>
+              <label className="form-label fw-medium">Peso (Kg)</label>
               <input
                 type="number"
                 className="form-control"
@@ -499,11 +499,12 @@ function WeeklyCheckForm() {
                 onChange={(e) => handleInputChange('weight', e.target.value)}
                 placeholder="Es: 75.5"
               />
+              <small className="text-muted">A stomaco vuoto e dopo essere andato/a in bagno se possibile. Ma solo se vuoi!</small>
             </div>
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Stai riuscendo a rispettare il programma alimentare?
+                Stai riuscendo a rispettare il PROGRAMMA ALIMENTARE?
               </label>
               <textarea
                 className="form-control"
@@ -515,7 +516,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Stai riuscendo a rispettare il programma sportivo?
+                Stai riuscendo a rispettare il PROGRAMMA SPORTIVO?
               </label>
               <textarea
                 className="form-control"
@@ -539,7 +540,7 @@ function WeeklyCheckForm() {
 
             <div className="row">
               <div className="col-md-6 mb-4">
-                <label className="form-label fw-medium">Passi giornalieri medi</label>
+                <label className="form-label fw-medium">Quanti passi in media al giorno hai fatto?</label>
                 <input
                   type="text"
                   className="form-control"
@@ -549,7 +550,7 @@ function WeeklyCheckForm() {
                 />
               </div>
               <div className="col-md-6 mb-4">
-                <label className="form-label fw-medium">Settimane di allenamento completate al 100%</label>
+                <label className="form-label fw-medium">Quante settimane di allenamento hai rispettato al 100%?</label>
                 <input
                   type="text"
                   className="form-control"
@@ -574,7 +575,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4">
               <label className="form-label fw-medium">
-                Tematiche per le live settimanali
+                Ogni settimana ci sono delle LIVE Settimanali con gli Specialisti! Hai delle tematiche che vorresti trattassimo?
               </label>
               <textarea
                 className="form-control"
@@ -683,10 +684,10 @@ function WeeklyCheckForm() {
             <div className="p-4 rounded" style={{ background: '#fefce8', border: '1px solid #fef08a' }}>
               <h6 className="mb-3 fw-semibold text-center">
                 <i className="ri-line-chart-line me-2"></i>
-                Quanto consiglieresti CorpoSostenibile?
+                Quanto consiglieresti a una persona a cui vuoi bene, su una scala da 1 a 10, il programma CorpoSostenibile?
               </h6>
               <p className="text-muted text-center small mb-3">
-                A una persona a cui vuoi bene, che sai avere bisogno di prendersi cura di sé
+                1 = Non Mi piace | 10 = Sono super soddisfatto
               </p>
               <RatingSelector
                 value={formData.progress_rating}
@@ -708,7 +709,7 @@ function WeeklyCheckForm() {
 
             <div className="mb-4 p-4 rounded" style={{ background: '#f8fafc' }}>
               <label className="form-label fw-medium">
-                Conosci qualcuno che potrebbe beneficiare del programma?
+                Chi è la persona a cui vuoi bene e che sai che noi di CorpoSostenibile possiamo aiutare?
               </label>
               <p className="text-muted small mb-3">
                 Indica nome, cognome e numero di telefono della persona
