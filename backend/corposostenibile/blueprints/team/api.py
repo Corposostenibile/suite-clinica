@@ -947,6 +947,8 @@ def api_confirm_assignment():
                     storia_cliente=opp_data.storia,
                     programma_attuale=opp_data.pacchetto,
                     acquisition_source='ghl_manual_ai',
+                    service_status='pending_assignment',
+                    show_in_clienti_lista=False,
                     created_at=datetime.utcnow()
                 )
                 db.session.add(cliente)
@@ -1065,6 +1067,8 @@ def api_confirm_assignment():
 
         # Update Cliente status
         cliente.service_status = 'assigned'
+        if assignment.status in ('fully_assigned', 'active'):
+            cliente.show_in_clienti_lista = True
         
         db.session.commit()
         

@@ -69,6 +69,8 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             cliente = Cliente(
                 nome_cognome=nome,
                 mail=email,
+                service_status='pending_assignment',
+                show_in_clienti_lista=False,
             )
             db.session.add(cliente)
             db.session.flush()

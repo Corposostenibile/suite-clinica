@@ -103,6 +103,7 @@ class CustomerRepository:
         from flask_login import current_user
 
         qry: Query = self._base_query(eager=eager)
+        qry = qry.filter(Cliente.show_in_clienti_lista.is_(True))
         if filters:
             qry = apply_customer_filters(qry, filters)  # type: ignore[arg-type]
 

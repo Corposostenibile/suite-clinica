@@ -302,6 +302,7 @@ def save_assignment(assignment_id):
             # Aggiorna anche il cliente
             cliente = assignment.cliente
             cliente.service_status = 'fully_assigned'
+            cliente.show_in_clienti_lista = True
 
             # Assegna anche nella tabella clienti (per retrocompatibilità)
             if nutrizionista_id:

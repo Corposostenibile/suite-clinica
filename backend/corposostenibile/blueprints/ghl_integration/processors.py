@@ -353,6 +353,7 @@ class OpportunityProcessor:
         Crea o aggiorna un cliente
         """
         # Cerca prima per email
+        is_new_cliente = False
         cliente = Cliente.query.filter_by(
             mail=parsed_data['email']
         ).first()
@@ -366,6 +367,7 @@ class OpportunityProcessor:
 
         if not cliente:
             # Crea nuovo cliente
+            is_new_cliente = True
             cliente = Cliente()
             cliente.mail = parsed_data['email']
             cliente.created_at = datetime.utcnow()
@@ -382,6 +384,10 @@ class OpportunityProcessor:
         cliente.acquisition_channel = parsed_data.get('origine_contatto')
         cliente.programma_attuale = parsed_data.get('pacchetto_comprato')
         cliente.modalita_pagamento = parsed_data.get('modalita_pagamento')
+        if is_new_cliente:
+            # Clienti creati da webhook restano nascosti in /clienti-lista
+            # fino al completamento delle assegnazioni professionisti.
+            cliente.show_in_clienti_lista = False
         cliente.ghl_last_sync = datetime.utcnow()
         cliente.ghl_last_modified = datetime.utcnow()
         cliente.ghl_modification_count = (cliente.ghl_modification_count or 0) + 1

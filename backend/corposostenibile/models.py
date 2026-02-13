@@ -2398,6 +2398,7 @@ class Cliente(TimestampMixin, db.Model):
     service_status = db.Column(db.String(50), default='unassigned', index=True)
     # Valori: 'unassigned', 'assigning', 'partially_assigned', 'fully_assigned', 'active', 'paused', 'completed'
     service_activated_at = db.Column(db.DateTime)
+    show_in_clienti_lista = db.Column(db.Boolean, default=True, nullable=False, index=True)
 
     # Tracking acquisizione
     acquisition_source = db.Column(db.String(100))  # 'ghl_webhook', 'manual_entry', 'excel_import', 'website_form'

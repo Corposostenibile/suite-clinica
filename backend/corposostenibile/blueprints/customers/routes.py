@@ -431,7 +431,7 @@ def list_view() -> str:
         stats_query = db.session.query(
             Cliente.tipologia_cliente,
             func.count(Cliente.cliente_id).label('count')
-        )
+        ).filter(Cliente.show_in_clienti_lista.is_(True))
         
         # Se c'è un filtro esplicito nella params, la applichiamo, altrimenti usiamo il filtro di ruolo automatico
         if explicit_prof_id:
@@ -607,7 +607,10 @@ def list_nutrizionista() -> str:
     from corposostenibile.blueprints.customers.filters import apply_customer_filters
     from corposostenibile.models import StatoClienteEnum
 
-    base_query = apply_customer_filters(db.session.query(Cliente), params)
+    base_query = apply_customer_filters(
+        db.session.query(Cliente).filter(Cliente.show_in_clienti_lista.is_(True)),
+        params
+    )
 
     kpi = {
         'stato_attivo': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.attivo).count(),
@@ -705,7 +708,10 @@ def list_coach() -> str:
     from corposostenibile.blueprints.customers.filters import apply_customer_filters
     from corposostenibile.models import StatoClienteEnum
 
-    base_query = apply_customer_filters(db.session.query(Cliente), params)
+    base_query = apply_customer_filters(
+        db.session.query(Cliente).filter(Cliente.show_in_clienti_lista.is_(True)),
+        params
+    )
 
     kpi = {
         'stato_attivo': base_query.filter(Cliente.stato_coach == StatoClienteEnum.attivo).count(),
@@ -798,7 +804,10 @@ def list_psicologo() -> str:
     from corposostenibile.blueprints.customers.filters import apply_customer_filters
     from corposostenibile.models import StatoClienteEnum
 
-    base_query = apply_customer_filters(db.session.query(Cliente), params)
+    base_query = apply_customer_filters(
+        db.session.query(Cliente).filter(Cliente.show_in_clienti_lista.is_(True)),
+        params
+    )
 
     kpi = {
         'stato_attivo': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.attivo).count(),
