@@ -80,8 +80,10 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
 
         # 2. Ottieni admin per assigned_by_id
-        admin_user = User.query.filter_by(is_admin=True).first()
-        admin_id = admin_user.id if admin_user else 1
+        admin_user = User.query.filter_by(is_admin=True).first() or User.query.first()
+        if not admin_user:
+            raise RuntimeError("[opportunity_bridge] Nessun utente disponibile per assigned_by_id")
+        admin_id = admin_user.id
 
         # 3. Crea/assegna i 3 Check (senza invio notifiche individuali)
         assignments: List[ClientCheckAssignment] = []
@@ -93,21 +95,18 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
 
             # Auto-seeding se non esiste
             if not check_form:
-                try:
-                    check_form = CheckForm(
-                        name=check_data["name"],
-                        description=check_data["description"],
-                        form_type=CheckFormTypeEnum.iniziale,
-                        is_active=True,
-                        created_by_id=admin_id,
-                        department_id=1,
-                    )
-                    db.session.add(check_form)
-                    db.session.flush()
-                    current_app.logger.info(f"[opportunity_bridge] Creato form: {check_form.name}")
-                except Exception as e:
-                    current_app.logger.error(f"[opportunity_bridge] Errore creazione form {check_data['name']}: {e}")
-                    continue
+                check_form = CheckForm(
+                    name=check_data["name"],
+                    description=check_data["description"],
+                    form_type=CheckFormTypeEnum.iniziale,
+                    is_active=True,
+                    created_by_id=admin_id,
+                    # In suite-clinica i form iniziali devono poter esistere anche senza reparti.
+                    department_id=None,
+                )
+                db.session.add(check_form)
+                db.session.flush()
+                current_app.logger.info(f"[opportunity_bridge] Creato form: {check_form.name}")
 
             # Verifica se già assegnato
             existing = ClientCheckAssignment.query.filter_by(

@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from typing import Dict, List, Any, Optional
 
-from flask import current_app
+from flask import current_app, has_request_context, request
 from sqlalchemy import and_, or_, desc, func
 from sqlalchemy.orm import joinedload
 
@@ -28,6 +29,39 @@ from corposostenibile.models import (
     CheckFormTypeEnum,
     CheckFormFieldTypeEnum,
 )
+
+
+# --------------------------------------------------------------------------- #
+#  URL Helpers                                                                 #
+# --------------------------------------------------------------------------- #
+def _public_checks_base_url() -> str:
+    """
+    Base URL pubblico per i link check condivisi all'esterno.
+    Riusa lo stesso helper usato dai weekly check.
+    """
+    # Import lazy per evitare dipendenze circolari a livello modulo.
+    from .routes import _frontend_base_url
+
+    def _fallback_from_base_url() -> str:
+        configured = (current_app.config.get("BASE_URL") or "http://localhost:5001").strip().rstrip("/")
+        parsed = urlparse(configured)
+
+        if parsed.scheme and parsed.hostname and parsed.port and 5000 <= parsed.port < 5100:
+            frontend_origin = f"{parsed.scheme}://{parsed.hostname}:{parsed.port - 2000}"
+            with current_app.test_request_context("/", headers={"Origin": frontend_origin}):
+                return _frontend_base_url().rstrip("/")
+
+        with current_app.test_request_context("/", base_url=configured):
+            return _frontend_base_url().rstrip("/")
+
+    if has_request_context():
+        # Stesso comportamento weekly per richieste browser.
+        if (request.headers.get("Origin") or "").strip() or (request.headers.get("Referer") or "").strip():
+            return _frontend_base_url().rstrip("/")
+        # Caso webhook server-to-server (es. GHL): nessun Origin/Referer.
+        return _fallback_from_base_url()
+
+    return _fallback_from_base_url()
 
 
 # --------------------------------------------------------------------------- #
@@ -489,7 +523,7 @@ class NotificationService:
                 return
 
             # Genera URL pubblico
-            base_url = current_app.config.get("BASE_URL", "")
+            base_url = _public_checks_base_url()
             public_url = assignment.get_public_url(base_url=base_url)
 
             context = {
@@ -701,7 +735,7 @@ def send_initial_checks_single_email(
         current_app.logger.warning(f"Cliente {cliente.cliente_id} senza email, skip invio")
         return
 
-    base_url = current_app.config.get("BASE_URL", "")
+    base_url = _public_checks_base_url()
     items = [
         {"form": a.form, "public_url": a.get_public_url(base_url=base_url)}
         for a in assignments
