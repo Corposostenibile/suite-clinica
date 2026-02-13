@@ -85,6 +85,22 @@ class EnumField(fields.Field):
         }
         return mapping.get(value, value)
 
+    @staticmethod
+    def _normalize_genere_value(value: Any) -> Any:
+        """Normalizza valori legacy per il genere."""
+        if value is None:
+            return value
+        v = str(value).strip().lower()
+        mapping = {
+            "m": "uomo",
+            "male": "uomo",
+            "uomo": "uomo",
+            "f": "donna",
+            "female": "donna",
+            "donna": "donna",
+        }
+        return mapping.get(v, value)
+
     # ----- dump ------------------------------------------------------------ #
     def _serialize(self, value, attr, obj, **kwargs):  # noqa: ANN001
         if value is None:
@@ -93,6 +109,8 @@ class EnumField(fields.Field):
         raw = value.value if hasattr(value, "value") else str(value)
         if self.enum.__name__ == "StatoClienteEnum":
             raw = self._normalize_stato_cliente_value(raw)
+        elif self.enum.__name__ == "GenereEnum":
+            raw = self._normalize_genere_value(raw)
         return raw
 
     # ----- load ------------------------------------------------------------ #
@@ -105,12 +123,14 @@ class EnumField(fields.Field):
         # Mappatura per vecchi valori StatoClienteEnum
         if self.enum.__name__ == 'StatoClienteEnum':
             value = self._normalize_stato_cliente_value(value)
+        elif self.enum.__name__ == "GenereEnum":
+            value = self._normalize_genere_value(value)
             
             # Log per debug
             import logging
             logger = logging.getLogger(__name__)
             if original_value != value:
-                logger.info(f"Mappato valore StatoClienteEnum: '{original_value}' -> '{value}'")
+                logger.info(f"Mappato valore {self.enum.__name__}: '{original_value}' -> '{value}'")
         
         try:
             return self.enum(value)
