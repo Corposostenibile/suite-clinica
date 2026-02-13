@@ -284,8 +284,8 @@ function ClientiListaPsicologia() {
     const newParams = new URLSearchParams(searchParams);
     const paramKey = key === 'search' ? 'q' :
       key === 'psicologo' ? 'psicologa_id' :
-      key === 'statoPsicologia' ? 'stato_psicologia' :
-      key === 'reachOut' ? 'reach_out_psicologia' : key;
+        key === 'statoPsicologia' ? 'stato_psicologia' :
+          key === 'reachOut' ? 'reach_out_psicologia' : key;
     if (value) {
       newParams.set(paramKey, value);
     } else {
@@ -428,22 +428,21 @@ function ClientiListaPsicologia() {
           <h4 className="mb-1">Visuale Psicologia</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
-        <div className="d-flex flex-wrap gap-2">
-          <Link to="/clienti-lista" className="btn btn-primary px-3">
-            <i className="ri-group-line me-2"></i>
-            Lista Generale
+        <div className="d-flex gap-2">
+          <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
+            <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
-          <Link to="/clienti-nutrizione" className="btn btn-success px-3">
-            <i className="ri-restaurant-line me-2"></i>
-            Visuale Nutrizione
+          <Link to="/clienti-nutrizione" className="btn btn-warning btn-sm text-white">
+            <i className="ri-restaurant-line me-1"></i> Visuale Nutrizione
           </Link>
-          <Link to="/clienti-coach" className="btn btn-warning px-3">
-            <i className="ri-run-line me-2"></i>
-            Visuale Coach
+          <Link to="/clienti-coach" className="btn btn-info btn-sm text-white">
+            <i className="ri-run-line me-1"></i> Visuale Coach
           </Link>
-          <Link to="/clienti-nuovo" className="btn btn-primary px-4">
-            <i className="ri-user-add-line me-2"></i>
-            Aggiungi Paziente
+          <Link to="/clienti-psicologia" className="btn btn-danger btn-sm text-white">
+            <i className="ri-mental-health-line me-1"></i> Visuale Psicologia
+          </Link>
+          <Link to="/clienti-nuovo" className="btn btn-primary btn-sm ms-2">
+            <i className="ri-user-add-line me-1"></i> Aggiungi
           </Link>
         </div>
       </div>

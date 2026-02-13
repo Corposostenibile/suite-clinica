@@ -301,9 +301,9 @@ function ClientiListaNutrizione() {
     const newParams = new URLSearchParams(searchParams);
     const paramKey = key === 'search' ? 'q' :
       key === 'nutrizionista' ? 'nutrizionista_id' :
-      key === 'statoNutrizione' ? 'stato_nutrizione' :
-      key === 'checkDay' ? 'check_day' :
-      key === 'reachOut' ? 'reach_out_nutrizione' : key;
+        key === 'statoNutrizione' ? 'stato_nutrizione' :
+          key === 'checkDay' ? 'check_day' :
+            key === 'reachOut' ? 'reach_out_nutrizione' : key;
     if (value) {
       newParams.set(paramKey, value);
     } else {
@@ -448,18 +448,18 @@ function ClientiListaNutrizione() {
           <h4 className="mb-1">Visuale Nutrizione</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti in visuale nutrizione</p>
         </div>
-        <div className="d-flex flex-wrap gap-2">
-          <Link to="/clienti-lista" className="btn btn-primary px-3">
-            <i className="ri-list-check me-2"></i>
-            Lista Generale
+        <div className="d-flex gap-2">
+          <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
+            <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
-          <Link to="/clienti-coach" className="btn btn-warning px-3">
-            <i className="ri-run-line me-2"></i>
-            Visuale Coach
+          <Link to="/clienti-nutrizione" className="btn btn-warning btn-sm text-white">
+            <i className="ri-restaurant-line me-1"></i> Visuale Nutrizione
           </Link>
-          <Link to="/clienti-psicologia" className="btn px-3" style={{ backgroundColor: '#8b5cf6', color: 'white' }}>
-            <i className="ri-mental-health-line me-2"></i>
-            Visuale Psicologia
+          <Link to="/clienti-coach" className="btn btn-info btn-sm text-white">
+            <i className="ri-run-line me-1"></i> Visuale Coach
+          </Link>
+          <Link to="/clienti-psicologia" className="btn btn-danger btn-sm text-white">
+            <i className="ri-mental-health-line me-1"></i> Visuale Psicologia
           </Link>
         </div>
       </div>

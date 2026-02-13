@@ -352,6 +352,20 @@ function ClientiList() {
           <h4 className="mb-1">Gestione Pazienti</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
+        <div className="d-flex gap-2">
+          <Link to="/clienti-lista" className="btn btn-primary btn-sm">
+            <i className="ri-list-check me-1"></i> Lista Generale
+          </Link>
+          <Link to="/clienti-nutrizione" className="btn btn-warning btn-sm text-white">
+            <i className="ri-restaurant-line me-1"></i> Visuale Nutrizione
+          </Link>
+          <Link to="/clienti-coach" className="btn btn-info btn-sm text-white">
+            <i className="ri-run-line me-1"></i> Visuale Coach
+          </Link>
+          <Link to="/clienti-psicologia" className="btn btn-danger btn-sm text-white">
+            <i className="ri-mental-health-line me-1"></i> Visuale Psicologia
+          </Link>
+        </div>
       </div>
 
       {/* Stats Row */}
