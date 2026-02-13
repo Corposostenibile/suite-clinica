@@ -3,7 +3,9 @@ import os
 import sys
 import subprocess
 import tempfile
-from collections import OrderedDict
+import shutil
+import glob
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 
@@ -324,6 +326,58 @@ def table_is_included(table_name, new_schema_def):
         return False
     return True
 
+def load_fk_dependencies_from_db():
+    """
+    Read FK graph from target DB to avoid brittle parsing from schema SQL text.
+    Requires PG* env vars and reachable DB (Cloud SQL proxy already up in Job).
+    """
+    sql = (
+        "SELECT child.relname, parent.relname "
+        "FROM pg_constraint c "
+        "JOIN pg_class child ON c.conrelid = child.oid "
+        "JOIN pg_namespace child_ns ON child.relnamespace = child_ns.oid "
+        "JOIN pg_class parent ON c.confrelid = parent.oid "
+        "JOIN pg_namespace parent_ns ON parent.relnamespace = parent_ns.oid "
+        "WHERE c.contype = 'f' "
+        "AND child_ns.nspname = 'public' "
+        "AND parent_ns.nspname = 'public';"
+    )
+    deps = {}
+    try:
+        proc = subprocess.run(
+            ['psql', '-At', '-F', '|', '-c', sql],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return deps
+        for raw in proc.stdout.splitlines():
+            if not raw or '|' not in raw:
+                continue
+            child, parent = raw.split('|', 1)
+            child = child.strip()
+            parent = parent.strip()
+            if not child or not parent or child == parent:
+                continue
+            deps.setdefault(child, set()).add(parent)
+    except Exception:
+        return {}
+    return deps
+
+def apply_manual_fk_dependencies(deps):
+    # Safety net for legacy dumps where inferred order can still be wrong in practice.
+    manual = {
+        'lead_activity_logs': {'sales_leads'},
+        'lead_payments': {'sales_leads'},
+        'sales_leads': {'sales_form_links'},
+    }
+    out = {k: set(v) for k, v in (deps or {}).items()}
+    for child, parents in manual.items():
+        out.setdefault(child, set()).update(parents)
+    return out
+
 def order_tables_by_fk(inserted_tables, fk_deps):
     tables = list(OrderedDict.fromkeys(inserted_tables))
     table_set = set(tables)
@@ -343,14 +397,17 @@ def order_tables_by_fk(inserted_tables, fk_deps):
             children[parent].add(child)
             indegree[child] += 1
 
-    # Boost common roots first when possible.
+    # Prefer critical roots only when they are valid roots (indegree=0).
     preferred_roots = ['users', 'departments', 'teams', 'team_members', 'clienti']
-    queue = [t for t in preferred_roots if t in indegree and indegree[t] == 0]
+    ordered = []
+    queue = []
+    for root in preferred_roots:
+        if root in indegree and indegree[root] == 0:
+            queue.append(root)
     for t in sorted(tables):
         if indegree[t] == 0 and t not in queue:
             queue.append(t)
 
-    ordered = []
     while queue:
         node = queue.pop(0)
         if node in ordered:
@@ -368,19 +425,60 @@ def order_tables_by_fk(inserted_tables, fk_deps):
                 ordered.append(t)
     return ordered
 
+def enforce_table_precedence(ordered_tables, precedence_pairs):
+    ordered = list(ordered_tables)
+    # Iterate until stable so chained constraints are always respected.
+    changed = True
+    while changed:
+        changed = False
+        for parent, child in precedence_pairs:
+            if parent not in ordered or child not in ordered:
+                continue
+            p_idx = ordered.index(parent)
+            c_idx = ordered.index(child)
+            if p_idx < c_idx:
+                continue
+            # Move parent just before child.
+            ordered.pop(p_idx)
+            c_idx = ordered.index(child)
+            ordered.insert(c_idx, parent)
+            changed = True
+    return ordered
+
 
 def sanitize_for_column(raw_value, col_type, enum_defs):
     if raw_value is None:
         return None
     col_type_norm = str(col_type or '').strip().lower()
+    col_type_base = col_type_norm.strip('"')
+    if '.' in col_type_base:
+        col_type_base = col_type_base.split('.')[-1]
+    col_type_base = col_type_base.strip('"')
+    if col_type_base.endswith('[]'):
+        col_type_base = col_type_base[:-2]
     val = str(raw_value)
     if val == '':
         if any(k in col_type_norm for k in ('int', 'numeric', 'decimal', 'double precision', 'real', 'date', 'time')):
             return None
-    enum_values = enum_defs.get(col_type_norm)
+    enum_type_key = None
+    enum_values = enum_defs.get(col_type_norm) or enum_defs.get(col_type_base)
+    if enum_values:
+        enum_type_key = col_type_norm if col_type_norm in enum_defs else col_type_base
+    else:
+        # col_type may include extra tokens (e.g. "ticketurgencyenum NOT NULL").
+        # Match by containment against known enum names.
+        for enum_name, values in enum_defs.items():
+            if enum_name and enum_name in col_type_norm:
+                enum_type_key = enum_name
+                enum_values = values
+                break
     if enum_values:
         low = val.strip().lower().replace('-', '_').replace(' ', '_')
-        alias_map = ENUM_ALIASES.get(col_type_norm, {})
+        alias_map = {}
+        if enum_type_key:
+            alias_map = ENUM_ALIASES.get(enum_type_key, {})
+        if not alias_map:
+            alias_map = ENUM_ALIASES.get(col_type_norm, {}) or ENUM_ALIASES.get(col_type_base, {})
         candidate = alias_map.get(low, val.strip())
         if candidate in enum_values:
             return candidate
@@ -395,9 +493,52 @@ def sanitize_for_column(raw_value, col_type, enum_defs):
         if low in {'0', 'f', 'false', 'n', 'no'}:
             return False
         return None
+    # Keep oversized text values importable when target is varchar(n).
+    varchar_match = re.search(r'(?:character varying|varchar)\s*\((\d+)\)', col_type_norm)
+    if varchar_match:
+        try:
+            max_len = int(varchar_match.group(1))
+            if max_len > 0 and len(val) > max_len:
+                return val[:max_len]
+        except Exception:
+            pass
     return val
 
 def apply_default_value(table, col, value, row):
+    def has_val(v):
+        if v is None:
+            return False
+        return str(v).strip() != ''
+
+    if table == 'users' and col == 'trial_supervisor_id':
+        # Old dumps can reference supervisors that are not imported in users.
+        # Keep migration progressing by nulling this self-FK.
+        return None
+    if table == 'sales_leads' and col == 'form_link_id':
+        # Break circular FK load dependency with sales_form_links during import.
+        return None
+    if table == 'sales_form_links':
+        row_user_id = row.get('user_id')
+        row_lead_id = row.get('lead_id')
+        row_check_number = row.get('check_number')
+        has_user = has_val(row_user_id)
+        has_lead = has_val(row_lead_id)
+
+        # Enforce check_link_type_xor_v2:
+        # (user_id set, lead_id null, check_number null) OR
+        # (user_id null, lead_id set, check_number set)
+        if col == 'lead_id' and has_user:
+            return None
+        if col == 'check_number':
+            if has_user:
+                return None
+            if has_lead and not has_val(value if value is not None else row_check_number):
+                return 1
+        if col == 'user_id' and has_lead:
+            return None
+    if table == 'sales_form_links' and col == 'unique_code' and (value is None or str(value).strip() == ''):
+        link_id = str(row.get('id', '')).strip() or 'unknown'
+        return f"legacy-link-{link_id}"
     if table == 'teams' and col == 'team_type' and value is None:
         team_id = str(row.get('id', '')).strip()
         return TEAM_TYPE_BY_ID.get(team_id, 'nutrizione')
@@ -408,6 +549,48 @@ def apply_default_value(table, col, value, row):
     if table == 'users' and col in {'created_at', 'updated_at'} and value is None:
         return datetime.now().isoformat()
     return value
+
+def derived_user_value(col, row):
+    raw_role = row.get('role')
+    role = normalize_user_role(raw_role)
+    is_admin = normalize_bool(row.get('is_admin'), default=False)
+    is_external = normalize_bool(row.get('is_external'), default=False)
+    raw_specialty = row.get('specialty')
+    specialty = normalize_user_specialty(raw_specialty)
+
+    if col == 'role':
+        if is_admin:
+            return 'admin'
+        if role:
+            return role
+        if is_external:
+            return 'team_esterno'
+        return 'professionista'
+    if col == 'specialty':
+        return specialty
+    if col == 'email':
+        email = (row.get('email') or '').strip()
+        if email:
+            return email
+        uid = (row.get('id') or '').strip() or 'unknown'
+        return f"imported_user_{uid}@invalid.local"
+    if col == 'password_hash':
+        return row.get('password_hash') or DEFAULT_IMPORTED_PASSWORD_HASH
+    if col == 'first_name':
+        return row.get('first_name') or 'Utente'
+    if col == 'last_name':
+        return row.get('last_name') or 'Sconosciuto'
+    if col == 'is_admin':
+        return is_admin
+    if col == 'is_active':
+        return normalize_bool(row.get('is_active'), default=True)
+    if col == 'is_external':
+        return is_external
+    if col == 'is_trial':
+        return normalize_bool(row.get('is_trial'), default=False)
+    if col in {'created_at', 'updated_at'}:
+        return row.get(col) or datetime.now().isoformat()
+    return None
 
 def discover_tables_in_dump(old_dump_path, new_schema_def):
     re_table_data = re.compile(r'TABLE DATA\s+public\s+("?)(\w+)\1', re.IGNORECASE)
@@ -478,6 +661,11 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
     table_file_paths = {}
     inserted_tables = []
     inserted_tables_seen = set()
+    table_row_counts = defaultdict(int)
+    skipped_not_null_counts = defaultdict(int)
+    split_dir = os.environ.get('MIGRATION_SPLIT_DIR', '').strip()
+    order_file = os.environ.get('MIGRATION_ORDER_FILE', '').strip()
+    skip_combined_dump = os.environ.get('MIGRATION_SKIP_COMBINED_DUMP', '0').strip().lower() in {'1', 'true', 'yes'}
 
     def get_table_file_path(table_name):
         path = table_file_paths.get(table_name)
@@ -521,6 +709,34 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
                     current_table = tbl
                     current_cols = cols
                     mapped_cols = [(col, new_schema_def[tbl].get(col, '')) for col in current_cols if col in new_schema_def[tbl]]
+                    if current_table == 'users':
+                        extra_users_cols = [
+                            'email', 'password_hash', 'first_name', 'last_name',
+                            'is_admin', 'is_active', 'is_external', 'is_trial',
+                            'role', 'specialty', 'created_at', 'updated_at'
+                        ]
+                        mapped_names = {name for name, _ in mapped_cols}
+                        for extra_col in extra_users_cols:
+                            if extra_col in new_schema_def[tbl] and extra_col not in mapped_names:
+                                mapped_cols.append((extra_col, new_schema_def[tbl].get(extra_col, '')))
+                    if current_table == 'teams':
+                        # Legacy dumps may miss mandatory target columns.
+                        extra_team_cols = ['team_type', 'is_active']
+                        mapped_names = {name for name, _ in mapped_cols}
+                        for extra_col in extra_team_cols:
+                            if extra_col in new_schema_def[tbl] and extra_col not in mapped_names:
+                                mapped_cols.append((extra_col, new_schema_def[tbl].get(extra_col, '')))
+                    if current_table == 'sales_form_links':
+                        # Legacy dumps may miss mandatory target columns.
+                        mapped_names = {name for name, _ in mapped_cols}
+                        if 'check_number' not in mapped_names:
+                            mapped_cols.append(
+                                ('check_number', new_schema_def[tbl].get('check_number', 'integer'))
+                            )
+                        if 'unique_code' not in mapped_names:
+                            mapped_cols.append(
+                                ('unique_code', new_schema_def[tbl].get('unique_code', 'character varying(255) NOT NULL'))
+                            )
                     if current_table not in inserted_tables_seen:
                         inserted_tables_seen.add(current_table)
                         inserted_tables.append(current_table)
@@ -550,11 +766,30 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
                 continue
             row = dict(zip(current_cols, row_values))
             sql_values = []
+            not_null_violation_col = None
             for col, col_type in mapped_cols:
-                val = sanitize_for_column(row.get(col), col_type, enum_defs)
+                if current_table == 'users' and col not in row:
+                    val = derived_user_value(col, row)
+                else:
+                    val = row.get(col)
+                val = sanitize_for_column(val, col_type, enum_defs)
                 val = apply_default_value(current_table, col, val, row)
+                if val is None and 'not null' in str(col_type or '').lower():
+                    not_null_violation_col = col
+                    break
                 sql_values.append(to_sql_value(val, col_type))
+            if not_null_violation_col:
+                key = f"{current_table}.{not_null_violation_col}"
+                skipped_not_null_counts[key] += 1
+                if skipped_not_null_counts[key] <= 5:
+                    row_id = row.get('id') or row.get('cliente_id') or '?'
+                    print(
+                        f"[migration][prepare][skip] table={current_table} "
+                        f"column={not_null_violation_col} reason=not_null row_id={row_id}"
+                    )
+                continue
             pending_values.append(f"({', '.join(sql_values)})")
+            table_row_counts[current_table] += 1
             if len(pending_values) >= insert_batch_size:
                 flush_pending()
 
@@ -562,20 +797,78 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
         process.wait()
 
         ordered_tables = order_tables_by_fk(inserted_tables, fk_deps)
-        with open(output_path, 'w', encoding='utf-8') as outfile:
-            outfile.write("SET search_path TO public;\n")
-            if tables_in_dump:
-                truncate_tables = ", ".join(f"public.{t}" for t in tables_in_dump)
-                outfile.write(f"TRUNCATE TABLE {truncate_tables} CASCADE;\n")
-            for table in ordered_tables:
-                table_path = table_file_paths.get(table)
-                if not table_path or not os.path.exists(table_path):
-                    continue
-                with open(table_path, 'r', encoding='utf-8') as tf:
-                    for line in tf:
-                        outfile.write(line)
-            outfile.write(generate_admin_user_sql())
-            write_sequences_block(outfile, ordered_tables)
+        ordered_tables = enforce_table_precedence(
+            ordered_tables,
+            [
+                ('sales_leads', 'sales_form_links'),
+                ('sales_leads', 'lead_activity_logs'),
+                ('sales_leads', 'lead_payments'),
+                ('sales_form_links', 'lead_activity_logs'),
+                ('sales_form_links', 'lead_payments'),
+            ],
+        )
+        order_debug_tables = ['sales_form_links', 'sales_leads', 'lead_activity_logs', 'lead_payments']
+        order_debug = []
+        for name in order_debug_tables:
+            if name in ordered_tables:
+                order_debug.append(f"{name}={ordered_tables.index(name) + 1}")
+        if order_debug:
+            print(f"[migration][prepare][order-check] {' '.join(order_debug)}")
+        if skip_combined_dump:
+            # Keep OUTPUT_FILE contract for callers, without materializing a huge merged dump.
+            with open(output_path, 'w', encoding='utf-8') as outfile:
+                outfile.write("-- combined dump disabled (MIGRATION_SKIP_COMBINED_DUMP=1)\n")
+        else:
+            with open(output_path, 'w', encoding='utf-8') as outfile:
+                outfile.write("SET search_path TO public;\n")
+                if tables_in_dump:
+                    truncate_tables = ", ".join(f"public.{t}" for t in tables_in_dump)
+                    outfile.write(f"TRUNCATE TABLE {truncate_tables} CASCADE;\n")
+                for table in ordered_tables:
+                    table_path = table_file_paths.get(table)
+                    if not table_path or not os.path.exists(table_path):
+                        continue
+                    with open(table_path, 'r', encoding='utf-8') as tf:
+                        for line in tf:
+                            outfile.write(line)
+                outfile.write(generate_admin_user_sql())
+                write_sequences_block(outfile, ordered_tables)
+
+        if split_dir:
+            os.makedirs(split_dir, exist_ok=True)
+            for old_sql in glob.glob(os.path.join(split_dir, '*.sql')):
+                try:
+                    os.remove(old_sql)
+                except OSError:
+                    pass
+            order_path = order_file or os.path.join(split_dir, 'order.tsv')
+            with open(order_path, 'w', encoding='utf-8') as of:
+                of.write("idx\ttable\tsource_rows\tfile\n")
+                for idx, table in enumerate(ordered_tables, start=1):
+                    src = table_file_paths.get(table)
+                    if not src or not os.path.exists(src):
+                        continue
+                    dst = os.path.join(split_dir, f"{idx:04d}_{table}.sql")
+                    shutil.move(src, dst)
+                    of.write(f"{idx}\t{table}\t{table_row_counts.get(table, 0)}\t{dst}\n")
+
+        progress_file = os.environ.get('MIGRATION_PROGRESS_FILE', '')
+        if progress_file:
+            os.makedirs(os.path.dirname(progress_file), exist_ok=True)
+            with open(progress_file, 'w', encoding='utf-8') as pf:
+                pf.write("table\tsource_rows\n")
+                for table in ordered_tables:
+                    pf.write(f"{table}\t{table_row_counts.get(table, 0)}\n")
+
+        total_rows = sum(table_row_counts.values())
+        print(f"[migration][prepare] tables={len(ordered_tables)} source_rows={total_rows}")
+        if split_dir:
+            print(f"[migration][prepare] split_dir={split_dir} order_file={order_file or os.path.join(split_dir, 'order.tsv')}")
+        for table in ordered_tables:
+            print(f"[migration][prepare][table] name={table} source_rows={table_row_counts.get(table, 0)}")
+        for key, count in sorted(skipped_not_null_counts.items()):
+            if count > 0:
+                print(f"[migration][prepare][skip-summary] key={key} skipped_rows={count}")
     finally:
         for path in table_file_paths.values():
             try:
@@ -594,7 +887,10 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
         sys.exit(1)
 
     if not STRICT_ORGANIGRAM:
-        generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def, enum_defs, fk_deps)
+        db_fk_deps = load_fk_dependencies_from_db()
+        effective_fk_deps = db_fk_deps if db_fk_deps else fk_deps
+        effective_fk_deps = apply_manual_fk_dependencies(effective_fk_deps)
+        generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def, enum_defs, effective_fk_deps)
         return
 
     table_data = OrderedDict()
@@ -790,6 +1086,10 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             inserted_tables.append(table)
             
             source_cols = [c for c in rows[0].keys() if c in new_schema_def[table]]
+            if table == 'sales_form_links' and 'check_number' not in source_cols:
+                source_cols.append('check_number')
+            if table == 'sales_form_links' and 'unique_code' not in source_cols:
+                source_cols.append('unique_code')
             if not source_cols:
                 continue
             
@@ -801,15 +1101,7 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
                     for col in source_cols:
                         col_type = new_schema_def[table].get(col, '')
                         val = sanitize_for_column(row.get(col), col_type, enum_defs)
-                        if table == 'teams' and col == 'team_type' and val is None:
-                            team_id = str(row.get('id', '')).strip()
-                            val = TEAM_TYPE_BY_ID.get(team_id, 'nutrizione')
-                        if table == 'teams' and col == 'is_active' and val is None:
-                            val = True
-                        if table == 'users' and col == 'is_trial' and val is None:
-                            val = False
-                        if table == 'users' and col in {'created_at', 'updated_at'} and val is None:
-                            val = datetime.now().isoformat()
+                        val = apply_default_value(table, col, val, row)
                         row_vals.append(to_sql_value(val, col_type))
                     batch_vals.append(f"({', '.join(row_vals)})")
                 
