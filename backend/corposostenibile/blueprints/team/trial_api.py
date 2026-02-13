@@ -11,6 +11,16 @@ from sqlalchemy.orm import joinedload
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import User, Cliente, Department, Team, trial_user_clients, team_members, UserRoleEnum, UserSpecialtyEnum
 from . import team_bp
+from .api import team_api_bp
+
+
+def _is_admin_user(user):
+    """Riconosce admin sia da flag booleano sia da ruolo enum/stringa."""
+    if getattr(user, "is_admin", False):
+        return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else role
+    return role_value == "admin"
 
 
 def _get_user_department(user):
@@ -31,7 +41,7 @@ def _check_trial_permission():
     if not current_user.is_authenticated:
         return False, 401
 
-    if current_user.is_admin:
+    if _is_admin_user(current_user):
         return True, None
 
     # Check se è head di un dipartimento
@@ -52,7 +62,7 @@ def _check_trial_permission():
 
 def _can_manage_trial_user(user):
     """Verifica se current_user può gestire uno specifico trial user"""
-    if current_user.is_admin:
+    if _is_admin_user(current_user):
         return True
 
     # Head di un dipartimento
@@ -138,6 +148,7 @@ def _serialize_trial_user(user, include_clients=False):
 # ==================== API ENDPOINTS ====================
 
 @team_bp.route('/api/trial-users', methods=['GET'])
+@team_api_bp.route('/trial-users', methods=['GET'])
 @login_required
 def api_trial_users_list():
     """
@@ -156,7 +167,7 @@ def api_trial_users_list():
         query = User.query.filter_by(is_trial=True)
 
         # Se non admin/head, filtra per supervised
-        if not current_user.is_admin and not is_dept_head:
+        if not _is_admin_user(current_user) and not is_dept_head:
             query = query.filter_by(trial_supervisor_id=current_user.id)
 
         users = query.order_by(User.trial_stage, User.first_name).all()
@@ -180,6 +191,7 @@ def api_trial_users_list():
 
 
 @team_bp.route('/api/trial-users/<int:user_id>', methods=['GET'])
+@team_api_bp.route('/trial-users/<int:user_id>', methods=['GET'])
 @login_required
 def api_trial_user_detail(user_id):
     """
@@ -209,6 +221,7 @@ def api_trial_user_detail(user_id):
 
 
 @team_bp.route('/api/trial-users', methods=['POST'])
+@team_api_bp.route('/trial-users', methods=['POST'])
 @csrf.exempt
 @login_required
 def api_trial_user_create():
@@ -287,6 +300,7 @@ def api_trial_user_create():
 
 
 @team_bp.route('/api/trial-users/<int:user_id>', methods=['PUT'])
+@team_api_bp.route('/trial-users/<int:user_id>', methods=['PUT'])
 @csrf.exempt
 @login_required
 def api_trial_user_update(user_id):
@@ -372,6 +386,7 @@ def api_trial_user_update(user_id):
 
 
 @team_bp.route('/api/trial-users/<int:user_id>/promote', methods=['POST'])
+@team_api_bp.route('/trial-users/<int:user_id>/promote', methods=['POST'])
 @csrf.exempt
 @login_required
 def api_trial_user_promote(user_id):
@@ -411,6 +426,7 @@ def api_trial_user_promote(user_id):
 
 
 @team_bp.route('/api/trial-users/<int:user_id>/assign-clients', methods=['POST'])
+@team_api_bp.route('/trial-users/<int:user_id>/assign-clients', methods=['POST'])
 @csrf.exempt
 @login_required
 def api_trial_user_assign_clients(user_id):
@@ -480,6 +496,7 @@ def api_trial_user_assign_clients(user_id):
 
 
 @team_bp.route('/api/trial-users/<int:user_id>/remove-client/<int:cliente_id>', methods=['DELETE'])
+@team_api_bp.route('/trial-users/<int:user_id>/remove-client/<int:cliente_id>', methods=['DELETE'])
 @csrf.exempt
 @login_required
 def api_trial_user_remove_client(user_id, cliente_id):
@@ -516,6 +533,7 @@ def api_trial_user_remove_client(user_id, cliente_id):
 
 
 @team_bp.route('/api/trial-users/<int:user_id>', methods=['DELETE'])
+@team_api_bp.route('/trial-users/<int:user_id>', methods=['DELETE'])
 @csrf.exempt
 @login_required
 def api_trial_user_delete(user_id):
@@ -559,6 +577,7 @@ def api_trial_user_delete(user_id):
 
 
 @team_bp.route('/api/trial-users/available-clients', methods=['GET'])
+@team_api_bp.route('/trial-users/available-clients', methods=['GET'])
 @login_required
 def api_trial_users_available_clients():
     """
@@ -620,6 +639,7 @@ def api_trial_users_available_clients():
 
 
 @team_bp.route('/api/trial-users/supervisors', methods=['GET'])
+@team_api_bp.route('/trial-users/supervisors', methods=['GET'])
 @login_required
 def api_trial_users_supervisors():
     """

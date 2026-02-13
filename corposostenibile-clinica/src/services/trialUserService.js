@@ -8,7 +8,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/team/api',
+  baseURL: '/api/team',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -17,7 +17,13 @@ const api = axios.create({
 
 // Response interceptor for auth errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const contentType = response?.headers?.['content-type'] || '';
+    if (typeof response?.data === 'string' && contentType.includes('text/html')) {
+      return Promise.reject(new Error('Endpoint /api/team non raggiungibile: risposta HTML ricevuta (proxy non configurato).'));
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       window.location.href = '/auth/login';

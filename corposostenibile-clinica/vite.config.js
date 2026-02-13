@@ -75,7 +75,7 @@ export default defineConfig({
       },
       // Proxy Team routes (including trial users API)
       '/team': {
-        target: backendUrl,
+        target: 'http://127.0.0.1:5001',
         changeOrigin: true,
       },
       // Proxy Documentation (MkDocs)

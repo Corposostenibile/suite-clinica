@@ -97,11 +97,11 @@ function TrialUsersList() {
         setTrialUsers(result.trial_users || []);
         setStats(result.stats || { total: 0, stage_1: 0, stage_2: 0, stage_3: 0 });
       } else {
-        setError('Errore nel caricamento dei dati');
+        setError(result.error || 'Errore nel caricamento dei dati');
       }
     } catch (err) {
       console.error('Error fetching trial users:', err);
-      setError('Errore nel caricamento dei dati');
+      setError(err?.response?.data?.error || err?.message || 'Errore nel caricamento dei dati');
     } finally {
       setLoading(false);
     }
