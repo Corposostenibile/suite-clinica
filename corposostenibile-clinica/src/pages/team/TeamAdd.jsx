@@ -28,6 +28,7 @@ function TeamAdd() {
     role: '',
     specialty: '',
     avatar_path: '',
+    max_clients: '',
   });
 
   const [allOrigins, setAllOrigins] = useState([]);
@@ -68,7 +69,7 @@ function TeamAdd() {
         last_name: data.last_name || '',
         role: data.role || '',
         specialty: data.specialty || '',
-
+        max_clients: data.max_clients || '',
       });
       if (data.role === 'influencer' && data.influencer_origin) {
         setSelectedOrigin(data.influencer_origin.id);
@@ -183,6 +184,7 @@ function TeamAdd() {
         role: formData.role,
 
         specialty: formData.specialty || null,
+        max_clients: formData.max_clients !== '' ? parseInt(formData.max_clients) : null,
         origin_id: formData.role === 'influencer' ? (selectedOrigin || null) : null,
       };
 
@@ -445,6 +447,8 @@ function TeamAdd() {
                       {formData.role === 'team_leader' && 'Gestisce un team di professionisti'}
                       {formData.role === 'professionista' && 'Nutrizionista, Psicologo o Coach'}
                       {formData.role === 'team_esterno' && 'Collaboratore esterno'}
+                      {formData.role === 'influencer' && 'Gestione origine e visibilità clienti'}
+                      {formData.role === 'health_manager' && 'Health Manager – gestione pazienti e onboarding'}
                     </small>
                   </div>
                   <div className="col-md-6">
@@ -464,6 +468,24 @@ function TeamAdd() {
                       ))}
                     </select>
                   </div>
+                  {/* Max Clients for Professionals */}
+                  {(formData.role === 'professionista' || formData.role === 'team_leader' || formData.role === 'health_manager') && (
+                    <div className="col-md-6 animate__animated animate__fadeIn">
+                      <label className="form-label">Numero Massimo Clienti</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="max_clients"
+                        value={formData.max_clients}
+                        onChange={handleChange}
+                        min="0"
+                        placeholder="Lascia vuoto per nessun limite"
+                      />
+                      <small className="text-muted">
+                        Limite clienti assegnabili manualmente o via AI.
+                      </small>
+                    </div>
+                  )}
                 </div>
 
                 {/* Origins Selection for Influencers */}

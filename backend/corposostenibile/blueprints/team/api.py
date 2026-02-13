@@ -1804,10 +1804,21 @@ def get_available_professionals(team_type):
     """
     Get available professionals for a specific team type.
 
-    Professionals must have:
-    - role = professionista
-    - specialty compatible with team_type
+    For nutrizione/coach/psicologia: role = professionista and compatible specialty.
+    For health_manager: role = health_manager (or department_id = 13 if present).
     """
+    # Health Manager: return users with role health_manager
+    if team_type == "health_manager":
+        professionals = User.query.filter(
+            User.is_active == True,
+            User.role == UserRoleEnum.health_manager,
+        ).order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'professionals': [_serialize_user(u) for u in professionals],
+            'total': len(professionals)
+        })
+
     if team_type not in [e.value for e in TeamTypeEnum]:
         return jsonify({
             'success': False,

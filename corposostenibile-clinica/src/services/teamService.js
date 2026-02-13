@@ -7,6 +7,7 @@ export const USER_ROLES = {
   PROFESSIONISTA: 'professionista',
   TEAM_ESTERNO: 'team_esterno',
   INFLUENCER: 'influencer',
+  HEALTH_MANAGER: 'health_manager',
 };
 
 // User specialties by role
@@ -27,6 +28,7 @@ export const USER_SPECIALTIES = {
   ],
   team_esterno: [],
   influencer: [],
+  health_manager: [],
 };
 
 // Role labels for display
@@ -36,6 +38,7 @@ export const ROLE_LABELS = {
   professionista: 'Professionista',
   team_esterno: 'Team Esterno',
   influencer: 'Influencer',
+  health_manager: 'Health Manager',
 };
 
 // Specialty labels for display (unificati per categoria)
@@ -65,6 +68,7 @@ export const ROLE_COLORS = {
   professionista: 'success',
   team_esterno: 'secondary',
   influencer: 'info',
+  health_manager: 'primary',
 };
 
 // Badge colors by specialty
