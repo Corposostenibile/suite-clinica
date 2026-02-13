@@ -1111,7 +1111,15 @@ def webhook_opportunity_data():
             'N/D'
         )
         storia = custom_data.get('storia') or payload.get('storia') or ''
-        pacchetto = custom_data.get('pacchetto') or payload.get('pacchetto') or 'N/D'
+        pacchetto = (
+            custom_data.get('pacchetto') or
+            custom_data.get('package') or
+            custom_data.get('plan') or
+            payload.get('pacchetto') or
+            payload.get('package') or
+            payload.get('plan') or
+            'N/D'
+        )
         durata = (
             custom_data.get('durata') or
             custom_data.get('durata_in_giorni') or

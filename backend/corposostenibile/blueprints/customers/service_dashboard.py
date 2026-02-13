@@ -4,7 +4,7 @@ Service Clienti Dashboard for Professional Assignments
 Dashboard per il servizio clienti per gestire assegnazioni professionisti
 """
 
-from flask import render_template, request, flash, redirect, url_for, jsonify
+from flask import request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func
@@ -19,6 +19,12 @@ from corposostenibile.models import (
     User,
     ProfessionistCapacity
 )
+
+def _frontend_only(*_args, **_kwargs):
+    return jsonify({
+        "error": "Backend template route disabled",
+        "message": "Use frontend app (corposostenibile-clinica)"
+    }), 410
 
 
 @bp.route('/service-dashboard')
@@ -136,19 +142,7 @@ def service_dashboard():
                 'percentage': capacity.availability_percentage
             }
 
-    return render_template(
-        'customers/service_dashboard.html',
-        assignments=assignments,
-        stats=stats,
-        nutrizionisti=nutrizionisti,
-        coaches=coaches,
-        psicologhe=psicologhe,
-        capacities=capacities,
-        search_query=search_query,
-        status_filter=status_filter,
-        checkup_filter=checkup_filter,
-        urgency_filter=urgency_filter
-    )
+    return _frontend_only()
 
 
 @bp.route('/service-dashboard/assign/<int:assignment_id>')
@@ -173,17 +167,7 @@ def assign_professionals(assignment_id):
     # Determina quale pacchetto richiede quali professionisti
     package_requirements = _get_package_requirements(opportunity.pacchetto_comprato if opportunity else None)
 
-    return render_template(
-        'customers/assign_professionals.html',
-        assignment=assignment,
-        cliente=cliente,
-        opportunity=opportunity,
-        notes=notes,
-        nutrizionisti=nutrizionisti,
-        coaches=coaches,
-        psicologhe=psicologhe,
-        package_requirements=package_requirements
-    )
+    return _frontend_only()
 
 
 @bp.route('/service-dashboard/assign/<int:assignment_id>/save', methods=['POST'])
@@ -339,18 +323,20 @@ def save_assignment(assignment_id):
 
         db.session.commit()
 
-        flash('Professionisti assegnati con successo!', 'success')
-
-        # Se completamente assegnato, torna al dashboard
-        if assignment.status == 'fully_assigned':
-            return redirect(url_for('customers.service_dashboard'))
-        else:
-            return redirect(url_for('customers.assign_professionals', assignment_id=assignment_id))
+        return jsonify({
+            'success': True,
+            'message': 'Professionisti assegnati con successo!',
+            'assignment_id': assignment_id,
+            'status': assignment.status
+        }), 200
 
     except Exception as e:
         db.session.rollback()
-        flash(f'Errore durante l\'assegnazione: {str(e)}', 'danger')
-        return redirect(url_for('customers.assign_professionals', assignment_id=assignment_id))
+        return jsonify({
+            'success': False,
+            'error': f"Errore durante l'assegnazione: {str(e)}",
+            'assignment_id': assignment_id
+        }), 400
 
 
 @bp.route('/service-dashboard/checkup/<int:assignment_id>', methods=['POST'])

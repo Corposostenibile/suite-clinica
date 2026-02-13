@@ -10171,12 +10171,31 @@ class ServiceClienteAssignment(TimestampMixin, db.Model):
 
     def update_status(self):
         """Aggiorna automaticamente lo status basato sulle assegnazioni"""
-        if self.nutrizionista_assigned_id and self.coach_assigned_id and self.psicologa_assigned_id:
+        from corposostenibile.package_requirements import get_package_requirements
+
+        package_name = None
+        if self.ghl_opportunity:
+            package_name = self.ghl_opportunity.pacchetto_comprato
+        elif self.cliente:
+            package_name = self.cliente.programma_attuale
+
+        requirements = get_package_requirements(package_name)
+        required_total = sum(1 for needed in requirements.values() if needed)
+        assigned_required = 0
+
+        if requirements.get('nutrizionista') and self.nutrizionista_assigned_id:
+            assigned_required += 1
+        if requirements.get('coach') and self.coach_assigned_id:
+            assigned_required += 1
+        if requirements.get('psicologa') and self.psicologa_assigned_id:
+            assigned_required += 1
+
+        if required_total > 0 and assigned_required == required_total:
             if self.checkup_iniziale_fatto:
                 self.status = 'active'
             else:
                 self.status = 'fully_assigned'
-        elif self.nutrizionista_assigned_id or self.coach_assigned_id or self.psicologa_assigned_id:
+        elif assigned_required > 0:
             self.status = 'partially_assigned'
         elif self.finance_approved:
             self.status = 'assigning'

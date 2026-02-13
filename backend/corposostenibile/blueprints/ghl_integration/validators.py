@@ -73,7 +73,13 @@ class GHLPayloadParser:
             'modalita_pagamento': parsed_custom.get('modalita_pagamento'),
 
             # Altri dati
-            'pacchetto_comprato': parsed_custom.get('pacchetto'),
+            'pacchetto_comprato': (
+                parsed_custom.get('pacchetto')
+                or opportunity.get('pacchetto')
+                or opportunity.get('package')
+                or payload.get('pacchetto')
+                or payload.get('package')
+            ),
             'sales_consultant': parsed_custom.get('sales_consultant'),
             'note_cliente': parsed_custom.get('note'),
             'data_inizio': GHLPayloadParser._parse_date(parsed_custom.get('data_inizio')),

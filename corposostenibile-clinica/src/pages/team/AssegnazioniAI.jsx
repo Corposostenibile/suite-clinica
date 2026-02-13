@@ -40,6 +40,35 @@ const ROLE_ANALYSIS_KEYS = {
   psychology: ['psychology', 'psicologia', 'psicologo', 'psicologa'],
 };
 
+const PACKAGE_FALLBACK_MAP = {
+  'N+C+P': 'NCP',
+  'N+C': 'NC',
+  'N+P': 'NP',
+  'C+P': 'CP',
+};
+
+const normalizePackageCode = (raw) => {
+  const code = String(raw || '').trim().toUpperCase();
+  if (!code) return '';
+  if (PACKAGE_FALLBACK_MAP[code]) return PACKAGE_FALLBACK_MAP[code];
+  if (/^[NCP]+$/.test(code)) return code;
+  return '';
+};
+
+const getPackageRequirements = (rawPackage) => {
+  const normalized = normalizePackageCode(rawPackage);
+  if (!normalized) {
+    return { normalized: '', nutrition: true, coach: true, psychology: true };
+  }
+
+  return {
+    normalized,
+    nutrition: normalized.includes('N'),
+    coach: normalized.includes('C'),
+    psychology: normalized.includes('P'),
+  };
+};
+
 function AssegnazioniAI() {
   // Stati Generali
   const [activeTab, setActiveTab] = useState('webhook-data');
@@ -51,7 +80,6 @@ function AssegnazioniAI() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, completed: 0 });
 
   // Stati Webhook (Lead)
   const [opportunityData, setOpportunityData] = useState([]);
@@ -98,14 +126,6 @@ function AssegnazioniAI() {
       if (response.data.success !== false) {
         const data = response.data.assignments || response.data || [];
         setAssignments(Array.isArray(data) ? data : []);
-        if (Array.isArray(data)) {
-          setStats({
-            total: data.length,
-            pending: data.filter(a => a.status === 'pending_finance').length,
-            approved: data.filter(a => a.finance_approved).length,
-            completed: data.filter(a => a.status === 'completed').length,
-          });
-        }
       }
     } catch (err) {
       console.error('Errore assegnazioni:', err);
@@ -141,6 +161,26 @@ function AssegnazioniAI() {
     return false;
   };
 
+  const getLeadRequirements = (opp) => {
+    return getPackageRequirements(opp?.pacchetto);
+  };
+
+  const isRoleRequiredForLead = (opp, role) => {
+    const req = getLeadRequirements(opp);
+    return !!req[role];
+  };
+
+  const getLeadRequiredRolesCount = (opp) => {
+    const req = getLeadRequirements(opp);
+    return [req.nutrition, req.coach, req.psychology].filter(Boolean).length;
+  };
+
+  const getLeadAssignedCount = (opp) => {
+    const flags = getLeadAssignmentFlags(opp);
+    const req = getLeadRequirements(opp);
+    return [req.nutrition && flags.nutrition, req.coach && flags.coach, req.psychology && flags.psychology].filter(Boolean).length;
+  };
+
   const getLeadAssignmentFlags = (opp) => {
     const assignments = opp?.assignments || {};
     return {
@@ -151,13 +191,13 @@ function AssegnazioniAI() {
   };
 
   const isLeadAssigned = (opp) => {
-    const flags = getLeadAssignmentFlags(opp);
-    return flags.nutrition || flags.coach || flags.psychology;
+    return getLeadAssignedCount(opp) > 0;
   };
 
   const isLeadFullyAssigned = (opp) => {
-    const flags = getLeadAssignmentFlags(opp);
-    return flags.nutrition && flags.coach && flags.psychology;
+    const required = getLeadRequiredRolesCount(opp);
+    if (required === 0) return false;
+    return getLeadAssignedCount(opp) >= required;
   };
 
   const getStoredAnalysisForRole = (existing, role) => {
@@ -235,6 +275,8 @@ function AssegnazioniAI() {
   };
 
   const handleSelectRoleFlow = (role) => {
+    if (!isRoleRequiredForLead(selectedOpportunity, role)) return;
+
     setActiveRoleFlow(role);
     setAiAnalysis(null);
     setAiMatches(null);
@@ -661,8 +703,10 @@ function AssegnazioniAI() {
                       <tbody>
                         {rows.map((opp) => {
                           const flags = getLeadAssignmentFlags(opp);
-                          const assignedCount = Object.values(flags).filter(Boolean).length;
-                          const statusKey = assignedCount === 0 ? 'unassigned' : (assignedCount === 3 ? 'complete' : 'partial');
+                          const requirements = getLeadRequirements(opp);
+                          const requiredCount = getLeadRequiredRolesCount(opp);
+                          const assignedCount = getLeadAssignedCount(opp);
+                          const statusKey = assignedCount === 0 ? 'unassigned' : (assignedCount === requiredCount ? 'complete' : 'partial');
                           const status = LEAD_STATUS_STYLES[statusKey];
 
                           return (
@@ -683,12 +727,12 @@ function AssegnazioniAI() {
                               <td>
                                 <div className="d-flex align-items-center flex-wrap gap-2">
                                   <div className="d-flex gap-1">
-                                    <Badge bg={flags.nutrition ? 'success' : 'light'} text={flags.nutrition ? 'white' : 'dark'} className="border" title="Nutrizione">N</Badge>
-                                    <Badge bg={flags.coach ? 'success' : 'light'} text={flags.coach ? 'white' : 'dark'} className="border" title="Coach">C</Badge>
-                                    <Badge bg={flags.psychology ? 'success' : 'light'} text={flags.psychology ? 'white' : 'dark'} className="border" title="Psicologia">P</Badge>
+                                    <Badge bg={requirements.nutrition ? (flags.nutrition ? 'success' : 'light') : 'secondary'} text={requirements.nutrition ? (flags.nutrition ? 'white' : 'dark') : 'white'} className="border" title={requirements.nutrition ? 'Nutrizione richiesta' : 'Nutrizione non prevista dal pacchetto'}>N</Badge>
+                                    <Badge bg={requirements.coach ? (flags.coach ? 'success' : 'light') : 'secondary'} text={requirements.coach ? (flags.coach ? 'white' : 'dark') : 'white'} className="border" title={requirements.coach ? 'Coach richiesto' : 'Coach non previsto dal pacchetto'}>C</Badge>
+                                    <Badge bg={requirements.psychology ? (flags.psychology ? 'success' : 'light') : 'secondary'} text={requirements.psychology ? (flags.psychology ? 'white' : 'dark') : 'white'} className="border" title={requirements.psychology ? 'Psicologia richiesta' : 'Psicologia non prevista dal pacchetto'}>P</Badge>
                                   </div>
                                   <Badge bg={status.bg} text={status.text} className="border">{status.label}</Badge>
-                                  <span className="small text-muted">{assignedCount}/3</span>
+                                  <span className="small text-muted">{assignedCount}/{requiredCount}</span>
                                 </div>
                               </td>
                               <td><small>{formatDate(opp.received_at)}</small></td>
@@ -1144,52 +1188,58 @@ function AssegnazioniAI() {
                         <p className="text-muted small">Seleziona il professionista da assegnare a <strong>{selectedOpportunity?.nome}</strong>.<br/>L'IA analizzerà il profilo specificamente per il ruolo richiesto.</p>
                     </div>
                     {(() => {
+                      const requirement = getLeadRequirements(selectedOpportunity);
                       const analysisFor = (role) => getStoredAnalysisForRole(selectedOpportunity?.ai_analysis, role);
+                      const isRoleEnabled = (role) => !!requirement[role];
                       const analysisBadge = (role) => (
                         analysisFor(role) ? (
                           <span className="badge bg-success-subtle text-success border rounded-pill px-2 py-1">Analisi pronta</span>
                         ) : null
                       );
                       const analysisBtnLabel = (role) => (analysisFor(role) ? 'Usa Analisi' : 'Avvia Analisi');
+                      const disabledStyle = { opacity: 0.45, cursor: 'not-allowed', filter: 'grayscale(0.35)' };
                       return (
                     <Row className="g-3 justify-content-center">
                         <Col md={4}>
-                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('nutrition')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
+                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => isRoleEnabled('nutrition') && handleSelectRoleFlow('nutrition')} style={isRoleEnabled('nutrition') ? {cursor: 'pointer', transition: 'transform 0.2s'} : disabledStyle} title={isRoleEnabled('nutrition') ? 'Nutrizione prevista nel pacchetto' : 'Nutrizione non prevista nel pacchetto'}>
                                 <div className="mb-2 mx-auto bg-success-subtle rounded-circle d-flex align-items-center justify-content-center" style={{width: '60px', height: '60px'}}>
                                     <i className="ri-restaurant-line fs-3 text-success"></i>
                                 </div>
                                 <h6 className="fw-bold mb-2">Nutrizionista</h6>
                                 <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Abitudini alimentari, obiettivi di peso e preferenze dietetiche.</p>
+                                {!isRoleEnabled('nutrition') && <span className="badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-1">Non previsto</span>}
                                 {analysisBadge('nutrition')}
-                                <Button variant="outline-success" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none mt-2" style={{fontSize: '0.85rem'}}>
+                                <Button variant="outline-success" disabled={!isRoleEnabled('nutrition')} className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none mt-2" style={{fontSize: '0.85rem'}}>
                                   {analysisBtnLabel('nutrition')} <i className="ri-arrow-right-s-line ms-1"></i>
                                 </Button>
                             </Card>
                         </Col>
                         
                         <Col md={4}>
-                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('coach')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
+                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => isRoleEnabled('coach') && handleSelectRoleFlow('coach')} style={isRoleEnabled('coach') ? {cursor: 'pointer', transition: 'transform 0.2s'} : disabledStyle} title={isRoleEnabled('coach') ? 'Coach previsto nel pacchetto' : 'Coach non previsto nel pacchetto'}>
                                 <div className="mb-2 mx-auto bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center" style={{width: '60px', height: '60px'}}>
                                     <i className="ri-run-line fs-3 text-primary"></i>
                                 </div>
                                 <h6 className="fw-bold mb-2">Coach</h6>
                                 <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Livello fitness, obiettivi di allenamento e stile di vita.</p>
+                                {!isRoleEnabled('coach') && <span className="badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-1">Non previsto</span>}
                                 {analysisBadge('coach')}
-                                <Button variant="outline-primary" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none mt-2" style={{fontSize: '0.85rem'}}>
+                                <Button variant="outline-primary" disabled={!isRoleEnabled('coach')} className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none mt-2" style={{fontSize: '0.85rem'}}>
                                   {analysisBtnLabel('coach')} <i className="ri-arrow-right-s-line ms-1"></i>
                                 </Button>
                             </Card>
                         </Col>
                         
                         <Col md={4}>
-                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => handleSelectRoleFlow('psychology')} style={{cursor: 'pointer', transition: 'transform 0.2s'}}>
+                            <Card className="border-0 shadow-sm hover-card text-center p-3 cursor-pointer" onClick={() => isRoleEnabled('psychology') && handleSelectRoleFlow('psychology')} style={isRoleEnabled('psychology') ? {cursor: 'pointer', transition: 'transform 0.2s'} : disabledStyle} title={isRoleEnabled('psychology') ? 'Psicologia prevista nel pacchetto' : 'Psicologia non prevista nel pacchetto'}>
                                 <div className="mb-2 mx-auto bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center" style={{width: '60px', height: '60px'}}>
                                     <i className="ri-mental-health-line fs-3 text-warning" style={{color: '#d97706'}}></i>
                                 </div>
                                 <h6 className="fw-bold mb-2">Psicologo</h6>
                                 <p className="text-muted extra-small mb-3" style={{fontSize: '0.8rem'}}>Aspetti emotivi, relazione con il cibo e gestione stress.</p>
+                                {!isRoleEnabled('psychology') && <span className="badge bg-secondary-subtle text-secondary border rounded-pill px-2 py-1">Non previsto</span>}
                                 {analysisBadge('psychology')}
-                                <Button variant="outline-warning" className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none text-dark mt-2" style={{fontSize: '0.85rem'}}>
+                                <Button variant="outline-warning" disabled={!isRoleEnabled('psychology')} className="rounded-pill w-100 border-0 fw-bold py-2 shadow-none text-dark mt-2" style={{fontSize: '0.85rem'}}>
                                   {analysisBtnLabel('psychology')} <i className="ri-arrow-right-s-line ms-1"></i>
                                 </Button>
                             </Card>

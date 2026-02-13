@@ -43,7 +43,6 @@ __all__ = [
 customers_bp: Blueprint = Blueprint(
     "customers",
     __name__,
-    template_folder="templates",
     static_folder="static",
     url_prefix="/customers",  # ⇨ tutte le route /customers/*
     cli_group="customers",    # abilita  `flask customers …`
