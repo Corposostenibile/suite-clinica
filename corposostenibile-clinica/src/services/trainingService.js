@@ -59,8 +59,8 @@ const trainingService = {
    * Ottiene i training ricevuti dall'utente corrente
    * @returns {Promise<Object>} - { trainings, stats }
    */
-  getMyTrainings: async () => {
-    const response = await reviewApi.get('/my-trainings');
+  getMyTrainings: async (params = {}) => {
+    const response = await reviewApi.get('/my-trainings', { params });
     return response.data;
   },
 

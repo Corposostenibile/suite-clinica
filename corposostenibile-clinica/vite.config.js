@@ -5,9 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:5001'
+  const isProductionBuild = mode === 'production'
 
   return {
-    base: '/',
+    // In production we publish assets under /static/clinica to avoid clashes
+    // with other services that may also expose /assets on the same host.
+    base: isProductionBuild ? '/static/clinica/' : '/',
     plugins: [react()],
     server: {
       port: 3000,

@@ -138,6 +138,7 @@ function Formazione() {
     const [newMessage, setNewMessage] = useState('');
     const [newRequest, setNewRequest] = useState({ subject: '', description: '', priority: 'normal', recipient_id: '' });
     const [actionLoading, setActionLoading] = useState(false);
+    const [listSearch, setListSearch] = useState('');
 
     // State per creare nuovo training
     const [showNewTrainingModal, setShowNewTrainingModal] = useState(false);
@@ -346,6 +347,51 @@ function Formazione() {
         receivedAccepted: receivedRequests.filter(r => r.status === 'accepted').length,
         receivedTotal: receivedRequests.length,
     };
+
+    const normalizedSearch = listSearch.trim().toLowerCase();
+    const filterBySearch = (value) => (value || '').toLowerCase().includes(normalizedSearch);
+
+    const filteredTrainings = trainings.filter((t) => {
+        if (!normalizedSearch) return true;
+        return (
+            filterBySearch(t.title) ||
+            filterBySearch(t.content) ||
+            filterBySearch(t.reviewType) ||
+            filterBySearch(`${t.reviewer?.firstName || ''} ${t.reviewer?.lastName || ''}`)
+        );
+    });
+
+    const filteredGivenTrainings = givenTrainings.filter((t) => {
+        if (!normalizedSearch) return true;
+        return (
+            filterBySearch(t.title) ||
+            filterBySearch(t.content) ||
+            filterBySearch(t.reviewType) ||
+            filterBySearch(`${t.reviewee?.firstName || ''} ${t.reviewee?.lastName || ''}`)
+        );
+    });
+
+    const filteredRequests = requests.filter((r) => {
+        if (!normalizedSearch) return true;
+        return (
+            filterBySearch(r.subject) ||
+            filterBySearch(r.description) ||
+            filterBySearch(r.priority) ||
+            filterBySearch(r.status) ||
+            filterBySearch(`${r.requestedTo?.firstName || ''} ${r.requestedTo?.lastName || ''}`)
+        );
+    });
+
+    const filteredReceivedRequests = receivedRequests.filter((r) => {
+        if (!normalizedSearch) return true;
+        return (
+            filterBySearch(r.subject) ||
+            filterBySearch(r.description) ||
+            filterBySearch(r.priority) ||
+            filterBySearch(r.status) ||
+            filterBySearch(`${r.requester?.firstName || ''} ${r.requester?.lastName || ''}`)
+        );
+    });
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
@@ -716,20 +762,39 @@ function Formazione() {
                                             </li>
                                         </ul>
                                     </div>
+                                    <div className="px-3 py-2 border-bottom bg-white">
+                                        <div className="position-relative">
+                                            <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
+                                            <input
+                                                type="text"
+                                                className="form-control bg-light border-0"
+                                                placeholder="Cerca training/richieste..."
+                                                value={listSearch}
+                                                onChange={(e) => {
+                                                    setTrainingsPage(1);
+                                                    setGivenTrainingsPage(1);
+                                                    setRequestsPage(1);
+                                                    setReceivedRequestsPage(1);
+                                                    setListSearch(e.target.value);
+                                                }}
+                                                style={{ paddingLeft: '36px' }}
+                                            />
+                                        </div>
+                                    </div>
 
 
                                 <div className="card-body p-0">
                                     {/* Training List */}
                                     {activeTab === 'trainings' && (
                                         <div data-tour="content-list">
-                                            {trainings.length === 0 ? (
+                                            {filteredTrainings.length === 0 ? (
                                                 <div className="text-center py-5">
                                                     <i className="ri-book-open-line text-muted" style={{ fontSize: '64px' }}></i>
                                                     <h5 className="mt-3 mb-1">Nessun training</h5>
                                                     <p className="text-muted">Non hai ancora ricevuto training.</p>
                                                 </div>
                                             ) : (
-                                                trainings.slice((trainingsPage - 1) * ITEMS_PER_SECTION, trainingsPage * ITEMS_PER_SECTION).map(training => (
+                                                filteredTrainings.slice((trainingsPage - 1) * ITEMS_PER_SECTION, trainingsPage * ITEMS_PER_SECTION).map(training => (
                                                     <div key={training.id} className="border-bottom">
                                                         <div
                                                             className="p-3 d-flex justify-content-between align-items-start"
@@ -849,23 +914,23 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Training Ricevuti */}
-                                            {trainings.length > ITEMS_PER_SECTION && (
+                                            {filteredTrainings.length > ITEMS_PER_SECTION && (
                                                 <div className="d-flex justify-content-between align-items-center p-3 border-top">
                                                     <small className="text-muted">
-                                                        Mostrando {Math.min((trainingsPage - 1) * ITEMS_PER_SECTION + 1, trainings.length)}-{Math.min(trainingsPage * ITEMS_PER_SECTION, trainings.length)} di {trainings.length}
+                                                        Mostrando {Math.min((trainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredTrainings.length)}-{Math.min(trainingsPage * ITEMS_PER_SECTION, filteredTrainings.length)} di {filteredTrainings.length}
                                                     </small>
                                                     <nav>
                                                         <ul className="pagination pagination-sm mb-0">
                                                             <li className={`page-item ${trainingsPage === 1 ? 'disabled' : ''}`}>
                                                                 <button className="page-link" onClick={() => setTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
                                                             </li>
-                                                            {Array.from({ length: Math.ceil(trainings.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                            {Array.from({ length: Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
                                                                 <li key={i} className={`page-item ${trainingsPage === i + 1 ? 'active' : ''}`}>
                                                                     <button className="page-link" onClick={() => setTrainingsPage(i + 1)}>{i + 1}</button>
                                                                 </li>
                                                             )).slice(Math.max(0, trainingsPage - 3), trainingsPage + 2)}
-                                                            <li className={`page-item ${trainingsPage >= Math.ceil(trainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setTrainingsPage(p => Math.min(Math.ceil(trainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                            <li className={`page-item ${trainingsPage >= Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                <button className="page-link" onClick={() => setTrainingsPage(p => Math.min(Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
                                                             </li>
                                                         </ul>
                                                     </nav>
@@ -877,14 +942,14 @@ function Formazione() {
                                     {/* Given Trainings List - Training Erogati */}
                                     {activeTab === 'given' && (
                                         <div>
-                                            {givenTrainings.length === 0 ? (
+                                            {filteredGivenTrainings.length === 0 ? (
                                                 <div className="text-center py-5">
                                                     <i className="ri-presentation-line text-muted" style={{ fontSize: '64px' }}></i>
                                                     <h5 className="mt-3 mb-1">Nessun training erogato</h5>
                                                     <p className="text-muted">Non hai ancora erogato training ad altri.</p>
                                                 </div>
                                             ) : (
-                                                givenTrainings.slice((givenTrainingsPage - 1) * ITEMS_PER_SECTION, givenTrainingsPage * ITEMS_PER_SECTION).map(training => (
+                                                filteredGivenTrainings.slice((givenTrainingsPage - 1) * ITEMS_PER_SECTION, givenTrainingsPage * ITEMS_PER_SECTION).map(training => (
                                                     <div key={training.id} className="border-bottom">
                                                         <div
                                                             className="p-3 d-flex justify-content-between align-items-start"
@@ -986,23 +1051,23 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Training Erogati */}
-                                            {givenTrainings.length > ITEMS_PER_SECTION && (
+                                            {filteredGivenTrainings.length > ITEMS_PER_SECTION && (
                                                 <div className="d-flex justify-content-between align-items-center p-3 border-top">
                                                     <small className="text-muted">
-                                                        Mostrando {Math.min((givenTrainingsPage - 1) * ITEMS_PER_SECTION + 1, givenTrainings.length)}-{Math.min(givenTrainingsPage * ITEMS_PER_SECTION, givenTrainings.length)} di {givenTrainings.length}
+                                                        Mostrando {Math.min((givenTrainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredGivenTrainings.length)}-{Math.min(givenTrainingsPage * ITEMS_PER_SECTION, filteredGivenTrainings.length)} di {filteredGivenTrainings.length}
                                                     </small>
                                                     <nav>
                                                         <ul className="pagination pagination-sm mb-0">
                                                             <li className={`page-item ${givenTrainingsPage === 1 ? 'disabled' : ''}`}>
                                                                 <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
                                                             </li>
-                                                            {Array.from({ length: Math.ceil(givenTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                            {Array.from({ length: Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
                                                                 <li key={i} className={`page-item ${givenTrainingsPage === i + 1 ? 'active' : ''}`}>
                                                                     <button className="page-link" onClick={() => setGivenTrainingsPage(i + 1)}>{i + 1}</button>
                                                                 </li>
                                                             )).slice(Math.max(0, givenTrainingsPage - 3), givenTrainingsPage + 2)}
-                                                            <li className={`page-item ${givenTrainingsPage >= Math.ceil(givenTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.min(Math.ceil(givenTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                            <li className={`page-item ${givenTrainingsPage >= Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.min(Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
                                                             </li>
                                                         </ul>
                                                     </nav>
@@ -1014,14 +1079,14 @@ function Formazione() {
                                     {/* Received Requests List - Richieste Ricevute */}
                                     {activeTab === 'received' && (
                                         <div>
-                                            {receivedRequests.length === 0 ? (
+                                            {filteredReceivedRequests.length === 0 ? (
                                                 <div className="text-center py-5">
                                                     <i className="ri-mail-download-line text-muted" style={{ fontSize: '64px' }}></i>
                                                     <h5 className="mt-3 mb-1">Nessuna richiesta ricevuta</h5>
                                                     <p className="text-muted">Non hai ricevuto richieste di training.</p>
                                                 </div>
                                             ) : (
-                                                receivedRequests.slice((receivedRequestsPage - 1) * ITEMS_PER_SECTION, receivedRequestsPage * ITEMS_PER_SECTION).map(request => (
+                                                filteredReceivedRequests.slice((receivedRequestsPage - 1) * ITEMS_PER_SECTION, receivedRequestsPage * ITEMS_PER_SECTION).map(request => (
                                                     <div key={request.id} className="border-bottom">
                                                         <div
                                                             className="p-3 d-flex justify-content-between align-items-start"
@@ -1080,23 +1145,23 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Richieste Ricevute */}
-                                            {receivedRequests.length > ITEMS_PER_SECTION && (
+                                            {filteredReceivedRequests.length > ITEMS_PER_SECTION && (
                                                 <div className="d-flex justify-content-between align-items-center p-3 border-top">
                                                     <small className="text-muted">
-                                                        Mostrando {Math.min((receivedRequestsPage - 1) * ITEMS_PER_SECTION + 1, receivedRequests.length)}-{Math.min(receivedRequestsPage * ITEMS_PER_SECTION, receivedRequests.length)} di {receivedRequests.length}
+                                                        Mostrando {Math.min((receivedRequestsPage - 1) * ITEMS_PER_SECTION + 1, filteredReceivedRequests.length)}-{Math.min(receivedRequestsPage * ITEMS_PER_SECTION, filteredReceivedRequests.length)} di {filteredReceivedRequests.length}
                                                     </small>
                                                     <nav>
                                                         <ul className="pagination pagination-sm mb-0">
                                                             <li className={`page-item ${receivedRequestsPage === 1 ? 'disabled' : ''}`}>
                                                                 <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
                                                             </li>
-                                                            {Array.from({ length: Math.ceil(receivedRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                            {Array.from({ length: Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
                                                                 <li key={i} className={`page-item ${receivedRequestsPage === i + 1 ? 'active' : ''}`}>
                                                                     <button className="page-link" onClick={() => setReceivedRequestsPage(i + 1)}>{i + 1}</button>
                                                                 </li>
                                                             )).slice(Math.max(0, receivedRequestsPage - 3), receivedRequestsPage + 2)}
-                                                            <li className={`page-item ${receivedRequestsPage >= Math.ceil(receivedRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.min(Math.ceil(receivedRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                            <li className={`page-item ${receivedRequestsPage >= Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.min(Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
                                                             </li>
                                                         </ul>
                                                     </nav>
@@ -1108,14 +1173,14 @@ function Formazione() {
                                     {/* Sent Requests List - Richieste Inviate */}
                                     {activeTab === 'requests' && (
                                         <div>
-                                            {requests.length === 0 ? (
+                                            {filteredRequests.length === 0 ? (
                                                 <div className="text-center py-5">
                                                     <i className="ri-file-list-3-line text-muted" style={{ fontSize: '64px' }}></i>
                                                     <h5 className="mt-3 mb-1">Nessuna richiesta</h5>
                                                     <p className="text-muted">Non hai ancora inviato richieste di training.</p>
                                                 </div>
                                             ) : (
-                                                requests.slice((requestsPage - 1) * ITEMS_PER_SECTION, requestsPage * ITEMS_PER_SECTION).map(request => (
+                                                filteredRequests.slice((requestsPage - 1) * ITEMS_PER_SECTION, requestsPage * ITEMS_PER_SECTION).map(request => (
                                                     <div key={request.id} className="border-bottom">
                                                         <div
                                                             className="p-3 d-flex justify-content-between align-items-start"
@@ -1175,23 +1240,23 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Richieste Inviate */}
-                                            {requests.length > ITEMS_PER_SECTION && (
+                                            {filteredRequests.length > ITEMS_PER_SECTION && (
                                                 <div className="d-flex justify-content-between align-items-center p-3 border-top">
                                                     <small className="text-muted">
-                                                        Mostrando {Math.min((requestsPage - 1) * ITEMS_PER_SECTION + 1, requests.length)}-{Math.min(requestsPage * ITEMS_PER_SECTION, requests.length)} di {requests.length}
+                                                        Mostrando {Math.min((requestsPage - 1) * ITEMS_PER_SECTION + 1, filteredRequests.length)}-{Math.min(requestsPage * ITEMS_PER_SECTION, filteredRequests.length)} di {filteredRequests.length}
                                                     </small>
                                                     <nav>
                                                         <ul className="pagination pagination-sm mb-0">
                                                             <li className={`page-item ${requestsPage === 1 ? 'disabled' : ''}`}>
                                                                 <button className="page-link" onClick={() => setRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
                                                             </li>
-                                                            {Array.from({ length: Math.ceil(requests.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                            {Array.from({ length: Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
                                                                 <li key={i} className={`page-item ${requestsPage === i + 1 ? 'active' : ''}`}>
                                                                     <button className="page-link" onClick={() => setRequestsPage(i + 1)}>{i + 1}</button>
                                                                 </li>
                                                             )).slice(Math.max(0, requestsPage - 3), requestsPage + 2)}
-                                                            <li className={`page-item ${requestsPage >= Math.ceil(requests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setRequestsPage(p => Math.min(Math.ceil(requests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                            <li className={`page-item ${requestsPage >= Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                <button className="page-link" onClick={() => setRequestsPage(p => Math.min(Math.ceil(filteredRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
                                                             </li>
                                                         </ul>
                                                     </nav>
@@ -2090,12 +2155,25 @@ function Formazione() {
                         </li>
                     </ul>
                 </div>
+                <div className="px-3 py-2 border-bottom bg-white">
+                    <div className="position-relative">
+                        <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
+                        <input
+                            type="text"
+                            className="form-control bg-light border-0"
+                            placeholder="Cerca training/richieste..."
+                            value={listSearch}
+                            onChange={(e) => setListSearch(e.target.value)}
+                            style={{ paddingLeft: '36px' }}
+                        />
+                    </div>
+                </div>
 
                 <div className="card-body p-0">
                     {/* Training List */}
                     {activeTab === 'trainings' && (
                         <div>
-                            {trainings.length === 0 ? (
+                            {filteredTrainings.length === 0 ? (
                                 <div className="text-center py-5">
                                     <i className="ri-book-open-line text-muted" style={{ fontSize: '64px' }}></i>
                                     <h5 className="mt-3 mb-1">Nessun training</h5>
@@ -2108,7 +2186,7 @@ function Formazione() {
                                     )}
                                 </div>
                             ) : (
-                                trainings.map(training => (
+                                filteredTrainings.map(training => (
                                     <div key={training.id} className="border-bottom">
                                         {/* Training Header */}
                                         <div
@@ -2242,7 +2320,7 @@ function Formazione() {
                     {/* Requests List */}
                     {activeTab === 'requests' && (
                         <div>
-                            {requests.length === 0 ? (
+                            {filteredRequests.length === 0 ? (
                                 <div className="text-center py-5">
                                     <i className="ri-file-list-3-line text-muted" style={{ fontSize: '64px' }}></i>
                                     <h5 className="mt-3 mb-1">Nessuna richiesta</h5>
@@ -2254,7 +2332,7 @@ function Formazione() {
                                     )}
                                 </div>
                             ) : (
-                                requests.map(request => (
+                                filteredRequests.map(request => (
                                     <div key={request.id} className="border-bottom">
                                         <div
                                             className="p-3 d-flex justify-content-between align-items-start"

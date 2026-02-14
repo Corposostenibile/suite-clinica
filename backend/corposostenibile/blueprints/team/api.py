@@ -2018,6 +2018,8 @@ def get_member_client_checks(user_id):
         - period: 'week', 'month', 'trimester', 'year', or 'custom' (default 'month')
         - start_date: Start date for custom period (YYYY-MM-DD)
         - end_date: End date for custom period (YYYY-MM-DD)
+        - check_type: 'all', 'weekly', 'dca' (default 'all')
+        - q: Search query on client name
         - page: Page number (default 1)
         - per_page: Items per page (default 25, max 50)
 
@@ -2037,6 +2039,8 @@ def get_member_client_checks(user_id):
     period = request.args.get('period', 'month').strip()
     start_date_str = request.args.get('start_date', '').strip()
     end_date_str = request.args.get('end_date', '').strip()
+    check_type = request.args.get('check_type', 'all').strip().lower()
+    search_query = request.args.get('q', '').strip().lower()
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 25, type=int), 50)
 
@@ -2234,6 +2238,7 @@ def get_member_client_checks(user_id):
             'cliente_id': cliente.cliente_id if cliente else None,
             'cliente_nome': cliente.nome_cognome if cliente else 'N/D',
             'submit_date': r.submit_date.strftime('%d/%m/%Y') if r.submit_date else None,
+            'submit_date_iso': r.submit_date.isoformat() if r.submit_date else None,
             'nutritionist_rating': r.nutritionist_rating,
             'psychologist_rating': r.psychologist_rating,
             'coach_rating': r.coach_rating,
@@ -2253,6 +2258,7 @@ def get_member_client_checks(user_id):
             'cliente_id': cliente.cliente_id if cliente else None,
             'cliente_nome': cliente.nome_cognome if cliente else 'N/D',
             'submit_date': r.submit_date.strftime('%d/%m/%Y') if r.submit_date else None,
+            'submit_date_iso': r.submit_date.isoformat() if r.submit_date else None,
             'nutritionist_rating': r.nutritionist_rating,
             'psychologist_rating': r.psychologist_rating,
             'coach_rating': r.coach_rating,
@@ -2262,8 +2268,19 @@ def get_member_client_checks(user_id):
             'coaches': profs['coaches'],
         })
 
-    # Sort by submit_date descending
-    all_responses.sort(key=lambda x: x['submit_date'] or '', reverse=True)
+    # Filter by type
+    if check_type in {'weekly', 'dca'}:
+        all_responses = [r for r in all_responses if r.get('type') == check_type]
+
+    # Search by client name
+    if search_query:
+        all_responses = [
+            r for r in all_responses
+            if search_query in (r.get('cliente_nome') or '').lower()
+        ]
+
+    # Sort by submit date descending using ISO date for correctness
+    all_responses.sort(key=lambda x: x.get('submit_date_iso') or '', reverse=True)
 
     # Calculate stats
     nutri_ratings = [r['nutritionist_rating'] for r in all_responses if r['nutritionist_rating'] is not None]
@@ -2288,6 +2305,10 @@ def get_member_client_checks(user_id):
     end_idx = start_idx + per_page
     paginated_responses = all_responses[start_idx:end_idx]
 
+    # Clean internal sort field before returning
+    for response in paginated_responses:
+        response.pop('submit_date_iso', None)
+
     return jsonify({
         'success': True,
         'responses': paginated_responses,
@@ -2296,4 +2317,6 @@ def get_member_client_checks(user_id):
         'page': page,
         'per_page': per_page,
         'total_pages': total_pages,
+        'has_next': page < total_pages,
+        'has_prev': page > 1,
     })

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   ROLE_LABELS,
   SPECIALTY_LABELS,
@@ -7,8 +7,9 @@ import {
   SPECIALTY_COLORS
 } from '../../services/teamService';
 import teamService from '../../services/teamService';
+import trainingService from '../../services/trainingService';
+import taskService, { TASK_CATEGORIES } from '../../services/taskService';
 
-// Gradient colors by role
 const ROLE_GRADIENTS = {
   admin: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   team_leader: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
@@ -16,24 +17,131 @@ const ROLE_GRADIENTS = {
   team_esterno: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
 };
 
+const CLIENT_STATO_OPTIONS = [
+  { value: '', label: 'Tutti gli stati' },
+  { value: 'attivo', label: 'Attivo' },
+  { value: 'in_sospeso', label: 'In sospeso' },
+  { value: 'disattivato', label: 'Disattivato' },
+  { value: 'prospect', label: 'Prospect' },
+  { value: 'attesa_pagamento', label: 'Attesa pagamento' },
+];
+
+const CHECK_PERIOD_OPTIONS = [
+  { value: 'week', label: 'Ultimi 7 giorni' },
+  { value: 'month', label: 'Ultimi 30 giorni' },
+  { value: 'trimester', label: 'Ultimi 90 giorni' },
+  { value: 'year', label: 'Ultimi 365 giorni' },
+];
+
+const CHECK_TYPE_OPTIONS = [
+  { value: 'all', label: 'Tutti i check' },
+  { value: 'weekly', label: 'Weekly check' },
+  { value: 'dca', label: 'DCA check' },
+];
+
+function safeDate(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('it-IT');
+}
+
+function renderPagination(page, totalPages, onChange) {
+  if (!totalPages || totalPages <= 1) return null;
+  const start = Math.max(1, page - 2);
+  const end = Math.min(totalPages, page + 2);
+  const pages = [];
+  for (let p = start; p <= end; p += 1) {
+    pages.push(
+      <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
+        <button className="page-link" onClick={() => onChange(p)}>{p}</button>
+      </li>
+    );
+  }
+
+  return (
+    <nav>
+      <ul className="pagination pagination-sm mb-0">
+        <li className={`page-item ${page <= 1 ? 'disabled' : ''}`}>
+          <button className="page-link" onClick={() => onChange(Math.max(1, page - 1))}>
+            &laquo;
+          </button>
+        </li>
+        {pages}
+        <li className={`page-item ${page >= totalPages ? 'disabled' : ''}`}>
+          <button className="page-link" onClick={() => onChange(Math.min(totalPages, page + 1))}>
+            &raquo;
+          </button>
+        </li>
+      </ul>
+    </nav>
+  );
+}
+
 function Profilo() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const outletContext = useOutletContext();
   const currentUser = outletContext?.user || null;
+
   const [profileUser, setProfileUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
-  // If ID is provided in URL, fetch that user's profile
-  // Otherwise, show current user's profile
+  const [clients, setClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsError, setClientsError] = useState('');
+  const [clientPage, setClientPage] = useState(1);
+  const [clientFilters, setClientFilters] = useState({ q: '', stato: '' });
+  const [clientPagination, setClientPagination] = useState({
+    total: 0,
+    total_pages: 0,
+    per_page: 10,
+    has_next: false,
+    has_prev: false,
+  });
+
+  const [checks, setChecks] = useState([]);
+  const [checksLoading, setChecksLoading] = useState(false);
+  const [checksError, setChecksError] = useState('');
+  const [checkPage, setCheckPage] = useState(1);
+  const [checkFilters, setCheckFilters] = useState({ q: '', period: 'month', check_type: 'all' });
+  const [checkPagination, setCheckPagination] = useState({
+    total: 0,
+    total_pages: 0,
+    per_page: 10,
+    has_next: false,
+    has_prev: false,
+  });
+  const [checkStats, setCheckStats] = useState({
+    avg_nutrizionista: null,
+    avg_psicologo: null,
+    avg_coach: null,
+    avg_progresso: null,
+    avg_quality: null,
+  });
+  const [expandedCheckKey, setExpandedCheckKey] = useState(null);
+
+  const [trainings, setTrainings] = useState([]);
+  const [trainingsLoading, setTrainingsLoading] = useState(false);
+  const [trainingsError, setTrainingsError] = useState('');
+  const [trainingFilters, setTrainingFilters] = useState({ q: '', status: 'all' });
+  const [trainingPage, setTrainingPage] = useState(1);
+  const TRAINING_PER_PAGE = 10;
+
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState('');
+  const [taskFilters, setTaskFilters] = useState({ q: '', category: 'all', completed: 'false' });
+  const [taskPage, setTaskPage] = useState(1);
+  const TASK_PER_PAGE = 10;
+
   useEffect(() => {
     if (id) {
-      // Fetch specific user profile
       const fetchUserProfile = async () => {
         setLoading(true);
         try {
           const data = await teamService.getTeamMember(id);
-          // Ensure teams arrays are initialized
           setProfileUser({
             ...data,
             teams: data.teams || [],
@@ -47,20 +155,187 @@ function Profilo() {
         }
       };
       fetchUserProfile();
-    } else {
-      // Use current user from context
-      if (currentUser) {
-        setProfileUser({
-          ...currentUser,
-          teams: currentUser.teams || [],
-          teams_led: currentUser.teams_led || []
-        });
-      }
+      return;
+    }
+
+    if (currentUser) {
+      setProfileUser({
+        ...currentUser,
+        teams: currentUser.teams || [],
+        teams_led: currentUser.teams_led || []
+      });
     }
   }, [id, currentUser]);
 
   const user = profileUser;
   const isOwnProfile = !id || (currentUser && user && currentUser.id === user.id);
+
+  const fetchClients = useCallback(async () => {
+    if (!user?.id) return;
+    setClientsLoading(true);
+    setClientsError('');
+    try {
+      const response = await teamService.getMemberClients(user.id, {
+        page: clientPage,
+        per_page: 10,
+        q: clientFilters.q || undefined,
+        stato: clientFilters.stato || undefined,
+      });
+      setClients(response.clients || []);
+      setClientPagination({
+        total: response.total || 0,
+        total_pages: response.total_pages || 0,
+        per_page: response.per_page || 10,
+        has_next: Boolean(response.has_next),
+        has_prev: Boolean(response.has_prev),
+      });
+    } catch (err) {
+      console.error('Errore caricamento clienti associati:', err);
+      setClients([]);
+      setClientPagination({ total: 0, total_pages: 0, per_page: 10, has_next: false, has_prev: false });
+      setClientsError(err?.response?.data?.message || 'Errore nel caricamento dei clienti associati');
+    } finally {
+      setClientsLoading(false);
+    }
+  }, [user?.id, clientPage, clientFilters.q, clientFilters.stato]);
+
+  const fetchChecks = useCallback(async () => {
+    if (!user?.id) return;
+    setChecksLoading(true);
+    setChecksError('');
+    try {
+      const response = await teamService.getMemberChecks(user.id, {
+        page: checkPage,
+        per_page: 10,
+        period: checkFilters.period,
+        check_type: checkFilters.check_type,
+        q: checkFilters.q || undefined,
+      });
+      setChecks(response.responses || []);
+      setCheckStats(response.stats || {
+        avg_nutrizionista: null,
+        avg_psicologo: null,
+        avg_coach: null,
+        avg_progresso: null,
+        avg_quality: null,
+      });
+      setCheckPagination({
+        total: response.total || 0,
+        total_pages: response.total_pages || 0,
+        per_page: response.per_page || 10,
+        has_next: Boolean(response.has_next),
+        has_prev: Boolean(response.has_prev),
+      });
+    } catch (err) {
+      console.error('Errore caricamento check associati:', err);
+      setChecks([]);
+      setCheckPagination({ total: 0, total_pages: 0, per_page: 10, has_next: false, has_prev: false });
+      setChecksError(err?.response?.data?.message || 'Errore nel caricamento dei check associati');
+    } finally {
+      setChecksLoading(false);
+    }
+  }, [user?.id, checkPage, checkFilters.period, checkFilters.check_type, checkFilters.q]);
+
+  const fetchTrainings = useCallback(async () => {
+    if (!user?.id) return;
+    setTrainingsLoading(true);
+    setTrainingsError('');
+    try {
+      const isOwn = currentUser?.id === user.id;
+      const canReadOther = Boolean(currentUser?.is_admin || currentUser?.department_id === 17);
+
+      let payload = null;
+      if (isOwn) {
+        payload = await trainingService.getMyTrainings({ page: 1, per_page: 500 });
+        setTrainings(payload.trainings || []);
+      } else if (canReadOther) {
+        payload = await trainingService.getAdminUserTrainings(user.id);
+        setTrainings(payload.trainings || []);
+      } else {
+        setTrainings([]);
+        setTrainingsError('Non autorizzato a visualizzare la formazione di questo professionista');
+      }
+    } catch (err) {
+      console.error('Errore caricamento formazione associata:', err);
+      setTrainings([]);
+      setTrainingsError(err?.response?.data?.error || 'Errore nel caricamento della formazione');
+    } finally {
+      setTrainingsLoading(false);
+    }
+  }, [user?.id, currentUser?.id, currentUser?.is_admin, currentUser?.department_id]);
+
+  const fetchTasks = useCallback(async () => {
+    if (!user?.id) return;
+    setTasksLoading(true);
+    setTasksError('');
+    try {
+      const params = {
+        assignee_id: user.id,
+        q: taskFilters.q || undefined,
+        category: taskFilters.category !== 'all' ? taskFilters.category : undefined,
+        completed: taskFilters.completed !== 'all' ? taskFilters.completed : undefined,
+      };
+      const response = await taskService.getAll(params);
+      setTasks(Array.isArray(response) ? response : []);
+    } catch (err) {
+      console.error('Errore caricamento task associati:', err);
+      setTasks([]);
+      setTasksError(err?.response?.data?.message || 'Errore nel caricamento dei task');
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [user?.id, taskFilters.q, taskFilters.category, taskFilters.completed]);
+
+  useEffect(() => {
+    if (activeTab === 'clienti') fetchClients();
+  }, [activeTab, fetchClients]);
+
+  useEffect(() => {
+    if (activeTab === 'check') fetchChecks();
+  }, [activeTab, fetchChecks]);
+
+  useEffect(() => {
+    setExpandedCheckKey(null);
+  }, [checkPage, checkFilters.q, checkFilters.period, checkFilters.check_type]);
+
+  useEffect(() => {
+    if (activeTab === 'formazione') fetchTrainings();
+  }, [activeTab, fetchTrainings]);
+
+  useEffect(() => {
+    if (activeTab === 'task') fetchTasks();
+  }, [activeTab, fetchTasks]);
+
+  const role = user?.role || 'professionista';
+  const specialty = user?.specialty;
+
+  const checkAvgQualityLabel = useMemo(() => {
+    if (checkStats.avg_quality == null) return '—';
+    return checkStats.avg_quality.toFixed(1);
+  }, [checkStats.avg_quality]);
+
+  const filteredTrainings = useMemo(() => {
+    const q = trainingFilters.q.trim().toLowerCase();
+    return trainings.filter((t) => {
+      const status = t.isAcknowledged ? 'ack' : 'pending';
+      const statusMatch = trainingFilters.status === 'all' || trainingFilters.status === status;
+      if (!statusMatch) return false;
+      if (!q) return true;
+      return (
+        (t.title || '').toLowerCase().includes(q) ||
+        (t.content || '').toLowerCase().includes(q) ||
+        (t.reviewType || '').toLowerCase().includes(q) ||
+        (`${t.reviewer?.firstName || ''} ${t.reviewer?.lastName || ''}`).toLowerCase().includes(q) ||
+        (`${t.reviewee?.firstName || ''} ${t.reviewee?.lastName || ''}`).toLowerCase().includes(q)
+      );
+    });
+  }, [trainings, trainingFilters.q, trainingFilters.status]);
+
+  const trainingTotalPages = Math.max(1, Math.ceil(filteredTrainings.length / TRAINING_PER_PAGE));
+  const pagedTrainings = filteredTrainings.slice((trainingPage - 1) * TRAINING_PER_PAGE, trainingPage * TRAINING_PER_PAGE);
+
+  const taskTotalPages = Math.max(1, Math.ceil(tasks.length / TASK_PER_PAGE));
+  const pagedTasks = tasks.slice((taskPage - 1) * TASK_PER_PAGE, taskPage * TASK_PER_PAGE);
 
   if (loading || !user) {
     return (
@@ -72,12 +347,8 @@ function Profilo() {
     );
   }
 
-  const role = user.role || 'professionista';
-  const specialty = user.specialty;
-
   return (
     <>
-      {/* Page Header */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
           <h4 className="mb-1">{isOwnProfile ? 'Il Mio Profilo' : `Profilo di ${user.full_name}`}</h4>
@@ -99,10 +370,8 @@ function Profilo() {
       </div>
 
       <div className="row g-4">
-        {/* Profile Card with Gradient Header */}
         <div className="col-lg-4">
           <div className="card shadow-sm border-0 overflow-hidden">
-            {/* Gradient Header */}
             <div
               className="position-relative"
               style={{
@@ -110,7 +379,6 @@ function Profilo() {
                 height: '120px'
               }}
             >
-              {/* Status badges */}
               <div className="position-absolute top-0 start-0 p-3 d-flex gap-2">
                 {user.is_active ? (
                   <span className="badge bg-success">
@@ -128,7 +396,6 @@ function Profilo() {
                 )}
               </div>
 
-              {/* Avatar positioned at bottom */}
               <div className="position-absolute start-50 translate-middle-x" style={{ bottom: '-50px' }}>
                 {user.avatar_path ? (
                   <img
@@ -150,12 +417,10 @@ function Profilo() {
               </div>
             </div>
 
-            {/* Card Body */}
             <div className="card-body text-center pt-5 mt-3">
               <h4 className="mb-1">{user.full_name}</h4>
               <p className="text-muted mb-3">{user.email}</p>
 
-              {/* Role & Specialty Badges */}
               <div className="d-flex justify-content-center gap-2 mb-4">
                 <span className={`badge bg-${ROLE_COLORS[role] || 'secondary'}`}>
                   {ROLE_LABELS[role] || role}
@@ -167,7 +432,6 @@ function Profilo() {
                 )}
               </div>
 
-              {/* Quick Stats */}
               <div className="row g-3 mb-4">
                 <div className="col-6">
                   <div className="bg-light rounded-3 p-3">
@@ -186,56 +450,49 @@ function Profilo() {
           </div>
         </div>
 
-        {/* Details Section */}
         <div className="col-lg-8">
           <div className="card shadow-sm border-0">
-            {/* Tabs Navigation */}
             <div className="card-header bg-transparent border-bottom p-0">
               <ul className="nav nav-tabs border-0">
                 <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'info' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('info')}
-                  >
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
                     <i className="ri-user-settings-line me-2"></i>
                     Informazioni
                   </button>
                 </li>
                 <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'teams' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('teams')}
-                  >
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>
                     <i className="ri-team-line me-2"></i>
                     Team Guidati
-                    {user.teams_led?.length > 0 && (
-                      <span className="badge bg-primary ms-2">{user.teams_led.length}</span>
-                    )}
+                    {user.teams_led?.length > 0 && <span className="badge bg-primary ms-2">{user.teams_led.length}</span>}
                   </button>
                 </li>
                 <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'clienti' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('clienti')}
-                  >
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'clienti' ? 'active' : ''}`} onClick={() => setActiveTab('clienti')}>
                     <i className="ri-user-heart-line me-2"></i>
-                    Clienti
+                    Pazienti Associati
                   </button>
                 </li>
                 <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'check' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('check')}
-                  >
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'check' ? 'active' : ''}`} onClick={() => setActiveTab('check')}>
                     <i className="ri-checkbox-multiple-line me-2"></i>
-                    Check
+                    Check Associati
                   </button>
                 </li>
                 <li className="nav-item">
-                  <button
-                    className={`nav-link px-4 py-3 ${activeTab === 'quality' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('quality')}
-                  >
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'formazione' ? 'active' : ''}`} onClick={() => setActiveTab('formazione')}>
+                    <i className="ri-book-open-line me-2"></i>
+                    Formazione
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'task' ? 'active' : ''}`} onClick={() => setActiveTab('task')}>
+                    <i className="ri-task-line me-2"></i>
+                    Task
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button className={`nav-link px-4 py-3 ${activeTab === 'quality' ? 'active' : ''}`} onClick={() => setActiveTab('quality')}>
                     <i className="ri-star-line me-2"></i>
                     Quality
                   </button>
@@ -243,20 +500,14 @@ function Profilo() {
               </ul>
             </div>
 
-            {/* Tab Content */}
             <div className="card-body">
-              {/* Info Tab */}
               {activeTab === 'info' && (
                 <div className="row g-4">
-                  {/* Personal Info */}
                   <div className="col-md-6">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      Dati Personali
-                    </h6>
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">Dati Personali</h6>
                     <div className="d-flex align-items-center mb-3">
                       <div className="flex-shrink-0">
-                        <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center"
-                             style={{ width: '40px', height: '40px' }}>
+                        <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
                           <i className="ri-user-line text-primary"></i>
                         </div>
                       </div>
@@ -267,8 +518,7 @@ function Profilo() {
                     </div>
                     <div className="d-flex align-items-center mb-3">
                       <div className="flex-shrink-0">
-                        <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center"
-                             style={{ width: '40px', height: '40px' }}>
+                        <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
                           <i className="ri-mail-line text-info"></i>
                         </div>
                       </div>
@@ -278,16 +528,11 @@ function Profilo() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Account Info */}
                   <div className="col-md-6">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      Dettagli Account
-                    </h6>
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">Dettagli Account</h6>
                     <div className="d-flex align-items-center mb-3">
                       <div className="flex-shrink-0">
-                        <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center"
-                             style={{ width: '40px', height: '40px' }}>
+                        <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
                           <i className="ri-shield-user-line text-warning"></i>
                         </div>
                       </div>
@@ -299,8 +544,7 @@ function Profilo() {
                     {specialty && (
                       <div className="d-flex align-items-center mb-3">
                         <div className="flex-shrink-0">
-                          <div className="rounded-circle d-flex align-items-center justify-content-center"
-                               style={{ width: '40px', height: '40px', background: '#e8daff' }}>
+                          <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', background: '#e8daff' }}>
                             <i className="ri-stethoscope-line" style={{ color: '#7c3aed' }}></i>
                           </div>
                         </div>
@@ -314,10 +558,8 @@ function Profilo() {
                 </div>
               )}
 
-              {/* Teams Tab */}
               {activeTab === 'teams' && (
                 <>
-                  {/* Teams Led */}
                   <div className="mb-4">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-shield-star-line me-2"></i>
@@ -327,19 +569,12 @@ function Profilo() {
                       <div className="row g-3">
                         {user.teams_led.map((team) => (
                           <div key={team.id} className="col-12">
-                            <Link 
-                              to={`/teams-dettaglio/${team.id}`}
-                              className="text-decoration-none"
-                            >
+                            <Link to={`/teams-dettaglio/${team.id}`} className="text-decoration-none">
                               <div className="border rounded-3 p-3 d-flex align-items-center">
                                 <div className="flex-shrink-0">
                                   <div
                                     className="rounded-circle d-flex align-items-center justify-content-center text-white"
-                                    style={{
-                                      width: '48px',
-                                      height: '48px',
-                                      background: ROLE_GRADIENTS.team_leader
-                                    }}
+                                    style={{ width: '48px', height: '48px', background: ROLE_GRADIENTS.team_leader }}
                                   >
                                     <i className="ri-team-line fs-5"></i>
                                   </div>
@@ -347,8 +582,7 @@ function Profilo() {
                                 <div className="flex-grow-1 ms-3">
                                   <h6 className="mb-0">{team.name}</h6>
                                   <small className="text-muted">
-                                    <i className="ri-shield-star-line me-1"></i>
-                                    Team Leader
+                                    <i className="ri-shield-star-line me-1"></i>Team Leader
                                   </small>
                                 </div>
                               </div>
@@ -363,7 +597,6 @@ function Profilo() {
                     )}
                   </div>
 
-                  {/* Teams Member */}
                   <div>
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-group-line me-2"></i>
@@ -373,19 +606,12 @@ function Profilo() {
                       <div className="row g-3">
                         {user.teams.map((team) => (
                           <div key={team.id} className="col-12">
-                            <Link 
-                              to={`/teams-dettaglio/${team.id}`}
-                              className="text-decoration-none"
-                            >
+                            <Link to={`/teams-dettaglio/${team.id}`} className="text-decoration-none">
                               <div className="border rounded-3 p-3 d-flex align-items-center">
                                 <div className="flex-shrink-0">
                                   <div
                                     className="rounded-circle d-flex align-items-center justify-content-center text-white"
-                                    style={{
-                                      width: '48px',
-                                      height: '48px',
-                                      background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
-                                    }}
+                                    style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}
                                   >
                                     <i className="ri-user-line fs-5"></i>
                                   </div>
@@ -393,8 +619,7 @@ function Profilo() {
                                 <div className="flex-grow-1 ms-3">
                                   <h6 className="mb-0">{team.name}</h6>
                                   <small className="text-muted">
-                                    <i className="ri-user-line me-1"></i>
-                                    Membro
+                                    <i className="ri-user-line me-1"></i>Membro
                                   </small>
                                 </div>
                               </div>
@@ -411,33 +636,520 @@ function Profilo() {
                 </>
               )}
 
-              {/* Clienti Tab */}
               {activeTab === 'clienti' && (
-                <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                       style={{ width: '64px', height: '64px' }}>
-                    <i className="ri-user-heart-line text-muted fs-3"></i>
+                <div>
+                  <div className="row g-2 align-items-center mb-3">
+                    <div className="col-lg-6">
+                      <input
+                        className="form-control"
+                        placeholder="Cerca paziente..."
+                        value={clientFilters.q}
+                        onChange={(e) => {
+                          setClientPage(1);
+                          setClientFilters((prev) => ({ ...prev, q: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-lg-4">
+                      <select
+                        className="form-select"
+                        value={clientFilters.stato}
+                        onChange={(e) => {
+                          setClientPage(1);
+                          setClientFilters((prev) => ({ ...prev, stato: e.target.value }));
+                        }}
+                      >
+                        {CLIENT_STATO_OPTIONS.map((opt) => (
+                          <option key={opt.value || 'all'} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-lg-2">
+                      <button
+                        className="btn btn-outline-secondary w-100"
+                        onClick={() => {
+                          setClientPage(1);
+                          setClientFilters({ q: '', stato: '' });
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-muted mb-0">Qui vedrai i tuoi clienti</p>
+
+                  {clientsLoading ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Caricamento pazienti...
+                    </div>
+                  ) : clientsError ? (
+                    <div className="alert alert-danger mb-0">{clientsError}</div>
+                  ) : clients.length === 0 ? (
+                    <div className="text-center py-5">
+                      <i className="ri-user-search-line text-muted fs-1"></i>
+                      <p className="text-muted mt-2 mb-0">Nessun paziente associato con i filtri correnti</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="table-responsive border rounded">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Paziente</th>
+                              <th>Stato</th>
+                              <th>Programma</th>
+                              <th>Rinnovo</th>
+                              <th className="text-end">Azioni</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {clients.map((c) => (
+                              <tr key={c.cliente_id}>
+                                <td>
+                                  <div className="fw-medium">{c.nome_cognome || '-'}</div>
+                                  <small className="text-muted">{c.email || '—'}</small>
+                                </td>
+                                <td>
+                                  <span className="badge bg-light text-dark border">{c.stato_cliente || '—'}</span>
+                                </td>
+                                <td>{c.programma_attuale || '—'}</td>
+                                <td>{safeDate(c.data_rinnovo)}</td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => navigate(`/clienti-dettaglio/${c.cliente_id}`)}
+                                  >
+                                    Apri
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="d-flex justify-content-between align-items-center mt-3">
+                        <small className="text-muted">
+                          {clientPagination.total > 0
+                            ? `Mostrando ${Math.min((clientPage - 1) * clientPagination.per_page + 1, clientPagination.total)}-${Math.min(clientPage * clientPagination.per_page, clientPagination.total)} di ${clientPagination.total}`
+                            : 'Nessun risultato'}
+                        </small>
+                        {renderPagination(clientPage, clientPagination.total_pages, setClientPage)}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
-              {/* Check Tab */}
               {activeTab === 'check' && (
-                <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                       style={{ width: '64px', height: '64px' }}>
-                    <i className="ri-checkbox-multiple-line text-muted fs-3"></i>
+                <div>
+                  <div className="row g-2 align-items-center mb-3">
+                    <div className="col-lg-4">
+                      <input
+                        className="form-control"
+                        placeholder="Cerca per nome paziente..."
+                        value={checkFilters.q}
+                        onChange={(e) => {
+                          setCheckPage(1);
+                          setCheckFilters((prev) => ({ ...prev, q: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-lg-3">
+                      <select
+                        className="form-select"
+                        value={checkFilters.period}
+                        onChange={(e) => {
+                          setCheckPage(1);
+                          setCheckFilters((prev) => ({ ...prev, period: e.target.value }));
+                        }}
+                      >
+                        {CHECK_PERIOD_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-lg-3">
+                      <select
+                        className="form-select"
+                        value={checkFilters.check_type}
+                        onChange={(e) => {
+                          setCheckPage(1);
+                          setCheckFilters((prev) => ({ ...prev, check_type: e.target.value }));
+                        }}
+                      >
+                        {CHECK_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-lg-2">
+                      <button
+                        className="btn btn-outline-secondary w-100"
+                        onClick={() => {
+                          setCheckPage(1);
+                          setCheckFilters({ q: '', period: 'month', check_type: 'all' });
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-muted mb-0">Qui vedrai i check che hai ricevuto</p>
+
+                  <div className="d-flex flex-wrap gap-3 mb-3">
+                    <span className="badge bg-light text-dark border">Quality media: {checkAvgQualityLabel}</span>
+                    <span className="badge bg-light text-dark border">Nutri: {checkStats.avg_nutrizionista ?? '—'}</span>
+                    <span className="badge bg-light text-dark border">Coach: {checkStats.avg_coach ?? '—'}</span>
+                    <span className="badge bg-light text-dark border">Psico: {checkStats.avg_psicologo ?? '—'}</span>
+                  </div>
+
+                  {checksLoading ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Caricamento check...
+                    </div>
+                  ) : checksError ? (
+                    <div className="alert alert-danger mb-0">{checksError}</div>
+                  ) : checks.length === 0 ? (
+                    <div className="text-center py-5">
+                      <i className="ri-checkbox-multiple-blank-line text-muted fs-1"></i>
+                      <p className="text-muted mt-2 mb-0">Nessun check associato con i filtri correnti</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="table-responsive border rounded">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Paziente</th>
+                              <th>Tipo</th>
+                              <th>Data</th>
+                              <th>Valutazioni</th>
+                              <th>Dettagli</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {checks.map((r) => {
+                              const rowKey = `${r.type}-${r.id}`;
+                              const isExpanded = expandedCheckKey === rowKey;
+                              return (
+                                <Fragment key={rowKey}>
+                                  <tr
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => setExpandedCheckKey(isExpanded ? null : rowKey)}
+                                  >
+                                    <td className="fw-medium">{r.cliente_nome || 'N/D'}</td>
+                                    <td>
+                                      <span className={`badge ${r.type === 'dca' ? 'bg-info' : 'bg-success'}`}>
+                                        {r.type === 'dca' ? 'DCA' : 'Weekly'}
+                                      </span>
+                                    </td>
+                                    <td>{r.submit_date || '—'}</td>
+                                    <td>
+                                      <small className="text-muted">
+                                        N:{r.nutritionist_rating ?? '—'} | C:{r.coach_rating ?? '—'} | P:{r.psychologist_rating ?? '—'} | Q:{r.progress_rating ?? '—'}
+                                      </small>
+                                    </td>
+                                    <td>
+                                      <i className={`ri-arrow-${isExpanded ? 'up' : 'down'}-s-line`}></i>
+                                    </td>
+                                  </tr>
+                                  {isExpanded && (
+                                    <tr className="table-light">
+                                      <td colSpan={5}>
+                                        <div className="py-2">
+                                          <div className="mb-2">
+                                            <strong>Valutazioni complete:</strong>{' '}
+                                            Nutrizionista: {r.nutritionist_rating ?? '—'} | Coach: {r.coach_rating ?? '—'} | Psicologo: {r.psychologist_rating ?? '—'} | Progresso: {r.progress_rating ?? '—'}
+                                          </div>
+                                          <div className="row g-2 mb-2">
+                                            <div className="col-md-4">
+                                              <small className="text-muted d-block mb-1">Nutrizionisti</small>
+                                              {(r.nutrizionisti || []).length === 0 ? '—' : (r.nutrizionisti || []).map((u) => (
+                                                <div key={`n-${u.id}`} className="small">
+                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
+                                                </div>
+                                              ))}
+                                            </div>
+                                            <div className="col-md-4">
+                                              <small className="text-muted d-block mb-1">Psicologi</small>
+                                              {(r.psicologi || []).length === 0 ? '—' : (r.psicologi || []).map((u) => (
+                                                <div key={`p-${u.id}`} className="small">
+                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
+                                                </div>
+                                              ))}
+                                            </div>
+                                            <div className="col-md-4">
+                                              <small className="text-muted d-block mb-1">Coaches</small>
+                                              {(r.coaches || []).length === 0 ? '—' : (r.coaches || []).map((u) => (
+                                                <div key={`c-${u.id}`} className="small">
+                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                          {r.cliente_id && (
+                                            <button
+                                              className="btn btn-sm btn-outline-primary"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/clienti-dettaglio/${r.cliente_id}?tab=check_periodici`);
+                                              }}
+                                            >
+                                              Apri scheda check paziente
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="d-flex justify-content-between align-items-center mt-3">
+                        <small className="text-muted">
+                          {checkPagination.total > 0
+                            ? `Mostrando ${Math.min((checkPage - 1) * checkPagination.per_page + 1, checkPagination.total)}-${Math.min(checkPage * checkPagination.per_page, checkPagination.total)} di ${checkPagination.total}`
+                            : 'Nessun risultato'}
+                        </small>
+                        {renderPagination(checkPage, checkPagination.total_pages, setCheckPage)}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
-              {/* Quality Tab */}
+              {activeTab === 'formazione' && (
+                <div>
+                  <div className="row g-2 align-items-center mb-3">
+                    <div className="col-lg-6">
+                      <input
+                        className="form-control"
+                        placeholder="Cerca training..."
+                        value={trainingFilters.q}
+                        onChange={(e) => {
+                          setTrainingPage(1);
+                          setTrainingFilters((prev) => ({ ...prev, q: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-lg-4">
+                      <select
+                        className="form-select"
+                        value={trainingFilters.status}
+                        onChange={(e) => {
+                          setTrainingPage(1);
+                          setTrainingFilters((prev) => ({ ...prev, status: e.target.value }));
+                        }}
+                      >
+                        <option value="all">Tutti gli stati</option>
+                        <option value="pending">Da confermare</option>
+                        <option value="ack">Confermati</option>
+                      </select>
+                    </div>
+                    <div className="col-lg-2">
+                      <button
+                        className="btn btn-outline-secondary w-100"
+                        onClick={() => {
+                          setTrainingPage(1);
+                          setTrainingFilters({ q: '', status: 'all' });
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {trainingsLoading ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Caricamento formazione...
+                    </div>
+                  ) : trainingsError ? (
+                    <div className="alert alert-warning mb-0">{trainingsError}</div>
+                  ) : filteredTrainings.length === 0 ? (
+                    <div className="text-center py-5">
+                      <i className="ri-book-2-line text-muted fs-1"></i>
+                      <p className="text-muted mt-2 mb-0">Nessuna formazione trovata</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="table-responsive border rounded">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Titolo</th>
+                              <th>Tipo</th>
+                              <th>Data</th>
+                              <th>Stato</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pagedTrainings.map((t) => (
+                              <tr key={t.id}>
+                                <td>
+                                  <div className="fw-medium">{t.title || '-'}</div>
+                                  <small className="text-muted">
+                                    {t.reviewer?.firstName || t.reviewee?.firstName ? `${t.reviewer?.firstName || ''} ${t.reviewer?.lastName || ''}`.trim() : '—'}
+                                  </small>
+                                </td>
+                                <td>{t.reviewType || '—'}</td>
+                                <td>{safeDate(t.createdAt)}</td>
+                                <td>
+                                  {t.isAcknowledged ? (
+                                    <span className="badge bg-success">Confermato</span>
+                                  ) : (
+                                    <span className="badge bg-warning text-dark">Da confermare</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mt-3">
+                        <small className="text-muted">
+                          Mostrando {Math.min((trainingPage - 1) * TRAINING_PER_PAGE + 1, filteredTrainings.length)}-{Math.min(trainingPage * TRAINING_PER_PAGE, filteredTrainings.length)} di {filteredTrainings.length}
+                        </small>
+                        {renderPagination(trainingPage, trainingTotalPages, setTrainingPage)}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'task' && (
+                <div>
+                  <div className="row g-2 align-items-center mb-3">
+                    <div className="col-lg-5">
+                      <input
+                        className="form-control"
+                        placeholder="Cerca task..."
+                        value={taskFilters.q}
+                        onChange={(e) => {
+                          setTaskPage(1);
+                          setTaskFilters((prev) => ({ ...prev, q: e.target.value }));
+                        }}
+                      />
+                    </div>
+                    <div className="col-lg-3">
+                      <select
+                        className="form-select"
+                        value={taskFilters.category}
+                        onChange={(e) => {
+                          setTaskPage(1);
+                          setTaskFilters((prev) => ({ ...prev, category: e.target.value }));
+                        }}
+                      >
+                        <option value="all">Tutte le categorie</option>
+                        {Object.keys(TASK_CATEGORIES).map((cat) => (
+                          <option key={cat} value={cat}>{TASK_CATEGORIES[cat].label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-lg-2">
+                      <select
+                        className="form-select"
+                        value={taskFilters.completed}
+                        onChange={(e) => {
+                          setTaskPage(1);
+                          setTaskFilters((prev) => ({ ...prev, completed: e.target.value }));
+                        }}
+                      >
+                        <option value="false">Aperti</option>
+                        <option value="true">Completati</option>
+                        <option value="all">Tutti</option>
+                      </select>
+                    </div>
+                    <div className="col-lg-2">
+                      <button
+                        className="btn btn-outline-secondary w-100"
+                        onClick={() => {
+                          setTaskPage(1);
+                          setTaskFilters({ q: '', category: 'all', completed: 'false' });
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {tasksLoading ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Caricamento task...
+                    </div>
+                  ) : tasksError ? (
+                    <div className="alert alert-danger mb-0">{tasksError}</div>
+                  ) : tasks.length === 0 ? (
+                    <div className="text-center py-5">
+                      <i className="ri-task-line text-muted fs-1"></i>
+                      <p className="text-muted mt-2 mb-0">Nessun task associato</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="table-responsive border rounded">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Task</th>
+                              <th>Categoria</th>
+                              <th>Scadenza</th>
+                              <th>Stato</th>
+                              <th className="text-end">Azione</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pagedTasks.map((t) => (
+                              <tr key={t.id}>
+                                <td>
+                                  <div className="fw-medium">{t.title || '-'}</div>
+                                  <small className="text-muted">{t.description || '—'}</small>
+                                </td>
+                                <td>{TASK_CATEGORIES[t.category]?.label || t.category || '—'}</td>
+                                <td>{safeDate(t.due_date)}</td>
+                                <td>
+                                  {t.completed ? (
+                                    <span className="badge bg-success">Completato</span>
+                                  ) : (
+                                    <span className="badge bg-warning text-dark">Aperto</span>
+                                  )}
+                                </td>
+                                <td className="text-end">
+                                  {t.client_id ? (
+                                    <button
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={() => navigate(`/clienti-dettaglio/${t.client_id}`)}
+                                    >
+                                      Apri
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mt-3">
+                        <small className="text-muted">
+                          Mostrando {Math.min((taskPage - 1) * TASK_PER_PAGE + 1, tasks.length)}-{Math.min(taskPage * TASK_PER_PAGE, tasks.length)} di {tasks.length}
+                        </small>
+                        {renderPagination(taskPage, taskTotalPages, setTaskPage)}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'quality' && (
                 <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                       style={{ width: '64px', height: '64px' }}>
+                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: '64px', height: '64px' }}>
                     <i className="ri-star-line text-muted fs-3"></i>
                   </div>
                   <p className="text-muted mb-0">Qui vedrai il tuo quality</p>

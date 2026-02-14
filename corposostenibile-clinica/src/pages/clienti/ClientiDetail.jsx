@@ -515,6 +515,29 @@ function ClientiDetail() {
     }
   }, [searchParams, loading]);
 
+  useEffect(() => {
+    const requestedTab = (searchParams.get('tab') || '').trim().toLowerCase();
+    if (!requestedTab) return;
+
+    const tabAliases = {
+      check: 'check_periodici',
+      checks: 'check_periodici',
+      check_periodici: 'check_periodici',
+      check_settimanali: 'check_periodici',
+      check_settimanale: 'check_periodici',
+      check_iniziali: 'check_iniziali',
+    };
+
+    const mapped = tabAliases[requestedTab] || requestedTab;
+    const validTabs = new Set([
+      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'check_periodici', 'check_iniziali'
+    ]);
+
+    if (validTabs.has(mapped)) {
+      setActiveTab(mapped);
+    }
+  }, [searchParams]);
+
   const handleTourSelection = (type) => {
     let steps = [];
     if (type === 'general') {

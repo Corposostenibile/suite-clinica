@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, abort, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, date
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 
 from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, db
 
@@ -53,6 +53,20 @@ def list_tasks():
         query = query.filter(Task.status == TaskStatusEnum.done)
     elif completed == 'false':
         query = query.filter(Task.status != TaskStatusEnum.done)
+
+    assignee_id = request.args.get('assignee_id', type=int)
+    if assignee_id:
+        query = query.filter(Task.assignee_id == assignee_id)
+
+    search_query = request.args.get('q', '').strip()
+    if search_query:
+        search_term = f"%{search_query}%"
+        query = query.filter(
+            or_(
+                Task.title.ilike(search_term),
+                Task.description.ilike(search_term)
+            )
+        )
 
     # Ordinamento
     query = query.order_by(
@@ -178,6 +192,8 @@ def _serialize_task(task):
         'priority': task.priority.value if hasattr(task.priority, 'value') else task.priority,
         'due_date': task.due_date.isoformat() if task.due_date else None,
         'created_at': task.created_at.isoformat() if task.created_at else None,
+        'assignee_id': task.assignee_id,
+        'assignee_name': task.assignee.full_name if task.assignee else None,
         'client_name': task.client.nome_cognome if task.client else None,
         'client_id': task.client_id,
         'completed': task.status == TaskStatusEnum.done,

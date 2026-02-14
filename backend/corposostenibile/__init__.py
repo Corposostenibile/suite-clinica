@@ -475,7 +475,7 @@ def create_app(config_name: str | None = None) -> Flask:
         react_dist = Path(__file__).parent.parent.parent / "corposostenibile-clinica" / "dist"
 
     if react_dist.exists():
-        from flask import send_from_directory, request as flask_request, make_response
+        from flask import send_from_directory, request as flask_request, make_response, abort
 
         # Override login_manager to redirect to React SPA login (not Jinja)
         app.login_manager.login_view = None
@@ -486,6 +486,17 @@ def create_app(config_name: str | None = None) -> Flask:
             if flask_request.path.startswith('/api/'):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
             return redirect('/login')
+
+        @app.get("/static/clinica/<path:filename>")
+        def serve_react_static_assets(filename):
+            """
+            Serve bundled React assets from dist under a dedicated static prefix.
+            This avoids collisions with other services exposing /assets.
+            """
+            target = react_dist / filename
+            if not target.exists() or not target.is_file():
+                abort(404)
+            return send_from_directory(str(react_dist), filename)
 
         # Paths that should NOT be intercepted (handled by Flask)
         _flask_prefixes = (
@@ -540,7 +551,6 @@ def create_app(config_name: str | None = None) -> Flask:
         @app.route("/<path:path>")
         def catch_all(path):
             if any(path.startswith(p) for p in _flask_prefixes):
-                from flask import abort
                 abort(404)
             return send_from_directory(str(react_dist), "index.html")
     else:
