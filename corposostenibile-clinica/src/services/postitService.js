@@ -24,6 +24,14 @@ const postitApi = axios.create({
     withCredentials: true,
 });
 
+const isHtmlLikePayload = (payload) => (
+    typeof payload === 'string' && (
+        payload.includes('<!DOCTYPE html') ||
+        payload.includes('<html') ||
+        payload.includes('Accedi')
+    )
+);
+
 // Request interceptor to add CSRF token
 postitApi.interceptors.request.use((config) => {
     let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -42,7 +50,14 @@ postitApi.interceptors.request.use((config) => {
 
 // Response interceptor for error handling
 postitApi.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (isHtmlLikePayload(response?.data)) {
+            const err = new Error('POSTIT_WRONG_ENTRYPOINT');
+            err.code = 'POSTIT_WRONG_ENTRYPOINT';
+            throw err;
+        }
+        return response;
+    },
     (error) => {
         if (error.response?.status === 401) {
             window.location.href = '/auth/login';
@@ -57,7 +72,15 @@ const postitService = {
      * @returns {Promise<Object>} - { success, postits: [...], count }
      */
     getAll: async () => {
-        const response = await postitApi.get('/list');
+        const response = await postitApi.get('/list', {
+            headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
+            params: {
+                _t: Date.now(),
+            },
+        });
         return response.data;
     },
 
@@ -114,6 +137,11 @@ const postitService = {
 };
 
 export default postitService;
+
+export const isPostitWrongEntrypointError = (error) => (
+    error?.code === 'POSTIT_WRONG_ENTRYPOINT' ||
+    isHtmlLikePayload(error?.response?.data)
+);
 
 // Colori disponibili per i post-it
 export const POSTIT_COLORS = {

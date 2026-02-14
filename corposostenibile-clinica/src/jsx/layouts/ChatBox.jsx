@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Modal, Button, Badge } from "react-bootstrap";
-import postitService, { POSTIT_COLORS } from "../../services/postitService";
+import postitService, { POSTIT_COLORS, isPostitWrongEntrypointError } from "../../services/postitService";
 import taskService, { TASK_PRIORITIES, TASK_CATEGORIES } from "../../services/taskService";
 import TaskSidebar from "../../components/sidebar/TaskSidebar";
 
@@ -43,6 +43,7 @@ const ChatBox = ({ onClick, toggle }) => {
    });
 
    const loadingPostitsRef = useRef(false);
+   const postitWrongEntrypointMessage = 'I post-it non sono disponibili su questo endpoint. Apri la Suite dall\'indirizzo corretto della clinica.';
 
    // Load post-its when tab is activated
    const loadPostits = useCallback(async () => {
@@ -54,6 +55,9 @@ const ChatBox = ({ onClick, toggle }) => {
          setPostits(res.postits || []);
       } catch (err) {
          console.error('Errore caricamento post-it:', err);
+         if (isPostitWrongEntrypointError(err)) {
+            alert(postitWrongEntrypointMessage);
+         }
       } finally {
          setLoading(false);
          loadingPostitsRef.current = false;
@@ -78,10 +82,17 @@ const ChatBox = ({ onClick, toggle }) => {
             setPostits(prev => [res.postit, ...prev]);
             setFormData({ content: '', color: 'yellow' });
             setShowCreateForm(false);
+            // Ensure UI is aligned with server ordering/serialization.
+            await loadPostits();
          }
       } catch (err) {
          console.error('Errore creazione post-it:', err);
-         alert('Errore nella creazione del post-it');
+         if (isPostitWrongEntrypointError(err)) {
+            alert(postitWrongEntrypointMessage);
+         } else {
+            const msg = err.response?.data?.error || err.message || 'Errore nella creazione del post-it';
+            alert(msg);
+         }
       } finally {
          setActionLoading(false);
       }
