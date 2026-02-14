@@ -1174,6 +1174,21 @@ Jinja2 = ">=3.1"
 pytz = ">=2022.7"
 
 [[package]]
+name = "flask-cors"
+version = "6.0.2"
+description = "A Flask extension simplifying CORS support"
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "flask_cors-6.0.2-py3-none-any.whl", hash = "sha256:e57544d415dfd7da89a9564e1e3a9e515042df76e12130641ca6f3f2f03b699a"},
+    {file = "flask_cors-6.0.2.tar.gz", hash = "sha256:6e118f3698249ae33e429760db98ce032a8bf9913638d085ca0f4c5534ad2423"},
+]
+
+[package.dependencies]
+flask = ">=0.9"
+Werkzeug = ">=0.7"
+
+[[package]]
 name = "flask-dance"
 version = "7.1.0"
 description = "Doing the OAuth dance with style using Flask, requests, and oauthlib"
@@ -6482,4 +6497,4 @@ cffi = ["cffi (>=1.17,<2.0)", "cffi (>=2.0.0b)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "64060442d9a0bab8b737f30d4a8cb074b2a729f795f1ab67707a41c5c0ab502c"
+content-hash = "efe2ce148c0f476ab11cbef6adfc78e177578053e0954e26c1e3e0ed8ef14e32"

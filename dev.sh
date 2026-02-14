@@ -669,7 +669,7 @@ start_frontend() {
     log_info "Avvio Frontend React (Vite) per $dev sulla porta $fe_port..."
     setup_frontend
     cd "$PROJECT_DIR/corposostenibile-clinica"
-    npm run dev -- --port "$fe_port" --host
+    BACKEND_URL="http://127.0.0.1:$be_port" npm run dev -- --port "$fe_port" --host
 }
 
 start_fullstack() {
@@ -767,7 +767,7 @@ start_pm2() {
     log_info "Avvio Frontend React..."
     cd "$PROJECT_DIR/corposostenibile-clinica"
     if [ ! -d "node_modules" ]; then npm install; fi
-    npx pm2 start "npm run dev -- --port $fe_port --host" --name "frontend-$dev" --namespace "$dev" --force
+    npx pm2 start "BACKEND_URL=http://127.0.0.1:$be_port npm run dev -- --port $fe_port --host" --name "frontend-$dev" --namespace "$dev" --force
 
     log_success "Servizi avviati in background!"
     log_info "Usa '$0 logs-pm2 $dev' per vedere i log o '$0 stop-pm2 $dev' per fermarli."

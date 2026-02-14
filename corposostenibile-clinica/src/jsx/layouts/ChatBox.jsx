@@ -75,13 +75,26 @@ const ChatBox = ({ onClick, toggle }) => {
       try {
          const res = await postitService.create(formData);
          if (res.success) {
-            setPostits(prev => [res.postit, ...prev]);
             setFormData({ content: '', color: 'yellow' });
             setShowCreateForm(false);
+            loadingPostitsRef.current = false;
+            await loadPostits();
+         } else {
+            const isLoginPage = typeof res === 'string' && (String(res).includes('<') || String(res).includes('Accedi'));
+            if (isLoginPage) {
+               alert('I post-it non sono disponibili con questo indirizzo.\n\nUsa http://localhost:3002 per vedere e creare i post-it.');
+            } else {
+               alert('Errore: ' + (res.error || res.message || 'Riprova più tardi.'));
+            }
          }
       } catch (err) {
-         console.error('Errore creazione post-it:', err);
-         alert('Errore nella creazione del post-it');
+         const msg = err.response?.data?.error || err.message || 'Errore di connessione.';
+         const isWrongUrl = typeof msg === 'string' && (msg.includes('<!') || msg.includes('Accedi'));
+         if (isWrongUrl || err.message === 'Network Error') {
+            alert('I post-it non sono disponibili con questo indirizzo.\n\nUsa http://localhost:3002 per vedere e creare i post-it.');
+         } else {
+            alert('Errore nella creazione del post-it: ' + msg);
+         }
       } finally {
          setActionLoading(false);
       }

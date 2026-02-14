@@ -298,6 +298,16 @@ def create_app(config_name: str | None = None) -> Flask:
     init_exts(app)
     if login_manager.refresh_view is None:
         login_manager.refresh_view = "auth.login"
+    
+    # CORS Configuration for development - Allow all headers and methods
+    if cfg_name == "development":
+        from flask_cors import CORS
+        CORS(app, 
+             origins=["http://localhost:3002", "http://127.0.0.1:3002", "http://161.97.116.63:3002"],
+             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+             allow_headers="*",  # Allow all headers
+             expose_headers="*",
+             supports_credentials=True)
 
     # Tracking automatico per tutti i blueprint
     from corposostenibile.middleware.tracking import setup_tracking_middleware

@@ -15,9 +15,19 @@ const getCookie = (name) => {
     return null;
 };
 
+// In produzione (build) frontend e backend sono stesso dominio → sempre URL relativo.
+// In sviluppo: localhost usa il proxy; IP esterno usa URL diretto (il proxy non funziona).
+const isDev = import.meta.env.DEV;
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const backendPort = '5002';
+
+const baseURL = (!isDev || isLocalhost)
+    ? '/postit/api'
+    : `http://${window.location.hostname}:${backendPort}/postit/api`;
+
 // Create axios instance for postit API
 const postitApi = axios.create({
-    baseURL: '/postit/api',
+    baseURL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -57,7 +67,15 @@ const postitService = {
      * @returns {Promise<Object>} - { success, postits: [...], count }
      */
     getAll: async () => {
-        const response = await postitApi.get('/list');
+        const response = await postitApi.get('/list', {
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            },
+            params: {
+                _t: Date.now()
+            }
+        });
         return response.data;
     },
 

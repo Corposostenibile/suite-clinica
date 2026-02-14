@@ -46,51 +46,62 @@ def create_postit():
         "reminderAt": "2024-01-15T10:00:00" (opzionale)
     }
     """
-    data = request.get_json() or {}
+    try:
+        data = request.get_json() or {}
 
-    content = data.get('content', '').strip()
-    if not content:
+        content = data.get('content', '').strip()
+        if not content:
+            return jsonify({
+                'success': False,
+                'error': 'Il contenuto del post-it non può essere vuoto'
+            }), 400
+
+        # Colori validi
+        valid_colors = ['yellow', 'green', 'blue', 'pink', 'orange', 'purple']
+        color = data.get('color', 'yellow')
+        if color not in valid_colors:
+            color = 'yellow'
+
+        # Reminder opzionale
+        reminder_at = None
+        if data.get('reminderAt'):
+            try:
+                reminder_at = datetime.fromisoformat(data['reminderAt'].replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                pass
+
+        # Trova la posizione massima per ordinamento
+        max_position = db.session.query(db.func.max(PostIt.position)).filter_by(
+            user_id=current_user.id,
+            deleted_at=None
+        ).scalar() or 0
+
+        postit = PostIt(
+            user_id=current_user.id,
+            content=content,
+            color=color,
+            reminder_at=reminder_at,
+            position=max_position + 1
+        )
+
+        db.session.add(postit)
+        db.session.commit()
+
+        result = {
+            'success': True,
+            'message': 'Post-it creato con successo',
+            'postit': postit.to_dict()
+        }
+        return jsonify(result), 201
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Errore creazione post-it")
+        db.session.rollback()
         return jsonify({
             'success': False,
-            'error': 'Il contenuto del post-it non può essere vuoto'
-        }), 400
-
-    # Colori validi
-    valid_colors = ['yellow', 'green', 'blue', 'pink', 'orange', 'purple']
-    color = data.get('color', 'yellow')
-    if color not in valid_colors:
-        color = 'yellow'
-
-    # Reminder opzionale
-    reminder_at = None
-    if data.get('reminderAt'):
-        try:
-            reminder_at = datetime.fromisoformat(data['reminderAt'].replace('Z', '+00:00'))
-        except (ValueError, AttributeError):
-            pass
-
-    # Trova la posizione massima per ordinamento
-    max_position = db.session.query(db.func.max(PostIt.position)).filter_by(
-        user_id=current_user.id,
-        deleted_at=None
-    ).scalar() or 0
-
-    postit = PostIt(
-        user_id=current_user.id,
-        content=content,
-        color=color,
-        reminder_at=reminder_at,
-        position=max_position + 1
-    )
-
-    db.session.add(postit)
-    db.session.commit()
-
-    return jsonify({
-        'success': True,
-        'message': 'Post-it creato con successo',
-        'postit': postit.to_dict()
-    }), 201
+            'error': f'Errore del server: {str(e)}'
+        }), 500
 
 
 @bp.route('/api/<int:postit_id>', methods=['GET'])
