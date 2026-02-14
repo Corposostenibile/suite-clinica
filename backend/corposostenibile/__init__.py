@@ -505,6 +505,7 @@ def create_app(config_name: str | None = None) -> Flask:
             '/uploads/',
             '/oauth/',
             '/static/',
+            '/postit/',
             '/quality/api/',
             '/documentation/',
             '/ghl/',
