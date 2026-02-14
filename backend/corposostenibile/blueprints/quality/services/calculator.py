@@ -721,10 +721,9 @@ class QualityScoreCalculator:
 
         start_date, end_date = SuperMalusService.get_quarter_dates(quarter)
 
-        # Query per clienti del professionista con contratto scaduto nel trimestre
-        # Un cliente è "scaduto" se subscription_end_date cade nel trimestre
-
-        from corposostenibile.models import SubscriptionRenewal
+        # Query per clienti del professionista con rinnovo/scadenza nel trimestre.
+        # Nei modelli correnti la data utile è `Cliente.data_rinnovo`.
+        from corposostenibile.models import SubscriptionContract, SubscriptionRenewal
 
         # Clienti del professionista
         professionista = db.session.get(User, professionista_id)
@@ -743,11 +742,12 @@ class QualityScoreCalculator:
         else:
             return None
 
-        # Trova clienti assegnati al professionista con contratto scaduto nel periodo
+        # Trova clienti assegnati al professionista con rinnovo previsto nel periodo
         clienti_scaduti = db.session.query(Cliente).filter(
             cliente_field == professionista_id,
-            Cliente.subscription_end_date >= start_date,
-            Cliente.subscription_end_date <= end_date
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo >= start_date,
+            Cliente.data_rinnovo <= end_date
         ).all()
 
         n_scaduti = len(clienti_scaduti)
@@ -757,10 +757,15 @@ class QualityScoreCalculator:
         # Conta quanti hanno rinnovato
         n_rinnovati = 0
         for cliente in clienti_scaduti:
-            # Verifica se esiste un rinnovo dopo la scadenza
-            rinnovo = db.session.query(SubscriptionRenewal).filter(
-                SubscriptionRenewal.cliente_id == cliente.cliente_id,
-                SubscriptionRenewal.renewal_date >= cliente.subscription_end_date
+            # Verifica se esiste almeno un rinnovo registrato per un contratto del cliente
+            # a partire dalla data rinnovo prevista.
+            rinnovo = db.session.query(SubscriptionRenewal).join(
+                SubscriptionContract,
+                SubscriptionRenewal.subscription_id == SubscriptionContract.subscription_id
+            ).filter(
+                SubscriptionContract.cliente_id == cliente.cliente_id,
+                SubscriptionRenewal.renewal_payment_date.isnot(None),
+                SubscriptionRenewal.renewal_payment_date >= cliente.data_rinnovo
             ).first()
 
             if rinnovo:
@@ -858,7 +863,7 @@ class QualityScoreCalculator:
             QualityWeeklyScore.quarter == quarter
         ).order_by(
             QualityWeeklyScore.professionista_id,
-            func.desc(QualityWeeklyScore.week_start_date)
+            desc(QualityWeeklyScore.week_start_date)
         ).all()
 
         # Raggruppa per professionista, prendi solo l'ultima settimana

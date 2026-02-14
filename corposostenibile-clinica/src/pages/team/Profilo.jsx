@@ -9,6 +9,13 @@ import {
 import teamService from '../../services/teamService';
 import trainingService from '../../services/trainingService';
 import taskService, { TASK_CATEGORIES } from '../../services/taskService';
+import qualityService, {
+  getAvailableQuarters,
+  getCurrentQuarter,
+  getScoreStyle,
+  getBandBadgeStyle,
+  getSuperMalusBadgeStyle,
+} from '../../services/qualityService';
 
 const ROLE_GRADIENTS = {
   admin: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -135,6 +142,17 @@ function Profilo() {
   const [taskFilters, setTaskFilters] = useState({ q: '', category: 'all', completed: 'false' });
   const [taskPage, setTaskPage] = useState(1);
   const TASK_PER_PAGE = 10;
+
+  const [qualityLoading, setQualityLoading] = useState(false);
+  const [qualityError, setQualityError] = useState('');
+  const [qualityTrend, setQualityTrend] = useState({
+    labels: [],
+    quality_final: [],
+    quality_month: [],
+    quality_trim: [],
+  });
+  const [qualityKpi, setQualityKpi] = useState(null);
+  const [qualityQuarter, setQualityQuarter] = useState(getCurrentQuarter());
 
   useEffect(() => {
     if (id) {
@@ -286,6 +304,40 @@ function Profilo() {
     }
   }, [user?.id, taskFilters.q, taskFilters.category, taskFilters.completed]);
 
+  const fetchQuality = useCallback(async () => {
+    if (!user?.id) return;
+    setQualityLoading(true);
+    setQualityError('');
+    try {
+      if (!currentUser?.is_admin) {
+        setQualityKpi(null);
+        setQualityTrend({ labels: [], quality_final: [], quality_month: [], quality_trim: [] });
+        setQualityError('Quality visibile solo ad amministrazione');
+        return;
+      }
+
+      const [trendData, kpiData] = await Promise.all([
+        qualityService.getProfessionistaTrend(user.id),
+        qualityService.getProfessionistaKPIBreakdown(user.id, qualityQuarter),
+      ]);
+
+      setQualityTrend({
+        labels: trendData?.labels || [],
+        quality_final: trendData?.quality_final || [],
+        quality_month: trendData?.quality_month || [],
+        quality_trim: trendData?.quality_trim || [],
+      });
+      setQualityKpi(kpiData || null);
+    } catch (err) {
+      console.error('Errore caricamento quality:', err);
+      setQualityKpi(null);
+      setQualityTrend({ labels: [], quality_final: [], quality_month: [], quality_trim: [] });
+      setQualityError(err?.response?.data?.error || 'Errore nel caricamento dati quality');
+    } finally {
+      setQualityLoading(false);
+    }
+  }, [user?.id, currentUser?.is_admin, qualityQuarter]);
+
   useEffect(() => {
     if (activeTab === 'clienti') fetchClients();
   }, [activeTab, fetchClients]);
@@ -305,6 +357,10 @@ function Profilo() {
   useEffect(() => {
     if (activeTab === 'task') fetchTasks();
   }, [activeTab, fetchTasks]);
+
+  useEffect(() => {
+    if (activeTab === 'quality') fetchQuality();
+  }, [activeTab, fetchQuality]);
 
   const role = user?.role || 'professionista';
   const specialty = user?.specialty;
@@ -336,6 +392,15 @@ function Profilo() {
 
   const taskTotalPages = Math.max(1, Math.ceil(tasks.length / TASK_PER_PAGE));
   const pagedTasks = tasks.slice((taskPage - 1) * TASK_PER_PAGE, taskPage * TASK_PER_PAGE);
+
+  const qualityTrendRows = useMemo(() => {
+    return (qualityTrend.labels || []).map((label, idx) => ({
+      label,
+      quality_final: qualityTrend.quality_final?.[idx],
+      quality_month: qualityTrend.quality_month?.[idx],
+      quality_trim: qualityTrend.quality_trim?.[idx],
+    }));
+  }, [qualityTrend]);
 
   if (loading || !user) {
     return (
@@ -1148,11 +1213,128 @@ function Profilo() {
               )}
 
               {activeTab === 'quality' && (
-                <div className="text-center py-5">
-                  <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: '64px', height: '64px' }}>
-                    <i className="ri-star-line text-muted fs-3"></i>
+                <div>
+                  <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div>
+                      <h6 className="mb-1">KPI Quality</h6>
+                      <small className="text-muted">Dati trimestrali e trend ultime settimane</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="text-muted small">Trimestre</span>
+                      <select
+                        className="form-select form-select-sm"
+                        style={{ minWidth: 130 }}
+                        value={qualityQuarter}
+                        onChange={(e) => setQualityQuarter(e.target.value)}
+                      >
+                        {getAvailableQuarters().map((q) => (
+                          <option key={q} value={q}>{q}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <p className="text-muted mb-0">Qui vedrai il tuo quality</p>
+
+                  {qualityLoading ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Caricamento quality...
+                    </div>
+                  ) : qualityError ? (
+                    <div className="alert alert-warning mb-0">{qualityError}</div>
+                  ) : qualityKpi?.message ? (
+                    <div className="alert alert-light border mb-0">{qualityKpi.message}</div>
+                  ) : (
+                    <>
+                      <div className="row g-3 mb-3">
+                        <div className="col-md-6 col-xl-3">
+                          <div className="border rounded p-3 h-100">
+                            <div className="text-muted small mb-1">Quality Trim (40%)</div>
+                            <div className="fw-semibold" style={qualityKpi?.kpi_quality?.value != null ? getScoreStyle(qualityKpi.kpi_quality.value) : {}}>
+                              {qualityKpi?.kpi_quality?.value != null ? Number(qualityKpi.kpi_quality.value).toFixed(2) : '—'}
+                            </div>
+                            <div className="mt-2">
+                              <span className="badge" style={getBandBadgeStyle(qualityKpi?.kpi_quality?.bonus_band || '0%')}>
+                                {qualityKpi?.kpi_quality?.bonus_band || '0%'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-md-6 col-xl-3">
+                          <div className="border rounded p-3 h-100">
+                            <div className="text-muted small mb-1">Rinnovo Adj (60%)</div>
+                            <div className="fw-semibold">
+                              {qualityKpi?.kpi_rinnovo_adj?.value != null ? `${Number(qualityKpi.kpi_rinnovo_adj.value).toFixed(1)}%` : '—'}
+                            </div>
+                            <div className="mt-2">
+                              <span className="badge" style={getBandBadgeStyle(qualityKpi?.kpi_rinnovo_adj?.bonus_band || '0%')}>
+                                {qualityKpi?.kpi_rinnovo_adj?.bonus_band || '0%'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-md-6 col-xl-3">
+                          <div className="border rounded p-3 h-100">
+                            <div className="text-muted small mb-1">Bonus Composito</div>
+                            <div className="fw-semibold">
+                              {qualityKpi?.final_bonus_percentage != null ? `${Number(qualityKpi.final_bonus_percentage).toFixed(2)}%` : '—'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-md-6 col-xl-3">
+                          <div className="border rounded p-3 h-100">
+                            <div className="text-muted small mb-1">Bonus Finale</div>
+                            <div className="fw-semibold">
+                              {qualityKpi?.final_bonus_after_malus != null ? `${Number(qualityKpi.final_bonus_after_malus).toFixed(2)}%` : '—'}
+                            </div>
+                            {qualityKpi?.super_malus?.applied ? (
+                              <div className="mt-2">
+                                <span className="badge" style={getSuperMalusBadgeStyle(qualityKpi?.super_malus?.percentage || 0)}>
+                                  Super Malus {qualityKpi?.super_malus?.percentage || 0}%
+                                </span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      {qualityKpi?.super_malus?.applied && qualityKpi?.super_malus?.reason ? (
+                        <div className="alert alert-danger py-2 mb-3">
+                          <small><strong>Motivo Super Malus:</strong> {qualityKpi.super_malus.reason}</small>
+                        </div>
+                      ) : null}
+
+                      <div className="table-responsive border rounded">
+                        <table className="table table-sm align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Settimana</th>
+                              <th>Quality Final</th>
+                              <th>Quality Mese</th>
+                              <th>Quality Trim</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {qualityTrendRows.length === 0 ? (
+                              <tr>
+                                <td colSpan={4} className="text-center text-muted py-4">Nessun trend disponibile</td>
+                              </tr>
+                            ) : (
+                              qualityTrendRows.map((row) => (
+                                <tr key={row.label}>
+                                  <td>{row.label}</td>
+                                  <td style={row.quality_final != null ? getScoreStyle(row.quality_final) : {}}>
+                                    {row.quality_final != null ? Number(row.quality_final).toFixed(2) : '—'}
+                                  </td>
+                                  <td>{row.quality_month != null ? Number(row.quality_month).toFixed(2) : '—'}</td>
+                                  <td>{row.quality_trim != null ? Number(row.quality_trim).toFixed(2) : '—'}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

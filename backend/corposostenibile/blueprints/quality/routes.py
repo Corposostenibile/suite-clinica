@@ -293,16 +293,20 @@ def api_calculate_quality():
 
     week_start, week_end = EligibilityService.get_week_bounds(week_start)
 
-    # Get department config
-    if specialty not in DEPT_CONFIG:
+    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
+    if not specialty_values:
         return jsonify({'success': False, 'error': 'Invalid specialty'}), 400
 
-    dept_id = DEPT_CONFIG[specialty]['id']
+    specialty_enums = [
+        UserSpecialtyEnum(v)
+        for v in specialty_values
+        if v in [e.value for e in UserSpecialtyEnum]
+    ]
 
-    # Find professionals
+    # Find professionals by specialty (department_id is no longer authoritative)
     prof_query = db.session.query(User).filter(
         User.is_active == True,
-        User.department_id == dept_id
+        User.specialty.in_(specialty_enums)
     )
     if team_id:
         prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
@@ -384,11 +388,16 @@ def api_calcola_dipartimento(dept_key):
     if dept_key not in DEPT_CONFIG:
         return jsonify({'success': False, 'error': 'Dipartimento non valido'}), 400
 
-    config = DEPT_CONFIG[dept_key]
-    dept_id = config['id']
+    specialty_values = SPECIALTY_FILTER_MAP.get(dept_key.lower())
+    specialty_enums = [
+        UserSpecialtyEnum(v)
+        for v in (specialty_values or [])
+        if v in [e.value for e in UserSpecialtyEnum]
+    ]
 
     # Parametri
-    week_start_str = request.form.get('week_start') or request.json.get('week_start')
+    json_payload = request.get_json(silent=True) or {}
+    week_start_str = request.form.get('week_start') or json_payload.get('week_start')
 
     try:
         week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
@@ -400,7 +409,7 @@ def api_calcola_dipartimento(dept_key):
     # Trova professionisti del dipartimento
     professionisti = db.session.query(User).filter(
         User.is_active == True,
-        User.department_id == dept_id
+        User.specialty.in_(specialty_enums)
     ).all()
 
     import time
