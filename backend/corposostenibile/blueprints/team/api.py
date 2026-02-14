@@ -11,7 +11,7 @@ from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, cast, String
 from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -147,7 +147,7 @@ def get_members():
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 25, type=int), 10000)
     search_query = request.args.get('q', '').strip()
-    role_filter = request.args.get('role', '').strip()
+    role_filter = request.args.get('role', '').strip().lower()
     specialty_filter = request.args.get('specialty', '').strip()
     active_filter = request.args.get('active', '').strip()
     department_id = request.args.get('department_id', type=int)
@@ -179,11 +179,12 @@ def get_members():
 
     # Role filter - use new role field directly
     if role_filter:
-        if role_filter in [e.value for e in UserRoleEnum]:
-            query = query.filter(User.role == UserRoleEnum(role_filter))
-        elif role_filter == 'admin':
+        if role_filter == 'admin':
             # Fallback for old API calls
             query = query.filter(User.is_admin == True)
+        else:
+            # Robust text-based filter to avoid enum drift across branches/environments.
+            query = query.filter(cast(User.role, String) == role_filter)
 
     # Specialty filter - use new specialty field directly
     # Supports comma-separated values (e.g., "nutrizione,nutrizionista")
@@ -1773,6 +1774,7 @@ def get_available_leaders(team_type):
     - role = team_leader
     - specialty compatible with team_type
     """
+    team_type = (team_type or "").strip().lower()
     if team_type not in [e.value for e in TeamTypeEnum]:
         return jsonify({
             'success': False,
@@ -1807,11 +1809,18 @@ def get_available_professionals(team_type):
     For nutrizione/coach/psicologia: role = professionista and compatible specialty.
     For health_manager: role = health_manager (or department_id = 13 if present).
     """
+    team_type = (team_type or "").strip().lower()
+    team_type_aliases = {
+        "health-manager": "health_manager",
+        "healthmanager": "health_manager",
+    }
+    team_type = team_type_aliases.get(team_type, team_type)
+
     # Health Manager: return users with role health_manager
     if team_type == "health_manager":
         professionals = User.query.filter(
             User.is_active == True,
-            User.role == UserRoleEnum.health_manager,
+            cast(User.role, String) == "health_manager",
         ).order_by(User.first_name, User.last_name).all()
         return jsonify({
             'success': True,

@@ -1,7 +1,7 @@
 """add_health_manager_user_role
 
 Revision ID: c7f8e9d0a1b2
-Revises: b5e6f7a8b9c0
+Revises: c1a8e7d9f244
 Create Date: 2026-02-13
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = 'c7f8e9d0a1b2'
-down_revision = 'b5e6f7a8b9c0'
+down_revision = 'c1a8e7d9f244'
 branch_labels = None
 depends_on = None
 

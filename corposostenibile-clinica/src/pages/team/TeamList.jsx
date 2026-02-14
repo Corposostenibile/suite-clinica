@@ -75,6 +75,16 @@ function TeamList() {
     status: searchParams.get('status') || 'active',
   });
 
+  // Keep filter state aligned with URL query params (e.g. /team-lista?role=health_manager).
+  useEffect(() => {
+    setFilters({
+      search: searchParams.get('q') || '',
+      role: searchParams.get('role') || '',
+      specialty: searchParams.get('specialty') || '',
+      status: searchParams.get('status') || 'active',
+    });
+  }, [searchParams]);
+
   // Fetch global stats on mount
   useEffect(() => {
     const fetchStats = async () => {
