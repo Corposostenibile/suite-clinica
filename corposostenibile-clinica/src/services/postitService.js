@@ -24,12 +24,19 @@ const postitApi = axios.create({
     withCredentials: true,
 });
 
-const isHtmlLikePayload = (payload) => (
-    typeof payload === 'string' && (
-        payload.includes('<!DOCTYPE html') ||
-        payload.includes('<html') ||
-        payload.includes('Accedi')
-    )
+const isHtmlLikePayload = (payload) => {
+    if (typeof payload !== 'string') return false;
+    const trimmed = payload.trim().toLowerCase();
+    return trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html');
+};
+
+const isHtmlContentType = (headers = {}) => {
+    const contentType = headers['content-type'] || headers['Content-Type'] || '';
+    return typeof contentType === 'string' && contentType.toLowerCase().includes('text/html');
+};
+
+const isWrongEntrypointResponse = (response) => (
+    isHtmlContentType(response?.headers || {}) || isHtmlLikePayload(response?.data)
 );
 
 // Request interceptor to add CSRF token
@@ -51,14 +58,18 @@ postitApi.interceptors.request.use((config) => {
 // Response interceptor for error handling
 postitApi.interceptors.response.use(
     (response) => {
-        if (isHtmlLikePayload(response?.data)) {
+        if (isWrongEntrypointResponse(response)) {
             const err = new Error('POSTIT_WRONG_ENTRYPOINT');
             err.code = 'POSTIT_WRONG_ENTRYPOINT';
+            err.response = response;
             throw err;
         }
         return response;
     },
     (error) => {
+        if (isWrongEntrypointResponse(error?.response)) {
+            error.code = 'POSTIT_WRONG_ENTRYPOINT';
+        }
         if (error.response?.status === 401) {
             window.location.href = '/auth/login';
         }
@@ -140,7 +151,7 @@ export default postitService;
 
 export const isPostitWrongEntrypointError = (error) => (
     error?.code === 'POSTIT_WRONG_ENTRYPOINT' ||
-    isHtmlLikePayload(error?.response?.data)
+    isWrongEntrypointResponse(error?.response)
 );
 
 // Colori disponibili per i post-it
