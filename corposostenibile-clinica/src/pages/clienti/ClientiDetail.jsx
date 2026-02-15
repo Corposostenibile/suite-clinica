@@ -21,6 +21,7 @@ import clientiService, {
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
+import teamTicketsService from '../../services/teamTicketsService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -670,6 +671,13 @@ function ClientiDetail() {
   const [initialChecksData, setInitialChecksData] = useState(null);
   const [loadingInitialChecks, setLoadingInitialChecks] = useState(false);
 
+  // ==================== TICKETS STATE ====================
+  const [patientTickets, setPatientTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [ticketDetailModal, setTicketDetailModal] = useState(null);
+  const [ticketMessages, setTicketMessages] = useState([]);
+  const [loadingTicketDetail, setLoadingTicketDetail] = useState(false);
+
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
   const [assigningType, setAssigningType] = useState(null);
@@ -957,6 +965,44 @@ function ClientiDetail() {
       fetchInitialChecks();
     }
   }, [activeTab, fetchInitialChecks]);
+
+  // ── Fetch Tickets ──
+  const fetchPatientTickets = useCallback(async () => {
+    if (!id) return;
+    setLoadingTickets(true);
+    try {
+      const data = await teamTicketsService.listByPatient(id, { per_page: 50 });
+      setPatientTickets(data.tickets || []);
+    } catch (err) {
+      console.error('Error fetching patient tickets:', err);
+    } finally {
+      setLoadingTickets(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'tickets') {
+      fetchPatientTickets();
+    }
+  }, [activeTab, fetchPatientTickets]);
+
+  const openTicketDetail = async (ticketId) => {
+    setLoadingTicketDetail(true);
+    setTicketDetailModal(null);
+    setTicketMessages([]);
+    try {
+      const [ticketData, messagesData] = await Promise.all([
+        teamTicketsService.getTicket(ticketId),
+        teamTicketsService.getMessages(ticketId),
+      ]);
+      setTicketDetailModal(ticketData.ticket || ticketData);
+      setTicketMessages(messagesData.messages || []);
+    } catch (err) {
+      console.error('Error fetching ticket detail:', err);
+    } finally {
+      setLoadingTicketDetail(false);
+    }
+  };
 
   const fetchStoricoNutrizione = async () => {
     setLoadingStoricoNutrizione(true);
@@ -2090,6 +2136,7 @@ function ClientiDetail() {
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
+    { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
   ];
 
   return (
@@ -6217,10 +6264,229 @@ function ClientiDetail() {
                     </div>
                  </div>
               )}
+
+              {/* ========== TICKETS TAB ========== */}
+              {activeTab === 'tickets' && (
+                <div>
+                  {loadingTickets ? (
+                    <div className="text-center py-5">
+                      <div className="spinner-border text-primary" role="status"></div>
+                      <p className="mt-2 text-muted">Caricamento ticket...</p>
+                    </div>
+                  ) : patientTickets.length === 0 ? (
+                    <div className="text-center py-5">
+                      <i className="ri-ticket-2-line" style={{ fontSize: '3rem', color: '#d1d5db' }}></i>
+                      <p className="mt-3 text-muted">Nessun ticket associato a questo paziente</p>
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0">
+                        <thead className="bg-light">
+                          <tr>
+                            <th className="small text-uppercase text-muted fw-semibold">Numero</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Titolo</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Stato</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Priorita'</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Assegnatari</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Fonte</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Data</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {patientTickets.map((t) => {
+                            const statusCfg = {
+                              aperto: { label: 'Aperto', bg: '#fef3c7', color: '#92400e' },
+                              in_lavorazione: { label: 'In Lavorazione', bg: '#dbeafe', color: '#1e40af' },
+                              risolto: { label: 'Risolto', bg: '#d1fae5', color: '#065f46' },
+                              chiuso: { label: 'Chiuso', bg: '#f3f4f6', color: '#374151' },
+                            }[t.status] || { label: t.status, bg: '#f3f4f6', color: '#374151' };
+                            const prioCfg = {
+                              alta: { label: 'Alta', bg: '#fee2e2', color: '#991b1b' },
+                              media: { label: 'Media', bg: '#fef9c3', color: '#854d0e' },
+                              bassa: { label: 'Bassa', bg: '#dcfce7', color: '#166534' },
+                            }[t.priority] || { label: t.priority, bg: '#f3f4f6', color: '#374151' };
+                            return (
+                              <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => openTicketDetail(t.id)}>
+                                <td><span className="fw-semibold text-primary">{t.ticket_number}</span></td>
+                                <td>{t.title || <span className="text-muted fst-italic">{(t.description || '').slice(0, 50)}</span>}</td>
+                                <td>
+                                  <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
+                                    {statusCfg.label}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="badge rounded-pill px-2 py-1" style={{ background: prioCfg.bg, color: prioCfg.color, fontSize: '0.75rem' }}>
+                                    {prioCfg.label}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="small text-muted">
+                                    {(t.assigned_users || []).map(u => u.name).join(', ') || '—'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <i className={`ri-${t.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
+                                </td>
+                                <td><small className="text-muted">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td>
+                                  <span className="text-muted small">
+                                    {t.messages_count > 0 && <span className="me-2"><i className="ri-chat-3-line"></i> {t.messages_count}</span>}
+                                    {t.attachments_count > 0 && <span><i className="ri-attachment-2"></i> {t.attachments_count}</span>}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* ========== TICKET DETAIL MODAL ========== */}
+      {(ticketDetailModal || loadingTicketDetail) && (
+        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content" style={{ maxHeight: '85vh', overflow: 'hidden' }}>
+              {loadingTicketDetail && !ticketDetailModal ? (
+                <div className="modal-body text-center py-5">
+                  <div className="spinner-border text-primary" role="status"></div>
+                  <p className="mt-2 text-muted">Caricamento...</p>
+                </div>
+              ) : ticketDetailModal && (
+                <>
+                  <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)' }}>
+                    <div>
+                      <div className="d-flex align-items-center gap-2 mb-1">
+                        <h5 className="modal-title mb-0">
+                          <i className="ri-ticket-2-line me-2 text-primary"></i>
+                          {ticketDetailModal.ticket_number}
+                        </h5>
+                        <span className="badge rounded-pill px-2 py-1" style={{
+                          background: ({ aperto: '#fef3c7', in_lavorazione: '#dbeafe', risolto: '#d1fae5', chiuso: '#f3f4f6' })[ticketDetailModal.status] || '#f3f4f6',
+                          color: ({ aperto: '#92400e', in_lavorazione: '#1e40af', risolto: '#065f46', chiuso: '#374151' })[ticketDetailModal.status] || '#374151',
+                          fontSize: '0.7rem',
+                        }}>
+                          {({ aperto: 'Aperto', in_lavorazione: 'In Lavorazione', risolto: 'Risolto', chiuso: 'Chiuso' })[ticketDetailModal.status] || ticketDetailModal.status}
+                        </span>
+                        <span className="badge rounded-pill px-2 py-1" style={{
+                          background: ({ alta: '#fee2e2', media: '#fef9c3', bassa: '#dcfce7' })[ticketDetailModal.priority] || '#f3f4f6',
+                          color: ({ alta: '#991b1b', media: '#854d0e', bassa: '#166534' })[ticketDetailModal.priority] || '#374151',
+                          fontSize: '0.7rem',
+                        }}>
+                          {({ alta: 'Alta', media: 'Media', bassa: 'Bassa' })[ticketDetailModal.priority] || ticketDetailModal.priority}
+                        </span>
+                        <i className={`ri-${ticketDetailModal.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
+                      </div>
+                      <span className="text-muted small">{ticketDetailModal.title || '(Senza titolo)'}</span>
+                    </div>
+                    <button className="btn-close" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}></button>
+                  </div>
+                  <div className="modal-body" style={{ overflowY: 'auto', maxHeight: 'calc(85vh - 140px)' }}>
+                    {/* Info */}
+                    <div className="row g-3 mb-4">
+                      <div className="col-sm-6">
+                        <div className="small text-muted text-uppercase fw-semibold mb-1">Assegnatari</div>
+                        <div>{(ticketDetailModal.assigned_users || []).map(u => u.name).join(', ') || 'Nessuno'}</div>
+                      </div>
+                      <div className="col-sm-6">
+                        <div className="small text-muted text-uppercase fw-semibold mb-1">Creato da</div>
+                        <div>{ticketDetailModal.created_by_name || 'Teams'} — {ticketDetailModal.created_at ? new Date(ticketDetailModal.created_at).toLocaleString('it-IT') : '—'}</div>
+                      </div>
+                      {ticketDetailModal.resolved_at && (
+                        <div className="col-sm-6">
+                          <div className="small text-muted text-uppercase fw-semibold mb-1">Risolto il</div>
+                          <div>{new Date(ticketDetailModal.resolved_at).toLocaleString('it-IT')}</div>
+                        </div>
+                      )}
+                      {ticketDetailModal.closed_at && (
+                        <div className="col-sm-6">
+                          <div className="small text-muted text-uppercase fw-semibold mb-1">Chiuso il</div>
+                          <div>{new Date(ticketDetailModal.closed_at).toLocaleString('it-IT')}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Descrizione */}
+                    {ticketDetailModal.description && (
+                      <div className="mb-4">
+                        <div className="small text-muted text-uppercase fw-semibold mb-2">Descrizione</div>
+                        <div className="p-3 bg-light rounded" style={{ whiteSpace: 'pre-wrap' }}>{ticketDetailModal.description}</div>
+                      </div>
+                    )}
+
+                    {/* Allegati */}
+                    {ticketDetailModal.attachments && ticketDetailModal.attachments.length > 0 && (
+                      <div className="mb-4">
+                        <div className="small text-muted text-uppercase fw-semibold mb-2">
+                          <i className="ri-attachment-2 me-1"></i>Allegati ({ticketDetailModal.attachments.length})
+                        </div>
+                        <div className="d-flex flex-wrap gap-2">
+                          {ticketDetailModal.attachments.map((att) => {
+                            const sizeKb = att.file_size ? (att.file_size / 1024).toFixed(0) : '?';
+                            return (
+                              <a
+                                key={att.id}
+                                href={teamTicketsService.getAttachmentUrl(att.id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                              >
+                                <i className={att.is_image ? 'ri-image-line' : 'ri-file-line'}></i>
+                                {att.filename}
+                                <span className="text-muted">({sizeKb} KB)</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Messaggi */}
+                    {ticketMessages.length > 0 && (
+                      <div>
+                        <div className="small text-muted text-uppercase fw-semibold mb-2">
+                          <i className="ri-chat-3-line me-1"></i>Messaggi ({ticketMessages.length})
+                        </div>
+                        <div className="d-flex flex-column gap-2">
+                          {ticketMessages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className="p-2 rounded"
+                              style={{
+                                background: msg.source === 'teams' ? 'rgba(99, 102, 241, 0.06)' : 'rgba(16, 185, 129, 0.06)',
+                                borderLeft: `3px solid ${msg.source === 'teams' ? '#6366f1' : '#10b981'}`,
+                              }}
+                            >
+                              <div className="d-flex justify-content-between align-items-center mb-1">
+                                <span className="fw-semibold small">
+                                  <i className={`ri-${msg.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-success'} me-1`}></i>
+                                  {msg.sender_name || 'Anonimo'}
+                                </span>
+                                <small className="text-muted">{msg.created_at ? new Date(msg.created_at).toLocaleString('it-IT') : ''}</small>
+                              </div>
+                              <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="modal-footer border-0">
+                    <button className="btn btn-secondary" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}>Chiudi</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Modal */}
       {showDeleteModal && (

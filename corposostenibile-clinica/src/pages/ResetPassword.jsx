@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { FaLock, FaEye, FaEyeSlash, FaArrowLeft, FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa';
 import authService from '../services/authService';
 import '../styles/auth.css';
-import 'remixicon/fonts/remixicon.css';
+import logo from '../images/logo_foglia.png';
 
 function ResetPassword() {
   const { token } = useParams();
@@ -17,9 +18,10 @@ function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(true);
   const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
   const [tokenValid, setTokenValid] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Password requirements state
   const [requirements, setRequirements] = useState({
     length: false,
     uppercase: false,
@@ -28,7 +30,10 @@ function ResetPassword() {
     special: false,
   });
 
-  // Verify token on mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const verifyToken = async () => {
       try {
@@ -41,11 +46,9 @@ function ResetPassword() {
         setValidating(false);
       }
     };
-
     verifyToken();
   }, [token]);
 
-  // Check password requirements
   useEffect(() => {
     const password = formData.password;
     setRequirements({
@@ -57,12 +60,16 @@ function ResetPassword() {
     });
   }, [formData.password]);
 
+  useEffect(() => {
+    if (shake) {
+      const timer = setTimeout(() => setShake(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [shake]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
@@ -72,39 +79,36 @@ function ResetPassword() {
   };
 
   const getStrengthClass = () => {
-    const percentage = getStrengthPercentage();
-    if (percentage <= 20) return 'strength-weak';
-    if (percentage <= 40) return 'strength-fair';
-    if (percentage <= 80) return 'strength-good';
+    const pct = getStrengthPercentage();
+    if (pct <= 20) return 'strength-weak';
+    if (pct <= 40) return 'strength-fair';
+    if (pct <= 80) return 'strength-good';
     return 'strength-strong';
   };
 
   const getStrengthLabel = () => {
-    const percentage = getStrengthPercentage();
-    if (percentage <= 20) return 'Debole';
-    if (percentage <= 40) return 'Sufficiente';
-    if (percentage <= 80) return 'Buona';
+    const pct = getStrengthPercentage();
+    if (pct <= 20) return 'Debole';
+    if (pct <= 40) return 'Sufficiente';
+    if (pct <= 80) return 'Buona';
     return 'Ottima';
   };
 
-  const isPasswordValid = () => {
-    return Object.values(requirements).every(Boolean);
-  };
-
-  const passwordsMatch = () => {
-    return formData.password === formData.password2 && formData.password2.length > 0;
-  };
+  const isPasswordValid = () => Object.values(requirements).every(Boolean);
+  const passwordsMatch = () => formData.password === formData.password2 && formData.password2.length > 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!isPasswordValid()) {
       setError('La password non soddisfa tutti i requisiti di sicurezza.');
+      setShake(true);
       return;
     }
 
     if (!passwordsMatch()) {
       setError('Le password non coincidono.');
+      setShake(true);
       return;
     }
 
@@ -117,57 +121,47 @@ function ResetPassword() {
     } catch (err) {
       const message = err.response?.data?.error || 'Errore durante il reset della password.';
       setError(message);
+      setShake(true);
     } finally {
       setLoading(false);
     }
   };
 
-  // Loading state
+  const RequirementItem = ({ met, label }) => (
+    <div className={`requirement ${met ? 'met' : ''}`}>
+      {met ? <FaCheckCircle size={12} /> : <FaTimesCircle size={12} />}
+      <span>{label}</span>
+    </div>
+  );
+
+  // Loading state - verifying token
   if (validating) {
     return (
-      <div className="auth-container">
-        <div className="auth-left">
-          <div className="decorative-grid"></div>
-          <div className="auth-left-content">
-            <div style={{ marginBottom: '2rem' }}>
-              <span style={{
-                display: 'block',
-                width: '4rem',
-                height: '4rem',
-                margin: '0 auto',
-                border: '4px solid rgba(255,255,255,0.1)',
-                borderTopColor: '#25B36A',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}></span>
+      <div className="login-account">
+        <div className="row h-100">
+          <div className="col-lg-6 align-self-start login-panel-left">
+            <div className="account-info-area">
+              <video className="login-video" autoPlay loop muted playsInline>
+                <source src="/login.mp4" type="video/mp4" />
+              </video>
+              <div className="login-content">
+                <p className="sub-title">Verifica in corso</p>
+                <h1 className="title">Un <span>momento...</span></h1>
+                <p className="text">Stiamo verificando il tuo link di reset</p>
+              </div>
             </div>
-            <h2>Verifica in corso...</h2>
-            <p>Stiamo controllando il tuo link di reset</p>
           </div>
-        </div>
-        <div className="auth-right">
-          <div className="auth-form-container">
-            <div className="auth-logo">
-              <img
-                src="/static/assets/immagini/Suite.png"
-                alt="Corposostenibile Suite"
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-              <h1>Suite</h1>
-            </div>
-            <div className="auth-form">
-              <h2>Verifica in corso...</h2>
-              <p className="subtitle">Stiamo verificando il link di reset.</p>
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
-                <span style={{
-                  display: 'block',
-                  width: '3rem',
-                  height: '3rem',
-                  border: '3px solid #e2e8f0',
-                  borderTopColor: '#25B36A',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }}></span>
+          <div className="col-lg-6 col-md-7 col-sm-12 mx-auto align-self-center">
+            <div className="login-form login-form--visible">
+              <div className="login-logo">
+                <img src={logo} alt="Corposostenibile" />
+              </div>
+              <div className="login-head">
+                <h3 className="title">Verifica in corso...</h3>
+                <p>Stiamo controllando il tuo link di reset.</p>
+              </div>
+              <div className="text-center">
+                <span className="login-spinner" style={{ width: '40px', height: '40px', borderWidth: '3px' }} />
               </div>
             </div>
           </div>
@@ -179,71 +173,48 @@ function ResetPassword() {
   // Invalid token state
   if (!tokenValid) {
     return (
-      <div className="auth-container">
-        <div className="auth-left">
-          <div className="decorative-grid"></div>
-          <div className="auth-left-content">
-            <div style={{
-              width: '100px',
-              height: '100px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 2rem'
-            }}>
-              <i className="ri-error-warning-line" style={{ fontSize: '3rem', color: '#ef4444' }}></i>
+      <div className="login-account">
+        <div className="row h-100">
+          <div className="col-lg-6 align-self-start login-panel-left">
+            <div className="account-info-area">
+              <video className="login-video" autoPlay loop muted playsInline>
+                <source src="/login.mp4" type="video/mp4" />
+              </video>
+              <div className="login-content">
+                <p className="sub-title">Il link non è più valido</p>
+                <h1 className="title">Link <span>scaduto</span></h1>
+                <p className="text">Richiedi un nuovo link per reimpostare la password</p>
+              </div>
             </div>
-            <h2>Link non valido</h2>
-            <p>Il link potrebbe essere scaduto o già utilizzato</p>
           </div>
-        </div>
-        <div className="auth-right">
-          <div className="auth-form-container">
-            <div className="auth-logo">
-              <img
-                src="/static/assets/immagini/Suite.png"
-                alt="Corposostenibile Suite"
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-              <h1>Suite</h1>
-            </div>
-            <div className="auth-form">
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1.5rem',
-                  boxShadow: '0 8px 24px rgba(239, 68, 68, 0.15)'
-                }}>
-                  <i className="ri-error-warning-line" style={{ fontSize: '2.5rem', color: '#ef4444' }}></i>
+          <div className="col-lg-6 col-md-7 col-sm-12 mx-auto align-self-center">
+            <div className="login-form login-form--visible">
+              <div className="login-logo">
+                <img src={logo} alt="Corposostenibile" />
+              </div>
+              <div className="login-head">
+                <div className="error-icon-wrapper">
+                  <FaExclamationTriangle style={{ fontSize: '2.2rem', color: '#fff' }} />
                 </div>
+                <h3 className="title">Link non valido</h3>
+                <p>Il link di reset password non è valido o è scaduto. Richiedi un nuovo link.</p>
               </div>
-              <h2>Link non valido</h2>
-              <p className="subtitle">
-                Il link di reset password non è valido o è scaduto. Richiedi un nuovo link per reimpostare la password.
+
+              <div className="alert alert-danger alert--animate mb-4">
+                {error}
+              </div>
+
+              <div className="text-center mb-3">
+                <Link to="/auth/forgot-password" className="btn btn-primary btn-block">
+                  Richiedi nuovo link
+                </Link>
+              </div>
+              <p className="text-center">
+                <Link to="/auth/login" className="back-link">
+                  <FaArrowLeft style={{ marginRight: '6px' }} />
+                  Torna al login
+                </Link>
               </p>
-
-              <div className="alert alert-danger">
-                <i className="ri-error-warning-fill alert-icon"></i>
-                <span>{error}</span>
-              </div>
-
-              <Link to="/auth/forgot-password" className="btn btn-primary" style={{ marginBottom: '1rem' }}>
-                <i className="ri-mail-send-line"></i>
-                Richiedi nuovo link
-              </Link>
-
-              <Link to="/auth/login" className="btn btn-outline" style={{ width: '100%' }}>
-                <i className="ri-arrow-left-line"></i>
-                Torna al login
-              </Link>
             </div>
           </div>
         </div>
@@ -251,183 +222,154 @@ function ResetPassword() {
     );
   }
 
+  // Main form
   return (
-    <div className="auth-container">
-      {/* Left Panel */}
-      <div className="auth-left">
-        <div className="decorative-grid"></div>
-        <div className="auth-left-content">
-          <img
-            src="/static/assets/immagini/auth/login_img.png"
-            alt="Reset password illustration"
-            className="auth-illustration"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-          <h2>Crea una nuova password</h2>
-          <p>Scegli una password sicura e facile da ricordare</p>
-        </div>
-      </div>
-
-      {/* Right Panel - Form */}
-      <div className="auth-right">
-        <div className="auth-form-container">
-          {/* Back Link */}
-          <Link to="/auth/login" className="back-link">
-            <i className="ri-arrow-left-line"></i>
-            Torna al login
-          </Link>
-
-          {/* Logo */}
-          <div className="auth-logo">
-            <img
-              src="/static/assets/immagini/Suite.png"
-              alt="Corposostenibile Suite"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-            <h1>Suite</h1>
+    <div className="login-account">
+      <div className="row h-100">
+        {/* Left Side - Decorative Panel */}
+        <div className="col-lg-6 align-self-start login-panel-left">
+          <div className="account-info-area">
+            <video className="login-video" autoPlay loop muted playsInline>
+              <source src="/login.mp4" type="video/mp4" />
+            </video>
+            <div className="login-content">
+              <p className="sub-title">Scegli una password sicura per proteggere il tuo account</p>
+              <h1 className="title">Nuova <span>password</span></h1>
+              <p className="text">Crea una password sicura e facile da ricordare</p>
+            </div>
           </div>
+        </div>
 
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <h2>Reimposta password</h2>
-            <p className="subtitle">
-              Crea una nuova password sicura per il tuo account.
-            </p>
+        {/* Right Side - Form */}
+        <div className="col-lg-6 col-md-7 col-sm-12 mx-auto align-self-center">
+          <div className={`login-form${mounted ? ' login-form--visible' : ''}`}>
+            <div className="login-logo">
+              <img src={logo} alt="Corposostenibile" />
+            </div>
+            <div className="login-head">
+              <h3 className="title">Reimposta password</h3>
+              <p>Crea una nuova password sicura per il tuo account.</p>
+            </div>
 
-            {/* Error Message */}
             {error && (
-              <div className="alert alert-danger">
-                <i className="ri-error-warning-fill alert-icon"></i>
-                <span>{error}</span>
+              <div className={`alert alert-danger alert--animate mb-3${shake ? ' shake' : ''}`}>
+                {error}
               </div>
             )}
 
-            {/* New Password Field */}
-            <div className="form-group">
-              <label htmlFor="password">Nuova password</label>
-              <div className="input-wrapper">
-                <i className="ri-lock-line input-icon"></i>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Inserisci la nuova password"
-                  required
-                  autoComplete="new-password"
-                  autoFocus
-                />
-                <i
-                  className={`toggle-password ${showPassword ? 'ri-eye-off-line' : 'ri-eye-line'}`}
-                  onClick={() => setShowPassword(!showPassword)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
-                ></i>
+            <form onSubmit={handleSubmit}>
+              {/* New Password */}
+              <div className="mb-4">
+                <label className="mb-1 text-dark">Nuova password</label>
+                <div className="input-with-icon">
+                  <FaLock className="input-icon" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-control form-control-lg has-icon has-toggle"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Inserisci la nuova password"
+                    required
+                    autoComplete="new-password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+
+                {/* Password Strength */}
+                {formData.password && (
+                  <div className="password-strength">
+                    <div className="strength-header">
+                      <span>Sicurezza password</span>
+                      <span className={`strength-label ${getStrengthPercentage() === 100 ? 'strength-label--strong' : ''}`}>
+                        {getStrengthLabel()}
+                      </span>
+                    </div>
+                    <div className="strength-bar">
+                      <div
+                        className={`strength-bar-fill ${getStrengthClass()}`}
+                        style={{ width: `${getStrengthPercentage()}%` }}
+                      />
+                    </div>
+                    <div className="password-requirements">
+                      <RequirementItem met={requirements.length} label="Almeno 8 caratteri" />
+                      <RequirementItem met={requirements.uppercase} label="Una maiuscola" />
+                      <RequirementItem met={requirements.lowercase} label="Una minuscola" />
+                      <RequirementItem met={requirements.number} label="Un numero" />
+                      <RequirementItem met={requirements.special} label="Un carattere speciale" />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Password Strength Indicator */}
-              {formData.password && (
-                <div className="password-strength">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Sicurezza password</span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '600', color: getStrengthPercentage() === 100 ? '#25B36A' : '#64748b' }}>
-                      {getStrengthLabel()}
-                    </span>
-                  </div>
-                  <div className="strength-bar">
-                    <div
-                      className={`strength-bar-fill ${getStrengthClass()}`}
-                      style={{ width: `${getStrengthPercentage()}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="password-requirements">
-                    <div className={`requirement ${requirements.length ? 'met' : ''}`}>
-                      <i className={`requirement-icon ${requirements.length ? 'ri-checkbox-circle-fill' : 'ri-close-circle-line'}`}></i>
-                      <span>Almeno 8 caratteri</span>
-                    </div>
-                    <div className={`requirement ${requirements.uppercase ? 'met' : ''}`}>
-                      <i className={`requirement-icon ${requirements.uppercase ? 'ri-checkbox-circle-fill' : 'ri-close-circle-line'}`}></i>
-                      <span>Una maiuscola</span>
-                    </div>
-                    <div className={`requirement ${requirements.lowercase ? 'met' : ''}`}>
-                      <i className={`requirement-icon ${requirements.lowercase ? 'ri-checkbox-circle-fill' : 'ri-close-circle-line'}`}></i>
-                      <span>Una minuscola</span>
-                    </div>
-                    <div className={`requirement ${requirements.number ? 'met' : ''}`}>
-                      <i className={`requirement-icon ${requirements.number ? 'ri-checkbox-circle-fill' : 'ri-close-circle-line'}`}></i>
-                      <span>Un numero</span>
-                    </div>
-                    <div className={`requirement ${requirements.special ? 'met' : ''}`}>
-                      <i className={`requirement-icon ${requirements.special ? 'ri-checkbox-circle-fill' : 'ri-close-circle-line'}`}></i>
-                      <span>Un carattere speciale</span>
-                    </div>
-                  </div>
+              {/* Confirm Password */}
+              <div className="mb-4">
+                <label className="mb-1 text-dark">Conferma password</label>
+                <div className="input-with-icon">
+                  <FaLock className="input-icon" />
+                  <input
+                    type={showPassword2 ? 'text' : 'password'}
+                    className="form-control form-control-lg has-icon has-toggle"
+                    name="password2"
+                    value={formData.password2}
+                    onChange={handleChange}
+                    placeholder="Conferma la nuova password"
+                    required
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowPassword2((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPassword2 ? 'Nascondi password' : 'Mostra password'}
+                  >
+                    {showPassword2 ? <FaEyeSlash /> : <FaEye />}
+                  </button>
                 </div>
-              )}
-            </div>
 
-            {/* Confirm Password Field */}
-            <div className="form-group">
-              <label htmlFor="password2">Conferma password</label>
-              <div className="input-wrapper">
-                <i className="ri-lock-line input-icon"></i>
-                <input
-                  type={showPassword2 ? 'text' : 'password'}
-                  id="password2"
-                  name="password2"
-                  value={formData.password2}
-                  onChange={handleChange}
-                  placeholder="Conferma la nuova password"
-                  required
-                  autoComplete="new-password"
-                />
-                <i
-                  className={`toggle-password ${showPassword2 ? 'ri-eye-off-line' : 'ri-eye-line'}`}
-                  onClick={() => setShowPassword2(!showPassword2)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setShowPassword2(!showPassword2)}
-                  aria-label={showPassword2 ? 'Nascondi password' : 'Mostra password'}
-                ></i>
+                {formData.password2 && (
+                  <div className={`requirement match-indicator ${passwordsMatch() ? 'met' : ''}`}>
+                    {passwordsMatch() ? <FaCheckCircle size={12} /> : <FaTimesCircle size={12} />}
+                    <span>{passwordsMatch() ? 'Le password coincidono' : 'Le password non coincidono'}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Password Match Indicator */}
-              {formData.password2 && (
-                <div className={`requirement ${passwordsMatch() ? 'met' : ''}`} style={{ marginTop: '0.75rem' }}>
-                  <i className={`requirement-icon ${passwordsMatch() ? 'ri-checkbox-circle-fill' : 'ri-close-circle-line'}`}></i>
-                  <span>{passwordsMatch() ? 'Le password coincidono' : 'Le password non coincidono'}</span>
-                </div>
-              )}
-            </div>
+              {/* Submit */}
+              <div className="text-center mb-4">
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-block"
+                  disabled={loading || !isPasswordValid() || !passwordsMatch()}
+                >
+                  {loading ? (
+                    <>
+                      <span className="login-spinner" />
+                      Aggiornamento in corso...
+                    </>
+                  ) : (
+                    'Aggiorna password'
+                  )}
+                </button>
+              </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !isPasswordValid() || !passwordsMatch()}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner"></span>
-                  Aggiornamento in corso...
-                </>
-              ) : (
-                <>
-                  <i className="ri-lock-password-line"></i>
-                  Aggiorna password
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Footer */}
-          <div className="auth-footer">
-            <p>
-              <Link to="/auth/login">Torna al login</Link>
-            </p>
+              <p className="text-center">
+                <Link to="/auth/login" className="back-link">
+                  <FaArrowLeft style={{ marginRight: '6px' }} />
+                  Torna al login
+                </Link>
+              </p>
+            </form>
           </div>
         </div>
       </div>

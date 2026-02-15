@@ -85,6 +85,11 @@ class BaseConfig:
     # -------------------------- Ticket Email -----------------------
     TICKET_EMAIL_ENABLED: bool = bool(int(os.getenv("TICKET_EMAIL_ENABLED", "0")))
 
+    # ---------------------- Microsoft Teams Bot --------------------
+    TEAMS_BOT_APP_ID: str = os.getenv("TEAMS_BOT_APP_ID", "")
+    TEAMS_BOT_APP_PASSWORD: str = os.getenv("TEAMS_BOT_APP_PASSWORD", "")
+    TEAMS_BOT_TENANT_ID: str = os.getenv("TEAMS_BOT_TENANT_ID", "")
+
     # --------------------------- CSRF ------------------------------
     WTF_CSRF_ENABLED: bool = True                   # disattivare solo nei test
     WTF_CSRF_EXEMPT_LIST: list = [

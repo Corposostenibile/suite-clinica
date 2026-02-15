@@ -70,6 +70,9 @@ stop_all() {
     pkill -f "vite.*3001" 2>/dev/null
     pkill -f "celery.*corposostenibile" 2>/dev/null
 
+    # Ferma Qdrant container (non lo rimuove)
+    docker stop qdrant 2>/dev/null && echo -e "${CYAN}   Qdrant fermato${NC}"
+
     echo -e "${GREEN}✅ Tutti i servizi sono stati arrestati${NC}"
     exit 0
 }
@@ -144,6 +147,30 @@ fi
 
 # Pulisci vecchi PID
 rm -f "$PID_FILE"
+
+# ==================== QDRANT ====================
+
+echo -e "${BLUE}🧠 [0/4] Avvio Qdrant Vector DB (porta 6333)...${NC}"
+
+if check_port 6333; then
+    echo -e "${YELLOW}   ⚠ Porta 6333 già in uso. Qdrant potrebbe essere già avviato.${NC}"
+else
+    if command -v docker &> /dev/null; then
+        # Controlla se il container esiste già (fermo)
+        if docker ps -a --format '{{.Names}}' | grep -q '^qdrant$'; then
+            docker start qdrant > /dev/null 2>&1
+            echo -e "${CYAN}   Container 'qdrant' riavviato${NC}"
+        else
+            docker run -d --name qdrant -p 6333:6333 -p 6334:6334 \
+                -v "$HOME/qdrant_storage:/qdrant/storage" \
+                qdrant/qdrant > /dev/null 2>&1
+            echo -e "${CYAN}   Container 'qdrant' creato e avviato${NC}"
+        fi
+        wait_for_service 6333 "Qdrant"
+    else
+        echo -e "${YELLOW}   ⚠ Docker non disponibile, Qdrant saltato. Il SOP Chatbot non funzionerà.${NC}"
+    fi
+fi
 
 # ==================== BACKEND ====================
 
@@ -235,6 +262,7 @@ echo -e "${GREEN}║   ✅  TUTTI I SERVIZI SONO STATI AVVIATI!                 
 echo -e "${GREEN}║                                                           ║${NC}"
 echo -e "${GREEN}╠═══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}║                                                           ║${NC}"
+echo -e "${GREEN}║   🧠 Qdrant DB:        ${CYAN}http://localhost:6333${GREEN}              ║${NC}"
 echo -e "${GREEN}║   🔧 Backend API:      ${CYAN}http://127.0.0.1:5001${GREEN}             ║${NC}"
 echo -e "${GREEN}║   🏥 Suite Clinica:    ${CYAN}http://localhost:3000${GREEN}             ║${NC}"
 echo -e "${GREEN}║   🏢 Suite Admin:      ${CYAN}http://localhost:3001${GREEN}             ║${NC}"

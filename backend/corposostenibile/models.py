@@ -455,6 +455,25 @@ class TicketCategoryEnum(str, Enum):
     review = "review"
 
 
+# ─────────────────────────── ENUM TEAM TICKET ─────────────────────────── #
+class TeamTicketStatusEnum(str, Enum):
+    aperto = "aperto"
+    in_lavorazione = "in_lavorazione"
+    risolto = "risolto"
+    chiuso = "chiuso"
+
+
+class TeamTicketPriorityEnum(str, Enum):
+    alta = "alta"
+    media = "media"
+    bassa = "bassa"
+
+
+class TeamTicketSourceEnum(str, Enum):
+    admin = "admin"
+    teams = "teams"
+
+
 # ─────────────────────────── ENUM FERIE/PERMESSI ─────────────────────────── #
 class LeaveTypeEnum(str, Enum):
     ferie = "ferie"
@@ -1278,6 +1297,12 @@ class User(UserMixin, TimestampMixin, db.Model):
     quality_score_current_quarter = db.Column(db.Float)  # Score trimestrale (rolling 12 settimane)
     bonus_band_current = db.Column(db.String(10))  # Banda bonus attuale ('100%', '60%', '30%', '0%')
     quality_last_updated = db.Column(db.DateTime)  # Ultimo aggiornamento Quality Score
+
+    # ────────────────────────── Microsoft Teams Integration ──────────────────
+    teams_aad_object_id = db.Column(db.String(100), unique=True, nullable=True, index=True,
+                                     comment="Azure AD Object ID per mappatura Teams<->User")
+    teams_conversation_ref = db.Column(JSONB, nullable=True,
+                                        comment="Riferimento conversazione Teams per messaggi proattivi")
 
     __table_args__ = (
         Index("ix_users_search_vector", "search_vector", postgresql_using="gin"),
@@ -14033,6 +14058,281 @@ class AppointmentSettingFunnel(TimestampMixin, db.Model):
             'non_in_target': self.non_in_target,
             'prenotato_non_in_target': self.prenotato_non_in_target,
             'under': self.under,
+        }
+
+
+# ───────────────────── SOP CHATBOT ──────────────────────── #
+
+class SOPDocumentStatus(enum.Enum):
+    processing = 'processing'
+    ready = 'ready'
+    error = 'error'
+
+_sop_document_status_enum = _pg_enum(SOPDocumentStatus)
+
+
+class SOPDocument(TimestampMixin, db.Model):
+    __tablename__ = "sop_documents"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    filename      = db.Column(db.String(255), nullable=False)
+    file_path     = db.Column(db.String(500), nullable=False, unique=True)
+    file_size     = db.Column(db.Integer)
+    mime_type     = db.Column(db.String(100))
+    status        = db.Column(_sop_document_status_enum, default='processing')
+    chunks_count  = db.Column(db.Integer, default=0)
+    error_message = db.Column(db.Text, nullable=True)
+    uploaded_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    uploader = relationship('User')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'status': self.status.value if self.status else 'processing',
+            'chunks_count': self.chunks_count,
+            'error_message': self.error_message,
+            'uploaded_by': self.uploaded_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ──────────────────────── TEAM TICKET SYSTEM ─────────────────────── #
+
+# Tabella ponte M2M per utenti assegnati ai team ticket
+team_ticket_assigned_users = db.Table(
+    "team_ticket_assigned_users",
+    db.Column("ticket_id", db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("assigned_at", db.DateTime, default=datetime.utcnow, nullable=False),
+    db.Column("assigned_by_id", db.Integer, db.ForeignKey("users.id")),
+)
+
+
+class TeamTicket(TimestampMixin, db.Model):
+    """
+    Sistema ticket interno per il team.
+    I manager gestiscono dalla Suite Amministrativa,
+    i membri del team interagiscono tramite Microsoft Teams bot.
+    """
+    __tablename__ = "team_tickets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
+
+    title = db.Column(db.String(200), nullable=True)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(
+        _def(TeamTicketStatusEnum),
+        default=TeamTicketStatusEnum.aperto,
+        nullable=False,
+        index=True,
+    )
+    priority = db.Column(
+        _def(TeamTicketPriorityEnum),
+        default=TeamTicketPriorityEnum.media,
+        nullable=False,
+    )
+    source = db.Column(
+        _def(TeamTicketSourceEnum),
+        default=TeamTicketSourceEnum.admin,
+        nullable=False,
+    )
+
+    # Paziente collegato (opzionale)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=True, index=True)
+
+    # Creatore
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    # Teams integration
+    teams_conversation_id = db.Column(db.String(500), nullable=True)
+    teams_activity_id = db.Column(db.String(500), nullable=True)
+
+    # Timestamps di risoluzione/chiusura
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    closed_at = db.Column(db.DateTime, nullable=True)
+
+    # ─── Relazioni ───
+    cliente = relationship("Cliente", backref=db.backref("team_tickets", lazy="dynamic"))
+    created_by = relationship("User", foreign_keys=[created_by_id], backref="team_tickets_created")
+    assigned_users = relationship(
+        "User",
+        secondary=team_ticket_assigned_users,
+        primaryjoin="TeamTicket.id == team_ticket_assigned_users.c.ticket_id",
+        secondaryjoin="User.id == team_ticket_assigned_users.c.user_id",
+        backref=db.backref("team_tickets_assigned", lazy="dynamic"),
+        lazy="selectin",
+    )
+    messages = relationship("TeamTicketMessage", back_populates="ticket", cascade="all, delete-orphan",
+                            order_by="TeamTicketMessage.created_at.asc()")
+    attachments = relationship("TeamTicketAttachment", back_populates="ticket", cascade="all, delete-orphan")
+    status_changes = relationship("TeamTicketStatusChange", back_populates="ticket", cascade="all, delete-orphan",
+                                   order_by="TeamTicketStatusChange.created_at.asc()")
+
+    @staticmethod
+    def generate_ticket_number():
+        """Genera numero ticket formato TT-YYYYMMDD-XXXX."""
+        today = date.today().strftime("%Y%m%d")
+        prefix = f"TT-{today}-"
+        last = (
+            TeamTicket.query
+            .filter(TeamTicket.ticket_number.like(f"{prefix}%"))
+            .order_by(TeamTicket.ticket_number.desc())
+            .first()
+        )
+        if last:
+            seq = int(last.ticket_number.split("-")[-1]) + 1
+        else:
+            seq = 1
+        return f"{prefix}{seq:04d}"
+
+    def to_dict(self, include_messages=False, include_attachments=False):
+        d = {
+            "id": self.id,
+            "ticket_number": self.ticket_number,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status.value if self.status else None,
+            "priority": self.priority.value if self.priority else None,
+            "source": self.source.value if self.source else None,
+            "cliente_id": self.cliente_id,
+            "cliente_nome": self.cliente.nome_cognome if self.cliente else None,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.full_name if self.created_by else None,
+            "assigned_users": [
+                {"id": u.id, "name": u.full_name, "avatar": u.avatar_path}
+                for u in self.assigned_users
+            ],
+            "teams_conversation_id": self.teams_conversation_id,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+            "closed_at": self.closed_at.isoformat() if self.closed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "messages_count": len(self.messages) if self.messages else 0,
+            "attachments_count": len(self.attachments) if self.attachments else 0,
+        }
+        if include_messages:
+            d["messages"] = [m.to_dict() for m in self.messages]
+            d["status_changes"] = [sc.to_dict() for sc in self.status_changes]
+        if include_attachments:
+            d["attachments"] = [a.to_dict() for a in self.attachments]
+        return d
+
+
+class TeamTicketMessage(TimestampMixin, db.Model):
+    """Messaggi nei team ticket (da admin o da Teams)."""
+    __tablename__ = "team_ticket_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    content = db.Column(db.Text, nullable=False)
+    source = db.Column(_def(TeamTicketSourceEnum), nullable=False)
+
+    # Campi per messaggi da Teams (utente non ancora mappato)
+    teams_sender_name = db.Column(db.String(255), nullable=True)
+    teams_sender_aad_id = db.Column(db.String(100), nullable=True)
+
+    # Lettura
+    read_by = db.Column(JSONB, default=list, comment="Lista user_id che hanno letto il messaggio")
+
+    # ─── Relazioni ───
+    ticket = relationship("TeamTicket", back_populates="messages")
+    sender = relationship("User", backref="team_ticket_messages_sent")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "sender_id": self.sender_id,
+            "sender_name": self.sender.full_name if self.sender else self.teams_sender_name,
+            "content": self.content,
+            "source": self.source.value if self.source else None,
+            "teams_sender_name": self.teams_sender_name,
+            "read_by": self.read_by or [],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def mark_as_read(self, user_id: int):
+        if not self.read_by:
+            self.read_by = []
+        if user_id not in self.read_by:
+            self.read_by = self.read_by + [user_id]
+
+
+class TeamTicketAttachment(TimestampMixin, db.Model):
+    """Allegati dei team ticket."""
+    __tablename__ = "team_ticket_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(512), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)
+    mime_type = db.Column(db.String(100), nullable=True)
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    source = db.Column(_def(TeamTicketSourceEnum), nullable=False, default=TeamTicketSourceEnum.admin)
+
+    # ─── Relazioni ───
+    ticket = relationship("TeamTicket", back_populates="attachments")
+    uploaded_by = relationship("User")
+
+    @property
+    def extension(self) -> str:
+        return self.filename.rsplit(".", 1)[-1].lower() if "." in self.filename else ""
+
+    @property
+    def is_image(self) -> bool:
+        return self.extension in ("jpg", "jpeg", "png", "gif", "webp")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "is_image": self.is_image,
+            "uploaded_by_id": self.uploaded_by_id,
+            "uploaded_by_name": self.uploaded_by.full_name if self.uploaded_by else None,
+            "source": self.source.value if self.source else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class TeamTicketStatusChange(TimestampMixin, db.Model):
+    """Log dei cambi di status dei team ticket."""
+    __tablename__ = "team_ticket_status_changes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    from_status = db.Column(_def(TeamTicketStatusEnum), nullable=True)
+    to_status = db.Column(_def(TeamTicketStatusEnum), nullable=False)
+    changed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    source = db.Column(_def(TeamTicketSourceEnum), nullable=False, default=TeamTicketSourceEnum.admin)
+
+    # ─── Relazioni ───
+    ticket = relationship("TeamTicket", back_populates="status_changes")
+    changed_by = relationship("User")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "from_status": self.from_status.value if self.from_status else None,
+            "to_status": self.to_status.value if self.to_status else None,
+            "changed_by_id": self.changed_by_id,
+            "changed_by_name": self.changed_by.full_name if self.changed_by else None,
+            "message": self.message,
+            "source": self.source.value if self.source else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

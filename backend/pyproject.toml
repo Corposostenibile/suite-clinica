@@ -37,6 +37,11 @@ alembic = "^1.16.1"
 celery = {extras = ["redis"], version = "^5.5.2"}
 apscheduler = "^3.11.0"
 
+# Microsoft Teams Bot Framework
+botbuilder-core = "^4.16"
+botbuilder-schema = "^4.16"
+aiohttp = "^3.9"
+
 # Config & Utils
 python-dotenv = "^1.0"
 python-slugify = "^8.0.4"

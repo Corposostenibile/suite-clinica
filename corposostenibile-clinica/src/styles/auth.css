@@ -242,6 +242,9 @@ body {
   padding: 0 50px;
   max-width: 600px;
   margin: 0 auto;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 @media (max-width: 1400px) {
@@ -387,7 +390,7 @@ body {
 
 .form-control:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 0.2rem rgba(136, 111, 254, 0.15);
+  box-shadow: 0 0 0 0.2rem rgba(37, 179, 106, 0.15);
 }
 
 .form-control-lg {
@@ -395,8 +398,63 @@ body {
   font-size: 16px;
 }
 
+.form-control.has-icon {
+  padding-left: 2.75rem;
+}
+
+.form-control.has-toggle {
+  padding-right: 2.75rem;
+}
+
 .form-control::placeholder {
   color: #adb5bd;
+}
+
+/* ===================================================================
+   INPUT WITH ICON
+   =================================================================== */
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-with-icon .input-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #adb5bd;
+  font-size: 0.95rem;
+  pointer-events: none;
+  transition: color 0.3s ease;
+  z-index: 2;
+}
+
+.input-with-icon .form-control:focus ~ .input-icon,
+.input-with-icon .form-control:focus + .input-icon,
+.input-with-icon:focus-within .input-icon {
+  color: var(--primary);
+}
+
+.input-with-icon .toggle-password {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #adb5bd;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s ease;
+  z-index: 2;
+}
+
+.input-with-icon .toggle-password:hover {
+  color: var(--primary);
 }
 
 /* Labels */
@@ -422,7 +480,7 @@ body {
 }
 
 .custom-checkbox .form-check-input:focus {
-  box-shadow: 0 0 0 0.2rem rgba(136, 111, 254, 0.15);
+  box-shadow: 0 0 0 0.2rem rgba(37, 179, 106, 0.15);
 }
 
 .custom-checkbox .form-check-label {
@@ -686,7 +744,7 @@ body {
 .success-icon-wrapper {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, var(--primary) 0%, #6c5ce7 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, #1a8a4a 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -694,9 +752,38 @@ body {
   margin: 0 auto 1.5rem;
 }
 
-.success-icon-wrapper i {
-  font-size: 2.5rem;
-  color: var(--white);
+/* Error Icon */
+.error-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+/* Strength Header */
+.strength-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.strength-label {
+  font-weight: 600;
+}
+
+.strength-label--strong {
+  color: var(--primary);
+}
+
+/* Match Indicator */
+.match-indicator {
+  margin-top: 0.75rem;
 }
 
 /* Back Link */
@@ -712,4 +799,95 @@ body {
 
 .back-link:hover {
   color: var(--primary);
+}
+
+/* ===================================================================
+   ANIMATIONS
+   =================================================================== */
+
+/* Fade-in for form */
+.login-form--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Alert slide-in */
+.alert--animate {
+  animation: alertSlideIn 0.35s ease-out;
+}
+
+@keyframes alertSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shake on error */
+.shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* ===================================================================
+   LOGIN SPINNER
+   =================================================================== */
+
+.login-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===================================================================
+   CONTACT IT LINK
+   =================================================================== */
+
+.contact-it-link {
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.contact-it-link:hover {
+  text-decoration: underline;
+  color: var(--primary-hover) !important;
+}
+
+/* ===================================================================
+   MOBILE - HIDE VIDEO PANEL
+   =================================================================== */
+
+@media (max-width: 576px) {
+  .login-panel-left {
+    display: none;
+  }
+
+  .login-form {
+    padding: 20px 10px !important;
+  }
+
+  .login-logo {
+    margin-bottom: 1.5rem;
+  }
 }

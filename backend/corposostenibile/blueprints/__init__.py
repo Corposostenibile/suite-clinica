@@ -15,12 +15,14 @@ from . import (
     review,
     sales_form,
     team,
+    team_tickets,
     ticket,
     welcome,
     client_checks,
     manual,
     tasks,
     search,
+    sop_chatbot,
 
 )
 
@@ -39,10 +41,12 @@ __all__ = [
     'review',
     'sales_form',
     'team',
+    'team_tickets',
     'ticket',
     'welcome',
     'client_checks',
     'manual',
     'tasks',
     'search',
+    'sop_chatbot',
 ]

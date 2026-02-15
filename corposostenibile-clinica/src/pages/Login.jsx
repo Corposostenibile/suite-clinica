@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import authService from '../services/authService';
 import '../styles/auth.css';
 import logo from '../images/logo_foglia.png';
@@ -16,6 +17,20 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(searchParams.get('message') || '');
+  const [showPassword, setShowPassword] = useState(false);
+  const [shake, setShake] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (shake) {
+      const timer = setTimeout(() => setShake(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [shake]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -45,6 +60,7 @@ function Login() {
     } catch (err) {
       const message = err.response?.data?.error || 'Credenziali non valide. Riprova.';
       setError(message);
+      setShake(true);
     } finally {
       setLoading(false);
     }
@@ -54,7 +70,7 @@ function Login() {
     <div className="login-account">
       <div className="row h-100">
         {/* Left Side - Decorative Panel */}
-        <div className="col-lg-6 align-self-start">
+        <div className="col-lg-6 align-self-start login-panel-left">
           <div className="account-info-area">
             <video className="login-video" autoPlay loop muted playsInline>
               <source src="/login.mp4" type="video/mp4" />
@@ -69,7 +85,7 @@ function Login() {
 
         {/* Right Side - Login Form */}
         <div className="col-lg-6 col-md-7 col-sm-12 mx-auto align-self-center">
-          <div className="login-form">
+          <div className={`login-form${mounted ? ' login-form--visible' : ''}`}>
             <div className="login-logo">
               <img src={logo} alt="Corposostenibile" />
             </div>
@@ -80,14 +96,14 @@ function Login() {
 
             {/* Success Message */}
             {success && (
-              <div className="alert alert-success mb-3">
+              <div className="alert alert-success alert--animate mb-3">
                 {success}
               </div>
             )}
 
             {/* Error Message */}
             {error && (
-              <div className="alert alert-danger mb-3">
+              <div className={`alert alert-danger alert--animate mb-3${shake ? ' shake' : ''}`}>
                 {error}
               </div>
             )}
@@ -96,31 +112,46 @@ function Login() {
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 <label className="mb-1 text-dark">Email</label>
-                <input
-                  type="email"
-                  className="form-control form-control-lg"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="nome@esempio.it"
-                  required
-                  autoComplete="email"
-                  autoFocus
-                />
+                <div className="input-with-icon">
+                  <FaEnvelope className="input-icon" />
+                  <input
+                    type="email"
+                    className="form-control form-control-lg has-icon"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="nome@esempio.it"
+                    required
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
               </div>
 
               <div className="mb-4">
                 <label className="mb-1 text-dark">Password</label>
-                <input
-                  type="password"
-                  className="form-control form-control-lg"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
+                <div className="input-with-icon">
+                  <FaLock className="input-icon" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-control form-control-lg has-icon has-toggle"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
               </div>
 
               <div className="form-row d-flex justify-content-between mt-4 mb-2">
@@ -146,13 +177,22 @@ function Login() {
 
               <div className="text-center mb-4">
                 <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-                  {loading ? 'Accesso in corso...' : 'Accedi'}
+                  {loading ? (
+                    <>
+                      <span className="login-spinner" />
+                      Accesso in corso...
+                    </>
+                  ) : (
+                    'Accedi'
+                  )}
                 </button>
               </div>
 
               <p className="text-center">
                 Non hai un account?{' '}
-                <span className="text-primary fw-500">Contatta il team IT</span>
+                <a href="mailto:support@corposostenibile.com" className="text-primary fw-500 contact-it-link">
+                  Contatta il team IT
+                </a>
               </p>
             </form>
           </div>
