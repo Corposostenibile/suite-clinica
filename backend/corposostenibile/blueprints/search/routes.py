@@ -323,6 +323,9 @@ def global_search():
             reviewer_name = f"{review.reviewer.first_name or ''} {review.reviewer.last_name or ''}".strip() if review.reviewer else "N/A"
             reviewee_name = f"{review.reviewee.first_name or ''} {review.reviewee.last_name or ''}".strip() if review.reviewee else "N/A"
             date_str = review.updated_at.strftime('%d/%m/%Y') if review.updated_at else 'N/A'
+            training_tab = 'trainings'
+            if review.reviewer_id == current_user.id and review.reviewee_id != current_user.id:
+                training_tab = 'given'
 
             results.append({
                 'type': 'training',
@@ -331,7 +334,7 @@ def global_search():
                 'title': review.title or f"Training #{review.id}",
                 'subtitle': f'Da {reviewer_name} a {reviewee_name} - {date_str}',
                 'avatar': None,
-                'link': '/formazione',
+                'link': f'/formazione?trainingId={review.id}&trainingTab={training_tab}',
                 'metadata': {
                     'review_type': review.review_type,
                     'reviewer_id': review.reviewer_id,

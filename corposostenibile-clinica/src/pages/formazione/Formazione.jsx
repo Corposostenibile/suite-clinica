@@ -71,6 +71,8 @@ function Formazione() {
     // Configurazione Tour
     const [mostraTour, setMostraTour] = useState(false);
     const [searchParams] = useSearchParams();
+    const deepLinkTrainingId = parseInt(searchParams.get('trainingId') || '', 10);
+    const deepLinkTrainingTab = searchParams.get('trainingTab');
 
     // Effetto per avvio automatico tour da Hub Supporto
     useEffect(() => {
@@ -258,6 +260,31 @@ function Formazione() {
             loadTeamMembers();
         }
     }, [adminTab, isAdmin, teamLoaded, loadTeamMembers]);
+
+    useEffect(() => {
+        if (!Number.isInteger(deepLinkTrainingId) || deepLinkTrainingId <= 0 || loading) {
+            return;
+        }
+
+        const inTrainings = trainings.some(t => t.id === deepLinkTrainingId);
+        const inGivenTrainings = givenTrainings.some(t => t.id === deepLinkTrainingId);
+
+        let targetTab = deepLinkTrainingTab === 'given' ? 'given' : 'trainings';
+        if (targetTab === 'given' && !inGivenTrainings && inTrainings) targetTab = 'trainings';
+        if (targetTab === 'trainings' && !inTrainings && inGivenTrainings) targetTab = 'given';
+        if (!inTrainings && !inGivenTrainings) return;
+
+        if (activeTab !== targetTab) setActiveTab(targetTab);
+        if (expandedTraining !== deepLinkTrainingId) setExpandedTraining(deepLinkTrainingId);
+    }, [
+        deepLinkTrainingId,
+        deepLinkTrainingTab,
+        loading,
+        trainings,
+        givenTrainings,
+        activeTab,
+        expandedTraining
+    ]);
 
     // ==================== ADMIN FUNCTIONS ====================
     const handleSelectProfessional = async (professional) => {
