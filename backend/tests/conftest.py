@@ -41,7 +41,7 @@ def db_session(app):
     connection = _db.engine.connect()
     transaction = connection.begin()
     
-    session_factory = orm.sessionmaker(bind=connection)
+    session_factory = orm.sessionmaker(bind=connection, expire_on_commit=False)
     session = orm.scoped_session(session_factory)
     
     _db.session = session
