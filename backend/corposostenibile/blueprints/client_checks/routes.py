@@ -50,7 +50,10 @@ from corposostenibile.models import (
     CheckFormTypeEnum,
     CheckFormFieldTypeEnum,
     WeeklyCheck,
+    WeeklyCheckResponse,
     WeeklyCheckLinkAssignment,
+    DCACheck,
+    DCACheckResponse,
     StatoClienteEnum,
     MinorCheck,
     MinorCheckResponse,
@@ -76,6 +79,7 @@ from .helpers import (
     get_client_ip,
     get_user_agent,
 )
+from .rbac import get_accessible_clients_query
 
 
 def _frontend_base_url() -> str:
@@ -3194,6 +3198,7 @@ def api_azienda_stats():
     """
     API JSON: Statistiche aziendali sui check (per Check Azienda).
     OTTIMIZZATO: paginazione server-side, eager loading, batch queries.
+    Dati filtrati per ruolo (admin=all, TL=team clients, professionista=own).
     """
     from corposostenibile.models import (
         ClientCheckReadConfirmation,
@@ -3201,58 +3206,6 @@ def api_azienda_stats():
         DCACheck, DCACheckResponse,
         Team
     )
-    
-
-
-    def _get_accessible_clients_query():
-        """
-        Restituisce una QUERY per filtrare i clienti accessibili all'utente corrente.
-        - Admin: None (accesso a tutti)
-        - Team Leader: Clienti dei membri dei team gestiti
-        - Professionista: Propri clienti
-        """
-        # 1. Admin: vede tutto
-        if current_user.is_admin or current_user.role == 'admin':
-            return None
-
-        # 2. Team Leader: vede i clienti dei membri del suo team
-        # Verifica se l'utente gestisce dei team
-        if current_user.teams_led:
-            managed_team_ids = [t.id for t in current_user.teams_led]
-            
-            # Membri dei team gestiti
-            team_members_query = (
-                db.session.query(User.id)
-                .join(User.teams)
-                .filter(Team.id.in_(managed_team_ids))
-            )
-            
-            # Clienti assegnati a questi membri (come nutrizionista, coach o psicologo)
-            return (
-                db.session.query(Cliente.cliente_id)
-                .filter(
-                    db.or_(
-                        Cliente.nutrizionista_id.in_(team_members_query),
-                        Cliente.coach_id.in_(team_members_query),
-                        Cliente.psicologa_id.in_(team_members_query),
-                    )
-                )
-            )
-
-        # 3. Professionista (User standard): vede solo i propri clienti
-        return (
-            db.session.query(Cliente.cliente_id)
-            .filter(
-                db.or_(
-                    Cliente.nutrizionista_id == current_user.id,
-                    Cliente.coach_id == current_user.id,
-                    Cliente.psicologa_id == current_user.id,
-                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                    Cliente.coaches_multipli.any(User.id == current_user.id),
-                    Cliente.psicologi_multipli.any(User.id == current_user.id),
-                )
-            )
-        )
 
     try:
         # Paginazione server-side & Filtri
@@ -3295,7 +3248,7 @@ def api_azienda_stats():
             base_query = base_query.filter(WeeklyCheckResponse.submit_date <= end_date)
 
         # --- RBAC Filtering ---
-        accessible_query = _get_accessible_clients_query()
+        accessible_query = get_accessible_clients_query()
         if accessible_query is not None:
             # Se non è admin, filtra per i clienti accessibili
             base_query = base_query.filter(Cliente.cliente_id.in_(accessible_query))
@@ -3883,16 +3836,44 @@ def api_public_submit_minor(token: str):
 #  API Admin Dashboard Stats (for React Welcome dashboard)                     #
 # --------------------------------------------------------------------------- #
 
+def _apply_check_rbac_weekly(q):
+    """Join WeeklyCheckResponse -> WeeklyCheck -> Cliente and apply RBAC if needed."""
+    q = q.join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+        Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+    )
+    accessible = get_accessible_clients_query()
+    if accessible is not None:
+        q = q.filter(Cliente.cliente_id.in_(accessible))
+    return q
+
+
+def _apply_check_rbac_dca(q):
+    """Join DCACheckResponse -> DCACheck -> Cliente and apply RBAC if needed."""
+    q = q.join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id).join(
+        Cliente, DCACheck.cliente_id == Cliente.cliente_id
+    )
+    accessible = get_accessible_clients_query()
+    if accessible is not None:
+        q = q.filter(Cliente.cliente_id.in_(accessible))
+    return q
+
+
+def _apply_check_rbac_minor(q):
+    """Join MinorCheckResponse -> MinorCheck -> Cliente and apply RBAC if needed."""
+    q = q.join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id).join(
+        Cliente, MinorCheck.cliente_id == Cliente.cliente_id
+    )
+    accessible = get_accessible_clients_query()
+    if accessible is not None:
+        q = q.filter(Cliente.cliente_id.in_(accessible))
+    return q
+
+
 @api_bp.route("/admin/dashboard-stats")
 @login_required
 def api_admin_dashboard_stats():
-    """Comprehensive check dashboard stats for admin overview."""
-    from corposostenibile.models import (
-        WeeklyCheckResponse, WeeklyCheck,
-        DCACheck, DCACheckResponse,
-        MinorCheck, MinorCheckResponse,
-        ClientCheckReadConfirmation,
-    )
+    """Check dashboard stats; data filtered by role (admin=all, TL=team clients, professionista=own)."""
+    from corposostenibile.models import ClientCheckReadConfirmation
     from datetime import timedelta
     from dateutil.relativedelta import relativedelta
     from sqlalchemy import func, case, and_
@@ -3903,48 +3884,71 @@ def api_admin_dashboard_stats():
         first_day_month = today.replace(day=1)
         prev_month_start = (first_day_month - relativedelta(months=1))
         prev_month_end = first_day_month - timedelta(days=1)
+        accessible_query = get_accessible_clients_query()
 
         # ─── COUNTS BY TYPE ───────────────────────────────────────── #
-        weekly_total = db.session.query(func.count(WeeklyCheckResponse.id)).scalar() or 0
-        dca_total = db.session.query(func.count(DCACheckResponse.id)).scalar() or 0
-        minor_total = db.session.query(func.count(MinorCheckResponse.id)).scalar() or 0
+        q_weekly = db.session.query(func.count(WeeklyCheckResponse.id))
+        q_weekly = _apply_check_rbac_weekly(q_weekly)
+        weekly_total = q_weekly.scalar() or 0
+
+        q_dca = db.session.query(func.count(DCACheckResponse.id))
+        q_dca = _apply_check_rbac_dca(q_dca)
+        dca_total = q_dca.scalar() or 0
+
+        q_minor = db.session.query(func.count(MinorCheckResponse.id))
+        q_minor = _apply_check_rbac_minor(q_minor)
+        minor_total = q_minor.scalar() or 0
         total_all = weekly_total + dca_total + minor_total
 
         # This month
-        weekly_month = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-            WeeklyCheckResponse.submit_date >= first_day_month
+        weekly_month = _apply_check_rbac_weekly(
+            db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= first_day_month
+            )
         ).scalar() or 0
-        dca_month = db.session.query(func.count(DCACheckResponse.id)).filter(
-            DCACheckResponse.submit_date >= first_day_month
+        dca_month = _apply_check_rbac_dca(
+            db.session.query(func.count(DCACheckResponse.id)).filter(
+                DCACheckResponse.submit_date >= first_day_month
+            )
         ).scalar() or 0
-        minor_month = db.session.query(func.count(MinorCheckResponse.id)).filter(
-            MinorCheckResponse.submit_date >= first_day_month
+        minor_month = _apply_check_rbac_minor(
+            db.session.query(func.count(MinorCheckResponse.id)).filter(
+                MinorCheckResponse.submit_date >= first_day_month
+            )
         ).scalar() or 0
         total_month = weekly_month + dca_month + minor_month
 
         # Previous month
-        weekly_prev = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-            WeeklyCheckResponse.submit_date >= prev_month_start,
-            WeeklyCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        weekly_prev = _apply_check_rbac_weekly(
+            db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= prev_month_start,
+                WeeklyCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+            )
         ).scalar() or 0
-        dca_prev = db.session.query(func.count(DCACheckResponse.id)).filter(
-            DCACheckResponse.submit_date >= prev_month_start,
-            DCACheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        dca_prev = _apply_check_rbac_dca(
+            db.session.query(func.count(DCACheckResponse.id)).filter(
+                DCACheckResponse.submit_date >= prev_month_start,
+                DCACheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+            )
         ).scalar() or 0
-        minor_prev = db.session.query(func.count(MinorCheckResponse.id)).filter(
-            MinorCheckResponse.submit_date >= prev_month_start,
-            MinorCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        minor_prev = _apply_check_rbac_minor(
+            db.session.query(func.count(MinorCheckResponse.id)).filter(
+                MinorCheckResponse.submit_date >= prev_month_start,
+                MinorCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+            )
         ).scalar() or 0
         total_prev = weekly_prev + dca_prev + minor_prev
 
         # ─── AVERAGE RATINGS (from weekly checks - last 30 days) ──── #
         thirty_days_ago = now - timedelta(days=30)
-        avg_result = db.session.query(
+        avg_q = db.session.query(
             func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
             func.avg(WeeklyCheckResponse.psychologist_rating).label('avg_psicologo'),
             func.avg(WeeklyCheckResponse.coach_rating).label('avg_coach'),
             func.avg(WeeklyCheckResponse.progress_rating).label('avg_progresso'),
-        ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago).first()
+        ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago)
+        avg_q = _apply_check_rbac_weekly(avg_q)
+        avg_result = avg_q.first()
 
         avg_nutrizionista = round(float(avg_result.avg_nutrizionista), 1) if avg_result.avg_nutrizionista else None
         avg_psicologo = round(float(avg_result.avg_psicologo), 1) if avg_result.avg_psicologo else None
@@ -3962,21 +3966,29 @@ def api_admin_dashboard_stats():
         ]
         ratings_dist = {"low": 0, "medium": 0, "good": 0, "excellent": 0}
         for col in rating_cols:
-            low = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 1, col <= 4
+            low = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 1, col <= 4
+                )
             ).scalar() or 0
-            medium = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 5, col <= 6
+            medium = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 5, col <= 6
+                )
             ).scalar() or 0
-            good = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 7, col <= 8
+            good = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 7, col <= 8
+                )
             ).scalar() or 0
-            excellent = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 9
+            excellent = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 9
+                )
             ).scalar() or 0
             ratings_dist["low"] += low
             ratings_dist["medium"] += medium
@@ -3985,17 +3997,13 @@ def api_admin_dashboard_stats():
 
         # ─── MONTHLY TREND (last 6 months - weekly checks) ───────── #
         six_months_ago = (first_day_month - relativedelta(months=5)).replace(day=1)
-        monthly_rows = (
-            db.session.query(
-                func.date_trunc("month", WeeklyCheckResponse.submit_date).label("month"),
-                func.count(WeeklyCheckResponse.id).label("count"),
-                func.avg(WeeklyCheckResponse.progress_rating).label("avg_progress"),
-            )
-            .filter(WeeklyCheckResponse.submit_date >= six_months_ago)
-            .group_by("month")
-            .order_by("month")
-            .all()
-        )
+        monthly_q = db.session.query(
+            func.date_trunc("month", WeeklyCheckResponse.submit_date).label("month"),
+            func.count(WeeklyCheckResponse.id).label("count"),
+            func.avg(WeeklyCheckResponse.progress_rating).label("avg_progress"),
+        ).filter(WeeklyCheckResponse.submit_date >= six_months_ago)
+        monthly_q = _apply_check_rbac_weekly(monthly_q)
+        monthly_rows = monthly_q.group_by("month").order_by("month").all()
         monthly_trend = [
             {
                 "month": row.month.strftime("%Y-%m"),
@@ -4006,107 +4014,90 @@ def api_admin_dashboard_stats():
         ]
 
         # ─── UNREAD CHECKS COUNT ─────────────────────────────────── #
-        # Count responses without read confirmations from current user
         unread_count = 0
         try:
             read_ids = db.session.query(ClientCheckReadConfirmation.response_id).filter(
                 ClientCheckReadConfirmation.user_id == current_user.id,
                 ClientCheckReadConfirmation.response_type == 'weekly_check',
             ).subquery()
-            unread_count = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+            unread_q = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
                 WeeklyCheckResponse.submit_date >= thirty_days_ago,
                 ~WeeklyCheckResponse.id.in_(read_ids),
-            ).scalar() or 0
+            )
+            unread_count = _apply_check_rbac_weekly(unread_q).scalar() or 0
         except Exception:
             pass
 
         # ─── TOP PROFESSIONALS BY RATING ─────────────────────────── #
-        # Nutritionists
         top_nutrizionisti = []
         try:
-            nutri_rows = (
-                db.session.query(
-                    Cliente.nutrizionista_id,
-                    User.nome_cognome,
-                    func.avg(WeeklyCheckResponse.nutritionist_rating).label("avg_rating"),
-                    func.count(WeeklyCheckResponse.id).label("count"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .join(User, Cliente.nutrizionista_id == User.id)
-                .filter(
-                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                    WeeklyCheckResponse.nutritionist_rating.isnot(None),
-                    Cliente.nutrizionista_id.isnot(None),
-                )
-                .group_by(Cliente.nutrizionista_id, User.nome_cognome)
-                .having(func.count(WeeklyCheckResponse.id) >= 3)
-                .order_by(func.avg(WeeklyCheckResponse.nutritionist_rating).desc())
-                .limit(5)
-                .all()
+            nutri_base = db.session.query(
+                Cliente.nutrizionista_id,
+                User.nome_cognome,
+                func.avg(WeeklyCheckResponse.nutritionist_rating).label("avg_rating"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+            ).join(User, Cliente.nutrizionista_id == User.id).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                Cliente.nutrizionista_id.isnot(None),
             )
+            if accessible_query is not None:
+                nutri_base = nutri_base.filter(Cliente.cliente_id.in_(accessible_query))
+            nutri_rows = nutri_base.group_by(Cliente.nutrizionista_id, User.nome_cognome).having(
+                func.count(WeeklyCheckResponse.id) >= 3
+            ).order_by(func.avg(WeeklyCheckResponse.nutritionist_rating).desc()).limit(5).all()
             top_nutrizionisti = [
                 {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
                 for r in nutri_rows
             ]
         except Exception:
             pass
-
-        # Coaches
         top_coaches = []
         try:
-            coach_rows = (
-                db.session.query(
-                    Cliente.coach_id,
-                    User.nome_cognome,
-                    func.avg(WeeklyCheckResponse.coach_rating).label("avg_rating"),
-                    func.count(WeeklyCheckResponse.id).label("count"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .join(User, Cliente.coach_id == User.id)
-                .filter(
-                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                    WeeklyCheckResponse.coach_rating.isnot(None),
-                    Cliente.coach_id.isnot(None),
-                )
-                .group_by(Cliente.coach_id, User.nome_cognome)
-                .having(func.count(WeeklyCheckResponse.id) >= 3)
-                .order_by(func.avg(WeeklyCheckResponse.coach_rating).desc())
-                .limit(5)
-                .all()
+            coach_base = db.session.query(
+                Cliente.coach_id,
+                User.nome_cognome,
+                func.avg(WeeklyCheckResponse.coach_rating).label("avg_rating"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+            ).join(User, Cliente.coach_id == User.id).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                WeeklyCheckResponse.coach_rating.isnot(None),
+                Cliente.coach_id.isnot(None),
             )
+            if accessible_query is not None:
+                coach_base = coach_base.filter(Cliente.cliente_id.in_(accessible_query))
+            coach_rows = coach_base.group_by(Cliente.coach_id, User.nome_cognome).having(
+                func.count(WeeklyCheckResponse.id) >= 3
+            ).order_by(func.avg(WeeklyCheckResponse.coach_rating).desc()).limit(5).all()
             top_coaches = [
                 {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
                 for r in coach_rows
             ]
         except Exception:
             pass
-
-        # Psychologists
         top_psicologi = []
         try:
-            psico_rows = (
-                db.session.query(
-                    Cliente.psicologa_id,
-                    User.nome_cognome,
-                    func.avg(WeeklyCheckResponse.psychologist_rating).label("avg_rating"),
-                    func.count(WeeklyCheckResponse.id).label("count"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .join(User, Cliente.psicologa_id == User.id)
-                .filter(
-                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                    WeeklyCheckResponse.psychologist_rating.isnot(None),
-                    Cliente.psicologa_id.isnot(None),
-                )
-                .group_by(Cliente.psicologa_id, User.nome_cognome)
-                .having(func.count(WeeklyCheckResponse.id) >= 3)
-                .order_by(func.avg(WeeklyCheckResponse.psychologist_rating).desc())
-                .limit(5)
-                .all()
+            psico_base = db.session.query(
+                Cliente.psicologa_id,
+                User.nome_cognome,
+                func.avg(WeeklyCheckResponse.psychologist_rating).label("avg_rating"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+            ).join(User, Cliente.psicologa_id == User.id).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                WeeklyCheckResponse.psychologist_rating.isnot(None),
+                Cliente.psicologa_id.isnot(None),
             )
+            if accessible_query is not None:
+                psico_base = psico_base.filter(Cliente.cliente_id.in_(accessible_query))
+            psico_rows = psico_base.group_by(Cliente.psicologa_id, User.nome_cognome).having(
+                func.count(WeeklyCheckResponse.id) >= 3
+            ).order_by(func.avg(WeeklyCheckResponse.psychologist_rating).desc()).limit(5).all()
             top_psicologi = [
                 {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
                 for r in psico_rows
@@ -4117,22 +4108,20 @@ def api_admin_dashboard_stats():
         # ─── RECENT RESPONSES (last 10) ──────────────────────────── #
         recent_responses = []
         try:
-            recent_rows = (
-                db.session.query(
-                    WeeklyCheckResponse.id,
-                    WeeklyCheckResponse.submit_date,
-                    WeeklyCheckResponse.nutritionist_rating,
-                    WeeklyCheckResponse.coach_rating,
-                    WeeklyCheckResponse.psychologist_rating,
-                    WeeklyCheckResponse.progress_rating,
-                    Cliente.nome_cognome.label("cliente_nome"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .order_by(WeeklyCheckResponse.submit_date.desc())
-                .limit(15)
-                .all()
+            recent_q = db.session.query(
+                WeeklyCheckResponse.id,
+                WeeklyCheckResponse.submit_date,
+                WeeklyCheckResponse.nutritionist_rating,
+                WeeklyCheckResponse.coach_rating,
+                WeeklyCheckResponse.psychologist_rating,
+                WeeklyCheckResponse.progress_rating,
+                Cliente.nome_cognome.label("cliente_nome"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
             )
+            if accessible_query is not None:
+                recent_q = recent_q.filter(Cliente.cliente_id.in_(accessible_query))
+            recent_rows = recent_q.order_by(WeeklyCheckResponse.submit_date.desc()).limit(15).all()
             for r in recent_rows:
                 ratings = [x for x in [r.nutritionist_rating, r.coach_rating, r.psychologist_rating, r.progress_rating] if x is not None]
                 avg = round(sum(ratings) / len(ratings), 1) if ratings else None
@@ -4153,14 +4142,16 @@ def api_admin_dashboard_stats():
         # ─── PHYSICAL METRICS AVERAGES (last 30 days) ────────────── #
         physical_avgs = {}
         try:
-            phys_result = db.session.query(
+            phys_q = db.session.query(
                 func.avg(WeeklyCheckResponse.digestion_rating).label('digestion'),
                 func.avg(WeeklyCheckResponse.energy_rating).label('energy'),
                 func.avg(WeeklyCheckResponse.strength_rating).label('strength'),
                 func.avg(WeeklyCheckResponse.sleep_rating).label('sleep'),
                 func.avg(WeeklyCheckResponse.mood_rating).label('mood'),
                 func.avg(WeeklyCheckResponse.motivation_rating).label('motivation'),
-            ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago).first()
+            ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago)
+            phys_q = _apply_check_rbac_weekly(phys_q)
+            phys_result = phys_q.first()
             if phys_result:
                 physical_avgs = {
                     "digestione": round(float(phys_result.digestion), 1) if phys_result.digestion else None,

@@ -1550,43 +1550,48 @@ def api_stats() -> Any:
     return jsonify(_compute_dashboard_metrics())
 
 # – ADMIN DASHBOARD STATS -------------------------------------------------- #
+def _admin_dashboard_base_query():
+    """Query base clienti con filtro per ruolo (Admin / TL / Professionista)."""
+    return apply_role_filtering(db.session.query(Cliente))
+
+
 @api_bp.route("/admin-dashboard-stats", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_admin_dashboard_stats() -> Any:
-    """Comprehensive patient dashboard stats for admin overview."""
+    """Comprehensive patient dashboard stats; data filtered by role (admin=all, TL=team, member=own)."""
     today = date.today()
     first_day_month = today.replace(day=1)
     threshold_scadenza = today + timedelta(days=30)
 
+    # Base query con filtro ruolo
+    def q():
+        return _admin_dashboard_base_query()
+
     # ─── KPI ─────────────────────────────────────────────────────────── #
-    total = db.session.query(func.count(Cliente.cliente_id)).scalar() or 0
-    active = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "attivo").scalar() or 0
-    ghost = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "ghost").scalar() or 0
-    pausa = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "pausa").scalar() or 0
-    stop = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "stop").scalar() or 0
-    new_month = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.created_at >= first_day_month).scalar() or 0
-    in_scadenza = db.session.query(func.count(Cliente.cliente_id)).filter(
+    total = q().with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    active = q().filter(Cliente.stato_cliente == "attivo").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    ghost = q().filter(Cliente.stato_cliente == "ghost").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    pausa = q().filter(Cliente.stato_cliente == "pausa").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    stop = q().filter(Cliente.stato_cliente == "stop").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    new_month = q().filter(Cliente.created_at >= first_day_month).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    in_scadenza = q().filter(
         Cliente.data_rinnovo.isnot(None),
         Cliente.data_rinnovo <= threshold_scadenza,
         Cliente.stato_cliente == "attivo",
-    ).scalar() or 0
+    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
 
     # Previous month new clients for comparison
     prev_month_start = (first_day_month - relativedelta(months=1))
     prev_month_end = first_day_month - timedelta(days=1)
-    new_prev_month = db.session.query(func.count(Cliente.cliente_id)).filter(
+    new_prev_month = q().filter(
         Cliente.created_at >= prev_month_start,
         Cliente.created_at <= prev_month_end,
-    ).scalar() or 0
+    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
 
     # ─── STATUS DISTRIBUTION ─────────────────────────────────────────── #
     status_rows = (
-        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        q()
+        .with_entities(Cliente.stato_cliente, func.count(Cliente.cliente_id))
         .group_by(Cliente.stato_cliente)
         .all()
     )
@@ -1599,7 +1604,8 @@ def api_admin_dashboard_stats() -> Any:
 
     # ─── TIPOLOGIA DISTRIBUTION ──────────────────────────────────────── #
     tipologia_rows = (
-        db.session.query(Cliente.tipologia_cliente, func.count(Cliente.cliente_id))
+        q()
+        .with_entities(Cliente.tipologia_cliente, func.count(Cliente.cliente_id))
         .group_by(Cliente.tipologia_cliente)
         .all()
     )
@@ -1611,7 +1617,8 @@ def api_admin_dashboard_stats() -> Any:
     # ─── SPECIALTY SERVICES ──────────────────────────────────────────── #
     def get_service_stats(col):
         rows = (
-            db.session.query(col, func.count(Cliente.cliente_id))
+            q()
+            .with_entities(col, func.count(Cliente.cliente_id))
             .group_by(col)
             .all()
         )
@@ -1629,11 +1636,12 @@ def api_admin_dashboard_stats() -> Any:
     # ─── MONTHLY TREND (last 12 months) ──────────────────────────────── #
     start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
     monthly_rows = (
-        db.session.query(
+        q()
+        .filter(Cliente.created_at >= start_period)
+        .with_entities(
             func.date_trunc("month", Cliente.created_at).label("month"),
             func.count(Cliente.cliente_id).label("count"),
         )
-        .filter(Cliente.created_at >= start_period)
         .group_by("month")
         .order_by("month")
         .all()
@@ -1665,14 +1673,15 @@ def api_admin_dashboard_stats() -> Any:
     ]
     patologie = []
     for name, col in patologie_fields:
-        count = db.session.query(func.count(Cliente.cliente_id)).filter(col == True).scalar() or 0
+        count = q().filter(col == True).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
         if count > 0:
             patologie.append({"name": name, "count": count})
     patologie.sort(key=lambda x: x["count"], reverse=True)
 
     # ─── GENDER DISTRIBUTION ─────────────────────────────────────────── #
     gender_rows = (
-        db.session.query(Cliente.genere, func.count(Cliente.cliente_id))
+        q()
+        .with_entities(Cliente.genere, func.count(Cliente.cliente_id))
         .group_by(Cliente.genere)
         .all()
     )
@@ -1683,8 +1692,9 @@ def api_admin_dashboard_stats() -> Any:
 
     # ─── PROGRAMMA DISTRIBUTION ──────────────────────────────────────── #
     programma_rows = (
-        db.session.query(Cliente.programma_attuale, func.count(Cliente.cliente_id))
+        q()
         .filter(Cliente.programma_attuale.isnot(None), Cliente.stato_cliente == "attivo")
+        .with_entities(Cliente.programma_attuale, func.count(Cliente.cliente_id))
         .group_by(Cliente.programma_attuale)
         .order_by(func.count(Cliente.cliente_id).desc())
         .limit(10)
@@ -1697,8 +1707,9 @@ def api_admin_dashboard_stats() -> Any:
 
     # ─── PAYMENT METHOD DISTRIBUTION ─────────────────────────────────── #
     payment_rows = (
-        db.session.query(Cliente.modalita_pagamento, func.count(Cliente.cliente_id))
+        q()
         .filter(Cliente.stato_cliente == "attivo")
+        .with_entities(Cliente.modalita_pagamento, func.count(Cliente.cliente_id))
         .group_by(Cliente.modalita_pagamento)
         .all()
     )

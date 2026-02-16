@@ -17,7 +17,8 @@ from corposostenibile.blueprints.review.email_service import (
     send_review_request_notification, send_review_request_response_notification
 )
 from corposostenibile.models import (
-    User, Department, Review, ReviewAcknowledgment, ReviewMessage, ReviewRequest
+    User, Department, Review, ReviewAcknowledgment, ReviewMessage, ReviewRequest,
+    UserRoleEnum,
 )
 from corposostenibile.extensions import db
 
@@ -2029,28 +2030,54 @@ def api_admin_create_training(user_id):
     })
 
 
+def _review_dashboard_visible_user_ids():
+    """
+    User IDs that count for training dashboard (reviewer or reviewee).
+    - Admin / dept 17: None (all)
+    - Team Leader: members of teams they lead + self
+    - Professionista: only self
+    """
+    if not current_user.is_authenticated:
+        return []
+    if current_user.is_admin or (hasattr(current_user, 'department_id') and current_user.department_id == 17):
+        return None
+    if getattr(current_user, 'role', None) == UserRoleEnum.team_leader and getattr(current_user, 'teams_led', None):
+        visible = {current_user.id}
+        for team in current_user.teams_led:
+            if getattr(team, 'members', None):
+                for m in team.members:
+                    visible.add(m.id)
+        return list(visible)
+    return [current_user.id]
+
+
 @bp.route('/api/admin/dashboard-stats')
 @login_required
 def api_admin_dashboard_stats():
     """
-    API JSON: Statistiche globali training per la dashboard admin.
-    Restituisce KPI, trend mensili, top formatori/destinatari, breakdown per tipo.
+    API JSON: Statistiche training per la dashboard.
+    Dati filtrati per ruolo (admin/dept17=all, TL=team, professionista=own).
     """
-    if not (current_user.is_admin or (hasattr(current_user, 'department_id') and current_user.department_id == 17)):
-        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
-
     from sqlalchemy import func, extract
     from calendar import monthrange
 
     now = datetime.utcnow()
+    visible_ids = _review_dashboard_visible_user_ids()
 
-    # --- KPI base ---
+    # Base filter: non-draft, not deleted; then restrict by role
     base_filter = Review.query.filter_by(deleted_at=None, is_draft=False)
+    if visible_ids is not None:
+        base_filter = base_filter.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
 
     total_trainings = base_filter.count()
     total_acknowledged = base_filter.join(Review.acknowledgment).count()
     total_pending = total_trainings - total_acknowledged
-    total_drafts = Review.query.filter_by(deleted_at=None, is_draft=True).count()
+    drafts_q = Review.query.filter_by(deleted_at=None, is_draft=True)
+    if visible_ids is not None:
+        drafts_q = drafts_q.filter(Review.reviewer_id.in_(visible_ids))
+    total_drafts = drafts_q.count()
 
     # Questo mese
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -2072,13 +2099,15 @@ def api_admin_dashboard_stats():
     pending_requests = ReviewRequest.query.filter_by(status='pending').count()
 
     # --- Breakdown per tipo ---
-    by_type_raw = db.session.query(
-        Review.review_type,
-        func.count(Review.id)
-    ).filter(
+    by_type_q = db.session.query(Review.review_type, func.count(Review.id)).filter(
         Review.deleted_at == None,
         Review.is_draft == False
-    ).group_by(Review.review_type).all()
+    )
+    if visible_ids is not None:
+        by_type_q = by_type_q.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
+    by_type_raw = by_type_q.group_by(Review.review_type).all()
 
     type_labels = {
         'settimanale': 'Settimanale',
@@ -2119,7 +2148,7 @@ def api_admin_dashboard_stats():
         })
 
     # --- Top 10 formatori (chi ha erogato più training) ---
-    top_reviewers_raw = db.session.query(
+    top_reviewers_q = db.session.query(
         User.id,
         User.first_name,
         User.last_name,
@@ -2128,8 +2157,12 @@ def api_admin_dashboard_stats():
     ).join(Review, Review.reviewer_id == User.id).filter(
         Review.deleted_at == None,
         Review.is_draft == False
-    ).group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
-
+    )
+    if visible_ids is not None:
+        top_reviewers_q = top_reviewers_q.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
+    top_reviewers_raw = top_reviewers_q.group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
     top_reviewers = [{
         'id': r.id,
         'name': f"{r.first_name} {r.last_name}",
@@ -2138,7 +2171,7 @@ def api_admin_dashboard_stats():
     } for r in top_reviewers_raw]
 
     # --- Top 10 destinatari (chi ha ricevuto più training) ---
-    top_reviewees_raw = db.session.query(
+    top_reviewees_q = db.session.query(
         User.id,
         User.first_name,
         User.last_name,
@@ -2147,7 +2180,12 @@ def api_admin_dashboard_stats():
     ).join(Review, Review.reviewee_id == User.id).filter(
         Review.deleted_at == None,
         Review.is_draft == False
-    ).group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
+    )
+    if visible_ids is not None:
+        top_reviewees_q = top_reviewees_q.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
+    top_reviewees_raw = top_reviewees_q.group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
 
     top_reviewees = [{
         'id': r.id,

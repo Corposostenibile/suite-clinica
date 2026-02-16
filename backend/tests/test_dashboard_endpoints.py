@@ -226,6 +226,62 @@ def test_team_stats(authenticated_client, db_session):
     print("Team Stats OK")
 
 
+def test_team_admin_dashboard_stats(authenticated_client, db_session):
+    """
+    Verifica endpoint: GET /api/team/admin-dashboard-stats (admin vede tutti; ora accessibile anche a TL/professionista con dati filtrati).
+    """
+    res = authenticated_client.get('/api/team/admin-dashboard-stats')
+    assert res.status_code == 200
+    data = res.json
+    assert data.get('success') is True
+    assert 'kpi' in data
+    assert 'specialtyDistribution' in data
+    assert 'qualitySummary' in data
+    assert 'topPerformers' in data
+    assert 'teamsSummary' in data
+    assert 'clientLoad' in data
+    kpi = data['kpi']
+    assert 'totalAll' in kpi
+    assert 'totalActive' in kpi
+    print("Team Admin Dashboard Stats OK")
+
+
+def test_dashboard_endpoints_as_professionista(client, db_session):
+    """
+    Verifica che un professionista possa chiamare i 4 endpoint dashboard e riceva 200 con struttura valida (dati filtrati).
+    """
+    from corposostenibile.models import UserSpecialtyEnum
+    # Crea professionista
+    email = f"prof_dash_{get_random_string()}@test.com"
+    prof = User(
+        email=email,
+        first_name="Prof",
+        last_name="Dashboard",
+        role=UserRoleEnum.professionista,
+        specialty=UserSpecialtyEnum.nutrizionista,
+        is_active=True,
+    )
+    prof.set_password('password')
+    db_session.add(prof)
+    db_session.commit()
+    # Login
+    res = client.post('/auth/login', data={'email': email, 'password': 'password'})
+    assert res.status_code == 302
+    # Chiama i 4 endpoint
+    endpoints = [
+        ('/api/v1/customers/admin-dashboard-stats', 'kpi'),
+        ('/api/client-checks/admin/dashboard-stats', 'kpi'),
+        ('/api/team/admin-dashboard-stats', 'success'),
+        ('/review/api/admin/dashboard-stats', 'success'),
+    ]
+    for url, key in endpoints:
+        r = client.get(url)
+        assert r.status_code == 200, f"{url} returned {r.status_code}"
+        data = r.json if hasattr(r, 'json') else r.get_json()
+        assert key in data, f"{url} response missing key {key}"
+    print("Dashboard as professionista OK")
+
+
 def test_review_admin_dashboard_stats(authenticated_client, db_session):
     """
     Verifica endpoint: GET /review/api/admin/dashboard-stats

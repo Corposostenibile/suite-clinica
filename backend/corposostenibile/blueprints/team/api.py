@@ -58,6 +58,29 @@ def _require_admin():
     return None
 
 
+def _get_visible_user_ids_for_dashboard():
+    """
+    For dashboard stats: which user IDs the current user can see.
+    - Admin: None (all users)
+    - Team Leader: members of teams they lead, plus themselves
+    - Professionista: only current_user.id
+    Returns None = no filter (see all), or a list of user ids.
+    """
+    if not current_user.is_authenticated:
+        return []
+    if current_user.is_admin:
+        return None
+    if getattr(current_user, 'role', None) == UserRoleEnum.team_leader and current_user.teams_led:
+        visible = {current_user.id}
+        for team in current_user.teams_led:
+            if team.members:
+                for m in team.members:
+                    visible.add(m.id)
+        return list(visible)
+    # Professionista or other: only self
+    return [current_user.id]
+
+
 def _get_user_role(user):
     """Get user role from model field."""
     if hasattr(user, 'role') and user.role:
@@ -1091,48 +1114,51 @@ def api_confirm_assignment():
 @login_required
 def get_admin_dashboard_stats():
     """
-    Get comprehensive admin dashboard statistics for professionals.
-    Returns KPIs, specialty distribution, quality scores, trial users, top performers.
+    Dashboard statistics for professionals; data filtered by role
+    (admin=all, TL=team members, professionista=own).
     """
     from corposostenibile.models import QualityWeeklyScore, Cliente, StatoClienteEnum
     from corposostenibile.models import cliente_nutrizionisti, cliente_coaches, cliente_psicologi
     from datetime import datetime, timedelta
     from sqlalchemy import select, case, literal_column
 
-    # Check admin permission
-    perm_error = _require_admin()
-    if perm_error:
-        return perm_error
-
     try:
         today = datetime.now().date()
+        visible_ids = _get_visible_user_ids_for_dashboard()
+
+        def _user_query(base=None):
+            q = base if base is not None else User.query
+            if visible_ids is not None:
+                q = q.filter(User.id.in_(visible_ids))
+            return q
 
         # ─── KPI: Counts ───
-        total_all = User.query.count()
-        total_active = User.query.filter_by(is_active=True).count()
+        total_all = _user_query().count()
+        total_active = _user_query(User.query.filter_by(is_active=True)).count()
         total_inactive = total_all - total_active
-        total_admins = User.query.filter_by(is_admin=True, is_active=True).count()
-        total_trial = User.query.filter_by(is_trial=True, is_active=True).count()
-        total_team_leaders = User.query.filter(
+        total_admins = _user_query(User.query.filter_by(is_admin=True, is_active=True)).count()
+        total_trial = _user_query(User.query.filter_by(is_trial=True, is_active=True)).count()
+        total_team_leaders = _user_query(User.query.filter(
             User.is_active == True,
             User.role == UserRoleEnum.team_leader
-        ).count()
-        total_professionisti = User.query.filter(
+        )).count()
+        total_professionisti = _user_query(User.query.filter(
             User.is_active == True,
             User.role == UserRoleEnum.professionista
-        ).count()
-        total_external = User.query.filter(
+        )).count()
+        total_external = _user_query(User.query.filter(
             User.is_active == True,
             User.is_external == True
-        ).count()
+        )).count()
 
         # ─── Specialty Distribution ───
-        specialty_counts = db.session.query(
-            User.specialty, func.count(User.id)
-        ).filter(
+        specialty_q = db.session.query(User.specialty, func.count(User.id)).filter(
             User.is_active == True,
             User.specialty.isnot(None)
-        ).group_by(User.specialty).all()
+        )
+        if visible_ids is not None:
+            specialty_q = specialty_q.filter(User.id.in_(visible_ids))
+        specialty_counts = specialty_q.group_by(User.specialty).all()
 
         specialty_distribution = {}
         specialty_labels = {
@@ -1152,12 +1178,13 @@ def get_admin_dashboard_stats():
             }
 
         # ─── Role Distribution ───
-        role_counts = db.session.query(
-            User.role, func.count(User.id)
-        ).filter(
+        role_q = db.session.query(User.role, func.count(User.id)).filter(
             User.is_active == True,
             User.role.isnot(None)
-        ).group_by(User.role).all()
+        )
+        if visible_ids is not None:
+            role_q = role_q.filter(User.id.in_(visible_ids))
+        role_counts = role_q.group_by(User.role).all()
 
         role_distribution = {}
         role_labels = {
@@ -1189,10 +1216,13 @@ def get_admin_dashboard_stats():
         }
 
         if latest_week:
-            latest_scores = QualityWeeklyScore.query.filter_by(
+            latest_scores_q = QualityWeeklyScore.query.filter_by(
                 week_start_date=latest_week,
                 calculation_status='completed'
-            ).all()
+            )
+            if visible_ids is not None:
+                latest_scores_q = latest_scores_q.filter(QualityWeeklyScore.professionista_id.in_(visible_ids))
+            latest_scores = latest_scores_q.all()
 
             if latest_scores:
                 finals = [s.quality_final for s in latest_scores if s.quality_final is not None]
@@ -1219,12 +1249,13 @@ def get_admin_dashboard_stats():
         # ─── Top Performers (by quality_final, latest week) ───
         top_performers = []
         if latest_week:
-            top_scores = QualityWeeklyScore.query.filter_by(
+            top_scores_q = QualityWeeklyScore.query.filter_by(
                 week_start_date=latest_week,
                 calculation_status='completed'
-            ).filter(
-                QualityWeeklyScore.quality_final.isnot(None)
-            ).order_by(
+            ).filter(QualityWeeklyScore.quality_final.isnot(None))
+            if visible_ids is not None:
+                top_scores_q = top_scores_q.filter(QualityWeeklyScore.professionista_id.in_(visible_ids))
+            top_scores = top_scores_q.order_by(
                 QualityWeeklyScore.quality_final.desc()
             ).limit(10).all()
 
@@ -1243,9 +1274,10 @@ def get_admin_dashboard_stats():
                     })
 
         # ─── Trial Users ───
-        trial_users = User.query.filter_by(
-            is_trial=True, is_active=True
-        ).order_by(User.created_at.desc()).limit(10).all()
+        trial_q = User.query.filter_by(is_trial=True, is_active=True)
+        if visible_ids is not None:
+            trial_q = trial_q.filter(User.id.in_(visible_ids))
+        trial_users = trial_q.order_by(User.created_at.desc()).limit(10).all()
 
         trial_list = []
         for u in trial_users:
@@ -1262,7 +1294,7 @@ def get_admin_dashboard_stats():
         quality_trend = []
         if latest_week:
             eight_weeks_ago = latest_week - timedelta(weeks=8)
-            weekly_avgs = db.session.query(
+            trend_q = db.session.query(
                 QualityWeeklyScore.week_start_date,
                 func.avg(QualityWeeklyScore.quality_final),
                 func.count(QualityWeeklyScore.id)
@@ -1270,7 +1302,10 @@ def get_admin_dashboard_stats():
                 QualityWeeklyScore.week_start_date >= eight_weeks_ago,
                 QualityWeeklyScore.calculation_status == 'completed',
                 QualityWeeklyScore.quality_final.isnot(None)
-            ).group_by(
+            )
+            if visible_ids is not None:
+                trend_q = trend_q.filter(QualityWeeklyScore.professionista_id.in_(visible_ids))
+            weekly_avgs = trend_q.group_by(
                 QualityWeeklyScore.week_start_date
             ).order_by(
                 QualityWeeklyScore.week_start_date
@@ -1284,7 +1319,16 @@ def get_admin_dashboard_stats():
                 })
 
         # ─── Teams Summary ───
-        teams = Team.query.filter_by(is_active=True).all()
+        if visible_ids is None:
+            teams = Team.query.filter_by(is_active=True).all()
+        elif getattr(current_user, 'role', None) == UserRoleEnum.team_leader and current_user.teams_led:
+            team_ids = [t.id for t in current_user.teams_led]
+            teams = Team.query.filter(Team.id.in_(team_ids), Team.is_active == True).all()
+        else:
+            # Professionista: teams of which they are a member
+            teams = Team.query.filter_by(is_active=True).filter(
+                Team.members.any(User.id == current_user.id)
+            ).all()
         teams_summary = []
         for team in teams:
             member_count = len(team.members) if team.members else 0
@@ -1297,50 +1341,68 @@ def get_admin_dashboard_stats():
             })
 
         # ─── Client Load per Specialty ───
-        # Count active clients per specialty group
-        nutri_clients = db.session.query(func.count(Cliente.cliente_id)).filter(
+        # Count active clients per specialty (only for visible professionals when filtered)
+        nutri_clients_q = db.session.query(func.count(Cliente.cliente_id)).filter(
             Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa]),
             or_(
                 Cliente.nutrizionista_id.isnot(None),
-                Cliente.cliente_id.in_(
-                    select(cliente_nutrizionisti.c.cliente_id)
+                Cliente.cliente_id.in_(select(cliente_nutrizionisti.c.cliente_id))
+            )
+        )
+        if visible_ids is not None:
+            nutri_clients_q = nutri_clients_q.filter(
+                or_(
+                    Cliente.nutrizionista_id.in_(visible_ids),
+                    Cliente.nutrizionisti_multipli.any(User.id.in_(visible_ids))
                 )
             )
-        ).scalar() or 0
+        nutri_clients = nutri_clients_q.scalar() or 0
 
-        coach_clients = db.session.query(func.count(Cliente.cliente_id)).filter(
+        coach_clients_q = db.session.query(func.count(Cliente.cliente_id)).filter(
             Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa]),
             or_(
                 Cliente.coach_id.isnot(None),
-                Cliente.cliente_id.in_(
-                    select(cliente_coaches.c.cliente_id)
+                Cliente.cliente_id.in_(select(cliente_coaches.c.cliente_id))
+            )
+        )
+        if visible_ids is not None:
+            coach_clients_q = coach_clients_q.filter(
+                or_(
+                    Cliente.coach_id.in_(visible_ids),
+                    Cliente.coaches_multipli.any(User.id.in_(visible_ids))
                 )
             )
-        ).scalar() or 0
+        coach_clients = coach_clients_q.scalar() or 0
 
-        psico_clients = db.session.query(func.count(Cliente.cliente_id)).filter(
+        psico_clients_q = db.session.query(func.count(Cliente.cliente_id)).filter(
             Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa]),
             or_(
                 Cliente.psicologa_id.isnot(None),
-                Cliente.cliente_id.in_(
-                    select(cliente_psicologi.c.cliente_id)
+                Cliente.cliente_id.in_(select(cliente_psicologi.c.cliente_id))
+            )
+        )
+        if visible_ids is not None:
+            psico_clients_q = psico_clients_q.filter(
+                or_(
+                    Cliente.psicologa_id.in_(visible_ids),
+                    Cliente.psicologi_multipli.any(User.id.in_(visible_ids))
                 )
             )
-        ).scalar() or 0
+        psico_clients = psico_clients_q.scalar() or 0
 
-        # Professionals count per clinical specialty
-        nutri_profs = User.query.filter(
+        # Professionals count per clinical specialty (visible only when filtered)
+        nutri_profs = _user_query(User.query.filter(
             User.is_active == True,
             User.specialty.in_([UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista])
-        ).count()
-        coach_profs = User.query.filter(
+        )).count()
+        coach_profs = _user_query(User.query.filter(
             User.is_active == True,
             User.specialty == UserSpecialtyEnum.coach
-        ).count()
-        psico_profs = User.query.filter(
+        )).count()
+        psico_profs = _user_query(User.query.filter(
             User.is_active == True,
             User.specialty.in_([UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo])
-        ).count()
+        )).count()
 
         client_load = {
             'nutrizione': {
