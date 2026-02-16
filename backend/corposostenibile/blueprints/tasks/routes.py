@@ -7,6 +7,19 @@ from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, Task
 
 bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
 
+
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == 'cco' if specialty else False
+
+
+def _can_view_all_tasks(user) -> bool:
+    user_role = getattr(user, 'role', None)
+    return bool(user.is_admin or user_role == UserRoleEnum.admin or _is_cco_user(user))
+
+
 @bp.route('/', methods=['GET'])
 @login_required
 def list_tasks():
@@ -16,11 +29,8 @@ def list_tasks():
     user_role = getattr(current_user, 'role', None)
     
     # Filtro base per ruolo
-    if request.args.get('all_users') == 'true' and current_user.is_admin:
-        # Admin con all_users=true: nessun filtro
-        pass
-    elif user_role == UserRoleEnum.admin or current_user.is_admin:
-        # Admin: vede tutto
+    if _can_view_all_tasks(current_user):
+        # Admin / CCO: vede tutto
         pass
     elif user_role == UserRoleEnum.team_leader:
         # Team Leader: vede task propri e dei membri del team
@@ -101,7 +111,7 @@ def create_task():
         assignee_id=data.get('assignee_id', current_user.id), # Default a se stessi se non specificato
         client_id=data.get('client_id'),
         due_date=datetime.strptime(data['due_date'], '%Y-%m-%d').date() if data.get('due_date') else None,
-        department_id=current_user.department_id # Optional, contestuale
+        department_id=getattr(current_user, 'department_id', None) # Optional, contestuale
     )
 
     db.session.add(task)
@@ -143,9 +153,7 @@ def get_stats():
     user_role = getattr(current_user, 'role', None) 
     
     # Appliciamo la stessa logica di filtraggio di list_tasks
-    if request.args.get('all_users') == 'true' and current_user.is_admin:
-        pass
-    elif user_role == UserRoleEnum.admin or current_user.is_admin:
+    if _can_view_all_tasks(current_user):
         pass
     elif user_role == UserRoleEnum.team_leader:
         team_member_ids = set()

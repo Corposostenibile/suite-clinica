@@ -193,10 +193,11 @@ function Profilo() {
   const user = profileUser;
   const isOwnProfile = !id || (currentUser && user && currentUser.id === user.id);
   const isCurrentUserCco = currentUser?.specialty === 'cco';
+  const isCurrentUserAdmin = Boolean(currentUser?.is_admin || currentUser?.role === 'admin');
   const canViewCapacityTab = Boolean(
-    currentUser?.is_admin || currentUser?.role === 'admin' || currentUser?.role === 'team_leader' || isCurrentUserCco
+    isCurrentUserAdmin || currentUser?.role === 'team_leader' || isCurrentUserCco
   );
-  const canEditCapacity = Boolean(currentUser?.is_admin || currentUser?.role === 'admin' || isCurrentUserCco);
+  const canEditCapacity = Boolean(isCurrentUserAdmin || isCurrentUserCco);
 
   const fetchClients = useCallback(async () => {
     if (!user?.id) return;
@@ -270,7 +271,7 @@ function Profilo() {
     setTrainingsError('');
     try {
       const isOwn = currentUser?.id === user.id;
-      const canReadOther = Boolean(currentUser?.is_admin || currentUser?.department_id === 17);
+      const canReadOther = Boolean(isCurrentUserAdmin || isCurrentUserCco);
 
       let payload = null;
       if (isOwn) {
@@ -290,7 +291,7 @@ function Profilo() {
     } finally {
       setTrainingsLoading(false);
     }
-  }, [user?.id, currentUser?.id, currentUser?.is_admin, currentUser?.department_id]);
+  }, [user?.id, currentUser?.id, isCurrentUserAdmin, isCurrentUserCco]);
 
   const fetchTasks = useCallback(async () => {
     if (!user?.id) return;
@@ -319,10 +320,10 @@ function Profilo() {
     setQualityLoading(true);
     setQualityError('');
     try {
-      if (!currentUser?.is_admin) {
+      if (!(isCurrentUserAdmin || isCurrentUserCco)) {
         setQualityKpi(null);
         setQualityTrend({ labels: [], quality_final: [], quality_month: [], quality_trim: [] });
-        setQualityError('Quality visibile solo ad amministrazione');
+        setQualityError('Quality visibile solo ad amministrazione o CCO');
         return;
       }
 
@@ -346,7 +347,7 @@ function Profilo() {
     } finally {
       setQualityLoading(false);
     }
-  }, [user?.id, currentUser?.is_admin, qualityQuarter]);
+  }, [user?.id, isCurrentUserAdmin, isCurrentUserCco, qualityQuarter]);
 
   const fetchCapacity = useCallback(async () => {
     if (!user?.id) return;
