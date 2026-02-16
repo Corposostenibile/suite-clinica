@@ -98,7 +98,8 @@ class CustomerRepository:
         from sqlalchemy import case, or_, exists, select
         from corposostenibile.models import (
             TipologiaClienteEnum, UserRoleEnum,
-            cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
+            CallBonus, CallBonusStatusEnum,
         )
         from flask_login import current_user
 
@@ -205,6 +206,14 @@ class CustomerRepository:
                             select(cliente_consulenti.c.cliente_id)
                             .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
                             .where(cliente_consulenti.c.user_id == user_id)
+                        ),
+                        # Pazienti con call bonus accettata assegnata a questo professionista
+                        exists(
+                            select(CallBonus.cliente_id).where(
+                                CallBonus.cliente_id == Cliente.cliente_id,
+                                CallBonus.professionista_id == user_id,
+                                CallBonus.status == CallBonusStatusEnum.accettata,
+                            )
                         ),
                     )
                 )

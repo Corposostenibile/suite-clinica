@@ -678,6 +678,22 @@ function ClientiDetail() {
   const [ticketMessages, setTicketMessages] = useState([]);
   const [loadingTicketDetail, setLoadingTicketDetail] = useState(false);
 
+  // Call Bonus state
+  const [callBonusHistory, setCallBonusHistory] = useState([]);
+  const [loadingCallBonus, setLoadingCallBonus] = useState(false);
+  const [showCallBonusModal, setShowCallBonusModal] = useState(false);
+  const [callBonusStep, setCallBonusStep] = useState(1);
+  const [callBonusForm, setCallBonusForm] = useState({ tipo_professionista: '', note_richiesta: '' });
+  const [callBonusAiLoading, setCallBonusAiLoading] = useState(false);
+  const [callBonusAnalysis, setCallBonusAnalysis] = useState(null);
+  const [callBonusMatches, setCallBonusMatches] = useState([]);
+  const [callBonusId, setCallBonusId] = useState(null);
+  const [selectedCallBonusProfessional, setSelectedCallBonusProfessional] = useState(null);
+  const [callBonusCalendarLink, setCallBonusCalendarLink] = useState('');
+  const [callBonusResponseModal, setCallBonusResponseModal] = useState(null); // cb record for modal
+  const [confirmingBooking, setConfirmingBooking] = useState(false);
+  const [decliningCallBonus, setDecliningCallBonus] = useState(false);
+
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
   const [assigningType, setAssigningType] = useState(null);
@@ -1001,6 +1017,102 @@ function ClientiDetail() {
       console.error('Error fetching ticket detail:', err);
     } finally {
       setLoadingTicketDetail(false);
+    }
+  };
+
+  // ── Fetch Call Bonus History ──
+  const fetchCallBonusHistory = useCallback(async () => {
+    if (!id) return;
+    setLoadingCallBonus(true);
+    try {
+      const data = await clientiService.getCallBonusHistory(id);
+      setCallBonusHistory(data.data || []);
+    } catch (err) {
+      console.error('Error fetching call bonus history:', err);
+    } finally {
+      setLoadingCallBonus(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'call_bonus') {
+      fetchCallBonusHistory();
+    }
+  }, [activeTab, fetchCallBonusHistory]);
+
+  // ── Call Bonus Handlers ──
+  const handleOpenCallBonusModal = () => {
+    setCallBonusStep(1);
+    setCallBonusForm({ tipo_professionista: '', note_richiesta: '' });
+    setCallBonusAnalysis(null);
+    setCallBonusMatches([]);
+    setCallBonusId(null);
+    setSelectedCallBonusProfessional(null);
+    setCallBonusCalendarLink('');
+    setShowCallBonusModal(true);
+  };
+
+  const handleCallBonusAnalyze = async () => {
+    if (!callBonusForm.tipo_professionista) return;
+    setCallBonusAiLoading(true);
+    try {
+      const result = await clientiService.createCallBonusRequest(id, callBonusForm);
+      setCallBonusId(result.call_bonus_id);
+      setCallBonusAnalysis(result.analysis);
+      setCallBonusMatches(result.matches || []);
+      setCallBonusStep(2);
+    } catch (err) {
+      console.error('Error creating call bonus request:', err);
+      alert('Errore nella creazione della richiesta. Riprova.');
+    } finally {
+      setCallBonusAiLoading(false);
+    }
+  };
+
+  const handleSelectCallBonusProfessional = async (prof) => {
+    try {
+      const result = await clientiService.selectCallBonusProfessional(callBonusId, prof.id);
+      setSelectedCallBonusProfessional(prof);
+      setCallBonusCalendarLink(result.link_call_bonus || '');
+      setCallBonusStep(3);
+    } catch (err) {
+      console.error('Error selecting professional:', err);
+      alert('Errore nella selezione del professionista. Riprova.');
+    }
+  };
+
+  const handleConfirmCallBonusBooking = async () => {
+    const targetId = callBonusResponseModal ? callBonusResponseModal.id : callBonusId;
+    if (!targetId) return;
+    setConfirmingBooking(true);
+    try {
+      await clientiService.confirmCallBonusBooking(targetId);
+      if (callBonusResponseModal) {
+        setCallBonusResponseModal(null);
+      } else {
+        setShowCallBonusModal(false);
+      }
+      fetchCallBonusHistory();
+    } catch (err) {
+      console.error('Error confirming booking:', err);
+      alert('Errore nella conferma. Riprova.');
+    } finally {
+      setConfirmingBooking(false);
+    }
+  };
+
+  const handleDeclineCallBonus = async () => {
+    if (!callBonusResponseModal) return;
+    setDecliningCallBonus(true);
+    try {
+      await clientiService.declineCallBonus(callBonusResponseModal.id);
+      setCallBonusResponseModal(null);
+      fetchCallBonusHistory();
+    } catch (err) {
+      console.error('Error declining call bonus:', err);
+      alert('Errore nel rifiuto. Riprova.');
+    } finally {
+      setDecliningCallBonus(false);
     }
   };
 
@@ -2137,6 +2249,7 @@ function ClientiDetail() {
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
+    { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
   ];
 
   return (
@@ -6344,6 +6457,104 @@ function ClientiDetail() {
                   )}
                 </div>
               )}
+
+              {/* ==================== CALL BONUS TAB ==================== */}
+              {activeTab === 'call_bonus' && (
+                <div>
+                  <div className="d-flex justify-content-between align-items-center mb-4">
+                    <h5 className="mb-0">
+                      <i className="ri-phone-line me-2 text-primary"></i>
+                      Storico Call Bonus
+                    </h5>
+                    {(user?.is_admin || user?.role === 'admin' ||
+                      (c.nutrizionistiMultipli || []).some(n => n.id === user?.id) ||
+                      (c.coachesMultipli || []).some(n => n.id === user?.id) ||
+                      (c.psicologiMultipli || []).some(n => n.id === user?.id)
+                    ) && (
+                      <button className="btn btn-primary" onClick={handleOpenCallBonusModal}>
+                        <i className="ri-add-line me-1"></i>Richiedi Call Bonus
+                      </button>
+                    )}
+                  </div>
+
+                  {loadingCallBonus ? (
+                    <div className="text-center py-5">
+                      <div className="spinner-border text-primary" role="status"></div>
+                      <p className="mt-2 text-muted">Caricamento storico...</p>
+                    </div>
+                  ) : callBonusHistory.length === 0 ? (
+                    <div className="text-center py-5">
+                      <i className="ri-phone-line" style={{ fontSize: '3rem', color: '#d1d5db' }}></i>
+                      <p className="mt-3 text-muted">Nessuna call bonus registrata per questo paziente</p>
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0">
+                        <thead className="bg-light">
+                          <tr>
+                            <th className="small text-uppercase text-muted fw-semibold">Data</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Tipo</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Professionista</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Stato</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Richiesta da</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Note</th>
+                            <th className="small text-uppercase text-muted fw-semibold">Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {callBonusHistory.map((cb) => {
+                            const statusCfg = {
+                              proposta: { label: 'Proposta', bg: '#fef3c7', color: '#92400e' },
+                              accettata: { label: 'Accettata', bg: '#dbeafe', color: '#1e40af' },
+                              rifiutata: { label: 'Rifiutata', bg: '#fee2e2', color: '#991b1b' },
+                              confermata: { label: 'Confermata', bg: '#d1fae5', color: '#065f46' },
+                              non_andata_buon_fine: { label: 'Non andata a buon fine', bg: '#f3f4f6', color: '#374151' },
+                            }[cb.status] || { label: cb.status, bg: '#f3f4f6', color: '#374151' };
+                            const tipoCfg = {
+                              nutrizionista: { label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
+                              coach: { label: 'Coaching', icon: 'ri-run-line', color: '#6366f1' },
+                              psicologa: { label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
+                            }[cb.tipo_professionista] || { label: cb.tipo_professionista, icon: 'ri-user-line', color: '#6b7280' };
+                            const showActions = cb.is_assigned_professional && cb.status === 'accettata' && !cb.booking_confirmed;
+                            return (
+                              <tr key={cb.id}>
+                                <td><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td>
+                                  <span className="d-flex align-items-center gap-1">
+                                    <i className={tipoCfg.icon} style={{ color: tipoCfg.color }}></i>
+                                    <span className="small">{tipoCfg.label}</span>
+                                  </span>
+                                </td>
+                                <td><span className="small">{cb.professionista_nome || '—'}</span></td>
+                                <td>
+                                  <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
+                                    {statusCfg.label}
+                                  </span>
+                                  {cb.booking_confirmed && (
+                                    <i className="ri-calendar-check-line text-success ms-1" title="Prenotazione confermata"></i>
+                                  )}
+                                </td>
+                                <td><span className="small text-muted">{cb.created_by_nome || '—'}</span></td>
+                                <td><span className="small text-muted">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
+                                <td>
+                                  {showActions && (
+                                    <button
+                                      className="btn btn-sm btn-primary"
+                                      onClick={() => setCallBonusResponseModal(cb)}
+                                    >
+                                      <i className="ri-reply-line me-1"></i>Rispondi
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -6483,6 +6694,311 @@ function ClientiDetail() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== CALL BONUS MODAL (3 steps) ========== */}
+      {showCallBonusModal && (
+        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)' }}>
+                <h5 className="modal-title">
+                  <i className="ri-phone-line me-2 text-primary"></i>
+                  Richiedi Call Bonus
+                  <span className="badge bg-primary ms-2" style={{ fontSize: '0.65rem' }}>Step {callBonusStep}/3</span>
+                </h5>
+                <button className="btn-close" onClick={() => setShowCallBonusModal(false)}></button>
+              </div>
+              <div className="modal-body">
+
+                {/* ── STEP 1: Tipo + Note ── */}
+                {callBonusStep === 1 && (
+                  <div>
+                    <p className="text-muted small mb-3">Seleziona il tipo di professionista e descrivi l'obiettivo della call bonus.</p>
+
+                    <div className="mb-4">
+                      <label className="form-label small text-muted fw-semibold">Tipo Professionista *</label>
+                      <div className="d-flex gap-2">
+                        {[
+                          { value: 'coach', label: 'Coaching', icon: 'ri-run-line', color: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
+                          { value: 'nutrizionista', label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+                          { value: 'psicologa', label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899', bg: 'rgba(236,72,153,0.1)' },
+                        ].map((t) => (
+                          <button
+                            key={t.value}
+                            className={`btn flex-fill d-flex flex-column align-items-center gap-1 py-3 ${callBonusForm.tipo_professionista === t.value ? 'border-2' : ''}`}
+                            style={{
+                              background: callBonusForm.tipo_professionista === t.value ? t.bg : '#f9fafb',
+                              borderColor: callBonusForm.tipo_professionista === t.value ? t.color : '#e5e7eb',
+                              color: t.color,
+                              borderRadius: '12px',
+                            }}
+                            onClick={() => setCallBonusForm({ ...callBonusForm, tipo_professionista: t.value })}
+                          >
+                            <i className={t.icon} style={{ fontSize: '1.5rem' }}></i>
+                            <span className="small fw-semibold">{t.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label small text-muted fw-semibold">Motivazione / Obiettivo</label>
+                      <textarea
+                        className="form-control"
+                        rows="4"
+                        placeholder="Descrivi il motivo della richiesta e gli obiettivi della call bonus..."
+                        value={callBonusForm.note_richiesta}
+                        onChange={(e) => setCallBonusForm({ ...callBonusForm, note_richiesta: e.target.value })}
+                      ></textarea>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 2: AI Analysis + Matching ── */}
+                {callBonusStep === 2 && (
+                  <div>
+                    {/* AI Analysis summary */}
+                    {callBonusAnalysis && (
+                      <div className="mb-4 p-3 rounded-3" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
+                        <div className="d-flex align-items-center gap-2 mb-2">
+                          <i className="ri-robot-2-line text-primary"></i>
+                          <span className="fw-semibold small">Analisi SuiteMind AI</span>
+                        </div>
+                        {callBonusAnalysis.summary && (
+                          <p className="small text-muted mb-2">{callBonusAnalysis.summary}</p>
+                        )}
+                        {callBonusAnalysis.suggested_focus && callBonusAnalysis.suggested_focus.length > 0 && (
+                          <div className="d-flex flex-wrap gap-1">
+                            {callBonusAnalysis.suggested_focus.map((f, i) => (
+                              <span key={i} className="badge rounded-pill" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1', fontSize: '0.7rem' }}>
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Professional matches */}
+                    <p className="text-muted small mb-3">Seleziona il professionista per la call bonus:</p>
+                    {callBonusMatches.length === 0 ? (
+                      <div className="text-center py-4">
+                        <i className="ri-user-search-line" style={{ fontSize: '2rem', color: '#d1d5db' }}></i>
+                        <p className="mt-2 text-muted small">Nessun professionista trovato per i criteri selezionati.</p>
+                      </div>
+                    ) : (
+                      <div className="d-flex flex-column gap-2">
+                        {callBonusMatches.map((prof) => (
+                          <div
+                            key={prof.id}
+                            className="p-3 rounded-3 d-flex align-items-center gap-3"
+                            style={{
+                              background: '#f9fafb',
+                              border: '1px solid #e5e7eb',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                            onClick={() => handleSelectCallBonusProfessional(prof)}
+                            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.background = 'rgba(99,102,241,0.03)'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#f9fafb'; }}
+                          >
+                            {/* Avatar */}
+                            <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 600, fontSize: '0.9rem', flexShrink: 0 }}>
+                              {prof.name ? prof.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '??'}
+                            </div>
+                            {/* Info */}
+                            <div className="flex-grow-1">
+                              <div className="fw-semibold small">{prof.name}</div>
+                              {prof.match_reasons && prof.match_reasons.length > 0 && (
+                                <div className="d-flex flex-wrap gap-1 mt-1">
+                                  {prof.match_reasons.slice(0, 4).map((r, i) => (
+                                    <span key={i} className="badge rounded-pill" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', fontSize: '0.65rem' }}>
+                                      {r}
+                                    </span>
+                                  ))}
+                                  {prof.match_reasons.length > 4 && (
+                                    <span className="badge rounded-pill" style={{ background: '#f3f4f6', color: '#6b7280', fontSize: '0.65rem' }}>
+                                      +{prof.match_reasons.length - 4}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {/* Score */}
+                            <div className="text-end" style={{ minWidth: 70 }}>
+                              <div className="fw-bold" style={{ color: prof.score >= 70 ? '#10b981' : prof.score >= 40 ? '#f59e0b' : '#ef4444', fontSize: '1.1rem' }}>
+                                {prof.score}%
+                              </div>
+                              <div className="progress" style={{ height: 4, width: 60 }}>
+                                <div className="progress-bar" style={{ width: `${prof.score}%`, background: prof.score >= 70 ? '#10b981' : prof.score >= 40 ? '#f59e0b' : '#ef4444' }}></div>
+                              </div>
+                            </div>
+                            <i className="ri-arrow-right-s-line text-muted"></i>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── STEP 3: Calendar Link + Confirm ── */}
+                {callBonusStep === 3 && selectedCallBonusProfessional && (
+                  <div className="text-center">
+                    <div className="mb-4">
+                      <div className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 600, fontSize: '1.3rem' }}>
+                        {selectedCallBonusProfessional.name ? selectedCallBonusProfessional.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '??'}
+                      </div>
+                      <h6 className="mb-1">{selectedCallBonusProfessional.name}</h6>
+                      <span className="badge rounded-pill" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                        Selezionato
+                      </span>
+                    </div>
+
+                    {callBonusCalendarLink ? (
+                      <div className="mb-4">
+                        <a
+                          href={callBonusCalendarLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-outline-primary btn-lg d-inline-flex align-items-center gap-2"
+                        >
+                          <i className="ri-calendar-line"></i>
+                          Apri Calendario Call Bonus
+                          <i className="ri-external-link-line"></i>
+                        </a>
+                        <p className="text-muted small mt-2">Clicca per prenotare la call bonus nel calendario del professionista.</p>
+                      </div>
+                    ) : (
+                      <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-4" role="alert">
+                        <i className="ri-error-warning-line"></i>
+                        <span className="small">Il professionista non ha configurato un link calendario per le call bonus.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+              <div className="modal-footer border-0">
+                {callBonusStep === 1 && (
+                  <>
+                    <button className="btn btn-secondary" onClick={() => setShowCallBonusModal(false)}>Annulla</button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleCallBonusAnalyze}
+                      disabled={!callBonusForm.tipo_professionista || callBonusAiLoading}
+                    >
+                      {callBonusAiLoading ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Analisi in corso...</>
+                      ) : (
+                        <><i className="ri-robot-2-line me-1"></i>Analizza con SuiteMind AI</>
+                      )}
+                    </button>
+                  </>
+                )}
+                {callBonusStep === 2 && (
+                  <button className="btn btn-secondary" onClick={() => setCallBonusStep(1)}>
+                    <i className="ri-arrow-left-line me-1"></i>Indietro
+                  </button>
+                )}
+                {callBonusStep === 3 && (
+                  <>
+                    <button className="btn btn-secondary" onClick={() => setCallBonusStep(2)}>
+                      <i className="ri-arrow-left-line me-1"></i>Indietro
+                    </button>
+                    <button
+                      className="btn btn-success"
+                      onClick={handleConfirmCallBonusBooking}
+                      disabled={confirmingBooking}
+                    >
+                      {confirmingBooking ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                      ) : (
+                        <><i className="ri-check-line me-1"></i>Ho prenotato la call</>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Bonus Response Modal (professionista) */}
+      {callBonusResponseModal && (
+        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setCallBonusResponseModal(null)}>
+          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)' }}>
+                <h5 className="modal-title">
+                  <i className="ri-phone-line me-2 text-primary"></i>
+                  Risposta Call Bonus
+                </h5>
+                <button className="btn-close" onClick={() => setCallBonusResponseModal(null)}></button>
+              </div>
+              <div className="modal-body text-center">
+                {/* Info richiesta */}
+                <div className="mb-4 p-3 rounded-3" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <p className="small text-muted mb-1">Richiesta da <strong>{callBonusResponseModal.created_by_nome}</strong></p>
+                  {callBonusResponseModal.note_richiesta && (
+                    <p className="small mb-0 fst-italic">"{callBonusResponseModal.note_richiesta}"</p>
+                  )}
+                </div>
+
+                {/* Calendario HM */}
+                <div className="mb-4">
+                  <p className="small fw-semibold mb-2">
+                    <i className="ri-calendar-line me-1 text-primary"></i>
+                    Calendario Health Manager{callBonusResponseModal.hm_name ? ` — ${callBonusResponseModal.hm_name}` : ''}
+                  </p>
+                  {callBonusResponseModal.hm_calendar_link ? (
+                    <a
+                      href={callBonusResponseModal.hm_calendar_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+                    >
+                      <i className="ri-calendar-line"></i>
+                      Apri Calendario
+                      <i className="ri-external-link-line"></i>
+                    </a>
+                  ) : (
+                    <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-0" role="alert">
+                      <i className="ri-error-warning-line"></i>
+                      <span className="small">Link calendario HM non disponibile.</span>
+                    </div>
+                  )}
+                  <p className="text-muted small mt-2">Prenota la call bonus nel calendario dell'Health Manager, poi conferma.</p>
+                </div>
+              </div>
+              <div className="modal-footer border-0 d-flex justify-content-between">
+                <button
+                  className="btn btn-danger"
+                  onClick={handleDeclineCallBonus}
+                  disabled={decliningCallBonus}
+                >
+                  {decliningCallBonus ? (
+                    <><span className="spinner-border spinner-border-sm me-2"></span>Rifiuto...</>
+                  ) : (
+                    <><i className="ri-thumb-down-line me-1"></i>Non interessato</>
+                  )}
+                </button>
+                <button
+                  className="btn btn-success"
+                  onClick={handleConfirmCallBonusBooking}
+                  disabled={confirmingBooking}
+                >
+                  {confirmingBooking ? (
+                    <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                  ) : (
+                    <><i className="ri-check-line me-1"></i>Ho prenotato la call</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

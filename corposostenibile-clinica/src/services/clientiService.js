@@ -883,6 +883,62 @@ const clientiService = {
     const response = await axios.post(`/customers/${clienteId}/location/change/${locationId}`, data, { withCredentials: true });
     return response.data;
   },
+
+  // ==================== CALL BONUS ====================
+
+  /**
+   * Get call bonus history for a client
+   * @param {number} clienteId - Client ID
+   * @returns {Promise} - { data: [...] }
+   */
+  async getCallBonusHistory(clienteId) {
+    const response = await api.get(`${API_BASE}/${clienteId}/call-bonus-history`);
+    return response.data;
+  },
+
+  /**
+   * Create a call bonus request with AI analysis
+   * @param {number} clienteId - Client ID
+   * @param {Object} data - { tipo_professionista, note_richiesta }
+   * @returns {Promise} - { success, call_bonus_id, analysis, matches }
+   */
+  async createCallBonusRequest(clienteId, data) {
+    const response = await api.post(`${API_BASE}/${clienteId}/call-bonus-request`, data);
+    return response.data;
+  },
+
+  /**
+   * Select a professional for a call bonus
+   * @param {number} callBonusId - Call Bonus ID
+   * @param {number} professionalId - Professional ID
+   * @returns {Promise} - { success, call_bonus_id, professional_name, link_call_bonus }
+   */
+  async selectCallBonusProfessional(callBonusId, professionalId) {
+    const response = await api.post(`${API_BASE}/call-bonus-select/${callBonusId}`, {
+      professional_id: professionalId,
+    });
+    return response.data;
+  },
+
+  /**
+   * Confirm booking for a call bonus
+   * @param {number} callBonusId - Call Bonus ID
+   * @returns {Promise} - { success, call_bonus_id, message }
+   */
+  async confirmCallBonusBooking(callBonusId) {
+    const response = await api.post(`${API_BASE}/call-bonus-confirm/${callBonusId}`);
+    return response.data;
+  },
+
+  /**
+   * Decline a call bonus (professionista rifiuta)
+   * @param {number} callBonusId - Call Bonus ID
+   * @returns {Promise} - { success, call_bonus_id, message }
+   */
+  async declineCallBonus(callBonusId) {
+    const response = await api.post(`${API_BASE}/call-bonus-decline/${callBonusId}`);
+    return response.data;
+  },
 };
 
 export default clientiService;

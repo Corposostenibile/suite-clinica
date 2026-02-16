@@ -11483,7 +11483,8 @@ class CallBonus(TimestampMixin, db.Model):
     cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=False, index=True)
 
     # Professionista con cui è stata proposta la call bonus
-    professionista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    # nullable=True: nel nuovo flusso AI viene impostato solo dopo lo step 2
+    professionista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     tipo_professionista = db.Column(
         _def(TipoProfessionistaEnum),
         nullable=False,
@@ -11502,6 +11503,13 @@ class CallBonus(TimestampMixin, db.Model):
     data_richiesta = db.Column(db.Date, nullable=False, default=date.today, index=True)
     data_risposta = db.Column(db.Date)  # Quando il cliente ha accettato/rifiutato
     data_conferma_hm = db.Column(db.Date)  # Quando l'HM ha confermato/segnalato non andata a buon fine
+
+    # Richiesta AI-driven
+    note_richiesta = db.Column(db.Text)  # Motivazione e obiettivo della richiesta
+    ai_analysis = db.Column(db.JSON)  # Risultato analisi Gemini
+    ai_matches = db.Column(db.JSON)  # Professionisti suggeriti con punteggi
+    booking_confirmed = db.Column(db.Boolean, default=False)  # Conferma prenotazione
+    data_booking_confirmed = db.Column(db.DateTime)  # Timestamp conferma prenotazione
 
     # Dettagli risposta cliente
     motivazione_rifiuto = db.Column(db.Text)  # Se rifiutata
@@ -14087,12 +14095,15 @@ class SOPDocument(TimestampMixin, db.Model):
     uploader = relationship('User')
 
     def to_dict(self):
+        status = self.status
+        if hasattr(status, 'value'):
+            status = status.value
         return {
             'id': self.id,
             'filename': self.filename,
             'file_size': self.file_size,
             'mime_type': self.mime_type,
-            'status': self.status.value if self.status else 'processing',
+            'status': status or 'processing',
             'chunks_count': self.chunks_count,
             'error_message': self.error_message,
             'uploaded_by': self.uploaded_by,

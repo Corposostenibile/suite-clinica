@@ -114,6 +114,7 @@ def api_get_assignment_notes(user_id: int):
             'problematiche_efficaci': ai_notes.get('problematiche_efficaci', ''),
             'target_non_ideale': ai_notes.get('target_non_ideale', ''),
             'link_calendario': ai_notes.get('link_calendario', ''),
+            'link_call_bonus': ai_notes.get('link_call_bonus', ''),
             'note_aggiuntive': ai_notes.get('note_aggiuntive', '')
         }
     })
@@ -153,6 +154,8 @@ def api_update_assignment_notes(user_id: int):
         ai_notes['target_non_ideale'] = data['target_non_ideale'].strip() if data['target_non_ideale'] else ''
     if 'link_calendario' in data:
         ai_notes['link_calendario'] = data['link_calendario'].strip() if data['link_calendario'] else ''
+    if 'link_call_bonus' in data:
+        ai_notes['link_call_bonus'] = data['link_call_bonus'].strip() if data['link_call_bonus'] else ''
     if 'note_aggiuntive' in data:
         ai_notes['note_aggiuntive'] = data['note_aggiuntive'].strip() if data['note_aggiuntive'] else ''
 

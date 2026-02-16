@@ -1304,6 +1304,12 @@ def apply_role_filtering(query):
                 exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == user_id)),
                 exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == user_id)),
                 exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == user_id)),
+                # Pazienti con call bonus accettata assegnata a questo professionista
+                exists(select(CallBonus.cliente_id).where(
+                    CallBonus.cliente_id == Cliente.cliente_id,
+                    CallBonus.professionista_id == user_id,
+                    CallBonus.status == CallBonusStatusEnum.accettata,
+                )),
             )
         )
         

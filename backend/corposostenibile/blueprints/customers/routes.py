@@ -49,6 +49,7 @@ from corposostenibile.models import (
     Package,
     PlanExtraFile,
     PlanTypeEnum,
+    CallBonusStatusEnum,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import parse_filter_args
@@ -5611,6 +5612,272 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
         "success": True,
         "history": history
     })
+
+# --------------------------------------------------------------------------- #
+#  CALL BONUS API (AI-driven flow)                                            #
+# --------------------------------------------------------------------------- #
+
+def _is_assigned_to_cliente(user, cliente) -> bool:
+    """Verifica se l'utente è assegnato al paziente come professionista (o admin)."""
+    if user.is_admin or user.role == UserRoleEnum.admin:
+        return True
+    return (
+        user in cliente.nutrizionisti_multipli
+        or user in cliente.coaches_multipli
+        or user in cliente.psicologi_multipli
+    )
+
+
+@api_bp.route("/<int:cliente_id>/call-bonus-history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_history(cliente_id: int):
+    """Storico call bonus del paziente."""
+    from .services import get_cliente_call_bonus_history
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    import json as _json
+
+    records = get_cliente_call_bonus_history(cliente_id)
+
+    # Get HM calendar link once for this client
+    hm_name = None
+    hm_calendar_link = ""
+    if cliente.health_manager_user:
+        hm_name = cliente.health_manager_user.full_name
+        ai_notes = cliente.health_manager_user.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = _json.loads(ai_notes)
+            except (ValueError, TypeError):
+                ai_notes = {}
+        hm_calendar_link = ai_notes.get("link_calendario", "")
+
+    data = []
+    for cb in records:
+        prof_name = None
+        if cb.professionista:
+            prof_name = cb.professionista.full_name
+        data.append({
+            "id": cb.id,
+            "data_richiesta": cb.data_richiesta.isoformat() if cb.data_richiesta else None,
+            "tipo_professionista": cb.tipo_professionista.value if cb.tipo_professionista else None,
+            "professionista_nome": prof_name,
+            "professionista_id": cb.professionista_id,
+            "is_assigned_professional": cb.professionista_id == current_user.id if cb.professionista_id else False,
+            "status": cb.status.value if cb.status else None,
+            "created_by_nome": cb.created_by.full_name if cb.created_by else None,
+            "note_richiesta": cb.note_richiesta,
+            "booking_confirmed": cb.booking_confirmed or False,
+            "hm_name": hm_name,
+            "hm_calendar_link": hm_calendar_link,
+        })
+
+    return jsonify({"data": data})
+
+
+@api_bp.route("/<int:cliente_id>/call-bonus-request", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_bonus_request(cliente_id: int):
+    """Crea richiesta call bonus + analisi AI + matching professionisti."""
+    from corposostenibile.blueprints.team.ai_matching_service import AIMatchingService
+    from corposostenibile.models import CallBonus, CallBonusStatusEnum
+    import json as _json
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    payload = request.get_json() or {}
+    tipo_str = payload.get("tipo_professionista", "").strip()
+    note_richiesta = payload.get("note_richiesta", "").strip()
+
+    if not tipo_str:
+        abort(HTTPStatus.BAD_REQUEST, description="Seleziona un tipo di professionista.")
+
+    try:
+        tipo = TipoProfessionistaEnum(tipo_str)
+    except ValueError:
+        abort(HTTPStatus.BAD_REQUEST, description=f"Tipo professionista non valido: {tipo_str}")
+
+    # Map tipo to AI role
+    role_map = {
+        TipoProfessionistaEnum.nutrizionista: "nutrition",
+        TipoProfessionistaEnum.coach: "coach",
+        TipoProfessionistaEnum.psicologa: "psychology",
+    }
+    target_role = role_map.get(tipo, "nutrition")
+
+    # 1. Create CallBonus with professionista_id=NULL
+    call_bonus = CallBonus(
+        cliente_id=cliente_id,
+        professionista_id=None,
+        tipo_professionista=tipo,
+        status=CallBonusStatusEnum.proposta,
+        data_richiesta=date.today(),
+        created_by_id=current_user.id,
+        note_richiesta=note_richiesta,
+    )
+    db.session.add(call_bonus)
+    db.session.flush()
+
+    # 2. Compose story from note_richiesta + storia_cliente
+    story_parts = []
+    if note_richiesta:
+        story_parts.append(f"Richiesta call bonus: {note_richiesta}")
+    if cliente.storia_cliente:
+        story_parts.append(f"Storia cliente: {cliente.storia_cliente}")
+    story = "\n".join(story_parts) if story_parts else "Nessuna informazione disponibile."
+
+    # 3. AI analysis + matching
+    try:
+        analysis = AIMatchingService.extract_lead_criteria(story, target_role=target_role)
+        criteria = analysis.get("criteria", [])
+        all_matches = AIMatchingService.match_professionals(criteria)
+
+        # Filter only for the requested type
+        category_map = {
+            TipoProfessionistaEnum.nutrizionista: "nutrizione",
+            TipoProfessionistaEnum.coach: "coach",
+            TipoProfessionistaEnum.psicologa: "psicologia",
+        }
+        category = category_map.get(tipo, "nutrizione")
+        matches = all_matches.get(category, [])
+
+        # Add link_call_bonus from assignment_ai_notes for each match
+        for match in matches:
+            prof = db.session.get(User, match["id"])
+            if prof:
+                ai_notes = prof.assignment_ai_notes or {}
+                if isinstance(ai_notes, str):
+                    try:
+                        ai_notes = _json.loads(ai_notes)
+                    except (ValueError, TypeError):
+                        ai_notes = {}
+                match["link_call_bonus"] = ai_notes.get("link_call_bonus", "")
+
+        # 4. Save analysis and matches on the record
+        call_bonus.ai_analysis = analysis
+        call_bonus.ai_matches = matches
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "call_bonus_id": call_bonus.id,
+            "analysis": analysis,
+            "matches": matches,
+        }), HTTPStatus.CREATED
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Errore AI call bonus: {e}")
+        # Still save the call_bonus without AI data
+        db.session.add(call_bonus)
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "call_bonus_id": call_bonus.id,
+            "analysis": {"summary": "Analisi AI non disponibile", "criteria": [], "suggested_focus": []},
+            "matches": [],
+            "ai_error": str(e),
+        }), HTTPStatus.CREATED
+
+
+@api_bp.route("/call-bonus-select/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_bonus_select_professional(call_bonus_id: int):
+    """Seleziona professionista per la call bonus → ritorna link_call_bonus."""
+    from corposostenibile.models import CallBonus
+    import json as _json
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    payload = request.get_json() or {}
+    professional_id = payload.get("professional_id")
+    if not professional_id:
+        abort(HTTPStatus.BAD_REQUEST, description="Seleziona un professionista.")
+
+    prof = db.session.get(User, professional_id)
+    if not prof:
+        abort(HTTPStatus.NOT_FOUND, description="Professionista non trovato.")
+
+    # Update call bonus with selected professional
+    call_bonus.professionista_id = professional_id
+    call_bonus.status = CallBonusStatusEnum.accettata
+    call_bonus.data_risposta = date.today()
+
+    db.session.commit()
+
+    # Get link_call_bonus from professional's ai_notes
+    ai_notes = prof.assignment_ai_notes or {}
+    if isinstance(ai_notes, str):
+        try:
+            ai_notes = _json.loads(ai_notes)
+        except (ValueError, TypeError):
+            ai_notes = {}
+    link_call_bonus = ai_notes.get("link_call_bonus", "")
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "professional_name": prof.full_name,
+        "link_call_bonus": link_call_bonus,
+    })
+
+
+@api_bp.route("/call-bonus-confirm/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_bonus_confirm_booking(call_bonus_id: int):
+    """Conferma prenotazione call bonus."""
+    from corposostenibile.models import CallBonus
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    call_bonus.booking_confirmed = True
+    call_bonus.data_booking_confirmed = datetime.utcnow()
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "message": "Prenotazione confermata.",
+    })
+
+
+@api_bp.route("/call-bonus-decline/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_decline(call_bonus_id: int):
+    """Professionista rifiuta la call bonus assegnata."""
+    from corposostenibile.models import CallBonus
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    if call_bonus.professionista_id != current_user.id:
+        abort(HTTPStatus.FORBIDDEN, description="Non sei il professionista assegnato.")
+
+    call_bonus.status = CallBonusStatusEnum.rifiutata
+    call_bonus.data_risposta = date.today()
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "message": "Call bonus rifiutata.",
+    })
+
 
 # --------------------------------------------------------------------------- #
 #  Blueprint registration helper                                              #
