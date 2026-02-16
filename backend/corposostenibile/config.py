@@ -311,7 +311,7 @@ class DevelopmentConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     TESTING: bool = True
-    SQLALCHEMY_DATABASE_URI: str = "sqlite:///:memory:"
+    SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL", "sqlite:///:memory:")
     CELERY_TASK_ALWAYS_EAGER: bool = True
     WTF_CSRF_ENABLED: bool = False                  # semplifica i test
     

@@ -2048,7 +2048,7 @@ def api_admin_dashboard_stats():
     base_filter = Review.query.filter_by(deleted_at=None, is_draft=False)
 
     total_trainings = base_filter.count()
-    total_acknowledged = base_filter.filter(Review.is_acknowledged == True).count()
+    total_acknowledged = base_filter.join(Review.acknowledgment).count()
     total_pending = total_trainings - total_acknowledged
     total_drafts = Review.query.filter_by(deleted_at=None, is_draft=True).count()
 
@@ -2104,10 +2104,9 @@ def api_admin_dashboard_stats():
             Review.created_at <= m_end
         ).count()
 
-        ack_count = base_filter.filter(
+        ack_count = base_filter.join(Review.acknowledgment).filter(
             Review.created_at >= m_start,
-            Review.created_at <= m_end,
-            Review.is_acknowledged == True
+            Review.created_at <= m_end
         ).count()
 
         month_names = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
