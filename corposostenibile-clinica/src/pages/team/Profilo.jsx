@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   ROLE_LABELS,
   SPECIALTY_LABELS,
@@ -87,6 +87,7 @@ function renderPagination(page, totalPages, onChange) {
 
 function Profilo() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const outletContext = useOutletContext();
   const currentUser = outletContext?.user || null;
@@ -198,6 +199,20 @@ function Profilo() {
     isCurrentUserAdmin || currentUser?.role === 'team_leader' || isCurrentUserCco
   );
   const canEditCapacity = Boolean(isCurrentUserAdmin || isCurrentUserCco);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(location.search).get('tab');
+    if (!requestedTab) return;
+
+    const allowedTabs = new Set(['info', 'teams', 'clienti', 'check', 'formazione', 'task', 'quality']);
+    if (canViewCapacityTab) {
+      allowedTabs.add('capienza');
+    }
+
+    if (allowedTabs.has(requestedTab) && requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [location.search, canViewCapacityTab, activeTab]);
 
   const fetchClients = useCallback(async () => {
     if (!user?.id) return;

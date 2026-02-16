@@ -2050,6 +2050,14 @@ def get_professionals_capacity():
             'full_name': prof.full_name,
             'specialty': _get_user_specialty(prof),
             'role_type': role_type,
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None,
+                }
+                for t in (prof.teams or [])
+            ],
             'capienza_contrattuale': contractual_capacity,
             'clienti_assegnati': assigned_clients,
             'percentuale_capienza': capacity_percentage,
