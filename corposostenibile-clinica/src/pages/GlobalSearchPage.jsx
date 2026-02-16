@@ -13,10 +13,10 @@ const GlobalSearchPage = () => {
     const [query, setQuery] = useState(initialQuery);
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('all'); // all, paziente, check, professional
+    const [activeTab, setActiveTab] = useState('all'); // all, paziente, check, professional, training
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, pages: 0 });
-    const [resultCounts, setResultCounts] = useState({ all: 0, paziente: 0, check: 0, professional: 0 });
+    const [resultCounts, setResultCounts] = useState({ all: 0, paziente: 0, check: 0, professional: 0, training: 0 });
     
     // Effect: Perform search when URL query changes
     useEffect(() => {
@@ -27,7 +27,7 @@ const GlobalSearchPage = () => {
             performSearch(q, activeTab, 1);
         } else {
             setResults([]);
-            setResultCounts({ all: 0, paziente: 0, check: 0, professional: 0 });
+            setResultCounts({ all: 0, paziente: 0, check: 0, professional: 0, training: 0 });
         }
     }, [location.search]);
 
@@ -45,7 +45,7 @@ const GlobalSearchPage = () => {
         try {
             const data = await searchService.globalSearch(searchQuery, category, searchPage);
             setResults(data.results || []);
-            setResultCounts(data.counts || { all: 0, paziente: 0, check: 0, professional: 0 });
+            setResultCounts(data.counts || { all: 0, paziente: 0, check: 0, professional: 0, training: 0 });
             setPagination(data.pagination || { total: 0, pages: 0 });
         } catch (error) {
             console.error('Search error:', error);
@@ -68,7 +68,7 @@ const GlobalSearchPage = () => {
         setResults([]);
         setPage(1);
         setPagination({ total: 0, pages: 0 });
-        setResultCounts({ all: 0, paziente: 0, check: 0, professional: 0 });
+        setResultCounts({ all: 0, paziente: 0, check: 0, professional: 0, training: 0 });
         navigate('/ricerca-globale');
     };
 
@@ -86,7 +86,8 @@ const GlobalSearchPage = () => {
     const groupedResults = {
         paziente: results.filter(r => r.category === 'paziente'),
         check: results.filter(r => r.category === 'check'),
-        professional: results.filter(r => r.category === 'professional')
+        professional: results.filter(r => r.category === 'professional'),
+        training: results.filter(r => r.category === 'training')
     };
 
     // Render Helpers
@@ -114,6 +115,12 @@ const GlobalSearchPage = () => {
                 avatarClass = 'avatar-professional';
                 badgeClass = 'badge-professional';
                 label = 'Professionisti';
+                break;
+            case 'training':
+                iconClass = 'mdi mdi-school';
+                avatarClass = 'avatar-training';
+                badgeClass = 'badge-training';
+                label = 'Training';
                 break;
             default:
                 break;
@@ -186,7 +193,7 @@ const GlobalSearchPage = () => {
                         <div className="col-lg-8">
                             <div className="search-header-title text-center">
                                 <h1>Ricerca Globale</h1>
-                                <p>Cerca pazienti, check aziendali e professionisti in un unico posto</p>
+                                <p>Cerca pazienti, check aziendali, professionisti e formazione in un unico posto</p>
                             </div>
 
                             <div className="search-input-area mx-auto">
@@ -235,6 +242,12 @@ const GlobalSearchPage = () => {
                                         >
                                             Professionisti <span className="search-tab-count">{resultCounts.professional}</span>
                                         </button>
+                                        <button 
+                                            className={`search-tab ${activeTab === 'training' ? 'active' : ''}`}
+                                            onClick={() => handleTabChange('training')}
+                                        >
+                                            Training <span className="search-tab-count">{resultCounts.training}</span>
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -257,6 +270,7 @@ const GlobalSearchPage = () => {
                                     {renderSection('Pazienti', groupedResults.paziente, 'mdi mdi-account', 'paziente')}
                                     {renderSection('Check', groupedResults.check, 'mdi mdi-file-document-check', 'check')}
                                     {renderSection('Professionisti', groupedResults.professional, 'mdi mdi-doctor', 'professional')}
+                                    {renderSection('Training', groupedResults.training, 'mdi mdi-school', 'training')}
                                 </>
                             ) : (
                                 <>
@@ -333,7 +347,7 @@ const GlobalSearchPage = () => {
                                     <i className="mdi mdi-magnify"></i>
                                 </div>
                                 <h3>Inizia la ricerca</h3>
-                                <p>Digita il nome di un paziente, un check o un professionista per iniziare.</p>
+                                <p>Digita il nome di un paziente, un check, un professionista o una formazione per iniziare.</p>
                             </div>
                         )}
                     </div>
