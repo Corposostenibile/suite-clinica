@@ -274,240 +274,257 @@ function Welcome() {
       </div>
 
       {/* Tab Content */}
-      {activeTab !== 'panoramica' ? (
-        <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-          <div className="card-body text-center py-5">
-            <div className="mb-4">
-              <i className={`${TABS.find(t => t.key === activeTab)?.icon} text-muted`} style={{ fontSize: '4rem', opacity: 0.3 }}></i>
-            </div>
-            <h5 className="text-muted mb-3">In implementazione</h5>
-            <p className="text-muted mb-0">
-              Da sviluppare quando finito tutto lo sviluppo della piattaforma.
-            </p>
-          </div>
-        </div>
-      ) : (
-      <>
-      {/* SEZIONE 1: KPI Pazienti */}
-      <div className="row g-3 mb-4">
-        {[
-          { label: 'Pazienti Totali', value: customerStats?.total_clienti, icon: 'ri-group-line', bg: 'primary' },
-          { label: 'Nutrizione Attivi', value: customerStats?.nutrizione_attivo, icon: 'ri-restaurant-line', bg: 'success' },
-          { label: 'Coach Attivi', value: customerStats?.coach_attivo, icon: 'ri-run-line', bg: 'warning' },
-          { label: 'Psicologia Attivi', value: customerStats?.psicologia_attivo, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
-          { label: 'Nuovi questo Mese', value: customerStats?.kpi?.new_month, icon: 'ri-user-add-line', customBg: '#06b6d4' },
-        ].map((stat, idx) => (
-          <div key={idx} className="col-xl col-sm-6">
-            <div
-              className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
-              style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
-            >
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">
-                      {customerLoading ? <SkeletonNumber /> : (stat.value ?? 0)}
-                    </h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
+      {activeTab === 'panoramica' ? (
+        <>
+          {/* SEZIONE 1: KPI Pazienti */}
+          <div className="row g-3 mb-4">
+            {[
+              { label: 'Pazienti Totali', value: customerStats?.total_clienti, icon: 'ri-group-line', bg: 'primary' },
+              { label: 'Nutrizione Attivi', value: customerStats?.nutrizione_attivo, icon: 'ri-restaurant-line', bg: 'success' },
+              { label: 'Coach Attivi', value: customerStats?.coach_attivo, icon: 'ri-run-line', bg: 'warning' },
+              { label: 'Psicologia Attivi', value: customerStats?.psicologia_attivo, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
+              { label: 'Nuovi questo Mese', value: customerStats?.kpi?.new_month, icon: 'ri-user-add-line', customBg: '#06b6d4' },
+            ].map((stat, idx) => (
+              <div key={idx} className="col-xl col-sm-6">
+                <div
+                  className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
+                  style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
+                >
+                  <div className="card-body py-3">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div>
+                        <h3 className="text-white mb-0 fw-bold">
+                          {customerLoading ? <SkeletonNumber /> : (stat.value ?? 0)}
+                        </h3>
+                        <span className="text-white opacity-75 small">{stat.label}</span>
+                      </div>
+                      <div
+                        className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ width: '48px', height: '48px' }}
+                      >
+                        <i className={`${stat.icon} text-white fs-4`}></i>
+                      </div>
+                    </div>
                   </div>
-                  <div
-                    className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
-                    style={{ width: '48px', height: '48px' }}
-                  >
-                    <i className={`${stat.icon} text-white fs-4`}></i>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* SEZIONE 2: Quick Nav + Team/Trial KPI */}
+          <div className="row g-3 mb-4">
+            {/* Quick Navigation */}
+            <div className="col-lg-8">
+              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+                <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
+                  <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+                    <i className="ri-apps-line me-2 text-primary"></i>
+                    Accesso Rapido
+                  </h6>
+                </div>
+                <div className="card-body pt-0 px-4 pb-4">
+                  <div className="row g-2">
+                    {QUICK_LINKS.map((link, idx) => (
+                      <div key={idx} className="col-6 col-md-4 col-xl-3">
+                        <Link
+                          to={link.to}
+                          className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
+                          style={{
+                            background: link.bgColor,
+                            transition: 'transform 0.15s, box-shadow 0.15s',
+                          }}
+                          onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                        >
+                          <div
+                            className="d-flex align-items-center justify-content-center rounded-circle"
+                            style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
+                          >
+                            <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
+                          </div>
+                          <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
+                        </Link>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
 
-      {/* SEZIONE 2: Quick Nav + Team/Trial KPI */}
-      <div className="row g-3 mb-4">
-        {/* Quick Navigation */}
-        <div className="col-lg-8">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
-                <i className="ri-apps-line me-2 text-primary"></i>
-                Accesso Rapido
-              </h6>
-            </div>
-            <div className="card-body pt-0 px-4 pb-4">
-              <div className="row g-2">
-                {QUICK_LINKS.map((link, idx) => (
-                  <div key={idx} className="col-6 col-md-4 col-xl-3">
-                    <Link
-                      to={link.to}
-                      className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
-                      style={{
-                        background: link.bgColor,
-                        transition: 'transform 0.15s, box-shadow 0.15s',
-                      }}
-                      onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-                    >
-                      <div
-                        className="d-flex align-items-center justify-content-center rounded-circle"
-                        style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
-                      >
-                        <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
-                      </div>
-                      <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
-                    </Link>
-                  </div>
-                ))}
+            {/* Team + Trial Stats */}
+            <div className="col-lg-4">
+              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+                <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
+                  <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+                    <i className="ri-team-line me-2 text-info"></i>
+                    Team
+                  </h6>
+                </div>
+                <div className="card-body pt-0 px-4 pb-3">
+                  {teamLoading ? (
+                    <SkeletonList count={4} />
+                  ) : (
+                    <div className="d-flex flex-column gap-2">
+                      <StatRow label="Membri Attivi" value={teamStats?.total_active || 0} color="#3b82f6" />
+                      <StatRow label="Team Leaders" value={teamStats?.total_team_leaders || 0} color="#8b5cf6" />
+                      <StatRow label="In Prova" value={teamStats?.total_trial || 0} color="#f59e0b" />
+                      <StatRow label="Esterni" value={teamStats?.total_external || 0} color="#64748b" />
+                    </div>
+                  )}
+                </div>
               </div>
+
             </div>
           </div>
-        </div>
 
-        {/* Team + Trial Stats */}
-        <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
-                <i className="ri-team-line me-2 text-info"></i>
-                Team
-              </h6>
+          {/* SEZIONE 3: Valutazioni Medie per Team */}
+          <div className="row g-3 mb-4">
+            <div className="col-12">
+              <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                <i className="ri-bar-chart-grouped-line me-2"></i>
+                Valutazioni Medie per Team (Ultimo Mese)
+              </h5>
             </div>
-            <div className="card-body pt-0 px-4 pb-3">
-              {teamLoading ? (
-                <SkeletonList count={4} />
-              ) : (
-                <div className="d-flex flex-column gap-2">
-                  <StatRow label="Membri Attivi" value={teamStats?.total_active || 0} color="#3b82f6" />
-                  <StatRow label="Team Leaders" value={teamStats?.total_team_leaders || 0} color="#8b5cf6" />
-                  <StatRow label="In Prova" value={teamStats?.total_trial || 0} color="#f59e0b" />
-                  <StatRow label="Esterni" value={teamStats?.total_external || 0} color="#64748b" />
+            {checkLoading ? (
+              <>
+                <div className="col-lg-4"><SkeletonCard height="120px" /></div>
+                <div className="col-lg-4"><SkeletonCard height="120px" /></div>
+                <div className="col-lg-4"><SkeletonCard height="120px" /></div>
+              </>
+            ) : (
+              <>
+                <RatingCard
+                  label="Team Nutrizione"
+                  value={checkStats?.stats?.avg_nutrizionista}
+                  icon="ri-heart-pulse-line"
+                  color="#22c55e"
+                  bgColor="#dcfce7"
+                />
+                <RatingCard
+                  label="Team Coach"
+                  value={checkStats?.stats?.avg_coach}
+                  icon="ri-run-line"
+                  color="#f97316"
+                  bgColor="#ffedd5"
+                />
+                <RatingCard
+                  label="Team Psicologia"
+                  value={checkStats?.stats?.avg_psicologo}
+                  icon="ri-mental-health-line"
+                  color="#ec4899"
+                  bgColor="#fce7f3"
+                />
+              </>
+            )}
+          </div>
+
+          {/* SEZIONE 3B: Valutazioni per Singolo Team */}
+          {!checkLoading && teamRatings && (teamRatings.nutrizione.length > 0 || teamRatings.coach.length > 0 || teamRatings.psicologia.length > 0) && (
+            <div className="row g-3 mb-4">
+              <div className="col-12">
+                <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                  <i className="ri-team-line me-2"></i>
+                  Valutazioni per Singolo Team (Ultimo Mese)
+                </h5>
+              </div>
+              {teamRatings.nutrizione.length > 0 && (
+                <div className="col-lg-4">
+                  <TeamRatingsList title="Team Nutrizione" teams={teamRatings.nutrizione} icon="ri-heart-pulse-line" color="#22c55e" bgColor="#dcfce7" />
+                </div>
+              )}
+              {teamRatings.coach.length > 0 && (
+                <div className="col-lg-4">
+                  <TeamRatingsList title="Team Coach" teams={teamRatings.coach} icon="ri-run-line" color="#f97316" bgColor="#ffedd5" />
+                </div>
+              )}
+              {teamRatings.psicologia.length > 0 && (
+                <div className="col-lg-4">
+                  <TeamRatingsList title="Team Psicologia" teams={teamRatings.psicologia} icon="ri-mental-health-line" color="#ec4899" bgColor="#fce7f3" />
                 </div>
               )}
             </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* SEZIONE 3: Valutazioni Medie per Team */}
-      <div className="row g-3 mb-4">
-        <div className="col-12">
-          <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
-            <i className="ri-bar-chart-grouped-line me-2"></i>
-            Valutazioni Medie per Team (Ultimo Mese)
-          </h5>
-        </div>
-        {checkLoading ? (
-          <>
-            <div className="col-lg-4"><SkeletonCard height="120px" /></div>
-            <div className="col-lg-4"><SkeletonCard height="120px" /></div>
-            <div className="col-lg-4"><SkeletonCard height="120px" /></div>
-          </>
-        ) : (
-          <>
-            <RatingCard
-              label="Team Nutrizione"
-              value={checkStats?.stats?.avg_nutrizionista}
-              icon="ri-heart-pulse-line"
-              color="#22c55e"
-              bgColor="#dcfce7"
-            />
-            <RatingCard
-              label="Team Coach"
-              value={checkStats?.stats?.avg_coach}
-              icon="ri-run-line"
-              color="#f97316"
-              bgColor="#ffedd5"
-            />
-            <RatingCard
-              label="Team Psicologia"
-              value={checkStats?.stats?.avg_psicologo}
-              icon="ri-mental-health-line"
-              color="#ec4899"
-              bgColor="#fce7f3"
-            />
-          </>
-        )}
-      </div>
-
-      {/* SEZIONE 3B: Valutazioni per Singolo Team */}
-      {!checkLoading && teamRatings && (teamRatings.nutrizione.length > 0 || teamRatings.coach.length > 0 || teamRatings.psicologia.length > 0) && (
-        <div className="row g-3 mb-4">
-          <div className="col-12">
-            <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
-              <i className="ri-team-line me-2"></i>
-              Valutazioni per Singolo Team (Ultimo Mese)
-            </h5>
-          </div>
-          {teamRatings.nutrizione.length > 0 && (
-            <div className="col-lg-4">
-              <TeamRatingsList title="Team Nutrizione" teams={teamRatings.nutrizione} icon="ri-heart-pulse-line" color="#22c55e" bgColor="#dcfce7" />
-            </div>
           )}
-          {teamRatings.coach.length > 0 && (
-            <div className="col-lg-4">
-              <TeamRatingsList title="Team Coach" teams={teamRatings.coach} icon="ri-run-line" color="#f97316" bgColor="#ffedd5" />
-            </div>
+
+          {/* SEZIONE 4: Check Negativi */}
+          {!checkLoading && (
+            <NegativeChecksTable
+              negativeChecks={negativeChecks}
+              negativePage={negativePage}
+              setNegativePage={setNegativePage}
+              perPage={NEGATIVE_PER_PAGE}
+            />
           )}
-          {teamRatings.psicologia.length > 0 && (
-            <div className="col-lg-4">
-              <TeamRatingsList title="Team Psicologia" teams={teamRatings.psicologia} icon="ri-mental-health-line" color="#ec4899" bgColor="#fce7f3" />
-            </div>
+
+          {/* SEZIONE 5: Top 5 Professionisti */}
+          {!checkLoading && rankings && (
+            <>
+              <div className="row g-3 mb-4">
+                <div className="col-12">
+                  <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                    <i className="ri-trophy-line me-2 text-warning"></i>
+                    Top 5 Professionisti (Ultimo Mese)
+                  </h5>
+                </div>
+                <div className="col-lg-4">
+                  <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.top || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={true} />
+                </div>
+                <div className="col-lg-4">
+                  <RankingTable title="Coach" professionals={rankings.coach?.top || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={true} />
+                </div>
+                <div className="col-lg-4">
+                  <RankingTable title="Psicologia" professionals={rankings.psicologia?.top || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={true} />
+                </div>
+              </div>
+
+              <div className="row g-3 mb-4">
+                <div className="col-12">
+                  <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                    <i className="ri-arrow-down-circle-line me-2 text-danger"></i>
+                    Professionisti da Migliorare (Ultimo Mese)
+                  </h5>
+                </div>
+                <div className="col-lg-4">
+                  <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.bottom || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={false} />
+                </div>
+                <div className="col-lg-4">
+                  <RankingTable title="Coach" professionals={rankings.coach?.bottom || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={false} />
+                </div>
+                <div className="col-lg-4">
+                  <RankingTable title="Psicologia" professionals={rankings.psicologia?.bottom || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={false} />
+                </div>
+              </div>
+            </>
           )}
-        </div>
-      )}
-
-      {/* SEZIONE 4: Check Negativi */}
-      {!checkLoading && (
-        <NegativeChecksTable
-          negativeChecks={negativeChecks}
-          negativePage={negativePage}
-          setNegativePage={setNegativePage}
-          perPage={NEGATIVE_PER_PAGE}
-        />
-      )}
-
-      {/* SEZIONE 5: Top 5 Professionisti */}
-      {!checkLoading && rankings && (
-        <>
-          <div className="row g-3 mb-4">
-            <div className="col-12">
-              <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
-                <i className="ri-trophy-line me-2 text-warning"></i>
-                Top 5 Professionisti (Ultimo Mese)
-              </h5>
-            </div>
-            <div className="col-lg-4">
-              <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.top || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={true} />
-            </div>
-            <div className="col-lg-4">
-              <RankingTable title="Coach" professionals={rankings.coach?.top || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={true} />
-            </div>
-            <div className="col-lg-4">
-              <RankingTable title="Psicologia" professionals={rankings.psicologia?.top || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={true} />
-            </div>
-          </div>
-
-          <div className="row g-3 mb-4">
-            <div className="col-12">
-              <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
-                <i className="ri-arrow-down-circle-line me-2 text-danger"></i>
-                Professionisti da Migliorare (Ultimo Mese)
-              </h5>
-            </div>
-            <div className="col-lg-4">
-              <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.bottom || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={false} />
-            </div>
-            <div className="col-lg-4">
-              <RankingTable title="Coach" professionals={rankings.coach?.bottom || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={false} />
-            </div>
-            <div className="col-lg-4">
-              <RankingTable title="Psicologia" professionals={rankings.psicologia?.bottom || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={false} />
-            </div>
-          </div>
         </>
-      )}
-      </>
+      ) : activeTab === 'pazienti' ? (
+        <PazientiTab
+          data={pazientiData}
+          loading={pazientiLoading}
+          error={pazientiError}
+          onRetry={() => { setPazientiLoaded(false); loadPazientiData(); }}
+        />
+      ) : activeTab === 'check' ? (
+        <CheckTab
+          data={checkDashData}
+          loading={checkDashLoading}
+          error={checkDashError}
+          onRetry={() => { setCheckDashLoaded(false); loadCheckDashData(); }}
+        />
+      ) : activeTab === 'professionisti' ? (
+        <ProfessionistiTab
+          data={profData}
+          loading={profLoading}
+          error={profError}
+          onRetry={() => { setProfLoaded(false); loadProfData(); }}
+        />
+      ) : activeTab === 'formazione' ? (
+        <FormazioneTab data={trainingData} loading={trainingLoading} />
+      ) : (
+        <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+          <div className="card-body text-center py-5">
+            <h5 className="text-muted mb-3">In implementazione</h5>
+          </div>
+        </div>
       )}
     </>
   );

@@ -3388,6 +3388,10 @@ def api_azienda_stats():
             elif prof_type == 'psicologia':
                 stats_query = stats_query.filter(db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any()))
 
+        # Applica stesso filtro RBAC usato per le responses, così le medie sono coerenti con la lista
+        if accessible_query is not None:
+            stats_query = stats_query.filter(Cliente.cliente_id.in_(accessible_query))
+
         stats_result = stats_query.first()
 
         # Compute averages
