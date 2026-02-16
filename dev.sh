@@ -770,8 +770,18 @@ start_pm2() {
     update_env_database_url "$dev"
 
     # Avvia Backend
-    log_info "Avvio Backend Flask..."
-    npx pm2 start "poetry run flask run --host=0.0.0.0 --port=$be_port --debug" --name "backend-$dev" --namespace "$dev" --force
+    # Nota: con PM2 usiamo il watch di PM2 (non il reloader Flask) per evitare
+    # processi duplicati e restart loop.
+    log_info "Avvio Backend Flask (PM2 watch/reload)..."
+    npx pm2 start "poetry run flask run --host=0.0.0.0 --port=$be_port" \
+        --name "backend-$dev" \
+        --namespace "$dev" \
+        --cwd "$PROJECT_DIR/backend" \
+        --watch \
+        --watch-delay 700 \
+        --ignore-watch "uploads logs .venv __pycache__ .pytest_cache migrations/versions .git node_modules" \
+        --time \
+        --force
 
     # Avvia Frontend
     log_info "Avvio Frontend React..."

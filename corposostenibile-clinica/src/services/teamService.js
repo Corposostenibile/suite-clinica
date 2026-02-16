@@ -303,6 +303,27 @@ const teamService = {
   },
 
   /**
+   * Get professional capacity rows.
+   * ACL handled by backend:
+   * - admin/cco: all
+   * - team_leader: own members
+   */
+  async getProfessionalCapacity(params = {}) {
+    const response = await api.get('/team/capacity', { params });
+    return response.data;
+  },
+
+  /**
+   * Update contractual capacity for a professional (admin/cco only).
+   */
+  async updateProfessionalCapacity(userId, capienzaContrattuale) {
+    const response = await api.put(`/team/capacity/${userId}`, {
+      capienza_contrattuale: capienzaContrattuale,
+    });
+    return response.data;
+  },
+
+  /**
    * Helper function to determine user role from backend data
    */
   getUserRole(user) {

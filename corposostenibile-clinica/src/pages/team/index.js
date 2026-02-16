@@ -1,5 +1,6 @@
 export { default as TeamList } from './TeamList';
 export { default as TeamAdd } from './TeamAdd';
+export { default as TeamCapacity } from './TeamCapacity';
 
 export { default as Profilo } from './Profilo';
 
