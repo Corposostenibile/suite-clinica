@@ -103,6 +103,7 @@ curl -I https://suite-clinica.duckdns.org/sw.js
 ```bash
 cd backend
 poetry install
+poetry run flask db upgrade
 npx pm2 restart backend-manu
 ```
 
@@ -112,6 +113,41 @@ Verifiche minime:
 curl -i http://127.0.0.1:5001/api/auth/me | head -n 20
 curl -i https://suite-clinica.duckdns.org/api/auth/me | head -n 20
 ```
+
+### 6.1 Setup Push Notifications (Task)
+
+Per notifiche push PWA sui nuovi task assegnati:
+
+1. Configura VAPID in `backend/.env`:
+
+```env
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=/percorso/chiave/vapid_private.pem
+VAPID_CLAIMS_SUB=mailto:it@corposostenibile.com
+```
+
+2. Esegui le migrazioni (obbligatorio):
+
+```bash
+cd backend
+poetry run flask db upgrade
+```
+
+3. Riavvia backend:
+
+```bash
+npx pm2 restart backend-manu
+```
+
+4. Test endpoint autenticato:
+
+```bash
+curl -i https://suite-clinica.duckdns.org/api/push/public-key
+```
+
+Atteso:
+- senza login: `401` (corretto)
+- con sessione utente: JSON con `enabled: true`
 
 ## 7) Deploy completo
 
@@ -128,6 +164,7 @@ sudo systemctl restart clinica-pwa-preview
 # 3) Backend
 cd /home/manu/suite-clinica/backend
 poetry install
+poetry run flask db upgrade
 cd /home/manu/suite-clinica
 npx pm2 restart backend-manu
 
@@ -135,6 +172,9 @@ npx pm2 restart backend-manu
 curl -I https://suite-clinica.duckdns.org/auth/login
 curl -i https://suite-clinica.duckdns.org/api/auth/me | head -n 20
 ```
+
+Nota importante:
+- la migrazione va sempre deployata insieme al codice che introduce nuovi modelli/tabelle (es. `push_subscriptions`).
 
 ## 8) Test da tablet (installazione PWA)
 

@@ -380,6 +380,7 @@ def create_app(config_name: str | None = None) -> Flask:
         search,  # AGGIUNTO: Import del blueprint search
         sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
+        push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
     )
 
 
@@ -417,6 +418,7 @@ def create_app(config_name: str | None = None) -> Flask:
     tasks.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint tasks
     sop_chatbot.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SOP Chatbot RAG
     team_tickets.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Team Tickets
+    push_notifications.init_app(app)  # AGGIUNTO: Inizializzazione push notifications
 
 
     # Sales Form Blueprint

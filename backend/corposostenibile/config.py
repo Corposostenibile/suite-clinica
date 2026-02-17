@@ -147,6 +147,11 @@ class BaseConfig:
     # Redirect URI registrato sul progetto Google Cloud
     GOOGLE_REDIRECT_URL: str | None = os.getenv("GOOGLE_REDIRECT_URL")
 
+    # ------------------ Web Push / PWA Notifications -----------------------
+    VAPID_PUBLIC_KEY: str | None = os.getenv("VAPID_PUBLIC_KEY")
+    VAPID_PRIVATE_KEY: str | None = os.getenv("VAPID_PRIVATE_KEY")
+    VAPID_CLAIMS_SUB: str = os.getenv("VAPID_CLAIMS_SUB", "mailto:it@corposostenibile.com")
+
 
     # ------------------ File Upload Configuration -----------------
     # Cartella base per tutti gli upload

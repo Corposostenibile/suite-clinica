@@ -1210,6 +1210,12 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     tasks_assigned   = relationship("Task", back_populates="assignee",
                                     lazy="selectin")
+    push_subscriptions = relationship(
+        "PushSubscription",
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
     objectives       = relationship(
         "Objective",
@@ -3048,6 +3054,38 @@ class Task(TimestampMixin, db.Model):
     # ----------------------------------------------------- #
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Task {self.id} – {self.title!r}>"
+
+
+class PushSubscription(TimestampMixin, db.Model):
+    __tablename__ = "push_subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.String(512), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    expiration_time = db.Column(db.BigInteger)
+    user_agent = db.Column(db.String(512))
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="push_subscriptions")
+
+    def to_webpush_info(self) -> dict:
+        return {
+            "endpoint": self.endpoint,
+            "keys": {
+                "p256dh": self.p256dh,
+                "auth": self.auth,
+            },
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<PushSubscription {self.id} user={self.user_id}>"
 
 
 

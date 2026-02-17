@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 import { Link } from "react-router-dom";
 /// Scroll
@@ -12,6 +12,7 @@ import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
 import { SVGICON } from "../../constant/theme.jsx";
 import GlobalSearch from "../../../components/GlobalSearch";
+import pushNotificationService from "../../../services/pushNotificationService";
 
 // Role labels in Italian
 const ROLE_LABELS = {
@@ -31,6 +32,15 @@ const ROLE_LABELS = {
 const Header = ({ onNote }) => {
   const { background, changeBackground } = useContext(ThemeContext);
   const { user, logout } = useAuth();
+  const [pushStatus, setPushStatus] = useState({
+    supported: true,
+    backendEnabled: true,
+    permission: 'default',
+    subscribed: false,
+    enabled: false,
+  });
+  const [pushLoading, setPushLoading] = useState(true);
+  const [pushBusy, setPushBusy] = useState(false);
 
   function ThemeChange() {
     if (background.value === "light") {
@@ -64,6 +74,43 @@ const Header = ({ onNote }) => {
     }
     setFullScreen(false);
   };
+
+  const loadPushStatus = async () => {
+    setPushLoading(true);
+    const status = await pushNotificationService.getPushStatus();
+    setPushStatus(status);
+    setPushLoading(false);
+  };
+
+  useEffect(() => {
+    if (user?.id) loadPushStatus();
+  }, [user?.id]);
+
+  const handleEnablePush = async () => {
+    setPushBusy(true);
+    const result = await pushNotificationService.enablePushNotifications();
+    await loadPushStatus();
+    setPushBusy(false);
+    if (!result?.subscribed) {
+      window.alert('Notifiche non abilitate. Verifica i permessi del browser/PWA.');
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setPushBusy(true);
+    await pushNotificationService.disablePushNotifications();
+    await loadPushStatus();
+    setPushBusy(false);
+  };
+
+  const pushDisabledReason = !pushStatus.supported
+    ? 'Il browser non supporta le notifiche push.'
+    : !pushStatus.backendEnabled
+      ? 'Push non configurate sul server.'
+      : pushStatus.permission === 'denied'
+        ? 'Permesso notifiche negato nel browser.'
+        : 'Riceverai notifiche push su task e aggiornamenti futuri.';
+
   return (
     <div className="header" style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.9)', borderBottom: '1px solid #e2e8f0' }}>
       <div className="header-content">
@@ -171,15 +218,36 @@ const Header = ({ onNote }) => {
                 <Dropdown.Menu align="end" style={{ minWidth: '320px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', borderRadius: '16px' }}>
                   <div className="p-4 text-center">
                     <div className="mb-3">
-                      <i className="ri-microsoft-fill" style={{ fontSize: '48px', color: '#5059C9' }}></i>
+                      <i className="ri-notification-3-line" style={{ fontSize: '48px', color: pushStatus.enabled ? '#25B36A' : '#64748b' }}></i>
                     </div>
-                    <h6 className="mb-2 fw-bold" style={{ color: '#1e293b' }}>Notifiche su Microsoft Teams</h6>
+                    <h6 className="mb-2 fw-bold" style={{ color: '#1e293b' }}>Notifiche Push</h6>
                     <p className="text-muted mb-3" style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                      Le notifiche verranno inviate direttamente su <strong>Microsoft Teams</strong>.
+                      {pushLoading ? 'Verifica stato notifiche...' : pushDisabledReason}
                     </p>
-                    <div className="p-2 bg-light rounded-3" style={{ fontSize: '11px', color: '#94a3b8' }}>
-                      Suite Clinica ottimizzata per Microsoft Teams
+                    <div className="mb-3">
+                      {pushStatus.enabled ? (
+                        <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">Attive</span>
+                      ) : (
+                        <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2">Disattivate</span>
+                      )}
                     </div>
+                    {pushStatus.enabled ? (
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={handleDisablePush}
+                        disabled={pushBusy || pushLoading}
+                      >
+                        {pushBusy ? 'Disattivo...' : 'Disattiva notifiche'}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleEnablePush}
+                        disabled={pushBusy || pushLoading || !pushStatus.supported || !pushStatus.backendEnabled || pushStatus.permission === 'denied'}
+                      >
+                        {pushBusy ? 'Attivo...' : 'Attiva notifiche push'}
+                      </button>
+                    )}
                   </div>
                 </Dropdown.Menu>
               </Dropdown>

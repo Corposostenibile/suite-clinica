@@ -1,4 +1,5 @@
 from sqlalchemy import event, inspect, and_
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import attributes
 from flask_login import user_logged_in
 from flask import current_app
@@ -17,6 +18,7 @@ from corposostenibile.models import (
     TaskStatusEnum, 
     TaskPriorityEnum
 )
+from corposostenibile.blueprints.push_notifications.service import send_task_assigned_push
 
 # --------------------------------------------------------------------------- #
 #  1. ONBOARDING (Assegnazione Cliente)
@@ -207,3 +209,39 @@ def trigger_training_task(mapper, connection, target):
     logger.info(f"TASK CREATED: Training task for assignee {target.reviewee_id}")
 
 
+@event.listens_for(Session, "after_flush")
+def collect_new_tasks_for_push(session, flush_context):
+    pending = session.info.setdefault("pending_task_push", [])
+    for obj in session.new:
+        if isinstance(obj, Task) and obj.assignee_id:
+            pending.append(
+                {
+                    "task_id": obj.id,
+                    "assignee_id": obj.assignee_id,
+                    "title": obj.title,
+                }
+            )
+
+
+@event.listens_for(Session, "after_commit")
+def dispatch_task_push_after_commit(session):
+    pending = session.info.pop("pending_task_push", [])
+    for item in pending:
+        try:
+            send_task_assigned_push(
+                task_id=item["task_id"],
+                assignee_id=item["assignee_id"],
+                task_title=item["title"],
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "PUSH TASK FAILED task_id=%s assignee=%s err=%s",
+                item.get("task_id"),
+                item.get("assignee_id"),
+                exc,
+            )
+
+
+@event.listens_for(Session, "after_rollback")
+def clear_pending_task_push_on_rollback(session):
+    session.info.pop("pending_task_push", None)

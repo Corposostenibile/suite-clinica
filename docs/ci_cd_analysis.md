@@ -32,6 +32,10 @@ Punti chiave:
   - `SESSION_COOKIE_SAMESITE=Lax`
   - `PREFERRED_URL_SCHEME=https`
 - `SPA_HANDLE_AUTH_ROUTES=1` per servire le route `/auth/*` tramite SPA React
+- per push PWA task servono anche:
+  - `VAPID_PUBLIC_KEY`
+  - `VAPID_PRIVATE_KEY`
+  - `VAPID_CLAIMS_SUB`
 
 ### 2.2 Service (`k8s/service.yaml`)
 
@@ -70,6 +74,9 @@ API backend sullo stesso host:
 - `https://<dominio>/api/...`
 - `https://<dominio>/ghl/...`
 - `https://<dominio>/review/...`
+- endpoint push:
+  - `https://<dominio>/api/push/public-key`
+  - `https://<dominio>/api/push/subscriptions`
 
 ## 4) Cloud Build (estratto)
 
@@ -94,13 +101,21 @@ API backend sullo stesso host:
 1. DNS: punta il dominio all'IP del Load Balancer creato da Ingress
 2. Certificato managed: stato `Active`
 3. Pod backend `Ready`
-4. Verifica endpoint:
+4. Migrazioni DB applicate (obbligatorio, incluse tabelle push)
+5. Verifica endpoint:
 
 ```bash
+kubectl exec deploy/suite-clinica-backend -- flask db upgrade
 curl -I https://<dominio>/auth/login
 curl -I https://<dominio>/manifest.webmanifest
 curl -I https://<dominio>/sw.js
 curl -i https://<dominio>/api/auth/me | head -n 20
+```
+
+Push check (utente autenticato):
+
+```bash
+curl -i https://<dominio>/api/push/public-key
 ```
 
 ## 6) Problemi comuni
@@ -119,6 +134,12 @@ curl -i https://<dominio>/api/auth/me | head -n 20
 
 - verificare `SESSION_COOKIE_SECURE=true`
 - verificare che l'accesso avvenga solo in HTTPS
+
+### 6.4 Push task non arriva
+
+- verificare variabili VAPID nel deployment
+- verificare migrazione `push_subscriptions` applicata
+- verificare che l'utente abbia autorizzato le notifiche nel browser/PWA
 
 ## 7) Hardening raccomandato
 
