@@ -58,28 +58,28 @@
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-[data-sidebarbg="color_3"] .deznav .metismenu > li > a {
+[data-sidebarbg="color_3"] .deznav .metismenu>li>a {
   color: rgba(255, 255, 255, 0.8) !important;
 }
 
-[data-sidebarbg="color_3"] .deznav .metismenu > li > a svg,
-[data-sidebarbg="color_3"] .deznav .metismenu > li > a svg path,
-[data-sidebarbg="color_3"] .deznav .metismenu > li > a g [fill] {
+[data-sidebarbg="color_3"] .deznav .metismenu>li>a svg,
+[data-sidebarbg="color_3"] .deznav .metismenu>li>a svg path,
+[data-sidebarbg="color_3"] .deznav .metismenu>li>a g [fill] {
   fill: rgba(255, 255, 255, 0.8) !important;
 }
 
-[data-sidebarbg="color_3"] .deznav .metismenu > li:hover > a,
-[data-sidebarbg="color_3"] .deznav .metismenu > li:focus > a,
-[data-sidebarbg="color_3"] .deznav .metismenu > li.mm-active > a {
+[data-sidebarbg="color_3"] .deznav .metismenu>li:hover>a,
+[data-sidebarbg="color_3"] .deznav .metismenu>li:focus>a,
+[data-sidebarbg="color_3"] .deznav .metismenu>li.mm-active>a {
   color: #fff !important;
 }
 
-[data-sidebarbg="color_3"] .deznav .metismenu > li:hover > a svg,
-[data-sidebarbg="color_3"] .deznav .metismenu > li:focus > a svg,
-[data-sidebarbg="color_3"] .deznav .metismenu > li.mm-active > a svg,
-[data-sidebarbg="color_3"] .deznav .metismenu > li:hover > a g [fill],
-[data-sidebarbg="color_3"] .deznav .metismenu > li:focus > a g [fill],
-[data-sidebarbg="color_3"] .deznav .metismenu > li.mm-active > a g [fill] {
+[data-sidebarbg="color_3"] .deznav .metismenu>li:hover>a svg,
+[data-sidebarbg="color_3"] .deznav .metismenu>li:focus>a svg,
+[data-sidebarbg="color_3"] .deznav .metismenu>li.mm-active>a svg,
+[data-sidebarbg="color_3"] .deznav .metismenu>li:hover>a g [fill],
+[data-sidebarbg="color_3"] .deznav .metismenu>li:focus>a g [fill],
+[data-sidebarbg="color_3"] .deznav .metismenu>li.mm-active>a g [fill] {
   fill: #fff !important;
 }
 
@@ -336,7 +336,7 @@
 
 .task-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 .5rem 1rem rgba(0,0,0,.08)!important;
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .08) !important;
 }
 
 .spin {
@@ -344,8 +344,13 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .leading-tight {
@@ -362,10 +367,270 @@
 #DZ_W_Contacts_Body2::-webkit-scrollbar {
   width: 4px;
 }
+
 #DZ_W_Contacts_Body2::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 4px;
 }
+
 #DZ_W_Contacts_Body2::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ===================================================================
+   HEADER COMPONENT CLASSES (desktop defaults)
+   =================================================================== */
+
+.header-icon-size {
+  font-size: 20px;
+}
+
+.header-profile-toggle {
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin-left: 12px;
+}
+
+.header-profile-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.header-tasks-btn {
+  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===================================================================
+   MOBILE RESPONSIVE OVERRIDES (≤ 767px)
+   =================================================================== */
+
+@media (max-width: 767.98px) {
+
+  /* --- Global font-size reduction --- */
+  html {
+    font-size: 14px !important;
+  }
+
+  body {
+    font-size: 0.8125rem !important;
+  }
+
+  /* --- Header compacted --- */
+  .header {
+    height: 3.25rem !important;
+    padding-left: 3.25rem !important;
+  }
+
+  .header-content {
+    padding-left: 3.25rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .header-right>li:not(:first-child) {
+    padding-left: 0.25rem !important;
+  }
+
+  /* Smaller icons in header buttons */
+  .header-icon-size {
+    font-size: 16px !important;
+  }
+
+  .header-right .notification_dropdown .nav-link {
+    padding: 6px !important;
+    border-radius: 6px !important;
+  }
+
+  .header-right .notification_dropdown .nav-link svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Hide fullscreen button on mobile */
+  .nav-item .nav-link.dz-fullscreen {
+    display: none !important;
+  }
+
+  /* Profile dropdown compacted */
+  .header-profile-toggle {
+    padding: 4px 6px !important;
+    margin-left: 4px !important;
+    border-radius: 8px !important;
+  }
+
+  .header-profile-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+  }
+
+  .header-right .header-profile .avatar-initials {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+  }
+
+  /* Tasks sidebar button compacted */
+  .header-tasks-btn {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+  }
+
+  .header-tasks-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* --- Nav header compacted --- */
+  .nav-header {
+    width: 3.25rem !important;
+    height: 3.25rem !important;
+  }
+
+  .nav-header .logo-abbr {
+    max-width: 28px !important;
+  }
+
+  .nav-header .brand-logo {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .nav-control {
+    right: -2.75rem !important;
+  }
+
+  /* --- Content body --- */
+  .content-body {
+    padding-top: 3.25rem !important;
+  }
+
+  .content-body .container-fluid {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  /* --- Cards compacted --- */
+  .card-header {
+    padding: 12px !important;
+  }
+
+  .card-body {
+    padding: 12px !important;
+  }
+
+  /* --- Headings scaled down --- */
+  h1,
+  .h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2,
+  .h2 {
+    font-size: 1.25rem !important;
+  }
+
+  h3,
+  .h3 {
+    font-size: 1.125rem !important;
+  }
+
+  h4,
+  .h4 {
+    font-size: 1rem !important;
+  }
+
+  h5,
+  .h5 {
+    font-size: 0.875rem !important;
+  }
+
+  h6,
+  .h6 {
+    font-size: 0.8125rem !important;
+  }
+
+  /* --- Tables --- */
+  .table {
+    font-size: 0.8125rem !important;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.4rem 0.5rem !important;
+  }
+
+  /* --- Nav tabs compacted --- */
+  .nav-tabs .nav-link {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  /* --- Badges smaller --- */
+  .badge {
+    font-size: 0.6875rem;
+    padding: 0.2em 0.5em;
+  }
+
+  /* --- Pagination compacted --- */
+  .pagination .page-link {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  /* --- Buttons compacted --- */
+  .btn {
+    font-size: 0.8125rem;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .btn-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  /* --- Footer compacted --- */
+  .footer {
+    font-size: 11px !important;
+    padding: 8px 12px !important;
+  }
+
+  /* --- Sidebar overlay --- */
+  .deznav {
+    top: 3.25rem !important;
+  }
+
+  /* --- Sidebar menu font reduction --- */
+  .metismenu>li>a {
+    font-size: 13px !important;
+    padding: 0.5rem 1.25rem !important;
+  }
+
+  .metismenu ul a {
+    font-size: 12px !important;
+  }
+
+  /* --- Search bar --- */
+  .header-search-bar {
+    max-width: 160px !important;
+  }
+
+  .header-search-input {
+    height: 34px !important;
+    font-size: 12px !important;
+    padding: 0 10px 0 36px !important;
+    border-radius: 8px !important;
+  }
+
+  .header-search-icon {
+    font-size: 17px !important;
+    left: 10px !important;
+  }
 }

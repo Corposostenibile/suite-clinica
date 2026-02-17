@@ -1,7 +1,8 @@
 /* Global Search Page - Premium Redesign */
 
 :root {
-    --search-primary: #5059C9; /* Coherent with Microsoft Teams icon/theme seen in notification menu */
+    --search-primary: #5059C9;
+    /* Coherent with Microsoft Teams icon/theme seen in notification menu */
     --search-bg: #f8fafc;
     --search-text-main: #1e293b;
     --search-text-muted: #64748b;
@@ -36,7 +37,7 @@
     width: 140%;
     height: 200%;
     background: radial-gradient(circle at 20% 30%, rgba(80, 89, 201, 0.03) 0%, transparent 40%),
-                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.03) 0%, transparent 40%);
+        radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.03) 0%, transparent 40%);
     pointer-events: none;
     z-index: 0;
 }
@@ -80,7 +81,7 @@
     padding: 0 20px;
     height: 64px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .search-input-wrapper:focus-within {
@@ -160,13 +161,13 @@
 
 .search-tab:hover {
     color: var(--search-text-main);
-    background: rgba(255,255,255,0.5);
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .search-tab.active {
     background: white;
     color: var(--search-primary);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .search-tab-count {
@@ -241,12 +242,20 @@
     background-size: cover;
     background-position: center;
     position: relative;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
-.avatar-paziente { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.avatar-check { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.avatar-professional { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.avatar-paziente {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.avatar-check {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.avatar-professional {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
 
 .result-info {
     flex: 1;
@@ -280,9 +289,23 @@
     letter-spacing: 0.5px;
 }
 
-.badge-paziente { background: #eff6ff; color: #3b82f6; border: 1px solid #dbeafe; }
-.badge-check { background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; }
-.badge-professional { background: #f5f3ff; color: #7c3aed; border: 1px solid #ede9fe; }
+.badge-paziente {
+    background: #eff6ff;
+    color: #3b82f6;
+    border: 1px solid #dbeafe;
+}
+
+.badge-check {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fef3c7;
+}
+
+.badge-professional {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #ede9fe;
+}
 
 .result-meta {
     font-size: 14px;
@@ -308,7 +331,7 @@
     height: 100px;
     border-radius: 30px;
     background: white;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
     color: var(--search-text-muted);
     display: flex;
     align-items: center;
@@ -348,7 +371,8 @@
     background: white;
     border-color: var(--search-primary);
     box-shadow: 0 4px 12px rgba(80, 89, 201, 0.15);
-    width: 420px; /* Expand on focus */
+    width: 420px;
+    /* Expand on focus */
 }
 
 .header-search-icon {
@@ -362,7 +386,7 @@
     transition: color 0.3s;
 }
 
-.header-search-input:focus + .header-search-icon {
+.header-search-input:focus+.header-search-icon {
     color: var(--search-primary);
 }
 
@@ -371,7 +395,26 @@
         width: 100%;
         max-width: 300px;
     }
+
     .header-search-input:focus {
         width: 100%;
+    }
+}
+
+@media (max-width: 767px) {
+    .header-search-bar {
+        max-width: 160px;
+    }
+
+    .header-search-input {
+        height: 34px;
+        font-size: 12px;
+        padding: 0 10px 0 36px;
+        border-radius: 8px;
+    }
+
+    .header-search-icon {
+        font-size: 17px;
+        left: 10px;
     }
 }

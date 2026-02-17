@@ -80,7 +80,7 @@ const Header = ({ onNote }) => {
                   title="Supporto"
                   style={{ transition: 'all 0.3s ease' }}
                 >
-                  <i className="fas fa-question-circle" style={{ fontSize: '20px', color: '#64748b' }} />
+                  <i className="fas fa-question-circle header-icon-size" style={{ color: '#64748b' }} />
                 </Link>
               </li>
               {fullScreen ? (
@@ -166,7 +166,7 @@ const Header = ({ onNote }) => {
                   data-toggle="dropdown"
                   style={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s ease' }}
                 >
-                  <i className="ri-notification-3-line" style={{ fontSize: '20px', color: '#64748b' }}></i>
+                  <i className="ri-notification-3-line header-icon-size" style={{ color: '#64748b' }}></i>
                 </Dropdown.Toggle>
                 <Dropdown.Menu align="end" style={{ minWidth: '320px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', borderRadius: '16px' }}>
                   <div className="p-4 text-center">
@@ -184,8 +184,8 @@ const Header = ({ onNote }) => {
                 </Dropdown.Menu>
               </Dropdown>
               <Dropdown as="li" className="nav-item dropdown header-profile">
-                <Dropdown.Toggle variant="" as="a" className="nav-link i-false c-pointer dropdown-toggle-no-caret" style={{ background: '#f8fafc', borderRadius: '12px', padding: '6px 12px', marginLeft: '12px', border: '1px solid #f1f5f9' }}>
-                  <img src={user?.avatar_path || defaultAvatar} width={34} height={34} alt="" style={{ borderRadius: '10px' }} />
+                <Dropdown.Toggle variant="" as="a" className="nav-link i-false c-pointer dropdown-toggle-no-caret header-profile-toggle" style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                  <img src={user?.avatar_path || defaultAvatar} alt="" className="header-profile-avatar" />
                   <div className="header-info ms-2">
                     <span style={{ fontSize: '13px' }}>Ciao, <strong style={{ color: '#1e293b' }}>{user?.first_name || 'Utente'}</strong></span>
                     <small style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>{ROLE_LABELS[user?.role] || user?.role || 'Profilo'}</small>
@@ -209,9 +209,9 @@ const Header = ({ onNote }) => {
               <li className="nav-item right-sidebar ms-2">
                 <Link
                   to="#"
-                  className="nav-link bell i-false c-pointer ai-icon p-2"
+                  className="nav-link bell i-false c-pointer ai-icon p-2 header-tasks-btn"
                   onClick={() => onNote && onNote()}
-                  style={{ background: '#f1f5f9', borderRadius: '12px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ background: '#f1f5f9' }}
                 >
                   <svg id="icon-menu" viewBox="0 0 24 24" width="22" height="22" stroke="#64748b" strokeWidth="2" fill="none"
                     strokeLinecap="round" strokeLinejoin="round" className="css-i6dzq1 hoverEffect"
