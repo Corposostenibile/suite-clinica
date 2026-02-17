@@ -26,6 +26,7 @@ const SideBar = () => {
   } = useContext(ThemeContext);
 
   const { user } = useAuth();
+  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
 
   const [state, setState] = useReducer(reducer, initialState);
   const handleMenuActive = status => {
@@ -80,6 +81,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {MenuList.map((data, index) => {
+            if (data.adminOnly && !isAdmin) {
+              return null;
+            }
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
               return (
