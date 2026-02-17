@@ -74,7 +74,7 @@ import {
 function App() {
   return (
     <ThemeContextProvider>
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <Routes>
           {/* Auth Routes (no layout) */}
           <Route path="/auth/login" element={<Login />} />

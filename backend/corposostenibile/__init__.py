@@ -489,7 +489,7 @@ def create_app(config_name: str | None = None) -> Flask:
             """Redirect to React login for pages, 401 for API calls."""
             if flask_request.path.startswith('/api/'):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
-            return redirect('/login')
+            return redirect('/auth/login')
 
         @app.get("/static/clinica/<path:filename>")
         def serve_react_static_assets(filename):
@@ -503,7 +503,7 @@ def create_app(config_name: str | None = None) -> Flask:
             return send_from_directory(str(react_dist), filename)
 
         # Paths that should NOT be intercepted (handled by Flask)
-        _flask_prefixes = (
+        _flask_prefixes = [
             '/api/',
             '/customers/',
             '/uploads/',
@@ -515,8 +515,14 @@ def create_app(config_name: str | None = None) -> Flask:
             '/ghl/',
             '/review/api/',
             '/health',
-            '/auth/',
-        )
+        ]
+
+        # In SPA mode we want /auth/* pages to be handled by React routes.
+        # Keep legacy Flask auth pages reachable only when explicitly requested.
+        spa_handle_auth_routes = str(os.getenv("SPA_HANDLE_AUTH_ROUTES", "0")).lower() in {"1", "true", "yes"}
+        if not spa_handle_auth_routes:
+            _flask_prefixes.append('/auth/')
+        _flask_prefixes = tuple(_flask_prefixes)
 
         @app.before_request
         def serve_spa_for_pages():

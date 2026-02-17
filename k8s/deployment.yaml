@@ -62,13 +62,15 @@ spec:
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
         - name: SESSION_COOKIE_SECURE
-          value: "false"
+          value: "true"
         - name: SESSION_COOKIE_HTTPONLY
           value: "true"
         - name: SESSION_COOKIE_SAMESITE
           value: "Lax"
         - name: PREFERRED_URL_SCHEME
-          value: "http"
+          value: "https"
+        - name: SPA_HANDLE_AUTH_ROUTES
+          value: "1"
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
         volumeMounts:
