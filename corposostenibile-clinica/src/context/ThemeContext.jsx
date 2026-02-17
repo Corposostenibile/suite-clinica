@@ -4,20 +4,20 @@ import React, { createContext, useEffect, useState } from "react";
 export const ThemeContext = createContext();
 
 const ThemeContextProvider = (props) => {
-	const [sideBarStyle, setSideBarStyle] = useState({ value: "full", label: "Full",});
-	const [sidebarposition, setSidebarposition] = useState({ value: "fixed",	label: "Fixed",});
+  const [sideBarStyle, setSideBarStyle] = useState({ value: "full", label: "Full", });
+  const [sidebarposition, setSidebarposition] = useState({ value: "fixed", label: "Fixed", });
   const [headerposition, setHeaderposition] = useState({ value: "fixed", label: "Fixed", });
-  const [sidebarLayout, setSidebarLayout] = useState({ value: "vertical", label: "Vertical",});
-	const [direction, setDirection] = useState({ value: "ltr", label: "LTR" });
-	const [primaryColor, setPrimaryColor] = useState("color_1");
-	const [navigationHader, setNavigationHader] = useState("color_3");
-	const [haderColor, setHaderColor] = useState("color_1");
-	const [sidebarColor, setSidebarColor] = useState("color_3");
-	const [iconHover, setIconHover] = useState(false);
+  const [sidebarLayout, setSidebarLayout] = useState({ value: "vertical", label: "Vertical", });
+  const [direction, setDirection] = useState({ value: "ltr", label: "LTR" });
+  const [primaryColor, setPrimaryColor] = useState("color_1");
+  const [navigationHader, setNavigationHader] = useState("color_3");
+  const [haderColor, setHaderColor] = useState("color_1");
+  const [sidebarColor, setSidebarColor] = useState("color_3");
+  const [iconHover, setIconHover] = useState(false);
   const [sidebariconHover, setSidebariconHover] = useState(false);
-	const [menuToggle, setMenuToggle] = useState(false);
-	const [background, setBackground] = useState({ value: "light",	label: "Light",});
-	const [containerPosition_, setcontainerPosition_] = useState({value: "wide", label: "Wide",});
+  const [menuToggle, setMenuToggle] = useState(false);
+  const [background, setBackground] = useState({ value: "light", label: "Light", });
+  const [containerPosition_, setcontainerPosition_] = useState({ value: "wide", label: "Wide", });
   const body = document.querySelector("body");
   const [windowWidth, setWindowWidth] = useState(0);
   const [windowHeight, setWindowHeight] = useState(0);
@@ -84,7 +84,7 @@ const ThemeContextProvider = (props) => {
     { value: "HelveticaNeue", label: "HelveticaNeue" },
   ];
   const changePrimaryColor = (name) => {
-	setPrimaryColor(name);
+    setPrimaryColor(name);
     body.setAttribute("data-primary", name);
   };
   const changeNavigationHader = (name) => {
@@ -143,10 +143,10 @@ const ThemeContextProvider = (props) => {
   };
 
   const ChangeIconSidebar = (value) => {
-    if(sideBarStyle.value==="icon-hover"){
-      if(value){
+    if (sideBarStyle.value === "icon-hover") {
+      if (value) {
         setSidebariconHover(true);
-      }else{
+      } else {
         setSidebariconHover(false);
       }
     }
@@ -179,7 +179,7 @@ const ThemeContextProvider = (props) => {
   }
 
   useEffect(() => {
-	  const body = document.querySelector("body");
+    const body = document.querySelector("body");
     body.setAttribute("data-typography", "poppins");
     body.setAttribute("data-theme-version", "light");
     body.setAttribute("data-layout", "vertical");
@@ -193,16 +193,16 @@ const ThemeContextProvider = (props) => {
     body.setAttribute("data-header-position", "fixed");
     body.setAttribute("data-container", "wide");
     body.setAttribute("direction", "ltr");
-		let resizeWindow = () => {
-			setWindowWidth(window.innerWidth);
-			setWindowHeight(window.innerHeight);
-			window.innerWidth >= 768 && window.innerWidth < 1200
-			? body.setAttribute("data-sidebar-style", "mini")
-			: window.innerWidth <= 768
-			? body.setAttribute("data-sidebar-style", "overlay")
-			: body.setAttribute("data-sidebar-style", "full");
+    let resizeWindow = () => {
+      setWindowWidth(window.innerWidth);
+      setWindowHeight(window.innerHeight);
+      window.innerWidth >= 768 && window.innerWidth < 1200
+        ? body.setAttribute("data-sidebar-style", "mini")
+        : window.innerWidth <= 768
+          ? body.setAttribute("data-sidebar-style", "overlay")
+          : body.setAttribute("data-sidebar-style", "full");
 
-		};
+    };
     resizeWindow();
     window.addEventListener("resize", resizeWindow);
     return () => window.removeEventListener("resize", resizeWindow);
@@ -247,11 +247,12 @@ const ThemeContextProvider = (props) => {
         ChangeIconSidebar,
         sidebariconHover,
         menuToggle,
+        setMenuToggle,
         openMenuToggle,
         changeBackground,
         background,
         containerPosition_,
-	    }}
+      }}
     >
       {props.children}
     </ThemeContext.Provider>
