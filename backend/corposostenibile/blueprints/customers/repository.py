@@ -151,29 +151,33 @@ class CustomerRepository:
                         team_member_ids.add(member.id)
                 
                 if team_member_ids:
-                    # Filtra i pazienti che hanno almeno un professionista del team assegnato
+                    # Filtra i pazienti che hanno almeno un professionista del team assegnato (FK singola o M2M)
                     member_ids_list = list(team_member_ids)
                     qry = qry.filter(
                         or_(
-                            # Assegnato a nutrizionista del team
+                            # Assegnazione tramite FK singola
+                            Cliente.nutrizionista_id.in_(member_ids_list),
+                            Cliente.coach_id.in_(member_ids_list),
+                            Cliente.psicologa_id.in_(member_ids_list),
+                            # Assegnato a nutrizionista del team (M2M)
                             exists(
                                 select(cliente_nutrizionisti.c.cliente_id)
                                 .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
                                 .where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))
                             ),
-                            # Assegnato a coach del team
+                            # Assegnato a coach del team (M2M)
                             exists(
                                 select(cliente_coaches.c.cliente_id)
                                 .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
                                 .where(cliente_coaches.c.user_id.in_(member_ids_list))
                             ),
-                            # Assegnato a psicologo del team
+                            # Assegnato a psicologo del team (M2M)
                             exists(
                                 select(cliente_psicologi.c.cliente_id)
                                 .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
                                 .where(cliente_psicologi.c.user_id.in_(member_ids_list))
                             ),
-                            # Assegnato a consulente del team
+                            # Assegnato a consulente del team (M2M)
                             exists(
                                 select(cliente_consulenti.c.cliente_id)
                                 .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
@@ -185,30 +189,34 @@ class CustomerRepository:
                     # Team Leader senza membri: nessun paziente visibile
                     qry = qry.filter(False)
             
-            # Professionista o altro: vede solo i propri pazienti
+            # Professionista o altro: vede solo i propri pazienti (FK singola o M2M)
             elif user_role == UserRoleEnum.professionista:
                 user_id = current_user.id
                 qry = qry.filter(
                     or_(
-                        # Pazienti assegnati come nutrizionista
+                        # Assegnazione tramite FK singola
+                        Cliente.nutrizionista_id == user_id,
+                        Cliente.coach_id == user_id,
+                        Cliente.psicologa_id == user_id,
+                        # Pazienti assegnati come nutrizionista (M2M)
                         exists(
                             select(cliente_nutrizionisti.c.cliente_id)
                             .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
                             .where(cliente_nutrizionisti.c.user_id == user_id)
                         ),
-                        # Pazienti assegnati come coach
+                        # Pazienti assegnati come coach (M2M)
                         exists(
                             select(cliente_coaches.c.cliente_id)
                             .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
                             .where(cliente_coaches.c.user_id == user_id)
                         ),
-                        # Pazienti assegnati come psicologo
+                        # Pazienti assegnati come psicologo (M2M)
                         exists(
                             select(cliente_psicologi.c.cliente_id)
                             .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
                             .where(cliente_psicologi.c.user_id == user_id)
                         ),
-                        # Pazienti assegnati come consulente
+                        # Pazienti assegnati come consulente (M2M)
                         exists(
                             select(cliente_consulenti.c.cliente_id)
                             .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
