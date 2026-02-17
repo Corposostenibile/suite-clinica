@@ -46,6 +46,7 @@ const Header = ({ onNote }) => {
   const [notificationItems, setNotificationItems] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [notificationLoading, setNotificationLoading] = useState(true);
+  const [dismissedNotifications, setDismissedNotifications] = useState(new Set());
 
   function ThemeChange() {
     if (background.value === "light") {
@@ -80,6 +81,31 @@ const Header = ({ onNote }) => {
     setFullScreen(false);
   };
 
+  const getDismissedStorageKey = () => `dismissed_task_notifications_${user?.id || 'anon'}`;
+
+  const loadDismissedNotifications = () => {
+    try {
+      const raw = window.localStorage.getItem(getDismissedStorageKey());
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw);
+      return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.warn('Failed to load dismissed notifications:', error);
+      return new Set();
+    }
+  };
+
+  const persistDismissedNotifications = (idsSet) => {
+    try {
+      window.localStorage.setItem(
+        getDismissedStorageKey(),
+        JSON.stringify(Array.from(idsSet)),
+      );
+    } catch (error) {
+      console.warn('Failed to persist dismissed notifications:', error);
+    }
+  };
+
   const loadPushStatus = async () => {
     setPushLoading(true);
     const status = await pushNotificationService.getPushStatus();
@@ -92,8 +118,9 @@ const Header = ({ onNote }) => {
     try {
       const tasks = await taskService.getAll({ completed: 'false' });
       const list = Array.isArray(tasks) ? tasks : [];
-      setNotificationCount(list.length);
-      setNotificationItems(list.slice(0, 6));
+      const filtered = list.filter((task) => !dismissedNotifications.has(task.id));
+      setNotificationCount(filtered.length);
+      setNotificationItems(filtered.slice(0, 6));
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotificationCount(0);
@@ -105,6 +132,8 @@ const Header = ({ onNote }) => {
 
   useEffect(() => {
     if (user?.id) {
+      const dismissed = loadDismissedNotifications();
+      setDismissedNotifications(dismissed);
       loadPushStatus();
       loadNotifications();
     }
@@ -116,7 +145,7 @@ const Header = ({ onNote }) => {
       loadNotifications();
     }, 60000);
     return () => clearInterval(timer);
-  }, [user?.id]);
+  }, [user?.id, dismissedNotifications]);
 
   const handleEnablePush = async () => {
     setPushBusy(true);
@@ -168,6 +197,13 @@ const Header = ({ onNote }) => {
   };
 
   const handleNotificationClick = (task) => {
+    const updatedDismissed = new Set(dismissedNotifications);
+    updatedDismissed.add(task.id);
+    setDismissedNotifications(updatedDismissed);
+    persistDismissedNotifications(updatedDismissed);
+    setNotificationItems((prev) => prev.filter((item) => item.id !== task.id));
+    setNotificationCount((prev) => Math.max(0, prev - 1));
+
     const destination = getTaskDestination(task);
     if (destination.external) {
       window.open(destination.href, '_blank', 'noopener,noreferrer');
