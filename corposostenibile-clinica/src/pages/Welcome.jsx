@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
+import { Collapse } from 'react-bootstrap';
 import dashboardService from '../services/dashboardService';
 import teamService from '../services/teamService';
 import trialUserService from '../services/trialUserService';
@@ -19,10 +20,42 @@ const TABS = [
   { key: 'professionisti', label: 'Professionisti', icon: 'ri-user-star-line' },
 ];
 
+/** Su mobile: sezione collassabile (accordion). Su desktop: solo il contenuto. */
+function MobileSection({ title, id, openId, onToggle, children, icon }) {
+  const isOpen = openId === id;
+  return (
+    <>
+      <div className="d-md-none mb-2">
+        <div className="card border-0 shadow-sm rounded-3">
+          <button
+            type="button"
+            className="card-header bg-white border-0 d-flex align-items-center justify-content-between w-100 py-2 px-3 text-start"
+            onClick={() => onToggle(isOpen ? null : id)}
+            style={{ borderRadius: 'inherit' }}
+          >
+            <span className="fw-semibold small" style={{ color: '#1e293b', fontSize: '0.9rem' }}>
+              {icon && <i className={`${icon} me-2`}></i>}
+              {title}
+            </span>
+            <i className={`ri-arrow-${isOpen ? 'up' : 'down'}-s-line text-muted`} style={{ fontSize: '1.1rem' }}></i>
+          </button>
+          <Collapse in={isOpen}>
+            <div>
+              <div className="card-body py-2 px-3">{children}</div>
+            </div>
+          </Collapse>
+        </div>
+      </div>
+      <div className="d-none d-md-block">{children}</div>
+    </>
+  );
+}
+
 function Welcome() {
   const { user } = useOutletContext();
   const [activeTab, setActiveTab] = useState('panoramica');
   const [selectedKpiMobile, setSelectedKpiMobile] = useState(0);
+  const [panoramaMobileOpen, setPanoramaMobileOpen] = useState('quick');
 
   // Independent loading states for progressive rendering
   const [customerStats, setCustomerStats] = useState(null);
@@ -363,7 +396,14 @@ function Welcome() {
           })()}
 
           {/* SEZIONE 2: Quick Nav + Team/Trial KPI */}
-          <div className="row g-2 g-md-3 mb-3 mb-md-4">
+          <MobileSection
+            title="Accesso Rapido e Team"
+            id="quick"
+            openId={panoramaMobileOpen}
+            onToggle={setPanoramaMobileOpen}
+            icon="ri-apps-line"
+          >
+          <div className="row g-2 g-md-3 mb-0 mb-md-4">
             {/* Quick Navigation */}
             <div className="col-lg-8">
               <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
@@ -457,11 +497,19 @@ function Welcome() {
 
             </div>
           </div>
+          </MobileSection>
 
           {/* SEZIONE 3: Valutazioni Medie per Team */}
-          <div className="row g-2 g-md-3 mb-3 mb-md-4">
+          <MobileSection
+            title="Valutazioni Medie per Team"
+            id="valutazioni"
+            openId={panoramaMobileOpen}
+            onToggle={setPanoramaMobileOpen}
+            icon="ri-bar-chart-grouped-line"
+          >
+          <div className="row g-2 g-md-3 mb-0 mb-md-4">
             <div className="col-12">
-              <h5 className="mb-2 mb-md-3 small" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+              <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                 <i className="ri-bar-chart-grouped-line me-2"></i>
                 Valutazioni Medie per Team (Ultimo Mese)
               </h5>
@@ -498,12 +546,20 @@ function Welcome() {
               </>
             )}
           </div>
+          </MobileSection>
 
           {/* SEZIONE 3B: Valutazioni per Singolo Team */}
           {!checkLoading && teamRatings && (teamRatings.nutrizione.length > 0 || teamRatings.coach.length > 0 || teamRatings.psicologia.length > 0) && (
-            <div className="row g-2 g-md-3 mb-3 mb-md-4">
+            <MobileSection
+              title="Valutazioni per Singolo Team"
+              id="valutazioni-singolo"
+              openId={panoramaMobileOpen}
+              onToggle={setPanoramaMobileOpen}
+              icon="ri-team-line"
+            >
+            <div className="row g-2 g-md-3 mb-0 mb-md-4">
               <div className="col-12">
-                <h5 className="mb-2 mb-md-3 small" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+                <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                   <i className="ri-team-line me-2"></i>
                   Valutazioni per Singolo Team (Ultimo Mese)
                 </h5>
@@ -524,24 +580,40 @@ function Welcome() {
                 </div>
               )}
             </div>
+            </MobileSection>
           )}
 
           {/* SEZIONE 4: Check Negativi */}
           {!checkLoading && (
+            <MobileSection
+              title="Check Negativi"
+              id="check-negativi"
+              openId={panoramaMobileOpen}
+              onToggle={setPanoramaMobileOpen}
+              icon="ri-error-warning-line"
+            >
             <NegativeChecksTable
               negativeChecks={negativeChecks}
               negativePage={negativePage}
               setNegativePage={setNegativePage}
               perPage={NEGATIVE_PER_PAGE}
             />
+            </MobileSection>
           )}
 
           {/* SEZIONE 5: Top 5 Professionisti */}
           {!checkLoading && rankings && (
+            <MobileSection
+              title="Top 5 e Professionisti da Migliorare"
+              id="top5"
+              openId={panoramaMobileOpen}
+              onToggle={setPanoramaMobileOpen}
+              icon="ri-trophy-line"
+            >
             <>
-              <div className="row g-2 g-md-3 mb-3 mb-md-4">
+              <div className="row g-2 g-md-3 mb-0 mb-md-4">
                 <div className="col-12">
-                  <h5 className="mb-2 mb-md-3 small" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+                  <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                     <i className="ri-trophy-line me-2 text-warning"></i>
                     Top 5 Professionisti (Ultimo Mese)
                   </h5>
@@ -557,9 +629,9 @@ function Welcome() {
                 </div>
               </div>
 
-              <div className="row g-3 mb-4">
+              <div className="row g-2 g-md-3 mb-0 mb-md-4">
                 <div className="col-12">
-                  <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                  <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                     <i className="ri-arrow-down-circle-line me-2 text-danger"></i>
                     Professionisti da Migliorare (Ultimo Mese)
                   </h5>
@@ -575,6 +647,7 @@ function Welcome() {
                 </div>
               </div>
             </>
+            </MobileSection>
           )}
         </>
       ) : activeTab === 'pazienti' ? (
