@@ -3,6 +3,37 @@
    Green gradient sidebar/nav-header - Brand Colors
    =================================================================== */
 
+/* ===================================================================
+   TABS SCROLL MOBILE - scroll orizzontale con dito su viewport stretti
+   =================================================================== */
+
+.tabs-scroll-mobile {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* Vincola la larghezza così il contenuto più largo crea overflow e lo scroll funziona */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  /* Abilita esplicitamente lo scroll orizzontale con il dito */
+  touch-action: pan-x;
+  /* Scrollbar nascosta (opzionale, look pulito) */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs-scroll-mobile::-webkit-scrollbar {
+  display: none;
+}
+
+/* Layout più compatto su mobile (dashboard e pagine interne) */
+@media (max-width: 767.98px) {
+  .content-body .container-fluid {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
 /* Nav Header - Green Gradient */
 [data-nav-headerbg="color_3"] .nav-header {
   background: linear-gradient(180deg, #1B5E20 0%, #0D3B12 100%) !important;

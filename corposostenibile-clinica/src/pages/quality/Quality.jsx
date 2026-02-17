@@ -419,29 +419,35 @@ function Quality() {
                                 {selectedTeamName && <span className="fw-semibold"> · {selectedTeamName}</span>}
                             </p>
                         </div>
-                        <div className="d-flex flex-wrap gap-2">
-                            {Object.entries(QUALITY_SPECIALTIES).map(([key, spec]) => (
+                        <div className="tabs-scroll-mobile">
+                            <div className="d-flex gap-2" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
+                                {Object.entries(QUALITY_SPECIALTIES).map(([key, spec]) => (
+                                    <button
+                                        key={key}
+                                        className={`btn px-3 ${specialty === key ? '' : 'btn-outline-secondary'}`}
+                                        onClick={() => setSpecialty(key)}
+                                        style={{
+                                            ...(specialty === key ? {
+                                                backgroundColor: key === 'nutrizione' ? '#22c55e' : key === 'coach' ? '#f97316' : '#ec4899',
+                                                borderColor: 'transparent',
+                                                color: 'white',
+                                            } : {}),
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        <i className={`${spec.icon} me-2`}></i>
+                                        {spec.label}
+                                    </button>
+                                ))}
                                 <button
-                                    key={key}
-                                    className={`btn px-3 ${specialty === key ? '' : 'btn-outline-secondary'}`}
-                                    onClick={() => setSpecialty(key)}
-                                    style={specialty === key ? {
-                                        backgroundColor: key === 'nutrizione' ? '#22c55e' : key === 'coach' ? '#f97316' : '#ec4899',
-                                        borderColor: 'transparent',
-                                        color: 'white',
-                                    } : {}}
+                                    className="btn btn-primary px-4"
+                                    onClick={() => setShowCalcModal(true)}
+                                    style={{ whiteSpace: 'nowrap' }}
                                 >
-                                    <i className={`${spec.icon} me-2`}></i>
-                                    {spec.label}
+                                    <i className="ri-calculator-line me-2"></i>
+                                    Calcola Quality
                                 </button>
-                            ))}
-                            <button
-                                className="btn btn-primary px-4"
-                                onClick={() => setShowCalcModal(true)}
-                            >
-                                <i className="ri-calculator-line me-2"></i>
-                                Calcola Quality
-                            </button>
+                            </div>
                         </div>
                     </div>
 

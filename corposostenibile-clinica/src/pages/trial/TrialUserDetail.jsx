@@ -259,11 +259,12 @@ function TrialUserDetail() {
           <div className="card shadow-sm border-0">
             {/* Tabs Navigation */}
             <div className="card-header bg-transparent border-bottom p-0">
-              <ul className="nav nav-tabs border-0">
+              <ul className="nav nav-tabs border-0 flex-nowrap overflow-auto" data-tour="nav-tabs-trial">
                 <li className="nav-item">
                   <button
                     className={`nav-link px-4 py-3 ${activeTab === 'progress' ? 'active' : ''}`}
                     onClick={() => setActiveTab('progress')}
+                    style={{ whiteSpace: 'nowrap' }}
                   >
                     <i className="ri-roadmap-line me-2"></i>
                     Progressione
@@ -273,6 +274,7 @@ function TrialUserDetail() {
                   <button
                     className={`nav-link px-4 py-3 ${activeTab === 'clienti' ? 'active' : ''}`}
                     onClick={() => setActiveTab('clienti')}
+                    style={{ whiteSpace: 'nowrap' }}
                   >
                     <i className="ri-group-line me-2"></i>
                     Clienti
@@ -285,6 +287,7 @@ function TrialUserDetail() {
                   <button
                     className={`nav-link px-4 py-3 ${activeTab === 'info' ? 'active' : ''}`}
                     onClick={() => setActiveTab('info')}
+                    style={{ whiteSpace: 'nowrap' }}
                   >
                     <i className="ri-user-settings-line me-2"></i>
                     Informazioni

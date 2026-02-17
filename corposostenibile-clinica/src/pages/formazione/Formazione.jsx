@@ -690,11 +690,12 @@ function Formazione() {
                     {/* Main Tabs AND Sub Tabs Navigation Wrapper for Tour */}
                     <div data-tour="tabs-navigation">
                         {/* Main Tabs: I Miei Training | Gestione Team */}
-                        <ul className="nav nav-tabs mb-4">
+                        <ul className="nav nav-tabs mb-4 flex-nowrap overflow-auto">
                             <li className="nav-item">
                                 <button
                                     className={`nav-link ${adminTab === 'myTrainings' ? 'active' : ''}`}
                                     onClick={() => setAdminTab('myTrainings')}
+                                    style={{ whiteSpace: 'nowrap' }}
                                 >
                                     <i className="ri-user-line me-2"></i>
                                     I Miei Training
@@ -705,6 +706,7 @@ function Formazione() {
                                 <button
                                     className={`nav-link ${adminTab === 'team' ? 'active' : ''}`}
                                     onClick={() => setAdminTab('team')}
+                                    style={{ whiteSpace: 'nowrap' }}
                                 >
                                     <i className="ri-team-line me-2"></i>
                                     Gestione Team

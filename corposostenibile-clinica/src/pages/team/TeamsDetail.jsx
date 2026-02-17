@@ -230,11 +230,12 @@ function TeamsDetail() {
           <div className="card shadow-sm border-0">
             {/* Tabs Navigation */}
             <div className="card-header bg-transparent border-bottom p-0">
-              <ul className="nav nav-tabs border-0">
+              <ul className="nav nav-tabs border-0 flex-nowrap overflow-auto">
                 <li className="nav-item">
                   <button
                     className={`nav-link px-4 py-3 ${activeTab === 'info' ? 'active' : ''}`}
                     onClick={() => setActiveTab('info')}
+                    style={{ whiteSpace: 'nowrap' }}
                   >
                     <i className="ri-information-line me-2"></i>
                     Informazioni
@@ -244,6 +245,7 @@ function TeamsDetail() {
                   <button
                     className={`nav-link px-4 py-3 ${activeTab === 'members' ? 'active' : ''}`}
                     onClick={() => setActiveTab('members')}
+                    style={{ whiteSpace: 'nowrap' }}
                   >
                     <i className="ri-group-line me-2"></i>
                     Membri

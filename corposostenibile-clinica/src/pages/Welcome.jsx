@@ -22,6 +22,7 @@ const TABS = [
 function Welcome() {
   const { user } = useOutletContext();
   const [activeTab, setActiveTab] = useState('panoramica');
+  const [selectedKpiMobile, setSelectedKpiMobile] = useState(0);
 
   // Independent loading states for progressive rendering
   const [customerStats, setCustomerStats] = useState(null);
@@ -226,16 +227,16 @@ function Welcome() {
   return (
     <>
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 gap-md-3 mb-3 mb-md-4">
         <div>
-          <h4 className="mb-1" style={{ fontWeight: 700, color: '#1e293b' }}>
+          <h4 className="mb-0 mb-md-1 small" style={{ fontWeight: 700, color: '#1e293b', fontSize: '1.15rem' }}>
             Ciao, {user?.first_name || 'Admin'}!
           </h4>
-          <p className="text-muted mb-0">Panoramica Piattaforma</p>
+          <p className="text-muted mb-0 small d-none d-sm-block">Panoramica Piattaforma</p>
         </div>
         <button
           onClick={refreshAll}
-          className="btn btn-light d-flex align-items-center gap-2"
+          className="btn btn-light d-flex align-items-center gap-2 btn-sm"
           style={{ borderRadius: '12px' }}
         >
           <i className="ri-refresh-line"></i>
@@ -244,31 +245,34 @@ function Welcome() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '12px' }}>
-        <div className="card-body p-2">
-          <div className="d-flex flex-wrap gap-2">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className="btn"
-                style={{
-                  borderRadius: '8px',
-                  padding: '10px 20px',
-                  background: activeTab === tab.key
-                    ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-                    : 'transparent',
-                  color: activeTab === tab.key ? 'white' : '#64748b',
-                  fontWeight: activeTab === tab.key ? 600 : 500,
-                  fontSize: '14px',
-                  border: 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <i className={`${tab.icon} me-2`}></i>
-                {tab.label}
-              </button>
-            ))}
+      <div className="card border-0 shadow-sm mb-3 mb-md-4" style={{ borderRadius: '12px' }}>
+        <div className="card-body p-2 py-md-2">
+          <div className="tabs-scroll-mobile">
+            <div className="d-flex gap-2" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className="btn"
+                  style={{
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    background: activeTab === tab.key
+                      ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+                      : 'transparent',
+                    color: activeTab === tab.key ? 'white' : '#64748b',
+                    fontWeight: activeTab === tab.key ? 600 : 500,
+                    fontSize: '14px',
+                    border: 'none',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <i className={`${tab.icon} me-2`}></i>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -277,75 +281,152 @@ function Welcome() {
       {activeTab === 'panoramica' ? (
         <>
           {/* SEZIONE 1: KPI Pazienti */}
-          <div className="row g-3 mb-4">
-            {[
+          {(() => {
+            const panoramaKpiStats = [
               { label: 'Pazienti Totali', value: customerStats?.total_clienti, icon: 'ri-group-line', bg: 'primary' },
               { label: 'Nutrizione Attivi', value: customerStats?.nutrizione_attivo, icon: 'ri-restaurant-line', bg: 'success' },
               { label: 'Coach Attivi', value: customerStats?.coach_attivo, icon: 'ri-run-line', bg: 'warning' },
               { label: 'Psicologia Attivi', value: customerStats?.psicologia_attivo, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
               { label: 'Nuovi questo Mese', value: customerStats?.kpi?.new_month, icon: 'ri-user-add-line', customBg: '#06b6d4' },
-            ].map((stat, idx) => (
-              <div key={idx} className="col-xl col-sm-6">
-                <div
-                  className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
-                  style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
-                >
-                  <div className="card-body py-3">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div>
-                        <h3 className="text-white mb-0 fw-bold">
-                          {customerLoading ? <SkeletonNumber /> : (stat.value ?? 0)}
-                        </h3>
-                        <span className="text-white opacity-75 small">{stat.label}</span>
-                      </div>
-                      <div
-                        className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
-                        style={{ width: '48px', height: '48px' }}
-                      >
-                        <i className={`${stat.icon} text-white fs-4`}></i>
+            ];
+            const stat = panoramaKpiStats[selectedKpiMobile] || panoramaKpiStats[0];
+            return (
+              <>
+                {/* Mobile: dropdown + una sola card */}
+                <div className="d-md-none mb-3">
+                  <div className="rounded-3 border bg-light bg-opacity-50 px-3 py-2 shadow-sm">
+                    <label className="form-label small text-muted mb-1">KPI</label>
+                    <select
+                      className="form-select form-select-sm rounded-2 border"
+                      value={selectedKpiMobile}
+                      onChange={(e) => setSelectedKpiMobile(Number(e.target.value))}
+                    >
+                      {panoramaKpiStats.map((s, idx) => (
+                        <option key={idx} value={idx}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div
+                    className={`card border-0 shadow-sm mt-2 ${stat.bg ? `bg-${stat.bg}` : ''}`}
+                    style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
+                  >
+                    <div className="card-body py-2 px-3">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div>
+                          <h3 className="text-white mb-0 fw-bold fs-5">
+                            {customerLoading ? <SkeletonNumber /> : (stat.value ?? 0)}
+                          </h3>
+                          <span className="text-white opacity-75 small">{stat.label}</span>
+                        </div>
+                        <div
+                          className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                          style={{ width: '40px', height: '40px' }}
+                        >
+                          <i className={`${stat.icon} text-white`} style={{ fontSize: '1.1rem' }}></i>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+                {/* Desktop: griglia di card */}
+                <div className="d-none d-md-block">
+                  <div className="row g-3 mb-4">
+                    {panoramaKpiStats.map((s, idx) => (
+                      <div key={idx} className="col-xl col-sm-6">
+                        <div
+                          className={`card border-0 shadow-sm ${s.bg ? `bg-${s.bg}` : ''}`}
+                          style={s.customBg ? { backgroundColor: s.customBg } : {}}
+                        >
+                          <div className="card-body py-3">
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div>
+                                <h3 className="text-white mb-0 fw-bold">
+                                  {customerLoading ? <SkeletonNumber /> : (s.value ?? 0)}
+                                </h3>
+                                <span className="text-white opacity-75 small">{s.label}</span>
+                              </div>
+                              <div
+                                className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                                style={{ width: '48px', height: '48px' }}
+                              >
+                                <i className={`${s.icon} text-white fs-4`}></i>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* SEZIONE 2: Quick Nav + Team/Trial KPI */}
-          <div className="row g-3 mb-4">
+          <div className="row g-2 g-md-3 mb-3 mb-md-4">
             {/* Quick Navigation */}
             <div className="col-lg-8">
               <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                  <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+                <div className="card-header bg-white border-0 py-2 py-md-3 px-3 px-md-4" style={{ borderRadius: '16px 16px 0 0' }}>
+                  <h6 className="mb-0 fw-semibold small" style={{ color: '#1e293b', fontSize: '0.95rem' }}>
                     <i className="ri-apps-line me-2 text-primary"></i>
                     Accesso Rapido
                   </h6>
                 </div>
-                <div className="card-body pt-0 px-4 pb-4">
-                  <div className="row g-2">
-                    {QUICK_LINKS.map((link, idx) => (
-                      <div key={idx} className="col-6 col-md-4 col-xl-3">
+                <div className="card-body pt-0 px-3 px-md-4 pb-3 pb-md-4">
+                  {/* Mobile: una riga a scorrimento orizzontale */}
+                  <div className="d-md-none tabs-scroll-mobile">
+                    <div className="d-flex gap-2" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
+                      {QUICK_LINKS.map((link, idx) => (
                         <Link
+                          key={idx}
                           to={link.to}
-                          className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
+                          className="d-flex align-items-center gap-2 p-2 text-decoration-none rounded-3 flex-shrink-0"
                           style={{
                             background: link.bgColor,
                             transition: 'transform 0.15s, box-shadow 0.15s',
+                            minWidth: '120px',
                           }}
                           onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
                           onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
                         >
                           <div
                             className="d-flex align-items-center justify-content-center rounded-circle"
-                            style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
+                            style={{ width: '32px', height: '32px', background: link.iconBg, flexShrink: 0 }}
                           >
-                            <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
+                            <i className={link.icon} style={{ color: link.color, fontSize: '14px' }}></i>
                           </div>
-                          <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
+                          <span style={{ color: '#334155', fontWeight: 500, fontSize: '12px', whiteSpace: 'nowrap' }}>{link.label}</span>
                         </Link>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+                  {/* Desktop: griglia */}
+                  <div className="d-none d-md-block">
+                    <div className="row g-2">
+                      {QUICK_LINKS.map((link, idx) => (
+                        <div key={idx} className="col-md-4 col-xl-3">
+                          <Link
+                            to={link.to}
+                            className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
+                            style={{
+                              background: link.bgColor,
+                              transition: 'transform 0.15s, box-shadow 0.15s',
+                            }}
+                            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                          >
+                            <div
+                              className="d-flex align-items-center justify-content-center rounded-circle"
+                              style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
+                            >
+                              <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
+                            </div>
+                            <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -354,13 +435,13 @@ function Welcome() {
             {/* Team + Trial Stats */}
             <div className="col-lg-4">
               <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                  <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+                <div className="card-header bg-white border-0 py-2 py-md-3 px-3 px-md-4" style={{ borderRadius: '16px 16px 0 0' }}>
+                  <h6 className="mb-0 fw-semibold small" style={{ color: '#1e293b', fontSize: '0.95rem' }}>
                     <i className="ri-team-line me-2 text-info"></i>
                     Team
                   </h6>
                 </div>
-                <div className="card-body pt-0 px-4 pb-3">
+                <div className="card-body pt-0 px-3 px-md-4 pb-2 pb-md-3">
                   {teamLoading ? (
                     <SkeletonList count={4} />
                   ) : (
@@ -378,9 +459,9 @@ function Welcome() {
           </div>
 
           {/* SEZIONE 3: Valutazioni Medie per Team */}
-          <div className="row g-3 mb-4">
+          <div className="row g-2 g-md-3 mb-3 mb-md-4">
             <div className="col-12">
-              <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+              <h5 className="mb-2 mb-md-3 small" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                 <i className="ri-bar-chart-grouped-line me-2"></i>
                 Valutazioni Medie per Team (Ultimo Mese)
               </h5>
@@ -420,9 +501,9 @@ function Welcome() {
 
           {/* SEZIONE 3B: Valutazioni per Singolo Team */}
           {!checkLoading && teamRatings && (teamRatings.nutrizione.length > 0 || teamRatings.coach.length > 0 || teamRatings.psicologia.length > 0) && (
-            <div className="row g-3 mb-4">
+            <div className="row g-2 g-md-3 mb-3 mb-md-4">
               <div className="col-12">
-                <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                <h5 className="mb-2 mb-md-3 small" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                   <i className="ri-team-line me-2"></i>
                   Valutazioni per Singolo Team (Ultimo Mese)
                 </h5>
@@ -458,9 +539,9 @@ function Welcome() {
           {/* SEZIONE 5: Top 5 Professionisti */}
           {!checkLoading && rankings && (
             <>
-              <div className="row g-3 mb-4">
+              <div className="row g-2 g-md-3 mb-3 mb-md-4">
                 <div className="col-12">
-                  <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                  <h5 className="mb-2 mb-md-3 small" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
                     <i className="ri-trophy-line me-2 text-warning"></i>
                     Top 5 Professionisti (Ultimo Mese)
                   </h5>
