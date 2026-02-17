@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 /// Scroll
 
 import { Dropdown } from "react-bootstrap";
@@ -13,6 +13,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { SVGICON } from "../../constant/theme.jsx";
 import GlobalSearch from "../../../components/GlobalSearch";
 import pushNotificationService from "../../../services/pushNotificationService";
+import taskService, { TASK_CATEGORIES } from "../../../services/taskService";
 
 // Role labels in Italian
 const ROLE_LABELS = {
@@ -32,6 +33,7 @@ const ROLE_LABELS = {
 const Header = ({ onNote }) => {
   const { background, changeBackground } = useContext(ThemeContext);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [pushStatus, setPushStatus] = useState({
     supported: true,
     backendEnabled: true,
@@ -41,6 +43,9 @@ const Header = ({ onNote }) => {
   });
   const [pushLoading, setPushLoading] = useState(true);
   const [pushBusy, setPushBusy] = useState(false);
+  const [notificationItems, setNotificationItems] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationLoading, setNotificationLoading] = useState(true);
 
   function ThemeChange() {
     if (background.value === "light") {
@@ -82,8 +87,35 @@ const Header = ({ onNote }) => {
     setPushLoading(false);
   };
 
+  const loadNotifications = async () => {
+    setNotificationLoading(true);
+    try {
+      const tasks = await taskService.getAll({ completed: 'false' });
+      const list = Array.isArray(tasks) ? tasks : [];
+      setNotificationCount(list.length);
+      setNotificationItems(list.slice(0, 6));
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotificationCount(0);
+      setNotificationItems([]);
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (user?.id) loadPushStatus();
+    if (user?.id) {
+      loadPushStatus();
+      loadNotifications();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const timer = setInterval(() => {
+      loadNotifications();
+    }, 60000);
+    return () => clearInterval(timer);
   }, [user?.id]);
 
   const handleEnablePush = async () => {
@@ -110,6 +142,43 @@ const Header = ({ onNote }) => {
       : pushStatus.permission === 'denied'
         ? 'Permesso notifiche negato nel browser.'
         : 'Riceverai notifiche push su task e aggiornamenti futuri.';
+
+  const formatNotificationTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+  };
+
+  const getTaskDestination = (task) => {
+    const payload = task?.payload || {};
+    const clientId = task?.client_id || payload?.client_id;
+    if (task?.category === 'check' && clientId) {
+      return { href: `/clienti-dettaglio/${clientId}?tab=check`, external: false };
+    }
+    if (['onboarding', 'formazione', 'sollecito', 'reminder'].includes(task?.category) && clientId) {
+      return { href: `/clienti-dettaglio/${clientId}`, external: false };
+    }
+    if (payload?.url) {
+      const isExternal = /^https?:\/\//i.test(payload.url);
+      return { href: payload.url, external: isExternal };
+    }
+    if (clientId) return { href: `/clienti-dettaglio/${clientId}`, external: false };
+    return { href: '/task', external: false };
+  };
+
+  const handleNotificationClick = (task) => {
+    const destination = getTaskDestination(task);
+    if (destination.external) {
+      window.open(destination.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigate(destination.href);
+  };
+
+  const handleNotificationToggle = (isOpen) => {
+    if (isOpen) loadNotifications();
+  };
 
   return (
     <div className="header" style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.9)', borderBottom: '1px solid #e2e8f0' }}>
@@ -206,14 +275,22 @@ const Header = ({ onNote }) => {
                   </Link>
                 </li>
               )}
-              <Dropdown as="li" className="nav-item notification_dropdown">
+              <Dropdown as="li" className="nav-item notification_dropdown" onToggle={handleNotificationToggle}>
                 <Dropdown.Toggle variant="" as="a"
                   className="nav-link i-false c-pointer dropdown-toggle-no-caret"
                   role="button"
                   data-toggle="dropdown"
-                  style={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s ease' }}
+                  style={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s ease', position: 'relative' }}
                 >
                   <i className="ri-notification-3-line" style={{ fontSize: '20px', color: '#64748b' }}></i>
+                  {notificationCount > 0 && (
+                    <span
+                      className="badge bg-danger"
+                      style={{ position: 'absolute', top: '2px', right: '-4px', fontSize: '10px', minWidth: '18px', height: '18px', borderRadius: '999px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </span>
+                  )}
                 </Dropdown.Toggle>
                 <Dropdown.Menu align="end" style={{ minWidth: '320px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', borderRadius: '16px' }}>
                   <div className="p-4 text-center">
@@ -247,6 +324,47 @@ const Header = ({ onNote }) => {
                       >
                         {pushBusy ? 'Attivo...' : 'Attiva notifiche push'}
                       </button>
+                    )}
+                  </div>
+                  <div className="border-top px-3 py-2 d-flex align-items-center justify-content-between">
+                    <span className="fw-semibold" style={{ color: '#1e293b', fontSize: '13px' }}>Task recenti</span>
+                    <Link to="/task" style={{ fontSize: '12px' }}>Apri tutte</Link>
+                  </div>
+                  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                    {notificationLoading ? (
+                      <div className="px-3 py-3 text-muted text-center" style={{ fontSize: '12px' }}>Caricamento notifiche...</div>
+                    ) : notificationItems.length === 0 ? (
+                      <div className="px-3 py-3 text-muted text-center" style={{ fontSize: '12px' }}>Nessuna notifica disponibile</div>
+                    ) : (
+                      notificationItems.map((task) => {
+                        const categoryInfo = TASK_CATEGORIES[task.category] || {};
+                        return (
+                          <button
+                            key={task.id}
+                            type="button"
+                            onClick={() => handleNotificationClick(task)}
+                            className="w-100 text-start border-0 bg-white px-3 py-2 border-top"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div className="d-flex align-items-start justify-content-between gap-2">
+                              <div className="d-flex align-items-start gap-2">
+                                <i className={`${categoryInfo.icon || 'ri-task-line'}`} style={{ color: categoryInfo.color || '#64748b', marginTop: '2px' }}></i>
+                                <div>
+                                  <div className="fw-semibold" style={{ fontSize: '12px', color: '#1e293b', lineHeight: 1.3 }}>
+                                    {task.title || 'Nuovo task'}
+                                  </div>
+                                  <div className="text-muted" style={{ fontSize: '11px' }}>
+                                    {task.client_name || 'Cliente non specificato'}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-muted" style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                                {formatNotificationTime(task.created_at)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 </Dropdown.Menu>
