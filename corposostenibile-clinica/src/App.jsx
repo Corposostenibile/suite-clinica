@@ -41,7 +41,7 @@ import { Formazione } from './pages/formazione';
 import { Quality } from './pages/quality';
 
 // Check pages
-import { CheckAzienda, CheckDaLeggere, CheckAssegnazioniIniziali } from './pages/check';
+import { CheckAzienda, CheckDaLeggere } from './pages/check';
 
 // Calendario pages
 import { Calendario } from './pages/calendario';
@@ -146,7 +146,6 @@ function App() {
             } />
 
             {/* Check */}
-            <Route path="/check-assegnazioni" element={<CheckAssegnazioniIniziali />} />
             <Route path="/check-azienda" element={<CheckAzienda />} />
             <Route path="/check-da-leggere" element={<CheckDaLeggere />} />
 

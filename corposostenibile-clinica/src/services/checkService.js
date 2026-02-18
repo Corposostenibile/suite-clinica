@@ -158,13 +158,14 @@ const checkService = {
    * @param {number} params.perPage
    * @returns {Promise} - { success, items: [], pagination: {}, meta: {} }
    */
-  async getInitialAssignments({ clientSearch = '', status = 'all', page = 1, perPage = 20 } = {}) {
+  async getInitialAssignments({ clientSearch = '', status = 'all', page = 1, perPage = 20, clientIds = [] } = {}) {
     const response = await api.get(`${API_BASE}/initial-assignments`, {
       params: {
         client_search: clientSearch,
         status,
         page,
-        per_page: perPage
+        per_page: perPage,
+        client_ids: Array.isArray(clientIds) && clientIds.length > 0 ? clientIds.join(',') : undefined
       }
     });
     return response.data;

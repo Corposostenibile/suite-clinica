@@ -59,7 +59,7 @@ export const MenuList = [
     {
         title: 'Check',
         iconStyle: SVGICON.Check,
-        to: 'check-assegnazioni',
+        to: 'check-azienda',
     },
 
     // ==================== TEAM SECTION ====================

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Table, Badge, Card, Spinner, Alert, Button, ButtonGroup, Modal, Tab, Tabs, Form, Row, Col, Toast, ToastContainer } from 'react-bootstrap';
 import api from '../../services/api';
 import ghlService from '../../services/ghlService';
+import checkService from '../../services/checkService';
 import { TEAM_TYPE_COLORS } from '../../services/teamService';
 
 // Stati possibili delle assegnazioni
@@ -76,6 +77,7 @@ function AssegnazioniAI() {
 
   // Stati Assegnazioni
   const [assignments, setAssignments] = useState([]);
+  const [initialChecksByLead, setInitialChecksByLead] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedAssignment, setSelectedAssignment] = useState(null);
@@ -125,13 +127,54 @@ function AssegnazioniAI() {
       });
       if (response.data.success !== false) {
         const data = response.data.assignments || response.data || [];
-        setAssignments(Array.isArray(data) ? data : []);
+        const normalized = Array.isArray(data) ? data : [];
+        setAssignments(normalized);
+
+        const clientIds = [
+          ...new Set(
+            normalized
+              .map((a) => a.cliente_id)
+              .filter((v) => Number.isInteger(v) || (typeof v === 'string' && /^\\d+$/.test(v)))
+              .map((v) => Number(v))
+          )
+        ];
+
+        if (clientIds.length === 0) {
+          setInitialChecksByLead({});
+        } else {
+          const checksResp = await checkService.getInitialAssignments({
+            status: 'all',
+            page: 1,
+            perPage: 100,
+            clientIds
+          });
+
+          const map = {};
+          (checksResp?.items || []).forEach((item) => {
+            map[item.lead_id] = {
+              check_1: item.check_1 || { assigned: false, completed: false, response_count: 0 },
+              check_2: item.check_2 || { assigned: false, completed: false, response_count: 0 }
+            };
+          });
+          setInitialChecksByLead(map);
+        }
       }
     } catch (err) {
       console.error('Errore assegnazioni:', err);
+      setInitialChecksByLead({});
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderInitialCheckBadge = (check) => {
+    if (!check?.assigned) {
+      return <Badge bg="secondary">Non assegnato</Badge>;
+    }
+    if (check.completed) {
+      return <Badge bg="success">Compilato ({check.response_count || 0})</Badge>;
+    }
+    return <Badge bg="warning" text="dark">Assegnato</Badge>;
   };
 
   const fetchOpportunityData = async () => {
@@ -997,6 +1040,8 @@ function AssegnazioniAI() {
                       <th>ID</th>
                       <th>Cliente</th>
                       <th>Stato</th>
+                      <th>Check 1</th>
+                      <th>Check 2</th>
                       <th>Professionisti</th>
                       <th>Data</th>
                       <th></th>
@@ -1008,6 +1053,12 @@ function AssegnazioniAI() {
                         <td>#{assignment.id}</td>
                         <td>{assignment.cliente_nome}</td>
                         <td><StatusBadge status={assignment.status} /></td>
+                        <td>
+                          {renderInitialCheckBadge(initialChecksByLead[assignment.cliente_id]?.check_1)}
+                        </td>
+                        <td>
+                          {renderInitialCheckBadge(initialChecksByLead[assignment.cliente_id]?.check_2)}
+                        </td>
                         <td>
                             <div className="d-flex gap-1">
                                 {assignment.nutrizionista_assigned && <Badge bg="success">N</Badge>}

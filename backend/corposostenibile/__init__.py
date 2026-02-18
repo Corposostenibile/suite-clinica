@@ -522,7 +522,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
         # In SPA mode we want /auth/* pages to be handled by React routes.
         # Keep legacy Flask auth pages reachable only when explicitly requested.
-        spa_handle_auth_routes = str(os.getenv("SPA_HANDLE_AUTH_ROUTES", "0")).lower() in {"1", "true", "yes"}
+        spa_handle_auth_routes = str(os.getenv("SPA_HANDLE_AUTH_ROUTES", "1")).lower() in {"1", "true", "yes"}
         if not spa_handle_auth_routes:
             _flask_prefixes.append('/auth/')
         _flask_prefixes = tuple(_flask_prefixes)

@@ -3550,6 +3550,12 @@ def api_initial_assignments():
         status = request.args.get("status", "all").strip().lower()
         page = max(request.args.get("page", 1, type=int), 1)
         per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+        client_ids_raw = (request.args.get("client_ids") or "").strip()
+        client_ids = {
+            int(cid)
+            for cid in client_ids_raw.split(",")
+            if cid.strip().isdigit()
+        } if client_ids_raw else set()
 
         check_1_form = (
             CheckForm.query
@@ -3583,6 +3589,9 @@ def api_initial_assignments():
             )
             .order_by(desc(ClientCheckAssignment.created_at))
         )
+
+        if client_ids:
+            query = query.filter(ClientCheckAssignment.cliente_id.in_(client_ids))
 
         accessible_clients_query = get_accessible_clients_query()
         if accessible_clients_query is not None:
