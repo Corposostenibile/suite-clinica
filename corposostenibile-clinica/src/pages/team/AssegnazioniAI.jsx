@@ -119,6 +119,42 @@ function AssegnazioniAI() {
 
   // --- FETCH DATA ---
 
+  const loadInitialChecksStatus = async (clientIds) => {
+    const normalizedIds = [
+      ...new Set(
+        (clientIds || [])
+          .filter((v) => Number.isInteger(v) || (typeof v === 'string' && /^\\d+$/.test(v)))
+          .map((v) => Number(v))
+      )
+    ];
+
+    if (normalizedIds.length === 0) {
+      setInitialChecksByLead({});
+      return;
+    }
+
+    try {
+      const checksResp = await checkService.getInitialAssignments({
+        status: 'all',
+        page: 1,
+        perPage: 100,
+        clientIds: normalizedIds
+      });
+
+      const map = {};
+      (checksResp?.items || []).forEach((item) => {
+        map[item.lead_id] = {
+          check_1: item.check_1 || { assigned: false, completed: false, response_count: 0 },
+          check_2: item.check_2 || { assigned: false, completed: false, response_count: 0 }
+        };
+      });
+      setInitialChecksByLead(map);
+    } catch (err) {
+      console.error('Errore caricamento stato check iniziali:', err);
+      setInitialChecksByLead({});
+    }
+  };
+
   const fetchAssignments = async () => {
     setLoading(true);
     try {
@@ -129,35 +165,7 @@ function AssegnazioniAI() {
         const data = response.data.assignments || response.data || [];
         const normalized = Array.isArray(data) ? data : [];
         setAssignments(normalized);
-
-        const clientIds = [
-          ...new Set(
-            normalized
-              .map((a) => a.cliente_id)
-              .filter((v) => Number.isInteger(v) || (typeof v === 'string' && /^\\d+$/.test(v)))
-              .map((v) => Number(v))
-          )
-        ];
-
-        if (clientIds.length === 0) {
-          setInitialChecksByLead({});
-        } else {
-          const checksResp = await checkService.getInitialAssignments({
-            status: 'all',
-            page: 1,
-            perPage: 100,
-            clientIds
-          });
-
-          const map = {};
-          (checksResp?.items || []).forEach((item) => {
-            map[item.lead_id] = {
-              check_1: item.check_1 || { assigned: false, completed: false, response_count: 0 },
-              check_2: item.check_2 || { assigned: false, completed: false, response_count: 0 }
-            };
-          });
-          setInitialChecksByLead(map);
-        }
+        await loadInitialChecksStatus(normalized.map((a) => a.cliente_id));
       }
     } catch (err) {
       console.error('Errore assegnazioni:', err);
@@ -182,8 +190,10 @@ function AssegnazioniAI() {
     try {
       const result = await ghlService.getOpportunityData();
       if (result.success) {
-        setOpportunityData(result.data || []);
-        return result.data || [];
+        const rows = result.data || [];
+        setOpportunityData(rows);
+        await loadInitialChecksStatus(rows.map((opp) => opp.cliente_id));
+        return rows;
       }
     } catch (err) {
       console.error('Errore opportunity data:', err);
@@ -738,6 +748,8 @@ function AssegnazioniAI() {
                         <tr>
                           <th>Cliente</th>
                           <th>Pacchetto/Info</th>
+                          <th>Check 1</th>
+                          <th>Check 2</th>
                           <th>Assegnazioni</th>
                           <th>Ricevuto</th>
                           <th className="text-end">Azioni</th>
@@ -751,6 +763,7 @@ function AssegnazioniAI() {
                           const assignedCount = getLeadAssignedCount(opp);
                           const statusKey = assignedCount === 0 ? 'unassigned' : (assignedCount === requiredCount ? 'complete' : 'partial');
                           const status = LEAD_STATUS_STYLES[statusKey];
+                          const checks = initialChecksByLead[opp.cliente_id] || {};
 
                           return (
                             <tr key={opp.id}>
@@ -767,6 +780,8 @@ function AssegnazioniAI() {
                                 <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
                                 <span className="small text-muted">{opp.durata} gg</span>
                               </td>
+                              <td>{renderInitialCheckBadge(checks.check_1)}</td>
+                              <td>{renderInitialCheckBadge(checks.check_2)}</td>
                               <td>
                                 <div className="d-flex align-items-center flex-wrap gap-2">
                                   <div className="d-flex gap-1">
