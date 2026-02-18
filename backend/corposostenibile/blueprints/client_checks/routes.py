@@ -3535,6 +3535,151 @@ def api_get_professionisti_by_type(prof_type: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@api_bp.route("/initial-assignments", methods=["GET"])
+@login_required
+def api_initial_assignments():
+    """
+    API JSON: lista lead con stato Check 1 / Check 2 iniziali.
+    Filtri:
+      - client_search: nome/cognome/email
+      - status: all | completed_all | completed_any | pending
+      - page, per_page
+    """
+    try:
+        client_search = request.args.get("client_search", "").strip().lower()
+        status = request.args.get("status", "all").strip().lower()
+        page = max(request.args.get("page", 1, type=int), 1)
+        per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+
+        check_1_form = (
+            CheckForm.query
+            .filter(CheckForm.name.ilike("Check 1 - PRE-CHECK INIZIALE"))
+            .first()
+        )
+        check_2_form = (
+            CheckForm.query
+            .filter(CheckForm.name.ilike("Check 2 - Mockup Follow-up Iniziale"))
+            .first()
+        )
+
+        target_form_ids = [f.id for f in [check_1_form, check_2_form] if f]
+        if not target_form_ids:
+            return jsonify({
+                "success": True,
+                "items": [],
+                "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0},
+                "meta": {"check_1_name": "Check 1", "check_2_name": "Check 2"},
+            })
+
+        query = (
+            ClientCheckAssignment.query
+            .options(
+                joinedload(ClientCheckAssignment.cliente),
+                joinedload(ClientCheckAssignment.form),
+            )
+            .filter(
+                ClientCheckAssignment.is_active.is_(True),
+                ClientCheckAssignment.form_id.in_(target_form_ids),
+            )
+            .order_by(desc(ClientCheckAssignment.created_at))
+        )
+
+        accessible_clients_query = get_accessible_clients_query()
+        if accessible_clients_query is not None:
+            query = query.filter(
+                ClientCheckAssignment.cliente_id.in_(accessible_clients_query)
+            )
+
+        assignments = query.all()
+
+        grouped: Dict[int, Dict[str, Any]] = {}
+        for assignment in assignments:
+            cliente = assignment.cliente
+            if not cliente:
+                continue
+
+            if client_search:
+                nome = (cliente.nome or "").lower()
+                cognome = (cliente.cognome or "").lower()
+                email = (cliente.mail or "").lower()
+                full_name = f"{nome} {cognome}".strip()
+                if (
+                    client_search not in nome
+                    and client_search not in cognome
+                    and client_search not in email
+                    and client_search not in full_name
+                ):
+                    continue
+
+            row = grouped.setdefault(
+                cliente.cliente_id,
+                {
+                    "lead_id": cliente.cliente_id,
+                    "lead_name": cliente.nome_cognome,
+                    "lead_email": cliente.mail,
+                    "latest_activity_at": assignment.created_at,
+                    "check_1": {"assigned": False, "completed": False, "response_count": 0},
+                    "check_2": {"assigned": False, "completed": False, "response_count": 0},
+                },
+            )
+
+            if assignment.created_at and assignment.created_at > row["latest_activity_at"]:
+                row["latest_activity_at"] = assignment.created_at
+
+            if check_1_form and assignment.form_id == check_1_form.id:
+                row["check_1"] = {
+                    "assigned": True,
+                    "completed": assignment.response_count > 0,
+                    "response_count": assignment.response_count or 0,
+                }
+            elif check_2_form and assignment.form_id == check_2_form.id:
+                row["check_2"] = {
+                    "assigned": True,
+                    "completed": assignment.response_count > 0,
+                    "response_count": assignment.response_count or 0,
+                }
+
+        items = list(grouped.values())
+
+        def _match_status(item: Dict[str, Any]) -> bool:
+            c1 = item["check_1"]["completed"]
+            c2 = item["check_2"]["completed"]
+            if status == "completed_all":
+                return c1 and c2
+            if status == "completed_any":
+                return c1 or c2
+            if status == "pending":
+                return not (c1 or c2)
+            return True
+
+        items = [item for item in items if _match_status(item)]
+        items.sort(key=lambda x: x["latest_activity_at"] or datetime.min, reverse=True)
+
+        total = len(items)
+        pages = (total + per_page - 1) // per_page if total else 0
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_items = items[start:end]
+
+        return jsonify({
+            "success": True,
+            "items": page_items,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": pages,
+            },
+            "meta": {
+                "check_1_name": check_1_form.name if check_1_form else "Check 1",
+                "check_2_name": check_2_form.name if check_2_form else "Check 2",
+            },
+        })
+    except Exception as e:
+        current_app.logger.error(f"[API] Errore initial assignments: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ============================================================================
 # PUBLIC API ENDPOINTS (No authentication required - for React frontend)
 # ============================================================================

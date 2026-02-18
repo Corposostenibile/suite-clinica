@@ -149,6 +149,27 @@ const checkService = {
     return response.data;
   },
 
+  /**
+   * Get initial checks assignments aggregated by lead.
+   * @param {Object} params
+   * @param {string} params.clientSearch - Search by lead name/email
+   * @param {string} params.status - all | completed_all | completed_any | pending
+   * @param {number} params.page
+   * @param {number} params.perPage
+   * @returns {Promise} - { success, items: [], pagination: {}, meta: {} }
+   */
+  async getInitialAssignments({ clientSearch = '', status = 'all', page = 1, perPage = 20 } = {}) {
+    const response = await api.get(`${API_BASE}/initial-assignments`, {
+      params: {
+        client_search: clientSearch,
+        status,
+        page,
+        per_page: perPage
+      }
+    });
+    return response.data;
+  },
+
 
 
   // ==================== UTILITIES ====================
