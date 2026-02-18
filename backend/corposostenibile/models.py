@@ -3088,6 +3088,48 @@ class PushSubscription(TimestampMixin, db.Model):
         return f"<PushSubscription {self.id} user={self.user_id}>"
 
 
+class AppNotification(TimestampMixin, db.Model):
+    __tablename__ = "app_notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind = db.Column(db.String(50), nullable=False, default="generic", index=True)
+    title = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    url = db.Column(db.String(1024), nullable=False, default="/")
+    payload = db.Column(db.JSON, default=dict)
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    user = relationship("User", backref=db.backref("app_notifications", lazy="dynamic", cascade="all, delete-orphan"))
+
+    def mark_as_read(self) -> None:
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "title": self.title,
+            "body": self.body,
+            "url": self.url,
+            "payload": self.payload or {},
+            "is_read": bool(self.is_read),
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<AppNotification {self.id} user={self.user_id} kind={self.kind}>"
+
+
 
 # ──────────────────────── MODELLI OKR ─────────────────────── #
 class Objective(TimestampMixin, db.Model):

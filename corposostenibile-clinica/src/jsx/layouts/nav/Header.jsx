@@ -13,7 +13,6 @@ import { useAuth } from "../../../context/AuthContext";
 import { SVGICON } from "../../constant/theme.jsx";
 import GlobalSearch from "../../../components/GlobalSearch";
 import pushNotificationService from "../../../services/pushNotificationService";
-import taskService, { TASK_CATEGORIES } from "../../../services/taskService";
 
 // Role labels in Italian
 const ROLE_LABELS = {
@@ -46,7 +45,6 @@ const Header = ({ onNote }) => {
   const [notificationItems, setNotificationItems] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [notificationLoading, setNotificationLoading] = useState(true);
-  const [dismissedNotifications, setDismissedNotifications] = useState(new Set());
 
   function ThemeChange() {
     if (background.value === "light") {
@@ -81,31 +79,6 @@ const Header = ({ onNote }) => {
     setFullScreen(false);
   };
 
-  const getDismissedStorageKey = () => `dismissed_task_notifications_${user?.id || 'anon'}`;
-
-  const loadDismissedNotifications = () => {
-    try {
-      const raw = window.localStorage.getItem(getDismissedStorageKey());
-      if (!raw) return new Set();
-      const parsed = JSON.parse(raw);
-      return new Set(Array.isArray(parsed) ? parsed : []);
-    } catch (error) {
-      console.warn('Failed to load dismissed notifications:', error);
-      return new Set();
-    }
-  };
-
-  const persistDismissedNotifications = (idsSet) => {
-    try {
-      window.localStorage.setItem(
-        getDismissedStorageKey(),
-        JSON.stringify(Array.from(idsSet)),
-      );
-    } catch (error) {
-      console.warn('Failed to persist dismissed notifications:', error);
-    }
-  };
-
   const loadPushStatus = async () => {
     setPushLoading(true);
     const status = await pushNotificationService.getPushStatus();
@@ -116,11 +89,9 @@ const Header = ({ onNote }) => {
   const loadNotifications = async () => {
     setNotificationLoading(true);
     try {
-      const tasks = await taskService.getAll({ completed: 'false' });
-      const list = Array.isArray(tasks) ? tasks : [];
-      const filtered = list.filter((task) => !dismissedNotifications.has(task.id));
-      setNotificationCount(filtered.length);
-      setNotificationItems(filtered.slice(0, 6));
+      const data = await pushNotificationService.getNotifications({ unreadOnly: true, limit: 6 });
+      setNotificationCount(Number(data?.unreadCount || 0));
+      setNotificationItems(Array.isArray(data?.items) ? data.items : []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotificationCount(0);
@@ -132,8 +103,6 @@ const Header = ({ onNote }) => {
 
   useEffect(() => {
     if (user?.id) {
-      const dismissed = loadDismissedNotifications();
-      setDismissedNotifications(dismissed);
       loadPushStatus();
       loadNotifications();
     }
@@ -145,7 +114,7 @@ const Header = ({ onNote }) => {
       loadNotifications();
     }, 60000);
     return () => clearInterval(timer);
-  }, [user?.id, dismissedNotifications]);
+  }, [user?.id]);
 
   const handleEnablePush = async () => {
     setPushBusy(true);
@@ -179,32 +148,22 @@ const Header = ({ onNote }) => {
     return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
   };
 
-  const getTaskDestination = (task) => {
-    const payload = task?.payload || {};
-    const clientId = task?.client_id || payload?.client_id;
-    if (task?.category === 'check' && clientId) {
-      return { href: `/clienti-dettaglio/${clientId}?tab=check`, external: false };
-    }
-    if (['onboarding', 'formazione', 'sollecito', 'reminder'].includes(task?.category) && clientId) {
-      return { href: `/clienti-dettaglio/${clientId}`, external: false };
-    }
-    if (payload?.url) {
-      const isExternal = /^https?:\/\//i.test(payload.url);
-      return { href: payload.url, external: isExternal };
-    }
-    if (clientId) return { href: `/clienti-dettaglio/${clientId}`, external: false };
-    return { href: '/task', external: false };
+  const getNotificationDestination = (notification) => {
+    const href = notification?.url || '/task';
+    const external = /^https?:\/\//i.test(href);
+    return { href, external };
   };
 
-  const handleNotificationClick = (task) => {
-    const updatedDismissed = new Set(dismissedNotifications);
-    updatedDismissed.add(task.id);
-    setDismissedNotifications(updatedDismissed);
-    persistDismissedNotifications(updatedDismissed);
-    setNotificationItems((prev) => prev.filter((item) => item.id !== task.id));
-    setNotificationCount((prev) => Math.max(0, prev - 1));
+  const handleNotificationClick = async (notification) => {
+    const res = await pushNotificationService.markNotificationAsRead(notification.id);
+    setNotificationItems((prev) => prev.filter((item) => item.id !== notification.id));
+    if (res?.ok && Number.isFinite(res.unreadCount)) {
+      setNotificationCount(res.unreadCount);
+    } else {
+      setNotificationCount((prev) => Math.max(0, prev - 1));
+    }
 
-    const destination = getTaskDestination(task);
+    const destination = getNotificationDestination(notification);
     if (destination.external) {
       window.open(destination.href, '_blank', 'noopener,noreferrer');
       return;
@@ -363,7 +322,7 @@ const Header = ({ onNote }) => {
                     )}
                   </div>
                   <div className="border-top px-3 py-2 d-flex align-items-center justify-content-between">
-                    <span className="fw-semibold" style={{ color: '#1e293b', fontSize: '13px' }}>Task recenti</span>
+                    <span className="fw-semibold" style={{ color: '#1e293b', fontSize: '13px' }}>Notifiche non lette</span>
                     <Link to="/task" style={{ fontSize: '12px' }}>Apri tutte</Link>
                   </div>
                   <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
@@ -372,30 +331,31 @@ const Header = ({ onNote }) => {
                     ) : notificationItems.length === 0 ? (
                       <div className="px-3 py-3 text-muted text-center" style={{ fontSize: '12px' }}>Nessuna notifica disponibile</div>
                     ) : (
-                      notificationItems.map((task) => {
-                        const categoryInfo = TASK_CATEGORIES[task.category] || {};
+                      notificationItems.map((notification) => {
+                        const iconClass = notification.kind === 'task_assigned' ? 'ri-task-line' : 'ri-notification-3-line';
+                        const iconColor = notification.kind === 'task_assigned' ? '#25B36A' : '#64748b';
                         return (
                           <button
-                            key={task.id}
+                            key={notification.id}
                             type="button"
-                            onClick={() => handleNotificationClick(task)}
+                            onClick={() => handleNotificationClick(notification)}
                             className="w-100 text-start border-0 bg-white px-3 py-2 border-top"
                             style={{ cursor: 'pointer' }}
                           >
                             <div className="d-flex align-items-start justify-content-between gap-2">
                               <div className="d-flex align-items-start gap-2">
-                                <i className={`${categoryInfo.icon || 'ri-task-line'}`} style={{ color: categoryInfo.color || '#64748b', marginTop: '2px' }}></i>
+                                <i className={iconClass} style={{ color: iconColor, marginTop: '2px' }}></i>
                                 <div>
                                   <div className="fw-semibold" style={{ fontSize: '12px', color: '#1e293b', lineHeight: 1.3 }}>
-                                    {task.title || 'Nuovo task'}
+                                    {notification.title || 'Nuova notifica'}
                                   </div>
                                   <div className="text-muted" style={{ fontSize: '11px' }}>
-                                    {task.client_name || 'Cliente non specificato'}
+                                    {notification.body || 'Apri per dettagli'}
                                   </div>
                                 </div>
                               </div>
                               <span className="text-muted" style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
-                                {formatNotificationTime(task.created_at)}
+                                {formatNotificationTime(notification.created_at)}
                               </span>
                             </div>
                           </button>

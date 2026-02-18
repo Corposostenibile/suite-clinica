@@ -128,9 +128,43 @@ const disablePushNotifications = async () => {
   }
 };
 
+const getNotifications = async ({ unreadOnly = true, limit = 6 } = {}) => {
+  try {
+    const response = await api.get('/push/notifications', {
+      params: {
+        unread_only: unreadOnly ? 1 : 0,
+        limit,
+      },
+    });
+    return {
+      items: response.data?.items || [],
+      unreadCount: Number(response.data?.unreadCount || 0),
+    };
+  } catch (error) {
+    console.warn('Notifications fetch failed:', error);
+    return { items: [], unreadCount: 0, error };
+  }
+};
+
+const markNotificationAsRead = async (notificationId) => {
+  try {
+    const response = await api.post(`/push/notifications/${notificationId}/read`);
+    return {
+      ok: Boolean(response.data?.ok),
+      unreadCount: Number(response.data?.unreadCount || 0),
+      notification: response.data?.notification || null,
+    };
+  } catch (error) {
+    console.warn('Mark notification read failed:', error);
+    return { ok: false, unreadCount: null, notification: null, error };
+  }
+};
+
 export default {
   initPushNotifications: () => ensureSubscription({ allowPrompt: false }),
   enablePushNotifications: () => ensureSubscription({ allowPrompt: true }),
   disablePushNotifications,
   getPushStatus,
+  getNotifications,
+  markNotificationAsRead,
 };

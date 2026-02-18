@@ -6,9 +6,12 @@ from flask import abort, jsonify, request, current_app
 from flask_login import current_user, login_required
 
 from corposostenibile.blueprints.push_notifications import bp
-from corposostenibile.blueprints.push_notifications.service import push_enabled, send_push_to_user
+from corposostenibile.blueprints.push_notifications.service import (
+    create_notification_and_send_push,
+    push_enabled,
+)
 from corposostenibile.extensions import db
-from corposostenibile.models import PushSubscription, User, UserRoleEnum
+from corposostenibile.models import AppNotification, PushSubscription, User, UserRoleEnum
 
 
 def _is_admin_user() -> bool:
@@ -82,6 +85,41 @@ def delete_subscription():
     return jsonify({"ok": True, "removed": len(rows)})
 
 
+@bp.route("/notifications", methods=["GET"])
+@login_required
+def list_notifications():
+    unread_only = str(request.args.get("unread_only", "1")).lower() in {"1", "true", "yes"}
+    limit = min(max(int(request.args.get("limit", 20)), 1), 100)
+
+    base_query = AppNotification.query.filter_by(user_id=current_user.id)
+    unread_count = base_query.filter_by(is_read=False).count()
+
+    items_query = base_query.order_by(AppNotification.created_at.desc())
+    if unread_only:
+        items_query = items_query.filter_by(is_read=False)
+    items = items_query.limit(limit).all()
+
+    return jsonify(
+        {
+            "items": [item.to_dict() for item in items],
+            "unreadCount": unread_count,
+        }
+    )
+
+
+@bp.route("/notifications/<int:notification_id>/read", methods=["POST"])
+@login_required
+def mark_notification_read(notification_id: int):
+    notification = AppNotification.query.filter_by(id=notification_id, user_id=current_user.id).first()
+    if not notification:
+        abort(404, "Notifica non trovata")
+
+    notification.mark_as_read()
+    db.session.commit()
+    unread_count = AppNotification.query.filter_by(user_id=current_user.id, is_read=False).count()
+    return jsonify({"ok": True, "unreadCount": unread_count, "notification": notification.to_dict()})
+
+
 @bp.route("/admin/professionisti", methods=["GET"])
 @login_required
 def list_professionisti():
@@ -132,16 +170,14 @@ def send_manual_push():
     if not user:
         abort(404, "Professionista non trovato")
 
-    sent = send_push_to_user(
+    notification_id, sent = create_notification_and_send_push(
         user_id=user.id,
-        payload={
-            "title": title,
-            "body": body,
-            "icon": "/suitemind.png",
-            "badge": "/suitemind.png",
-            "url": url,
-            "tag": f"manual-{user.id}-{int(datetime.utcnow().timestamp())}",
-        },
+        kind="manual",
+        title=title,
+        body=body,
+        url=url,
+        payload={"source": "admin_manual", "sender_id": current_user.id},
+        tag=f"manual-{user.id}-{int(datetime.utcnow().timestamp())}",
     )
 
-    return jsonify({"ok": True, "sent": sent, "user_id": user.id})
+    return jsonify({"ok": True, "sent": sent, "user_id": user.id, "notification_id": notification_id})

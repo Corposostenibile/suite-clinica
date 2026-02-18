@@ -6,7 +6,7 @@ from flask import current_app
 from pywebpush import WebPushException, webpush
 
 from corposostenibile.extensions import db
-from corposostenibile.models import PushSubscription
+from corposostenibile.models import AppNotification, PushSubscription, Task
 
 
 def _vapid_config() -> tuple[str | None, str | None, str]:
@@ -70,16 +70,98 @@ def send_push_to_user(user_id: int, payload: dict) -> int:
     return sent
 
 
+def create_notification(
+    *,
+    user_id: int,
+    kind: str,
+    title: str,
+    body: str,
+    url: str = "/",
+    payload: dict | None = None,
+) -> int:
+    with SASession(bind=db.engine) as session:
+        notification = AppNotification(
+            user_id=user_id,
+            kind=kind,
+            title=title,
+            body=body,
+            url=url or "/",
+            payload=payload or {},
+            is_read=False,
+        )
+        session.add(notification)
+        session.commit()
+        return int(notification.id)
+
+
+def create_notification_and_send_push(
+    *,
+    user_id: int,
+    kind: str,
+    title: str,
+    body: str,
+    url: str = "/",
+    payload: dict | None = None,
+    icon: str = "/suitemind.png",
+    badge: str = "/suitemind.png",
+    tag: str | None = None,
+) -> tuple[int, int]:
+    notification_id = create_notification(
+        user_id=user_id,
+        kind=kind,
+        title=title,
+        body=body,
+        url=url,
+        payload=payload,
+    )
+    sent = send_push_to_user(
+        user_id=user_id,
+        payload={
+            "title": title,
+            "body": body,
+            "icon": icon,
+            "badge": badge,
+            "url": url,
+            "tag": tag or f"{kind}-{notification_id}",
+            "notification_id": notification_id,
+        },
+    )
+    return notification_id, sent
+
+
+def _task_url(task: Task | None) -> str:
+    if not task:
+        return "/task"
+    payload = task.payload or {}
+    client_id = task.client_id or payload.get("client_id")
+    if task.category and str(task.category.value if hasattr(task.category, "value") else task.category) == "check" and client_id:
+        return f"/clienti-dettaglio/{client_id}?tab=check"
+    if client_id and str(task.category.value if hasattr(task.category, "value") else task.category) in {
+        "onboarding",
+        "formazione",
+        "sollecito",
+        "reminder",
+    }:
+        return f"/clienti-dettaglio/{client_id}"
+    if payload.get("url"):
+        return payload["url"]
+    return "/task"
+
+
 def send_task_assigned_push(task_id: int, assignee_id: int, task_title: str) -> int:
     if not assignee_id:
         return 0
 
-    payload = {
-        "title": "Nuovo task assegnato",
-        "body": task_title,
-        "icon": "/suitemind.png",
-        "badge": "/suitemind.png",
-        "url": "/task",
-        "tag": f"task-{task_id}",
-    }
-    return send_push_to_user(assignee_id, payload)
+    with SASession(bind=db.engine) as session:
+        task = session.query(Task).filter(Task.id == task_id).first()
+
+    _, sent = create_notification_and_send_push(
+        user_id=assignee_id,
+        kind="task_assigned",
+        title="Nuovo task assegnato",
+        body=task_title,
+        url=_task_url(task),
+        payload={"task_id": task_id},
+        tag=f"task-{task_id}",
+    )
+    return sent
