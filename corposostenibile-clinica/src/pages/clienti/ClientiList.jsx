@@ -10,6 +10,7 @@ import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
+import './clienti-responsive.css';
 
 // Stili per la tabella professionale
 const tableStyles = {
@@ -404,7 +405,7 @@ function ClientiList() {
           <h4 className="mb-1">Gestione Pazienti</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap clienti-header-actions">
           <Link to="/clienti-lista" className="btn btn-primary btn-sm">
             <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
@@ -421,7 +422,7 @@ function ClientiList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4" data-tour="stats">
+      <div className="row g-3 mb-4 clienti-stats-row" data-tour="stats">
         {[
           { label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', bg: 'primary' },
           { label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', bg: 'success' },
@@ -488,9 +489,9 @@ function ClientiList() {
       ) : (
         <>
           {/* Tabella Pazienti */}
-          <div className="card border-0" style={tableStyles.card} data-tour="table">
+          <div className="card border-0 clienti-table-wrap" style={tableStyles.card} data-tour="table">
             <div className="table-responsive">
-              <table className="table mb-0">
+              <table className="table mb-0 clienti-table">
                 <thead style={tableStyles.tableHeader}>
                   <tr>
                     <th style={{ ...tableStyles.th, minWidth: '200px' }}>Nome Cognome</th>
@@ -533,7 +534,7 @@ function ClientiList() {
                         onMouseLeave={() => setHoveredRow(null)}
                       >
                         {/* Nome Cognome */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Paziente">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={tableStyles.nameLink}
@@ -545,7 +546,7 @@ function ClientiList() {
                         </td>
 
                         {/* Team */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Team">
                           <div className="d-flex align-items-center flex-wrap">
                             {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
                             {nutrizionistiList.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
@@ -557,7 +558,7 @@ function ClientiList() {
                         </td>
 
                         {/* Data Inizio */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Inizio">
                           {dataInizio ? (
                             <span style={{ fontWeight: 500 }}>{formatDate(dataInizio)}</span>
                           ) : (
@@ -566,7 +567,7 @@ function ClientiList() {
                         </td>
 
                         {/* Data Rinnovo */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Rinnovo">
                           {dataRinnovo ? (
                             <span style={{ fontWeight: 500 }}>{formatDate(dataRinnovo)}</span>
                           ) : (
@@ -575,7 +576,7 @@ function ClientiList() {
                         </td>
 
                         {/* Programma */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Programma">
                           {programma ? (
                             <span
                               style={{
@@ -592,7 +593,7 @@ function ClientiList() {
                         </td>
 
                         {/* Stato Cliente */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato">
                           {statoCliente ? (
                             <span
                               style={{
@@ -608,7 +609,7 @@ function ClientiList() {
                         </td>
 
                         {/* Azioni */}
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-tour={index === 0 ? "actions-detail" : undefined}>
+                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-label="Azioni" data-tour={index === 0 ? "actions-detail" : undefined}>
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={{
@@ -645,7 +646,7 @@ function ClientiList() {
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div
-              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
+              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3 clienti-pagination"
               data-tour="pagination"
             >
               <span style={{ color: '#64748b', fontSize: '14px' }}>

@@ -1,0 +1,127 @@
+/* ===================================================================
+   CLIENTI LIST — Responsive Card Layout (Mobile ≤ 767px)
+   Su desktop la tabella resta invariata.
+   Su mobile ogni <tr> diventa una card compatta.
+   =================================================================== */
+
+@media (max-width: 767.98px) {
+
+    /* ---- Contenitore: rimuovi lo scroll orizzontale ---- */
+    .clienti-table-wrap .table-responsive {
+        overflow-x: visible;
+    }
+
+    /* ---- Tabella → blocco ---- */
+    .clienti-table,
+    .clienti-table thead,
+    .clienti-table tbody,
+    .clienti-table tr,
+    .clienti-table th,
+    .clienti-table td {
+        display: block;
+        width: 100%;
+    }
+
+    /* ---- Nascondi intestazioni ---- */
+    .clienti-table thead {
+        display: none;
+    }
+
+    /* ---- Ogni riga = card ---- */
+    .clienti-table tbody tr {
+        background: #fff;
+        border-radius: var(--cs-radius-lg, 12px);
+        box-shadow: var(--cs-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
+        margin-bottom: var(--cs-space-sm, 0.5rem);
+        padding: var(--cs-space-sm, 0.5rem) var(--cs-space-md, 1rem);
+        border: 1px solid var(--cs-border, #e9ecef);
+    }
+
+    /* ---- Celle ---- */
+    .clienti-table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0 !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        font-size: var(--cs-font-sm, 13px) !important;
+        min-height: var(--cs-touch-min, 44px);
+        text-align: right;
+    }
+
+    .clienti-table tbody td:last-child {
+        border-bottom: none !important;
+    }
+
+    /* ---- Etichetta (pseudo-elemento ::before) ---- */
+    .clienti-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: var(--cs-font-xs, 11px);
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--cs-text-muted, #89879f);
+        flex-shrink: 0;
+        margin-right: var(--cs-space-sm, 0.5rem);
+        text-align: left;
+    }
+
+    /* ---- Nome paziente: evidenziato ---- */
+    .clienti-table tbody td[data-label="Paziente"] {
+        font-size: var(--cs-font-base, 14px) !important;
+        font-weight: 600;
+        padding-top: var(--cs-space-xs, 4px) !important;
+        padding-bottom: var(--cs-space-xs, 4px) !important;
+    }
+
+    .clienti-table tbody td[data-label="Paziente"] a {
+        font-size: var(--cs-font-base, 14px);
+    }
+
+    /* ---- Azioni: centrate ---- */
+    .clienti-table tbody td[data-label="Azioni"] {
+        justify-content: flex-end;
+        padding-top: var(--cs-space-xs, 4px) !important;
+        gap: var(--cs-space-xs, 4px);
+    }
+
+    /* ---- Team avatars: wrapping ---- */
+    .clienti-table tbody td[data-label="Team"] .d-flex {
+        justify-content: flex-end;
+    }
+
+    /* ---- Stat cards: 2 colonne ---- */
+    .clienti-stats-row .col-xl-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+
+    /* ---- Header azioni: stack verticale ---- */
+    .clienti-header-actions {
+        width: 100%;
+        margin-top: var(--cs-space-sm, 0.5rem);
+    }
+
+    .clienti-header-actions .btn {
+        flex: 1;
+        font-size: var(--cs-font-xs, 11px) !important;
+        padding: 6px 8px !important;
+    }
+
+    /* ---- Pagination compatta ---- */
+    .clienti-pagination {
+        flex-direction: column;
+        align-items: center !important;
+        gap: var(--cs-space-sm, 0.5rem) !important;
+    }
+
+    .clienti-pagination .pagination {
+        gap: 2px !important;
+    }
+
+    .clienti-pagination .page-link {
+        padding: 6px 10px !important;
+        font-size: var(--cs-font-xs, 11px) !important;
+        min-width: 32px !important;
+    }
+}

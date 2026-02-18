@@ -1,0 +1,141 @@
+/* ===================================================================
+   DESIGN TOKENS — Suite Clinica / CorpoSostenibile
+   Variabili centralizzate per l'intera applicazione.
+   Importare PRIMA di qualsiasi altro CSS.
+   =================================================================== */
+
+:root {
+    /* =========================
+     BRAND COLORS
+     ========================= */
+    --cs-primary: #25B36A;
+    --cs-primary-dark: #1B5E20;
+    --cs-primary-hover: #1e9a5a;
+    --cs-primary-light: rgba(37, 179, 106, 0.10);
+    --cs-primary-subtle: rgba(37, 179, 106, 0.06);
+
+    /* Semantic colors */
+    --cs-success: #28c76f;
+    --cs-danger: #ea5455;
+    --cs-warning: #ff9f43;
+    --cs-info: #00cfe8;
+
+    /* Neutrals */
+    --cs-white: #ffffff;
+    --cs-light: #f8f9fa;
+    --cs-body-bg: #f5f5f5;
+    --cs-border: #e9ecef;
+    --cs-text: #5a5a5a;
+    --cs-text-muted: #89879f;
+    --cs-dark: #343a40;
+    --cs-secondary: #6c757d;
+
+    /* =========================
+     TYPOGRAPHY
+     ========================= */
+    --cs-font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --cs-font-xs: 0.6875rem;
+    /* 11px */
+    --cs-font-sm: 0.8125rem;
+    /* 13px */
+    --cs-font-base: 0.875rem;
+    /* 14px */
+    --cs-font-md: 1rem;
+    /* 16px  — base per mobile */
+    --cs-font-lg: 1.125rem;
+    /* 18px */
+    --cs-font-xl: 1.25rem;
+    /* 20px */
+    --cs-font-2xl: 1.5rem;
+    /* 24px */
+
+    /* =========================
+     SPACING SCALE
+     ========================= */
+    --cs-space-2xs: 0.125rem;
+    /*  2px */
+    --cs-space-xs: 0.25rem;
+    /*  4px */
+    --cs-space-sm: 0.5rem;
+    /*  8px */
+    --cs-space-md: 1rem;
+    /* 16px */
+    --cs-space-lg: 1.5rem;
+    /* 24px */
+    --cs-space-xl: 2rem;
+    /* 32px */
+    --cs-space-2xl: 3rem;
+    /* 48px */
+
+    /* =========================
+     BORDER RADIUS
+     ========================= */
+    --cs-radius-sm: 0.375rem;
+    /*  6px */
+    --cs-radius-md: 0.5rem;
+    /*  8px */
+    --cs-radius-lg: 0.75rem;
+    /* 12px */
+    --cs-radius-xl: 1rem;
+    /* 16px */
+    --cs-radius-full: 9999px;
+
+    /* =========================
+     SHADOWS
+     ========================= */
+    --cs-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+    --cs-shadow-md: 0 2px 12px rgba(0, 0, 0, 0.08);
+    --cs-shadow-lg: 0 8px 30px rgba(82, 63, 105, 0.10);
+    --cs-shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.12);
+
+    /* =========================
+     TOUCH / MOBILE TARGETS
+     ========================= */
+    --cs-touch-min: 44px;
+    /* Apple HIG minimo */
+    --cs-touch-comfortable: 48px;
+    /* Material Design consigliato */
+
+    /* =========================
+     LAYOUT — Desktop defaults
+     ========================= */
+    --cs-sidebar-width: 17.1875rem;
+    /* 275px */
+    --cs-sidebar-width-collapsed: 5rem;
+    /*  80px */
+    --cs-header-height: 5rem;
+    /*  80px */
+    --cs-bottom-nav-height: 0px;
+    /* 0 su desktop, 56px su mobile */
+    --cs-content-padding: 1.875rem;
+    /*  30px */
+
+    /* =========================
+     TRANSITIONS
+     ========================= */
+    --cs-transition-fast: 150ms ease;
+    --cs-transition-base: 200ms ease;
+    --cs-transition-slow: 300ms ease;
+
+    /* =========================
+     Z-INDEX SCALE
+     ========================= */
+    --cs-z-dropdown: 100;
+    --cs-z-sticky: 200;
+    --cs-z-sidebar: 300;
+    --cs-z-backdrop: 400;
+    --cs-z-modal: 500;
+    --cs-z-toast: 600;
+    --cs-z-bottom-nav: 350;
+}
+
+/* =========================
+   MOBILE OVERRIDES (≤ 767px)
+   ========================= */
+@media (max-width: 767.98px) {
+    :root {
+        --cs-header-height: 3.25rem;
+        --cs-bottom-nav-height: 56px;
+        --cs-content-padding: 0.75rem;
+    }
+}

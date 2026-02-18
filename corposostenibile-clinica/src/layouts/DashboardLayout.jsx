@@ -8,6 +8,7 @@ import { ThemeContext } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
 /// Style
+import '../styles/design-tokens.css';
 import '../styles/template.css';
 import '../styles/custom-overrides.css';
 
