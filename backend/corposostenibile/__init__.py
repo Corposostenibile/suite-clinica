@@ -507,6 +507,7 @@ def create_app(config_name: str | None = None) -> Flask:
         # Paths that should NOT be intercepted (handled by Flask)
         _flask_prefixes = [
             '/api/',
+            '/client-checks/',
             '/customers/',
             '/uploads/',
             '/oauth/',

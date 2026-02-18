@@ -19,6 +19,7 @@ Questo documento descrive la pipeline attuale e i manifest necessari per esporre
 - `k8s/ingress.yaml`
 6. Post-deploy:
 - migrazioni DB (`flask db upgrade` via `kubectl exec`)
+- seed check iniziali (`seed_initial_checks.py` via `kubectl exec`, automatico in `cloudbuild.yaml`)
 - sync criteri (`python scripts/sync_criteria_prod.py` via `kubectl exec`)
 
 ## 2) Componenti Kubernetes rilevanti per PWA
@@ -102,10 +103,12 @@ API backend sullo stesso host:
 2. Certificato managed: stato `Active`
 3. Pod backend `Ready`
 4. Migrazioni DB applicate (obbligatorio, incluse tabelle push)
-5. Verifica endpoint:
+5. Seed check iniziali applicato (Check 1 PDF + Check 2 mockup)
+6. Verifica endpoint:
 
 ```bash
 kubectl exec deploy/suite-clinica-backend -- flask db upgrade
+kubectl exec deploy/suite-clinica-backend -- python corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
 curl -I https://<dominio>/auth/login
 curl -I https://<dominio>/manifest.webmanifest
 curl -I https://<dominio>/sw.js

@@ -12,10 +12,9 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
 from typing import Dict, List, Any, Optional
 
-from flask import current_app, has_request_context, request
+from flask import current_app
 from sqlalchemy import and_, or_, desc, func
 from sqlalchemy.orm import joinedload
 
@@ -37,31 +36,16 @@ from corposostenibile.models import (
 def _public_checks_base_url() -> str:
     """
     Base URL pubblico per i link check condivisi all'esterno.
-    Riusa lo stesso helper usato dai weekly check.
+    Usa un URL dedicato ai check pubblici (non forzato sul frontend React).
     """
-    # Import lazy per evitare dipendenze circolari a livello modulo.
-    from .routes import _frontend_base_url
+    def _configured_base_url() -> str:
+        return (
+            current_app.config.get("PUBLIC_CHECKS_BASE_URL")
+            or current_app.config.get("BASE_URL")
+            or "http://localhost:5001"
+        ).strip().rstrip("/")
 
-    def _fallback_from_base_url() -> str:
-        configured = (current_app.config.get("BASE_URL") or "http://localhost:5001").strip().rstrip("/")
-        parsed = urlparse(configured)
-
-        if parsed.scheme and parsed.hostname and parsed.port and 5000 <= parsed.port < 5100:
-            frontend_origin = f"{parsed.scheme}://{parsed.hostname}:{parsed.port - 2000}"
-            with current_app.test_request_context("/", headers={"Origin": frontend_origin}):
-                return _frontend_base_url().rstrip("/")
-
-        with current_app.test_request_context("/", base_url=configured):
-            return _frontend_base_url().rstrip("/")
-
-    if has_request_context():
-        # Stesso comportamento weekly per richieste browser.
-        if (request.headers.get("Origin") or "").strip() or (request.headers.get("Referer") or "").strip():
-            return _frontend_base_url().rstrip("/")
-        # Caso webhook server-to-server (es. GHL): nessun Origin/Referer.
-        return _fallback_from_base_url()
-
-    return _fallback_from_base_url()
+    return _configured_base_url()
 
 
 # --------------------------------------------------------------------------- #
@@ -723,7 +707,7 @@ def send_initial_checks_single_email(
     assignments: List[ClientCheckAssignment],
 ) -> None:
     """
-    Invia una sola email al cliente con i link ai tre questionari iniziali.
+    Invia una sola email al cliente con i link ai questionari iniziali.
 
     Usato dal bridge opportunity-data quando GHL invia lead vinta.
     """
@@ -741,7 +725,12 @@ def send_initial_checks_single_email(
         for a in assignments
     ]
 
-    context = {"cliente": cliente, "assignments": items}
+    checks_count = len(assignments)
+    context = {
+        "cliente": cliente,
+        "assignments": items,
+        "checks_count": checks_count,
+    }
     subject = "I tuoi questionari iniziali"
     html_body = render_template(
         "client_checks/emails/assignment_initial_checks.html",
@@ -750,7 +739,7 @@ def send_initial_checks_single_email(
     text_lines = [
         f"Ciao {cliente.nome_cognome},",
         "",
-        "Benvenuto! Per avviare il tuo percorso ti chiediamo di compilare i tre questionari iniziali:",
+        f"Benvenuto! Per avviare il tuo percorso ti chiediamo di compilare {checks_count} questionari iniziali:",
         "",
     ]
     for a in assignments:

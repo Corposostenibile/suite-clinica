@@ -491,6 +491,17 @@ db_upgrade() {
     log_info "Applicazione migrazioni per $dev..."
     poetry run flask db upgrade
 }
+seed_initial_checks() {
+    local dev=$1
+    validate_developer "$dev"
+    set_project_dir "$dev"
+    local info=($(get_developer_info "$dev"))
+    local db_name="${info[2]}"
+    cd "$PROJECT_DIR/backend"
+    export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
+    log_info "Seed check iniziali (Check 1 PDF + Check 2 mockup) per $dev..."
+    poetry run python corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
+}
 setup_environment() {
     local dev=$1
     validate_developer "$dev"
@@ -500,6 +511,7 @@ setup_environment() {
     install_dependencies "$dev"
     setup_database "$dev"
     create_admin_user "$dev"
+    seed_initial_checks "$dev"
     log_success "Setup completato! Usa '$0 debug $dev' per sviluppare o '$0 start $dev' per avviare il servizio."
 }
 
@@ -636,6 +648,9 @@ reset_database() {
 
     # 5. Crea admin
     create_admin_user "$dev"
+
+    # 6. Seed check iniziali
+    seed_initial_checks "$dev"
 
     log_success "✨ Database per $dev resettato con successo!"
     log_info "Credenziali admin: admin@suiteclinica.com / admin123"

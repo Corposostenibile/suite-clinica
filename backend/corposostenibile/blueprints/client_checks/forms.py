@@ -520,6 +520,7 @@ class DynamicCheckForm(FlaskForm):
             'date': DateField,
             'file': FileField,
             'rating': SelectField,
+            'scale': SelectField,
             'yesno': RadioField
         }
         
@@ -562,7 +563,10 @@ class DynamicCheckForm(FlaskForm):
             elif field_type in ['select', 'multiselect']:
                 choices = []
                 if field.options:
-                    # field.options può essere una lista (JSONB) o una stringa
+                    # field.options puo' essere dict JSONB, lista o stringa
+                    if isinstance(field.options, dict):
+                        raw_choices = field.options.get('choices', [])
+                        choices = [(str(opt).strip(), str(opt).strip()) for opt in raw_choices if str(opt).strip()]
                     if isinstance(field.options, list):
                         choices = [(str(opt).strip(), str(opt).strip()) for opt in field.options if str(opt).strip()]
                     elif isinstance(field.options, str):
@@ -590,7 +594,10 @@ class DynamicCheckForm(FlaskForm):
             elif field_type == 'radio':
                 choices = []
                 if field.options:
-                    # field.options può essere una lista (JSONB) o una stringa
+                    # field.options puo' essere dict JSONB, lista o stringa
+                    if isinstance(field.options, dict):
+                        raw_choices = field.options.get('choices', [])
+                        choices = [(str(opt).strip(), str(opt).strip()) for opt in raw_choices if str(opt).strip()]
                     if isinstance(field.options, list):
                         choices = [(str(opt).strip(), str(opt).strip()) for opt in field.options if str(opt).strip()]
                     elif isinstance(field.options, str):
@@ -632,6 +639,21 @@ class DynamicCheckForm(FlaskForm):
                 
             elif field_type == 'rating':
                 choices = [(str(i), str(i)) for i in range(1, 6)]
+                class_attrs[field_name] = SelectField(
+                    field.label,
+                    choices=choices,
+                    validators=validators,
+                    render_kw={'class': 'form-select'},
+                    description=field.help_text
+                )
+
+            elif field_type == 'scale':
+                min_value = 1
+                max_value = 5
+                if isinstance(field.options, dict):
+                    min_value = int(field.options.get('min', min_value))
+                    max_value = int(field.options.get('max', max_value))
+                choices = [(str(i), str(i)) for i in range(min_value, max_value + 1)]
                 class_attrs[field_name] = SelectField(
                     field.label,
                     choices=choices,

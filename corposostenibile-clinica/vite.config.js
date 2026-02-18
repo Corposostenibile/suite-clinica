@@ -42,6 +42,13 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           navigateFallback: 'index.html',
+          // Public check links must always be served by Flask routes, not SPA fallback.
+          navigateFallbackDenylist: [
+            /^\/client-checks\/public\/.*/,
+            /^\/client-checks\/weekly\/.*/,
+            /^\/client-checks\/dca\/.*/,
+            /^\/client-checks\/minor\/.*/,
+          ],
           importScripts: ['push-sw.js'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         },

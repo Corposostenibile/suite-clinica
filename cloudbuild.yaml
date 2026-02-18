@@ -33,7 +33,19 @@ steps:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
 
-  # 5. Sync Criteria Layer: Esegue lo script di sincronizzazione criteri caricando i dati dal file Excel
+  # 5. Initial Checks Seed Layer: crea/aggiorna i check iniziali usati dal bridge GHL
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - exec
+      - deployment/suite-clinica-backend
+      - --
+      - python
+      - corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
+  # 6. Sync Criteria Layer: Esegue lo script di sincronizzazione criteri caricando i dati dal file Excel
   - name: 'gcr.io/cloud-builders/kubectl'
     args:
       - exec

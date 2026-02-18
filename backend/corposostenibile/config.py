@@ -253,6 +253,8 @@ class BaseConfig:
     # Base URL del backend (per webhook GHL, link email, ecc.)
     # Necessario per sviluppatori: GHL deve raggiungere il backend dall'esterno
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:5001")
+    # Base URL pubblico dedicato ai link dei check cliente (puo' coincidere con BASE_URL)
+    PUBLIC_CHECKS_BASE_URL: str = os.getenv("PUBLIC_CHECKS_BASE_URL", BASE_URL)
 
     # ------------------ GHL (GoHighLevel) Integration ----------------
     GHL_WEBHOOK_SECRET: str | None = os.getenv("GHL_WEBHOOK_SECRET")

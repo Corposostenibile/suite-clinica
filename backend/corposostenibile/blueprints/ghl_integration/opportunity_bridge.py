@@ -3,8 +3,8 @@ opportunity_bridge
 =================
 
 Bridge tra webhook opportunity-data e sistema Check Iniziali.
-Quando GHL invia dati con email (lead vinta), crea Cliente, assegna Check 1/2/3
-e invia una singola email con i tre link.
+Quando GHL invia dati con email (lead vinta), crea Cliente, assegna 2 check iniziali
+e invia una singola email con i link.
 """
 
 from __future__ import annotations
@@ -20,11 +20,18 @@ from corposostenibile.models import (
 )
 
 
-# Check iniziali da assegnare (come in processors.py)
+# Check iniziali da assegnare
 INITIAL_CHECKS = [
-    {"name": "Check 1 - Anagrafica", "type": "iniziale", "description": "Dati anagrafici e obiettivi"},
-    {"name": "Check 2 - Fisico", "type": "iniziale", "description": "Misure e foto"},
-    {"name": "Check 3 - Psico-Alimentare", "type": "iniziale", "description": "Questionario approfondito"},
+    {
+        "name": "Check 1 - PRE-CHECK INIZIALE",
+        "type": "iniziale",
+        "description": "Questionario iniziale completo (profilo clinico, alimentare e stile di vita).",
+    },
+    {
+        "name": "Check 2 - Mockup Follow-up Iniziale",
+        "type": "iniziale",
+        "description": "Mockup temporaneo in attesa del secondo questionario definitivo.",
+    },
 ]
 
 
@@ -32,8 +39,8 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
     """
     Dopo il salvataggio di GHLOpportunityData, se email è presente:
     1. Crea/aggiorna Cliente (nome, email)
-    2. Crea i 3 ClientCheckAssignment (Check 1, 2, 3) – con auto-seeding form se mancanti
-    3. Invia una sola email con i 3 link
+    2. Crea i 2 ClientCheckAssignment – con auto-seeding form se mancanti
+    3. Invia una sola email con i link
 
     Returns:
         Dict con success, cliente_id, assignments_count, email_sent
@@ -87,15 +94,33 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             raise RuntimeError("[opportunity_bridge] Nessun utente disponibile per assigned_by_id")
         admin_id = admin_user.id
 
-        # 3. Crea/assegna i 3 Check (senza invio notifiche individuali)
+        # 3. Crea/assegna i check iniziali (senza invio notifiche individuali)
         assignments: List[ClientCheckAssignment] = []
+        attempted_seed = False
         for check_data in INITIAL_CHECKS:
             check_form = CheckForm.query.filter_by(
                 name=check_data["name"],
                 form_type=CheckFormTypeEnum.iniziale,
             ).first()
 
-            # Auto-seeding se non esiste
+            # Prova seed completo dei check iniziali se i form non sono presenti
+            if not check_form and not attempted_seed:
+                try:
+                    from corposostenibile.blueprints.client_checks.scripts.seed_initial_checks import seed_initial_checks
+
+                    seed_initial_checks()
+                    attempted_seed = True
+                    check_form = CheckForm.query.filter_by(
+                        name=check_data["name"],
+                        form_type=CheckFormTypeEnum.iniziale,
+                    ).first()
+                    current_app.logger.info("[opportunity_bridge] Seed check iniziali eseguito on-demand")
+                except Exception as seed_err:
+                    current_app.logger.warning(
+                        f"[opportunity_bridge] Seed on-demand fallito: {seed_err}"
+                    )
+
+            # Fallback minimo se ancora non esiste
             if not check_form:
                 check_form = CheckForm(
                     name=check_data["name"],
@@ -136,7 +161,7 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
         result["cliente_id"] = cliente.cliente_id
         result["assignments_count"] = len(assignments)
 
-        # 4. Invia email con i 3 link (una sola email)
+        # 4. Invia email con i link (una sola email)
         if assignments:
             from corposostenibile.blueprints.client_checks.services import send_initial_checks_single_email
             send_initial_checks_single_email(cliente, assignments)
