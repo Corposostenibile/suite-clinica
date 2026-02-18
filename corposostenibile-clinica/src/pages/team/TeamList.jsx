@@ -9,6 +9,7 @@ import teamService, {
   SPECIALTY_COLORS
 } from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
+import '../clienti/clienti-responsive.css';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con i KPI pazienti)
 const SPECIALTY_GRADIENTS = {
@@ -177,7 +178,7 @@ function TeamList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4 clienti-stats-row">
         {[
           { label: 'Membri Totali', value: totalMembers, icon: 'ri-team-line', bg: 'primary' },
           { label: 'Attivi', value: totalActive, icon: 'ri-checkbox-circle-line', bg: 'success' },
@@ -299,129 +300,129 @@ function TeamList() {
               const showAvatar = avatarSrc && !brokenAvatars[member.id];
 
               return (
-              <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
-                <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
-                  {/* Gradient Header - colore basato su specializzazione */}
-                  <div
-                    className="position-relative"
-                    style={{
-                      background: SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT,
-                      height: '70px',
-                    }}
-                  >
-                    {/* Status Badges */}
-                    <div className="position-absolute top-0 start-0 m-2 d-flex gap-1">
-                      {!member.is_active && (
-                        <span className="badge bg-dark bg-opacity-75 small">
-                          <i className="ri-close-circle-line me-1"></i>Inattivo
-                        </span>
-                      )}
-                      {member.is_external && (
-                        <span className="badge bg-white text-dark small">
-                          <i className="ri-external-link-line me-1"></i>Esterno
-                        </span>
-                      )}
+                <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
+                  <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
+                    {/* Gradient Header - colore basato su specializzazione */}
+                    <div
+                      className="position-relative"
+                      style={{
+                        background: SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT,
+                        height: '70px',
+                      }}
+                    >
+                      {/* Status Badges */}
+                      <div className="position-absolute top-0 start-0 m-2 d-flex gap-1">
+                        {!member.is_active && (
+                          <span className="badge bg-dark bg-opacity-75 small">
+                            <i className="ri-close-circle-line me-1"></i>Inattivo
+                          </span>
+                        )}
+                        {member.is_external && (
+                          <span className="badge bg-white text-dark small">
+                            <i className="ri-external-link-line me-1"></i>Esterno
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Avatar */}
+                      <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
+                        {showAvatar ? (
+                          <img
+                            src={avatarSrc}
+                            alt={member.full_name}
+                            className="rounded-circle border border-3 border-white shadow-sm"
+                            style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }}
+                            onError={() => setBrokenAvatars(prev => ({ ...prev, [member.id]: true }))}
+                          />
+                        ) : (
+                          <div
+                            className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center"
+                            style={{
+                              width: '64px',
+                              height: '64px',
+                              background: '#fff'
+                            }}
+                          >
+                            <span className="fw-bold fs-5 text-primary">
+                              {member.first_name?.[0]?.toUpperCase()}{member.last_name?.[0]?.toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Avatar */}
-                    <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
-                      {showAvatar ? (
-                        <img
-                          src={avatarSrc}
-                          alt={member.full_name}
-                          className="rounded-circle border border-3 border-white shadow-sm"
-                          style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }}
-                          onError={() => setBrokenAvatars(prev => ({ ...prev, [member.id]: true }))}
-                        />
-                      ) : (
-                        <div
-                          className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center"
-                          style={{
-                            width: '64px',
-                            height: '64px',
-                            background: '#fff'
-                          }}
+                    {/* Card Body */}
+                    <div className="card-body text-center pt-5 pb-3">
+                      {/* Name */}
+                      <h5 className="fw-semibold mb-1">
+                        <Link
+                          to={`/team-dettaglio/${member.id}`}
+                          className="text-dark text-decoration-none"
+                          style={{ transition: 'color 0.2s' }}
+                          onMouseOver={(e) => e.target.style.color = '#667eea'}
+                          onMouseOut={(e) => e.target.style.color = ''}
                         >
-                          <span className="fw-bold fs-5 text-primary">
-                            {member.first_name?.[0]?.toUpperCase()}{member.last_name?.[0]?.toUpperCase()}
+                          {member.full_name || `${member.first_name} ${member.last_name}`}
+                        </Link>
+                      </h5>
+
+                      {/* Email */}
+                      <p className="text-muted small mb-3" style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '100%'
+                      }}>
+                        {member.email}
+                      </p>
+
+                      {/* Role & Specialty Badges */}
+                      <div className="d-flex flex-wrap justify-content-center gap-1 mb-2">
+                        <span className={`badge rounded-pill px-2 py-1 bg-${ROLE_COLORS[member.role] || 'secondary'}`} style={{ fontSize: '11px' }}>
+                          {ROLE_LABELS[member.role] || member.role || 'N/D'}
+                        </span>
+                        {member.specialty && (
+                          <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
+                            {SPECIALTY_LABELS[member.specialty] || member.specialty}
                           </span>
+                        )}
+                      </div>
+
+                      {/* Teams Led */}
+                      {member.teams_led?.length > 0 && (
+                        <div className="text-muted small">
+                          <i className="ri-team-line me-1"></i>
+                          Leader di {member.teams_led.length} team
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {/* Card Body */}
-                  <div className="card-body text-center pt-5 pb-3">
-                    {/* Name */}
-                    <h5 className="fw-semibold mb-1">
-                      <Link
-                        to={`/team-dettaglio/${member.id}`}
-                        className="text-dark text-decoration-none"
-                        style={{ transition: 'color 0.2s' }}
-                        onMouseOver={(e) => e.target.style.color = '#667eea'}
-                        onMouseOut={(e) => e.target.style.color = ''}
-                      >
-                        {member.full_name || `${member.first_name} ${member.last_name}`}
-                      </Link>
-                    </h5>
-
-                    {/* Email */}
-                    <p className="text-muted small mb-3" style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '100%'
-                    }}>
-                      {member.email}
-                    </p>
-
-                    {/* Role & Specialty Badges */}
-                    <div className="d-flex flex-wrap justify-content-center gap-1 mb-2">
-                      <span className={`badge rounded-pill px-2 py-1 bg-${ROLE_COLORS[member.role] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                        {ROLE_LABELS[member.role] || member.role || 'N/D'}
-                      </span>
-                      {member.specialty && (
-                        <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                          {SPECIALTY_LABELS[member.specialty] || member.specialty}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Teams Led */}
-                    {member.teams_led?.length > 0 && (
-                      <div className="text-muted small">
-                        <i className="ri-team-line me-1"></i>
-                        Leader di {member.teams_led.length} team
+                    {/* Card Footer */}
+                    <div className="card-footer bg-light border-0 py-2">
+                      <div className="d-flex gap-2 justify-content-center">
+                        <Link
+                          to={`/team-dettaglio/${member.id}`}
+                          className="btn btn-sm btn-outline-primary flex-fill"
+                        >
+                          <i className="ri-eye-line me-1"></i>Dettagli
+                        </Link>
+                        <Link
+                          to={`/team-modifica/${member.id}`}
+                          className="btn btn-sm btn-outline-secondary flex-fill"
+                        >
+                          <i className="ri-edit-line me-1"></i>Modifica
+                        </Link>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="card-footer bg-light border-0 py-2">
-                    <div className="d-flex gap-2 justify-content-center">
-                      <Link
-                        to={`/team-dettaglio/${member.id}`}
-                        className="btn btn-sm btn-outline-primary flex-fill"
-                      >
-                        <i className="ri-eye-line me-1"></i>Dettagli
-                      </Link>
-                      <Link
-                        to={`/team-modifica/${member.id}`}
-                        className="btn btn-sm btn-outline-secondary flex-fill"
-                      >
-                        <i className="ri-edit-line me-1"></i>Modifica
-                      </Link>
                     </div>
                   </div>
                 </div>
-              </div>
               );
             })}
           </div>
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top clienti-pagination">
               <span className="text-muted">
                 Pagina <strong>{pagination.page}</strong> di <strong>{pagination.totalPages}</strong>
               </span>
@@ -435,8 +436,8 @@ function TeamList() {
                   {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
                     const pageNum = pagination.totalPages <= 5 ? i + 1 :
                       pagination.page <= 3 ? i + 1 :
-                      pagination.page >= pagination.totalPages - 2 ? pagination.totalPages - 4 + i :
-                      pagination.page - 2 + i;
+                        pagination.page >= pagination.totalPages - 2 ? pagination.totalPages - 4 + i :
+                          pagination.page - 2 + i;
                     return (
                       <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
                         <button className="page-link" onClick={() => handlePageChange(pageNum)}>{pageNum}</button>
