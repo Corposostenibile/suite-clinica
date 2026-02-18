@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext } from "react";
 import { Link } from "react-router-dom";
 
 import { ThemeContext } from "../../../context/ThemeContext";
@@ -17,13 +17,7 @@ const logoTextStyle = {
 };
 
 const NavHader = () => {
-  const { openMenuToggle } = useContext(ThemeContext);
-
-  const [toggle, setToggle] = useState(false);
-
-  const handleToogle = () => {
-    setToggle(!toggle);
-  };
+  const { openMenuToggle, menuToggle } = useContext(ThemeContext);
 
   return (
     <div className="nav-header">
@@ -36,11 +30,10 @@ const NavHader = () => {
       <div
         className="nav-control"
         onClick={() => {
-          handleToogle();
           openMenuToggle();
         }}
       >
-        <div className={`hamburger ${toggle ? "is-active" : ""}`}>
+        <div className={`hamburger ${menuToggle ? "is-active" : ""}`}>
           <span className="line"></span>
           <span className="line"></span>
           <span className="line"></span>
