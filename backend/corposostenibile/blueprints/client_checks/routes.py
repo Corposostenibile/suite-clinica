@@ -21,7 +21,6 @@ Route per il sistema di gestione check clienti:
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from urllib.parse import urlparse
@@ -738,108 +737,61 @@ def assign_to_single_client(client_id: int):
 @client_checks_bp.route("/assignments/")
 @login_required
 def assignments_list():
-    """Dashboard assegnazioni iniziali aggregata per lead (Check 1 + Check 2)."""
+    """Lista delle assegnazioni form-cliente."""
     try:
+        page = request.args.get("page", 1, type=int)
+        per_page = 20
+        
+        # Filtri
+        form_id = request.args.get("form_id", type=int)
         client_search = request.args.get("client_search", "").strip()
-        status = request.args.get("status", "").strip()  # all, completed_all, completed_any, pending
-
-        check_1_form = (
-            CheckForm.query
-            .filter(CheckForm.name.ilike("Check 1 - PRE-CHECK INIZIALE"))
-            .first()
-        )
-        check_2_form = (
-            CheckForm.query
-            .filter(CheckForm.name.ilike("Check 2 - Mockup Follow-up Iniziale"))
-            .first()
-        )
-
-        target_form_ids = [f.id for f in [check_1_form, check_2_form] if f]
-        if not target_form_ids:
-            flash("I check iniziali non risultano ancora configurati.", "warning")
-            return render_template(
-                "client_checks/assignments_list.html",
-                rows=[],
-                current_client_search=client_search,
-                current_status=status,
-            )
-
-        assignments = (
+        status = request.args.get("status")  # active, completed, pending
+        
+        query = (
             ClientCheckAssignment.query
             .options(
                 joinedload(ClientCheckAssignment.cliente),
                 joinedload(ClientCheckAssignment.form),
-                joinedload(ClientCheckAssignment.assigned_by),
+                joinedload(ClientCheckAssignment.assigned_by)
             )
-            .filter(
-                ClientCheckAssignment.is_active.is_(True),
-                ClientCheckAssignment.form_id.in_(target_form_ids),
-            )
-            .order_by(desc(ClientCheckAssignment.created_at))
-            .all()
         )
-
+        
+        if form_id:
+            query = query.filter(ClientCheckAssignment.form_id == form_id)
+        
         if client_search:
-            search_lower = client_search.lower()
-            assignments = [
-                a for a in assignments
-                if (
-                    (a.cliente and a.cliente.nome and search_lower in a.cliente.nome.lower()) or
-                    (a.cliente and a.cliente.cognome and search_lower in a.cliente.cognome.lower()) or
-                    (a.cliente and a.cliente.mail and search_lower in a.cliente.mail.lower())
-                )
-            ]
-
-        grouped: Dict[int, Dict[str, Any]] = defaultdict(dict)
-        for assignment in assignments:
-            if not assignment.cliente:
-                continue
-
-            row = grouped.setdefault(
-                assignment.cliente_id,
-                {
-                    "cliente": assignment.cliente,
-                    "check_1": None,
-                    "check_2": None,
-                    "latest_activity_at": assignment.created_at,
-                },
+            query = query.join(Cliente).filter(
+                Cliente.nome.ilike(f"%{client_search}%") |
+                Cliente.cognome.ilike(f"%{client_search}%")
             )
-            if assignment.created_at and assignment.created_at > row["latest_activity_at"]:
-                row["latest_activity_at"] = assignment.created_at
-
-            if check_1_form and assignment.form_id == check_1_form.id:
-                row["check_1"] = assignment
-            elif check_2_form and assignment.form_id == check_2_form.id:
-                row["check_2"] = assignment
-
-        rows = []
-        for row in grouped.values():
-            check_1_completed = bool(row["check_1"] and row["check_1"].response_count > 0)
-            check_2_completed = bool(row["check_2"] and row["check_2"].response_count > 0)
-
-            if status == "completed_all" and not (check_1_completed and check_2_completed):
-                continue
-            if status == "completed_any" and not (check_1_completed or check_2_completed):
-                continue
-            if status == "pending" and (check_1_completed or check_2_completed):
-                continue
-
-            row["check_1_completed"] = check_1_completed
-            row["check_2_completed"] = check_2_completed
-            rows.append(row)
-
-        rows.sort(
-            key=lambda r: r["latest_activity_at"] or datetime.min,
-            reverse=True,
+        
+        if status == "completed":
+            query = query.filter(ClientCheckAssignment.response_count > 0)
+        elif status == "pending":
+            query = query.filter(ClientCheckAssignment.response_count == 0)
+        elif status == "active":
+            query = query.filter(ClientCheckAssignment.is_active == True)
+        
+        assignments = (
+            query
+            .order_by(desc(ClientCheckAssignment.created_at))
+            .paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
         )
-
+        
+        # Form disponibili per filtro
+        available_forms = CheckForm.query.filter_by(is_active=True).all()
+        
         return render_template(
             "client_checks/assignments_list.html",
-            rows=rows,
+            assignments=assignments,
+            available_forms=available_forms,
+            current_form_id=form_id,
             current_client_search=client_search,
             current_status=status,
-            check_1_name=check_1_form.name if check_1_form else "Check 1",
-            check_2_name=check_2_form.name if check_2_form else "Check 2",
         )
     except Exception as e:
         current_app.logger.error(f"Errore lista assegnazioni: {e}")
