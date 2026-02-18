@@ -5,15 +5,7 @@ import ThemeContextProvider from './context/ThemeContext'
 import './index.css'
 import App from './App.jsx'
 
-if (import.meta.env.PROD) {
-  registerSW({ immediate: true })
-} else if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    registrations.forEach((registration) => {
-      registration.unregister().catch(() => {})
-    })
-  }).catch(() => {})
-}
+registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

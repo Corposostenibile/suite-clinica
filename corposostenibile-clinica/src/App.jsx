@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Context
 import ThemeContextProvider from './context/ThemeContext';
@@ -72,21 +71,6 @@ import {
   CheckSuccess,
 } from './pages/public';
 
-function ClientChecksBackendRedirect() {
-  const location = useLocation();
-
-  useEffect(() => {
-    const configuredBase =
-      import.meta.env.VITE_PUBLIC_CHECKS_BASE_URL ||
-      `${window.location.protocol}//${window.location.hostname}:5001`;
-    const base = configuredBase.replace(/\/+$/, '');
-    const target = `${base}${location.pathname}${location.search}${location.hash}`;
-    window.location.replace(target);
-  }, [location.pathname, location.search, location.hash]);
-
-  return null;
-}
-
 function App() {
   return (
     <ThemeContextProvider>
@@ -104,9 +88,6 @@ function App() {
             <Route path="/check/minor/:token" element={<MinorCheckForm />} />
             <Route path="/check/:checkType/:token/success" element={<CheckSuccess />} />
           </Route>
-
-          {/* Legacy/public Flask routes: force redirect to backend host instead of SPA auth flow */}
-          <Route path="/client-checks/*" element={<ClientChecksBackendRedirect />} />
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>
