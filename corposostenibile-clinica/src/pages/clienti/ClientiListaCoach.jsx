@@ -6,6 +6,7 @@ import clientiService, {
   LUOGO_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
+import './clienti-responsive.css';
 
 // Stili per la tabella professionale (stesso stile di ClientiList)
 const tableStyles = {
@@ -431,7 +432,7 @@ function ClientiListaCoach() {
           <h4 className="mb-1">Visuale Coach</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap clienti-header-actions">
           <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
             <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
@@ -451,7 +452,7 @@ function ClientiListaCoach() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4 clienti-stats-row">
         {[
           { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-run-line', bg: 'success' },
           { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },
@@ -585,9 +586,9 @@ function ClientiListaCoach() {
       ) : (
         <>
           {/* Tabella Pazienti */}
-          <div className="card border-0" style={tableStyles.card}>
+          <div className="card border-0 clienti-table-wrap" style={tableStyles.card}>
             <div className="table-responsive">
-              <table className="table mb-0">
+              <table className="table mb-0 clienti-table">
                 <thead style={tableStyles.tableHeader}>
                   <tr>
                     <th style={{ ...tableStyles.th, minWidth: '180px' }}>Paziente</th>
@@ -627,7 +628,7 @@ function ClientiListaCoach() {
                         onMouseLeave={() => setHoveredRow(null)}
                       >
                         {/* Nome */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Paziente">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={tableStyles.nameLink}
@@ -639,7 +640,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Team */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Team">
                           <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
                             {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
                             {coachesList.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
@@ -651,7 +652,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Stato Coach */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato Coach">
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_coach, 'coach')}
                             <button
@@ -665,7 +666,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Stato Chat */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato Chat">
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_cliente_chat_coaching, 'chat')}
                             <button
@@ -679,7 +680,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Check Day */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Check Day">
                           <div className="d-flex align-items-center">
                             {cliente.check_day ? (
                               <span style={{
@@ -704,7 +705,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Reach Out */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Reach Out">
                           <div className="d-flex align-items-center">
                             {cliente.reach_out_coaching ? (
                               <span style={{
@@ -729,7 +730,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Luogo */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Luogo">
                           <div className="d-flex align-items-center">
                             {renderLuogoBadge(cliente.luogo_di_allenamento)}
                             <button
@@ -743,7 +744,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Piano Allenamento */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Piano">
                           <button
                             style={{
                               ...tableStyles.btnSmall,
@@ -759,7 +760,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Storia */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Storia">
                           <button
                             style={{
                               ...tableStyles.btnSmall,
@@ -775,7 +776,7 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Azioni */}
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-label="Azioni">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={{
@@ -812,7 +813,7 @@ function ClientiListaCoach() {
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div
-              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
+              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3 clienti-pagination"
             >
               <span style={{ color: '#64748b', fontSize: '14px' }}>
                 Pagina <strong style={{ color: '#334155' }}>{pagination.page}</strong> di{' '}

@@ -6,6 +6,7 @@ import clientiService, {
   PATOLOGIE_NUTRI,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
+import './clienti-responsive.css';
 
 // Stili per la tabella professionale (same as ClientiList)
 const tableStyles = {
@@ -448,7 +449,7 @@ function ClientiListaNutrizione() {
           <h4 className="mb-1">Visuale Nutrizione</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti in visuale nutrizione</p>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap clienti-header-actions">
           <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
             <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
@@ -465,7 +466,7 @@ function ClientiListaNutrizione() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4 clienti-stats-row">
         {[
           { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-check-line', bg: 'success' },
           { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },
@@ -599,9 +600,9 @@ function ClientiListaNutrizione() {
       ) : (
         <>
           {/* Tabella Pazienti */}
-          <div className="card border-0" style={tableStyles.card}>
+          <div className="card border-0 clienti-table-wrap" style={tableStyles.card}>
             <div className="table-responsive">
-              <table className="table mb-0">
+              <table className="table mb-0 clienti-table">
                 <thead style={tableStyles.tableHeader}>
                   <tr>
                     <th style={{ ...tableStyles.th, minWidth: '180px' }}>Cliente</th>
@@ -633,7 +634,7 @@ function ClientiListaNutrizione() {
                         onMouseEnter={() => setHoveredRow(index)}
                         onMouseLeave={() => setHoveredRow(null)}
                       >
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Paziente">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={tableStyles.nameLink}
@@ -643,7 +644,7 @@ function ClientiListaNutrizione() {
                             {cliente.nome_cognome || cliente.nomeCognome}
                           </Link>
                         </td>
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Team">
                           <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
                             {renderTeamAvatar(cliente.health_manager_user, 'hm', 'Health Manager')}
                             {cliente.nutrizionisti_multipli?.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
@@ -655,7 +656,7 @@ function ClientiListaNutrizione() {
                               !cliente.consulenti_multipli?.length && <span style={tableStyles.emptyCell}>—</span>}
                           </div>
                         </td>
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato Nutri">
                           <div className="d-flex align-items-center gap-1">
                             {renderStatoBadge(cliente.stato_nutrizione)}
                             <button
@@ -667,7 +668,7 @@ function ClientiListaNutrizione() {
                             </button>
                           </div>
                         </td>
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato Chat">
                           <div className="d-flex align-items-center gap-1">
                             {cliente.stato_cliente_chat_nutrizione ? (
                               <span style={{
@@ -688,7 +689,7 @@ function ClientiListaNutrizione() {
                             </button>
                           </div>
                         </td>
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Check Day">
                           <div className="d-flex align-items-center gap-1">
                             {cliente.check_day ? (
                               <span style={nutriStyles.checkDayBadge}>
@@ -707,7 +708,7 @@ function ClientiListaNutrizione() {
                             </button>
                           </div>
                         </td>
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Reach Out">
                           <div className="d-flex align-items-center gap-1">
                             {cliente.reach_out_nutrizione ? (
                               <span style={nutriStyles.reachOutBadge}>
@@ -726,7 +727,7 @@ function ClientiListaNutrizione() {
                             </button>
                           </div>
                         </td>
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Patologie">
                           {patologie.length > 0 ? (
                             <button
                               className="btn btn-sm"
@@ -768,7 +769,7 @@ function ClientiListaNutrizione() {
                             </button>
                           )}
                         </td>
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Piano Dieta">
                           <button
                             className="btn btn-sm"
                             style={{
@@ -783,7 +784,7 @@ function ClientiListaNutrizione() {
                             {cliente.piano_dieta ? 'Vedi' : '+'}
                           </button>
                         </td>
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Storia">
                           <button
                             className="btn btn-sm"
                             style={{
@@ -798,7 +799,7 @@ function ClientiListaNutrizione() {
                             {cliente.storia_nutrizionale ? 'Vedi' : '+'}
                           </button>
                         </td>
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Note Extra">
                           <button
                             className="btn btn-sm"
                             style={{
@@ -813,7 +814,7 @@ function ClientiListaNutrizione() {
                             {cliente.note_extra_nutrizionista ? 'Vedi' : '+'}
                           </button>
                         </td>
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-label="Azioni">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={{
@@ -838,7 +839,7 @@ function ClientiListaNutrizione() {
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div
-              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
+              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3 clienti-pagination"
             >
               <span style={{ color: '#64748b', fontSize: '14px' }}>
                 Pagina <strong style={{ color: '#334155' }}>{pagination.page}</strong> di{' '}

@@ -6,6 +6,7 @@ import clientiService, {
   PATOLOGIE_PSICO,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
+import './clienti-responsive.css';
 
 // Stili per la tabella professionale (stesso stile di ClientiList)
 const tableStyles = {
@@ -428,7 +429,7 @@ function ClientiListaPsicologia() {
           <h4 className="mb-1">Visuale Psicologia</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap clienti-header-actions">
           <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
             <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
@@ -448,7 +449,7 @@ function ClientiListaPsicologia() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4 clienti-stats-row">
         {[
           { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-mental-health-line', bg: 'success' },
           { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },
@@ -570,9 +571,9 @@ function ClientiListaPsicologia() {
       ) : (
         <>
           {/* Tabella Pazienti */}
-          <div className="card border-0" style={tableStyles.card}>
+          <div className="card border-0 clienti-table-wrap" style={tableStyles.card}>
             <div className="table-responsive">
-              <table className="table mb-0">
+              <table className="table mb-0 clienti-table">
                 <thead style={tableStyles.tableHeader}>
                   <tr>
                     <th style={{ ...tableStyles.th, minWidth: '180px' }}>Paziente</th>
@@ -615,7 +616,7 @@ function ClientiListaPsicologia() {
                         onMouseLeave={() => setHoveredRow(null)}
                       >
                         {/* Nome */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Paziente">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={tableStyles.nameLink}
@@ -627,7 +628,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Team */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Team">
                           <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
                             {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
                             {psicologiList.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
@@ -639,7 +640,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Stato Psicologia */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato Psico">
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_psicologia, 'psico')}
                             <button
@@ -653,7 +654,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Stato Chat */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Stato Chat">
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_cliente_chat_psicologia, 'chat')}
                             <button
@@ -667,7 +668,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Reach Out */}
-                        <td style={tableStyles.td}>
+                        <td style={tableStyles.td} data-label="Reach Out">
                           <div className="d-flex align-items-center">
                             {cliente.reach_out_psicologia ? (
                               <span style={{
@@ -692,7 +693,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Patologie */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Patologie">
                           {patologie.length > 0 ? (
                             <button
                               style={{
@@ -733,7 +734,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Sedute Comprate */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Comprate">
                           <div className="d-flex align-items-center justify-content-center gap-1">
                             <span
                               style={{
@@ -757,7 +758,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Sedute Svolte */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Svolte">
                           <div className="d-flex align-items-center justify-content-center gap-1">
                             <span
                               style={{
@@ -781,7 +782,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Storia */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Storia">
                           <button
                             style={{
                               ...tableStyles.btnSmall,
@@ -797,7 +798,7 @@ function ClientiListaPsicologia() {
                         </td>
 
                         {/* Azioni */}
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }}>
+                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-label="Azioni">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
                             style={{
@@ -834,7 +835,7 @@ function ClientiListaPsicologia() {
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div
-              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
+              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3 clienti-pagination"
             >
               <span style={{ color: '#64748b', fontSize: '14px' }}>
                 Pagina <strong style={{ color: '#334155' }}>{pagination.page}</strong> di{' '}
