@@ -132,8 +132,15 @@ def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, An
 def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
     raw_payload = d.raw_payload or {}
     extracted = _extract_opportunity_contact_fields(raw_payload)
+    resolved_email = (d.email or extracted["email"] or "").strip().lower()
+    cliente_id = None
+    if resolved_email:
+        cliente = Cliente.query.filter(Cliente.mail.ilike(resolved_email)).first()
+        if cliente:
+            cliente_id = cliente.cliente_id
     return {
         "id": d.id,
+        "cliente_id": cliente_id,
         "nome": d.nome,
         "email": d.email or extracted["email"],
         "lead_phone": d.lead_phone or extracted["lead_phone"],

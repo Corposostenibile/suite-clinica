@@ -989,6 +989,11 @@ def public_form(token: str):
         
         if request.method == "POST" and form.validate_on_submit():
             try:
+                # Evita compilazioni multiple dello stesso check
+                if assignment.response_count > 0:
+                    flash("Questo check e' gia' stato compilato.", "info")
+                    return redirect(url_for("client_checks.public_success", token=token))
+
                 # Salva la risposta
                 response = ClientCheckService.save_response(
                     assignment_id=assignment.id,
@@ -3557,16 +3562,7 @@ def api_initial_assignments():
             if cid.strip().isdigit()
         } if client_ids_raw else set()
 
-        check_1_form = (
-            CheckForm.query
-            .filter(CheckForm.name.ilike("Check 1 - PRE-CHECK INIZIALE"))
-            .first()
-        )
-        check_2_form = (
-            CheckForm.query
-            .filter(CheckForm.name.ilike("Check 2 - Mockup Follow-up Iniziale"))
-            .first()
-        )
+        check_1_form, check_2_form = _get_initial_check_forms()
 
         target_form_ids = [f.id for f in [check_1_form, check_2_form] if f]
         if not target_form_ids:
@@ -3639,13 +3635,15 @@ def api_initial_assignments():
                 row["check_1"] = {
                     "assigned": True,
                     "completed": assignment.response_count > 0,
-                    "response_count": assignment.response_count or 0,
+                    "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
+                    "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
                 }
             elif check_2_form and assignment.form_id == check_2_form.id:
                 row["check_2"] = {
                     "assigned": True,
                     "completed": assignment.response_count > 0,
-                    "response_count": assignment.response_count or 0,
+                    "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
+                    "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
                 }
 
         items = list(grouped.values())
@@ -3686,6 +3684,90 @@ def api_initial_assignments():
         })
     except Exception as e:
         current_app.logger.error(f"[API] Errore initial assignments: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _get_initial_check_forms():
+    check_1_form = (
+        CheckForm.query
+        .filter(CheckForm.name.ilike("Check 1 - PRE-CHECK INIZIALE"))
+        .first()
+    )
+    check_2_form = (
+        CheckForm.query
+        .filter(CheckForm.name.ilike("Check 2 - Mockup Follow-up Iniziale"))
+        .first()
+    )
+    return check_1_form, check_2_form
+
+
+@api_bp.route("/initial-assignments/<int:lead_id>/check/<int:check_number>/response", methods=["GET"])
+@login_required
+def api_initial_assignment_check_response(lead_id: int, check_number: int):
+    """Restituisce il dettaglio della compilazione check iniziale per il modal React."""
+    try:
+        if check_number not in (1, 2):
+            return jsonify({"success": False, "error": "check_number non valido"}), 400
+
+        check_1_form, check_2_form = _get_initial_check_forms()
+        target_form = check_1_form if check_number == 1 else check_2_form
+        if not target_form:
+            return jsonify({"success": False, "error": "Form check non trovato"}), 404
+
+        query = ClientCheckAssignment.query.filter(
+            ClientCheckAssignment.cliente_id == lead_id,
+            ClientCheckAssignment.form_id == target_form.id,
+            ClientCheckAssignment.is_active.is_(True),
+        )
+        accessible_clients_query = get_accessible_clients_query()
+        if accessible_clients_query is not None:
+            query = query.filter(
+                ClientCheckAssignment.cliente_id.in_(accessible_clients_query)
+            )
+
+        assignment = (
+            query
+            .options(
+                joinedload(ClientCheckAssignment.form).joinedload(CheckForm.fields),
+                joinedload(ClientCheckAssignment.responses),
+                joinedload(ClientCheckAssignment.cliente),
+            )
+            .order_by(desc(ClientCheckAssignment.created_at))
+            .first()
+        )
+
+        if not assignment:
+            return jsonify({"success": False, "error": "Assegnazione non trovata"}), 404
+        if assignment.response_count <= 0 or not assignment.latest_response:
+            return jsonify({"success": False, "error": "Check non ancora compilato"}), 404
+
+        response = assignment.latest_response
+        payload = []
+        for field in sorted(assignment.form.fields, key=lambda f: f.position):
+            payload.append({
+                "field_id": field.id,
+                "label": field.label,
+                "field_type": field.field_type.value if hasattr(field.field_type, "value") else str(field.field_type),
+                "value": response.get_response_value(field.id),
+            })
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "lead_id": lead_id,
+                "lead_name": assignment.cliente.nome_cognome if assignment.cliente else None,
+                "check_number": check_number,
+                "form_name": assignment.form.name,
+                "response_id": response.id,
+                "submitted_at": response.created_at.isoformat() if response.created_at else None,
+                "responses": payload,
+            },
+        })
+    except Exception as e:
+        current_app.logger.error(
+            f"[API] Errore dettaglio check iniziale lead={lead_id} check={check_number}: {e}",
+            exc_info=True,
+        )
         return jsonify({"success": False, "error": str(e)}), 500
 
 

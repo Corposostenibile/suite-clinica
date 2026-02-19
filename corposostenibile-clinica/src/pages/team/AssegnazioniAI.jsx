@@ -82,6 +82,10 @@ function AssegnazioniAI() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
+  const [checkResponseLoading, setCheckResponseLoading] = useState(false);
+  const [checkResponseError, setCheckResponseError] = useState('');
+  const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
 
   // Stati Webhook (Lead)
   const [opportunityData, setOpportunityData] = useState([]);
@@ -176,13 +180,44 @@ function AssegnazioniAI() {
   };
 
   const renderInitialCheckBadge = (check) => {
-    if (!check?.assigned) {
-      return <Badge bg="secondary">Non assegnato</Badge>;
+    if (check?.completed) {
+      return <Badge bg="success">Compilato</Badge>;
     }
-    if (check.completed) {
-      return <Badge bg="success">Compilato ({check.response_count || 0})</Badge>;
+    return <Badge bg="warning" text="dark">Non completato</Badge>;
+  };
+
+  const handleOpenCheckResponseModal = async (leadId, checkNumber, check) => {
+    if (!check?.completed || !leadId) return;
+    setShowCheckResponseModal(true);
+    setCheckResponseLoading(true);
+    setCheckResponseError('');
+    setSelectedCheckResponse(null);
+    try {
+      const result = await checkService.getInitialCheckResponseDetail(leadId, checkNumber);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Dettaglio check non disponibile');
+      }
+      setSelectedCheckResponse(result.data);
+    } catch (err) {
+      setCheckResponseError(err?.message || 'Errore caricamento check compilato');
+    } finally {
+      setCheckResponseLoading(false);
     }
-    return <Badge bg="warning" text="dark">Assegnato</Badge>;
+  };
+
+  const renderInitialCheckCell = (leadId, checkNumber, check) => {
+    if (!check?.completed) {
+      return renderInitialCheckBadge(check);
+    }
+    return (
+      <Button
+        variant="link"
+        className="p-0 text-decoration-none"
+        onClick={() => handleOpenCheckResponseModal(leadId, checkNumber, check)}
+      >
+        {renderInitialCheckBadge(check)}
+      </Button>
+    );
   };
 
   const fetchOpportunityData = async () => {
@@ -796,8 +831,8 @@ function AssegnazioniAI() {
                                   <small className="text-muted">-</small>
                                 )}
                               </td>
-                              <td>{renderInitialCheckBadge(checks.check_1)}</td>
-                              <td>{renderInitialCheckBadge(checks.check_2)}</td>
+                              <td>{renderInitialCheckCell(opp.cliente_id, 1, checks.check_1)}</td>
+                              <td>{renderInitialCheckCell(opp.cliente_id, 2, checks.check_2)}</td>
                               <td>
                                 <div className="d-flex align-items-center flex-wrap gap-2">
                                   <div className="d-flex gap-1">
@@ -1085,10 +1120,10 @@ function AssegnazioniAI() {
                         <td>{assignment.cliente_nome}</td>
                         <td><StatusBadge status={assignment.status} /></td>
                         <td>
-                          {renderInitialCheckBadge(initialChecksByLead[assignment.cliente_id]?.check_1)}
+                          {renderInitialCheckCell(assignment.cliente_id, 1, initialChecksByLead[assignment.cliente_id]?.check_1)}
                         </td>
                         <td>
-                          {renderInitialCheckBadge(initialChecksByLead[assignment.cliente_id]?.check_2)}
+                          {renderInitialCheckCell(assignment.cliente_id, 2, initialChecksByLead[assignment.cliente_id]?.check_2)}
                         </td>
                         <td>
                             <div className="d-flex gap-1">
@@ -1248,6 +1283,67 @@ function AssegnazioniAI() {
             }}>
                 <i className="ri-sparkling-fill me-1"></i> Apri Gestione AI
             </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showCheckResponseModal} onHide={() => setShowCheckResponseModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Check Compilato</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {checkResponseLoading ? (
+            <div className="text-center py-4">
+              <Spinner animation="border" size="sm" className="me-2" />
+              <span>Caricamento risposta...</span>
+            </div>
+          ) : checkResponseError ? (
+            <Alert variant="danger" className="mb-0">{checkResponseError}</Alert>
+          ) : selectedCheckResponse ? (
+            <div>
+              <div className="mb-3">
+                <div className="fw-bold">{selectedCheckResponse.form_name}</div>
+                <small className="text-muted">
+                  Lead: {selectedCheckResponse.lead_name || '-'} | Inviato: {formatDate(selectedCheckResponse.submitted_at)}
+                </small>
+              </div>
+              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                {(selectedCheckResponse.responses || []).map((item) => {
+                  const rawValue = item?.value;
+                  let renderedValue = '-';
+                  if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+                    if (typeof rawValue === 'object') {
+                      if (rawValue?.type === 'file' && rawValue?.path) {
+                        renderedValue = (
+                          <a href={rawValue.path} target="_blank" rel="noreferrer">
+                            {rawValue.filename || 'Apri file'}
+                          </a>
+                        );
+                      } else {
+                        renderedValue = (
+                          <code style={{ whiteSpace: 'pre-wrap' }}>
+                            {JSON.stringify(rawValue)}
+                          </code>
+                        );
+                      }
+                    } else {
+                      renderedValue = String(rawValue);
+                    }
+                  }
+                  return (
+                    <div key={`${item.field_id}-${item.label}`} className="mb-3">
+                      <div className="small text-muted">{item.label}</div>
+                      <div>{renderedValue}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted">Nessun dato disponibile.</div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCheckResponseModal(false)}>Chiudi</Button>
         </Modal.Footer>
       </Modal>
 

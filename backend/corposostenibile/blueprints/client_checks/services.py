@@ -10,13 +10,17 @@ Logica di business per il sistema Client Checks:
 """
 from __future__ import annotations
 
+import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 from typing import Dict, List, Any, Optional
 
 from flask import current_app
 from sqlalchemy import and_, or_, desc, func
 from sqlalchemy.orm import joinedload
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
+from decimal import Decimal
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -248,6 +252,24 @@ class CheckFormService:
 
 class ClientCheckService:
     """Servizio per la gestione delle assegnazioni e risposte."""
+
+    @staticmethod
+    def _to_json_safe(value: Any) -> Any:
+        """Converte valori WTForms/Python in tipi serializzabili JSONB."""
+        if value is None:
+            return None
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, (datetime, date, time)):
+            return value.isoformat()
+        if isinstance(value, (list, tuple, set)):
+            return [ClientCheckService._to_json_safe(v) for v in value]
+        if isinstance(value, dict):
+            return {str(k): ClientCheckService._to_json_safe(v) for k, v in value.items()}
+        # Fallback conservativo
+        return str(value)
     
     @staticmethod
     def assign_form_to_clients(
@@ -338,20 +360,70 @@ class ClientCheckService:
             for field in assignment.form.fields:
                 field_key = f"field_{field.id}"
                 if field_key in form_data:
-                    response_data[str(field.id)] = form_data[field_key]
+                    value = form_data[field_key]
+                    if isinstance(value, FileStorage):
+                        if value and value.filename:
+                            # Salva il file e serializza metadata JSON-safe
+                            upload_root = os.path.join(
+                                current_app.root_path,
+                                "static",
+                                "uploads",
+                                "client_checks",
+                                str(assignment.cliente_id),
+                            )
+                            os.makedirs(upload_root, exist_ok=True)
+
+                            original_name = secure_filename(value.filename)
+                            ext = os.path.splitext(original_name)[1] or ""
+                            final_name = secure_filename(
+                                f"a{assignment.id}_f{field.id}_{secrets.token_hex(8)}{ext}"
+                            )
+                            abs_path = os.path.join(upload_root, final_name)
+                            value.save(abs_path)
+
+                            response_data[str(field.id)] = {
+                                "type": "file",
+                                "filename": original_name,
+                                "path": f"/static/uploads/client_checks/{assignment.cliente_id}/{final_name}",
+                                "uploaded_at": datetime.utcnow().isoformat(),
+                            }
+                        else:
+                            response_data[str(field.id)] = None
+                    else:
+                        response_data[str(field.id)] = ClientCheckService._to_json_safe(value)
             
-            # Crea la risposta
+            # Una sola compilazione per assignment: evita duplicati
+            existing_response = (
+                ClientCheckResponse.query
+                .filter_by(assignment_id=assignment_id)
+                .order_by(desc(ClientCheckResponse.created_at))
+                .first()
+            )
+
+            if existing_response:
+                current_app.logger.info(
+                    "Check gia' compilato per assignment %s: skip nuova risposta",
+                    assignment_id,
+                )
+                # Mantiene allineate statistiche legacy eventualmente fuori sync
+                assignment.response_count = 1
+                if not assignment.last_response_at:
+                    assignment.last_response_at = existing_response.created_at
+                db.session.commit()
+                return existing_response
+
+            # Prima compilazione: crea una nuova risposta
             response = ClientCheckResponse(
                 assignment_id=assignment_id,
                 responses=response_data,
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-            
+
             db.session.add(response)
-            
-            # Aggiorna le statistiche dell'assegnazione
-            assignment.response_count += 1
+
+            # Aggiorna statistiche assegnazione (binary completed/not completed)
+            assignment.response_count = 1
             assignment.last_response_at = datetime.utcnow()
             
             db.session.commit()

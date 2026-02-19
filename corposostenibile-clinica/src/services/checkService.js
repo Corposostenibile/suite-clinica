@@ -171,6 +171,19 @@ const checkService = {
     return response.data;
   },
 
+  /**
+   * Get compiled initial check response detail for a lead/check.
+   * @param {number} leadId
+   * @param {number} checkNumber - 1 | 2
+   * @returns {Promise} - { success, data }
+   */
+  async getInitialCheckResponseDetail(leadId, checkNumber) {
+    const response = await api.get(
+      `${API_BASE}/initial-assignments/${leadId}/check/${checkNumber}/response`
+    );
+    return response.data;
+  },
+
 
 
   // ==================== UTILITIES ====================
