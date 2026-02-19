@@ -6273,9 +6273,6 @@ function ClientiDetail() {
                           <li className="nav-item">
                              <button className={`nav-link ${activeInizialiTab === 'check_2' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_2')}>Check 2</button>
                           </li>
-                          <li className="nav-item">
-                             <button className={`nav-link ${activeInizialiTab === 'check_3' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_3')}>Check 3</button>
-                          </li>
                        </ul>
                     </div>
                     
@@ -6346,19 +6343,6 @@ function ClientiDetail() {
                                       )}
                                    </div>
                                    
-                                   {/* Score for Check 3 */}
-                                   {activeInizialiTab === 'check_3' && initialChecksData.check_3?.score != null && (
-                                      <div className="alert alert-info d-flex align-items-center mb-4">
-                                         <i className="ri-scales-3-line fs-4 me-3"></i>
-                                         <div>
-                                            <strong>Punteggio Psico-Alimentare:</strong> {initialChecksData.check_3.score} / 78
-                                            {initialChecksData.check_3.type && (
-                                               <span className="ms-3 badge bg-primary">Profilo {initialChecksData.check_3.type}</span>
-                                            )}
-                                         </div>
-                                      </div>
-                                   )}
-
                                    {/* Responses List */}
                                    <div className="responses-list">
                                       {Object.entries(checkData.responses).map(([question, answer], idx) => (

@@ -408,9 +408,9 @@ const clientiService = {
   },
 
   /**
-   * Get initial checks (Check 1, 2, 3) from original lead
+   * Get initial checks (Check 1, 2) from original lead/assignment
    * @param {number} id - Client ID
-   * @returns {Promise} - { has_data, checks: { check_1, check_2, check_3 } }
+   * @returns {Promise} - { has_data, checks: { check_1, check_2 } }
    */
   async getInitialChecks(id) {
     const response = await api.get(`${API_BASE}/${id}/initial-checks`);
