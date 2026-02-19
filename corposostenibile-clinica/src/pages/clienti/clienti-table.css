@@ -1,0 +1,260 @@
+/* =============================================
+   clienti-table.css
+   Shared styles for patient list tables.
+   Replaces the duplicated `tableStyles` JS objects
+   in ClientiList, Nutrizione, Coach, Psicologia.
+   ============================================= */
+
+/* --- Card wrapper --- */
+.ct-card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+/* --- Table header --- */
+.ct-thead {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 2px solid #e2e8f0;
+}
+
+/* --- Header cells --- */
+.ct-th {
+    padding: 16px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    white-space: nowrap;
+    border-bottom: none;
+}
+
+/* --- Data cells --- */
+.ct-td {
+    padding: 16px 20px;
+    font-size: 14px;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+/* --- Row hover --- */
+.ct-row {
+    transition: all 0.15s ease;
+}
+
+/* --- Patient name link --- */
+.ct-name-link {
+    color: #3b82f6;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.ct-name-link:hover {
+    color: #2563eb;
+}
+
+/* --- Empty cell placeholder --- */
+.ct-empty {
+    color: #cbd5e1;
+    font-style: normal;
+    font-size: 13px;
+}
+
+/* --- Generic badge (check day, reach out, etc.) --- */
+.ct-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+}
+
+/* --- Action button (eye, edit icons) --- */
+.ct-action-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid;
+    transition: all 0.15s ease;
+    margin-left: 6px;
+}
+
+/* --- Team avatar wrapper --- */
+.ct-avatar-team {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+
+/* --- Avatar initials circle --- */
+.ct-avatar-init {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Avatar role badge (HM, N, C, P, CA) --- */
+.ct-avatar-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Stato badge (visuale views) --- */
+.ct-stato-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* --- Inline edit pencil button --- */
+.ct-btn-edit {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.04);
+    color: #64748b;
+    border: none;
+    cursor: pointer;
+    margin-left: 6px;
+    transition: all 0.15s ease;
+}
+
+.ct-btn-edit:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #475569;
+}
+
+/* --- Small colored button (storia, piano, etc.) --- */
+.ct-btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    color: white;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+/* --- Sedute counter (psicologia) --- */
+.ct-sedute-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* --- Patologia tag pill --- */
+.ct-patologia-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* --- Nutrizione-specific: stato badge (round) --- */
+.ct-stato-badge-round {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* --- Nutrizione-specific: storia/note button --- */
+.ct-btn-storia {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    color: white;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+/* --- Nutrizione-specific: inline edit (smaller) --- */
+.ct-btn-edit-sm {
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    color: #64748b;
+    border: none;
+    cursor: pointer;
+    margin-left: 4px;
+}
+
+.ct-btn-edit-sm:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* --- Check day badge --- */
+.ct-check-day-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+}
+
+/* --- Reach out badge --- */
+.ct-reach-out-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+}

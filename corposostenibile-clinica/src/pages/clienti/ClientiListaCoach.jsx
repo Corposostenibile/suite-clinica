@@ -7,137 +7,10 @@ import clientiService, {
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import './clienti-responsive.css';
+import './clienti-table.css';
 
 // Stili per la tabella professionale (stesso stile di ClientiList)
-const tableStyles = {
-  card: {
-    borderRadius: '16px',
-    border: 'none',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    borderBottom: '2px solid #e2e8f0',
-  },
-  th: {
-    padding: '16px 20px',
-    fontSize: '11px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    color: '#64748b',
-    whiteSpace: 'nowrap',
-    borderBottom: 'none',
-  },
-  td: {
-    padding: '16px 20px',
-    fontSize: '14px',
-    color: '#334155',
-    borderBottom: '1px solid #f1f5f9',
-    verticalAlign: 'middle',
-  },
-  row: {
-    transition: 'all 0.15s ease',
-  },
-  nameLink: {
-    color: '#3b82f6',
-    fontWeight: 600,
-    textDecoration: 'none',
-    transition: 'color 0.15s ease',
-  },
-  emptyCell: {
-    color: '#cbd5e1',
-    fontStyle: 'normal',
-    fontSize: '13px',
-  },
-  badge: {
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'capitalize',
-    letterSpacing: '0.3px',
-  },
-  actionBtn: {
-    width: '36px',
-    height: '36px',
-    padding: 0,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '8px',
-    border: '1px solid',
-    transition: 'all 0.15s ease',
-    marginLeft: '6px',
-  },
-  avatarTeam: {
-    position: 'relative',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    marginRight: '4px',
-  },
-  avatarInitials: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '10px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    border: '2px solid #fff',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: '-2px',
-    right: '-2px',
-    fontSize: '7px',
-    fontWeight: 700,
-    color: '#fff',
-    padding: '2px 4px',
-    borderRadius: '4px',
-    lineHeight: 1,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-  },
-  statoBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'capitalize',
-  },
-  btnEditInline: {
-    padding: '4px 8px',
-    fontSize: '12px',
-    borderRadius: '6px',
-    background: 'rgba(0,0,0,0.04)',
-    color: '#64748b',
-    border: 'none',
-    cursor: 'pointer',
-    marginLeft: '6px',
-    transition: 'all 0.15s ease',
-  },
-  btnSmall: {
-    padding: '6px 12px',
-    fontSize: '12px',
-    borderRadius: '8px',
-    color: 'white',
-    border: 'none',
-    transition: 'all 0.2s ease',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-};
+// tableStyles rimosso — ora in clienti-table.css (classi ct-*)
 
 // Luogo colors
 const LUOGO_COLORS = {
@@ -373,27 +246,25 @@ function ClientiListaCoach() {
     return (
       <span
         key={`${roleKey}-${member.id}`}
-        style={tableStyles.avatarTeam}
+        className="ct-avatar-team"
         title={`${roleLabel}: ${member.full_name || `${member.first_name} ${member.last_name}`}`}
       >
         {member.avatar_url || member.avatar_path ? (
           <img
             src={member.avatar_url || member.avatar_path}
             alt={member.full_name}
-            style={{ ...tableStyles.avatarInitials, objectFit: 'cover' }}
+            className="ct-avatar-init"
+            style={{ objectFit: 'cover' }}
           />
         ) : (
           <span
-            style={{
-              ...tableStyles.avatarInitials,
-              background: colors.bg,
-              color: colors.text,
-            }}
+            className="ct-avatar-init"
+            style={{ background: colors.bg, color: colors.text }}
           >
             {initials}
           </span>
         )}
-        <span style={{ ...tableStyles.avatarBadge, background: colors.badge }}>
+        <span className="ct-avatar-badge" style={{ background: colors.badge }}>
           {roleKey.toUpperCase()}
         </span>
       </span>
@@ -402,10 +273,10 @@ function ClientiListaCoach() {
 
   // Render stato badge
   const renderStatoBadge = (stato, type = 'coach') => {
-    if (!stato) return <span style={tableStyles.emptyCell}>—</span>;
+    if (!stato) return <span className="ct-empty">—</span>;
     const colors = STATI_PROFESSIONISTA_COLORS[stato] || { bg: '#f1f5f9', color: '#64748b' };
     return (
-      <span style={{ ...tableStyles.statoBadge, background: colors.bg, color: colors.color }}>
+      <span className="ct-stato-badge" style={{ background: colors.bg, color: colors.color }}>
         <i className={type === 'chat' ? 'ri-chat-3-line' : 'ri-circle-fill'} style={{ fontSize: type === 'chat' ? '10px' : '6px' }}></i>
         {stato}
       </span>
@@ -414,10 +285,10 @@ function ClientiListaCoach() {
 
   // Render luogo badge
   const renderLuogoBadge = (luogo) => {
-    if (!luogo) return <span style={tableStyles.emptyCell}>—</span>;
+    if (!luogo) return <span className="ct-empty">—</span>;
     const colors = LUOGO_COLORS[luogo] || { bg: '#f1f5f9', color: '#64748b' };
     return (
-      <span style={{ ...tableStyles.statoBadge, background: colors.bg, color: colors.color }}>
+      <span className="ct-stato-badge" style={{ background: colors.bg, color: colors.color }}>
         <i className={luogo === 'casa' ? 'ri-home-line' : luogo === 'palestra' ? 'ri-building-line' : 'ri-exchange-line'}></i>
         {LUOGO_LABELS[luogo] || luogo}
       </span>
@@ -586,21 +457,21 @@ function ClientiListaCoach() {
       ) : (
         <>
           {/* Tabella Pazienti */}
-          <div className="card border-0 clienti-table-wrap" style={tableStyles.card}>
+          <div className="card border-0 clienti-table-wrap ct-card">
             <div className="table-responsive">
               <table className="table mb-0 clienti-table">
-                <thead style={tableStyles.tableHeader}>
+                <thead className="ct-thead">
                   <tr>
-                    <th style={{ ...tableStyles.th, minWidth: '180px' }}>Paziente</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px' }}>Team</th>
-                    <th style={{ ...tableStyles.th, minWidth: '130px' }}>Stato Coach</th>
-                    <th style={{ ...tableStyles.th, minWidth: '130px' }}>Stato Chat</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px' }}>Check Day</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px' }}>Reach Out</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px' }}>Luogo</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Piano</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Storia</th>
-                    <th style={{ ...tableStyles.th, textAlign: 'right', minWidth: '100px' }}>Azioni</th>
+                    <th className="ct-th" style={{ minWidth: '180px' }}>Paziente</th>
+                    <th className="ct-th" style={{ minWidth: '100px' }}>Team</th>
+                    <th className="ct-th" style={{ minWidth: '130px' }}>Stato Coach</th>
+                    <th className="ct-th" style={{ minWidth: '130px' }}>Stato Chat</th>
+                    <th className="ct-th" style={{ minWidth: '120px' }}>Check Day</th>
+                    <th className="ct-th" style={{ minWidth: '120px' }}>Reach Out</th>
+                    <th className="ct-th" style={{ minWidth: '100px' }}>Luogo</th>
+                    <th className="ct-th" style={{ minWidth: '100px', textAlign: 'center' }}>Piano</th>
+                    <th className="ct-th" style={{ minWidth: '100px', textAlign: 'center' }}>Storia</th>
+                    <th className="ct-th" style={{ textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -620,43 +491,39 @@ function ClientiListaCoach() {
                     return (
                       <tr
                         key={clienteId}
-                        style={{
-                          ...tableStyles.row,
-                          background: isHovered ? '#f8fafc' : 'transparent',
-                        }}
+                        className="ct-row"
+                        style={{ background: isHovered ? '#f8fafc' : 'transparent' }}
                         onMouseEnter={() => setHoveredRow(index)}
                         onMouseLeave={() => setHoveredRow(null)}
                       >
                         {/* Nome */}
-                        <td style={tableStyles.td} data-label="Paziente">
+                        <td className="ct-td" data-label="Paziente">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
-                            style={tableStyles.nameLink}
-                            onMouseOver={(e) => e.currentTarget.style.color = '#2563eb'}
-                            onMouseOut={(e) => e.currentTarget.style.color = '#3b82f6'}
+                            className="ct-name-link"
                           >
                             {nomeCognome}
                           </Link>
                         </td>
 
                         {/* Team */}
-                        <td style={tableStyles.td} data-label="Team">
+                        <td className="ct-td" data-label="Team">
                           <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
                             {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
                             {coachesList.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
                             {nutrizionistiList.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
                             {psicologiList.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
                             {consulentiList.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
-                            {!hasTeam && <span style={tableStyles.emptyCell}>—</span>}
+                            {!hasTeam && <span className="ct-empty">—</span>}
                           </div>
                         </td>
 
                         {/* Stato Coach */}
-                        <td style={tableStyles.td} data-label="Stato Coach">
+                        <td className="ct-td" data-label="Stato Coach">
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_coach, 'coach')}
                             <button
-                              style={tableStyles.btnEditInline}
+                              className="ct-btn-edit"
                               onClick={() => openStatoModal(cliente)}
                               title="Modifica stato"
                             >
@@ -666,11 +533,11 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Stato Chat */}
-                        <td style={tableStyles.td} data-label="Stato Chat">
+                        <td className="ct-td" data-label="Stato Chat">
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_cliente_chat_coaching, 'chat')}
                             <button
-                              style={tableStyles.btnEditInline}
+                              className="ct-btn-edit"
                               onClick={() => openChatModal(cliente)}
                               title="Modifica stato chat"
                             >
@@ -680,22 +547,18 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Check Day */}
-                        <td style={tableStyles.td} data-label="Check Day">
+                        <td className="ct-td" data-label="Check Day">
                           <div className="d-flex align-items-center">
                             {cliente.check_day ? (
-                              <span style={{
-                                ...tableStyles.badge,
-                                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-                                color: '#1e40af',
-                              }}>
+                              <span className="ct-check-day-badge">
                                 <i className="ri-calendar-check-line me-1"></i>
                                 {GIORNI_LABELS[cliente.check_day] || cliente.check_day}
                               </span>
                             ) : (
-                              <span style={tableStyles.emptyCell}>—</span>
+                              <span className="ct-empty">—</span>
                             )}
                             <button
-                              style={tableStyles.btnEditInline}
+                              className="ct-btn-edit"
                               onClick={() => openCheckDayModal(cliente)}
                               title="Modifica check day"
                             >
@@ -705,22 +568,18 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Reach Out */}
-                        <td style={tableStyles.td} data-label="Reach Out">
+                        <td className="ct-td" data-label="Reach Out">
                           <div className="d-flex align-items-center">
                             {cliente.reach_out_coaching ? (
-                              <span style={{
-                                ...tableStyles.badge,
-                                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                                color: '#92400e',
-                              }}>
+                              <span className="ct-reach-out-badge">
                                 <i className="ri-calendar-event-line me-1"></i>
                                 {GIORNI_LABELS[cliente.reach_out_coaching] || cliente.reach_out_coaching}
                               </span>
                             ) : (
-                              <span style={tableStyles.emptyCell}>—</span>
+                              <span className="ct-empty">—</span>
                             )}
                             <button
-                              style={tableStyles.btnEditInline}
+                              className="ct-btn-edit"
                               onClick={() => openReachOutModal(cliente)}
                               title="Modifica reach out"
                             >
@@ -730,11 +589,11 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Luogo */}
-                        <td style={tableStyles.td} data-label="Luogo">
+                        <td className="ct-td" data-label="Luogo">
                           <div className="d-flex align-items-center">
                             {renderLuogoBadge(cliente.luogo_di_allenamento)}
                             <button
-                              style={tableStyles.btnEditInline}
+                              className="ct-btn-edit"
                               onClick={() => openLuogoModal(cliente)}
                               title="Modifica luogo"
                             >
@@ -744,10 +603,10 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Piano Allenamento */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Piano">
+                        <td className="ct-td" style={{ textAlign: 'center' }} data-label="Piano">
                           <button
+                            className="ct-btn-sm"
                             style={{
-                              ...tableStyles.btnSmall,
                               background: cliente.piano_allenamento
                                 ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
                                 : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
@@ -760,10 +619,10 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Storia */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }} data-label="Storia">
+                        <td className="ct-td" style={{ textAlign: 'center' }} data-label="Storia">
                           <button
+                            className="ct-btn-sm"
                             style={{
-                              ...tableStyles.btnSmall,
                               background: cliente.storia_coaching
                                 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
                                 : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
@@ -776,11 +635,11 @@ function ClientiListaCoach() {
                         </td>
 
                         {/* Azioni */}
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }} data-label="Azioni">
+                        <td className="ct-td" style={{ textAlign: 'right' }} data-label="Azioni">
                           <Link
                             to={`/clienti-dettaglio/${clienteId}`}
+                            className="ct-action-btn"
                             style={{
-                              ...tableStyles.actionBtn,
                               borderColor: '#22c55e',
                               color: '#22c55e',
                               background: isHovered ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
@@ -791,8 +650,8 @@ function ClientiListaCoach() {
                           </Link>
                           <Link
                             to={`/clienti-dettaglio/${clienteId}#coaching`}
+                            className="ct-action-btn"
                             style={{
-                              ...tableStyles.actionBtn,
                               borderColor: '#f97316',
                               color: '#f97316',
                               background: isHovered ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
