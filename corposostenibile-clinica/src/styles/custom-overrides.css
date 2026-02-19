@@ -454,100 +454,12 @@
     font-size: 0.8125rem !important;
   }
 
-  /* --- Header compacted --- */
-  .header {
-    height: 3.25rem !important;
-    padding-left: 3.25rem !important;
-  }
-
-  .header-content {
-    padding-left: 3.25rem !important;
-    padding-right: 0.5rem !important;
-  }
-
-  .header-right>li:not(:first-child) {
-    padding-left: 0.25rem !important;
-  }
-
-  /* Smaller icons in header buttons */
-  .header-icon-size {
-    font-size: 16px !important;
-  }
-
-  .header-right .notification_dropdown .nav-link {
-    padding: 6px !important;
-    border-radius: 6px !important;
-  }
-
-  .header-right .notification_dropdown .nav-link svg {
-    width: 16px !important;
-    height: 16px !important;
-  }
-
-  /* Hide fullscreen button on mobile */
-  .nav-item .nav-link.dz-fullscreen {
-    display: none !important;
-  }
-
-  /* Profile dropdown compacted */
-  .header-profile-toggle {
-    padding: 4px 6px !important;
-    margin-left: 4px !important;
-    border-radius: 8px !important;
-  }
-
-  .header-profile-avatar {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 6px !important;
-  }
-
-  .header-right .header-profile .avatar-initials {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 6px !important;
-    font-size: 11px !important;
-  }
-
-  /* Tasks sidebar button compacted */
-  .header-tasks-btn {
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 8px !important;
-  }
-
-  .header-tasks-btn svg {
-    width: 16px !important;
-    height: 16px !important;
-  }
-
-  /* --- Nav header compacted --- */
-  .nav-header {
-    width: 3.25rem !important;
-    height: 3.25rem !important;
-  }
-
-  .nav-header .logo-abbr {
-    max-width: 28px !important;
-  }
-
-  .nav-header .brand-logo {
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
-  }
-
-  .nav-control {
-    right: -2.75rem !important;
-  }
-
-  /* --- Content body --- */
-  .content-body {
-    padding-top: 3.25rem !important;
-  }
+  /* Header/Nav top bar: vedi styles/mobile-header.css (un solo file per manutenzione) */
 
   .content-body .container-fluid {
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 1rem !important;
   }
 
   /* --- Cards compacted --- */
@@ -635,10 +547,7 @@
     padding: 8px 12px !important;
   }
 
-  /* --- Sidebar overlay --- */
-  .deznav {
-    top: 3.25rem !important;
-  }
+  /* Sidebar overlay (top) e search bar: vedi styles/mobile-header.css */
 
   /* --- Sidebar menu font reduction --- */
   .metismenu>li>a {
@@ -648,22 +557,5 @@
 
   .metismenu ul a {
     font-size: 12px !important;
-  }
-
-  /* --- Search bar --- */
-  .header-search-bar {
-    max-width: 160px !important;
-  }
-
-  .header-search-input {
-    height: 34px !important;
-    font-size: 12px !important;
-    padding: 0 10px 0 36px !important;
-    border-radius: 8px !important;
-  }
-
-  .header-search-icon {
-    font-size: 17px !important;
-    left: 10px !important;
   }
 }

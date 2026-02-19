@@ -302,7 +302,7 @@ function ClientiList() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4" data-tour="header">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 page-title-block" data-tour="header">
         <div>
           <h4 className="mb-1">Gestione Pazienti</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>

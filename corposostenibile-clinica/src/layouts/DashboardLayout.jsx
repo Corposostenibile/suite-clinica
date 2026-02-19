@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import '../styles/design-tokens.css';
 import '../styles/template.css';
 import '../styles/custom-overrides.css';
+import '../styles/mobile-header.css';
 
 function DashboardContent() {
   const { menuToggle, setMenuToggle } = useContext(ThemeContext);

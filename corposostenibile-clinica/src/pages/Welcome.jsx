@@ -260,9 +260,9 @@ function Welcome() {
   return (
     <>
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 gap-md-3 mb-3 mb-md-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-          <h4 className="mb-0 mb-md-1 small" style={{ fontWeight: 700, color: '#1e293b', fontSize: '1.15rem' }}>
+          <h4 className="mb-0 fw-bold text-dark mobile-text-lg">
             Ciao, {user?.first_name || 'Admin'}!
           </h4>
           <p className="text-muted mb-0 small d-none d-sm-block">Panoramica Piattaforma</p>
@@ -273,7 +273,7 @@ function Welcome() {
           style={{ borderRadius: '12px' }}
         >
           <i className="ri-refresh-line"></i>
-          Aggiorna
+          <span className="d-none d-sm-inline">Aggiorna</span>
         </button>
       </div>
 
@@ -403,100 +403,100 @@ function Welcome() {
             onToggle={setPanoramaMobileOpen}
             icon="ri-apps-line"
           >
-          <div className="row g-2 g-md-3 mb-0 mb-md-4">
-            {/* Quick Navigation */}
-            <div className="col-lg-8">
-              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 py-2 py-md-3 px-3 px-md-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                  <h6 className="mb-0 fw-semibold small" style={{ color: '#1e293b', fontSize: '0.95rem' }}>
-                    <i className="ri-apps-line me-2 text-primary"></i>
-                    Accesso Rapido
-                  </h6>
-                </div>
-                <div className="card-body pt-0 px-3 px-md-4 pb-3 pb-md-4">
-                  {/* Mobile: una riga a scorrimento orizzontale */}
-                  <div className="d-md-none tabs-scroll-mobile">
-                    <div className="d-flex gap-2" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
-                      {QUICK_LINKS.map((link, idx) => (
-                        <Link
-                          key={idx}
-                          to={link.to}
-                          className="d-flex align-items-center gap-2 p-2 text-decoration-none rounded-3 flex-shrink-0"
-                          style={{
-                            background: link.bgColor,
-                            transition: 'transform 0.15s, box-shadow 0.15s',
-                            minWidth: '120px',
-                          }}
-                          onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-                        >
-                          <div
-                            className="d-flex align-items-center justify-content-center rounded-circle"
-                            style={{ width: '32px', height: '32px', background: link.iconBg, flexShrink: 0 }}
-                          >
-                            <i className={link.icon} style={{ color: link.color, fontSize: '14px' }}></i>
-                          </div>
-                          <span style={{ color: '#334155', fontWeight: 500, fontSize: '12px', whiteSpace: 'nowrap' }}>{link.label}</span>
-                        </Link>
-                      ))}
-                    </div>
+            <div className="row g-2 g-md-3 mb-0 mb-md-4">
+              {/* Quick Navigation */}
+              <div className="col-lg-8">
+                <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+                  <div className="card-header bg-white border-0 py-2 py-md-3 px-3 px-md-4" style={{ borderRadius: '16px 16px 0 0' }}>
+                    <h6 className="mb-0 fw-semibold small" style={{ color: '#1e293b', fontSize: '0.95rem' }}>
+                      <i className="ri-apps-line me-2 text-primary"></i>
+                      Accesso Rapido
+                    </h6>
                   </div>
-                  {/* Desktop: griglia */}
-                  <div className="d-none d-md-block">
-                    <div className="row g-2">
-                      {QUICK_LINKS.map((link, idx) => (
-                        <div key={idx} className="col-md-4 col-xl-3">
+                  <div className="card-body pt-0 px-3 px-md-4 pb-3 pb-md-4">
+                    {/* Mobile: una riga a scorrimento orizzontale */}
+                    <div className="d-md-none tabs-scroll-mobile">
+                      <div className="d-flex gap-2" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
+                        {QUICK_LINKS.map((link, idx) => (
                           <Link
+                            key={idx}
                             to={link.to}
-                            className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
+                            className="d-flex align-items-center gap-2 p-2 text-decoration-none rounded-3 flex-shrink-0"
                             style={{
                               background: link.bgColor,
                               transition: 'transform 0.15s, box-shadow 0.15s',
+                              minWidth: '120px',
                             }}
                             onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
                             onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
                           >
                             <div
                               className="d-flex align-items-center justify-content-center rounded-circle"
-                              style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
+                              style={{ width: '32px', height: '32px', background: link.iconBg, flexShrink: 0 }}
                             >
-                              <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
+                              <i className={link.icon} style={{ color: link.color, fontSize: '14px' }}></i>
                             </div>
-                            <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
+                            <span style={{ color: '#334155', fontWeight: 500, fontSize: '12px', whiteSpace: 'nowrap' }}>{link.label}</span>
                           </Link>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    </div>
+                    {/* Desktop: griglia */}
+                    <div className="d-none d-md-block">
+                      <div className="row g-2">
+                        {QUICK_LINKS.map((link, idx) => (
+                          <div key={idx} className="col-md-4 col-xl-3">
+                            <Link
+                              to={link.to}
+                              className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
+                              style={{
+                                background: link.bgColor,
+                                transition: 'transform 0.15s, box-shadow 0.15s',
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                            >
+                              <div
+                                className="d-flex align-items-center justify-content-center rounded-circle"
+                                style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
+                              >
+                                <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
+                              </div>
+                              <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Team + Trial Stats */}
-            <div className="col-lg-4">
-              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 py-2 py-md-3 px-3 px-md-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                  <h6 className="mb-0 fw-semibold small" style={{ color: '#1e293b', fontSize: '0.95rem' }}>
-                    <i className="ri-team-line me-2 text-info"></i>
-                    Team
-                  </h6>
+              {/* Team + Trial Stats */}
+              <div className="col-lg-4">
+                <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+                  <div className="card-header bg-white border-0 py-2 py-md-3 px-3 px-md-4" style={{ borderRadius: '16px 16px 0 0' }}>
+                    <h6 className="mb-0 fw-semibold small" style={{ color: '#1e293b', fontSize: '0.95rem' }}>
+                      <i className="ri-team-line me-2 text-info"></i>
+                      Team
+                    </h6>
+                  </div>
+                  <div className="card-body pt-0 px-3 px-md-4 pb-2 pb-md-3">
+                    {teamLoading ? (
+                      <SkeletonList count={4} />
+                    ) : (
+                      <div className="d-flex flex-column gap-2">
+                        <StatRow label="Membri Attivi" value={teamStats?.total_active || 0} color="#3b82f6" />
+                        <StatRow label="Team Leaders" value={teamStats?.total_team_leaders || 0} color="#8b5cf6" />
+                        <StatRow label="In Prova" value={teamStats?.total_trial || 0} color="#f59e0b" />
+                        <StatRow label="Esterni" value={teamStats?.total_external || 0} color="#64748b" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="card-body pt-0 px-3 px-md-4 pb-2 pb-md-3">
-                  {teamLoading ? (
-                    <SkeletonList count={4} />
-                  ) : (
-                    <div className="d-flex flex-column gap-2">
-                      <StatRow label="Membri Attivi" value={teamStats?.total_active || 0} color="#3b82f6" />
-                      <StatRow label="Team Leaders" value={teamStats?.total_team_leaders || 0} color="#8b5cf6" />
-                      <StatRow label="In Prova" value={teamStats?.total_trial || 0} color="#f59e0b" />
-                      <StatRow label="Esterni" value={teamStats?.total_external || 0} color="#64748b" />
-                    </div>
-                  )}
-                </div>
+
               </div>
-
             </div>
-          </div>
           </MobileSection>
 
           {/* SEZIONE 3: Valutazioni Medie per Team */}
@@ -507,45 +507,45 @@ function Welcome() {
             onToggle={setPanoramaMobileOpen}
             icon="ri-bar-chart-grouped-line"
           >
-          <div className="row g-2 g-md-3 mb-0 mb-md-4">
-            <div className="col-12">
-              <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
-                <i className="ri-bar-chart-grouped-line me-2"></i>
-                Valutazioni Medie per Team (Ultimo Mese)
-              </h5>
+            <div className="row g-2 g-md-3 mb-0 mb-md-4">
+              <div className="col-12">
+                <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+                  <i className="ri-bar-chart-grouped-line me-2"></i>
+                  Valutazioni Medie per Team (Ultimo Mese)
+                </h5>
+              </div>
+              {checkLoading ? (
+                <>
+                  <div className="col-lg-4"><SkeletonCard height="120px" /></div>
+                  <div className="col-lg-4"><SkeletonCard height="120px" /></div>
+                  <div className="col-lg-4"><SkeletonCard height="120px" /></div>
+                </>
+              ) : (
+                <>
+                  <RatingCard
+                    label="Team Nutrizione"
+                    value={checkStats?.stats?.avg_nutrizionista}
+                    icon="ri-heart-pulse-line"
+                    color="#22c55e"
+                    bgColor="#dcfce7"
+                  />
+                  <RatingCard
+                    label="Team Coach"
+                    value={checkStats?.stats?.avg_coach}
+                    icon="ri-run-line"
+                    color="#f97316"
+                    bgColor="#ffedd5"
+                  />
+                  <RatingCard
+                    label="Team Psicologia"
+                    value={checkStats?.stats?.avg_psicologo}
+                    icon="ri-mental-health-line"
+                    color="#ec4899"
+                    bgColor="#fce7f3"
+                  />
+                </>
+              )}
             </div>
-            {checkLoading ? (
-              <>
-                <div className="col-lg-4"><SkeletonCard height="120px" /></div>
-                <div className="col-lg-4"><SkeletonCard height="120px" /></div>
-                <div className="col-lg-4"><SkeletonCard height="120px" /></div>
-              </>
-            ) : (
-              <>
-                <RatingCard
-                  label="Team Nutrizione"
-                  value={checkStats?.stats?.avg_nutrizionista}
-                  icon="ri-heart-pulse-line"
-                  color="#22c55e"
-                  bgColor="#dcfce7"
-                />
-                <RatingCard
-                  label="Team Coach"
-                  value={checkStats?.stats?.avg_coach}
-                  icon="ri-run-line"
-                  color="#f97316"
-                  bgColor="#ffedd5"
-                />
-                <RatingCard
-                  label="Team Psicologia"
-                  value={checkStats?.stats?.avg_psicologo}
-                  icon="ri-mental-health-line"
-                  color="#ec4899"
-                  bgColor="#fce7f3"
-                />
-              </>
-            )}
-          </div>
           </MobileSection>
 
           {/* SEZIONE 3B: Valutazioni per Singolo Team */}
@@ -557,29 +557,29 @@ function Welcome() {
               onToggle={setPanoramaMobileOpen}
               icon="ri-team-line"
             >
-            <div className="row g-2 g-md-3 mb-0 mb-md-4">
-              <div className="col-12">
-                <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
-                  <i className="ri-team-line me-2"></i>
-                  Valutazioni per Singolo Team (Ultimo Mese)
-                </h5>
+              <div className="row g-2 g-md-3 mb-0 mb-md-4">
+                <div className="col-12">
+                  <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+                    <i className="ri-team-line me-2"></i>
+                    Valutazioni per Singolo Team (Ultimo Mese)
+                  </h5>
+                </div>
+                {teamRatings.nutrizione.length > 0 && (
+                  <div className="col-lg-4">
+                    <TeamRatingsList title="Team Nutrizione" teams={teamRatings.nutrizione} icon="ri-heart-pulse-line" color="#22c55e" bgColor="#dcfce7" />
+                  </div>
+                )}
+                {teamRatings.coach.length > 0 && (
+                  <div className="col-lg-4">
+                    <TeamRatingsList title="Team Coach" teams={teamRatings.coach} icon="ri-run-line" color="#f97316" bgColor="#ffedd5" />
+                  </div>
+                )}
+                {teamRatings.psicologia.length > 0 && (
+                  <div className="col-lg-4">
+                    <TeamRatingsList title="Team Psicologia" teams={teamRatings.psicologia} icon="ri-mental-health-line" color="#ec4899" bgColor="#fce7f3" />
+                  </div>
+                )}
               </div>
-              {teamRatings.nutrizione.length > 0 && (
-                <div className="col-lg-4">
-                  <TeamRatingsList title="Team Nutrizione" teams={teamRatings.nutrizione} icon="ri-heart-pulse-line" color="#22c55e" bgColor="#dcfce7" />
-                </div>
-              )}
-              {teamRatings.coach.length > 0 && (
-                <div className="col-lg-4">
-                  <TeamRatingsList title="Team Coach" teams={teamRatings.coach} icon="ri-run-line" color="#f97316" bgColor="#ffedd5" />
-                </div>
-              )}
-              {teamRatings.psicologia.length > 0 && (
-                <div className="col-lg-4">
-                  <TeamRatingsList title="Team Psicologia" teams={teamRatings.psicologia} icon="ri-mental-health-line" color="#ec4899" bgColor="#fce7f3" />
-                </div>
-              )}
-            </div>
             </MobileSection>
           )}
 
@@ -592,12 +592,12 @@ function Welcome() {
               onToggle={setPanoramaMobileOpen}
               icon="ri-error-warning-line"
             >
-            <NegativeChecksTable
-              negativeChecks={negativeChecks}
-              negativePage={negativePage}
-              setNegativePage={setNegativePage}
-              perPage={NEGATIVE_PER_PAGE}
-            />
+              <NegativeChecksTable
+                negativeChecks={negativeChecks}
+                negativePage={negativePage}
+                setNegativePage={setNegativePage}
+                perPage={NEGATIVE_PER_PAGE}
+              />
             </MobileSection>
           )}
 
@@ -610,43 +610,43 @@ function Welcome() {
               onToggle={setPanoramaMobileOpen}
               icon="ri-trophy-line"
             >
-            <>
-              <div className="row g-2 g-md-3 mb-0 mb-md-4">
-                <div className="col-12">
-                  <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
-                    <i className="ri-trophy-line me-2 text-warning"></i>
-                    Top 5 Professionisti (Ultimo Mese)
-                  </h5>
+              <>
+                <div className="row g-2 g-md-3 mb-0 mb-md-4">
+                  <div className="col-12">
+                    <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+                      <i className="ri-trophy-line me-2 text-warning"></i>
+                      Top 5 Professionisti (Ultimo Mese)
+                    </h5>
+                  </div>
+                  <div className="col-lg-4">
+                    <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.top || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={true} />
+                  </div>
+                  <div className="col-lg-4">
+                    <RankingTable title="Coach" professionals={rankings.coach?.top || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={true} />
+                  </div>
+                  <div className="col-lg-4">
+                    <RankingTable title="Psicologia" professionals={rankings.psicologia?.top || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={true} />
+                  </div>
                 </div>
-                <div className="col-lg-4">
-                  <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.top || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={true} />
-                </div>
-                <div className="col-lg-4">
-                  <RankingTable title="Coach" professionals={rankings.coach?.top || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={true} />
-                </div>
-                <div className="col-lg-4">
-                  <RankingTable title="Psicologia" professionals={rankings.psicologia?.top || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={true} />
-                </div>
-              </div>
 
-              <div className="row g-2 g-md-3 mb-0 mb-md-4">
-                <div className="col-12">
-                  <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
-                    <i className="ri-arrow-down-circle-line me-2 text-danger"></i>
-                    Professionisti da Migliorare (Ultimo Mese)
-                  </h5>
+                <div className="row g-2 g-md-3 mb-0 mb-md-4">
+                  <div className="col-12">
+                    <h5 className="mb-2 mb-md-3 small d-none d-md-block" style={{ fontWeight: 600, color: '#1e293b', fontSize: '1rem' }}>
+                      <i className="ri-arrow-down-circle-line me-2 text-danger"></i>
+                      Professionisti da Migliorare (Ultimo Mese)
+                    </h5>
+                  </div>
+                  <div className="col-lg-4">
+                    <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.bottom || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={false} />
+                  </div>
+                  <div className="col-lg-4">
+                    <RankingTable title="Coach" professionals={rankings.coach?.bottom || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={false} />
+                  </div>
+                  <div className="col-lg-4">
+                    <RankingTable title="Psicologia" professionals={rankings.psicologia?.bottom || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={false} />
+                  </div>
                 </div>
-                <div className="col-lg-4">
-                  <RankingTable title="Nutrizione" professionals={rankings.nutrizione?.bottom || []} color="#22c55e" bgColor="#dcfce7" icon="ri-heart-pulse-line" isTop={false} />
-                </div>
-                <div className="col-lg-4">
-                  <RankingTable title="Coach" professionals={rankings.coach?.bottom || []} color="#f97316" bgColor="#ffedd5" icon="ri-run-line" isTop={false} />
-                </div>
-                <div className="col-lg-4">
-                  <RankingTable title="Psicologia" professionals={rankings.psicologia?.bottom || []} color="#ec4899" bgColor="#fce7f3" icon="ri-mental-health-line" isTop={false} />
-                </div>
-              </div>
-            </>
+              </>
             </MobileSection>
           )}
         </>

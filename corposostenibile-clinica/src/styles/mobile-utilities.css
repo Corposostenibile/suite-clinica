@@ -1,0 +1,119 @@
+/* =====================================================================
+   mobile-utilities.css
+   Global helper classes for mobile responsiveness (max-width: 767.98px)
+   Use these classes to quickly fix common mobile layout issues.
+   ===================================================================== */
+
+@media (max-width: 767.98px) {
+
+    /* ---- TYPOGRAPHY ---- */
+    .mobile-text-sm {
+        font-size: 13px !important;
+    }
+
+    .mobile-text-xs {
+        font-size: 11px !important;
+    }
+
+    /* ---- LAYOUT HELPERS ---- */
+    .mobile-w-100 {
+        width: 100% !important;
+    }
+
+    .mobile-flex-col {
+        flex-direction: column !important;
+    }
+
+    .mobile-flex-wrap {
+        flex-wrap: wrap !important;
+    }
+
+    .mobile-hidden {
+        display: none !important;
+    }
+
+    /* ---- FORMS (Touch Friendly) ---- */
+    /* Add class .mobile-form-container to a parent div to apply these rules */
+
+    .mobile-form-container input.form-control,
+    .mobile-form-container select.form-select,
+    .mobile-form-container .btn {
+        min-height: 44px;
+        /* Apple Human Interface Guidelines */
+        font-size: 16px !important;
+        /* Prevents auto-zoom on iOS */
+    }
+
+    .mobile-form-container label {
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* ---- SCROLLABLE CONTAINERS ---- */
+    /* Use for tabs, badge lists, etc. */
+    .mobile-scroll-x {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 8px;
+        padding-bottom: 4px;
+    }
+
+    .mobile-scroll-x::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* ---- MODALS ---- */
+    /* Add .modal-mobile-full to modal-dialog */
+    .modal-mobile-full {
+        margin: 8px !important;
+        max-width: calc(100% - 16px) !important;
+    }
+
+    .modal-mobile-full .modal-content {
+        border-radius: 12px !important;
+    }
+
+    .modal-mobile-full .modal-footer .btn {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    /* ---- CARDS ---- */
+    .mobile-card-compact .card-body {
+        padding: 12px !important;
+    }
+
+    /* ---- TYPOGRAPHY EXTRA ---- */
+    .mobile-text-lg {
+        font-size: 0.9rem !important;
+        /* 14.4px - Smaller than before */
+    }
+
+    /* Header/Nav e search bar mobile: vedi styles/mobile-header.css */
+
+    /* ---- CONTENUTO PAGINA: margini e titolo sezione ---- */
+    .content-body .container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Blocco titolo pagina (es. "Gestione Pazienti"): padding e respiro */
+    .page-title-block {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.75rem !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .page-title-block h4,
+    .page-title-block .h4 {
+        margin-bottom: 0.25rem !important;
+        font-size: 1.125rem !important;
+    }
+
+    .page-title-block .text-muted {
+        font-size: 0.8125rem !important;
+    }
+}

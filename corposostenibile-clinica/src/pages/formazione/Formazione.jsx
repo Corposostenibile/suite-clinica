@@ -10,12 +10,12 @@ import teamService, {
 } from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { 
-    FaGraduationCap, 
-    FaChartBar, 
-    FaFilter, 
-    FaList, 
-    FaPlusCircle 
+import {
+    FaGraduationCap,
+    FaChartBar,
+    FaFilter,
+    FaList,
+    FaPlusCircle
 } from 'react-icons/fa';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con TeamList)
@@ -67,7 +67,7 @@ function Formazione() {
     const [requests, setRequests] = useState([]);
     const [receivedRequests, setReceivedRequests] = useState([]); // Richieste ricevute
     const [recipients, setRecipients] = useState([]);
-    
+
     // Configurazione Tour
     const [mostraTour, setMostraTour] = useState(false);
     const [searchParams] = useSearchParams();
@@ -78,7 +78,7 @@ function Formazione() {
             setMostraTour(true);
         }
     }, [searchParams]);
-    
+
     const tourSteps = [
         {
             target: '[data-tour="header"]',
@@ -690,7 +690,7 @@ function Formazione() {
                     {/* Main Tabs AND Sub Tabs Navigation Wrapper for Tour */}
                     <div data-tour="tabs-navigation">
                         {/* Main Tabs: I Miei Training | Gestione Team */}
-                        <ul className="nav nav-tabs mb-4 flex-nowrap overflow-auto">
+                        <ul className="nav nav-tabs mb-4 mobile-scroll-x">
                             <li className="nav-item">
                                 <button
                                     className={`nav-link ${adminTab === 'myTrainings' ? 'active' : ''}`}
@@ -721,7 +721,7 @@ function Formazione() {
                                 {/* Sub-tabs for all training sections */}
                                 <div className="card mb-4">
                                     <div className="card-header bg-white border-bottom">
-                                        <ul className="nav nav-tabs card-header-tabs flex-nowrap" style={{ overflowX: 'auto' }}>
+                                        <ul className="nav nav-tabs card-header-tabs mobile-scroll-x">
                                             <li className="nav-item">
                                                 <button
                                                     className={`nav-link ${activeTab === 'trainings' ? 'active' : ''}`}
@@ -785,709 +785,709 @@ function Formazione() {
                                     </div>
 
 
-                                <div className="card-body p-0">
-                                    {/* Training List */}
-                                    {activeTab === 'trainings' && (
-                                        <div data-tour="content-list">
-                                            {filteredTrainings.length === 0 ? (
-                                                <div className="text-center py-5">
-                                                    <i className="ri-book-open-line text-muted" style={{ fontSize: '64px' }}></i>
-                                                    <h5 className="mt-3 mb-1">Nessun training</h5>
-                                                    <p className="text-muted">Non hai ancora ricevuto training.</p>
-                                                </div>
-                                            ) : (
-                                                filteredTrainings.slice((trainingsPage - 1) * ITEMS_PER_SECTION, trainingsPage * ITEMS_PER_SECTION).map(training => (
-                                                    <div key={training.id} className="border-bottom">
-                                                        <div
-                                                            className="p-3 d-flex justify-content-between align-items-start"
-                                                            style={{ cursor: 'pointer', background: expandedTraining === training.id ? '#f8f9fa' : 'white' }}
-                                                            onClick={() => setExpandedTraining(expandedTraining === training.id ? null : training.id)}
-                                                        >
-                                                            <div className="flex-grow-1">
-                                                                <div className="d-flex align-items-center gap-2 mb-1">
-                                                                    <h6 className="mb-0">{training.title}</h6>
-                                                                    <i className={`ri-arrow-${expandedTraining === training.id ? 'up' : 'down'}-s-line`}></i>
+                                    <div className="card-body p-0">
+                                        {/* Training List */}
+                                        {activeTab === 'trainings' && (
+                                            <div data-tour="content-list">
+                                                {filteredTrainings.length === 0 ? (
+                                                    <div className="text-center py-5">
+                                                        <i className="ri-book-open-line text-muted" style={{ fontSize: '64px' }}></i>
+                                                        <h5 className="mt-3 mb-1">Nessun training</h5>
+                                                        <p className="text-muted">Non hai ancora ricevuto training.</p>
+                                                    </div>
+                                                ) : (
+                                                    filteredTrainings.slice((trainingsPage - 1) * ITEMS_PER_SECTION, trainingsPage * ITEMS_PER_SECTION).map(training => (
+                                                        <div key={training.id} className="border-bottom">
+                                                            <div
+                                                                className="p-3 d-flex justify-content-between align-items-start"
+                                                                style={{ cursor: 'pointer', background: expandedTraining === training.id ? '#f8f9fa' : 'white' }}
+                                                                onClick={() => setExpandedTraining(expandedTraining === training.id ? null : training.id)}
+                                                            >
+                                                                <div className="flex-grow-1">
+                                                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                                                        <h6 className="mb-0">{training.title}</h6>
+                                                                        <i className={`ri-arrow-${expandedTraining === training.id ? 'up' : 'down'}-s-line`}></i>
+                                                                    </div>
+                                                                    <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
+                                                                        <span><i className="ri-user-line me-1"></i>{training.reviewer?.firstName} {training.reviewer?.lastName}</span>
+                                                                        <span><i className="ri-calendar-line me-1"></i>{formatDate(training.createdAt)}</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
-                                                                    <span><i className="ri-user-line me-1"></i>{training.reviewer?.firstName} {training.reviewer?.lastName}</span>
-                                                                    <span><i className="ri-calendar-line me-1"></i>{formatDate(training.createdAt)}</span>
+                                                                <div className="d-flex gap-2 flex-wrap justify-content-end">
+                                                                    <span className="badge" style={{ background: `${TRAINING_TYPES[training.reviewType]?.color || '#6c757d'}20`, color: TRAINING_TYPES[training.reviewType]?.color || '#6c757d' }}>
+                                                                        {TRAINING_TYPES[training.reviewType]?.label || training.reviewType}
+                                                                    </span>
+                                                                    {training.isAcknowledged ? (
+                                                                        <span className="badge bg-success"><i className="ri-check-line me-1"></i>Confermato</span>
+                                                                    ) : (
+                                                                        <span className="badge bg-warning text-dark">Da confermare</span>
+                                                                    )}
+                                                                    {training.unreadCount > 0 && (
+                                                                        <span className="badge bg-danger"><i className="ri-message-3-line me-1"></i>{training.unreadCount}</span>
+                                                                    )}
                                                                 </div>
                                                             </div>
-                                                            <div className="d-flex gap-2 flex-wrap justify-content-end">
-                                                                <span className="badge" style={{ background: `${TRAINING_TYPES[training.reviewType]?.color || '#6c757d'}20`, color: TRAINING_TYPES[training.reviewType]?.color || '#6c757d' }}>
-                                                                    {TRAINING_TYPES[training.reviewType]?.label || training.reviewType}
-                                                                </span>
-                                                                {training.isAcknowledged ? (
-                                                                    <span className="badge bg-success"><i className="ri-check-line me-1"></i>Confermato</span>
-                                                                ) : (
-                                                                    <span className="badge bg-warning text-dark">Da confermare</span>
-                                                                )}
-                                                                {training.unreadCount > 0 && (
-                                                                    <span className="badge bg-danger"><i className="ri-message-3-line me-1"></i>{training.unreadCount}</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
 
-                                                        {expandedTraining === training.id && (
-                                                            <div className="p-4 bg-light border-top">
-                                                                {(training.periodStart || training.periodEnd) && (
-                                                                    <p className="text-muted small mb-3">
-                                                                        <i className="ri-calendar-2-line me-1"></i>
-                                                                        Periodo: {training.periodStart || '-'} - {training.periodEnd || '-'}
-                                                                    </p>
-                                                                )}
-                                                                <div className="bg-white rounded p-3 mb-3">
-                                                                    <p style={{ whiteSpace: 'pre-line' }}>{training.content}</p>
-                                                                </div>
-                                                                {training.strengths && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: '#d1fae5', borderLeft: '4px solid #10b981' }}>
-                                                                        <h6 className="text-success mb-2"><i className="ri-thumb-up-line me-2"></i>Punti di Forza</h6>
-                                                                        <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.strengths}</p>
+                                                            {expandedTraining === training.id && (
+                                                                <div className="p-4 bg-light border-top">
+                                                                    {(training.periodStart || training.periodEnd) && (
+                                                                        <p className="text-muted small mb-3">
+                                                                            <i className="ri-calendar-2-line me-1"></i>
+                                                                            Periodo: {training.periodStart || '-'} - {training.periodEnd || '-'}
+                                                                        </p>
+                                                                    )}
+                                                                    <div className="bg-white rounded p-3 mb-3">
+                                                                        <p style={{ whiteSpace: 'pre-line' }}>{training.content}</p>
                                                                     </div>
-                                                                )}
-                                                                {training.improvements && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: '#fef3c7', borderLeft: '4px solid #f59e0b' }}>
-                                                                        <h6 className="text-warning mb-2"><i className="ri-lightbulb-line me-2"></i>Aree di Miglioramento</h6>
-                                                                        <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.improvements}</p>
-                                                                    </div>
-                                                                )}
-                                                                {training.goals && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: '#dbeafe', borderLeft: '4px solid #3b82f6' }}>
-                                                                        <h6 className="text-primary mb-2"><i className="ri-focus-3-line me-2"></i>Obiettivi</h6>
-                                                                        <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.goals}</p>
-                                                                    </div>
-                                                                )}
+                                                                    {training.strengths && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: '#d1fae5', borderLeft: '4px solid #10b981' }}>
+                                                                            <h6 className="text-success mb-2"><i className="ri-thumb-up-line me-2"></i>Punti di Forza</h6>
+                                                                            <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.strengths}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {training.improvements && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: '#fef3c7', borderLeft: '4px solid #f59e0b' }}>
+                                                                            <h6 className="text-warning mb-2"><i className="ri-lightbulb-line me-2"></i>Aree di Miglioramento</h6>
+                                                                            <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.improvements}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {training.goals && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: '#dbeafe', borderLeft: '4px solid #3b82f6' }}>
+                                                                            <h6 className="text-primary mb-2"><i className="ri-focus-3-line me-2"></i>Obiettivi</h6>
+                                                                            <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.goals}</p>
+                                                                        </div>
+                                                                    )}
 
-                                                                {training.isAcknowledged ? (
-                                                                    <div className="alert alert-success mb-3">
-                                                                        <div className="d-flex align-items-center">
-                                                                            <i className="ri-check-double-line fs-4 me-2"></i>
-                                                                            <div>
-                                                                                <strong>Confermato</strong>
-                                                                                <span className="ms-2 text-muted small">il {formatDateTime(training.acknowledgedAt)}</span>
-                                                                                {training.acknowledgmentNotes && <p className="mb-0 mt-1 small">{training.acknowledgmentNotes}</p>}
+                                                                    {training.isAcknowledged ? (
+                                                                        <div className="alert alert-success mb-3">
+                                                                            <div className="d-flex align-items-center">
+                                                                                <i className="ri-check-double-line fs-4 me-2"></i>
+                                                                                <div>
+                                                                                    <strong>Confermato</strong>
+                                                                                    <span className="ms-2 text-muted small">il {formatDateTime(training.acknowledgedAt)}</span>
+                                                                                    {training.acknowledgmentNotes && <p className="mb-0 mt-1 small">{training.acknowledgmentNotes}</p>}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="alert alert-warning mb-3">
-                                                                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                                                            <div>
-                                                                                <i className="ri-information-line me-2"></i>
-                                                                                <strong>Conferma di aver letto questo training</strong>
+                                                                    ) : (
+                                                                        <div className="alert alert-warning mb-3">
+                                                                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                                                                <div>
+                                                                                    <i className="ri-information-line me-2"></i>
+                                                                                    <strong>Conferma di aver letto questo training</strong>
+                                                                                </div>
+                                                                                <button className="btn btn-success btn-sm" onClick={(e) => { e.stopPropagation(); setShowAckModal(training.id); }} disabled={actionLoading}>
+                                                                                    <i className="ri-check-line me-1"></i>Conferma Lettura
+                                                                                </button>
                                                                             </div>
-                                                                            <button className="btn btn-success btn-sm" onClick={(e) => { e.stopPropagation(); setShowAckModal(training.id); }} disabled={actionLoading}>
-                                                                                <i className="ri-check-line me-1"></i>Conferma Lettura
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div className="bg-white rounded p-3">
+                                                                        <h6 className="mb-3"><i className="ri-chat-3-line me-2"></i>Discussione</h6>
+                                                                        <div className="mb-3" style={{ maxHeight: '300px', overflowY: 'auto', minHeight: (training.messages?.length || 0) > 0 ? '100px' : '0' }}>
+                                                                            {(!training.messages || training.messages.length === 0) ? (
+                                                                                <p className="text-muted small text-center py-3">Nessun messaggio. Inizia la discussione!</p>
+                                                                            ) : (
+                                                                                training.messages.map(msg => (
+                                                                                    <div key={msg.id} className={`p-2 rounded mb-2 ${msg.isOwn ? 'ms-5' : 'me-5'}`} style={{ background: msg.isOwn ? '#e3f2fd' : '#f5f5f5' }}>
+                                                                                        <div className="d-flex justify-content-between mb-1">
+                                                                                            <strong className="small">{msg.senderName}</strong>
+                                                                                            <span className="text-muted small">{formatDate(msg.createdAt)}</span>
+                                                                                        </div>
+                                                                                        <p className="mb-0 small">{msg.content}</p>
+                                                                                    </div>
+                                                                                ))
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="input-group">
+                                                                            <input type="text" className="form-control" placeholder="Scrivi un messaggio..." value={newMessage}
+                                                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                                                onKeyPress={(e) => { if (e.key === 'Enter' && !actionLoading) handleSendMessage(training.id); }}
+                                                                                onClick={(e) => e.stopPropagation()} disabled={actionLoading} />
+                                                                            <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); handleSendMessage(training.id); }} disabled={actionLoading || !newMessage.trim()}>
+                                                                                {actionLoading ? <span className="spinner-border spinner-border-sm"></span> : <i className="ri-send-plane-line"></i>}
                                                                             </button>
                                                                         </div>
                                                                     </div>
-                                                                )}
-
-                                                                <div className="bg-white rounded p-3">
-                                                                    <h6 className="mb-3"><i className="ri-chat-3-line me-2"></i>Discussione</h6>
-                                                                    <div className="mb-3" style={{ maxHeight: '300px', overflowY: 'auto', minHeight: (training.messages?.length || 0) > 0 ? '100px' : '0' }}>
-                                                                        {(!training.messages || training.messages.length === 0) ? (
-                                                                            <p className="text-muted small text-center py-3">Nessun messaggio. Inizia la discussione!</p>
-                                                                        ) : (
-                                                                            training.messages.map(msg => (
-                                                                                <div key={msg.id} className={`p-2 rounded mb-2 ${msg.isOwn ? 'ms-5' : 'me-5'}`} style={{ background: msg.isOwn ? '#e3f2fd' : '#f5f5f5' }}>
-                                                                                    <div className="d-flex justify-content-between mb-1">
-                                                                                        <strong className="small">{msg.senderName}</strong>
-                                                                                        <span className="text-muted small">{formatDate(msg.createdAt)}</span>
-                                                                                    </div>
-                                                                                    <p className="mb-0 small">{msg.content}</p>
-                                                                                </div>
-                                                                            ))
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="input-group">
-                                                                        <input type="text" className="form-control" placeholder="Scrivi un messaggio..." value={newMessage}
-                                                                            onChange={(e) => setNewMessage(e.target.value)}
-                                                                            onKeyPress={(e) => { if (e.key === 'Enter' && !actionLoading) handleSendMessage(training.id); }}
-                                                                            onClick={(e) => e.stopPropagation()} disabled={actionLoading} />
-                                                                        <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); handleSendMessage(training.id); }} disabled={actionLoading || !newMessage.trim()}>
-                                                                            {actionLoading ? <span className="spinner-border spinner-border-sm"></span> : <i className="ri-send-plane-line"></i>}
-                                                                        </button>
-                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            )}
-                                            {/* Paginazione Training Ricevuti */}
-                                            {filteredTrainings.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((trainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredTrainings.length)}-{Math.min(trainingsPage * ITEMS_PER_SECTION, filteredTrainings.length)} di {filteredTrainings.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${trainingsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${trainingsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setTrainingsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, trainingsPage - 3), trainingsPage + 2)}
-                                                            <li className={`page-item ${trainingsPage >= Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setTrainingsPage(p => Math.min(Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Given Trainings List - Training Erogati */}
-                                    {activeTab === 'given' && (
-                                        <div>
-                                            {filteredGivenTrainings.length === 0 ? (
-                                                <div className="text-center py-5">
-                                                    <i className="ri-presentation-line text-muted" style={{ fontSize: '64px' }}></i>
-                                                    <h5 className="mt-3 mb-1">Nessun training erogato</h5>
-                                                    <p className="text-muted">Non hai ancora erogato training ad altri.</p>
-                                                </div>
-                                            ) : (
-                                                filteredGivenTrainings.slice((givenTrainingsPage - 1) * ITEMS_PER_SECTION, givenTrainingsPage * ITEMS_PER_SECTION).map(training => (
-                                                    <div key={training.id} className="border-bottom">
-                                                        <div
-                                                            className="p-3 d-flex justify-content-between align-items-start"
-                                                            style={{ cursor: 'pointer', background: expandedTraining === training.id ? '#f8f9fa' : 'white' }}
-                                                            onClick={() => setExpandedTraining(expandedTraining === training.id ? null : training.id)}
-                                                        >
-                                                            <div className="flex-grow-1">
-                                                                <div className="d-flex align-items-center gap-2 mb-1">
-                                                                    <h6 className="mb-0">{training.title}</h6>
-                                                                    <i className={`ri-arrow-${expandedTraining === training.id ? 'up' : 'down'}-s-line`}></i>
-                                                                </div>
-                                                                <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
-                                                                    <span><i className="ri-user-received-line me-1"></i>A: {training.reviewee?.firstName} {training.reviewee?.lastName}</span>
-                                                                    <span><i className="ri-calendar-line me-1"></i>{formatDate(training.createdAt)}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="d-flex gap-2 flex-wrap justify-content-end">
-                                                                <span className="badge" style={{ background: `${TRAINING_TYPES[training.reviewType]?.color || '#6c757d'}20`, color: TRAINING_TYPES[training.reviewType]?.color || '#6c757d' }}>
-                                                                    {TRAINING_TYPES[training.reviewType]?.label || training.reviewType}
-                                                                </span>
-                                                                {training.isDraft ? (
-                                                                    <span className="badge bg-secondary"><i className="ri-draft-line me-1"></i>Bozza</span>
-                                                                ) : training.isAcknowledged ? (
-                                                                    <span className="badge bg-success"><i className="ri-check-line me-1"></i>Confermato</span>
-                                                                ) : (
-                                                                    <span className="badge bg-warning text-dark">In attesa conferma</span>
-                                                                )}
-                                                            </div>
+                                                            )}
                                                         </div>
+                                                    ))
+                                                )}
+                                                {/* Paginazione Training Ricevuti */}
+                                                {filteredTrainings.length > ITEMS_PER_SECTION && (
+                                                    <div className="d-flex justify-content-between align-items-center p-3 border-top">
+                                                        <small className="text-muted">
+                                                            Mostrando {Math.min((trainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredTrainings.length)}-{Math.min(trainingsPage * ITEMS_PER_SECTION, filteredTrainings.length)} di {filteredTrainings.length}
+                                                        </small>
+                                                        <nav>
+                                                            <ul className="pagination pagination-sm mb-0">
+                                                                <li className={`page-item ${trainingsPage === 1 ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                                </li>
+                                                                {Array.from({ length: Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                                    <li key={i} className={`page-item ${trainingsPage === i + 1 ? 'active' : ''}`}>
+                                                                        <button className="page-link" onClick={() => setTrainingsPage(i + 1)}>{i + 1}</button>
+                                                                    </li>
+                                                                )).slice(Math.max(0, trainingsPage - 3), trainingsPage + 2)}
+                                                                <li className={`page-item ${trainingsPage >= Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setTrainingsPage(p => Math.min(Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                                </li>
+                                                            </ul>
+                                                        </nav>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
-                                                        {expandedTraining === training.id && (
-                                                            <div className="p-4 bg-light border-top">
-                                                                <div className="bg-white rounded p-3 mb-3">
-                                                                    <p style={{ whiteSpace: 'pre-line' }}>{training.content}</p>
+                                        {/* Given Trainings List - Training Erogati */}
+                                        {activeTab === 'given' && (
+                                            <div>
+                                                {filteredGivenTrainings.length === 0 ? (
+                                                    <div className="text-center py-5">
+                                                        <i className="ri-presentation-line text-muted" style={{ fontSize: '64px' }}></i>
+                                                        <h5 className="mt-3 mb-1">Nessun training erogato</h5>
+                                                        <p className="text-muted">Non hai ancora erogato training ad altri.</p>
+                                                    </div>
+                                                ) : (
+                                                    filteredGivenTrainings.slice((givenTrainingsPage - 1) * ITEMS_PER_SECTION, givenTrainingsPage * ITEMS_PER_SECTION).map(training => (
+                                                        <div key={training.id} className="border-bottom">
+                                                            <div
+                                                                className="p-3 d-flex justify-content-between align-items-start"
+                                                                style={{ cursor: 'pointer', background: expandedTraining === training.id ? '#f8f9fa' : 'white' }}
+                                                                onClick={() => setExpandedTraining(expandedTraining === training.id ? null : training.id)}
+                                                            >
+                                                                <div className="flex-grow-1">
+                                                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                                                        <h6 className="mb-0">{training.title}</h6>
+                                                                        <i className={`ri-arrow-${expandedTraining === training.id ? 'up' : 'down'}-s-line`}></i>
+                                                                    </div>
+                                                                    <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
+                                                                        <span><i className="ri-user-received-line me-1"></i>A: {training.reviewee?.firstName} {training.reviewee?.lastName}</span>
+                                                                        <span><i className="ri-calendar-line me-1"></i>{formatDate(training.createdAt)}</span>
+                                                                    </div>
                                                                 </div>
-                                                                {training.strengths && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: '#d1fae5', borderLeft: '4px solid #10b981' }}>
-                                                                        <h6 className="text-success mb-2"><i className="ri-thumb-up-line me-2"></i>Punti di Forza</h6>
-                                                                        <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.strengths}</p>
-                                                                    </div>
-                                                                )}
-                                                                {training.improvements && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: '#fef3c7', borderLeft: '4px solid #f59e0b' }}>
-                                                                        <h6 className="text-warning mb-2"><i className="ri-lightbulb-line me-2"></i>Aree di Miglioramento</h6>
-                                                                        <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.improvements}</p>
-                                                                    </div>
-                                                                )}
-                                                                {training.goals && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: '#dbeafe', borderLeft: '4px solid #3b82f6' }}>
-                                                                        <h6 className="text-primary mb-2"><i className="ri-focus-3-line me-2"></i>Obiettivi</h6>
-                                                                        <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.goals}</p>
-                                                                    </div>
-                                                                )}
+                                                                <div className="d-flex gap-2 flex-wrap justify-content-end">
+                                                                    <span className="badge" style={{ background: `${TRAINING_TYPES[training.reviewType]?.color || '#6c757d'}20`, color: TRAINING_TYPES[training.reviewType]?.color || '#6c757d' }}>
+                                                                        {TRAINING_TYPES[training.reviewType]?.label || training.reviewType}
+                                                                    </span>
+                                                                    {training.isDraft ? (
+                                                                        <span className="badge bg-secondary"><i className="ri-draft-line me-1"></i>Bozza</span>
+                                                                    ) : training.isAcknowledged ? (
+                                                                        <span className="badge bg-success"><i className="ri-check-line me-1"></i>Confermato</span>
+                                                                    ) : (
+                                                                        <span className="badge bg-warning text-dark">In attesa conferma</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
 
-                                                                {training.isAcknowledged && (
-                                                                    <div className="alert alert-success mb-3">
-                                                                        <div className="d-flex align-items-center">
-                                                                            <i className="ri-check-double-line fs-4 me-2"></i>
-                                                                            <div>
-                                                                                <strong>Confermato dal destinatario</strong>
-                                                                                <span className="ms-2 text-muted small">il {formatDateTime(training.acknowledgedAt)}</span>
-                                                                                {training.acknowledgmentNotes && <p className="mb-0 mt-1 small">{training.acknowledgmentNotes}</p>}
+                                                            {expandedTraining === training.id && (
+                                                                <div className="p-4 bg-light border-top">
+                                                                    <div className="bg-white rounded p-3 mb-3">
+                                                                        <p style={{ whiteSpace: 'pre-line' }}>{training.content}</p>
+                                                                    </div>
+                                                                    {training.strengths && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: '#d1fae5', borderLeft: '4px solid #10b981' }}>
+                                                                            <h6 className="text-success mb-2"><i className="ri-thumb-up-line me-2"></i>Punti di Forza</h6>
+                                                                            <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.strengths}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {training.improvements && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: '#fef3c7', borderLeft: '4px solid #f59e0b' }}>
+                                                                            <h6 className="text-warning mb-2"><i className="ri-lightbulb-line me-2"></i>Aree di Miglioramento</h6>
+                                                                            <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.improvements}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {training.goals && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: '#dbeafe', borderLeft: '4px solid #3b82f6' }}>
+                                                                            <h6 className="text-primary mb-2"><i className="ri-focus-3-line me-2"></i>Obiettivi</h6>
+                                                                            <p className="mb-0" style={{ whiteSpace: 'pre-line' }}>{training.goals}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {training.isAcknowledged && (
+                                                                        <div className="alert alert-success mb-3">
+                                                                            <div className="d-flex align-items-center">
+                                                                                <i className="ri-check-double-line fs-4 me-2"></i>
+                                                                                <div>
+                                                                                    <strong>Confermato dal destinatario</strong>
+                                                                                    <span className="ms-2 text-muted small">il {formatDateTime(training.acknowledgedAt)}</span>
+                                                                                    {training.acknowledgmentNotes && <p className="mb-0 mt-1 small">{training.acknowledgmentNotes}</p>}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                )}
+                                                                    )}
 
-                                                                {/* Messages */}
-                                                                <div className="bg-white rounded p-3">
-                                                                    <h6 className="mb-3"><i className="ri-chat-3-line me-2"></i>Discussione</h6>
-                                                                    <div className="mb-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                                                        {(!training.messages || training.messages.length === 0) ? (
-                                                                            <p className="text-muted small text-center py-3">Nessun messaggio.</p>
-                                                                        ) : (
-                                                                            training.messages.map(msg => (
-                                                                                <div key={msg.id} className={`p-2 rounded mb-2 ${msg.isOwn ? 'ms-5' : 'me-5'}`} style={{ background: msg.isOwn ? '#e3f2fd' : '#f5f5f5' }}>
-                                                                                    <div className="d-flex justify-content-between mb-1">
-                                                                                        <strong className="small">{msg.senderName}</strong>
-                                                                                        <span className="text-muted small">{formatDate(msg.createdAt)}</span>
+                                                                    {/* Messages */}
+                                                                    <div className="bg-white rounded p-3">
+                                                                        <h6 className="mb-3"><i className="ri-chat-3-line me-2"></i>Discussione</h6>
+                                                                        <div className="mb-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                                                            {(!training.messages || training.messages.length === 0) ? (
+                                                                                <p className="text-muted small text-center py-3">Nessun messaggio.</p>
+                                                                            ) : (
+                                                                                training.messages.map(msg => (
+                                                                                    <div key={msg.id} className={`p-2 rounded mb-2 ${msg.isOwn ? 'ms-5' : 'me-5'}`} style={{ background: msg.isOwn ? '#e3f2fd' : '#f5f5f5' }}>
+                                                                                        <div className="d-flex justify-content-between mb-1">
+                                                                                            <strong className="small">{msg.senderName}</strong>
+                                                                                            <span className="text-muted small">{formatDate(msg.createdAt)}</span>
+                                                                                        </div>
+                                                                                        <p className="mb-0 small">{msg.content}</p>
                                                                                     </div>
-                                                                                    <p className="mb-0 small">{msg.content}</p>
-                                                                                </div>
-                                                                            ))
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="input-group">
-                                                                        <input type="text" className="form-control" placeholder="Scrivi un messaggio..." value={newMessage}
-                                                                            onChange={(e) => setNewMessage(e.target.value)}
-                                                                            onKeyPress={(e) => { if (e.key === 'Enter' && !actionLoading) handleSendMessage(training.id); }}
-                                                                            onClick={(e) => e.stopPropagation()} disabled={actionLoading} />
-                                                                        <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); handleSendMessage(training.id); }} disabled={actionLoading || !newMessage.trim()}>
-                                                                            {actionLoading ? <span className="spinner-border spinner-border-sm"></span> : <i className="ri-send-plane-line"></i>}
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            )}
-                                            {/* Paginazione Training Erogati */}
-                                            {filteredGivenTrainings.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((givenTrainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredGivenTrainings.length)}-{Math.min(givenTrainingsPage * ITEMS_PER_SECTION, filteredGivenTrainings.length)} di {filteredGivenTrainings.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${givenTrainingsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${givenTrainingsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setGivenTrainingsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, givenTrainingsPage - 3), givenTrainingsPage + 2)}
-                                                            <li className={`page-item ${givenTrainingsPage >= Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.min(Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Received Requests List - Richieste Ricevute */}
-                                    {activeTab === 'received' && (
-                                        <div>
-                                            {filteredReceivedRequests.length === 0 ? (
-                                                <div className="text-center py-5">
-                                                    <i className="ri-mail-download-line text-muted" style={{ fontSize: '64px' }}></i>
-                                                    <h5 className="mt-3 mb-1">Nessuna richiesta ricevuta</h5>
-                                                    <p className="text-muted">Non hai ricevuto richieste di training.</p>
-                                                </div>
-                                            ) : (
-                                                filteredReceivedRequests.slice((receivedRequestsPage - 1) * ITEMS_PER_SECTION, receivedRequestsPage * ITEMS_PER_SECTION).map(request => (
-                                                    <div key={request.id} className="border-bottom">
-                                                        <div
-                                                            className="p-3 d-flex justify-content-between align-items-start"
-                                                            style={{ cursor: 'pointer', background: expandedRequest === request.id ? '#f8f9fa' : 'white' }}
-                                                            onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
-                                                        >
-                                                            <div className="flex-grow-1">
-                                                                <div className="d-flex align-items-center gap-2 mb-1">
-                                                                    <h6 className="mb-0">{request.subject}</h6>
-                                                                    <i className={`ri-arrow-${expandedRequest === request.id ? 'up' : 'down'}-s-line`}></i>
-                                                                </div>
-                                                                <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
-                                                                    <span><i className="ri-user-line me-1"></i>Da: {request.requester?.firstName} {request.requester?.lastName}</span>
-                                                                    <span><i className="ri-calendar-line me-1"></i>{formatDate(request.createdAt)}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="d-flex gap-2 flex-wrap justify-content-end">
-                                                                <span className="badge" style={{ background: `${PRIORITIES[request.priority]?.color || '#6c757d'}20`, color: PRIORITIES[request.priority]?.color || '#6c757d' }}>
-                                                                    {PRIORITIES[request.priority]?.label || request.priority}
-                                                                </span>
-                                                                {request.status === 'pending' && <span className="badge bg-info"><i className="ri-time-line me-1"></i>Da gestire</span>}
-                                                                {request.status === 'accepted' && <span className="badge bg-primary"><i className="ri-check-line me-1"></i>Accettata</span>}
-                                                                {request.status === 'completed' && <span className="badge bg-success"><i className="ri-check-double-line me-1"></i>Completata</span>}
-                                                                {request.status === 'rejected' && <span className="badge bg-danger"><i className="ri-close-line me-1"></i>Rifiutata</span>}
-                                                            </div>
-                                                        </div>
-
-                                                        {expandedRequest === request.id && (
-                                                            <div className="p-4 bg-light border-top">
-                                                                {request.description && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: 'white', borderLeft: '4px solid #0dcaf0' }}>
-                                                                        <h6 className="mb-2"><i className="ri-file-text-line me-2"></i>Descrizione Richiesta</h6>
-                                                                        <p className="mb-0">{request.description}</p>
-                                                                    </div>
-                                                                )}
-
-                                                                {request.status === 'pending' && (
-                                                                    <div className="alert alert-info">
-                                                                        <i className="ri-information-line me-2"></i>
-                                                                        <strong>Questa richiesta è in attesa di risposta.</strong>
-                                                                        <p className="mb-0 mt-2 small text-muted">
-                                                                            Puoi gestire questa richiesta dalla sezione Quality per creare il training.
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-
-                                                                {request.status === 'completed' && request.reviewId && (
-                                                                    <div className="alert alert-success">
-                                                                        <i className="ri-check-double-line me-2"></i>
-                                                                        <strong>Training completato!</strong>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            )}
-                                            {/* Paginazione Richieste Ricevute */}
-                                            {filteredReceivedRequests.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((receivedRequestsPage - 1) * ITEMS_PER_SECTION + 1, filteredReceivedRequests.length)}-{Math.min(receivedRequestsPage * ITEMS_PER_SECTION, filteredReceivedRequests.length)} di {filteredReceivedRequests.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${receivedRequestsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${receivedRequestsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setReceivedRequestsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, receivedRequestsPage - 3), receivedRequestsPage + 2)}
-                                                            <li className={`page-item ${receivedRequestsPage >= Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.min(Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Sent Requests List - Richieste Inviate */}
-                                    {activeTab === 'requests' && (
-                                        <div>
-                                            {filteredRequests.length === 0 ? (
-                                                <div className="text-center py-5">
-                                                    <i className="ri-file-list-3-line text-muted" style={{ fontSize: '64px' }}></i>
-                                                    <h5 className="mt-3 mb-1">Nessuna richiesta</h5>
-                                                    <p className="text-muted">Non hai ancora inviato richieste di training.</p>
-                                                </div>
-                                            ) : (
-                                                filteredRequests.slice((requestsPage - 1) * ITEMS_PER_SECTION, requestsPage * ITEMS_PER_SECTION).map(request => (
-                                                    <div key={request.id} className="border-bottom">
-                                                        <div
-                                                            className="p-3 d-flex justify-content-between align-items-start"
-                                                            style={{ cursor: 'pointer', background: expandedRequest === request.id ? '#f8f9fa' : 'white' }}
-                                                            onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
-                                                        >
-                                                            <div className="flex-grow-1">
-                                                                <div className="d-flex align-items-center gap-2 mb-1">
-                                                                    <h6 className="mb-0">{request.subject}</h6>
-                                                                    <i className={`ri-arrow-${expandedRequest === request.id ? 'up' : 'down'}-s-line`}></i>
-                                                                </div>
-                                                                <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
-                                                                    <span><i className="ri-user-line me-1"></i>A: {request.requestedTo?.firstName} {request.requestedTo?.lastName}</span>
-                                                                    <span><i className="ri-calendar-line me-1"></i>{formatDate(request.createdAt)}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="d-flex gap-2 flex-wrap justify-content-end">
-                                                                <span className="badge" style={{ background: `${PRIORITIES[request.priority]?.color || '#6c757d'}20`, color: PRIORITIES[request.priority]?.color || '#6c757d' }}>
-                                                                    {PRIORITIES[request.priority]?.label || request.priority}
-                                                                </span>
-                                                                {request.status === 'pending' && <span className="badge bg-warning text-dark"><i className="ri-time-line me-1"></i>In Attesa</span>}
-                                                                {request.status === 'accepted' && <span className="badge bg-info"><i className="ri-check-line me-1"></i>In Preparazione</span>}
-                                                                {request.status === 'completed' && <span className="badge bg-success"><i className="ri-check-double-line me-1"></i>Completata</span>}
-                                                                {request.status === 'rejected' && <span className="badge bg-danger"><i className="ri-close-line me-1"></i>Rifiutata</span>}
-                                                            </div>
-                                                        </div>
-
-                                                        {expandedRequest === request.id && (
-                                                            <div className="p-4 bg-light border-top">
-                                                                {request.description && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: 'white', borderLeft: '4px solid #6f42c1' }}>
-                                                                        <h6 className="mb-2"><i className="ri-file-text-line me-2"></i>Descrizione</h6>
-                                                                        <p className="mb-0">{request.description}</p>
-                                                                    </div>
-                                                                )}
-                                                                {request.status === 'pending' && (
-                                                                    <>
-                                                                        <div className="alert alert-warning">
-                                                                            <i className="ri-time-line me-2"></i><strong>In attesa di risposta</strong>
+                                                                                ))
+                                                                            )}
                                                                         </div>
-                                                                        <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); handleCancelRequest(request.id); }} disabled={actionLoading}>
-                                                                            <i className="ri-delete-bin-line me-1"></i>Cancella Richiesta
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                                {request.status === 'completed' && request.reviewId && (
-                                                                    <div className="alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                                                        <div><i className="ri-check-double-line me-2"></i><strong>Training Completato!</strong></div>
-                                                                        <button className="btn btn-success btn-sm" onClick={(e) => { e.stopPropagation(); setExpandedTraining(request.reviewId); setActiveTab('trainings'); }}>
-                                                                            <i className="ri-eye-line me-1"></i>Visualizza Training
-                                                                        </button>
+                                                                        <div className="input-group">
+                                                                            <input type="text" className="form-control" placeholder="Scrivi un messaggio..." value={newMessage}
+                                                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                                                onKeyPress={(e) => { if (e.key === 'Enter' && !actionLoading) handleSendMessage(training.id); }}
+                                                                                onClick={(e) => e.stopPropagation()} disabled={actionLoading} />
+                                                                            <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); handleSendMessage(training.id); }} disabled={actionLoading || !newMessage.trim()}>
+                                                                                {actionLoading ? <span className="spinner-border spinner-border-sm"></span> : <i className="ri-send-plane-line"></i>}
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            )}
-                                            {/* Paginazione Richieste Inviate */}
-                                            {filteredRequests.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((requestsPage - 1) * ITEMS_PER_SECTION + 1, filteredRequests.length)}-{Math.min(requestsPage * ITEMS_PER_SECTION, filteredRequests.length)} di {filteredRequests.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${requestsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${requestsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setRequestsPage(i + 1)}>{i + 1}</button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                )}
+                                                {/* Paginazione Training Erogati */}
+                                                {filteredGivenTrainings.length > ITEMS_PER_SECTION && (
+                                                    <div className="d-flex justify-content-between align-items-center p-3 border-top">
+                                                        <small className="text-muted">
+                                                            Mostrando {Math.min((givenTrainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredGivenTrainings.length)}-{Math.min(givenTrainingsPage * ITEMS_PER_SECTION, filteredGivenTrainings.length)} di {filteredGivenTrainings.length}
+                                                        </small>
+                                                        <nav>
+                                                            <ul className="pagination pagination-sm mb-0">
+                                                                <li className={`page-item ${givenTrainingsPage === 1 ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
                                                                 </li>
-                                                            )).slice(Math.max(0, requestsPage - 3), requestsPage + 2)}
-                                                            <li className={`page-item ${requestsPage >= Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setRequestsPage(p => Math.min(Math.ceil(filteredRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
-                    )}
+                                                                {Array.from({ length: Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                                    <li key={i} className={`page-item ${givenTrainingsPage === i + 1 ? 'active' : ''}`}>
+                                                                        <button className="page-link" onClick={() => setGivenTrainingsPage(i + 1)}>{i + 1}</button>
+                                                                    </li>
+                                                                )).slice(Math.max(0, givenTrainingsPage - 3), givenTrainingsPage + 2)}
+                                                                <li className={`page-item ${givenTrainingsPage >= Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.min(Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                                </li>
+                                                            </ul>
+                                                        </nav>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
-                    {/* Tab Content: Gestione Team */}
-                    {adminTab === 'team' && (
-                        <>
-                            {/* Filters */}
-                            <div className="card shadow-sm border-0 mb-4">
-                                <div className="card-body py-3">
-                                    <div className="row g-2 align-items-center">
-                                        <div className="col-lg-6">
-                                            <div className="position-relative">
-                                                <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
-                                                <input
-                                                    type="text"
-                                                    className="form-control bg-light border-0"
-                                                    placeholder="Cerca per nome o email..."
-                                                    value={adminFilters.search}
-                                                    onChange={(e) => handleAdminFilterChange('search', e.target.value)}
-                                                    style={{ paddingLeft: '36px' }}
-                                                />
+                                        {/* Received Requests List - Richieste Ricevute */}
+                                        {activeTab === 'received' && (
+                                            <div>
+                                                {filteredReceivedRequests.length === 0 ? (
+                                                    <div className="text-center py-5">
+                                                        <i className="ri-mail-download-line text-muted" style={{ fontSize: '64px' }}></i>
+                                                        <h5 className="mt-3 mb-1">Nessuna richiesta ricevuta</h5>
+                                                        <p className="text-muted">Non hai ricevuto richieste di training.</p>
+                                                    </div>
+                                                ) : (
+                                                    filteredReceivedRequests.slice((receivedRequestsPage - 1) * ITEMS_PER_SECTION, receivedRequestsPage * ITEMS_PER_SECTION).map(request => (
+                                                        <div key={request.id} className="border-bottom">
+                                                            <div
+                                                                className="p-3 d-flex justify-content-between align-items-start"
+                                                                style={{ cursor: 'pointer', background: expandedRequest === request.id ? '#f8f9fa' : 'white' }}
+                                                                onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
+                                                            >
+                                                                <div className="flex-grow-1">
+                                                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                                                        <h6 className="mb-0">{request.subject}</h6>
+                                                                        <i className={`ri-arrow-${expandedRequest === request.id ? 'up' : 'down'}-s-line`}></i>
+                                                                    </div>
+                                                                    <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
+                                                                        <span><i className="ri-user-line me-1"></i>Da: {request.requester?.firstName} {request.requester?.lastName}</span>
+                                                                        <span><i className="ri-calendar-line me-1"></i>{formatDate(request.createdAt)}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="d-flex gap-2 flex-wrap justify-content-end">
+                                                                    <span className="badge" style={{ background: `${PRIORITIES[request.priority]?.color || '#6c757d'}20`, color: PRIORITIES[request.priority]?.color || '#6c757d' }}>
+                                                                        {PRIORITIES[request.priority]?.label || request.priority}
+                                                                    </span>
+                                                                    {request.status === 'pending' && <span className="badge bg-info"><i className="ri-time-line me-1"></i>Da gestire</span>}
+                                                                    {request.status === 'accepted' && <span className="badge bg-primary"><i className="ri-check-line me-1"></i>Accettata</span>}
+                                                                    {request.status === 'completed' && <span className="badge bg-success"><i className="ri-check-double-line me-1"></i>Completata</span>}
+                                                                    {request.status === 'rejected' && <span className="badge bg-danger"><i className="ri-close-line me-1"></i>Rifiutata</span>}
+                                                                </div>
+                                                            </div>
+
+                                                            {expandedRequest === request.id && (
+                                                                <div className="p-4 bg-light border-top">
+                                                                    {request.description && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: 'white', borderLeft: '4px solid #0dcaf0' }}>
+                                                                            <h6 className="mb-2"><i className="ri-file-text-line me-2"></i>Descrizione Richiesta</h6>
+                                                                            <p className="mb-0">{request.description}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {request.status === 'pending' && (
+                                                                        <div className="alert alert-info">
+                                                                            <i className="ri-information-line me-2"></i>
+                                                                            <strong>Questa richiesta è in attesa di risposta.</strong>
+                                                                            <p className="mb-0 mt-2 small text-muted">
+                                                                                Puoi gestire questa richiesta dalla sezione Quality per creare il training.
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {request.status === 'completed' && request.reviewId && (
+                                                                        <div className="alert alert-success">
+                                                                            <i className="ri-check-double-line me-2"></i>
+                                                                            <strong>Training completato!</strong>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                )}
+                                                {/* Paginazione Richieste Ricevute */}
+                                                {filteredReceivedRequests.length > ITEMS_PER_SECTION && (
+                                                    <div className="d-flex justify-content-between align-items-center p-3 border-top">
+                                                        <small className="text-muted">
+                                                            Mostrando {Math.min((receivedRequestsPage - 1) * ITEMS_PER_SECTION + 1, filteredReceivedRequests.length)}-{Math.min(receivedRequestsPage * ITEMS_PER_SECTION, filteredReceivedRequests.length)} di {filteredReceivedRequests.length}
+                                                        </small>
+                                                        <nav>
+                                                            <ul className="pagination pagination-sm mb-0">
+                                                                <li className={`page-item ${receivedRequestsPage === 1 ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                                </li>
+                                                                {Array.from({ length: Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                                    <li key={i} className={`page-item ${receivedRequestsPage === i + 1 ? 'active' : ''}`}>
+                                                                        <button className="page-link" onClick={() => setReceivedRequestsPage(i + 1)}>{i + 1}</button>
+                                                                    </li>
+                                                                )).slice(Math.max(0, receivedRequestsPage - 3), receivedRequestsPage + 2)}
+                                                                <li className={`page-item ${receivedRequestsPage >= Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.min(Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                                </li>
+                                                            </ul>
+                                                        </nav>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Sent Requests List - Richieste Inviate */}
+                                        {activeTab === 'requests' && (
+                                            <div>
+                                                {filteredRequests.length === 0 ? (
+                                                    <div className="text-center py-5">
+                                                        <i className="ri-file-list-3-line text-muted" style={{ fontSize: '64px' }}></i>
+                                                        <h5 className="mt-3 mb-1">Nessuna richiesta</h5>
+                                                        <p className="text-muted">Non hai ancora inviato richieste di training.</p>
+                                                    </div>
+                                                ) : (
+                                                    filteredRequests.slice((requestsPage - 1) * ITEMS_PER_SECTION, requestsPage * ITEMS_PER_SECTION).map(request => (
+                                                        <div key={request.id} className="border-bottom">
+                                                            <div
+                                                                className="p-3 d-flex justify-content-between align-items-start"
+                                                                style={{ cursor: 'pointer', background: expandedRequest === request.id ? '#f8f9fa' : 'white' }}
+                                                                onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
+                                                            >
+                                                                <div className="flex-grow-1">
+                                                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                                                        <h6 className="mb-0">{request.subject}</h6>
+                                                                        <i className={`ri-arrow-${expandedRequest === request.id ? 'up' : 'down'}-s-line`}></i>
+                                                                    </div>
+                                                                    <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
+                                                                        <span><i className="ri-user-line me-1"></i>A: {request.requestedTo?.firstName} {request.requestedTo?.lastName}</span>
+                                                                        <span><i className="ri-calendar-line me-1"></i>{formatDate(request.createdAt)}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="d-flex gap-2 flex-wrap justify-content-end">
+                                                                    <span className="badge" style={{ background: `${PRIORITIES[request.priority]?.color || '#6c757d'}20`, color: PRIORITIES[request.priority]?.color || '#6c757d' }}>
+                                                                        {PRIORITIES[request.priority]?.label || request.priority}
+                                                                    </span>
+                                                                    {request.status === 'pending' && <span className="badge bg-warning text-dark"><i className="ri-time-line me-1"></i>In Attesa</span>}
+                                                                    {request.status === 'accepted' && <span className="badge bg-info"><i className="ri-check-line me-1"></i>In Preparazione</span>}
+                                                                    {request.status === 'completed' && <span className="badge bg-success"><i className="ri-check-double-line me-1"></i>Completata</span>}
+                                                                    {request.status === 'rejected' && <span className="badge bg-danger"><i className="ri-close-line me-1"></i>Rifiutata</span>}
+                                                                </div>
+                                                            </div>
+
+                                                            {expandedRequest === request.id && (
+                                                                <div className="p-4 bg-light border-top">
+                                                                    {request.description && (
+                                                                        <div className="rounded p-3 mb-3" style={{ background: 'white', borderLeft: '4px solid #6f42c1' }}>
+                                                                            <h6 className="mb-2"><i className="ri-file-text-line me-2"></i>Descrizione</h6>
+                                                                            <p className="mb-0">{request.description}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {request.status === 'pending' && (
+                                                                        <>
+                                                                            <div className="alert alert-warning">
+                                                                                <i className="ri-time-line me-2"></i><strong>In attesa di risposta</strong>
+                                                                            </div>
+                                                                            <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); handleCancelRequest(request.id); }} disabled={actionLoading}>
+                                                                                <i className="ri-delete-bin-line me-1"></i>Cancella Richiesta
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    {request.status === 'completed' && request.reviewId && (
+                                                                        <div className="alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                                                            <div><i className="ri-check-double-line me-2"></i><strong>Training Completato!</strong></div>
+                                                                            <button className="btn btn-success btn-sm" onClick={(e) => { e.stopPropagation(); setExpandedTraining(request.reviewId); setActiveTab('trainings'); }}>
+                                                                                <i className="ri-eye-line me-1"></i>Visualizza Training
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                )}
+                                                {/* Paginazione Richieste Inviate */}
+                                                {filteredRequests.length > ITEMS_PER_SECTION && (
+                                                    <div className="d-flex justify-content-between align-items-center p-3 border-top">
+                                                        <small className="text-muted">
+                                                            Mostrando {Math.min((requestsPage - 1) * ITEMS_PER_SECTION + 1, filteredRequests.length)}-{Math.min(requestsPage * ITEMS_PER_SECTION, filteredRequests.length)} di {filteredRequests.length}
+                                                        </small>
+                                                        <nav>
+                                                            <ul className="pagination pagination-sm mb-0">
+                                                                <li className={`page-item ${requestsPage === 1 ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                                </li>
+                                                                {Array.from({ length: Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
+                                                                    <li key={i} className={`page-item ${requestsPage === i + 1 ? 'active' : ''}`}>
+                                                                        <button className="page-link" onClick={() => setRequestsPage(i + 1)}>{i + 1}</button>
+                                                                    </li>
+                                                                )).slice(Math.max(0, requestsPage - 3), requestsPage + 2)}
+                                                                <li className={`page-item ${requestsPage >= Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
+                                                                    <button className="page-link" onClick={() => setRequestsPage(p => Math.min(Math.ceil(filteredRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
+                                                                </li>
+                                                            </ul>
+                                                        </nav>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Tab Content: Gestione Team */}
+                        {adminTab === 'team' && (
+                            <>
+                                {/* Filters */}
+                                <div className="card shadow-sm border-0 mb-4">
+                                    <div className="card-body py-3">
+                                        <div className="row g-2 align-items-center">
+                                            <div className="col-lg-6">
+                                                <div className="position-relative">
+                                                    <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
+                                                    <input
+                                                        type="text"
+                                                        className="form-control bg-light border-0"
+                                                        placeholder="Cerca per nome o email..."
+                                                        value={adminFilters.search}
+                                                        onChange={(e) => handleAdminFilterChange('search', e.target.value)}
+                                                        style={{ paddingLeft: '36px' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="col-lg-4">
+                                                <select
+                                                    className="form-select bg-light border-0"
+                                                    value={adminFilters.specialty}
+                                                    onChange={(e) => handleAdminFilterChange('specialty', e.target.value)}
+                                                >
+                                                    <option value="">Tutte le Specializzazioni</option>
+                                                    {SPECIALTY_FILTER_OPTIONS.map((opt) => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="col-lg-2">
+                                                <button className="btn btn-outline-secondary w-100" onClick={resetAdminFilters}>
+                                                    <i className="ri-refresh-line me-1"></i>Reset
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="col-lg-4">
-                                            <select
-                                                className="form-select bg-light border-0"
-                                                value={adminFilters.specialty}
-                                                onChange={(e) => handleAdminFilterChange('specialty', e.target.value)}
-                                            >
-                                                <option value="">Tutte le Specializzazioni</option>
-                                                {SPECIALTY_FILTER_OPTIONS.map((opt) => (
-                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                ))}
-                                            </select>
+                                    </div>
+                                </div>
+
+                                {/* Card Grid */}
+                                {filteredProfessionals.length === 0 ? (
+                                    <div className="card shadow-sm border-0">
+                                        <div className="card-body text-center py-5">
+                                            <i className="ri-user-search-line text-muted" style={{ fontSize: '5rem' }}></i>
+                                            <h5 className="mt-3">Nessun professionista trovato</h5>
+                                            <p className="text-muted mb-4">Prova a modificare i filtri di ricerca</p>
+                                            <button className="btn btn-primary" onClick={resetAdminFilters}>
+                                                <i className="ri-refresh-line me-2"></i>Reset Filtri
+                                            </button>
                                         </div>
-                                        <div className="col-lg-2">
-                                            <button className="btn btn-outline-secondary w-100" onClick={resetAdminFilters}>
-                                                <i className="ri-refresh-line me-1"></i>Reset
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="row g-4">
+                                            {paginatedProfessionals.map((member) => (
+                                                <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6">
+                                                    <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
+                                                        <div
+                                                            className="position-relative"
+                                                            style={{ background: SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT, height: '70px' }}
+                                                        >
+                                                            <div className="position-absolute top-0 start-0 m-2">
+                                                                <span className={`badge bg-${ROLE_COLORS[member.role] || 'secondary'} small`}>
+                                                                    {ROLE_LABELS[member.role] || 'N/D'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
+                                                                {member.avatarPath ? (
+                                                                    <img src={member.avatarPath} alt="" className="rounded-circle border border-3 border-white shadow-sm" style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }} />
+                                                                ) : (
+                                                                    <div className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center" style={{ width: '64px', height: '64px', background: '#fff' }}>
+                                                                        <span className="fw-bold fs-5 text-primary">{member.firstName?.[0]?.toUpperCase()}{member.lastName?.[0]?.toUpperCase()}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="card-body text-center pt-5 pb-3">
+                                                            <h5 className="fw-semibold mb-1">{member.firstName} {member.lastName}</h5>
+                                                            <p className="text-muted small mb-3" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.email}</p>
+                                                            {member.specialty && (
+                                                                <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
+                                                                    {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="card-footer bg-light border-0 py-2">
+                                                            <button className="btn btn-sm btn-outline-primary w-100" onClick={() => handleSelectProfessional(member)}>
+                                                                <i className="ri-book-open-line me-1"></i>Vedi Training
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Paginazione */}
+                                        {totalPages > 1 && (
+                                            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                                                <div className="text-muted small">
+                                                    Pagina {currentPage} di {totalPages} ({filteredProfessionals.length} professionisti)
+                                                </div>
+                                                <nav>
+                                                    <ul className="pagination pagination-sm mb-0">
+                                                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                                                            <button
+                                                                className="page-link"
+                                                                onClick={() => setCurrentPage(1)}
+                                                                disabled={currentPage === 1}
+                                                            >
+                                                                <i className="ri-skip-back-mini-line"></i>
+                                                            </button>
+                                                        </li>
+                                                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                                                            <button
+                                                                className="page-link"
+                                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                                disabled={currentPage === 1}
+                                                            >
+                                                                <i className="ri-arrow-left-s-line"></i>
+                                                            </button>
+                                                        </li>
+                                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                                            let pageNum;
+                                                            if (totalPages <= 5) {
+                                                                pageNum = i + 1;
+                                                            } else if (currentPage <= 3) {
+                                                                pageNum = i + 1;
+                                                            } else if (currentPage >= totalPages - 2) {
+                                                                pageNum = totalPages - 4 + i;
+                                                            } else {
+                                                                pageNum = currentPage - 2 + i;
+                                                            }
+                                                            return (
+                                                                <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
+                                                                    <button
+                                                                        className="page-link"
+                                                                        onClick={() => setCurrentPage(pageNum)}
+                                                                    >
+                                                                        {pageNum}
+                                                                    </button>
+                                                                </li>
+                                                            );
+                                                        })}
+                                                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                                                            <button
+                                                                className="page-link"
+                                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                                disabled={currentPage === totalPages}
+                                                            >
+                                                                <i className="ri-arrow-right-s-line"></i>
+                                                            </button>
+                                                        </li>
+                                                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                                                            <button
+                                                                className="page-link"
+                                                                onClick={() => setCurrentPage(totalPages)}
+                                                                disabled={currentPage === totalPages}
+                                                            >
+                                                                <i className="ri-skip-forward-mini-line"></i>
+                                                            </button>
+                                                        </li>
+                                                    </ul>
+                                                </nav>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        )}
+
+                        {/* Request Training Modal */}
+                        {showRequestModal && (
+                            <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                                <div className="modal-dialog modal-dialog-centered">
+                                    <div className="modal-content">
+                                        <div className="modal-header">
+                                            <h5 className="modal-title"><i className="ri-add-circle-line me-2"></i>Richiedi Training</h5>
+                                            <button type="button" className="btn-close" onClick={() => setShowRequestModal(false)} disabled={actionLoading}></button>
+                                        </div>
+                                        <div className="modal-body">
+                                            <div className="mb-3">
+                                                <label className="form-label">Destinatario *</label>
+                                                <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading}>
+                                                    <option value="">Seleziona un destinatario...</option>
+                                                    {recipients.map(r => <option key={r.id} value={r.id}>{r.name} {r.role ? `- ${r.role}` : ''} {r.department ? `(${r.department})` : ''}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="form-label">Argomento *</label>
+                                                <input type="text" className="form-control" placeholder="Es: Gestione pazienti diabetici" value={newRequest.subject} onChange={(e) => setNewRequest(prev => ({ ...prev, subject: e.target.value }))} disabled={actionLoading} />
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="form-label">Descrizione</label>
+                                                <textarea className="form-control" rows="4" placeholder="Descrivi cosa vorresti approfondire..." value={newRequest.description} onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))} disabled={actionLoading}></textarea>
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="form-label">Priorità</label>
+                                                <select className="form-select" value={newRequest.priority} onChange={(e) => setNewRequest(prev => ({ ...prev, priority: e.target.value }))} disabled={actionLoading}>
+                                                    <option value="low">Bassa</option>
+                                                    <option value="normal">Normale</option>
+                                                    <option value="high">Alta</option>
+                                                    <option value="urgent">Urgente</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="modal-footer">
+                                            <button className="btn btn-light" onClick={() => setShowRequestModal(false)} disabled={actionLoading}>Annulla</button>
+                                            <button className="btn btn-success" onClick={handleCreateRequest} disabled={!newRequest.subject.trim() || !newRequest.recipient_id || actionLoading}>
+                                                {actionLoading ? <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</> : <><i className="ri-send-plane-line me-2"></i>Invia Richiesta</>}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Card Grid */}
-                            {filteredProfessionals.length === 0 ? (
-                                <div className="card shadow-sm border-0">
-                                    <div className="card-body text-center py-5">
-                                        <i className="ri-user-search-line text-muted" style={{ fontSize: '5rem' }}></i>
-                                        <h5 className="mt-3">Nessun professionista trovato</h5>
-                                        <p className="text-muted mb-4">Prova a modificare i filtri di ricerca</p>
-                                        <button className="btn btn-primary" onClick={resetAdminFilters}>
-                                            <i className="ri-refresh-line me-2"></i>Reset Filtri
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="row g-4">
-                                        {paginatedProfessionals.map((member) => (
-                                            <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6">
-                                                <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
-                                                    <div
-                                                        className="position-relative"
-                                                        style={{ background: SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT, height: '70px' }}
-                                                    >
-                                                        <div className="position-absolute top-0 start-0 m-2">
-                                                            <span className={`badge bg-${ROLE_COLORS[member.role] || 'secondary'} small`}>
-                                                                {ROLE_LABELS[member.role] || 'N/D'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
-                                                            {member.avatarPath ? (
-                                                                <img src={member.avatarPath} alt="" className="rounded-circle border border-3 border-white shadow-sm" style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }} />
-                                                            ) : (
-                                                                <div className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center" style={{ width: '64px', height: '64px', background: '#fff' }}>
-                                                                    <span className="fw-bold fs-5 text-primary">{member.firstName?.[0]?.toUpperCase()}{member.lastName?.[0]?.toUpperCase()}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="card-body text-center pt-5 pb-3">
-                                                        <h5 className="fw-semibold mb-1">{member.firstName} {member.lastName}</h5>
-                                                        <p className="text-muted small mb-3" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.email}</p>
-                                                        {member.specialty && (
-                                                            <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                                                                {SPECIALTY_LABELS[member.specialty] || member.specialty}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="card-footer bg-light border-0 py-2">
-                                                        <button className="btn btn-sm btn-outline-primary w-100" onClick={() => handleSelectProfessional(member)}>
-                                                            <i className="ri-book-open-line me-1"></i>Vedi Training
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Paginazione */}
-                                    {totalPages > 1 && (
-                                        <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                                            <div className="text-muted small">
-                                                Pagina {currentPage} di {totalPages} ({filteredProfessionals.length} professionisti)
-                                            </div>
-                                            <nav>
-                                                <ul className="pagination pagination-sm mb-0">
-                                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(1)}
-                                                            disabled={currentPage === 1}
-                                                        >
-                                                            <i className="ri-skip-back-mini-line"></i>
-                                                        </button>
-                                                    </li>
-                                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                            disabled={currentPage === 1}
-                                                        >
-                                                            <i className="ri-arrow-left-s-line"></i>
-                                                        </button>
-                                                    </li>
-                                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                        let pageNum;
-                                                        if (totalPages <= 5) {
-                                                            pageNum = i + 1;
-                                                        } else if (currentPage <= 3) {
-                                                            pageNum = i + 1;
-                                                        } else if (currentPage >= totalPages - 2) {
-                                                            pageNum = totalPages - 4 + i;
-                                                        } else {
-                                                            pageNum = currentPage - 2 + i;
-                                                        }
-                                                        return (
-                                                            <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
-                                                                <button
-                                                                    className="page-link"
-                                                                    onClick={() => setCurrentPage(pageNum)}
-                                                                >
-                                                                    {pageNum}
-                                                                </button>
-                                                            </li>
-                                                        );
-                                                    })}
-                                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                            disabled={currentPage === totalPages}
-                                                        >
-                                                            <i className="ri-arrow-right-s-line"></i>
-                                                        </button>
-                                                    </li>
-                                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(totalPages)}
-                                                            disabled={currentPage === totalPages}
-                                                        >
-                                                            <i className="ri-skip-forward-mini-line"></i>
-                                                        </button>
-                                                    </li>
-                                                </ul>
-                                            </nav>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </>
-                    )}
-
-                    {/* Request Training Modal */}
-                    {showRequestModal && (
-                        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                            <div className="modal-dialog modal-dialog-centered">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h5 className="modal-title"><i className="ri-add-circle-line me-2"></i>Richiedi Training</h5>
-                                        <button type="button" className="btn-close" onClick={() => setShowRequestModal(false)} disabled={actionLoading}></button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="mb-3">
-                                            <label className="form-label">Destinatario *</label>
-                                            <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading}>
-                                                <option value="">Seleziona un destinatario...</option>
-                                                {recipients.map(r => <option key={r.id} value={r.id}>{r.name} {r.role ? `- ${r.role}` : ''} {r.department ? `(${r.department})` : ''}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="mb-3">
-                                            <label className="form-label">Argomento *</label>
-                                            <input type="text" className="form-control" placeholder="Es: Gestione pazienti diabetici" value={newRequest.subject} onChange={(e) => setNewRequest(prev => ({ ...prev, subject: e.target.value }))} disabled={actionLoading} />
-                                        </div>
-                                        <div className="mb-3">
-                                            <label className="form-label">Descrizione</label>
-                                            <textarea className="form-control" rows="4" placeholder="Descrivi cosa vorresti approfondire..." value={newRequest.description} onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))} disabled={actionLoading}></textarea>
-                                        </div>
-                                        <div className="mb-3">
-                                            <label className="form-label">Priorità</label>
-                                            <select className="form-select" value={newRequest.priority} onChange={(e) => setNewRequest(prev => ({ ...prev, priority: e.target.value }))} disabled={actionLoading}>
-                                                <option value="low">Bassa</option>
-                                                <option value="normal">Normale</option>
-                                                <option value="high">Alta</option>
-                                                <option value="urgent">Urgente</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button className="btn btn-light" onClick={() => setShowRequestModal(false)} disabled={actionLoading}>Annulla</button>
-                                        <button className="btn btn-success" onClick={handleCreateRequest} disabled={!newRequest.subject.trim() || !newRequest.recipient_id || actionLoading}>
-                                            {actionLoading ? <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</> : <><i className="ri-send-plane-line me-2"></i>Invia Richiesta</>}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                        )}
                     </div>
 
                     {/* Acknowledge Modal */}
@@ -1842,7 +1842,7 @@ function Formazione() {
                     {/* Modal Nuovo Training */}
                     {showNewTrainingModal && (
                         <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                            <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                            <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-mobile-full">
                                 <div className="modal-content">
                                     <div className="modal-header" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
                                         <h5 className="modal-title text-white">
@@ -1856,7 +1856,7 @@ function Formazione() {
                                             disabled={actionLoading}
                                         ></button>
                                     </div>
-                                    <div className="modal-body">
+                                    <div className="modal-body mobile-form-container">
                                         {/* Titolo */}
                                         <div className="mb-3">
                                             <label className="form-label fw-semibold">Titolo *</label>

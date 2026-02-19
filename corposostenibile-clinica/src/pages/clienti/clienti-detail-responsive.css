@@ -1,0 +1,385 @@
+/* =====================================================================
+   clienti-detail-responsive.css
+   Mobile-first responsive overrides for ClientiDetail.jsx
+   All rules scoped inside @media (max-width: 767.98px)
+   ===================================================================== */
+
+@media (max-width: 767.98px) {
+
+    /* ==================================================================
+     1. PAGE HEADER
+     ================================================================== */
+
+    /* Stack header: title on top, buttons below */
+    .cd-page-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+
+    .cd-page-header .d-flex.gap-2 {
+        width: 100%;
+    }
+
+    .cd-page-header .d-flex.gap-2 .btn {
+        flex: 1;
+        font-size: 13px !important;
+        padding: 8px 12px !important;
+    }
+
+    /* Hide "Torna alla Lista" label, keep icon */
+    .cd-page-header .btn-outline-secondary {
+        font-size: 0 !important;
+        padding: 8px 12px !important;
+    }
+
+    .cd-page-header .btn-outline-secondary i {
+        font-size: 16px !important;
+        margin: 0 !important;
+    }
+
+    /* ==================================================================
+     2. PROFILE CARD (left column on desktop, full-width on mobile)
+     ================================================================== */
+
+    /* Reduce gradient header height */
+    .cd-profile .position-relative[style*="height: 120px"],
+    .cd-profile .position-relative[style*="height:120px"] {
+        height: 80px !important;
+    }
+
+    /* Smaller avatar */
+    .cd-profile .position-absolute[style*="bottom: '-50px'"]>div,
+    .cd-profile .rounded-circle.border-4 {
+        width: 70px !important;
+        height: 70px !important;
+    }
+
+    .cd-profile .rounded-circle.border-4 .fw-bold {
+        font-size: 1.4rem !important;
+    }
+
+    /* Less top padding after avatar */
+    .cd-profile .card-body.text-center.pt-5.mt-3 {
+        padding-top: 2rem !important;
+        margin-top: 0.5rem !important;
+    }
+
+    /* Compact quick stats grid */
+    .cd-profile .row.g-3 .bg-light.rounded-3.p-3 {
+        padding: 8px 10px !important;
+    }
+
+    .cd-profile .row.g-3 .bg-light .fw-semibold {
+        font-size: 13px;
+    }
+
+    .cd-profile .row.g-3 .bg-light .text-muted.small {
+        font-size: 10px !important;
+    }
+
+    /* Team quick view: more compact */
+    .cd-profile .ms-4 {
+        margin-left: 1rem !important;
+    }
+
+    /* "Elimina Paziente" button — danger outline, full width already via d-grid */
+
+    /* ==================================================================
+     3. MAIN TABS NAVIGATION
+     ================================================================== */
+
+    /* Scrollable tabs with momentum */
+    .cd-tabs .nav-tabs {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* Firefox */
+        flex-wrap: nowrap !important;
+        gap: 0;
+        padding-bottom: 2px;
+    }
+
+    .cd-tabs .nav-tabs::-webkit-scrollbar {
+        display: none;
+        /* Chrome/Safari */
+    }
+
+    /* Compact tab buttons */
+    .cd-tabs .nav-tabs .nav-link {
+        padding: 10px 14px !important;
+        font-size: 12px !important;
+        white-space: nowrap;
+    }
+
+    /* Hide tab text on very small screens, show only icons */
+    @media (max-width: 479.98px) {
+        .cd-tabs .nav-tabs .nav-link {
+            padding: 10px 12px !important;
+            font-size: 0 !important;
+        }
+
+        .cd-tabs .nav-tabs .nav-link i {
+            font-size: 16px !important;
+            margin: 0 !important;
+        }
+    }
+
+    /* ==================================================================
+     4. TAB CONTENT AREA
+     ================================================================== */
+
+    /* Reduce card-body padding */
+    .cd-tabs .card-body {
+        padding: 12px !important;
+    }
+
+    /* ==================================================================
+     5. SUB-TABS (Nutrizione, Coaching, Psicologia, Check)
+     ================================================================== */
+
+    /* Scrollable sub-tabs container */
+    .cd-subtabs-scroll {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+    }
+
+    .cd-subtabs-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* General nav-pills inside detail */
+    .cd-tabs .nav-pills {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        min-width: max-content;
+    }
+
+    .cd-tabs .nav-pills::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cd-tabs .nav-pills .nav-link {
+        white-space: nowrap;
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+    }
+
+    /* ==================================================================
+     6. FORM FIELDS — Touch friendly
+     ================================================================== */
+
+    /* All form inputs: minimum touch target height + prevent iOS zoom */
+    .cd-tabs .form-control,
+    .cd-tabs .form-select {
+        min-height: 44px;
+        font-size: 16px !important;
+        /* prevents iOS auto-zoom on focus */
+    }
+
+    /* Labels: slightly bigger for readability */
+    .cd-tabs .form-label {
+        font-size: 12px !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* Textareas: don't force min-height, but ensure readable */
+    .cd-tabs textarea.form-control {
+        min-height: 80px;
+        font-size: 14px !important;
+    }
+
+    /* Form section titles */
+    .cd-tabs h6.text-uppercase {
+        font-size: 11px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* ==================================================================
+     7. MODALS — Mobile optimized
+     ================================================================== */
+
+    /* Full-width modals on mobile */
+    .modal-dialog {
+        margin: 8px !important;
+        max-width: calc(100% - 16px) !important;
+    }
+
+    /* Compact modal padding */
+    .modal-header {
+        padding: 12px 16px !important;
+    }
+
+    .modal-body {
+        padding: 12px 16px !important;
+    }
+
+    .modal-footer {
+        padding: 12px 16px !important;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* Modal footer buttons: full-width stacked */
+    .modal-footer .btn {
+        flex: 1 1 100%;
+        min-height: 44px;
+    }
+
+    /* When there are exactly 2 buttons, put them side by side */
+    .modal-footer .btn:first-child:nth-last-child(2),
+    .modal-footer .btn:first-child:nth-last-child(2)~.btn {
+        flex: 1 1 calc(50% - 4px);
+    }
+
+    /* Modal titles */
+    .modal-title {
+        font-size: 16px !important;
+    }
+
+    /* Modal form fields */
+    .modal-body .form-control,
+    .modal-body .form-select {
+        min-height: 44px;
+        font-size: 16px !important;
+    }
+
+    /* ==================================================================
+     8. CARDS & SECTIONS inside tabs
+     ================================================================== */
+
+    /* Sections with row g-3 / g-4: reduce gap on mobile */
+    .cd-tabs .row.g-4 {
+        --bs-gutter-y: 1rem;
+        --bs-gutter-x: 0;
+    }
+
+    .cd-tabs .row.g-3 {
+        --bs-gutter-y: 0.75rem;
+        --bs-gutter-x: 0;
+    }
+
+    /* Info cards (bg-light rounded-3 p-3) */
+    .cd-tabs .bg-light.rounded-3.p-3 {
+        padding: 10px 12px !important;
+    }
+
+    /* Timeline items (storico stati) */
+    .cd-tabs .timeline-item,
+    .cd-tabs .list-group-item {
+        padding: 10px 12px !important;
+        font-size: 13px;
+    }
+
+    /* ==================================================================
+     9. BUTTONS & ACTION GROUPS
+     ================================================================== */
+
+    /* Button groups in tabs: wrap on mobile */
+    .cd-tabs .d-flex.gap-2 {
+        flex-wrap: wrap;
+    }
+
+    /* Save/action buttons: full width when alone */
+    .cd-tabs .btn-primary,
+    .cd-tabs .btn-success {
+        min-height: 44px;
+    }
+
+    /* Small badge-like buttons */
+    .cd-tabs .btn-sm {
+        min-height: 36px;
+        font-size: 12px !important;
+    }
+
+    /* ==================================================================
+     10. TABLES inside detail (check responses, ticket list, etc.)
+     ================================================================== */
+
+    .cd-tabs .table-responsive {
+        font-size: 12px;
+    }
+
+    .cd-tabs .table th,
+    .cd-tabs .table td {
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+    }
+
+    /* ==================================================================
+     11. BREADCRUMB & MISC
+     ================================================================== */
+
+    .breadcrumb {
+        font-size: 12px !important;
+    }
+
+    /* Alert banners */
+    .cd-page-header+.alert {
+        font-size: 13px;
+        padding: 10px 14px;
+    }
+
+    /* ==================================================================
+     12. PROFESSIONAL ASSIGNMENT CARDS
+     ================================================================== */
+
+    /* Team member cards in assignment section */
+    .cd-tabs .card.shadow-sm {
+        margin-bottom: 8px;
+    }
+
+    /* Avatar circles in team section */
+    .cd-tabs .rounded-circle[style*="width: 40px"],
+    .cd-tabs .rounded-circle[style*="width: 48px"],
+    .cd-tabs .rounded-circle[style*="width: 50px"] {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 12px !important;
+    }
+
+    /* ==================================================================
+     13. FLOATING SAVE BUTTON (sticky on mobile)
+     ================================================================== */
+
+    .cd-sticky-save {
+        position: fixed;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        z-index: 1050;
+        display: flex;
+        gap: 8px;
+    }
+
+    .cd-sticky-save .btn {
+        flex: 1;
+        min-height: 48px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+}
+
+/* ==================================================================
+   TABLET BREAKPOINT (768px - 1023px)
+   ================================================================== */
+
+@media (min-width: 768px) and (max-width: 1023.98px) {
+
+    /* Tabs: slightly compact */
+    .cd-tabs .nav-tabs .nav-link {
+        padding: 12px 16px !important;
+        font-size: 13px !important;
+    }
+
+    /* Modal: reasonable width */
+    .modal-dialog {
+        max-width: 600px;
+    }
+}
