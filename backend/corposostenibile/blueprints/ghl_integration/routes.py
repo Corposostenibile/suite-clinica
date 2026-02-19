@@ -5,6 +5,7 @@ Routes for GHL webhook endpoints
 from flask import request, jsonify, render_template, current_app, redirect, url_for, flash
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+from typing import Any, Dict
 import json
 
 from . import bp
@@ -12,12 +13,194 @@ from .security import require_webhook_signature, require_permission, rate_limite
 from .validators import WebhookValidator
 from .tasks import process_acconto_open_webhook, process_chiuso_won_webhook, retry_failed_webhook
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import GHLOpportunity, ServiceClienteAssignment, Cliente
+from corposostenibile.models import GHLOpportunity, GHLOpportunityData, ServiceClienteAssignment, Cliente
 
 
 # ============================================================================
 # WEBHOOK ENDPOINTS
 # ============================================================================
+
+
+def _normalize_custom_data(raw_custom_data: Any) -> Dict[str, Any]:
+    """Normalizza customData GHL in un dizionario key->value."""
+    if isinstance(raw_custom_data, dict):
+        return raw_custom_data
+
+    if isinstance(raw_custom_data, list):
+        normalized: Dict[str, Any] = {}
+        for item in raw_custom_data:
+            if not isinstance(item, dict):
+                continue
+            key = (
+                item.get("key")
+                or item.get("field")
+                or item.get("fieldName")
+                or item.get("name")
+                or item.get("id")
+            )
+            if not key:
+                continue
+            value = (
+                item.get("value")
+                if "value" in item
+                else item.get("field_value")
+                if "field_value" in item
+                else item.get("val")
+            )
+            normalized[str(key)] = value
+        return normalized
+
+    return {}
+
+
+def _first_non_empty(*values: Any) -> Any:
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                return stripped
+            continue
+        return value
+    return None
+
+
+def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {
+            "email": "",
+            "lead_phone": None,
+            "health_manager_email": None,
+            "custom_data": {},
+        }
+
+    custom_data = _normalize_custom_data(payload.get("customData", {}))
+    contact = payload.get("contact", {}) if isinstance(payload.get("contact"), dict) else {}
+
+    email = _first_non_empty(
+        custom_data.get("email"),
+        payload.get("email"),
+        contact.get("email"),
+    )
+
+    lead_phone = _first_non_empty(
+        custom_data.get("telefono"),
+        custom_data.get("phone"),
+        custom_data.get("cellulare"),
+        custom_data.get("telefono_cliente"),
+        custom_data.get("phone_number"),
+        custom_data.get("numero_telefono"),
+        custom_data.get("mobile"),
+        payload.get("telefono"),
+        payload.get("phone"),
+        payload.get("cellulare"),
+        payload.get("telefono_cliente"),
+        payload.get("phone_number"),
+        payload.get("numero_telefono"),
+        payload.get("mobile"),
+        contact.get("phone"),
+        contact.get("mobile"),
+    )
+
+    health_manager_email = _first_non_empty(
+        custom_data.get("health_manager_email"),
+        custom_data.get("healthmanager_email"),
+        custom_data.get("email_health_manager"),
+        custom_data.get("hm_email"),
+        custom_data.get("health_manager_mail"),
+        custom_data.get("mail_health_manager"),
+        payload.get("health_manager_email"),
+        payload.get("healthmanager_email"),
+        payload.get("email_health_manager"),
+        payload.get("hm_email"),
+        payload.get("health_manager_mail"),
+        payload.get("mail_health_manager"),
+    )
+
+    if isinstance(health_manager_email, str):
+        health_manager_email = health_manager_email.strip().lower() or None
+
+    return {
+        "email": email or "",
+        "lead_phone": lead_phone,
+        "health_manager_email": health_manager_email,
+        "custom_data": custom_data,
+    }
+
+
+def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
+    raw_payload = d.raw_payload or {}
+    extracted = _extract_opportunity_contact_fields(raw_payload)
+    return {
+        "id": d.id,
+        "nome": d.nome,
+        "email": d.email or extracted["email"],
+        "lead_phone": d.lead_phone or extracted["lead_phone"],
+        "health_manager_email": d.health_manager_email or extracted["health_manager_email"],
+        "storia": d.storia,
+        "pacchetto": d.pacchetto,
+        "durata": d.durata,
+        "received_at": d.received_at.isoformat() if d.received_at else None,
+        "ip_address": d.ip_address,
+        "processed": d.processed,
+    }
+
+
+def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> GHLOpportunityData:
+    extracted = _extract_opportunity_contact_fields(payload)
+    custom_data = extracted["custom_data"]
+
+    nome = (
+        custom_data.get("nome")
+        or payload.get("nome")
+        or payload.get("full_name")
+        or payload.get("opportunity_name")
+        or f"{payload.get('first_name', '')} {payload.get('last_name', '')}".strip()
+        or "N/D"
+    )
+    storia = custom_data.get("storia") or payload.get("storia") or ""
+    pacchetto = (
+        custom_data.get("pacchetto")
+        or custom_data.get("package")
+        or custom_data.get("plan")
+        or payload.get("pacchetto")
+        or payload.get("package")
+        or payload.get("plan")
+        or "N/D"
+    )
+    durata = (
+        custom_data.get("durata")
+        or custom_data.get("durata_in_giorni")
+        or payload.get("durata")
+        or payload.get("durata_in_giorni")
+        or "0"
+    )
+
+    opp_data = GHLOpportunityData(
+        nome=nome,
+        email=extracted["email"] or None,
+        lead_phone=extracted["lead_phone"] or None,
+        health_manager_email=extracted["health_manager_email"] or None,
+        storia=storia,
+        pacchetto=pacchetto,
+        durata=durata,
+        ip_address=client_ip,
+        raw_payload=payload,
+    )
+    db.session.add(opp_data)
+    db.session.commit()
+
+    current_app.logger.info(
+        "[GHL Webhook] Saved opportunity data: %s - %s (ID: %s, phone=%s, hm_email=%s)",
+        opp_data.nome,
+        opp_data.pacchetto,
+        opp_data.id,
+        opp_data.lead_phone,
+        opp_data.health_manager_email,
+    )
+
+    return opp_data
 
 @bp.route('/webhook/acconto-open', methods=['POST'])
 @csrf.exempt
@@ -333,6 +516,9 @@ def send_test_webhook():
     """
     try:
         webhook_type = request.form.get('type', 'acconto_open')
+        test_email = request.form.get('email', f'test-{datetime.now().timestamp()}@example.com')
+        test_phone = request.form.get('telefono', '+39 123 456 7890')
+        test_hm_email = request.form.get('health_manager_email', 'hm.test@corposostenibile.com')
 
         # Prepara payload di test
         test_payload = {
@@ -355,13 +541,41 @@ def send_test_webhook():
             'contact': {
                 'id': f'CONTACT-{datetime.now().strftime("%Y%m%d%H%M%S")}',
                 'name': request.form.get('nome', 'Test User'),
-                'email': request.form.get('email', f'test-{datetime.now().timestamp()}@example.com'),
-                'phone': request.form.get('telefono', '+39 123 456 7890'),
+                'email': test_email,
+                'phone': test_phone,
                 'source': request.form.get('source', 'test')
             }
         }
 
+        # Payload test dedicato per endpoint opportunity-data
+        opportunity_payload = {
+            'nome': request.form.get('nome', 'Test User'),
+            'storia': request.form.get('note', 'Lead di test inviato dalla pagina GHL interna'),
+            'pacchetto': request.form.get('pacchetto', 'NCP'),
+            'durata': '90',
+            'customData': {
+                'nome': request.form.get('nome', 'Test User'),
+                'email': test_email,
+                'telefono': test_phone,
+                'health_manager_email': test_hm_email,
+                'pacchetto': request.form.get('pacchetto', 'NCP'),
+                'storia': request.form.get('note', 'Lead di test inviato dalla pagina GHL interna'),
+            },
+            'contact': {
+                'email': test_email,
+                'phone': test_phone,
+            },
+        }
+
         # Processa direttamente (bypass security per test)
+        if webhook_type == 'opportunity_data':
+            opp_data = _save_opportunity_data_payload(opportunity_payload, request.remote_addr or '127.0.0.1')
+            if opp_data.email and str(opp_data.email).strip():
+                from .opportunity_bridge import process_opportunity_data_bridge
+                process_opportunity_data_bridge(opp_data)
+            flash(f'Webhook opportunity-data test salvato! ID: {opp_data.id}', 'success')
+            return redirect(url_for('ghl_integration.webhook_status'))
+
         if webhook_type == 'acconto_open':
             task = process_acconto_open_webhook.delay(test_payload)
         else:
@@ -1081,8 +1295,6 @@ def webhook_opportunity_data():
 
     Endpoint: /ghl/webhook/opportunity-data
     """
-    from corposostenibile.models import GHLOpportunityData
-
     try:
         client_ip = request.remote_addr
         if not rate_limiter.is_allowed(f"webhook_opp_{client_ip}"):
@@ -1098,55 +1310,9 @@ def webhook_opportunity_data():
         if not payload:
             return jsonify({'error': 'No payload provided'}), 400
 
-        # Estrai customData se presente (formato GHL)
-        custom_data = payload.get('customData', {})
+        opp_data = _save_opportunity_data_payload(payload, client_ip)
 
-        # Estrai i campi con fallback multipli
-        nome = (
-            custom_data.get('nome') or
-            payload.get('nome') or
-            payload.get('full_name') or
-            payload.get('opportunity_name') or
-            f"{payload.get('first_name', '')} {payload.get('last_name', '')}".strip() or
-            'N/D'
-        )
-        storia = custom_data.get('storia') or payload.get('storia') or ''
-        pacchetto = (
-            custom_data.get('pacchetto') or
-            custom_data.get('package') or
-            custom_data.get('plan') or
-            payload.get('pacchetto') or
-            payload.get('package') or
-            payload.get('plan') or
-            'N/D'
-        )
-        durata = (
-            custom_data.get('durata') or
-            custom_data.get('durata_in_giorni') or
-            payload.get('durata') or
-            payload.get('durata_in_giorni') or
-            '0'
-        )
-        email = custom_data.get('email') or payload.get('email') or payload.get('contact', {}).get('email') or ''
-
-        # Crea record nel database
-        opp_data = GHLOpportunityData(
-            nome=nome,
-            email=email or None,
-            storia=storia,
-            pacchetto=pacchetto,
-            durata=durata,
-            ip_address=client_ip,
-            raw_payload=payload
-        )
-        db.session.add(opp_data)
-        db.session.commit()
-
-        current_app.logger.info(
-            f"[GHL Webhook] Saved opportunity data: {opp_data.nome} - {opp_data.pacchetto} (ID: {opp_data.id})"
-        )
-
-        # Bridge: se email presente, crea Cliente, assegna Check 1/2/3 e invia email
+        # Bridge: se email presente, crea Cliente, assegna Check iniziali e invia email
         if opp_data.email and str(opp_data.email).strip():
             try:
                 from .opportunity_bridge import process_opportunity_data_bridge
@@ -1179,23 +1345,11 @@ def webhook_opportunity_data():
 @login_required
 def api_get_opportunity_data():
     """Recupera tutti i dati opportunity dal database."""
-    from corposostenibile.models import GHLOpportunityData
-
     try:
         data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(100).all()
         return jsonify({
             'success': True,
-            'data': [{
-                'id': d.id,
-                'nome': d.nome,
-                'email': d.email or (d.raw_payload or {}).get('customData', {}).get('email') or (d.raw_payload or {}).get('email'),
-                'storia': d.storia,
-                'pacchetto': d.pacchetto,
-                'durata': d.durata,
-                'received_at': d.received_at.isoformat() if d.received_at else None,
-                'ip_address': d.ip_address,
-                'processed': d.processed
-            } for d in data],
+            'data': [_serialize_opportunity_data_row(d) for d in data],
             'total': len(data)
         })
     except Exception as e:
@@ -1249,25 +1403,18 @@ def _get_current_assignments_for_opp(opp_data):
 @bp.route('/api/opportunity-data-debug', methods=['GET'])
 def api_get_opportunity_data_debug():
     """DEBUG: Recupera dati senza autenticazione."""
-    from corposostenibile.models import GHLOpportunityData
-
     try:
         data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(100).all()
         return jsonify({
             'success': True,
-            'data': [{
-                'id': d.id,
-                'nome': d.nome,
-                'email': d.email or (d.raw_payload or {}).get('customData', {}).get('email') or (d.raw_payload or {}).get('email'),
-                'storia': d.storia,
-                'pacchetto': d.pacchetto,
-                'durata': d.durata,
-                'received_at': d.received_at.isoformat() if d.received_at else None,
-                'ip_address': d.ip_address,
-                'processed': d.processed,
-                'ai_analysis': d.ai_analysis,
-                'assignments': _get_current_assignments_for_opp(d)
-            } for d in data],
+            'data': [
+                {
+                    **_serialize_opportunity_data_row(d),
+                    'ai_analysis': d.ai_analysis,
+                    'assignments': _get_current_assignments_for_opp(d),
+                }
+                for d in data
+            ],
             'total': len(data)
         })
     except Exception as e:
@@ -1278,8 +1425,6 @@ def api_get_opportunity_data_debug():
 @login_required
 def api_get_opportunity_data_single(item_id):
     """Recupera un singolo record opportunity."""
-    from corposostenibile.models import GHLOpportunityData
-
     try:
         d = GHLOpportunityData.query.get(item_id)
         if not d:
@@ -1287,19 +1432,11 @@ def api_get_opportunity_data_single(item_id):
         return jsonify({
             'success': True,
             'data': {
-                'id': d.id,
-                'nome': d.nome,
-                'email': d.email or (d.raw_payload or {}).get('customData', {}).get('email') or (d.raw_payload or {}).get('email'),
-                'storia': d.storia,
-                'pacchetto': d.pacchetto,
-                'durata': d.durata,
-                'received_at': d.received_at.isoformat() if d.received_at else None,
-                'processed': d.processed,
+                **_serialize_opportunity_data_row(d),
                 'ai_analysis': d.ai_analysis,
-                'ip_address': d.ip_address,
                 'raw_payload': d.raw_payload,
-                'assignments': _get_current_assignments_for_opp(d)
-            }
+                'assignments': _get_current_assignments_for_opp(d),
+            },
         })
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -1309,8 +1446,6 @@ def api_get_opportunity_data_single(item_id):
 @login_required
 def api_clear_opportunity_data():
     """Pulisce tutti i dati (solo admin)."""
-    from corposostenibile.models import GHLOpportunityData
-
     if not current_user.is_admin:
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     try:

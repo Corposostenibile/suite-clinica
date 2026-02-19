@@ -59,6 +59,7 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
         return result
 
     nome = (opp_data.nome or "N/D").strip()
+    lead_phone = (opp_data.lead_phone or "").strip()
     if nome == "N/D" and opp_data.raw_payload:
         payload = opp_data.raw_payload or {}
         custom = payload.get("customData", {})
@@ -68,6 +69,18 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             or f"{payload.get('first_name', '')} {payload.get('last_name', '')}".strip()
             or "N/D"
         )
+        if not lead_phone:
+            contact = payload.get("contact", {}) if isinstance(payload.get("contact"), dict) else {}
+            lead_phone = (
+                custom.get("telefono")
+                or custom.get("phone")
+                or custom.get("cellulare")
+                or payload.get("telefono")
+                or payload.get("phone")
+                or payload.get("cellulare")
+                or contact.get("phone")
+                or ""
+            ).strip()
 
     try:
         # 1. Crea o recupera Cliente
@@ -86,7 +99,12 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             # Aggiorna nome se diverso
             if cliente.nome_cognome != nome:
                 cliente.nome_cognome = nome
+            if lead_phone:
+                cliente.cellulare = lead_phone
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
+
+        if lead_phone and not getattr(cliente, "cellulare", None):
+            cliente.cellulare = lead_phone
 
         # 2. Ottieni admin per assigned_by_id
         admin_user = User.query.filter_by(is_admin=True).first() or User.query.first()

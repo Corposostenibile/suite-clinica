@@ -10130,6 +10130,8 @@ class GHLOpportunityData(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255))
+    lead_phone = db.Column(db.String(64))
+    health_manager_email = db.Column(db.String(255))
     storia = db.Column(db.Text)
     pacchetto = db.Column(db.String(255))
     durata = db.Column(db.String(50))

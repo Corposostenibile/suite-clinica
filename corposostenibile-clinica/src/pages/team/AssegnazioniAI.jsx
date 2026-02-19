@@ -607,6 +607,9 @@ function AssegnazioniAI() {
       const q = leadSearch.trim().toLowerCase();
       rows = rows.filter((opp) => (
         (opp.nome || '').toLowerCase().includes(q) ||
+        (opp.email || '').toLowerCase().includes(q) ||
+        (opp.lead_phone || '').toLowerCase().includes(q) ||
+        (opp.health_manager_email || '').toLowerCase().includes(q) ||
         (opp.pacchetto || '').toLowerCase().includes(q) ||
         (opp.storia || '').toLowerCase().includes(q)
       ));
@@ -735,7 +738,7 @@ function AssegnazioniAI() {
                   <div className="bg-light rounded p-3 mx-auto mt-3" style={{ maxWidth: '520px' }}>
                     <p className="small mb-2"><strong>Endpoint webhook:</strong></p>
                     <code>POST {webhookUrls.opportunity_data_url || 'Caricamento...'}</code>
-                    <p className="small mt-2 mb-0 text-muted">Campi attesi: nome, storia, pacchetto, durata, email</p>
+                    <p className="small mt-2 mb-0 text-muted">Campi attesi: nome, storia, pacchetto, durata, email, telefono, health_manager_email</p>
                   </div>
                 </div>
               ) : filteredLeads.length === 0 ? (
@@ -748,6 +751,7 @@ function AssegnazioniAI() {
                         <tr>
                           <th>Cliente</th>
                           <th>Pacchetto/Info</th>
+                          <th>Health Manager Email</th>
                           <th>Check 1</th>
                           <th>Check 2</th>
                           <th>Assegnazioni</th>
@@ -775,10 +779,22 @@ function AssegnazioniAI() {
                                     <a href={`mailto:${opp.email}`}>{opp.email}</a>
                                   </small>
                                 )}
+                                {opp.lead_phone && (
+                                  <small className="d-block">
+                                    <a href={`tel:${opp.lead_phone}`}>{opp.lead_phone}</a>
+                                  </small>
+                                )}
                               </td>
                               <td>
                                 <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
                                 <span className="small text-muted">{opp.durata} gg</span>
+                              </td>
+                              <td>
+                                {opp.health_manager_email ? (
+                                  <small><a href={`mailto:${opp.health_manager_email}`}>{opp.health_manager_email}</a></small>
+                                ) : (
+                                  <small className="text-muted">-</small>
+                                )}
                               </td>
                               <td>{renderInitialCheckBadge(checks.check_1)}</td>
                               <td>{renderInitialCheckBadge(checks.check_2)}</td>
@@ -1194,7 +1210,7 @@ function AssegnazioniAI() {
                        <Col md={12}>
                            <Card className="bg-light border-0">
                                <Card.Body className="py-2">
-                                   <label className="text-uppercase text-muted small fw-bold mb-1">Email</label>
+                                   <label className="text-uppercase text-muted small fw-bold mb-1">Contatti</label>
                                    <div>
                                        {selectedOpportunity.email ? (
                                            <a href={`mailto:${selectedOpportunity.email}`}>{selectedOpportunity.email}</a>
@@ -1202,6 +1218,11 @@ function AssegnazioniAI() {
                                            <em className="text-muted">Non disponibile</em>
                                        )}
                                    </div>
+                                   {selectedOpportunity.lead_phone && (
+                                       <div className="mt-1">
+                                           <a href={`tel:${selectedOpportunity.lead_phone}`}>{selectedOpportunity.lead_phone}</a>
+                                       </div>
+                                   )}
                                </Card.Body>
                            </Card>
                        </Col>
