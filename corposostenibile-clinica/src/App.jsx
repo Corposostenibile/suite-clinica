@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 
 // Context
 import ThemeContextProvider from './context/ThemeContext';
@@ -71,6 +72,18 @@ import {
   CheckSuccess,
 } from './pages/public';
 
+function PublicClientCheckRedirect() {
+  const { token } = useParams();
+
+  useEffect(() => {
+    if (!token) return;
+    const target = `${window.location.protocol}//${window.location.hostname}:5001/client-checks/public/${token}${window.location.search}${window.location.hash}`;
+    window.location.replace(target);
+  }, [token]);
+
+  return null;
+}
+
 function App() {
   return (
     <ThemeContextProvider>
@@ -88,6 +101,7 @@ function App() {
             <Route path="/check/minor/:token" element={<MinorCheckForm />} />
             <Route path="/check/:checkType/:token/success" element={<CheckSuccess />} />
           </Route>
+          <Route path="/client-checks/public/:token" element={<PublicClientCheckRedirect />} />
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>

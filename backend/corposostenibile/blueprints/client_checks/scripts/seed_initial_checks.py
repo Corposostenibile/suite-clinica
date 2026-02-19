@@ -40,7 +40,7 @@ CHECK_1_FIELDS: list[dict[str, Any]] = [
     {"label": "Se preferisci non indicarlo, raccontaci brevemente il perche'", "field_type": "textarea", "is_required": False},
 
     # 2. ANALISI CLINICHE E STATO DI SALUTE
-    {"label": "Hai analisi del sangue recenti?", "field_type": "radio", "is_required": True, "options": {"choices": ["Si (allegare)", "No"]}},
+    {"label": "Hai effettuato delle analisi del sangue negli ultimi 6 mesi?", "field_type": "radio", "is_required": True, "options": {"choices": ["Si (allegare)", "No"]}},
     {"label": "Allega analisi del sangue recenti", "field_type": "file", "is_required": False},
     {"label": "Patologie diagnosticate - Gastrointestinali", "field_type": "multiselect", "is_required": False, "options": {"choices": ["IBS", "Reflusso", "Gastrite", "Diverticolite", "Morbo di Crohn"]}},
     {"label": "Patologie diagnosticate - Metaboliche / Endocrine", "field_type": "multiselect", "is_required": False, "options": {"choices": ["Insulino-resistenza", "Diabete tipo 1", "Diabete tipo 2", "Dislipidemia", "Steatosi epatica", "Ipotiroidismo", "Ipertiroidismo"]}},
