@@ -122,9 +122,12 @@ Per il flusso lead GHL -> invio check iniziali -> sync chat Respond.io, configur
 - `RESPOND_IO_API_TOKEN`
 - `RESPOND_IO_API_BASE_URL` (default: `https://api.respond.io/v2`)
 - `RESPOND_IO_DEFAULT_CHANNEL_ID` (opzionale; se assente usa l'ultimo canale del contatto)
+- `GHL_GLOBAL_STATUS_WEBHOOK_MODE` (`mock` default, oppure `live`)
+- `GHL_GLOBAL_STATUS_WEBHOOK_URL` (obbligatoria in `live`; endpoint ricezione evento stato globale cliente)
 
 Nota operativa:
 - all'arrivo del lead (`/ghl/webhook/opportunity-data`) il bridge assegna la conversazione al `health_manager_email` ricevuto da GHL usando l'identifier del contatto (`phone:` preferito, fallback `email:`) e invia un messaggio testuale mock.
+- quando `stato_cliente` globale passa a `pausa` o `ghost`, viene emesso evento `cliente.global_status.changed` dopo commit DB (in `mock` viene loggato senza chiamata HTTP esterna).
 
 Push check (utente autenticato):
 
