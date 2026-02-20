@@ -295,6 +295,30 @@ class RespondIOClient:
             # Log dell'errore completo
             current_app.logger.error(f"API Error Response: {e.response.text if e.response else 'No response'}")
             raise
+
+    def assign_conversation(self, identifier: str, assignee: Optional[str]) -> Dict:
+        """
+        Assegna (o disassegna) la conversazione di un contatto.
+
+        Args:
+            identifier: formato Respond.io, es. phone:+39333..., email:test@example.com, id:123
+            assignee: email o user id dell'assegnatario; None per unassign
+        """
+        if not identifier.startswith(('id:', 'email:', 'phone:')):
+            identifier = f'id:{identifier}'
+
+        payload: Dict[str, Any] = {"assignee": assignee}
+        current_app.logger.info(
+            "Assigning conversation on Respond.io identifier=%s assignee=%s",
+            identifier,
+            assignee,
+        )
+        return self._make_request(
+            'POST',
+            f'contact/{identifier}/conversation/assignee',
+            rate_limit_key='contact',
+            json=payload,
+        )
     
     def update_contact_lifecycle(self, contact_id: str, 
                                  lifecycle: str) -> Dict:

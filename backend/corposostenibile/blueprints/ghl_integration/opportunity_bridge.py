@@ -9,7 +9,7 @@ e invia una singola email con i link.
 
 from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from flask import current_app
 
@@ -185,6 +185,15 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             send_initial_checks_single_email(cliente, assignments)
             result["email_sent"] = True
 
+            # 5. Sync verso Respond.io (assegna chat lead a HM + messaggio mock)
+            respond_sync = _sync_respond_io_on_initial_checks_sent(
+                cliente=cliente,
+                lead_phone=(opp_data.lead_phone or getattr(cliente, "cellulare", None) or "").strip(),
+                health_manager_email=(opp_data.health_manager_email or "").strip().lower() or None,
+                checks_count=len(assignments),
+            )
+            result["respond_io"] = respond_sync
+
         # Marca come processato
         opp_data.processed = True
         db.session.commit()
@@ -201,3 +210,114 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
         raise
 
     return result
+
+
+def _build_respond_identifier(*, phone: str, email: str) -> Optional[str]:
+    phone_clean = (phone or "").strip().replace(" ", "")
+    if phone_clean:
+        return f"phone:{phone_clean}"
+
+    email_clean = (email or "").strip().lower()
+    if email_clean:
+        return f"email:{email_clean}"
+
+    return None
+
+
+def _sync_respond_io_on_initial_checks_sent(
+    *,
+    cliente: Cliente,
+    lead_phone: str,
+    health_manager_email: Optional[str],
+    checks_count: int,
+) -> Dict[str, Any]:
+    """
+    Chiamate Respond.io nel momento in cui inviamo la mail con i check iniziali:
+    1) assign/unassign conversazione al/alla HM
+    2) invio messaggio testo mock
+    """
+    sync_result: Dict[str, Any] = {
+        "enabled": False,
+        "identifier": None,
+        "assigned": False,
+        "message_sent": False,
+        "errors": [],
+    }
+
+    api_token = current_app.config.get("RESPOND_IO_API_TOKEN")
+    if not api_token:
+        current_app.logger.info(
+            "[opportunity_bridge] Respond.io non configurato (RESPOND_IO_API_TOKEN assente), skip sync"
+        )
+        return sync_result
+
+    identifier = _build_respond_identifier(
+        phone=lead_phone,
+        email=getattr(cliente, "mail", None) or getattr(cliente, "email", None) or "",
+    )
+    if not identifier:
+        sync_result["errors"].append("missing_identifier")
+        current_app.logger.warning(
+            "[opportunity_bridge] Respond.io skip: nessun identifier (telefono/email) per cliente %s",
+            cliente.cliente_id,
+        )
+        return sync_result
+
+    sync_result["enabled"] = True
+    sync_result["identifier"] = identifier
+
+    try:
+        from corposostenibile.blueprints.respond_io.client import RespondIOClient
+        respond_client = RespondIOClient(current_app.config)
+    except Exception as client_err:
+        sync_result["errors"].append(f"client_init_error:{client_err}")
+        current_app.logger.error(
+            "[opportunity_bridge] Respond.io client init error: %s",
+            client_err,
+        )
+        return sync_result
+
+    # 1) Assign conversazione a HM (se disponibile)
+    if health_manager_email:
+        try:
+            respond_client.assign_conversation(
+                identifier=identifier,
+                assignee=health_manager_email,
+            )
+            sync_result["assigned"] = True
+        except Exception as assign_err:
+            sync_result["errors"].append(f"assign_error:{assign_err}")
+            current_app.logger.error(
+                "[opportunity_bridge] Respond.io assign error identifier=%s hm=%s err=%s",
+                identifier,
+                health_manager_email,
+                assign_err,
+            )
+    else:
+        sync_result["errors"].append("missing_health_manager_email")
+        current_app.logger.warning(
+            "[opportunity_bridge] Respond.io assign skip: health_manager_email assente per cliente %s",
+            cliente.cliente_id,
+        )
+
+    # 2) Messaggio mock (senza channelId: usa ultimo canale interagito)
+    try:
+        mock_message = (
+            f"Ciao {cliente.nome_cognome or 'Cliente'}, abbiamo ricevuto la tua richiesta. "
+            f"Ti abbiamo inviato {checks_count} check iniziali via email."
+        )
+        respond_client.send_message(
+            contact_id=identifier,
+            message=mock_message,
+            channel_id=current_app.config.get("RESPOND_IO_DEFAULT_CHANNEL_ID"),
+        )
+        sync_result["message_sent"] = True
+    except Exception as msg_err:
+        sync_result["errors"].append(f"message_error:{msg_err}")
+        current_app.logger.error(
+            "[opportunity_bridge] Respond.io message error identifier=%s err=%s",
+            identifier,
+            msg_err,
+        )
+
+    return sync_result

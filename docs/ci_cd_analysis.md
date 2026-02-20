@@ -115,6 +115,17 @@ curl -I https://<dominio>/sw.js
 curl -i https://<dominio>/api/auth/me | head -n 20
 ```
 
+### Variabili env consigliate (GHL + Respond.io)
+
+Per il flusso lead GHL -> invio check iniziali -> sync chat Respond.io, configurare almeno:
+
+- `RESPOND_IO_API_TOKEN`
+- `RESPOND_IO_API_BASE_URL` (default: `https://api.respond.io/v2`)
+- `RESPOND_IO_DEFAULT_CHANNEL_ID` (opzionale; se assente usa l'ultimo canale del contatto)
+
+Nota operativa:
+- all'arrivo del lead (`/ghl/webhook/opportunity-data`) il bridge assegna la conversazione al `health_manager_email` ricevuto da GHL usando l'identifier del contatto (`phone:` preferito, fallback `email:`) e invia un messaggio testuale mock.
+
 Push check (utente autenticato):
 
 ```bash

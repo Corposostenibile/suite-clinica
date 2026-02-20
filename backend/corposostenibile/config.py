@@ -265,6 +265,12 @@ class BaseConfig:
     # ------------------ Respond.io Integration -----------------------
     RESPOND_IO_API_TOKEN: str | None = os.getenv("RESPOND_IO_API_TOKEN")
     RESPOND_IO_API_BASE_URL: str = os.getenv("RESPOND_IO_API_BASE_URL", "https://api.respond.io/v2")
+    # Opzionale: canale specifico per invio messaggi API (se assente usa ultimo canale del contatto)
+    RESPOND_IO_DEFAULT_CHANNEL_ID: int | None = (
+        int(os.getenv("RESPOND_IO_DEFAULT_CHANNEL_ID"))
+        if os.getenv("RESPOND_IO_DEFAULT_CHANNEL_ID")
+        else None
+    )
     
     # Webhook Signing Keys
     RESPOND_IO_WEBHOOK_KEY_NEW_CONTACT: str | None = os.getenv("RESPOND_IO_WEBHOOK_KEY_NEW_CONTACT")
