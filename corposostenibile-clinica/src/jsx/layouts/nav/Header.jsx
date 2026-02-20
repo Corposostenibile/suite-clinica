@@ -28,7 +28,9 @@ const ROLE_LABELS = {
   psicologo: 'Psicologo',
 };
 
-const Header = ({ onNote }) => {
+const HEADER_COMPACT_NAV_WIDTH = 44;
+
+const Header = ({ onNote, compactTopBar }) => {
   const { background, changeBackground } = useContext(ThemeContext);
   const { user, logout } = useAuth();
 
@@ -64,15 +66,51 @@ const Header = ({ onNote }) => {
     }
     setFullScreen(false);
   };
+  const baseHeaderStyle = {
+    backdropFilter: 'blur(10px)',
+    background: 'rgba(255, 255, 255, 0.9)',
+    borderBottom: '1px solid #e2e8f0',
+  };
+  const compactHeaderStyle = compactTopBar
+    ? {
+        ...baseHeaderStyle,
+        height: HEADER_COMPACT_NAV_WIDTH,
+        minHeight: HEADER_COMPACT_NAV_WIDTH,
+        paddingLeft: HEADER_COMPACT_NAV_WIDTH,
+        display: 'flex',
+        alignItems: 'center',
+      }
+    : baseHeaderStyle;
+
+  const compactContentStyle = compactTopBar
+    ? {
+        height: '100%',
+        flex: 1,
+        minWidth: 0,
+        paddingLeft: 10,
+        paddingRight: 10,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }
+    : undefined;
+
+  const compactNavbarCollapseStyle = compactTopBar
+    ? { height: '100%', display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }
+    : undefined;
+  const compactHeaderRightStyle = compactTopBar
+    ? { flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }
+    : undefined;
+
   return (
-    <div className="header" style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.9)', borderBottom: '1px solid #e2e8f0' }}>
-      <div className="header-content">
+    <div className="header" style={compactHeaderStyle}>
+      <div className="header-content" style={compactContentStyle}>
         <nav className="navbar navbar-expand">
-          <div className="collapse navbar-collapse justify-content-between">
-            <div className="header-left">
+          <div className="collapse navbar-collapse justify-content-between" style={compactNavbarCollapseStyle}>
+            <div className="header-left" style={compactTopBar ? { flex: '0 1 auto', minWidth: 0, maxWidth: 140 } : undefined}>
               <GlobalSearch />
             </div>
-            <ul className="navbar-nav header-right">
+            <ul className="navbar-nav header-right" style={compactHeaderRightStyle}>
               <li className="nav-item dropdown notification_dropdown">
                 <Link
                   to="/supporto"

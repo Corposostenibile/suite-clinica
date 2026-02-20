@@ -10,6 +10,8 @@ import ResetPassword from './pages/ResetPassword';
 
 // Dashboard layout & pages
 import DashboardLayout from './layouts/DashboardLayout';
+// Header mobile/tablet: caricato qui così viene dopo template.css e applica sempre
+import './styles/mobile-header.css';
 import Welcome from './pages/Welcome';
 
 // Team pages

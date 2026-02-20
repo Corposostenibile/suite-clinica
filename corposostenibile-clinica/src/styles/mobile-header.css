@@ -1,194 +1,180 @@
 /**
  * mobile-header.css
- * Stili della sola barra superiore (nav-header + header) su viewport mobile.
- * Tutte le regole per altezza, padding e layout della top bar sono qui.
- * Breakpoint: max-width 767.98px
- *
- * NOTA: Nel template originale .nav-control ha right negativo (es. -3.188rem)
- * quindi l'hamburger finisce SOPRA la zona header e si sovrappone alla ricerca.
- * Qui forziamo hamburger DENTRO il nav-header e header padding-left uguale
- * alla larghezza del nav-header così non c'è sovrapposizione.
+ * Barra superiore compatta (nav + header) quando #main-wrapper ha la classe .compact-topbar.
+ * La classe viene aggiunta da DashboardLayout.jsx quando window.innerWidth <= 1199,
+ * così il breakpoint è controllato da JS e gli stili si applicano in modo affidabile.
  */
 
-@media (max-width: 767.98px) {
-
-  /* ---- Variabili: un solo punto per modificare dimensioni e spazi ---- */
-  #main-wrapper {
-    --mh-bar-height: 44px;
-    /* Solo hamburger: blocco quadrato, logo nascosto su mobile */
-    --mh-nav-width: 44px;
-    --mh-padding-x: 10px;
-    --mh-gap: 6px;
-    --mh-icon-size: 20px;
-    --mh-search-max-w: 92px;
-    --mh-search-height: 32px;
-  }
-
-  /* ========== NAV HEADER: su mobile solo hamburger (logo nascosto) ========== */
-  .nav-header {
-    width: var(--mh-nav-width) !important;
-    min-width: var(--mh-nav-width) !important;
-    height: var(--mh-bar-height) !important;
-    min-height: var(--mh-bar-height) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Logo nascosto su smartphone: evita ogni sovrapposizione con il menu */
-  .nav-header .brand-logo {
-    display: none !important;
-  }
-
-  /* Hamburger centrato nel blocco verde */
-  .nav-control {
-    position: relative !important;
-    top: auto !important;
-    right: auto !important;
-    left: auto !important;
-    transform: none !important;
-  }
-
-  /* ========== HEADER (zona ricerca + icone) ========== */
-  .header {
-    height: var(--mh-bar-height) !important;
-    min-height: var(--mh-bar-height) !important;
-    /* Uguale a --mh-nav-width così il contenuto inizia subito dopo il blocco verde */
-    padding-left: var(--mh-nav-width) !important;
-    padding-right: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-
-  .header .header-content {
-    height: 100% !important;
-    flex: 1 !important;
-    min-width: 0 !important;
-    padding-left: var(--mh-padding-x) !important;
-    padding-right: var(--mh-padding-x) !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: var(--mh-gap) !important;
-  }
-
-  .header .navbar,
-  .header .navbar .navbar-collapse {
-    height: 100% !important;
-    min-height: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    flex: 1 !important;
-    min-width: 0 !important;
-  }
-
-  /* Zona ricerca: non deve occupare tutto lo spazio */
-  .header-left {
-    flex: 0 1 auto !important;
-    min-width: 0 !important;
-    max-width: var(--mh-search-max-w) !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-
-  /* Barra ricerca dentro header */
-  .header-left .header-search-bar {
-    width: 100% !important;
-    max-width: var(--mh-search-max-w) !important;
-  }
-
-  .header-left .header-search-input {
-    height: var(--mh-search-height) !important;
-    padding-left: 28px !important;
-    padding-right: 8px !important;
-    font-size: 12px !important;
-    border-radius: 8px !important;
-  }
-
-  .header-left .header-search-icon {
-    left: 8px !important;
-    font-size: var(--mh-icon-size) !important;
-  }
-
-  /* Zona icone: spaziatura uniforme, allineata a destra */
-  .header-right {
-    flex: 0 0 auto !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: var(--mh-gap) !important;
-    margin-left: auto !important;
-  }
-
-  .header-right > li {
-    padding: 0 !important;
-  }
-
-  .header-right .nav-link {
-    padding: 6px !important;
-    border-radius: 8px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-  }
-
-  .header-right .nav-link i,
-  .header-right .header-icon-size {
-    font-size: var(--mh-icon-size) !important;
-  }
-
-  .header-right .nav-link svg {
-    width: var(--mh-icon-size) !important;
-    height: var(--mh-icon-size) !important;
-  }
-
-  /* Fullscreen: nascosto su mobile */
-  .header-right .nav-link.dz-fullscreen {
-    display: none !important;
-  }
-
-  /* Profilo: solo avatar compatto */
-  .header-profile-toggle {
-    padding: 4px !important;
-    border-radius: 8px !important;
-  }
-
-  .header-profile-avatar,
-  .header-right .header-profile .avatar-initials {
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 6px !important;
-    font-size: 10px !important;
-  }
-
-  /* Pulsante griglia app */
-  .header-tasks-btn {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    padding: 0 !important;
-    border-radius: 8px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .header-tasks-btn svg {
-    width: var(--mh-icon-size) !important;
-    height: var(--mh-icon-size) !important;
-  }
-
-  /* ========== CONTENUTO SOTTO LA BARRA ========== */
-  .content-body {
-    padding-top: var(--mh-bar-height) !important;
-  }
-
-  .deznav {
-    top: var(--mh-bar-height) !important;
-    height: calc(100% - var(--mh-bar-height)) !important;
-  }
+#main-wrapper.compact-topbar {
+  --mh-bar-height: 44px;
+  --mh-nav-width: 44px;
+  --mh-padding-x: 10px;
+  --mh-gap: 8px;
+  --mh-icon-size: 20px;
+  --mh-search-max-w: 140px;
+  --mh-search-height: 32px;
 }
 
+/* ========== NAV HEADER: solo hamburger, logo nascosto ========== */
+#main-wrapper.compact-topbar .nav-header {
+  width: var(--mh-nav-width) !important;
+  min-width: var(--mh-nav-width) !important;
+  height: var(--mh-bar-height) !important;
+  min-height: var(--mh-bar-height) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  z-index: 1000 !important;
+}
+
+#main-wrapper.compact-topbar .nav-header .brand-logo {
+  display: none !important;
+}
+
+#main-wrapper.compact-topbar .nav-control {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  transform: none !important;
+  z-index: 1001 !important;
+  display: block !important;
+}
+
+#main-wrapper.compact-topbar .nav-control .hamburger {
+  display: inline-block !important;
+}
+
+/* ========== HEADER (ricerca + icone): layout flex senza sovrapposizioni ========== */
+#main-wrapper.compact-topbar .header {
+  height: var(--mh-bar-height) !important;
+  min-height: var(--mh-bar-height) !important;
+  padding-left: var(--mh-nav-width) !important;
+  padding-right: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+#main-wrapper.compact-topbar .header .header-content {
+  height: 100% !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  padding-left: var(--mh-padding-x) !important;
+  padding-right: var(--mh-padding-x) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--mh-gap) !important;
+}
+
+#main-wrapper.compact-topbar .header .navbar,
+#main-wrapper.compact-topbar .header .navbar .navbar-collapse {
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+#main-wrapper.compact-topbar .header-left {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  max-width: var(--mh-search-max-w) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+#main-wrapper.compact-topbar .header-left .header-search-bar {
+  width: 100% !important;
+  max-width: var(--mh-search-max-w) !important;
+}
+
+#main-wrapper.compact-topbar .header-left .header-search-input {
+  height: var(--mh-search-height) !important;
+  padding-left: 28px !important;
+  padding-right: 8px !important;
+  font-size: 12px !important;
+  border-radius: 8px !important;
+}
+
+#main-wrapper.compact-topbar .header-left .header-search-icon {
+  left: 8px !important;
+  font-size: var(--mh-icon-size) !important;
+}
+
+#main-wrapper.compact-topbar .header-right {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--mh-gap) !important;
+  margin-left: auto !important;
+}
+
+#main-wrapper.compact-topbar .header-right > li {
+  padding: 0 !important;
+}
+
+#main-wrapper.compact-topbar .header-right .nav-link {
+  padding: 6px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+}
+
+#main-wrapper.compact-topbar .header-right .nav-link i,
+#main-wrapper.compact-topbar .header-right .header-icon-size {
+  font-size: var(--mh-icon-size) !important;
+}
+
+#main-wrapper.compact-topbar .header-right .nav-link svg {
+  width: var(--mh-icon-size) !important;
+  height: var(--mh-icon-size) !important;
+}
+
+#main-wrapper.compact-topbar .header-right .nav-link.dz-fullscreen {
+  display: none !important;
+}
+
+#main-wrapper.compact-topbar .header-profile-toggle {
+  padding: 4px !important;
+  border-radius: 8px !important;
+}
+
+#main-wrapper.compact-topbar .header-profile-avatar,
+#main-wrapper.compact-topbar .header-right .header-profile .avatar-initials {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+}
+
+#main-wrapper.compact-topbar .header-tasks-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#main-wrapper.compact-topbar .header-tasks-btn svg {
+  width: var(--mh-icon-size) !important;
+  height: var(--mh-icon-size) !important;
+}
+
+#main-wrapper.compact-topbar .content-body {
+  padding-top: var(--mh-bar-height) !important;
+}
+
+#main-wrapper.compact-topbar .deznav {
+  top: var(--mh-bar-height) !important;
+  height: calc(100% - var(--mh-bar-height)) !important;
+}

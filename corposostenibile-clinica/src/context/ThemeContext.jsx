@@ -173,11 +173,6 @@ const ThemeContextProvider = (props) => {
       changeSideBarStyle({ value: "overlay", label: "Overlay" });
   };
 
-  const isNarrowScreen = window.matchMedia("(max-width: 767px)").matches;
-  if (isNarrowScreen) {
-    body.setAttribute("data-sidebar-style", "overlay")
-  }
-
   useEffect(() => {
     const body = document.querySelector("body");
     body.setAttribute("data-typography", "poppins");
@@ -193,15 +188,14 @@ const ThemeContextProvider = (props) => {
     body.setAttribute("data-header-position", "fixed");
     body.setAttribute("data-container", "wide");
     body.setAttribute("direction", "ltr");
+    const MOBILE_SIDEBAR_BREAKPOINT = 1200;
     let resizeWindow = () => {
       setWindowWidth(window.innerWidth);
       setWindowHeight(window.innerHeight);
-      window.innerWidth >= 768 && window.innerWidth < 1200
-        ? body.setAttribute("data-sidebar-style", "mini")
-        : window.innerWidth <= 768
-          ? body.setAttribute("data-sidebar-style", "overlay")
-          : body.setAttribute("data-sidebar-style", "full");
-
+      body.setAttribute(
+        "data-sidebar-style",
+        window.innerWidth < MOBILE_SIDEBAR_BREAKPOINT ? "overlay" : "full"
+      );
     };
     resizeWindow();
     window.addEventListener("resize", resizeWindow);

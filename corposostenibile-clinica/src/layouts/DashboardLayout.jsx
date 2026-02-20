@@ -7,23 +7,32 @@ import ChatBox from '../jsx/layouts/ChatBox';
 import { ThemeContext } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
-/// Style
+/// Style (mobile-header.css è importato in App.jsx)
 import '../styles/design-tokens.css';
 import '../styles/template.css';
 import '../styles/custom-overrides.css';
-import '../styles/mobile-header.css';
+
+const COMPACT_TOP_BAR_BREAKPOINT = 1199;
 
 function DashboardContent() {
   const { menuToggle, setMenuToggle } = useContext(ThemeContext);
   const { user, loading } = useAuth();
   const [toggle, setToggle] = useState("");
   const location = useLocation();
+  const [compactTopBar, setCompactTopBar] = useState(window.innerWidth <= COMPACT_TOP_BAR_BREAKPOINT);
 
   const onClick = (name) => setToggle(toggle === name ? "" : name);
 
+  useEffect(() => {
+    const onResize = () => setCompactTopBar(window.innerWidth <= COMPACT_TOP_BAR_BREAKPOINT);
+    window.addEventListener('resize', onResize);
+    onResize();
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   // Auto-close sidebar on route change (mobile navigation)
   useEffect(() => {
-    if (window.innerWidth <= 991 && menuToggle) {
+    if (window.innerWidth <= COMPACT_TOP_BAR_BREAKPOINT && menuToggle) {
       setMenuToggle(false);
     }
   }, [location.pathname]);
@@ -46,15 +55,18 @@ function DashboardContent() {
   }
 
   return (
-    <div id="main-wrapper" className={`show ${menuToggle ? "menu-toggle" : ""}`}>
+    <div
+      id="main-wrapper"
+      className={`show ${menuToggle ? "menu-toggle" : ""} ${compactTopBar ? "compact-topbar" : ""}`}
+    >
       {/* Nav Header */}
-      <NavHader />
+      <NavHader compactTopBar={compactTopBar} />
 
       {/* ChatBox / Right Sidebar */}
       <ChatBox onClick={() => onClick("chatbox")} toggle={toggle} />
 
       {/* Header */}
-      <Header onNote={() => onClick("chatbox")} />
+      <Header compactTopBar={compactTopBar} onNote={() => onClick("chatbox")} />
 
       {/* Mobile sidebar backdrop */}
       {menuToggle && (
