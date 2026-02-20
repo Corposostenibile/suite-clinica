@@ -97,6 +97,10 @@ API backend sullo stesso host:
     - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
 ```
 
+Nota:
+- le env runtime documentate devono essere presenti nel deployment GKE (`k8s/deployment.yaml`)
+- i valori sensibili vanno in Secret Kubernetes (es. `k8s/app-integrations-secret.example.yaml` -> `app-integrations`)
+
 ## 5) Checklist go-live GCP
 
 1. DNS: punta il dominio all'IP del Load Balancer creato da Ingress

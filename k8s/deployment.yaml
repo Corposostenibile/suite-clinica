@@ -71,6 +71,42 @@ spec:
           value: "https"
         - name: SPA_HANDLE_AUTH_ROUTES
           value: "1"
+        - name: VAPID_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-integrations
+              key: vapid_public_key
+        - name: VAPID_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-integrations
+              key: vapid_private_key
+        - name: VAPID_CLAIMS_SUB
+          valueFrom:
+            secretKeyRef:
+              name: app-integrations
+              key: vapid_claims_sub
+        - name: RESPOND_IO_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: app-integrations
+              key: respond_io_api_token
+        - name: RESPOND_IO_API_BASE_URL
+          value: "https://api.respond.io/v2"
+        - name: RESPOND_IO_DEFAULT_CHANNEL_ID
+          valueFrom:
+            secretKeyRef:
+              name: app-integrations
+              key: respond_io_default_channel_id
+              optional: true
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_MODE
+          value: "mock"
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-integrations
+              key: ghl_global_status_webhook_url
+              optional: true
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
         volumeMounts:
