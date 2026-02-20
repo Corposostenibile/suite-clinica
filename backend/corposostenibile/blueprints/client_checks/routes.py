@@ -2724,11 +2724,11 @@ def api_cliente_checks(cliente_id: int):
                     "psychologist_rating": resp.psychologist_rating,
                     "coach_rating": resp.coach_rating,
                     "nutritionist_user_id": resp.nutritionist_user_id,
-                    "nutritionist_name": resp.nutritionist_user.nome_cognome if resp.nutritionist_user else None,
+                    "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
                     "psychologist_user_id": resp.psychologist_user_id,
-                    "psychologist_name": resp.psychologist_user.nome_cognome if resp.psychologist_user else None,
+                    "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
                     "coach_user_id": resp.coach_user_id,
-                    "coach_name": resp.coach_user.nome_cognome if resp.coach_user else None,
+                    "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
                     "is_read": read_confirmation is not None,
                     "read_at": read_confirmation.read_at.strftime('%d/%m/%Y %H:%M') if read_confirmation else None
                 })
@@ -3119,15 +3119,15 @@ def api_get_response_detail(response_type: str, response_id: int):
                 "nutritionist_rating": resp.nutritionist_rating,
                 "nutritionist_feedback": resp.nutritionist_feedback,
                 "nutritionist_user_id": resp.nutritionist_user_id,
-                "nutritionist_name": resp.nutritionist_user.nome_cognome if resp.nutritionist_user else None,
+                "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
                 "psychologist_rating": resp.psychologist_rating,
                 "psychologist_feedback": resp.psychologist_feedback,
                 "psychologist_user_id": resp.psychologist_user_id,
-                "psychologist_name": resp.psychologist_user.nome_cognome if resp.psychologist_user else None,
+                "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
                 "coach_rating": resp.coach_rating,
                 "coach_feedback": resp.coach_feedback,
                 "coach_user_id": resp.coach_user_id,
-                "coach_name": resp.coach_user.nome_cognome if resp.coach_user else None,
+                "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
                 # Progress
                 "progress_rating": resp.progress_rating,
                 "coordinator_rating": resp.coordinator_rating,
@@ -3855,32 +3855,36 @@ def api_public_get_check_info(check_type: str, token: str):
         if not cliente:
             return jsonify({"success": False, "error": "Cliente non trovato"}), 404
 
-        # Get professionals info
+        # Get professionals info (supporta assegnazioni singole e multiple)
         professionisti = []
-        if cliente.nutrizionista_user:
+        seen_keys = set()
+
+        def append_prof(user, ruolo, rating_field, feedback_field):
+            if not user:
+                return
+            key = f"{ruolo}:{user.id}"
+            if key in seen_keys:
+                return
+            seen_keys.add(key)
             professionisti.append({
-                "id": cliente.nutrizionista_user.id,
-                "nome": cliente.nutrizionista_user.nome_cognome,
-                "ruolo": "Nutrizionista",
-                "rating_field": "nutritionist_rating",
-                "feedback_field": "nutritionist_feedback",
+                "id": user.id,
+                "nome": user.full_name or user.email,
+                "ruolo": ruolo,
+                "rating_field": rating_field,
+                "feedback_field": feedback_field,
             })
-        if cliente.psicologa_user:
-            professionisti.append({
-                "id": cliente.psicologa_user.id,
-                "nome": cliente.psicologa_user.nome_cognome,
-                "ruolo": "Psicologo/a",
-                "rating_field": "psychologist_rating",
-                "feedback_field": "psychologist_feedback",
-            })
-        if cliente.coach_user:
-            professionisti.append({
-                "id": cliente.coach_user.id,
-                "nome": cliente.coach_user.nome_cognome,
-                "ruolo": "Coach",
-                "rating_field": "coach_rating",
-                "feedback_field": "coach_feedback",
-            })
+
+        append_prof(cliente.nutrizionista_user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+        for user in (cliente.nutrizionisti_multipli or []):
+            append_prof(user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+
+        append_prof(cliente.psicologa_user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+        for user in (cliente.psicologi_multipli or []):
+            append_prof(user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+
+        append_prof(cliente.coach_user, "Coach", "coach_rating", "coach_feedback")
+        for user in (cliente.coaches_multipli or []):
+            append_prof(user, "Coach", "coach_rating", "coach_feedback")
 
         response = jsonify({
             "success": True,
