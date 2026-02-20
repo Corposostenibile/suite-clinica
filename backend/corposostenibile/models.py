@@ -10976,6 +10976,10 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
     weight = db.Column(db.Float, comment="Peso in Kg")
 
     # ─── Valutazioni Professionisti (con feedback) ──────────────────────────
+    # Snapshot professionisti al momento della compilazione (storico immutabile)
+    nutritionist_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    psychologist_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    coach_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     nutritionist_rating = db.Column(db.Integer, comment="Valutazione nutrizionista (1-10)")
     nutritionist_feedback = db.Column(db.Text, comment="Feedback nutrizionista")
     psychologist_rating = db.Column(db.Integer, comment="Valutazione psicologo (1-10)")
@@ -10991,6 +10995,9 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
 
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("WeeklyCheck", back_populates="responses")
+    nutritionist_user = relationship("User", foreign_keys=[nutritionist_user_id])
+    psychologist_user = relationship("User", foreign_keys=[psychologist_user_id])
+    coach_user = relationship("User", foreign_keys=[coach_user_id])
 
     def __repr__(self) -> str:
         return f"<WeeklyCheckResponse(id={self.id}, check={self.weekly_check_id}, date={self.submit_date})>"

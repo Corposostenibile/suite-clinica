@@ -240,6 +240,61 @@ function WeeklyCheckForm() {
   };
 
   const progress = ((currentStep - 1) / 6) * 100;
+  const resolveProfessionalRoleKey = (ruolo = '') => {
+    const normalized = ruolo.toLowerCase();
+    if (normalized.includes('nutri')) return 'nutritionist';
+    if (normalized.includes('psico')) return 'psychologist';
+    if (normalized.includes('coach')) return 'coach';
+    return null;
+  };
+
+  const professionalConfigs = {
+    nutritionist: {
+      roleLabel: 'Nutrizionista',
+      description: 'Valuta il supporto nutrizionale',
+      ratingField: 'nutritionist_rating',
+      feedbackField: 'nutritionist_feedback',
+      icon: 'ri-user-heart-line',
+      iconBg: 'bg-success',
+      cardStyle: { background: '#f0fdf4', border: '1px solid #bbf7d0' },
+      feedbackPlaceholder: 'Feedback per il nutrizionista (opzionale)',
+    },
+    psychologist: {
+      roleLabel: 'Psicologo/a',
+      description: 'Valuta il supporto psicologico',
+      ratingField: 'psychologist_rating',
+      feedbackField: 'psychologist_feedback',
+      icon: 'ri-mental-health-line',
+      iconBg: 'bg-primary',
+      cardStyle: { background: '#eff6ff', border: '1px solid #bfdbfe' },
+      feedbackPlaceholder: 'Feedback per lo psicologo (opzionale)',
+    },
+    coach: {
+      roleLabel: 'Coach',
+      description: 'Valuta il supporto sportivo',
+      ratingField: 'coach_rating',
+      feedbackField: 'coach_feedback',
+      icon: 'ri-run-line',
+      iconBg: '',
+      iconStyle: { background: '#8b5cf6' },
+      cardStyle: { background: '#faf5ff', border: '1px solid #e9d5ff' },
+      feedbackPlaceholder: 'Feedback per il coach (opzionale)',
+    },
+  };
+
+  const assignedProfessionals = (checkInfo?.professionisti || [])
+    .map((prof) => {
+      const roleKey = resolveProfessionalRoleKey(prof.ruolo);
+      if (!roleKey) return null;
+      const config = professionalConfigs[roleKey];
+      if (!config) return null;
+      return {
+        ...config,
+        roleKey,
+        nome: prof.nome || config.roleLabel,
+      };
+    })
+    .filter(Boolean);
 
   if (loading) {
     return (
@@ -599,86 +654,41 @@ function WeeklyCheckForm() {
               Valuta da 1 a 10 il supporto ricevuto dai professionisti
             </p>
 
-            {/* Nutritionist */}
-            <div className="mb-4 p-4 rounded" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-              <div className="d-flex align-items-center mb-3">
-                <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-3"
-                     style={{ width: '48px', height: '48px' }}>
-                  <i className="ri-user-heart-line fs-5"></i>
+            {assignedProfessionals.map((prof) => (
+              <div key={prof.roleKey} className="mb-4 p-4 rounded" style={prof.cardStyle}>
+                <div className="d-flex align-items-center mb-3">
+                  <div
+                    className={`rounded-circle text-white d-flex align-items-center justify-content-center me-3 ${prof.iconBg}`.trim()}
+                    style={{ width: '48px', height: '48px', ...(prof.iconStyle || {}) }}
+                  >
+                    <i className={`${prof.icon} fs-5`}></i>
+                  </div>
+                  <div>
+                    <h6 className="mb-0 fw-semibold">{prof.nome}</h6>
+                    <small className="text-muted">{prof.description}</small>
+                  </div>
                 </div>
-                <div>
-                  <h6 className="mb-0 fw-semibold">Nutrizionista</h6>
-                  <small className="text-muted">Valuta il supporto nutrizionale</small>
-                </div>
+                <RatingSelector
+                  value={formData[prof.ratingField]}
+                  onChange={(val) => handleInputChange(prof.ratingField, val)}
+                  min={1}
+                  labels={{ min: 'Scarso', max: 'Eccellente' }}
+                />
+                <textarea
+                  className="form-control mt-3"
+                  rows="2"
+                  placeholder={prof.feedbackPlaceholder}
+                  value={formData[prof.feedbackField]}
+                  onChange={(e) => handleInputChange(prof.feedbackField, e.target.value)}
+                />
               </div>
-              <RatingSelector
-                value={formData.nutritionist_rating}
-                onChange={(val) => handleInputChange('nutritionist_rating', val)}
-                min={1}
-                labels={{ min: 'Scarso', max: 'Eccellente' }}
-              />
-              <textarea
-                className="form-control mt-3"
-                rows="2"
-                placeholder="Feedback per il nutrizionista (opzionale)"
-                value={formData.nutritionist_feedback}
-                onChange={(e) => handleInputChange('nutritionist_feedback', e.target.value)}
-              />
-            </div>
+            ))}
 
-            {/* Psychologist */}
-            <div className="mb-4 p-4 rounded" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-              <div className="d-flex align-items-center mb-3">
-                <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3"
-                     style={{ width: '48px', height: '48px' }}>
-                  <i className="ri-mental-health-line fs-5"></i>
-                </div>
-                <div>
-                  <h6 className="mb-0 fw-semibold">Psicologo/a</h6>
-                  <small className="text-muted">Valuta il supporto psicologico</small>
-                </div>
+            {assignedProfessionals.length === 0 && (
+              <div className="alert alert-info mb-4">
+                Nessun professionista assegnato al momento.
               </div>
-              <RatingSelector
-                value={formData.psychologist_rating}
-                onChange={(val) => handleInputChange('psychologist_rating', val)}
-                min={1}
-                labels={{ min: 'Scarso', max: 'Eccellente' }}
-              />
-              <textarea
-                className="form-control mt-3"
-                rows="2"
-                placeholder="Feedback per lo psicologo (opzionale)"
-                value={formData.psychologist_feedback}
-                onChange={(e) => handleInputChange('psychologist_feedback', e.target.value)}
-              />
-            </div>
-
-            {/* Coach */}
-            <div className="mb-4 p-4 rounded" style={{ background: '#faf5ff', border: '1px solid #e9d5ff' }}>
-              <div className="d-flex align-items-center mb-3">
-                <div className="rounded-circle text-white d-flex align-items-center justify-content-center me-3"
-                     style={{ width: '48px', height: '48px', background: '#8b5cf6' }}>
-                  <i className="ri-run-line fs-5"></i>
-                </div>
-                <div>
-                  <h6 className="mb-0 fw-semibold">Coach</h6>
-                  <small className="text-muted">Valuta il supporto sportivo</small>
-                </div>
-              </div>
-              <RatingSelector
-                value={formData.coach_rating}
-                onChange={(val) => handleInputChange('coach_rating', val)}
-                min={1}
-                labels={{ min: 'Scarso', max: 'Eccellente' }}
-              />
-              <textarea
-                className="form-control mt-3"
-                rows="2"
-                placeholder="Feedback per il coach (opzionale)"
-                value={formData.coach_feedback}
-                onChange={(e) => handleInputChange('coach_feedback', e.target.value)}
-              />
-            </div>
+            )}
 
             {/* Progress Rating */}
             <div className="p-4 rounded" style={{ background: '#fefce8', border: '1px solid #fef08a' }}>

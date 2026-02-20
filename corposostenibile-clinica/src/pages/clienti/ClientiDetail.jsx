@@ -1950,6 +1950,50 @@ function ClientiDetail() {
     return professionistiHistory.filter(h => h.tipo_professionista === tipo && h.is_active);
   };
 
+  const getWeeklySnapshotProfessional = (response, role) => {
+    const roleMap = {
+      nutritionist: {
+        idKey: 'nutritionist_user_id',
+        nameKey: 'nutritionist_name',
+        historyType: 'nutrizionista',
+        fallbackLabel: 'Nutrizionista',
+      },
+      psychologist: {
+        idKey: 'psychologist_user_id',
+        nameKey: 'psychologist_name',
+        historyType: 'psicologa',
+        fallbackLabel: 'Psicologo/a',
+      },
+      coach: {
+        idKey: 'coach_user_id',
+        nameKey: 'coach_name',
+        historyType: 'coach',
+        fallbackLabel: 'Coach',
+      },
+    };
+
+    const config = roleMap[role];
+    if (!config) return null;
+
+    const professionalId = response?.[config.idKey];
+    const professionalName = response?.[config.nameKey];
+
+    const fromHistory = professionalId
+      ? professionistiHistory.find(
+        (h) =>
+          h.tipo_professionista === config.historyType &&
+            Number(h.professionista_id) === Number(professionalId),
+      )
+      : null;
+
+    const activeFallback = getActiveProfessionals(config.historyType)[0];
+
+    return {
+      assignment: fromHistory || activeFallback || null,
+      name: professionalName || fromHistory?.professionista_nome || activeFallback?.professionista_nome || config.fallbackLabel,
+    };
+  };
+
   // Get history for timeline (sorted by date desc)
   const getTimelineHistory = () => {
     return [...professionistiHistory].sort((a, b) => {
@@ -8147,7 +8191,8 @@ function ClientiDetail() {
                         <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
                         <div className="row g-3">
                           {selectedCheckResponse.nutritionist_rating && (() => {
-                            const nutri = getActiveProfessionals('nutrizionista')[0];
+                            const nutriInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'nutritionist');
+                            const nutri = nutriInfo?.assignment;
                             return (
                               <div className="col-6 col-md-3">
                                 <div className="p-3 rounded text-center" style={{ background: '#dcfce7' }}>
@@ -8163,13 +8208,14 @@ function ClientiDetail() {
                                     </div>
                                   )}
                                   <div className="fw-bold fs-4 text-success">{selectedCheckResponse.nutritionist_rating}</div>
-                                  <small className="text-muted">{nutri?.professionista_nome || 'Nutrizionista'}</small>
+                                  <small className="text-muted">{nutriInfo?.name || 'Nutrizionista'}</small>
                                 </div>
                               </div>
                             );
                           })()}
                           {selectedCheckResponse.psychologist_rating && (() => {
-                            const psico = getActiveProfessionals('psicologa')[0];
+                            const psicoInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'psychologist');
+                            const psico = psicoInfo?.assignment;
                             return (
                               <div className="col-6 col-md-3">
                                 <div className="p-3 rounded text-center" style={{ background: '#fef3c7' }}>
@@ -8185,13 +8231,14 @@ function ClientiDetail() {
                                     </div>
                                   )}
                                   <div className="fw-bold fs-4" style={{ color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
-                                  <small className="text-muted">{psico?.professionista_nome || 'Psicologo'}</small>
+                                  <small className="text-muted">{psicoInfo?.name || 'Psicologo/a'}</small>
                                 </div>
                               </div>
                             );
                           })()}
                           {selectedCheckResponse.coach_rating && (() => {
-                            const coach = getActiveProfessionals('coach')[0];
+                            const coachInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'coach');
+                            const coach = coachInfo?.assignment;
                             return (
                               <div className="col-6 col-md-3">
                                 <div className="p-3 rounded text-center" style={{ background: '#dbeafe' }}>
@@ -8207,7 +8254,7 @@ function ClientiDetail() {
                                     </div>
                                   )}
                                   <div className="fw-bold fs-4 text-primary">{selectedCheckResponse.coach_rating}</div>
-                                  <small className="text-muted">{coach?.professionista_nome || 'Coach'}</small>
+                                  <small className="text-muted">{coachInfo?.name || 'Coach'}</small>
                                 </div>
                               </div>
                             );

@@ -120,6 +120,37 @@ def _frontend_base_url() -> str:
 
     return request.host_url.rstrip("/")
 
+
+def _get_weekly_professional_snapshot(cliente: Cliente | None) -> Dict[str, int | None]:
+    """
+    Restituisce gli ID professionisti da salvare nel WeeklyCheckResponse
+    come snapshot storico al momento della compilazione.
+    """
+    if not cliente:
+        return {
+            "nutritionist_user_id": None,
+            "psychologist_user_id": None,
+            "coach_user_id": None,
+        }
+
+    nutritionist_id = cliente.nutrizionista_id
+    if not nutritionist_id and cliente.nutrizionisti_multipli:
+        nutritionist_id = cliente.nutrizionisti_multipli[0].id
+
+    psychologist_id = cliente.psicologa_id
+    if not psychologist_id and cliente.psicologi_multipli:
+        psychologist_id = cliente.psicologi_multipli[0].id
+
+    coach_id = cliente.coach_id
+    if not coach_id and cliente.coaches_multipli:
+        coach_id = cliente.coaches_multipli[0].id
+
+    return {
+        "nutritionist_user_id": nutritionist_id,
+        "psychologist_user_id": psychologist_id,
+        "coach_user_id": coach_id,
+    }
+
 # --------------------------------------------------------------------------- #
 #  Blueprint setup                                                            #
 # --------------------------------------------------------------------------- #
@@ -1179,6 +1210,10 @@ def weekly_check_public(token: str):
                     ip_address=get_client_ip(),
                     user_agent=get_user_agent(),
                 )
+                snapshot = _get_weekly_professional_snapshot(weekly_check.cliente)
+                response.nutritionist_user_id = snapshot["nutritionist_user_id"]
+                response.psychologist_user_id = snapshot["psychologist_user_id"]
+                response.coach_user_id = snapshot["coach_user_id"]
 
                 # ─── UPLOAD FOTO ────────────────────────────────────────────
                 upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
@@ -2688,6 +2723,12 @@ def api_cliente_checks(cliente_id: int):
                     "nutritionist_rating": resp.nutritionist_rating,
                     "psychologist_rating": resp.psychologist_rating,
                     "coach_rating": resp.coach_rating,
+                    "nutritionist_user_id": resp.nutritionist_user_id,
+                    "nutritionist_name": resp.nutritionist_user.nome_cognome if resp.nutritionist_user else None,
+                    "psychologist_user_id": resp.psychologist_user_id,
+                    "psychologist_name": resp.psychologist_user.nome_cognome if resp.psychologist_user else None,
+                    "coach_user_id": resp.coach_user_id,
+                    "coach_name": resp.coach_user.nome_cognome if resp.coach_user else None,
                     "is_read": read_confirmation is not None,
                     "read_at": read_confirmation.read_at.strftime('%d/%m/%Y %H:%M') if read_confirmation else None
                 })
@@ -3077,10 +3118,16 @@ def api_get_response_detail(response_type: str, response_id: int):
                 # Professional ratings
                 "nutritionist_rating": resp.nutritionist_rating,
                 "nutritionist_feedback": resp.nutritionist_feedback,
+                "nutritionist_user_id": resp.nutritionist_user_id,
+                "nutritionist_name": resp.nutritionist_user.nome_cognome if resp.nutritionist_user else None,
                 "psychologist_rating": resp.psychologist_rating,
                 "psychologist_feedback": resp.psychologist_feedback,
+                "psychologist_user_id": resp.psychologist_user_id,
+                "psychologist_name": resp.psychologist_user.nome_cognome if resp.psychologist_user else None,
                 "coach_rating": resp.coach_rating,
                 "coach_feedback": resp.coach_feedback,
+                "coach_user_id": resp.coach_user_id,
+                "coach_name": resp.coach_user.nome_cognome if resp.coach_user else None,
                 # Progress
                 "progress_rating": resp.progress_rating,
                 "coordinator_rating": resp.coordinator_rating,
@@ -3810,23 +3857,29 @@ def api_public_get_check_info(check_type: str, token: str):
 
         # Get professionals info
         professionisti = []
-        if cliente.nutrizionista:
+        if cliente.nutrizionista_user:
             professionisti.append({
-                "id": cliente.nutrizionista.id,
-                "nome": cliente.nutrizionista.nome_cognome,
-                "ruolo": "Nutrizionista"
+                "id": cliente.nutrizionista_user.id,
+                "nome": cliente.nutrizionista_user.nome_cognome,
+                "ruolo": "Nutrizionista",
+                "rating_field": "nutritionist_rating",
+                "feedback_field": "nutritionist_feedback",
             })
-        if cliente.coach:
+        if cliente.psicologa_user:
             professionisti.append({
-                "id": cliente.coach.id,
-                "nome": cliente.coach.nome_cognome,
-                "ruolo": "Coach"
+                "id": cliente.psicologa_user.id,
+                "nome": cliente.psicologa_user.nome_cognome,
+                "ruolo": "Psicologo/a",
+                "rating_field": "psychologist_rating",
+                "feedback_field": "psychologist_feedback",
             })
-        if cliente.psicologa:
+        if cliente.coach_user:
             professionisti.append({
-                "id": cliente.psicologa.id,
-                "nome": cliente.psicologa.nome_cognome,
-                "ruolo": "Psicologo/a"
+                "id": cliente.coach_user.id,
+                "nome": cliente.coach_user.nome_cognome,
+                "ruolo": "Coach",
+                "rating_field": "coach_rating",
+                "feedback_field": "coach_feedback",
             })
 
         response = jsonify({
@@ -3876,11 +3929,15 @@ def api_public_submit_weekly(token: str):
             data = request.form.to_dict()
 
         # Create response with correct model field names
+        snapshot = _get_weekly_professional_snapshot(check.cliente)
         response = WeeklyCheckResponse(
             weekly_check_id=check.id,
             submit_date=datetime.utcnow(),
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string if request.user_agent else None,
+            nutritionist_user_id=snapshot["nutritionist_user_id"],
+            psychologist_user_id=snapshot["psychologist_user_id"],
+            coach_user_id=snapshot["coach_user_id"],
             # Text fields
             what_worked=data.get('what_worked'),
             what_didnt_work=data.get('what_didnt_work'),
