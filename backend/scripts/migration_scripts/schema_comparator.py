@@ -296,6 +296,10 @@ ENUM_ALIASES = {
         'primo': 'deposito_iniziale',
         'first_payment': 'deposito_iniziale',
     },
+    'statoclienteenum': {
+        'freeze': 'pausa',
+        'insoluto': 'stop',
+    },
 }
 
 def normalize_user_role(raw_role):
