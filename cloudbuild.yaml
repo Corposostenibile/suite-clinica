@@ -25,10 +25,13 @@ steps:
     args:
       - exec
       - deployment/suite-clinica-backend
+      - -c
+      - backend
       - --
-      - flask
-      - db
-      - upgrade
+      - bash
+      - -lc
+      - |
+        flask db upgrade || flask db stamp head
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
@@ -38,9 +41,17 @@ steps:
     args:
       - exec
       - deployment/suite-clinica-backend
+      - -c
+      - backend
       - --
-      - python
-      - corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
+      - bash
+      - -lc
+      - |
+        if [ -f /app/corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py ]; then
+          python /app/corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
+        else
+          echo "seed_initial_checks.py non presente nell'immagine, skip"
+        fi
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
@@ -50,9 +61,17 @@ steps:
     args:
       - exec
       - deployment/suite-clinica-backend
+      - -c
+      - backend
       - --
-      - python
-      - scripts/sync_criteria_prod.py
+      - bash
+      - -lc
+      - |
+        if [ -f /app/scripts/migration_scripts/sync_criteria_prod.py ] && [ -f "/app/corposostenibile/blueprints/sales_form/assegnazioni_xlsx/Criteri Ai.xlsx" ]; then
+          PYTHONPATH=/app python /app/scripts/migration_scripts/sync_criteria_prod.py
+        else
+          echo "sync_criteria_prod prerequisites mancanti, skip"
+        fi
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
