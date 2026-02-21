@@ -18,6 +18,9 @@ spec:
       - key: "autoscaling.gke.io/defrag-candidate"
         operator: "Exists"
         effect: "NoSchedule"
+      - key: "ToBeDeletedByClusterAutoscaler"
+        operator: "Exists"
+        effect: "NoSchedule"
       
       # K8s 1.29+ Native Sidecar: Il proxy viene definito qui ma gira come sidecar
       initContainers:
@@ -70,6 +73,10 @@ spec:
         - name: MIGRATION_RESUME_FROM_STEP
           value: "140"
         - name: MIGRATION_VALIDATE_FIRST
+          value: "1"
+        - name: MIGRATION_REFRESH_NEW_SCHEMA
+          value: "1"
+        - name: MIGRATION_SCHEMA_REFRESH_STRICT
           value: "1"
         - name: PGHOST
           value: "127.0.0.1"
@@ -453,9 +460,9 @@ spec:
           subPath: schema_comparator.py
         resources:
           requests:
-            cpu: "300m"
-            memory: "512Mi"
-            ephemeral-storage: "2Gi"
+            cpu: "100m"
+            memory: "256Mi"
+            ephemeral-storage: "1Gi"
           limits:
             cpu: "1000m"
             memory: "3Gi"
@@ -464,7 +471,7 @@ spec:
       volumes:
       - name: db-backups
         persistentVolumeClaim:
-          claimName: db-backups-pvc
+          claimName: db-backups-pvc-c
       - name: sql-proxy-key
         secret:
           secretName: sql-proxy-key

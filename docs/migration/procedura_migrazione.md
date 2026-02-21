@@ -134,3 +134,24 @@ Il job scarica l'archivio `.tar.gz` tramite pipe ed estrae i file direttamente i
 - **Campi obbligatori utenti**: durante la generazione dump vengono normalizzati `role`, `specialty` e booleani (`is_admin`, `is_active`, `is_external`, `is_trial`) per evitare errori `NOT NULL`/enum su `users`.
 - **Temp su PVC obbligatorio**: il Job imposta `TMPDIR` e `MIGRATION_TMP_DIR` su `/data/backups/migration_output/tmp`; evitare `/tmp` locale per non incorrere in eviction.
 - **ConfigMap obbligatoria dopo modifiche script**: se si modifica `schema_comparator.py`, rieseguire sempre lo step 2 (update `migration-script-config`) prima di rilanciare il Job.
+
+## Hardening Operativo (obbligatorio)
+
+- **Mai usare `flask db stamp head` come fallback automatico**: se `flask db upgrade` fallisce, il deploy deve fallire. Lo `stamp` senza upgrade reale causa disallineamento schema/model (colonne e tabelle mancanti in produzione).
+- **Rigenerare sempre lo schema target prima della migrazione dati**: lo script ora supporta refresh automatico del file `NEW_SUITE_BACKUP` via `pg_dump --schema-only` (env `MIGRATION_REFRESH_NEW_SCHEMA=1`, `MIGRATION_SCHEMA_REFRESH_STRICT=1`).
+- **Fail-fast su parità schema**: dopo le migration Alembic, eseguire un check di parità schema/model (tabelle + colonne + enum attesi) e bloccare il deploy in caso di mismatch.
+
+## Caso PVC Zonal Bloccato (GKE Autopilot)
+
+Sintomo tipico:
+- `0/n nodes are available: node(s) didn't match PersistentVolume's node affinity`
+- eventi con `TriggeredScaleUp` seguiti da `FailedScaleUp ... GCE out of resources` nella zona del disco.
+
+Causa:
+- `db-backups-pvc` è legato a un disco zonale (es. `europe-west8-b`) ma il cluster non ha nodi schedulabili in quella zona.
+
+Workaround pratico:
+1. Fare snapshot del disco sorgente zonale.
+2. Creare un nuovo disco da snapshot in una zona con nodi disponibili (es. `europe-west8-c`).
+3. Creare `PV/PVC` statici legati al nuovo disco.
+4. Puntare il Job migrazione al nuovo claim (`claimName` aggiornato).

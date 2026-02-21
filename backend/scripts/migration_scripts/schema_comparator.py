@@ -330,6 +330,69 @@ def table_is_included(table_name, new_schema_def):
         return False
     return True
 
+
+def refresh_new_schema_backup(schema_path: str) -> str:
+    """
+    Regenerate NEW_SUITE_BACKUP from target DB schema using pg_dump.
+    Controlled by env:
+      - MIGRATION_REFRESH_NEW_SCHEMA (default: 1)
+      - MIGRATION_SCHEMA_REFRESH_STRICT (default: 1)
+    """
+    enabled = os.environ.get('MIGRATION_REFRESH_NEW_SCHEMA', '1').strip().lower() in {'1', 'true', 'yes'}
+    strict = os.environ.get('MIGRATION_SCHEMA_REFRESH_STRICT', '1').strip().lower() in {'1', 'true', 'yes'}
+
+    if not enabled:
+        print(f"[schema-refresh] disabled (MIGRATION_REFRESH_NEW_SCHEMA=0), using existing: {schema_path}")
+        return schema_path
+
+    out_dir = os.path.dirname(schema_path) or "."
+    os.makedirs(out_dir, exist_ok=True)
+    tmp_path = f"{schema_path}.tmp"
+
+    pg_host = os.environ.get('PGHOST', '127.0.0.1')
+    pg_port = os.environ.get('PGPORT', '5432')
+    pg_user = os.environ.get('PGUSER', '')
+    pg_db = os.environ.get('PGDATABASE', '')
+
+    if not pg_user or not pg_db:
+        msg = "[schema-refresh] PGUSER/PGDATABASE non impostati: impossibile rigenerare lo schema"
+        if strict:
+            raise RuntimeError(msg)
+        print(f"{msg}; fallback file esistente")
+        return schema_path
+
+    cmd = [
+        'pg_dump',
+        '--schema-only',
+        '--no-owner',
+        '--no-privileges',
+        '--quote-all-identifiers',
+        '--no-comments',
+        '-h', pg_host,
+        '-p', pg_port,
+        '-U', pg_user,
+        '-d', pg_db,
+        '-f', tmp_path,
+    ]
+
+    print(f"[schema-refresh] regenerating schema backup: {schema_path}")
+    try:
+        subprocess.run(cmd, check=True)
+        os.replace(tmp_path, schema_path)
+        print("[schema-refresh] done")
+        return schema_path
+    except Exception as exc:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+        msg = f"[schema-refresh] failed: {exc}"
+        if strict:
+            raise RuntimeError(msg)
+        print(f"{msg}; fallback file esistente")
+        return schema_path
+
 def load_fk_dependencies_from_db():
     """
     Read FK graph from target DB to avoid brittle parsing from schema SQL text.
@@ -1162,5 +1225,6 @@ if __name__ == "__main__":
     NEW_SUITE_BACKUP = os.environ.get('NEW_SUITE_BACKUP', 'new_schema.sql')
     OLD_SUITE_BACKUP = os.environ.get('OLD_SUITE_BACKUP', 'old_suite.dump')
     OUTPUT_FILE = os.environ.get('OUTPUT_FILE', 'migrated_db.sql')
+    NEW_SUITE_BACKUP = refresh_new_schema_backup(NEW_SUITE_BACKUP)
     schema_def, enum_defs, fk_deps = parse_sql_dump(NEW_SUITE_BACKUP)
     generate_migrated_dump(NEW_SUITE_BACKUP, OLD_SUITE_BACKUP, OUTPUT_FILE, schema_def, enum_defs, fk_deps)
