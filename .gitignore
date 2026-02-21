@@ -76,3 +76,6 @@ AGENTS.md
 
 # .agent/rules/clinica.md
 ./agent/rules/*
+
+# root screenshots folder for agent screenshots
+screenshots/

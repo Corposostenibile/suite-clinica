@@ -213,16 +213,14 @@ spec:
                   continue
                 fi
                 VAL_STEP=$((VAL_STEP + 1))
-                if [ $((VAL_STEP % 20)) -eq 0 ] || [ "${VAL_STEP}" -eq "${DISPLAY_TOTAL}" ]; then
-                  echo "\\echo [migration][validate][progress] step=${VAL_STEP}/${DISPLAY_TOTAL} table=${V_TBL} status=queued"
-                fi
+                echo "\\echo [migration][validate][progress] step=${VAL_STEP}/${DISPLAY_TOTAL} table=${V_TBL} status=queued"
                 printf "\\i %s\n" "${V_FILE}"
               done < "${MIGRATION_ORDER_FILE}"
               echo "ROLLBACK;"
             } > "${VAL_SCRIPT}"
 
             V_ERR_FILE=$(mktemp)
-            if ! psql -q -v ON_ERROR_STOP=1 -f "${VAL_SCRIPT}" >/dev/null 2>"${V_ERR_FILE}"; then
+            if ! psql -q -v ON_ERROR_STOP=1 -f "${VAL_SCRIPT}" 2>"${V_ERR_FILE}" | sed -n 's/^\\[migration\\]\\[validate\\]\\[progress\\]/&/p'; then
               ERR_SRC_FILE=$(sed -n 's#.*\(/data/backups/migration_output/tables/[0-9][0-9][0-9][0-9]_[^:]*\.sql\):.*#\1#p' "${V_ERR_FILE}" | head -n1)
               if [ -n "${ERR_SRC_FILE}" ]; then
                 ERR_BASE=$(basename "${ERR_SRC_FILE}")
