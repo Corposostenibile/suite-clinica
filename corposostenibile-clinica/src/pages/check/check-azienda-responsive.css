@@ -1,0 +1,103 @@
+/* Responsive styles for Check Azienda */
+
+@media (max-width: 991.98px) {
+    .ca-filters-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+
+    .ca-filters-row .col-lg-6 {
+        width: 100% !important;
+    }
+
+    .ca-kpi-container {
+        justify-content: flex-start !important;
+        margin-top: 10px;
+    }
+}
+
+@media (max-width: 767.98px) {
+
+    /* Horizontal scrolling for filter bars */
+    .ca-scroll-filters {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* Firefox */
+        padding-bottom: 5px;
+        margin-bottom: 0;
+    }
+
+    .ca-scroll-filters::-webkit-scrollbar {
+        display: none;
+        /* Chrome/Safari */
+    }
+
+    .ca-scroll-filters .d-flex {
+        flex-wrap: nowrap !important;
+        width: max-content;
+    }
+
+    /* Adjust page Title/Header */
+    .container-fluid>.d-flex.flex-wrap {
+        gap: 10px !important;
+    }
+
+    /* KPI grid instead of wrap if needed, or scroll */
+    .ca-kpi-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap !important;
+        width: 100%;
+        padding-bottom: 10px;
+    }
+
+    /* Table adjustments */
+    .table thead th {
+        font-size: 12px !important;
+        padding: 10px 8px !important;
+    }
+
+    .table tbody td {
+        padding: 12px 8px !important;
+        font-size: 13px !important;
+    }
+
+    /* Card padding */
+    .card-body.py-3.px-4 {
+        padding: 15px !important;
+    }
+
+    /* Dropdown width */
+    .form-select {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* Status filters layout */
+    .ca-status-filters {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 5px;
+    }
+
+    .ca-status-filters .d-flex {
+        flex-wrap: nowrap !important;
+        width: max-content;
+    }
+}
+
+@media (max-width: 479.98px) {
+
+    /* Further compacting for small phones */
+    .btn {
+        padding: 0 10px !important;
+        font-size: 12px !important;
+        height: 38px !important;
+    }
+
+    .ca-kpi-badge {
+        padding: 2px 6px !important;
+        font-size: 11px !important;
+    }
+}

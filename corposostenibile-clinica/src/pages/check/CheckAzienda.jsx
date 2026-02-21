@@ -3,14 +3,15 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { 
-    FaChartLine, 
-    FaCalendarAlt, 
-    FaUsers, 
-    FaFilter, 
-    FaTable,
-    FaInfoCircle,
-    FaLightbulb
+import './check-azienda-responsive.css';
+import {
+  FaChartLine,
+  FaCalendarAlt,
+  FaUsers,
+  FaFilter,
+  FaTable,
+  FaInfoCircle,
+  FaLightbulb
 } from 'react-icons/fa';
 
 // Stili per la tabella (stesso stile di ClientiList)
@@ -175,8 +176,8 @@ const ProfessionalCell = ({ professionals, rating, progressRating, bgColor, text
       {/* MPS Badge (New) */}
       {mps && (
         <span
-            title={`Media: (Voto Professionista [${rating}] + Voto Progresso [${progressRating}]) / 2 = ${mps}`}
-            style={{
+          title={`Media: (Voto Professionista [${rating}] + Voto Progresso [${progressRating}]) / 2 = ${mps}`}
+          style={{
             fontSize: '10px',
             fontWeight: 700,
             color: '#64748b',
@@ -184,9 +185,9 @@ const ProfessionalCell = ({ professionals, rating, progressRating, bgColor, text
             padding: '2px 6px',
             borderRadius: '6px',
             cursor: 'help'
-            }}
+          }}
         >
-            MPS: {mps}
+          MPS: {mps}
         </span>
       )}
 
@@ -228,7 +229,7 @@ function CheckAzienda() {
   const [responses, setResponses] = useState([]);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
-  
+
   // Tour
   const [mostraTour, setMostraTour] = useState(false);
   const [searchParams] = useSearchParams();
@@ -239,7 +240,7 @@ function CheckAzienda() {
       setMostraTour(true);
     }
   }, [searchParams]);
-  
+
   const tourSteps = [
     {
       target: '[data-tour="header"]',
@@ -337,7 +338,7 @@ function CheckAzienda() {
     if (step.action === 'open_modal') {
       // Simulate opening the first available response
       if (responses.length > 0) {
-          handleViewCheckResponse(responses[0]);
+        handleViewCheckResponse(responses[0]);
       }
     } else if (step.action === 'close_modal') {
       setShowCheckResponseModal(false);
@@ -580,9 +581,9 @@ function CheckAzienda() {
         }}
       >
         <div className="card-body py-3 px-4">
-          <div className="row g-3 align-items-center">
+          <div className="row g-3 align-items-center ca-filters-row">
             {/* Period Filters */}
-            <div className="col-lg-6" data-tour="period-filters">
+            <div className="col-lg-6 ca-scroll-filters" data-tour="period-filters">
               <div className="d-flex gap-2 flex-nowrap">
                 {[
                   { key: 'week', label: 'Settimana' },
@@ -619,7 +620,7 @@ function CheckAzienda() {
 
             {/* KPI Averages */}
             <div className="col-lg-6" data-tour="kpi-dashboard">
-              <div className="d-flex flex-wrap gap-3 justify-content-lg-end align-items-center">
+              <div className="d-flex flex-wrap gap-3 justify-content-lg-end align-items-center ca-kpi-container">
                 {/* Nutrizionista */}
                 <div className="d-flex align-items-center gap-2">
                   <i className="ri-restaurant-line text-success" style={{ fontSize: '18px' }}></i>
@@ -749,7 +750,7 @@ function CheckAzienda() {
         <div className="card-body py-3 px-4">
           <div className="row g-3 align-items-center">
             {/* Professional Type Filter */}
-            <div className="col-lg-6" data-tour="prof-filters">
+            <div className="col-lg-6 ca-scroll-filters" data-tour="prof-filters">
               <div className="d-flex align-items-center gap-3">
                 <span className="text-muted small fw-semibold">Filtra per:</span>
                 <div className="d-flex gap-2">
@@ -827,7 +828,7 @@ function CheckAzienda() {
           </div>
 
           {/* Rating & Read Filters Row */}
-          <div className="row g-3 align-items-center mt-2 pt-3 border-top" data-tour="status-filters">
+          <div className="row g-3 align-items-center mt-2 pt-3 border-top ca-status-filters" data-tour="status-filters">
             <div className="col-12">
               <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span className="text-muted small fw-semibold">Stato:</span>
@@ -992,124 +993,124 @@ function CheckAzienda() {
                       </thead>
                       <tbody>
                         {paginatedResponses.map((response, index) => {
-                    const isHovered = hoveredRow === index;
+                          const isHovered = hoveredRow === index;
 
-                    return (
-                      <tr
-                        key={`${response.type}-${response.id}`}
-                        data-tour={index === 0 ? "check-record" : undefined}
-                        style={{
-                          ...tableStyles.row,
-                          background: isHovered ? '#f8fafc' : 'transparent',
-                        }}
-                        onMouseEnter={() => setHoveredRow(index)}
-                        onMouseLeave={() => setHoveredRow(null)}
-                        onClick={() => handleRowClick(response)}
-                      >
-                        {/* Cliente */}
-                        <td style={tableStyles.td}>
-                          <div className="d-flex align-items-center gap-2">
-                            <Link
-                              to={`/clienti-dettaglio/${response.cliente_id}`}
-                              className="text-decoration-none"
-                              onClick={(e) => e.stopPropagation()}
+                          return (
+                            <tr
+                              key={`${response.type}-${response.id}`}
+                              data-tour={index === 0 ? "check-record" : undefined}
                               style={{
-                                color: '#3b82f6',
-                                fontWeight: 600,
-                                fontSize: '14px',
+                                ...tableStyles.row,
+                                background: isHovered ? '#f8fafc' : 'transparent',
                               }}
-                              onMouseOver={(e) => e.currentTarget.style.color = '#2563eb'}
-                              onMouseOut={(e) => e.currentTarget.style.color = '#3b82f6'}
+                              onMouseEnter={() => setHoveredRow(index)}
+                              onMouseLeave={() => setHoveredRow(null)}
+                              onClick={() => handleRowClick(response)}
                             >
-                              {response.cliente_nome || 'Cliente'}
-                            </Link>
-                            {response.type === 'dca' && (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: '9px',
-                                  fontWeight: 600,
-                                  background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-                                  color: '#0369a1',
-                                }}
-                              >
-                                <i className="ri-heart-pulse-line"></i> DCA
-                              </span>
-                            )}
-                          </div>
-                        </td>
+                              {/* Cliente */}
+                              <td style={tableStyles.td}>
+                                <div className="d-flex align-items-center gap-2">
+                                  <Link
+                                    to={`/clienti-dettaglio/${response.cliente_id}`}
+                                    className="text-decoration-none"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      color: '#3b82f6',
+                                      fontWeight: 600,
+                                      fontSize: '14px',
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.color = '#2563eb'}
+                                    onMouseOut={(e) => e.currentTarget.style.color = '#3b82f6'}
+                                  >
+                                    {response.cliente_nome || 'Cliente'}
+                                  </Link>
+                                  {response.type === 'dca' && (
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '9px',
+                                        fontWeight: 600,
+                                        background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
+                                        color: '#0369a1',
+                                      }}
+                                    >
+                                      <i className="ri-heart-pulse-line"></i> DCA
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
 
-                        {/* Data */}
-                        <td style={tableStyles.td}>
-                          <span style={{ fontWeight: 500 }}>
-                            {formatDate(response.submit_date)}
-                          </span>
-                        </td>
+                              {/* Data */}
+                              <td style={tableStyles.td}>
+                                <span style={{ fontWeight: 500 }}>
+                                  {formatDate(response.submit_date)}
+                                </span>
+                              </td>
 
-                        {/* Nutrizionista */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.nutrizionisti}
-                            rating={response.nutritionist_rating}
-                            progressRating={response.progress_rating}
-                            bgColor="#dcfce7"
-                            textColor="#166534"
-                          />
-                        </td>
+                              {/* Nutrizionista */}
+                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                                <ProfessionalCell
+                                  professionals={response.nutrizionisti}
+                                  rating={response.nutritionist_rating}
+                                  progressRating={response.progress_rating}
+                                  bgColor="#dcfce7"
+                                  textColor="#166534"
+                                />
+                              </td>
 
-                        {/* Psicologo */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.psicologi}
-                            rating={response.psychologist_rating}
-                            progressRating={response.progress_rating}
-                            bgColor="#e0f2fe"
-                            textColor="#0369a1"
-                          />
-                        </td>
+                              {/* Psicologo */}
+                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                                <ProfessionalCell
+                                  professionals={response.psicologi}
+                                  rating={response.psychologist_rating}
+                                  progressRating={response.progress_rating}
+                                  bgColor="#e0f2fe"
+                                  textColor="#0369a1"
+                                />
+                              </td>
 
-                        {/* Coach */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.coaches}
-                            rating={response.coach_rating}
-                            progressRating={response.progress_rating}
-                            bgColor="#dbeafe"
-                            textColor="#1d4ed8"
-                          />
-                        </td>
+                              {/* Coach */}
+                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                                <ProfessionalCell
+                                  professionals={response.coaches}
+                                  rating={response.coach_rating}
+                                  progressRating={response.progress_rating}
+                                  bgColor="#dbeafe"
+                                  textColor="#1d4ed8"
+                                />
+                              </td>
 
-                        {/* Progresso */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <span style={getRatingStyle(response.progress_rating)}>
-                              {response.progress_rating ?? '-'}
-                            </span>
-                            <img
-                              src="/static/assets/immagini/logo_user.png"
-                              alt="Progresso"
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                objectFit: 'cover',
-                                border: '2px solid #fff',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                              }}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                              {/* Progresso */}
+                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                  <span style={getRatingStyle(response.progress_rating)}>
+                                    {response.progress_rating ?? '-'}
+                                  </span>
+                                  <img
+                                    src="/static/assets/immagini/logo_user.png"
+                                    alt="Progresso"
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '50%',
+                                      objectFit: 'cover',
+                                      border: '2px solid #fff',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -1184,8 +1185,8 @@ function CheckAzienda() {
             <div className="modal-content" style={{ borderRadius: '16px', overflow: 'hidden' }}>
               <div className="modal-header" style={{
                 background: selectedCheckResponse.type === 'weekly' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-                           selectedCheckResponse.type === 'dca' ? 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)' :
-                           'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  selectedCheckResponse.type === 'dca' ? 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)' :
+                    'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                 color: 'white',
                 border: 'none'
               }}>
@@ -1286,94 +1287,94 @@ function CheckAzienda() {
                     {/* Ratings */}
                     {(selectedCheckResponse.nutritionist_rating || selectedCheckResponse.psychologist_rating ||
                       selectedCheckResponse.coach_rating || selectedCheckResponse.progress_rating) && (
-                      <div className="mb-4" data-tour="check-ratings">
-                        <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
-                        <div className="row g-3">
-                          {selectedCheckResponse.nutritionist_rating && (() => {
-                            const nutri = selectedCheckResponse.nutrizionisti?.[0];
-                            return (
+                        <div className="mb-4" data-tour="check-ratings">
+                          <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
+                          <div className="row g-3">
+                            {selectedCheckResponse.nutritionist_rating && (() => {
+                              const nutri = selectedCheckResponse.nutrizionisti?.[0];
+                              return (
+                                <div className="col-6 col-md-3">
+                                  <div className="p-3 rounded text-center" style={{ background: '#dcfce7' }}>
+                                    {nutri && (
+                                      <div className="mb-2 d-flex justify-content-center">
+                                        {nutri.avatar_path ? (
+                                          <img src={nutri.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #22c55e' }} />
+                                        ) : (
+                                          <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
+                                            {getInitials(nutri.nome)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    <div className="fw-bold fs-4 text-success">{selectedCheckResponse.nutritionist_rating}</div>
+                                    <small className="text-muted">{nutri?.nome || 'Nutrizionista'}</small>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {selectedCheckResponse.psychologist_rating && (() => {
+                              const psico = selectedCheckResponse.psicologi?.[0];
+                              return (
+                                <div className="col-6 col-md-3">
+                                  <div className="p-3 rounded text-center" style={{ background: '#fef3c7' }}>
+                                    {psico && (
+                                      <div className="mb-2 d-flex justify-content-center">
+                                        {psico.avatar_path ? (
+                                          <img src={psico.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #d97706' }} />
+                                        ) : (
+                                          <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem', background: '#d97706' }}>
+                                            {getInitials(psico.nome)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    <div className="fw-bold fs-4" style={{ color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
+                                    <small className="text-muted">{psico?.nome || 'Psicologo'}</small>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {selectedCheckResponse.coach_rating && (() => {
+                              const coach = selectedCheckResponse.coaches?.[0];
+                              return (
+                                <div className="col-6 col-md-3">
+                                  <div className="p-3 rounded text-center" style={{ background: '#dbeafe' }}>
+                                    {coach && (
+                                      <div className="mb-2 d-flex justify-content-center">
+                                        {coach.avatar_path ? (
+                                          <img src={coach.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #3b82f6' }} />
+                                        ) : (
+                                          <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
+                                            {getInitials(coach.nome)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    <div className="fw-bold fs-4 text-primary">{selectedCheckResponse.coach_rating}</div>
+                                    <small className="text-muted">{coach?.nome || 'Coach'}</small>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {selectedCheckResponse.progress_rating && (
                               <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#dcfce7' }}>
-                                  {nutri && (
-                                    <div className="mb-2 d-flex justify-content-center">
-                                      {nutri.avatar_path ? (
-                                        <img src={nutri.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #22c55e' }} />
-                                      ) : (
-                                        <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
-                                          {getInitials(nutri.nome)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  <div className="fw-bold fs-4 text-success">{selectedCheckResponse.nutritionist_rating}</div>
-                                  <small className="text-muted">{nutri?.nome || 'Nutrizionista'}</small>
+                                <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
+                                  <div className="mb-2 d-flex justify-content-center">
+                                    <img
+                                      src="/static/assets/immagini/logo_user.png"
+                                      alt="Progresso"
+                                      className="rounded-circle"
+                                      style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #9333ea' }}
+                                    />
+                                  </div>
+                                  <div className="fw-bold fs-4" style={{ color: '#9333ea' }}>{selectedCheckResponse.progress_rating}</div>
+                                  <small className="text-muted">Progresso</small>
                                 </div>
                               </div>
-                            );
-                          })()}
-                          {selectedCheckResponse.psychologist_rating && (() => {
-                            const psico = selectedCheckResponse.psicologi?.[0];
-                            return (
-                              <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#fef3c7' }}>
-                                  {psico && (
-                                    <div className="mb-2 d-flex justify-content-center">
-                                      {psico.avatar_path ? (
-                                        <img src={psico.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #d97706' }} />
-                                      ) : (
-                                        <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem', background: '#d97706' }}>
-                                          {getInitials(psico.nome)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  <div className="fw-bold fs-4" style={{ color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
-                                  <small className="text-muted">{psico?.nome || 'Psicologo'}</small>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                          {selectedCheckResponse.coach_rating && (() => {
-                            const coach = selectedCheckResponse.coaches?.[0];
-                            return (
-                              <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#dbeafe' }}>
-                                  {coach && (
-                                    <div className="mb-2 d-flex justify-content-center">
-                                      {coach.avatar_path ? (
-                                        <img src={coach.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #3b82f6' }} />
-                                      ) : (
-                                        <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
-                                          {getInitials(coach.nome)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  <div className="fw-bold fs-4 text-primary">{selectedCheckResponse.coach_rating}</div>
-                                  <small className="text-muted">{coach?.nome || 'Coach'}</small>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                          {selectedCheckResponse.progress_rating && (
-                            <div className="col-6 col-md-3">
-                              <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
-                                <div className="mb-2 d-flex justify-content-center">
-                                  <img
-                                    src="/static/assets/immagini/logo_user.png"
-                                    alt="Progresso"
-                                    className="rounded-circle"
-                                    style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #9333ea' }}
-                                  />
-                                </div>
-                                <div className="fw-bold fs-4" style={{ color: '#9333ea' }}>{selectedCheckResponse.progress_rating}</div>
-                                <small className="text-muted">Progresso</small>
-                              </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Wellness Ratings (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
@@ -1570,9 +1571,9 @@ function CheckAzienda() {
         steps={tourSteps}
         isOpen={mostraTour}
         onClose={() => {
-            setMostraTour(false);
-            // Close modal if open when tour closes
-            setShowCheckResponseModal(false);
+          setMostraTour(false);
+          // Close modal if open when tour closes
+          setShowCheckResponseModal(false);
         }}
         onStepChange={handleTourStepChange}
         onComplete={() => {
