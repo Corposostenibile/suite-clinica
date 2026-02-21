@@ -112,18 +112,6 @@
         white-space: nowrap;
     }
 
-    /* Hide tab text on very small screens, show only icons */
-    @media (max-width: 479.98px) {
-        .cd-tabs .nav-tabs .nav-link {
-            padding: 10px 12px !important;
-            font-size: 0 !important;
-        }
-
-        .cd-tabs .nav-tabs .nav-link i {
-            font-size: 16px !important;
-            margin: 0 !important;
-        }
-    }
 
     /* ==================================================================
      4. TAB CONTENT AREA
