@@ -81,8 +81,30 @@ Errori comuni:
 - `configmap "migration-script-config" not found`: rieseguire la creazione ConfigMap (step 2).
 - `secret "db-credentials" / "sql-proxy-key" not found`: secret mancanti nel namespace corrente.
 - `pg_isready timeout` o errori proxy: credenziali Cloud SQL o connectivity issue verso istanza DB.
+- `FailedScheduling` (es. `Insufficient memory/cpu` o `didn't match Pod's node affinity/selector`): capacità cluster insufficiente o vincoli zona/affinity incompatibili con il PVC.
 - `Evicted: exceeded local ephemeral storage limit`: il pod ha saturato disco temporaneo locale. La versione aggiornata del Job usa temp su PVC (`/data/backups/migration_output/tmp`) e risorse `ephemeral-storage` aumentate.
 - `SIGTERM` durante la generazione/import: in Autopilot può avvenire per scale-down/defrag del nodo; verificare eventi del namespace e rilanciare il Job.
+
+### 3.2 Scheduling e Risorse (quando il pod resta Pending)
+
+Se il pod del job non schedula:
+
+```bash
+# Vedi il motivo preciso
+kubectl describe pod -l job-name=suite-clinica-db-migration
+
+# Vedi risorse attuali dei nodi
+kubectl get nodes -o wide
+```
+
+Linee guida:
+- Evitare `nodeSelector` rigidi di zona nel Job, a meno che sia necessario.
+- Se c'è `Insufficient memory/cpu`, aumentare capacità del node pool oppure ridurre le `requests` del container `migrator` (non solo i `limits`).
+- Se compare mismatch con PVC node affinity, usare nodi nella stessa zona del volume.
+
+Valori consigliati per il container `migrator`:
+- `requests`: `cpu: 300m`, `memory: 512Mi`, `ephemeral-storage: 2Gi`
+- `limits`: `cpu: 1000m`, `memory: 3Gi`, `ephemeral-storage: 8Gi`
 
 ### 4. Migrazione degli Upload
 I file di upload vengono migrati direttamente da un bucket Google Cloud Storage a un PVC dedicato (`uploads-pvc`).

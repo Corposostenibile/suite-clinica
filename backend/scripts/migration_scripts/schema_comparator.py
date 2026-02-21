@@ -539,6 +539,17 @@ def apply_default_value(table, col, value, row):
     if table == 'sales_form_links' and col == 'unique_code' and (value is None or str(value).strip() == ''):
         link_id = str(row.get('id', '')).strip() or 'unknown'
         return f"legacy-link-{link_id}"
+    if table == 'lead_payments' and col == 'amount':
+        # Target DB enforces positive amounts (check_amount_positive).
+        # Legacy dump can contain 0.00 rows: keep row importable with a small positive floor.
+        if value is None:
+            return '0.01'
+        raw = str(value).strip().replace(',', '.')
+        try:
+            if float(raw) <= 0:
+                return '0.01'
+        except Exception:
+            return '0.01'
     if table == 'teams' and col == 'team_type' and value is None:
         team_id = str(row.get('id', '')).strip()
         return TEAM_TYPE_BY_ID.get(team_id, 'nutrizione')
@@ -557,15 +568,25 @@ def derived_user_value(col, row):
     is_external = normalize_bool(row.get('is_external'), default=False)
     raw_specialty = row.get('specialty')
     specialty = normalize_user_specialty(raw_specialty)
+    # Fallback: infer specialty from official organigram when source value is missing.
+    if not specialty:
+        inferred_specialty, _ = get_professional_info(
+            row.get('first_name') or '',
+            row.get('last_name') or '',
+        )
+        specialty = inferred_specialty
 
     if col == 'role':
         if is_admin:
             return 'admin'
         if role:
+            # A clinical role without specialty is invalid in the new model.
+            if role in {'professionista', 'team_leader'} and not specialty:
+                return 'influencer'
             return role
         if is_external:
             return 'team_esterno'
-        return 'professionista'
+        return 'professionista' if specialty else 'influencer'
     if col == 'specialty':
         return specialty
     if col == 'email':
