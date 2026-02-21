@@ -4,6 +4,8 @@ import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import './check-azienda-responsive.css';
+import '../clienti/clienti-table.css';
+import '../clienti/clienti-responsive.css';
 import {
   FaChartLine,
   FaCalendarAlt,
@@ -978,17 +980,17 @@ function CheckAzienda() {
             return (
               <>
                 {/* Tabella Risposte */}
-                <div className="card border-0" style={tableStyles.card} data-tour="responses-table">
+                <div className="card border-0 ct-card" data-tour="responses-table">
                   <div className="table-responsive">
-                    <table className="table mb-0">
-                      <thead style={tableStyles.tableHeader}>
+                    <table className="table mb-0 clienti-table">
+                      <thead className="ct-thead">
                         <tr>
-                          <th style={{ ...tableStyles.th, minWidth: '200px' }}>Cliente</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px' }}>Data</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>
-                          <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>
+                          <th className="ct-th" style={{ minWidth: '200px' }}>Cliente</th>
+                          <th className="ct-th" style={{ minWidth: '120px' }}>Data</th>
+                          <th className="ct-th" style={{ minWidth: '120px', textAlign: 'center' }}>Nutrizione</th>
+                          <th className="ct-th" style={{ minWidth: '120px', textAlign: 'center' }}>Psicologia</th>
+                          <th className="ct-th" style={{ minWidth: '120px', textAlign: 'center' }}>Coach</th>
+                          <th className="ct-th" style={{ minWidth: '100px', textAlign: 'center' }}>Progresso</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -999,8 +1001,8 @@ function CheckAzienda() {
                             <tr
                               key={`${response.type}-${response.id}`}
                               data-tour={index === 0 ? "check-record" : undefined}
+                              className="ct-row"
                               style={{
-                                ...tableStyles.row,
                                 background: isHovered ? '#f8fafc' : 'transparent',
                               }}
                               onMouseEnter={() => setHoveredRow(index)}
@@ -1008,7 +1010,7 @@ function CheckAzienda() {
                               onClick={() => handleRowClick(response)}
                             >
                               {/* Cliente */}
-                              <td style={tableStyles.td}>
+                              <td className="ct-td" data-label="Cliente">
                                 <div className="d-flex align-items-center gap-2">
                                   <Link
                                     to={`/clienti-dettaglio/${response.cliente_id}`}
@@ -1045,14 +1047,14 @@ function CheckAzienda() {
                               </td>
 
                               {/* Data */}
-                              <td style={tableStyles.td}>
+                              <td className="ct-td" data-label="Data">
                                 <span style={{ fontWeight: 500 }}>
                                   {formatDate(response.submit_date)}
                                 </span>
                               </td>
 
                               {/* Nutrizionista */}
-                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                              <td className="ct-td" style={{ textAlign: 'center' }} data-label="Nutrizione">
                                 <ProfessionalCell
                                   professionals={response.nutrizionisti}
                                   rating={response.nutritionist_rating}
@@ -1063,7 +1065,7 @@ function CheckAzienda() {
                               </td>
 
                               {/* Psicologo */}
-                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                              <td className="ct-td" style={{ textAlign: 'center' }} data-label="Psicologia">
                                 <ProfessionalCell
                                   professionals={response.psicologi}
                                   rating={response.psychologist_rating}
@@ -1074,7 +1076,7 @@ function CheckAzienda() {
                               </td>
 
                               {/* Coach */}
-                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                              <td className="ct-td" style={{ textAlign: 'center' }} data-label="Coach">
                                 <ProfessionalCell
                                   professionals={response.coaches}
                                   rating={response.coach_rating}
@@ -1085,7 +1087,7 @@ function CheckAzienda() {
                               </td>
 
                               {/* Progresso */}
-                              <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                              <td className="ct-td" style={{ textAlign: 'center' }} data-label="Progresso">
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                                   <span style={getRatingStyle(response.progress_rating)}>
                                     {response.progress_rating ?? '-'}

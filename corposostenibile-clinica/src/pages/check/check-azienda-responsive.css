@@ -85,6 +85,27 @@
         flex-wrap: nowrap !important;
         width: max-content;
     }
+
+    /* Card layout optimizations for Check Azienda */
+    .clienti-table tbody td[data-label="Nutrizione"],
+    .clienti-table tbody td[data-label="Psicologia"],
+    .clienti-table tbody td[data-label="Coach"],
+    .clienti-table tbody td[data-label="Progresso"] {
+        min-height: 60px !important;
+    }
+
+    /* Make ProfessionalCell content more horizontal on mobile cards */
+    .clienti-table tbody td div[style*="flex-direction: column"] {
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 15px !important;
+        justify-content: flex-end !important;
+        width: 100%;
+    }
+
+    .clienti-table tbody td div[style*="flex-direction: column"]>span:first-child {
+        margin-bottom: 0 !important;
+    }
 }
 
 @media (max-width: 479.98px) {
