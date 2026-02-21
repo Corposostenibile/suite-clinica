@@ -9,7 +9,11 @@ import teamService, {
   SPECIALTY_COLORS
 } from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { FaUserShield, FaUsers, FaUserTie, FaUserCog, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 import '../clienti/clienti-responsive.css';
+import '../clienti/clienti-table.css';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con i KPI pazienti)
 const SPECIALTY_GRADIENTS = {
@@ -68,6 +72,58 @@ function TeamList() {
     total: 0,
     totalPages: 0,
   });
+
+  const [mostraTour, setMostraTour] = useState(false);
+
+  // Effetto per avvio automatico tour da Hub Supporto
+  useEffect(() => {
+    if (searchParams.get('startTour') === 'true') {
+      setMostraTour(true);
+    }
+  }, [searchParams]);
+
+  const tourSteps = [
+    {
+      target: '[data-tour="header"]',
+      title: 'Gestione Team',
+      content: 'In questa sezione puoi gestire tutti i professionisti della clinica, monitorare il loro stato e i ruoli assegnati.',
+      placement: 'bottom',
+      icon: <FaUsers size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+    },
+    {
+      target: '[data-tour="stats"]',
+      title: 'Statistiche Team',
+      content: 'Visualizza rapidamente il numero totale di membri, quanti sono attivi, i team leader e i collaboratori esterni.',
+      placement: 'bottom',
+      icon: <FaUsers size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+    },
+    {
+      target: '[data-tour="filters"]',
+      title: 'Filtri Avanzati',
+      content: 'Cerca per nome, email o filtra per ruolo, specializzazione e stato per trovare rapidamente chi cerchi.',
+      placement: 'bottom',
+      icon: <FaFilter size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+    },
+    {
+      target: '[data-tour="table"]',
+      title: 'Lista Professionisti',
+      content: 'La tabella mostra tutti i dettagli chiave. Puoi vedere a colpo d\'occhio chi è leader di un team, il ruolo e la specializzazione.',
+      placement: 'top',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+    },
+    {
+      target: '[data-tour="actions"]',
+      title: 'Azioni Rapide',
+      content: 'Accedi al profilo completo per visualizzare il carico clienti e le performance, oppure modifica i dati del professionista.',
+      placement: 'left',
+      icon: <FaEye size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+    }
+  ];
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
@@ -164,7 +220,7 @@ function TeamList() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4" data-tour="header">
         <div>
           <h4 className="mb-1">Gestione Team</h4>
           <p className="text-muted mb-0">{pagination.total} membri totali</p>
@@ -178,7 +234,7 @@ function TeamList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4 clienti-stats-row">
+      <div className="row g-3 mb-4 clienti-stats-row" data-tour="stats">
         {[
           { label: 'Membri Totali', value: totalMembers, icon: 'ri-team-line', bg: 'primary' },
           { label: 'Attivi', value: totalActive, icon: 'ri-checkbox-circle-line', bg: 'success' },
@@ -207,7 +263,7 @@ function TeamList() {
       </div>
 
       {/* Filters */}
-      <div className="card shadow-sm border-0 mb-4">
+      <div className="card shadow-sm border-0 mb-4" data-tour="filters">
         <div className="card-body py-3">
           <div className="row g-2 align-items-center">
             <div className="col-lg-4">
@@ -293,131 +349,126 @@ function TeamList() {
         </div>
       ) : (
         <>
-          {/* Team Grid */}
-          <div className="row g-4">
-            {members.map((member) => {
-              const avatarSrc = normalizeAvatarPath(member.avatar_path);
-              const showAvatar = avatarSrc && !brokenAvatars[member.id];
+          {/* Tabella Team */}
+          <div className="card border-0 clienti-table-wrap ct-card" data-tour="table">
+            <div className="table-responsive">
+              <table className="table mb-0 clienti-table">
+                <thead className="ct-thead">
+                  <tr>
+                    <th className="ct-th" style={{ minWidth: '200px' }}>Professionista</th>
+                    <th className="ct-th" style={{ minWidth: '150px' }}>Ruolo</th>
+                    <th className="ct-th" style={{ minWidth: '150px' }}>Specializzazione</th>
+                    <th className="ct-th" style={{ minWidth: '150px' }}>Info Team</th>
+                    <th className="ct-th" style={{ minWidth: '120px' }}>Stato</th>
+                    <th className="ct-th" style={{ textAlign: 'right', minWidth: '120px' }}>Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members.map((member, index) => {
+                    const avatarSrc = normalizeAvatarPath(member.avatar_path);
+                    const showAvatar = avatarSrc && !brokenAvatars[member.id];
+                    const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase();
+                    const specGradient = SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT;
 
-              return (
-                <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
-                  <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
-                    {/* Gradient Header - colore basato su specializzazione */}
-                    <div
-                      className="position-relative"
-                      style={{
-                        background: SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT,
-                        height: '70px',
-                      }}
-                    >
-                      {/* Status Badges */}
-                      <div className="position-absolute top-0 start-0 m-2 d-flex gap-1">
-                        {!member.is_active && (
-                          <span className="badge bg-dark bg-opacity-75 small">
-                            <i className="ri-close-circle-line me-1"></i>Inattivo
-                          </span>
-                        )}
-                        {member.is_external && (
-                          <span className="badge bg-white text-dark small">
-                            <i className="ri-external-link-line me-1"></i>Esterno
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Avatar */}
-                      <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
-                        {showAvatar ? (
-                          <img
-                            src={avatarSrc}
-                            alt={member.full_name}
-                            className="rounded-circle border border-3 border-white shadow-sm"
-                            style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }}
-                            onError={() => setBrokenAvatars(prev => ({ ...prev, [member.id]: true }))}
-                          />
-                        ) : (
-                          <div
-                            className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center"
-                            style={{
-                              width: '64px',
-                              height: '64px',
-                              background: '#fff'
-                            }}
-                          >
-                            <span className="fw-bold fs-5 text-primary">
-                              {member.first_name?.[0]?.toUpperCase()}{member.last_name?.[0]?.toUpperCase()}
-                            </span>
+                    return (
+                      <tr key={member.id} className="ct-row">
+                        {/* Professionista */}
+                        <td className="ct-td" data-label="Professionista">
+                          <div className="d-flex align-items-center gap-3">
+                            {showAvatar ? (
+                              <img
+                                src={avatarSrc}
+                                alt={member.full_name}
+                                className="ct-avatar-init"
+                                style={{ objectFit: 'cover' }}
+                                onError={() => setBrokenAvatars(prev => ({ ...prev, [member.id]: true }))}
+                              />
+                            ) : (
+                              <div
+                                className="ct-avatar-init"
+                                style={{ background: specGradient, color: '#fff' }}
+                              >
+                                {initials}
+                              </div>
+                            )}
+                            <Link to={`/team-dettaglio/${member.id}`} className="ct-name-link">
+                              {member.full_name || `${member.first_name} ${member.last_name}`}
+                            </Link>
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </td>
 
-                    {/* Card Body */}
-                    <div className="card-body text-center pt-5 pb-3">
-                      {/* Name */}
-                      <h5 className="fw-semibold mb-1">
-                        <Link
-                          to={`/team-dettaglio/${member.id}`}
-                          className="text-dark text-decoration-none"
-                          style={{ transition: 'color 0.2s' }}
-                          onMouseOver={(e) => e.target.style.color = '#667eea'}
-                          onMouseOut={(e) => e.target.style.color = ''}
-                        >
-                          {member.full_name || `${member.first_name} ${member.last_name}`}
-                        </Link>
-                      </h5>
-
-                      {/* Email */}
-                      <p className="text-muted small mb-3" style={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '100%'
-                      }}>
-                        {member.email}
-                      </p>
-
-                      {/* Role & Specialty Badges */}
-                      <div className="d-flex flex-wrap justify-content-center gap-1 mb-2">
-                        <span className={`badge rounded-pill px-2 py-1 bg-${ROLE_COLORS[member.role] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                          {ROLE_LABELS[member.role] || member.role || 'N/D'}
-                        </span>
-                        {member.specialty && (
-                          <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                            {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                        {/* Ruolo */}
+                        <td className="ct-td" data-label="Ruolo">
+                          <span className={`badge rounded-pill px-2 py-1 bg-${ROLE_COLORS[member.role] || 'secondary'}`} style={{ fontSize: '11px' }}>
+                            {ROLE_LABELS[member.role] || member.role || 'N/D'}
                           </span>
-                        )}
-                      </div>
+                        </td>
 
-                      {/* Teams Led */}
-                      {member.teams_led?.length > 0 && (
-                        <div className="text-muted small">
-                          <i className="ri-team-line me-1"></i>
-                          Leader di {member.teams_led.length} team
-                        </div>
-                      )}
-                    </div>
+                        {/* Specializzazione */}
+                        <td className="ct-td" data-label="Specializzazione">
+                          {member.specialty ? (
+                            <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
+                              {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                            </span>
+                          ) : (
+                            <span className="ct-empty">—</span>
+                          )}
+                        </td>
 
-                    {/* Card Footer */}
-                    <div className="card-footer bg-light border-0 py-2">
-                      <div className="d-flex gap-2 justify-content-center">
-                        <Link
-                          to={`/team-dettaglio/${member.id}`}
-                          className="btn btn-sm btn-outline-primary flex-fill"
-                        >
-                          <i className="ri-eye-line me-1"></i>Dettagli
-                        </Link>
-                        <Link
-                          to={`/team-modifica/${member.id}`}
-                          className="btn btn-sm btn-outline-secondary flex-fill"
-                        >
-                          <i className="ri-edit-line me-1"></i>Modifica
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                        {/* Info Team (Leader di...) */}
+                        <td className="ct-td" data-label="Info Team">
+                          {member.teams_led?.length > 0 ? (
+                            <span className="text-primary small fw-semibold">
+                              <i className="ri-team-line me-1"></i>
+                              Leader di {member.teams_led.length} team
+                            </span>
+                          ) : member.is_external ? (
+                            <span className="badge bg-light text-dark small">
+                              <i className="ri-external-link-line me-1"></i>Esterno
+                            </span>
+                          ) : (
+                            <span className="ct-empty">—</span>
+                          )}
+                        </td>
+
+                        {/* Stato */}
+                        <td className="ct-td" data-label="Stato">
+                          {member.is_active ? (
+                            <span className="badge bg-success-subtle text-success px-2 py-1" style={{ fontSize: '11px' }}>
+                              <i className="ri-checkbox-circle-line me-1"></i>Attivo
+                            </span>
+                          ) : (
+                            <span className="badge bg-dark bg-opacity-75 text-white px-2 py-1" style={{ fontSize: '11px' }}>
+                              <i className="ri-close-circle-line me-1"></i>Inattivo
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Azioni */}
+                        <td className="ct-td" style={{ textAlign: 'right' }} data-label="Azioni" data-tour={index === 0 ? "actions" : undefined}>
+                          <Link
+                            to={`/team-dettaglio/${member.id}`}
+                            className="ct-action-btn"
+                            style={{ borderColor: '#22c55e', color: '#22c55e' }}
+                            title="Dettaglio"
+                          >
+                            <i className="ri-eye-line" style={{ fontSize: '16px' }}></i>
+                          </Link>
+                          <Link
+                            to={`/team-modifica/${member.id}`}
+                            className="ct-action-btn"
+                            style={{ borderColor: '#3b82f6', color: '#3b82f6' }}
+                            title="Modifica"
+                          >
+                            <i className="ri-edit-line" style={{ fontSize: '16px' }}></i>
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Pagination */}
@@ -455,6 +506,28 @@ function TeamList() {
           )}
         </>
       )}
+
+      {/* Support and Tour Components */}
+      <SupportWidget
+        pageTitle="Gestione Team"
+        pageDescription="In questa pagina puoi gestire tutti i membri del team, filtrare per ruolo e specialità, e accedere ai profili completi."
+        pageIcon={FaUsers}
+        docsSection="gestione-team"
+        onStartTour={() => setMostraTour(true)}
+        brandName="Suite Clinica"
+        logoSrc="/suitemind.png"
+        accentColor="#85FF00"
+      />
+
+      <GuidedTour
+        steps={tourSteps}
+        isOpen={mostraTour}
+        onClose={() => setMostraTour(false)}
+        onComplete={() => {
+          setMostraTour(false);
+          console.log('Tour Gestione Team completato');
+        }}
+      />
     </div>
   );
 }
