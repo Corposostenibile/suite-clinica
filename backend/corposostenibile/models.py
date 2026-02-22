@@ -54,6 +54,7 @@ def register_enums() -> None:
 # helper per riutilizzare il tipo Postgres esistente senza ricrearlo
 _def = lambda enum_cls: db.Enum(
     enum_cls,
+    values_callable=lambda cls: [m.value for m in cls],
     name=enum_cls.__name__.lower(),
     schema="public",             # 👈 ANCHE QUI
     create_type=False,
