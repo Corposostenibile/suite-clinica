@@ -84,6 +84,7 @@ Errori comuni:
 - `FailedScheduling` (es. `Insufficient memory/cpu` o `didn't match Pod's node affinity/selector`): capacità cluster insufficiente o vincoli zona/affinity incompatibili con il PVC.
 - `Evicted: exceeded local ephemeral storage limit`: il pod ha saturato disco temporaneo locale. La versione aggiornata del Job usa temp su PVC (`/data/backups/migration_output/tmp`) e risorse `ephemeral-storage` aumentate.
 - `SIGTERM` durante la generazione/import: in Autopilot può avvenire per scale-down/defrag del nodo; verificare eventi del namespace e rilanciare il Job.
+- `BackoffLimitExceeded` dopo `ScaleDown`/`Killing` del pod: il nodo è stato ridotto durante una migration lunga. Aumentare `backoffLimit` e rilanciare il job.
 
 ### 3.2 Scheduling e Risorse (quando il pod resta Pending)
 
@@ -99,6 +100,7 @@ kubectl get nodes -o wide
 
 Linee guida:
 - Evitare `nodeSelector` rigidi di zona nel Job, a meno che sia necessario.
+- Non usare toleration verso nodi in dismissione (`autoscaling.gke.io/defrag-candidate`, `ToBeDeletedByClusterAutoscaler`) per job lunghi di migrazione: aumenta il rischio di kill a metà.
 - Se c'è `Insufficient memory/cpu`, aumentare capacità del node pool oppure ridurre le `requests` del container `migrator` (non solo i `limits`).
 - Se compare mismatch con PVC node affinity, usare nodi nella stessa zona del volume.
 
@@ -155,3 +157,22 @@ Workaround pratico:
 2. Creare un nuovo disco da snapshot in una zona con nodi disponibili (es. `europe-west8-c`).
 3. Creare `PV/PVC` statici legati al nuovo disco.
 4. Puntare il Job migrazione al nuovo claim (`claimName` aggiornato).
+
+## Incidente Reale: 21 Febbraio 2026 (GKE scale-down)
+
+Sintomo osservato:
+- Job `suite-clinica-db-migration` terminato con `BackoffLimitExceeded`.
+- Eventi pod: `ScaleDown` seguito da `Killing` dei container `migrator`/`cloud-sql-proxy`.
+
+Causa:
+- Pod di migrazione eseguito su nodo entrato in fase di rimozione/autoscaling durante un run lungo.
+
+Mitigazione applicata:
+1. `backoffLimit` alzato a `6` in `k8s/db-migration-job.yaml`.
+2. Rimosse toleration verso nodi candidati a rimozione (`autoscaling.gke.io/defrag-candidate`, `ToBeDeletedByClusterAutoscaler`).
+3. Rilancio del job con monitoraggio eventi/log fino a completamento.
+
+Comando diagnostico rapido:
+```bash
+kubectl get events -n default --sort-by=.lastTimestamp | rg "suite-clinica-db-migration|ScaleDown|Killing|BackoffLimitExceeded"
+```

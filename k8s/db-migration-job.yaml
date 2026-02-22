@@ -7,21 +7,11 @@ metadata:
 spec:
   # Elimina automaticamente il Job poco dopo il completamento
   ttlSecondsAfterFinished: 3600
-  backoffLimit: 2
+  backoffLimit: 6
   template:
     spec:
       restartPolicy: Never
-      tolerations:
-      - key: "node.kubernetes.io/memory-pressure"
-        operator: "Exists"
-        effect: "NoSchedule"
-      - key: "autoscaling.gke.io/defrag-candidate"
-        operator: "Exists"
-        effect: "NoSchedule"
-      - key: "ToBeDeletedByClusterAutoscaler"
-        operator: "Exists"
-        effect: "NoSchedule"
-      
+
       # K8s 1.29+ Native Sidecar: Il proxy viene definito qui ma gira come sidecar
       initContainers:
       - name: cloud-sql-proxy
@@ -73,7 +63,7 @@ spec:
         - name: MIGRATION_RESUME_FROM_STEP
           value: "1"
         - name: MIGRATION_VALIDATE_FIRST
-          value: "1"
+          value: "0"
         - name: MIGRATION_REFRESH_NEW_SCHEMA
           value: "1"
         - name: MIGRATION_SCHEMA_REFRESH_STRICT
@@ -220,7 +210,7 @@ spec:
             } > "${VAL_SCRIPT}"
 
             V_ERR_FILE=$(mktemp)
-            if ! psql -q -v ON_ERROR_STOP=1 -f "${VAL_SCRIPT}" 2>"${V_ERR_FILE}" | sed -n 's/^\\[migration\\]\\[validate\\]\\[progress\\]/&/p'; then
+            if ! psql -v ON_ERROR_STOP=1 -f "${VAL_SCRIPT}" 2>"${V_ERR_FILE}" | sed -n 's/^\\[migration\\]\\[validate\\]\\[progress\\]/&/p'; then
               ERR_SRC_FILE=$(sed -n 's#.*\(/data/backups/migration_output/tables/[0-9][0-9][0-9][0-9]_[^:]*\.sql\):.*#\1#p' "${V_ERR_FILE}" | head -n1)
               if [ -n "${ERR_SRC_FILE}" ]; then
                 ERR_BASE=$(basename "${ERR_SRC_FILE}")
@@ -427,7 +417,7 @@ spec:
           SQL
 
           echo "[migration] running schema parity check..."
-          python /app/scripts/migration_scripts/verify_schema_parity.py
+          PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
 
           psql -q -v ON_ERROR_STOP=1 <<'SQL'
           INSERT INTO public.users (

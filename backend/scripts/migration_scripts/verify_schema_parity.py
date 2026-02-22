@@ -4,15 +4,11 @@
 from __future__ import annotations
 
 import sys
+import os
 from collections import defaultdict
 
 from sqlalchemy import inspect
 from sqlalchemy import text
-
-from corposostenibile import create_app
-from corposostenibile.extensions import db
-from corposostenibile.models import StatoClienteEnum
-
 
 def _is_public_table(table_key: str) -> bool:
     if "." not in table_key:
@@ -26,6 +22,24 @@ def _qi(value: str) -> str:
 
 
 def main() -> int:
+    # In migration job containers the Flask app may default to sqlite if DATABASE_URL
+    # is not set. Build it from PG* env vars so parity runs against the target Postgres.
+    if not os.getenv("DATABASE_URL"):
+        pg_host = os.getenv("PGHOST")
+        pg_port = os.getenv("PGPORT", "5432")
+        pg_user = os.getenv("PGUSER")
+        pg_password = os.getenv("PGPASSWORD")
+        pg_database = os.getenv("PGDATABASE")
+        if all([pg_host, pg_user, pg_password, pg_database]):
+            os.environ["DATABASE_URL"] = (
+                f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
+            )
+
+    # Import after env override so app config binds to the target Postgres.
+    from corposostenibile import create_app
+    from corposostenibile.extensions import db
+    from corposostenibile.models import StatoClienteEnum
+
     app = create_app()
     with app.app_context():
         inspector = inspect(db.engine)
