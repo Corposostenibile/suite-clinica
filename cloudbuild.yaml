@@ -20,6 +20,28 @@ steps:
       - --cluster=suite-clinica-cluster-prod
       - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
 
+  # 3b. Enforce backend image rollout explicitly (gke-deploy can report success
+  # without updating the live Deployment image in some cases).
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - set
+      - image
+      - deployment/suite-clinica-backend
+      - backend=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - rollout
+      - status
+      - deployment/suite-clinica-backend
+      - --timeout=300s
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
   # 4. Migration Layer: Applica automaticamente le migrazioni Alembic
   - name: 'gcr.io/cloud-builders/kubectl'
     args:
