@@ -33,7 +33,7 @@ steps:
       - |
         set -euo pipefail
         flask db upgrade
-        python /app/scripts/migration_scripts/verify_schema_parity.py
+        PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
