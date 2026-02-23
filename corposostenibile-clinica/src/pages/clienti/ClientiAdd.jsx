@@ -18,6 +18,7 @@ import clientiService, {
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import originsService from '../../services/originsService';
+import './clienti-add-responsive.css';
 
 function ClientiAdd() {
   const { id } = useParams();
@@ -215,7 +216,7 @@ function ClientiAdd() {
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 ca-header">
         <div>
           <h4 className="mb-1">{isEdit ? 'Modifica Cliente' : 'Nuovo Cliente'}</h4>
           <p className="text-muted mb-0">
@@ -240,7 +241,7 @@ function ClientiAdd() {
         <div className="col-xl-8">
           <div className="card shadow-sm border-0" style={{ borderRadius: '12px' }}>
             {/* Tabs */}
-            <div className="card-header bg-white border-0 pt-4 pb-0">
+            <div className="card-header bg-white border-0 pt-4 pb-0 ca-tabs-container">
               <ul className="nav nav-tabs border-0">
                 {[
                   { id: 'anagrafica', label: 'Anagrafica', icon: 'ri-user-line' },
@@ -263,7 +264,7 @@ function ClientiAdd() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="card-body p-4">
+              <div className="card-body p-4 ca-form">
                 {/* Tab: Anagrafica */}
                 {activeTab === 'anagrafica' && (
                   <div className="row g-3">
@@ -688,7 +689,7 @@ function ClientiAdd() {
               </div>
 
               {/* Form Actions */}
-              <div className="card-footer bg-light border-0 py-3">
+              <div className="card-footer bg-light border-0 py-3 ca-footer">
                 <div className="d-flex justify-content-end gap-2">
                   <Link to="/clienti-lista" className="btn btn-outline-secondary">
                     Annulla
@@ -714,7 +715,7 @@ function ClientiAdd() {
 
         {/* Preview Card */}
         <div className="col-xl-4">
-          <div className="card shadow-sm border-0 sticky-top" style={{ borderRadius: '12px', top: '100px' }}>
+          <div className="card shadow-sm border-0 sticky-top ca-preview-card" style={{ borderRadius: '12px', top: '100px' }}>
             {/* Header Gradient */}
             <div
               style={{

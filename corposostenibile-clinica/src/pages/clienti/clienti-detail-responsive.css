@@ -288,14 +288,79 @@
      10. TABLES inside detail (check responses, ticket list, etc.)
      ================================================================== */
 
+    /* Basic responsive table container */
     .cd-tabs .table-responsive {
         font-size: 12px;
+        overflow-x: visible !important;
     }
 
-    .cd-tabs .table th,
-    .cd-tabs .table td {
-        padding: 8px 10px !important;
-        font-size: 12px !important;
+    /* Transform table to cards on mobile */
+    .cd-tabs .table,
+    .cd-tabs .table thead,
+    .cd-tabs .table tbody,
+    .cd-tabs .table tr,
+    .cd-tabs .table td,
+    .cd-tabs .table th {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* Hide table headers */
+    .cd-tabs .table thead {
+        display: none !important;
+    }
+
+    /* Each row becomes a compact card */
+    .cd-tabs .table tbody tr {
+        background: #fff;
+        border: 1px solid #f1f5f9;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+
+    /* Each cell is a row inside the card */
+    .cd-tabs .table tbody td {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0 !important;
+        border-bottom: 1px solid #f8fafc !important;
+        text-align: right;
+        min-height: 40px;
+    }
+
+    .cd-tabs .table tbody td:last-child {
+        border-bottom: none !important;
+        justify-content: flex-end;
+        /* Buttons/actions align right */
+    }
+
+    /* Label from data-label attribute */
+    .cd-tabs .table tbody td::before {
+        content: attr(data-label);
+        float: left;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin-right: 12px;
+        text-align: left;
+    }
+
+    /* Special case for full-width descriptive cells (like Title or Notes) */
+    .cd-tabs .table tbody td[data-label="Titolo"],
+    .cd-tabs .table tbody td[data-label="Note"] {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        height: auto;
+    }
+
+    .cd-tabs .table tbody td[data-label="Titolo"]::before,
+    .cd-tabs .table tbody td[data-label="Note"]::before {
+        margin-bottom: 4px;
     }
 
     /* ==================================================================

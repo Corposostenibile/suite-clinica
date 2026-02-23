@@ -1,0 +1,120 @@
+/* =====================================================================
+   clienti-add-responsive.css
+   Mobile-first responsive overrides for ClientiAdd.jsx
+   All rules scoped inside @media (max-width: 767.98px)
+   ===================================================================== */
+
+@media (max-width: 767.98px) {
+
+    /* 1. Header optimization: Stack title and back button */
+    .ca-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .ca-header .btn {
+        width: 100%;
+        font-size: 13px;
+        padding: 10px 14px;
+        justify-content: center;
+    }
+
+    /* 2. Scrollable Tabs: Prevents wrapping and keeps nav accessible */
+    .ca-tabs-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin: 0 -1rem 1rem -1rem;
+        /* Negative margin to touch edges if needed */
+        padding: 0 1rem;
+    }
+
+    .ca-tabs-container::-webkit-scrollbar {
+        display: none;
+    }
+
+    .ca-tabs-container .nav-tabs {
+        flex-wrap: nowrap !important;
+        border-bottom: 2px solid #f1f5f9;
+        min-width: max-content;
+        gap: 0;
+    }
+
+    .ca-tabs-container .nav-link {
+        padding: 12px 16px !important;
+        font-size: 13px !important;
+        white-space: nowrap;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
+    }
+
+    .ca-tabs-container .nav-link.active {
+        background: transparent !important;
+        border-bottom-color: var(--primary) !important;
+        color: var(--primary) !important;
+    }
+
+    /* 3. Form Layout & Fields: Touch friendly */
+    .ca-form .form-control,
+    .ca-form .form-select {
+        min-height: 46px;
+        /* slightly bigger for better touch */
+        font-size: 16px !important;
+        /* prevents iOS auto-zoom */
+        border-radius: 8px;
+    }
+
+    .ca-form .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #475569;
+    }
+
+    /* Input groups adjustment */
+    .ca-form .input-group-text {
+        background-color: #f8fafc;
+        border-color: #e2e8f0;
+    }
+
+    /* 4. Preview Card: Stacks below on mobile with proper spacing */
+    .ca-preview-card {
+        position: static !important;
+        margin-top: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* 5. Footer actions: Stacked vertical */
+    .ca-footer {
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding: 1.25rem !important;
+        background-color: #f8fafc !important;
+    }
+
+    .ca-footer .btn {
+        width: 100% !important;
+        min-height: 48px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ca-footer .btn-outline-secondary {
+        order: 2;
+        /* Move "Annulla" below "Salva" on mobile */
+    }
+
+    .ca-footer .btn-primary {
+        order: 1;
+    }
+
+    /* Adjust row gaps */
+    .ca-form .row.g-3 {
+        --bs-gutter-y: 1.25rem;
+    }
+}

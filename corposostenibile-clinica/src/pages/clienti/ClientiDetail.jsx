@@ -4165,21 +4165,21 @@ function ClientiDetail() {
                                         .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
                                         .map((plan) => (
                                           <tr key={plan.id || plan.start_date}>
-                                            <td>
+                                            <td data-label="Nome">
                                               <span className="fw-medium">{plan.name || 'Piano Alimentare'}</span>
                                               {plan.is_legacy && (
                                                 <span className="badge bg-warning-subtle text-warning ms-2" style={{ fontSize: '0.65rem' }}>Legacy</span>
                                               )}
                                             </td>
-                                            <td className="text-muted">
+                                            <td data-label="Periodo" className="text-muted">
                                               {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
                                               {' → '}
                                               {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
                                             </td>
-                                            <td className="text-muted">
+                                            <td data-label="Durata" className="text-muted">
                                               {plan.duration_days ? `${plan.duration_days}gg` : '-'}
                                             </td>
-                                            <td className="text-end">
+                                            <td data-label="Azioni" className="text-end">
                                               <div className="d-flex gap-1 justify-content-end">
                                                 {plan.has_file && plan.piano_alimentare_file_path && (
                                                   <>
@@ -5004,14 +5004,14 @@ function ClientiDetail() {
                                         .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
                                         .map((plan) => (
                                           <tr key={plan.id}>
-                                            <td><span className="fw-medium">{plan.name || 'Piano Allenamento'}</span></td>
-                                            <td className="text-muted">
+                                            <td data-label="Nome"><span className="fw-medium">{plan.name || 'Piano Allenamento'}</span></td>
+                                            <td data-label="Periodo" className="text-muted">
                                               {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
                                               {' → '}
                                               {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
                                             </td>
-                                            <td className="text-muted">{plan.duration_days ? `${plan.duration_days}gg` : '-'}</td>
-                                            <td className="text-end">
+                                            <td data-label="Durata" className="text-muted">{plan.duration_days ? `${plan.duration_days}gg` : '-'}</td>
+                                            <td data-label="Azioni" className="text-end">
                                               <div className="d-flex gap-1 justify-content-end">
                                                 {plan.has_file && plan.piano_allenamento_file_path && (
                                                   <button
@@ -5376,7 +5376,7 @@ function ClientiDetail() {
                                 <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
                                   <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
                                 </div>
-                                <span className="fw-semibold text-danger" style={{ fontSize: '0.9rem' }}>Alert Coaching</span>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Alert Coaching</span>
                               </div>
                               <p className="text-muted small mb-2">
                                 Informazioni critiche: infortuni, limitazioni fisiche, controindicazioni.
@@ -6194,10 +6194,10 @@ function ClientiDetail() {
                                   .filter(r => r.type === activePeriodiciTab)
                                   .map((response) => (
                                     <tr key={`${response.type}-${response.id}`}>
-                                      <td>
+                                      <td data-label="Data">
                                         <small className="fw-medium">{response.submit_date}</small>
                                       </td>
-                                      <td>
+                                      <td data-label="Tipo">
                                         <span className="badge" style={{
                                           background: CHECK_TYPES[response.type]?.bgColor || '#f1f5f9',
                                           color: CHECK_TYPES[response.type]?.color || '#64748b',
@@ -6207,7 +6207,7 @@ function ClientiDetail() {
                                           {CHECK_TYPES[response.type]?.label || response.type}
                                         </span>
                                       </td>
-                                      <td className="text-center">
+                                      <td data-label="Valutazioni" className="text-center">
                                         {response.type === 'weekly' && (
                                           <div className="d-flex justify-content-center gap-2">
                                             {response.nutritionist_rating && (
@@ -6241,7 +6241,7 @@ function ClientiDetail() {
                                           <small className="text-muted">-</small>
                                         )}
                                       </td>
-                                      <td className="text-center">
+                                      <td data-label="Azioni" className="text-center">
                                         <button
                                           className="btn btn-sm btn-outline-primary py-0 px-2"
                                           onClick={() => handleViewCheckResponse(response)}
@@ -6422,28 +6422,28 @@ function ClientiDetail() {
                             }[t.priority] || { label: t.priority, bg: '#f3f4f6', color: '#374151' };
                             return (
                               <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => openTicketDetail(t.id)}>
-                                <td><span className="fw-semibold text-primary">{t.ticket_number}</span></td>
-                                <td>{t.title || <span className="text-muted fst-italic">{(t.description || '').slice(0, 50)}</span>}</td>
-                                <td>
+                                <td data-label="Numero"><span className="fw-semibold text-primary">{t.ticket_number}</span></td>
+                                <td data-label="Titolo">{t.title || <span className="text-muted fst-italic">{(t.description || '').slice(0, 50)}</span>}</td>
+                                <td data-label="Stato">
                                   <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
                                     {statusCfg.label}
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Priorita'">
                                   <span className="badge rounded-pill px-2 py-1" style={{ background: prioCfg.bg, color: prioCfg.color, fontSize: '0.75rem' }}>
                                     {prioCfg.label}
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Assegnatari">
                                   <span className="small text-muted">
                                     {(t.assigned_users || []).map(u => u.name).join(', ') || '—'}
                                   </span>
                                 </td>
-                                <td>
+                                <td data-label="Fonte">
                                   <i className={`ri-${t.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
                                 </td>
-                                <td><small className="text-muted">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</small></td>
-                                <td>
+                                <td data-label="Data"><small className="text-muted">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td data-label="Azioni">
                                   <span className="text-muted small">
                                     {t.messages_count > 0 && <span className="me-2"><i className="ri-chat-3-line"></i> {t.messages_count}</span>}
                                     {t.attachments_count > 0 && <span><i className="ri-attachment-2"></i> {t.attachments_count}</span>}
@@ -6519,15 +6519,15 @@ function ClientiDetail() {
                             const showActions = cb.is_assigned_professional && cb.status === 'accettata' && !cb.booking_confirmed;
                             return (
                               <tr key={cb.id}>
-                                <td><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
-                                <td>
+                                <td data-label="Data"><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td data-label="Tipo">
                                   <span className="d-flex align-items-center gap-1">
                                     <i className={tipoCfg.icon} style={{ color: tipoCfg.color }}></i>
                                     <span className="small">{tipoCfg.label}</span>
                                   </span>
                                 </td>
-                                <td><span className="small">{cb.professionista_nome || '—'}</span></td>
-                                <td>
+                                <td data-label="Professionista"><span className="small">{cb.professionista_nome || '—'}</span></td>
+                                <td data-label="Stato">
                                   <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
                                     {statusCfg.label}
                                   </span>
@@ -6535,9 +6535,9 @@ function ClientiDetail() {
                                     <i className="ri-calendar-check-line text-success ms-1" title="Prenotazione confermata"></i>
                                   )}
                                 </td>
-                                <td><span className="small text-muted">{cb.created_by_nome || '—'}</span></td>
-                                <td><span className="small text-muted">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
-                                <td>
+                                <td data-label="Richiesta da"><span className="small text-muted">{cb.created_by_nome || '—'}</span></td>
+                                <td data-label="Note"><span className="small text-muted">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
+                                <td data-label="Azioni">
                                   {showActions && (
                                     <button
                                       className="btn btn-sm btn-primary"
@@ -7409,30 +7409,30 @@ function ClientiDetail() {
                       <tbody>
                         {planVersions.map((version, idx) => (
                           <tr key={version.transaction_id || idx} className={version.is_current ? 'table-success' : ''}>
-                            <td>
+                            <td data-label="Versione">
                               <span className="badge bg-secondary">v{version.version_number}</span>
                               {version.is_current && (
                                 <span className="badge bg-success ms-1">Attuale</span>
                               )}
                             </td>
-                            <td className="text-muted">
+                            <td data-label="Data Modifica" className="text-muted">
                               {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
                                 day: '2-digit', month: '2-digit', year: 'numeric',
                                 hour: '2-digit', minute: '2-digit'
                               }) : '-'}
                             </td>
-                            <td>{version.changed_by || '-'}</td>
-                            <td className="text-muted">
+                            <td data-label="Modificato da">{version.changed_by || '-'}</td>
+                            <td data-label="Periodo" className="text-muted">
                               {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
                               {' → '}
                               {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
                             </td>
-                            <td className="text-muted" style={{ maxWidth: '200px' }}>
+                            <td data-label="Motivo" className="text-muted" style={{ maxWidth: '200px' }}>
                               <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }} title={version.change_reason}>
                                 {version.change_reason || '-'}
                               </span>
                             </td>
-                            <td>
+                            <td data-label="PDF">
                               {version.has_file && version.piano_alimentare_file_path ? (
                                 <a
                                   href={`/uploads/${version.piano_alimentare_file_path}`}
@@ -7788,30 +7788,30 @@ function ClientiDetail() {
                       <tbody>
                         {trainingVersions.map((version, idx) => (
                           <tr key={version.transaction_id || idx} className={version.is_current ? 'table-warning' : ''}>
-                            <td>
+                            <td data-label="Versione">
                               <span className="badge bg-secondary">v{version.version_number}</span>
                               {version.is_current && (
                                 <span className="badge bg-warning ms-1">Attuale</span>
                               )}
                             </td>
-                            <td className="text-muted">
+                            <td data-label="Data Modifica" className="text-muted">
                               {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
                                 day: '2-digit', month: '2-digit', year: 'numeric',
                                 hour: '2-digit', minute: '2-digit'
                               }) : '-'}
                             </td>
-                            <td>{version.changed_by || '-'}</td>
-                            <td className="text-muted">
+                            <td data-label="Modificato da">{version.changed_by || '-'}</td>
+                            <td data-label="Periodo" className="text-muted">
                               {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
                               {' → '}
                               {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
                             </td>
-                            <td className="text-muted" style={{ maxWidth: '200px' }}>
+                            <td data-label="Motivo" className="text-muted" style={{ maxWidth: '200px' }}>
                               <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }} title={version.change_reason}>
                                 {version.change_reason || '-'}
                               </span>
                             </td>
-                            <td>
+                            <td data-label="PDF">
                               {version.has_file && version.piano_allenamento_file_path ? (
                                 <a
                                   href={`/uploads/${version.piano_allenamento_file_path}`}

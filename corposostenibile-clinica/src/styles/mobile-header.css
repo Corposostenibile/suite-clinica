@@ -8,7 +8,7 @@
 #main-wrapper.compact-topbar {
   --mh-bar-height: 44px;
   --mh-nav-width: 44px;
-  --mh-padding-x: 10px;
+  --mh-padding-x: 16px;
   --mh-gap: 8px;
   --mh-icon-size: 20px;
   --mh-search-max-w: 140px;
@@ -112,7 +112,7 @@
   margin-left: auto !important;
 }
 
-#main-wrapper.compact-topbar .header-right > li {
+#main-wrapper.compact-topbar .header-right>li {
   padding: 0 !important;
 }
 
