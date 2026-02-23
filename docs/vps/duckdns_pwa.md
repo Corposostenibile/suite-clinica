@@ -228,7 +228,7 @@ sudo certbot certificates
 ## 11) Percorsi utili
 
 - Script setup HTTPS: `scripts/setup_vps_https_pwa.sh`
-- Doc VPS/PWA: `docs/pwa/pwa_tablet_duckdns_https.md`
+- Doc VPS/PWA: `docs/vps/duckdns_pwa.md`
 - Frontend React: `corposostenibile-clinica`
 - Backend Poetry: `backend`
 - Vhost Nginx server: `/etc/nginx/sites-available/suite-clinica.duckdns.org`
