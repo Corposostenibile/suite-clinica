@@ -4,6 +4,7 @@ import calendarService, { EVENT_CATEGORIES, MEETING_STATUSES } from '../../servi
 import ghlService from '../../services/ghlService';
 import loomService from '../../services/loomService';
 import { useLoom } from '../../hooks/useLoom';
+import './calendario-responsive.css';
 
 // Styles
 const styles = {
@@ -23,7 +24,6 @@ const styles = {
         background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
     },
     dayCell: {
-        minHeight: '110px',
         padding: '8px',
         borderRight: '1px solid #f1f5f9',
         borderBottom: '1px solid #f1f5f9',
@@ -257,16 +257,16 @@ function Calendario() {
         return events.filter(event => {
             const eventDate = event.date;
             return eventDate.getDate() === day &&
-                   eventDate.getMonth() === month &&
-                   eventDate.getFullYear() === year;
+                eventDate.getMonth() === month &&
+                eventDate.getFullYear() === year;
         }).sort((a, b) => a.date - b.date);
     };
 
     const selectedDateEvents = events.filter(event => {
         const eventDate = event.date;
         return eventDate.getDate() === selectedDate.getDate() &&
-               eventDate.getMonth() === selectedDate.getMonth() &&
-               eventDate.getFullYear() === selectedDate.getFullYear();
+            eventDate.getMonth() === selectedDate.getMonth() &&
+            eventDate.getFullYear() === selectedDate.getFullYear();
     }).sort((a, b) => a.date - b.date);
 
     const today = new Date();
@@ -310,8 +310,8 @@ function Calendario() {
 
     const isSelected = (day) => {
         return day === selectedDate.getDate() &&
-               month === selectedDate.getMonth() &&
-               year === selectedDate.getFullYear();
+            month === selectedDate.getMonth() &&
+            year === selectedDate.getFullYear();
     };
 
     const isWeekend = (dayOfWeek) => dayOfWeek === 5 || dayOfWeek === 6; // Sat, Sun
@@ -418,7 +418,7 @@ function Calendario() {
 
                     weekCells.push(
                         <td
-                            key={`${week}-${dayOfWeek}`}
+                            className={`cal-day-cell ${selectedClass ? 'is-selected' : ''} ${todayClass ? 'is-today' : ''} ${weekend ? 'is-weekend' : ''}`}
                             style={{
                                 ...styles.dayCell,
                                 background: selectedClass ? '#f0fdf4' : todayClass ? '#fef3c7' : weekend ? '#fafafa' : '#fff',
@@ -457,6 +457,7 @@ function Calendario() {
                                     return (
                                         <div
                                             key={idx}
+                                            className="cal-event-pill"
                                             style={{
                                                 ...styles.eventPill,
                                                 background: config.bgColor,
@@ -570,7 +571,7 @@ function Calendario() {
     }
 
     return (
-        <>
+        <div className="calendar-page-container">
             {/* Page Header */}
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                 <div>
@@ -1079,7 +1080,7 @@ function Calendario() {
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 }
 

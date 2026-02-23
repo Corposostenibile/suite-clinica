@@ -1,0 +1,126 @@
+/* ===================================================================
+   DASHBOARD — Responsive Layout (Mobile ≤ 767px)
+   =================================================================== */
+
+@media (max-width: 767.98px) {
+
+    .dashboard-page-container {
+        padding-bottom: 2rem;
+    }
+
+    /* ---- Header: Riduzione Font e Allineamento ---- */
+    .mobile-text-lg {
+        font-size: 1.25rem !important;
+    }
+
+    /* ---- Tabs Dashboard: Scroll Orrizontale (Già parzialmente presente) ---- */
+    .tabs-scroll-mobile {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -5px;
+    }
+
+    .tabs-scroll-mobile::-webkit-scrollbar {
+        display: none;
+        /* Nascondi scrollbar per pulizia */
+    }
+
+    /* ---- KPI Cards: Forza 2 colonne su smartphone ---- */
+    .row.g-3.mb-4>.col-sm-6,
+    .row.g-3.mb-4>.col-xl-3 {
+        width: 50% !important;
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+
+    @media (max-width: 480px) {
+
+        .row.g-3.mb-4>.col-xl-3,
+        .row.g-3.mb-4>.col-sm-6 {
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+    }
+
+    /* ---- Grafici a Barre: Scroll Orrizzontale se troppi dati ---- */
+    .card-body .d-flex.align-items-end {
+        overflow-x: auto !important;
+        padding-bottom: 10px;
+        -webkit-overflow-scrolling: touch;
+        min-height: 200px;
+    }
+
+    /* Assicura che le barre abbiano una larghezza minima su mobile */
+    .card-body .d-flex.align-items-end>div {
+        min-width: 40px;
+        flex-shrink: 0;
+    }
+
+    /* ---- Trasformazione Tabelle Dash → Card ---- */
+    .dashboard-page-container .table-responsive {
+        border: none !important;
+        overflow-x: visible !important;
+    }
+
+    .dashboard-page-container .table,
+    .dashboard-page-container .table thead,
+    .dashboard-page-container .table tbody,
+    .dashboard-page-container .table tr,
+    .dashboard-page-container .table th,
+    .dashboard-page-container .table td {
+        display: block;
+        width: 100%;
+    }
+
+    .dashboard-page-container .table thead {
+        display: none;
+    }
+
+    .dashboard-page-container .table tbody tr {
+        background: #fff;
+        border: 1px solid #eef2f7;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+
+    .dashboard-page-container .table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0 !important;
+        border-bottom: 1px dotted #f1f5f9 !important;
+        min-height: 40px;
+        text-align: right;
+        border-top: none !important;
+    }
+
+    .dashboard-page-container .table tbody td:last-child {
+        border-bottom: none !important;
+    }
+
+    /* Etichette data-label */
+    .dashboard-page-container .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 10px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        flex-shrink: 0;
+        margin-right: 15px;
+        text-align: left;
+    }
+
+    /* KPIs speciali nelle tabelle (badge o simili) */
+    .dashboard-page-container .table tbody td>span,
+    .dashboard-page-container .table tbody td>div {
+        max-width: 70%;
+    }
+
+    /* Sezione Valutazioni Medie (Pills orizzontali) */
+    .d-flex.flex-wrap.gap-2 {
+        justify-content: flex-start;
+    }
+}

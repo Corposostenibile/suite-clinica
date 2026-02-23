@@ -338,22 +338,22 @@ export default function ProfessionistiDashboard({ data, loading, error, onRetry 
                                             const trendInfo = getTrendIcon(p.trend);
                                             return (
                                                 <tr key={p.id}>
-                                                    <td className="py-2 px-4" style={{ fontWeight: 700, color: idx < 3 ? '#f59e0b' : '#94a3b8' }}>{idx + 1}</td>
-                                                    <td className="py-2">
+                                                    <td className="py-2 px-4" style={{ fontWeight: 700, color: idx < 3 ? '#f59e0b' : '#94a3b8' }} data-label="#">{idx + 1}</td>
+                                                    <td className="py-2" data-label="Professionista">
                                                         <span style={{ fontWeight: 500, color: '#1e293b' }}>{p.name}</span>
                                                     </td>
-                                                    <td className="py-2">
+                                                    <td className="py-2" data-label="Specializzazione">
                                                         <span className="badge" style={{ background: `${specConfig.color}15`, color: specConfig.color, fontSize: '11px', padding: '3px 8px', borderRadius: '6px' }}>
                                                             {specConfig.label}
                                                         </span>
                                                     </td>
-                                                    <td className="py-2 text-center">
+                                                    <td className="py-2 text-center" data-label="Score">
                                                         <span style={{ fontWeight: 700, color: getQualityColor(p.quality_final) }}>{p.quality_final}</span>
                                                     </td>
-                                                    <td className="py-2 text-center">
+                                                    <td className="py-2 text-center" data-label="Mese">
                                                         <span style={{ fontWeight: 500, color: '#64748b' }}>{p.quality_month || '-'}</span>
                                                     </td>
-                                                    <td className="py-2 text-center">
+                                                    <td className="py-2 text-center" data-label="Banda">
                                                         <span className="badge" style={{
                                                             background: p.bonus_band === '100%' ? '#dcfce7' : p.bonus_band === '60%' ? '#dbeafe' : p.bonus_band === '30%' ? '#fef3c7' : '#fee2e2',
                                                             color: p.bonus_band === '100%' ? '#166534' : p.bonus_band === '60%' ? '#1e40af' : p.bonus_band === '30%' ? '#92400e' : '#991b1b',
@@ -362,7 +362,7 @@ export default function ProfessionistiDashboard({ data, loading, error, onRetry 
                                                             {p.bonus_band || '-'}
                                                         </span>
                                                     </td>
-                                                    <td className="py-2 text-center">
+                                                    <td className="py-2 text-center" data-label="Trend">
                                                         <i className={trendInfo.icon} style={{ color: trendInfo.color, fontSize: '16px' }}></i>
                                                     </td>
                                                 </tr>

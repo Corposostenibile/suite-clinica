@@ -270,13 +270,13 @@ export function NegativeChecksTable({ negativeChecks, negativePage, setNegativeP
                                 <tbody>
                                     {paginatedChecks.map((check, idx) => (
                                         <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={tableCellStyle}>
+                                            <td style={tableCellStyle} data-label="Paziente">
                                                 <span style={{ fontWeight: 600, color: '#334155' }}>{check.cliente_nome}</span>
                                             </td>
-                                            <td style={tableCellStyle}>
+                                            <td style={tableCellStyle} data-label="Data">
                                                 <span className="text-muted">{check.submit_date}</span>
                                             </td>
-                                            <td style={tableCellStyle}>
+                                            <td style={tableCellStyle} data-label="Rating Negativi">
                                                 <div className="d-flex flex-wrap gap-2">
                                                     {check.negativeRatings?.map((r, i) => (
                                                         <div key={i} className="d-flex align-items-center gap-2" style={{ background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', padding: '6px 12px', borderRadius: '8px' }}>

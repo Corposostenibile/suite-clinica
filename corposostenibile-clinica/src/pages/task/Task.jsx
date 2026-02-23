@@ -11,6 +11,7 @@ import {
     FaArrowRight,
     FaFilter
 } from 'react-icons/fa';
+import './task-responsive.css';
 
 function Task() {
     const { user } = useOutletContext();
@@ -206,7 +207,7 @@ function Task() {
     const getCategoryInfo = (catKey) => TASK_CATEGORIES[catKey] || { label: catKey, color: '#6c757d', bg: 'secondary' };
 
     return (
-        <>
+        <div className="task-page-container">
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header">
                 <div>
                     <h4 className="mb-1">Le tue Task</h4>
@@ -309,7 +310,7 @@ function Task() {
                     </ul>
                 </div>
 
-                <div className="card-body p-0" style={{ minHeight: '300px' }}>
+                <div className="card-body p-0 task-table-wrap" style={{ minHeight: '300px' }}>
                     {loading ? (
                         <div className="d-flex align-items-center justify-content-center h-100 py-5">
                             <div className="spinner-border text-primary" role="status">
@@ -335,7 +336,7 @@ function Task() {
                                         <th style={{ width: '150px' }}>Cliente</th>
                                         <th style={{ width: '120px' }}>Scadenza</th>
                                         <th style={{ width: '100px' }}>Priorità</th>
-                                        <th style={{ width: '80px' }}></th>
+                                        <th style={{ width: '80px', textAlign: 'right' }}>Azioni</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -346,7 +347,7 @@ function Task() {
 
                                         return (
                                             <tr key={task.id} className={task.completed ? 'bg-light opacity-75' : ''}>
-                                                <td className="text-center" data-tour={index === 0 ? 'task-checkbox' : undefined}>
+                                                <td className="text-center" data-label="Stato" data-tour={index === 0 ? 'task-checkbox' : undefined}>
                                                     <div className="form-check d-flex justify-content-center">
                                                         <input
                                                             className="form-check-input"
@@ -357,7 +358,7 @@ function Task() {
                                                         />
                                                     </div>
                                                 </td>
-                                                <td>
+                                                <td data-label="Attività">
                                                     <div className="d-flex flex-column">
                                                         <span className={`fw-medium ${task.completed ? 'text-decoration-line-through text-muted' : 'text-dark'}`}>
                                                             {task.title}
@@ -367,15 +368,15 @@ function Task() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td>
+                                                <td data-label="Categoria">
                                                     <span className={`badge bg-${category.bg} bg-opacity-10 text-${category.bg} border border-${category.bg} border-opacity-25`}>
                                                         <i className={`${category.icon} me-1`}></i>
                                                         {category.label}
                                                     </span>
                                                 </td>
-                                                <td>
+                                                <td data-label="Cliente">
                                                     {task.client_name ? (
-                                                        <div className="d-flex align-items-center">
+                                                        <div className="d-flex align-items-center justify-content-end-mobile">
                                                             <div className="avatar-xs me-2 bg-light rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style={{ width: '24px', height: '24px', fontSize: '10px' }}>
                                                                 {task.client_name.substring(0, 2).toUpperCase()}
                                                             </div>
@@ -385,20 +386,20 @@ function Task() {
                                                         <span className="text-muted small">-</span>
                                                     )}
                                                 </td>
-                                                <td>
+                                                <td data-label="Scadenza">
                                                     <small className={`${task.due_date && new Date(task.due_date) < new Date() && !task.completed ? 'text-danger fw-bold' : 'text-muted'}`}>
                                                         {formatDate(task.due_date)}
                                                     </small>
                                                 </td>
-                                                <td>
-                                                    <div className="d-flex align-items-center gap-1">
+                                                <td data-label="Priorità">
+                                                    <div className="d-flex align-items-center gap-1 justify-content-end-mobile">
                                                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: priorityColor }}></div>
                                                         <small style={{ color: priorityColor, fontWeight: 500 }}>
                                                             {TASK_PRIORITIES[task.priority]?.label || task.priority}
                                                         </small>
                                                     </div>
                                                 </td>
-                                                <td className="text-end" data-tour={index === firstActionableIndex ? 'task-action' : undefined}>
+                                                <td className="text-end" data-label="Azioni" data-tour={index === firstActionableIndex ? 'task-action' : undefined}>
                                                     {!task.completed && hasAction && (
                                                         <button className="btn btn-icon btn-sm btn-ghost-primary" title="Vai" onClick={() => handleTaskAction(task)}>
                                                             <i className="ri-arrow-right-line"></i>
@@ -473,7 +474,7 @@ function Task() {
                     console.log('Tour Task completato');
                 }}
             />
-        </>
+        </div>
     );
 }
 

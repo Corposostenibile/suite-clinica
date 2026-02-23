@@ -26,6 +26,7 @@ import PazientiDashboard from './dashboard/PazientiDashboard';
 import CheckDashboard from './dashboard/CheckDashboard';
 import ProfessionistiDashboard from './dashboard/ProfessionistiDashboard';
 import QualityDashboard from './dashboard/QualityDashboard';
+import './dashboard/dashboard-responsive.css';
 
 const QUICK_LINKS = [
   { label: 'Pazienti', to: '/clienti-lista', icon: 'ri-group-line', color: '#3b82f6', bgColor: '#eff6ff', iconBg: '#dbeafe' },
@@ -257,7 +258,7 @@ function Welcome() {
   };
 
   return (
-    <>
+    <div className="dashboard-page-container">
       {/* Header */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
@@ -672,7 +673,7 @@ function Welcome() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

@@ -1,0 +1,68 @@
+
+> corposostenibile-clinica@0.0.0 build
+> vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 514 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                             1.56 kB │ gzip:   0.64 kB
+dist/assets/fa-v4compatibility-DO8w6I3n.woff2               4.96 kB
+dist/assets/fa-v4compatibility-C0mNVBVm.ttf                10.56 kB
+dist/.vite/manifest.json                                   10.58 kB │ gzip:   1.49 kB
+dist/assets/avasta-BzUchJFM.woff2                          11.55 kB
+dist/assets/la-regular-400-DuFMN_sw.woff2                  12.90 kB
+dist/assets/avasta-DmmNihRT.woff                           13.88 kB
+dist/assets/la-regular-400-ehe5HgcS.woff                   15.49 kB
+dist/assets/cover-Cs479hri.jpg                             17.23 kB
+dist/assets/1-BG85Hob3.jpg                                 17.42 kB
+dist/assets/fa-regular-400-BtQPhu7h.woff2                  23.90 kB
+dist/assets/avasta-DZ1YMs_Z.ttf                            24.13 kB
+dist/assets/avasta-B3Oc7EX-.eot                            24.29 kB
+dist/assets/la-regular-400-CmnW_RTo.ttf                    33.72 kB
+dist/assets/la-regular-400-Cx6vm3uW.eot                    33.92 kB
+dist/assets/Flaticon-rXytGG-J.woff                         51.72 kB
+dist/assets/themify-BgsFA67P.woff                          56.11 kB
+dist/assets/logo-foglia-white-ay7KjtHB.png                 59.14 kB
+dist/assets/fa-regular-400-gi-Vc05f.ttf                    60.38 kB
+dist/assets/themify-DuU3rJAt.ttf                           78.58 kB
+dist/assets/themify9f24-BifPJsew.eot                       78.75 kB
+dist/assets/la-brands-400-Cq-R4OEF.woff2                   84.77 kB
+dist/assets/la-solid-900-TjMEgv3Q.woff2                    96.75 kB
+dist/assets/la-brands-400-D0lxOIwB.woff                    98.67 kB
+dist/assets/fa-brands-400-B8Wb4MVL.woff2                  104.54 kB
+dist/assets/Flaticon-ySe9YXo2.ttf                         109.42 kB
+dist/assets/Flaticon-DYpLftEK.eot                         109.59 kB
+dist/assets/la-regular-400-BmVb34ql.svg                   113.54 kB │ gzip:  29.45 kB
+dist/assets/la-solid-900-CR_Kd-su.woff                    125.42 kB
+dist/assets/fa-solid-900-DByUvYfa.woff2                   126.83 kB
+dist/assets/materialdesignicons-webfont-CnyqmfTk.woff2    132.14 kB
+dist/assets/icomoon-BduD2FPK.ttf                          134.17 kB
+dist/assets/icomoon-CbOuBOA1.woff                         134.24 kB
+dist/assets/icomoon-D8Oy8aQH.eot                          134.33 kB
+dist/assets/avasta-DNe8g9c_.svg                           140.16 kB │ gzip:  52.26 kB
+dist/assets/la-brands-400-gDglUfU7.ttf                    156.07 kB
+dist/assets/la-brands-400-LN4CMlGg.eot                    156.26 kB
+dist/assets/materialdesignicons-webfont-8xcIx0sZ.woff     176.42 kB
+dist/assets/fa-brands-400-CSV3WZaS.ttf                    180.15 kB
+dist/assets/la-solid-900-BUOWlSBQ.ttf                     226.13 kB
+dist/assets/la-solid-900-DkmX4G2x.eot                     226.31 kB
+dist/assets/themify9f24-Bfliuhp5.svg                      234.63 kB │ gzip:  72.86 kB
+dist/assets/fa-solid-900-CG7ny7S5.ttf                     303.48 kB
+dist/assets/materialdesignicons-webfont-CIUC_t9r.ttf      358.46 kB
+dist/assets/materialdesignicons-webfont-BwMDnI93.eot      358.68 kB
+dist/assets/icomoon-DPVmidDj.svg                          455.40 kB │ gzip:  87.56 kB
+dist/assets/Flaticon-TRiZDeu0.svg                         796.25 kB │ gzip: 215.43 kB
+dist/assets/la-solid-900-dtlPMWb8.svg                     923.15 kB │ gzip: 296.57 kB
+dist/assets/la-brands-400-wsUI3UJ9.svg                    927.34 kB │ gzip: 304.36 kB
+dist/assets/materialdesignicons-webfont-Cds41IJ4.svg    2,753.10 kB │ gzip: 416.10 kB
+dist/assets/logo_foglia-BT-wcNDd.png                    3,051.59 kB
+dist/assets/main-CDa-4pk5.css                           1,373.04 kB │ gzip: 191.85 kB
+dist/assets/main-DdhAMVC5.js                            1,529.78 kB │ gzip: 342.79 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 10.27s

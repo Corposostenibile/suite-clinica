@@ -1,0 +1,151 @@
+/* ===================================================================
+   TASK LIST — Responsive Card Layout (Mobile ≤ 767px)
+   Trasforma la tabella delle attività in card touch-friendly.
+   =================================================================== */
+
+@media (max-width: 767.98px) {
+
+    /* ---- Contenitore: rimuovi lo scroll orizzontale della tabella ---- */
+    .task-page-container .table-responsive {
+        overflow-x: visible;
+        border: none;
+    }
+
+    /* ---- Layout Stat Cards (2 colonne su smartphone) ---- */
+    .task-page-container .row.g-3>div {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+
+    /* ---- Tabella → Blocco ---- */
+    .task-page-container .table,
+    .task-page-container .table thead,
+    .task-page-container .table tbody,
+    .task-page-container .table tr,
+    .task-page-container .table th,
+    .task-page-container .table td {
+        display: block;
+        width: 100%;
+    }
+
+    /* ---- Nascondi intestazioni tabella ---- */
+    .task-page-container .table thead {
+        display: none;
+    }
+
+    /* ---- Ogni riga (Task) diventa una Card ---- */
+    .task-page-container .table tbody tr {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        margin-bottom: 12px;
+        padding: 12px;
+        border: 1px solid #eef2f7;
+        position: relative;
+        transition: transform 0.2s;
+    }
+
+    .task-page-container .table tbody tr:active {
+        transform: scale(0.98);
+    }
+
+    /* ---- Celle → Flex Row con etichetta ---- */
+    .task-page-container .table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0 !important;
+        border-bottom: 1px solid #f8f9fa !important;
+        min-height: 44px;
+        /* Touch target */
+    }
+
+    .task-page-container .table tbody td:last-child {
+        border-bottom: none !important;
+    }
+
+    /* ---- Etichette via pseudo-elemento ---- */
+    .task-page-container .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        flex-shrink: 0;
+        margin-right: 12px;
+    }
+
+    /* ---- Gestione specifica celle ---- */
+
+    /* Lo stato (checkbox) lo mettiamo in alto a sinistra senza etichetta o con label discreta */
+    .task-page-container .table tbody td[data-label="Stato"] {
+        border-bottom: 1px solid #f1f5f9 !important;
+        padding-bottom: 10px !important;
+        justify-content: flex-start;
+    }
+
+    .task-page-container .table tbody td[data-label="Stato"]::before {
+        content: "Completato";
+        margin-right: auto;
+    }
+
+    /* L'attività (Titolo) deve essere più visibile */
+    .task-page-container .table tbody td[data-label="Attività"] {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .task-page-container .table tbody td[data-label="Attività"]::before {
+        margin-bottom: 4px;
+    }
+
+    .task-page-container .table tbody td[data-label="Attività"] .fw-medium {
+        font-size: 15px;
+        color: #1e293b;
+    }
+
+    /* Allineamento a destra per valori su mobile */
+    .justify-content-end-mobile {
+        justify-content: flex-end !important;
+        text-align: right;
+        flex: 1;
+    }
+
+    /* Azioni (il bottone "Vai") */
+    .task-page-container .table tbody td[data-label="Azioni"] {
+        justify-content: flex-end;
+        padding-top: 10px !important;
+    }
+
+    /* ---- Filtri (Pills) Scrollabili ---- */
+    .task-page-container .nav-pills {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+    }
+
+    .task-page-container .nav-pills .nav-item {
+        flex-shrink: 0;
+    }
+
+    .task-page-container .nav-link {
+        white-space: nowrap;
+        padding: 8px 16px !important;
+        font-size: 13px !important;
+    }
+
+    /* ---- Pagination Compatta ---- */
+    .task-page-container .card-footer .d-flex {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+
+    .task-page-container .pagination {
+        justify-content: center;
+    }
+}

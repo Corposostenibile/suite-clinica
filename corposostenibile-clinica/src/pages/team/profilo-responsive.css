@@ -1,0 +1,178 @@
+/* ===================================================================
+   PROFILO PROFESSIONISTA — Responsive Layout (Mobile ≤ 767px)
+   Ottimizza avatar, tab e trasforma tutte le tabelle in card.
+   =================================================================== */
+
+@media (max-width: 767.98px) {
+
+    .profilo-page-container {
+        padding-bottom: 2rem;
+    }
+
+    /* ---- Sidebar e Header: Stack ---- */
+    .profilo-page-container .row>.col-xl-3,
+    .profilo-page-container .row>.col-xl-9 {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Centra l'header e l'avatar su mobile */
+    .profilo-page-container .card-body.text-center {
+        padding: 1.5rem 1rem !important;
+    }
+
+    /* ---- Tab Nav: Scrollabile Orizzontalmente ---- */
+    .profilo-page-container .nav-tabs {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        border-bottom: 1px solid #eef2f7;
+        padding-bottom: 2px;
+        margin: 0 -15px 1.5rem -15px;
+        /* Pull out to edges */
+        padding-left: 15px;
+        padding-right: 15px;
+        gap: 5px;
+    }
+
+    .profilo-page-container .nav-tabs .nav-item {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .profilo-page-container .nav-link {
+        padding: 10px 15px !important;
+        font-size: 13px !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+    }
+
+    .profilo-page-container .nav-link.active {
+        border-bottom-color: var(--vz-primary) !important;
+    }
+
+    /* ---- Form e Filtri: Stack ---- */
+    .profilo-page-container .row.g-2.align-items-center,
+    .profilo-page-container .row.g-3 {
+        flex-direction: column;
+        gap: 10px !important;
+    }
+
+    .profilo-page-container .col-lg-2,
+    .profilo-page-container .col-lg-3,
+    .profilo-page-container .col-lg-4,
+    .profilo-page-container .col-lg-5,
+    .profilo-page-container .col-lg-6 {
+        width: 100% !important;
+    }
+
+    /* ---- TRASFORMAZIONE TABELLE → CARD (Pattern Universale) ---- */
+    .profilo-page-container .table-responsive {
+        border: none !important;
+        overflow-x: visible !important;
+    }
+
+    .profilo-page-container .table,
+    .profilo-page-container .table thead,
+    .profilo-page-container .table tbody,
+    .profilo-page-container .table tr,
+    .profilo-page-container .table th,
+    .profilo-page-container .table td {
+        display: block;
+        width: 100%;
+    }
+
+    .profilo-page-container .table thead {
+        display: none;
+        /* Nascondi intestazioni */
+    }
+
+    .profilo-page-container .table tbody tr {
+        background: #fff;
+        border: 1px solid #eef2f7;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 15px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .profilo-page-container .table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0 !important;
+        border-bottom: 1px solid #f8f9fa !important;
+        min-height: 40px;
+        text-align: right;
+    }
+
+    .profilo-page-container .table tbody td:last-child {
+        border-bottom: none !important;
+    }
+
+    /* Etichette Label */
+    .profilo-page-container .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        flex-shrink: 0;
+        margin-right: 10px;
+        text-align: left;
+    }
+
+    /* Casi speciali */
+    .profilo-page-container .table tbody td[data-label="Paziente"],
+    .profilo-page-container .table tbody td[data-label="Titolo"],
+    .profilo-page-container .table tbody td[data-label="Task"] {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .profilo-page-container .table tbody td[data-label="Paziente"]::before,
+    .profilo-page-container .table tbody td[data-label="Titolo"]::before,
+    .profilo-page-container .table tbody td[data-label="Task"]::before {
+        margin-bottom: 4px;
+    }
+
+    .profilo-page-container .table tbody td .fw-medium {
+        font-size: 14px;
+    }
+
+    /* ---- Pagination: Full Width ---- */
+    .profilo-page-container .pagination {
+        justify-content: center !important;
+        margin-top: 1rem;
+    }
+
+    .profilo-page-container .d-flex.justify-content-between.align-items-center.mt-3 {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* ---- KPI Quality: 2x2 o 1x1 ---- */
+    .profilo-page-container .row.g-3.mb-3>div {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+
+    @media (max-width: 575.98px) {
+        .profilo-page-container .row.g-3.mb-3>div {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+    }
+
+    /* ---- Dettagli Espansi (Check) ---- */
+    .profilo-page-container .table-light td[colspan="5"] {
+        padding: 15px !important;
+    }
+
+    .profilo-page-container .table-light .row.g-2 {
+        flex-direction: column;
+    }
+}

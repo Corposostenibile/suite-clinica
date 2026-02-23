@@ -388,21 +388,21 @@ export default function CheckDashboard({ data, loading, error, onRetry }) {
                                 <tbody>
                                     {paginatedRecent.map((r) => (
                                         <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '12px 16px', fontWeight: 600, color: '#334155' }}>{r.cliente}</td>
-                                            <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.date || '—'}</td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td style={{ padding: '12px 16px', fontWeight: 600, color: '#334155' }} data-label="Paziente">{r.cliente}</td>
+                                            <td style={{ padding: '12px 16px', color: '#64748b' }} data-label="Data">{r.date || '—'}</td>
+                                            <td style={{ padding: '12px 16px' }} data-label="Nutrizionista">
                                                 <span style={{ fontWeight: 700, color: getRatingColor(r.nutrizionista) }}>{r.nutrizionista || '—'}</span>
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td style={{ padding: '12px 16px' }} data-label="Coach">
                                                 <span style={{ fontWeight: 700, color: getRatingColor(r.coach) }}>{r.coach || '—'}</span>
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td style={{ padding: '12px 16px' }} data-label="Psicologo">
                                                 <span style={{ fontWeight: 700, color: getRatingColor(r.psicologo) }}>{r.psicologo || '—'}</span>
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td style={{ padding: '12px 16px' }} data-label="Progresso">
                                                 <span style={{ fontWeight: 700, color: getRatingColor(r.progresso) }}>{r.progresso || '—'}</span>
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
+                                            <td style={{ padding: '12px 16px' }} data-label="Media">
                                                 {r.avg ? (
                                                     <span style={{ background: `${getRatingColor(r.avg)}15`, color: getRatingColor(r.avg), padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
                                                         {r.avg}

@@ -247,20 +247,20 @@ export default function FormazioneDashboard({ data, loading }) {
                                             const typeConfig = REVIEW_TYPE_CONFIG[t.reviewType] || { label: t.reviewType || 'Altro', color: '#64748b', bg: '#f1f5f9' };
                                             return (
                                                 <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                    <td style={tableCellStyle}>
+                                                    <td style={tableCellStyle} data-label="Titolo">
                                                         <span style={{ fontWeight: 600, color: '#334155' }}>{t.title || 'Senza titolo'}</span>
                                                     </td>
-                                                    <td style={tableCellStyle}>
+                                                    <td style={tableCellStyle} data-label="Tipo">
                                                         <span style={{ background: typeConfig.bg, color: typeConfig.color, padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
                                                             {typeConfig.label}
                                                         </span>
                                                     </td>
-                                                    <td style={tableCellStyle}><span className="text-muted">{t.reviewer}</span></td>
-                                                    <td style={tableCellStyle}><span style={{ fontWeight: 500 }}>{t.reviewee}</span></td>
-                                                    <td style={tableCellStyle}>
+                                                    <td style={tableCellStyle} data-label="Formatore"><span className="text-muted">{t.reviewer}</span></td>
+                                                    <td style={tableCellStyle} data-label="Destinatario"><span style={{ fontWeight: 500 }}>{t.reviewee}</span></td>
+                                                    <td style={tableCellStyle} data-label="Data">
                                                         <span className="text-muted">{t.createdAt ? new Date(t.createdAt).toLocaleDateString('it-IT') : '-'}</span>
                                                     </td>
-                                                    <td style={tableCellStyle}>
+                                                    <td style={tableCellStyle} data-label="Stato">
                                                         {t.isAcknowledged ? (
                                                             <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
                                                                 <i className="ri-check-line me-1"></i>Confermato

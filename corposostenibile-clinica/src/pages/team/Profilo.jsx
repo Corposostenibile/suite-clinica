@@ -16,6 +16,7 @@ import qualityService, {
   getBandBadgeStyle,
   getSuperMalusBadgeStyle,
 } from '../../services/qualityService';
+import './profilo-responsive.css';
 
 const ROLE_GRADIENTS = {
   admin: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -413,7 +414,7 @@ function Profilo() {
   }
 
   return (
-    <>
+    <div className="profilo-page-container">
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
           <h4 className="mb-1">{isOwnProfile ? 'Il Mio Profilo' : `Profilo di ${user.full_name}`}</h4>
@@ -770,16 +771,16 @@ function Profilo() {
                           <tbody>
                             {clients.map((c) => (
                               <tr key={c.cliente_id}>
-                                <td>
+                                <td data-label="Paziente">
                                   <div className="fw-medium">{c.nome_cognome || '-'}</div>
                                   <small className="text-muted">{c.email || '—'}</small>
                                 </td>
-                                <td>
+                                <td data-label="Stato">
                                   <span className="badge bg-light text-dark border">{c.stato_cliente || '—'}</span>
                                 </td>
-                                <td>{c.programma_attuale || '—'}</td>
-                                <td>{safeDate(c.data_rinnovo)}</td>
-                                <td className="text-end">
+                                <td data-label="Programma">{c.programma_attuale || '—'}</td>
+                                <td data-label="Rinnovo">{safeDate(c.data_rinnovo)}</td>
+                                <td className="text-end" data-label="Azioni">
                                   <button
                                     className="btn btn-sm btn-outline-primary"
                                     onClick={() => navigate(`/clienti-dettaglio/${c.cliente_id}`)}
@@ -903,19 +904,19 @@ function Profilo() {
                                     style={{ cursor: 'pointer' }}
                                     onClick={() => setExpandedCheckKey(isExpanded ? null : rowKey)}
                                   >
-                                    <td className="fw-medium">{r.cliente_nome || 'N/D'}</td>
-                                    <td>
+                                    <td className="fw-medium" data-label="Paziente">{r.cliente_nome || 'N/D'}</td>
+                                    <td data-label="Tipo">
                                       <span className={`badge ${r.type === 'dca' ? 'bg-info' : 'bg-success'}`}>
                                         {r.type === 'dca' ? 'DCA' : 'Weekly'}
                                       </span>
                                     </td>
-                                    <td>{r.submit_date || '—'}</td>
-                                    <td>
+                                    <td data-label="Data">{r.submit_date || '—'}</td>
+                                    <td data-label="Valutazioni">
                                       <small className="text-muted">
                                         N:{r.nutritionist_rating ?? '—'} | C:{r.coach_rating ?? '—'} | P:{r.psychologist_rating ?? '—'} | Q:{r.progress_rating ?? '—'}
                                       </small>
                                     </td>
-                                    <td>
+                                    <td data-label="Dettaglio">
                                       <i className={`ri-arrow-${isExpanded ? 'up' : 'down'}-s-line`}></i>
                                     </td>
                                   </tr>
@@ -1056,15 +1057,15 @@ function Profilo() {
                           <tbody>
                             {pagedTrainings.map((t) => (
                               <tr key={t.id}>
-                                <td>
+                                <td data-label="Titolo">
                                   <div className="fw-medium">{t.title || '-'}</div>
                                   <small className="text-muted">
                                     {t.reviewer?.firstName || t.reviewee?.firstName ? `${t.reviewer?.firstName || ''} ${t.reviewer?.lastName || ''}`.trim() : '—'}
                                   </small>
                                 </td>
-                                <td>{t.reviewType || '—'}</td>
-                                <td>{safeDate(t.createdAt)}</td>
-                                <td>
+                                <td data-label="Tipo">{t.reviewType || '—'}</td>
+                                <td data-label="Data">{safeDate(t.createdAt)}</td>
+                                <td data-label="Stato">
                                   {t.isAcknowledged ? (
                                     <span className="badge bg-success">Confermato</span>
                                   ) : (
@@ -1171,20 +1172,20 @@ function Profilo() {
                           <tbody>
                             {pagedTasks.map((t) => (
                               <tr key={t.id}>
-                                <td>
+                                <td data-label="Task">
                                   <div className="fw-medium">{t.title || '-'}</div>
                                   <small className="text-muted">{t.description || '—'}</small>
                                 </td>
-                                <td>{TASK_CATEGORIES[t.category]?.label || t.category || '—'}</td>
-                                <td>{safeDate(t.due_date)}</td>
-                                <td>
+                                <td data-label="Categoria">{TASK_CATEGORIES[t.category]?.label || t.category || '—'}</td>
+                                <td data-label="Scadenza">{safeDate(t.due_date)}</td>
+                                <td data-label="Stato">
                                   {t.completed ? (
                                     <span className="badge bg-success">Completato</span>
                                   ) : (
                                     <span className="badge bg-warning text-dark">Aperto</span>
                                   )}
                                 </td>
-                                <td className="text-end">
+                                <td className="text-end" data-label="Azione">
                                   {t.client_id ? (
                                     <button
                                       className="btn btn-sm btn-outline-primary"
@@ -1321,12 +1322,12 @@ function Profilo() {
                             ) : (
                               qualityTrendRows.map((row) => (
                                 <tr key={row.label}>
-                                  <td>{row.label}</td>
-                                  <td style={row.quality_final != null ? getScoreStyle(row.quality_final) : {}}>
+                                  <td data-label="Settimana">{row.label}</td>
+                                  <td data-label="Quality Final" style={row.quality_final != null ? getScoreStyle(row.quality_final) : {}}>
                                     {row.quality_final != null ? Number(row.quality_final).toFixed(2) : '—'}
                                   </td>
-                                  <td>{row.quality_month != null ? Number(row.quality_month).toFixed(2) : '—'}</td>
-                                  <td>{row.quality_trim != null ? Number(row.quality_trim).toFixed(2) : '—'}</td>
+                                  <td data-label="Quality Mese">{row.quality_month != null ? Number(row.quality_month).toFixed(2) : '—'}</td>
+                                  <td data-label="Quality Trim">{row.quality_trim != null ? Number(row.quality_trim).toFixed(2) : '—'}</td>
                                 </tr>
                               ))
                             )}
@@ -1341,7 +1342,7 @@ function Profilo() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
