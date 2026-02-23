@@ -1608,7 +1608,8 @@ def get_teams():
     team_type_filter = request.args.get('team_type', '').strip()
     active_filter = request.args.get('active', '').strip()
     search_query = request.args.get('q', '').strip()
-    include_members = request.args.get('include_members', '').strip() == '1'
+    include_members_raw = request.args.get('include_members', '').strip().lower()
+    include_members = include_members_raw in {'1', 'true', 'yes', 'on'}
 
     # Base query with eager loading for head only (fast)
     query = Team.query.options(

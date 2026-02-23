@@ -531,7 +531,10 @@ const clientiService = {
    */
   async searchClienti(query) {
     // This endpoint is on the HTML blueprint, not the API
-    const response = await api.get('/customers/api/search', { params: { q: query } });
+    const response = await axios.get('/customers/api/search', {
+      params: { q: query },
+      withCredentials: true,
+    });
     return response.data;
   },
 
