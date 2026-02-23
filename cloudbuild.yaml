@@ -71,8 +71,13 @@ steps:
       - bash
       - -lc
       - |
+        set +e
         if [ -f /app/corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py ]; then
           python /app/corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
+          rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "seed_initial_checks.py failed (rc=$rc), continuing to post-deploy sync steps"
+          fi
         else
           echo "seed_initial_checks.py non presente nell'immagine, skip"
         fi
@@ -91,6 +96,7 @@ steps:
       - bash
       - -lc
       - |
+        set -euo pipefail
         if [ -f /app/scripts/migration_scripts/sync_criteria_prod.py ] && [ -f "/app/corposostenibile/blueprints/sales_form/assegnazioni_xlsx/Criteri Ai.xlsx" ]; then
           PYTHONPATH=/app python /app/scripts/migration_scripts/sync_criteria_prod.py
         else

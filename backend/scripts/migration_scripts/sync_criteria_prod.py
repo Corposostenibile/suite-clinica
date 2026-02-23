@@ -119,8 +119,8 @@ def process_sheet(z, sheet_filename, role_key):
             
     return data
 
-def sync_db(all_data):
-    """Sync parsed data with Database Users. Create missing ones."""
+def sync_db(all_data, create_missing=False):
+    """Sync parsed data with Database Users. Optionally create missing ones."""
     print("\n--- Syncing with Database ---")
     from werkzeug.security import generate_password_hash
     
@@ -151,6 +151,10 @@ def sync_db(all_data):
             matched_user.specialty = target_specialty
             updated_count += 1
         else:
+            if not create_missing:
+                print(f"⏭️  Skipping missing user '{prof_name}' (create_missing disabled)")
+                continue
+
             print(f"➕ Creating '{prof_name}' | Specialty: {target_specialty}")
             # Create a slug for email
             email_prefix = prof_name.lower().replace(" ", ".").replace("'", "")
@@ -172,6 +176,14 @@ def sync_db(all_data):
     print(f"\nCompleted. Updated: {updated_count} | Created: {created_count}")
 
 def main():
+    parser = argparse.ArgumentParser(description="Sync AI criteria from Excel into prod DB users")
+    parser.add_argument(
+        "--create-missing",
+        action="store_true",
+        help="Create missing users found in the Excel (disabled by default for safety in prod)",
+    )
+    args = parser.parse_args()
+
     app = create_app()
     
     file_path = str(BASE_DIR / 'corposostenibile/blueprints/sales_form/assegnazioni_xlsx/Criteri Ai.xlsx')
@@ -232,7 +244,7 @@ def main():
                     coach_data = process_sheet(z, sheet_map['COACH'], 'COACH')
                     all_data.update(coach_data)
                 
-                sync_db(all_data)
+                sync_db(all_data, create_missing=args.create_missing)
                 
         except Exception as e:
             print(f"Error: {e}")

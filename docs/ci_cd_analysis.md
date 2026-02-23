@@ -20,7 +20,11 @@ Questo documento descrive la pipeline attuale e i manifest necessari per esporre
 6. Post-deploy:
 - migrazioni DB (`flask db upgrade` via `kubectl exec`)
 - seed check iniziali (`seed_initial_checks.py` via `kubectl exec`, automatico in `cloudbuild.yaml`)
-- sync criteri (`python scripts/sync_criteria_prod.py` via `kubectl exec`)
+- sync criteri AI (`PYTHONPATH=/app python /app/scripts/migration_scripts/sync_criteria_prod.py` via `kubectl exec`)
+
+Nota operativa:
+- `sync_criteria_prod.py` è uno step post-deploy separato dalla migrazione DB
+- in produzione deve aggiornare i criteri degli utenti esistenti; la creazione automatica utenti mancanti va evitata (modalità safe di default)
 
 ## 2) Componenti Kubernetes rilevanti per PWA
 

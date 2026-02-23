@@ -192,6 +192,7 @@ Workaround operativo (downtime breve):
 1. Scalare temporaneamente il deployment a `0` per liberare il PVC.
 2. Scalare di nuovo a `1`.
 3. Attendere il rollout del nuovo pod e poi rieseguire i passaggi post-deploy (migration/parity/seed) se Cloud Build è andato in timeout/failure.
+4. Verificare anche lo step post-deploy di sync criteri AI (`sync_criteria_prod.py`): non fa parte della migrazione DB e va eseguito/controllato separatamente.
 
 Comandi:
 ```bash
