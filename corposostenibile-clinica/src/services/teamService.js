@@ -25,6 +25,7 @@ export const USER_SPECIALTIES = {
     { value: 'nutrizionista', label: 'Nutrizione' },
     { value: 'psicologo', label: 'Psicologia' },
     { value: 'coach', label: 'Coach' },
+    { value: 'medico', label: 'Medico' },
   ],
   team_esterno: [],
   influencer: [],
@@ -50,6 +51,7 @@ export const SPECIALTY_LABELS = {
   coach: 'Coach',
   nutrizionista: 'Nutrizione',   // Unificato con nutrizione
   psicologo: 'Psicologia',       // Unificato con psicologia
+  medico: 'Medico',
 };
 
 // Opzioni filtro specializzazione (solo valori unici per i filtri)
@@ -57,6 +59,7 @@ export const SPECIALTY_FILTER_OPTIONS = [
   { value: 'nutrizione,nutrizionista', label: 'Nutrizione' },
   { value: 'psicologia,psicologo', label: 'Psicologia' },
   { value: 'coach', label: 'Coach' },
+  { value: 'medico', label: 'Medico' },
   { value: 'amministrazione', label: 'Amministrazione' },
   { value: 'cco', label: 'CCO' },
 ];
@@ -80,6 +83,7 @@ export const SPECIALTY_COLORS = {
   coach: 'success',
   nutrizionista: 'info',
   psicologo: 'warning',
+  medico: 'danger',
 };
 
 // ==================== TEAM ENTITY CONSTANTS ====================

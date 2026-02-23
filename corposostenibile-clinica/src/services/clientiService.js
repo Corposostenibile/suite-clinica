@@ -150,6 +150,7 @@ export const TIPO_PROFESSIONISTA = {
   NUTRIZIONISTA: 'nutrizionista',
   COACH: 'coach',
   PSICOLOGA: 'psicologa',
+  MEDICO: 'medico',
   HEALTH_MANAGER: 'health_manager',
   CONSULENTE: 'consulente',
 };
@@ -158,6 +159,7 @@ export const TIPO_PROFESSIONISTA_LABELS = {
   nutrizionista: 'Nutrizionista',
   coach: 'Coach',
   psicologa: 'Psicologo/a',
+  medico: 'Medico',
   health_manager: 'Health Manager',
   consulente: 'Consulente',
 };
@@ -166,6 +168,7 @@ export const TIPO_PROFESSIONISTA_ICONS = {
   nutrizionista: 'ri-heart-pulse-line',
   coach: 'ri-run-line',
   psicologa: 'ri-mental-health-line',
+  medico: 'ri-stethoscope-line',
   health_manager: 'ri-user-star-line',
   consulente: 'ri-money-dollar-circle-line',
 };
@@ -174,6 +177,7 @@ export const TIPO_PROFESSIONISTA_COLORS = {
   nutrizionista: { bg: 'success', icon: 'text-success', bgSubtle: 'bg-success-subtle' },
   coach: { bg: 'warning', icon: 'text-warning', bgSubtle: 'bg-warning-subtle' },
   psicologa: { bg: 'info', icon: 'text-info', bgSubtle: 'bg-info-subtle' },
+  medico: { bg: 'danger', icon: 'text-danger', bgSubtle: 'bg-danger-subtle' },
   health_manager: { bg: 'primary', icon: 'text-primary', bgSubtle: 'bg-primary-subtle' },
   consulente: { bg: 'purple', icon: 'text-purple', bgSubtle: 'bg-purple-subtle' },
 };

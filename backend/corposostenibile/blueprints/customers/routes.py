@@ -2576,7 +2576,7 @@ def assign_professionista(cliente_id: int):
         }), 400
 
     # Valida tipo professionista
-    valid_types = ["nutrizionista", "coach", "psicologa", "health_manager", "consulente"]
+    valid_types = ["nutrizionista", "coach", "psicologa", "medico", "health_manager", "consulente"]
     if tipo_professionista not in valid_types:
         return jsonify({
             "ok": False,

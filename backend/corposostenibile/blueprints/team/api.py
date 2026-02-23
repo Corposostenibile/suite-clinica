@@ -1963,6 +1963,7 @@ def get_available_professionals(team_type):
     Get available professionals for a specific team type.
 
     For nutrizione/coach/psicologia: role = professionista and compatible specialty.
+    For medico: role = professionista and specialty = medico.
     For health_manager: role = health_manager (or department_id = 13 if present).
     """
     team_type = (team_type or "").strip().lower()
@@ -1977,6 +1978,18 @@ def get_available_professionals(team_type):
         professionals = User.query.filter(
             User.is_active == True,
             cast(User.role, String) == "health_manager",
+        ).order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'professionals': [_serialize_user(u) for u in professionals],
+            'total': len(professionals)
+        })
+
+    if team_type == "medico":
+        professionals = User.query.filter(
+            User.is_active == True,
+            User.role == UserRoleEnum.professionista,
+            cast(User.specialty, String) == "medico",
         ).order_by(User.first_name, User.last_name).all()
         return jsonify({
             'success': True,
@@ -2038,6 +2051,7 @@ def get_professionals_capacity():
         UserSpecialtyEnum.coach,
         UserSpecialtyEnum.psicologia,
         UserSpecialtyEnum.psicologo,
+        UserSpecialtyEnum.medico,
     ]
 
     query = User.query.filter(

@@ -531,7 +531,7 @@ function ClientiDetail() {
 
     const mapped = tabAliases[requestedTab] || requestedTab;
     const validTabs = new Set([
-      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'check_periodici', 'check_iniziali'
+      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico', 'check_periodici', 'check_iniziali'
     ]);
 
     if (validTabs.has(mapped)) {
@@ -880,6 +880,16 @@ function ClientiDetail() {
       }
     }
   }, [activeTab, psicologiaSubTab, id]);
+
+  // Fetch medico data when Medico tab is active
+  useEffect(() => {
+    if (activeTab === 'medico' && id) {
+      if (professionistiHistory.length === 0) {
+        fetchProfessionistiHistory();
+      }
+      fetchAvailableProfessionals();
+    }
+  }, [activeTab, id]);
 
   // Fetch check data when check tab is active
   useEffect(() => {
@@ -1857,16 +1867,18 @@ function ClientiDetail() {
 
   const fetchAvailableProfessionals = async () => {
     try {
-      const [nutri, coach, psico, hm] = await Promise.all([
+      const [nutri, coach, psico, medico, hm] = await Promise.all([
         teamService.getAvailableProfessionals('nutrizione'),
         teamService.getAvailableProfessionals('coach'),
         teamService.getAvailableProfessionals('psicologia'),
+        teamService.getAvailableProfessionals('medico'),
         teamService.getAvailableProfessionals('health_manager'),
       ]);
       setAvailableProfessionals({
         nutrizionista: nutri.professionals || [],
         coach: coach.professionals || [],
         psicologa: psico.professionals || [],
+        medico: medico.professionals || [],
         health_manager: hm.professionals || [],
       });
     } catch (err) {
@@ -2290,6 +2302,7 @@ function ClientiDetail() {
     { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
     { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
+    { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
@@ -2990,7 +3003,7 @@ function ClientiDetail() {
                         ) : (
                           <div className="row g-3 align-items-start">
                             {/* Nutrizionisti */}
-                            <div className="col-md-4">
+                            <div className="col-md-6 col-xl-3">
                               <div className="card border">
                                 <div className="card-body p-3">
                                   <div className="d-flex align-items-center justify-content-between mb-2">
@@ -3049,7 +3062,7 @@ function ClientiDetail() {
                             </div>
 
                             {/* Coach */}
-                            <div className="col-md-4">
+                            <div className="col-md-6 col-xl-3">
                               <div className="card border">
                                 <div className="card-body p-3">
                                   <div className="d-flex align-items-center justify-content-between mb-2">
@@ -3108,7 +3121,7 @@ function ClientiDetail() {
                             </div>
 
                             {/* Psicologi */}
-                            <div className="col-md-4">
+                            <div className="col-md-6 col-xl-3">
                               <div className="card border">
                                 <div className="card-body p-3">
                                   <div className="d-flex align-items-center justify-content-between mb-2">
@@ -3141,6 +3154,65 @@ function ClientiDetail() {
                                             />
                                           ) : (
                                             <div className="rounded-circle bg-info text-white d-flex align-items-center justify-content-center me-2"
+                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                              {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                            </div>
+                                          )}
+                                          <div>
+                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                          </div>
+                                        </div>
+                                        <button
+                                          className="btn btn-sm btn-link text-danger p-0"
+                                          onClick={() => handleOpenInterruptModal(assignment)}
+                                          title="Rimuovi"
+                                        >
+                                          <i className="ri-close-line"></i>
+                                        </button>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <small className="text-muted">Nessuno assegnato</small>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Medici */}
+                            <div className="col-md-6 col-xl-3">
+                              <div className="card border">
+                                <div className="card-body p-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center">
+                                      <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                           style={{ width: '28px', height: '28px' }}>
+                                        <i className="ri-stethoscope-line text-danger" style={{ fontSize: '0.85rem' }}></i>
+                                      </div>
+                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Medico</span>
+                                    </div>
+                                    <button
+                                      className="btn btn-danger btn-sm d-flex align-items-center justify-content-center"
+                                      onClick={() => handleOpenAssignModal('medico')}
+                                      title="Aggiungi Medico"
+                                      style={{ width: '26px', height: '26px', padding: 0 }}
+                                    >
+                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                    </button>
+                                  </div>
+                                  {getActiveProfessionals('medico').length > 0 ? (
+                                    getActiveProfessionals('medico').map((assignment, idx) => (
+                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
+                                        <div className="d-flex align-items-center">
+                                          {assignment.avatar_path ? (
+                                            <img
+                                              src={assignment.avatar_path}
+                                              alt=""
+                                              className="rounded-circle me-2"
+                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2"
                                                  style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
                                               {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
@@ -6108,6 +6180,146 @@ function ClientiDetail() {
               )}
 
               {/* ========== CHECK TAB ========== */}
+              {/* ========== MEDICO TAB ========== */}
+              {activeTab === 'medico' && (
+                <div className="row g-4">
+                  <div className="col-12">
+                    <div className="card border">
+                      <div className="card-body p-3">
+                        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                          <div className="d-flex align-items-center">
+                            <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                 style={{ width: '34px', height: '34px' }}>
+                              <i className="ri-stethoscope-line text-danger"></i>
+                            </div>
+                            <div>
+                              <div className="fw-semibold">Medico</div>
+                              <small className="text-muted">Gestione assegnazioni mediche del paziente</small>
+                            </div>
+                          </div>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleOpenAssignModal('medico')}
+                          >
+                            <i className="ri-add-line me-1"></i>
+                            Assegna Medico
+                          </button>
+                        </div>
+
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : getActiveProfessionals('medico').length > 0 ? (
+                          <div className="d-flex flex-column gap-2">
+                            {getActiveProfessionals('medico').map((assignment, idx) => (
+                              <div key={idx} className="d-flex align-items-center justify-content-between p-2 bg-light rounded">
+                                <div className="d-flex align-items-center">
+                                  {assignment.avatar_path ? (
+                                    <img
+                                      src={assignment.avatar_path}
+                                      alt=""
+                                      className="rounded-circle me-2"
+                                      style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2"
+                                         style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}>
+                                      {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="fw-medium small">{assignment.professionista_nome}</div>
+                                    <small className="text-muted">Assegnato dal {assignment.data_dal || '—'}</small>
+                                  </div>
+                                </div>
+                                <button
+                                  className="btn btn-sm btn-link text-danger p-0"
+                                  onClick={() => handleOpenInterruptModal(assignment)}
+                                  title="Rimuovi assegnazione"
+                                >
+                                  <i className="ri-close-line fs-5"></i>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 bg-light rounded">
+                            <i className="ri-stethoscope-line text-muted fs-3 d-block mb-2"></i>
+                            <small className="text-muted">Nessun medico assegnato</small>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12">
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <i className="ri-history-line me-2"></i>
+                      Storico Assegnazioni Medico
+                    </h6>
+                    {professionistiHistory.filter(h => h.tipo_professionista === 'medico').length > 0 ? (
+                      <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #ef4444, #b91c1c)', borderRadius: '2px', zIndex: 0 }}></div>
+                        <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                          {professionistiHistory
+                            .filter(h => h.tipo_professionista === 'medico')
+                            .sort((a, b) => {
+                              const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
+                              const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
+                              return dateB - dateA;
+                            })
+                            .map((item, idx) => (
+                              <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '150px', maxWidth: '170px' }}>
+                                <div className="d-flex justify-content-center mb-2">
+                                  <div className="rounded-circle d-flex align-items-center justify-content-center bg-danger" style={{ width: '28px', height: '28px', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                                    <i className="ri-stethoscope-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                  </div>
+                                </div>
+                                <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                  {item.data_dal || '—'}
+                                  {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                </div>
+                                <div className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_active ? '#fff' : '#f8fafc' }}>
+                                  <div className="card-body p-2">
+                                    <div className="mb-2">
+                                      {item.is_active ? (
+                                        <span className="badge bg-danger" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                      ) : (
+                                        <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                      )}
+                                    </div>
+                                    <div className="d-flex justify-content-center mb-2">
+                                      {item.avatar_path ? (
+                                        <img src={item.avatar_path} alt="" className="rounded-circle" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}>
+                                          {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="fw-semibold small" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {item.professionista_nome}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="card border">
+                        <div className="card-body p-3 text-center text-muted">
+                          <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
+                          <p className="mb-0 small">Nessuno storico medico disponibile</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ========== CHECK PERIODICI TAB ========== */}
               {activeTab === 'check_periodici' && (
                 <div className="row g-4">

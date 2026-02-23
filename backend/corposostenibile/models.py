@@ -177,6 +177,7 @@ class TipoProfessionistaEnum(str, Enum):
     nutrizionista = "nutrizionista"
     coach = "coach"
     psicologa = "psicologa"
+    medico = "medico"
     health_manager = "health_manager"
     consulente = "consulente"
 
@@ -257,6 +258,7 @@ class UserSpecialtyEnum(str, Enum):
     # Professionista specific
     nutrizionista = "nutrizionista"
     psicologo = "psicologo"
+    medico = "medico"
 
 
 class TeamTypeEnum(str, Enum):
@@ -1391,6 +1393,7 @@ class User(UserMixin, TimestampMixin, db.Model):
             'coach': 'Coach',
             'nutrizionista': 'Nutrizionista',
             'psicologo': 'Psicologo',
+            'medico': 'Medico',
         }
         spec_value = self.specialty.value if hasattr(self.specialty, 'value') else str(self.specialty)
         return specialty_labels.get(spec_value, spec_value)
