@@ -100,6 +100,14 @@ API backend sullo stesso host:
 Nota:
 - le env runtime documentate devono essere presenti nel deployment GKE (`k8s/deployment.yaml`)
 - i valori sensibili vanno in Secret Kubernetes (es. `k8s/app-integrations-secret.example.yaml` -> `app-integrations`)
+- se il deploy viene lanciato manualmente con `gcloud builds submit`, passare sempre `COMMIT_SHA` nelle substitutions (altrimenti il tag immagine resta vuoto e lo step Docker fallisce):
+
+```bash
+gcloud builds submit \
+  --config=cloudbuild.yaml \
+  --substitutions=COMMIT_SHA=$(git rev-parse HEAD) \
+  .
+```
 
 ## 5) Checklist go-live GCP
 
@@ -117,6 +125,16 @@ curl -I https://<dominio>/auth/login
 curl -I https://<dominio>/manifest.webmanifest
 curl -I https://<dominio>/sw.js
 curl -i https://<dominio>/api/auth/me | head -n 20
+```
+
+Post-deploy manuale (se il build Cloud fallisce dopo il rollout immagine):
+
+```bash
+kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
+  set -euo pipefail
+  flask db upgrade
+  PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
+'
 ```
 
 ### Variabili env consigliate (GHL + Respond.io)
@@ -161,6 +179,56 @@ curl -i https://<dominio>/api/push/public-key
 - verificare variabili VAPID nel deployment
 - verificare migrazione `push_subscriptions` applicata
 - verificare che l'utente abbia autorizzato le notifiche nel browser/PWA
+
+### 6.5 Rollout bloccato con PVC `uploads-pvc` (Multi-Attach)
+
+Sintomo:
+- `kubectl rollout status deployment/suite-clinica-backend` resta in attesa
+- il nuovo pod backend resta `ContainerCreating`
+- eventi pod con `FailedAttachVolume ... Multi-Attach error` sul PVC `uploads-pvc`
+
+Causa:
+- `uploads-pvc` è montato in `ReadWriteOnce`
+- il Deployment usa `RollingUpdate` (`maxSurge > 0`), quindi durante il rollout prova a tenere vecchio e nuovo pod insieme
+- il nuovo pod non può montare il PVC finché il vecchio pod non rilascia il volume
+
+Workaround operativo (downtime breve):
+1. Forzare lo spegnimento del pod vecchio o scalare il deployment a `0`.
+2. Riportare il deployment a `1`.
+3. Verificare rollout e readiness.
+
+Comandi utili:
+
+```bash
+kubectl describe pod <nuovo-pod>
+kubectl scale deploy/suite-clinica-backend --replicas=0
+kubectl scale deploy/suite-clinica-backend --replicas=1
+kubectl rollout status deployment/suite-clinica-backend --timeout=300s
+```
+
+Mitigazione consigliata:
+- configurare una strategia di rollout compatibile con PVC `RWO` (es. `Recreate` oppure `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`)
+
+### 6.6 `sync_criteria_prod.py` fallisce dopo riordino script
+
+Sintomo:
+- step post-deploy Cloud Build termina con errore file non trovato per `Criteri Ai.xlsx`
+
+Possibile causa:
+- lo script `sync_criteria_prod.py` usa un path relativo/hardcoded non più valido dopo il riordino di `backend/scripts`
+
+Impatto:
+- non blocca il deploy dell'immagine o le migration Alembic
+- blocca solo la sincronizzazione criteri automatica post-deploy
+
+Verifica manuale:
+
+```bash
+kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
+  ls -l /app/scripts/migration_scripts/sync_criteria_prod.py
+  ls -l "/app/corposostenibile/blueprints/sales_form/assegnazioni_xlsx/Criteri Ai.xlsx"
+'
+```
 
 ## 7) Hardening raccomandato
 

@@ -158,6 +158,33 @@ Workaround pratico:
 3. Creare `PV/PVC` statici legati al nuovo disco.
 4. Puntare il Job migrazione al nuovo claim (`claimName` aggiornato).
 
+## Caso Rollout Backend Bloccato per Multi-Attach (`uploads-pvc`)
+
+Sintomo osservato (deploy applicativo, non job di migrazione):
+- `kubectl rollout status deployment/suite-clinica-backend` resta in attesa
+- il nuovo pod backend resta in `ContainerCreating`
+- `kubectl describe pod ...` mostra `FailedAttachVolume` con `Multi-Attach error` su `uploads-pvc`
+
+Causa:
+- `uploads-pvc` è montato dal backend ed è `ReadWriteOnce`
+- con strategia `RollingUpdate` il Deployment prova ad avviare il nuovo pod prima di terminare quello vecchio
+- il volume non può essere montato contemporaneamente da entrambi i pod
+
+Workaround operativo (downtime breve):
+1. Scalare temporaneamente il deployment a `0` per liberare il PVC.
+2. Scalare di nuovo a `1`.
+3. Attendere il rollout del nuovo pod e poi rieseguire i passaggi post-deploy (migration/parity/seed) se Cloud Build è andato in timeout/failure.
+
+Comandi:
+```bash
+kubectl scale deploy/suite-clinica-backend --replicas=0
+kubectl scale deploy/suite-clinica-backend --replicas=1
+kubectl rollout status deployment/suite-clinica-backend --timeout=300s
+```
+
+Mitigazione raccomandata:
+- usare una strategia di deploy compatibile con PVC `RWO` (`Recreate` oppure `RollingUpdate` con `maxSurge: 0`)
+
 ## Incidente Reale: 21 Febbraio 2026 (GKE scale-down)
 
 Sintomo osservato:
