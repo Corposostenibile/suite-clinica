@@ -208,8 +208,7 @@ def get_department_members(department_id):
         # Genera URL avatar
         avatar_url = None
         if member.avatar_path:
-            from flask import url_for
-            avatar_url = url_for('team.serve_avatar', user_id=member.id, filename=member.avatar_path)
+            avatar_url = member.avatar_url
         
         members_data.append({
             'id': member.id,

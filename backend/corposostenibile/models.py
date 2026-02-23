@@ -1337,12 +1337,15 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     @property
     def avatar_url(self) -> str:
-        from flask import url_for
-        return (
-            url_for("team.serve_avatar", user_id=self.id)
-            if self.avatar_path
-            else "/static/assets/immagini/logo_user.png"
-        )
+        if not self.avatar_path:
+            return "/static/assets/immagini/logo_user.png"
+        if self.avatar_path.startswith("/uploads/"):
+            return self.avatar_path
+        if self.avatar_path.startswith("uploads/"):
+            return f"/{self.avatar_path}"
+        if self.avatar_path.startswith("avatars/"):
+            return f"/uploads/{self.avatar_path}"
+        return f"/uploads/avatars/{self.avatar_path.lstrip('/')}"
 
     @property
     def has_sales_access(self) -> bool:
