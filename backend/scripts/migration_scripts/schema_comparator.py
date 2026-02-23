@@ -259,13 +259,15 @@ TEAM_TYPE_BY_ID = {
     '6': 'psicologia',
     '7': 'coach',
 }
-ALLOWED_USER_ROLES = {'admin', 'team_leader', 'professionista', 'team_esterno', 'influencer'}
+ALLOWED_USER_ROLES = {'admin', 'team_leader', 'professionista', 'team_esterno', 'influencer', 'health_manager'}
 ALLOWED_USER_SPECIALTIES = {
-    'amministrazione', 'cco', 'nutrizione', 'psicologia', 'coach', 'nutrizionista', 'psicologo'
+    'amministrazione', 'cco', 'nutrizione', 'psicologia', 'coach', 'nutrizionista', 'psicologo', 'medico'
 }
 ROLE_ALIASES = {
     'team leader': 'team_leader',
     'teamleader': 'team_leader',
+    'health manager': 'health_manager',
+    'healthmanager': 'health_manager',
     'professional': 'professionista',
     'professionist': 'professionista',
     'external_team': 'team_esterno',
@@ -282,6 +284,8 @@ SPECIALTY_ALIASES = {
     'psicologo': 'psicologo',
     'psychologist': 'psicologo',
     'coach': 'coach',
+    'medico': 'medico',
+    'doctor': 'medico',
 }
 ENUM_ALIASES = {
     'checksaltatienum': {
@@ -1086,7 +1090,7 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
 
     filtered_users = []
     name_to_id = {}
-    clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach'}
+    clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach', 'medico'}
     for u in table_data.get('users', []):
         first = (u.get('first_name') or '').strip()
         last = (u.get('last_name') or '').strip()
