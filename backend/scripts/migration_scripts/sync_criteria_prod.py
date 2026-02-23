@@ -6,7 +6,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 # Add backend directory to path to load app
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.append(str(BASE_DIR))
 
 from corposostenibile import create_app
