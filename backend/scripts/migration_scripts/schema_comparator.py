@@ -649,11 +649,11 @@ def derived_user_value(col, row):
         if role:
             # A clinical role without specialty is invalid in the new model.
             if role in {'professionista', 'team_leader'} and not specialty:
-                return 'influencer'
+                return None
             return role
         if is_external:
             return 'team_esterno'
-        return 'professionista' if specialty else 'influencer'
+        return 'professionista' if specialty else None
     if col == 'specialty':
         return specialty
     if col == 'email':
@@ -1054,9 +1054,9 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             elif u.get('specialty') in clinical_specialties:
                 u['role'] = 'professionista'
             else:
-                u['role'] = 'influencer'
-        if u['role'] not in ALLOWED_USER_ROLES:
-            u['role'] = 'professionista'
+                u['role'] = None
+        if u.get('role') and u['role'] not in ALLOWED_USER_ROLES:
+            u['role'] = None
         if not u.get('first_name'):
             u['first_name'] = 'Utente'
         if not u.get('last_name'):

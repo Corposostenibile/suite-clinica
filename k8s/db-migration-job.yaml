@@ -390,11 +390,6 @@ spec:
             AND specialty IS NULL
             AND (email ILIKE '%nutri%' OR email ILIKE '%diet%');
 
-          -- Rule: users without specialty must not remain professionals.
-          UPDATE users
-          SET role = 'influencer'
-          WHERE role = 'professionista'
-            AND specialty IS NULL;
           SQL
 
           echo "[migration] ensure required columns introduced by recent releases..."

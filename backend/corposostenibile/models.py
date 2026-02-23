@@ -1152,7 +1152,7 @@ class User(UserMixin, TimestampMixin, db.Model):
     role = db.Column(
         _def(UserRoleEnum),
         default=UserRoleEnum.professionista,
-        nullable=False,
+        nullable=True,
         index=True,
         comment="Ruolo utente: admin, team_leader, professionista, team_esterno"
     )
@@ -1377,6 +1377,8 @@ class User(UserMixin, TimestampMixin, db.Model):
             'professionista': 'Professionista',
             'team_esterno': 'Team Esterno',
         }
+        if not self.role:
+            return ""
         role_value = self.role.value if hasattr(self.role, 'value') else str(self.role)
         return role_labels.get(role_value, role_value)
 

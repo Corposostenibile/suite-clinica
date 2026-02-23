@@ -712,6 +712,8 @@ def api_organigramma_data():
     """API per ottenere dati organigramma - accessibile a tutti."""
     try:
         from corposostenibile.models import Team
+        def _visible_org_user(user):
+            return bool(user and user.is_active and getattr(user, "role", None))
 
         # Recupera tutti i dipartimenti con head e membri
         departments = Department.query.options(
@@ -788,7 +790,7 @@ def api_organigramma_data():
             }
 
             # Head info (escludi utenti test e non attivi dal conteggio)
-            if dept.head and dept.head.is_active:
+            if _visible_org_user(dept.head):
                 if dept.head.full_name not in ['Matteo Test Manager', 'Matteo Test User']:
                     all_employees.add(dept.head.id)
                 dept_info['head'] = {
@@ -810,7 +812,7 @@ def api_organigramma_data():
                     }
 
                     # Team head
-                    if team.head and team.head.is_active:
+                    if _visible_org_user(team.head):
                         if team.head.full_name not in ['Matteo Test Manager', 'Matteo Test User']:
                             all_employees.add(team.head.id)
                         team_info['head'] = {
@@ -823,7 +825,7 @@ def api_organigramma_data():
 
                     # Team members (escludi head)
                     for member in team.members:
-                        if not member.is_active:
+                        if not _visible_org_user(member):
                             continue
                         if team.head and member.id == team.head.id:
                             continue
@@ -846,7 +848,7 @@ def api_organigramma_data():
             else:
                 # Members info per dipartimenti normali
                 for member in dept.members:
-                    if not member.is_active:
+                    if not _visible_org_user(member):
                         continue
                     if dept.head and member.id == dept.head.id:
                         continue

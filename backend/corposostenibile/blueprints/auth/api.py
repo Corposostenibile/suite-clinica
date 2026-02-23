@@ -244,6 +244,7 @@ def api_reset_password(token: str):
 
 def _user_to_dict(user: User) -> dict:
     """Convert User model to JSON-safe dict."""
+    role_value = user.role.value if getattr(user, "role", None) and hasattr(user.role, "value") else (str(user.role) if getattr(user, "role", None) else None)
     return {
         "id": user.id,
         "email": user.email,
@@ -251,7 +252,7 @@ def _user_to_dict(user: User) -> dict:
         "last_name": user.last_name,
         "full_name": user.full_name if hasattr(user, 'full_name') else f"{user.first_name} {user.last_name}",
         "is_admin": user.is_admin,
-        "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+        "role": role_value,
         "specialty": user.specialty.value if hasattr(user, 'specialty') and user.specialty else None,
         "avatar_path": user.avatar_path,
         "is_trial": user.is_trial if hasattr(user, 'is_trial') else False,
