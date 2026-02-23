@@ -37,7 +37,10 @@ Per evitare di rebuildare l'immagine Docker ad ogni modifica dello script, caric
 
 ```bash
 # Crea/Aggiorna la ConfigMap dallo script locale
-kubectl create configmap migration-script-config --from-file=backend/scripts/migration_scripts/schema_comparator.py -o yaml --dry-run=client | kubectl apply -f -
+kubectl create configmap migration-script-config \
+  --from-file=backend/scripts/migration_scripts/schema_comparator.py \
+  --from-file=backend/scripts/migration_scripts/verify_schema_parity.py \
+  -o yaml --dry-run=client | kubectl apply -f -
 ```
 
 ### 3. Avvio del Job
@@ -79,6 +82,7 @@ Errori comuni:
 - `OLD_SUITE_BACKUP not found`: path dump vecchia suite non valido o file assente nel PVC.
 - `Multi-Attach error for volume ... db-backups-pvc`: esiste un altro pod (es. `manual-db-migrator`) che sta già montando il PVC.
 - `configmap "migration-script-config" not found`: rieseguire la creazione ConfigMap (step 2).
+- `can't find '__main__' module in '/app/scripts/migration_scripts/verify_schema_parity.py'`: la ConfigMap `migration-script-config` contiene solo `schema_comparator.py`. Ricrearla includendo anche `verify_schema_parity.py`, poi rilanciare il Job (oppure completare manualmente solo gli step finali se il replay dati è già terminato).
 - `secret "db-credentials" / "sql-proxy-key" not found`: secret mancanti nel namespace corrente.
 - `pg_isready timeout` o errori proxy: credenziali Cloud SQL o connectivity issue verso istanza DB.
 - `FailedScheduling` (es. `Insufficient memory/cpu` o `didn't match Pod's node affinity/selector`): capacità cluster insufficiente o vincoli zona/affinity incompatibili con il PVC.
@@ -134,8 +138,22 @@ Il job scarica l'archivio `.tar.gz` tramite pipe ed estrae i file direttamente i
 - **Modalità organigramma (opzionale)**: impostando `STRICT_ORGANIGRAM=1` lo script torna al comportamento restrittivo (filtra professionisti fuori organigramma ufficiale e ricostruisce `teams`/`team_members`).
 - **Dati Check Azienda**: la migrazione deve includere anche le tabelle `weekly_checks`, `weekly_check_responses` e `weekly_check_link_assignments` (oltre a `dca_*` e `minor_*` se presenti), altrimenti la pagina `/check-azienda` risulta vuota anche con applicazione funzionante.
 - **Campi obbligatori utenti**: durante la generazione dump vengono normalizzati `role`, `specialty` e booleani (`is_admin`, `is_active`, `is_external`, `is_trial`) per evitare errori `NOT NULL`/enum su `users`.
+- **`team_members` derivata se assente nel dump**: nel ramo streaming (`STRICT_ORGANIGRAM=0`), se il dump non contiene righe `team_members`, lo script ricostruisce la tabella usando almeno i `head_id` dei `teams` e arricchisce con l'organigramma ufficiale (`OFFICIAL_TEAMS`) quando trova corrispondenze nome->utente.
 - **Temp su PVC obbligatorio**: il Job imposta `TMPDIR` e `MIGRATION_TMP_DIR` su `/data/backups/migration_output/tmp`; evitare `/tmp` locale per non incorrere in eviction.
 - **ConfigMap obbligatoria dopo modifiche script**: se si modifica `schema_comparator.py`, rieseguire sempre lo step 2 (update `migration-script-config`) prima di rilanciare il Job.
+
+### Recovery rapido (errore finale dopo replay dati già completato)
+
+Se il Job fallisce solo nel post-check finale (es. `verify_schema_parity.py`) ma il replay tabelle è già completato:
+
+1. Fermare il Job rilanciato automatico (`kubectl delete job suite-clinica-db-migration`)
+2. Correggere la ConfigMap (`migration-script-config`)
+3. Eseguire manualmente sul pod backend:
+   - `PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py`
+   - eventuale upsert utente `dev@corposostenibile.it`
+   - snapshot conteggi finali
+
+Questo evita di rifare l'intera migrazione dati.
 
 ## Hardening Operativo (obbligatorio)
 

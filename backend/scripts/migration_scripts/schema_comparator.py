@@ -240,7 +240,8 @@ TABLE_PRIORITY = [
     'minor_checks',
     'minor_check_responses',
 ]
-MIGRATION_TABLES = None
+_migration_tables_env = os.environ.get('MIGRATION_TABLES', '').strip()
+MIGRATION_TABLES = {t.strip() for t in _migration_tables_env.split(',') if t.strip()} or None
 EXCLUDED_TABLES = {
     t.strip()
     for t in os.environ.get('MIGRATION_EXCLUDED_TABLES', 'activity_log,global_activity_log').split(',')
@@ -754,6 +755,8 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
     split_dir = os.environ.get('MIGRATION_SPLIT_DIR', '').strip()
     order_file = os.environ.get('MIGRATION_ORDER_FILE', '').strip()
     skip_combined_dump = os.environ.get('MIGRATION_SKIP_COMBINED_DUMP', '0').strip().lower() in {'1', 'true', 'yes'}
+    users_by_name = {}
+    imported_team_heads = {}
 
     def get_table_file_path(table_name):
         path = table_file_paths.get(table_name)
@@ -878,11 +881,88 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
                 continue
             pending_values.append(f"({', '.join(sql_values)})")
             table_row_counts[current_table] += 1
+            if current_table == 'users':
+                uid = row.get('id')
+                first = (row.get('first_name') or '').strip()
+                last = (row.get('last_name') or '').strip()
+                if uid and (first or last):
+                    users_by_name[f"{first} {last}".strip().lower()] = uid
+            elif current_table == 'teams':
+                tid = row.get('id')
+                head_id = row.get('head_id')
+                if tid:
+                    imported_team_heads[str(tid).strip()] = str(head_id).strip() if head_id not in (None, '') else None
             if len(pending_values) >= insert_batch_size:
                 flush_pending()
 
         flush_pending()
         process.wait()
+
+        if table_row_counts.get('team_members', 0) == 0 and 'team_members' in new_schema_def:
+            synthetic_memberships = []
+            seen_memberships = set()
+
+            def add_membership(team_id, user_id):
+                if not team_id or not user_id:
+                    return
+                try:
+                    t_id = int(str(team_id).strip())
+                    u_id = int(str(user_id).strip())
+                except Exception:
+                    return
+                key = (t_id, u_id)
+                if key in seen_memberships:
+                    return
+                seen_memberships.add(key)
+                synthetic_memberships.append({
+                    'team_id': t_id,
+                    'user_id': u_id,
+                    'joined_at': datetime.now().isoformat(),
+                })
+
+            # Always include current team heads as members.
+            for team_id, head_id in imported_team_heads.items():
+                add_membership(team_id, head_id)
+
+            # Enrich memberships from official organigram when users are present in imported users.
+            for team_id, team in OFFICIAL_TEAMS.items():
+                if str(team_id) not in imported_team_heads:
+                    continue
+                for person_name in [team.get('leader')] + list(team.get('members', [])):
+                    if not person_name:
+                        continue
+                    add_membership(team_id, users_by_name.get(str(person_name).strip().lower()))
+
+            if synthetic_memberships:
+                current_table = 'team_members'
+                mapped_cols = []
+                for col in ['team_id', 'user_id', 'joined_at']:
+                    if col in new_schema_def['team_members']:
+                        mapped_cols.append((col, new_schema_def['team_members'].get(col, '')))
+                pending_values = []
+                for srow in synthetic_memberships:
+                    sql_values = []
+                    for col, col_type in mapped_cols:
+                        sql_values.append(to_sql_value(srow.get(col), col_type))
+                    pending_values.append(f"({', '.join(sql_values)})")
+                    if len(pending_values) >= insert_batch_size:
+                        final_cols_quoted = ", ".join(f'"{col}"' for col, _ in mapped_cols)
+                        append_table_sql(
+                            'team_members',
+                            f"INSERT INTO public.team_members ({final_cols_quoted}) VALUES {', '.join(pending_values)} ON CONFLICT DO NOTHING;\n"
+                        )
+                        pending_values = []
+                if pending_values:
+                    final_cols_quoted = ", ".join(f'"{col}"' for col, _ in mapped_cols)
+                    append_table_sql(
+                        'team_members',
+                        f"INSERT INTO public.team_members ({final_cols_quoted}) VALUES {', '.join(pending_values)} ON CONFLICT DO NOTHING;\n"
+                    )
+                table_row_counts['team_members'] = len(synthetic_memberships)
+                if 'team_members' not in inserted_tables_seen:
+                    inserted_tables_seen.add('team_members')
+                    inserted_tables.append('team_members')
+                print(f"[migration][prepare][derived] table=team_members source_rows={len(synthetic_memberships)} method=team_heads+official_organigram")
 
         ordered_tables = order_tables_by_fk(inserted_tables, fk_deps)
         ordered_tables = enforce_table_precedence(
