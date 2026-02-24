@@ -332,16 +332,24 @@ def api_calculate_quality():
     }
 
     try:
-        # 1. Calculate eligibility
-        for prof in professionisti:
-            EligibilityService.calculate_eligibility_for_week(
-                week_start=week_start,
-                professionista_id=prof.id
-            )
+        prof_ids = [p.id for p in professionisti]
+        if not prof_ids:
+            results['success'] = True
+            results['elapsed_seconds'] = round(time.time() - start_time, 1)
+            results['check_processing'] = {'processed': 0, 'created': 0, 'updated': 0, 'skipped': 0}
+            return jsonify(results)
 
-        # 2. Process check responses
+        # 1. Calculate eligibility in batch (single transaction, filtered to requested professionals)
+        EligibilityService.calculate_eligibility_for_week(
+            week_start=week_start,
+            professionista_ids=prof_ids,
+            auto_commit=False,
+        )
+
+        # 2. Process check responses only for requested professionals
         check_stats = QualityScoreCalculator.process_check_responses_for_week(
-            week_start=week_start
+            week_start=week_start,
+            professionista_ids=prof_ids,
         )
         db.session.commit()
 
@@ -431,16 +439,24 @@ def api_calcola_dipartimento(dept_key):
     }
 
     try:
-        # 1. Calcola eleggibilità per ogni professionista
-        for prof in professionisti:
-            EligibilityService.calculate_eligibility_for_week(
-                week_start=week_start,
-                professionista_id=prof.id
-            )
+        prof_ids = [p.id for p in professionisti]
+        if not prof_ids:
+            results['elapsed_seconds'] = round(time.time() - start_time, 1)
+            results['success'] = True
+            results['check_processing'] = {'processed': 0, 'created': 0, 'updated': 0, 'skipped': 0}
+            return jsonify(results)
+
+        # 1. Calcola eleggibilità in batch
+        EligibilityService.calculate_eligibility_for_week(
+            week_start=week_start,
+            professionista_ids=prof_ids,
+            auto_commit=False,
+        )
 
         # 2. Processa check responses
         check_stats = QualityScoreCalculator.process_check_responses_for_week(
-            week_start=week_start
+            week_start=week_start,
+            professionista_ids=prof_ids,
         )
         db.session.commit()
 

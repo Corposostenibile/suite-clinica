@@ -141,7 +141,9 @@ class EligibilityService:
         cls,
         week_start: date,
         professionista_id: Optional[int] = None,
-        calculated_by_user_id: Optional[int] = None
+        calculated_by_user_id: Optional[int] = None,
+        professionista_ids: Optional[List[int]] = None,
+        auto_commit: bool = True,
     ) -> Dict[str, any]:
         """
         Calcola eleggibilità per tutti i clienti di un professionista in una settimana.
@@ -172,6 +174,17 @@ class EligibilityService:
             )
         )
 
+        target_prof_ids = None
+        if professionista_ids:
+            target_prof_ids = list({int(pid) for pid in professionista_ids if pid is not None})
+        elif professionista_id:
+            target_prof_ids = [professionista_id]
+
+        if target_prof_ids and len(target_prof_ids) == 1:
+            professionista_id = target_prof_ids[0]
+        elif target_prof_ids:
+            professionista_id = None
+
         if professionista_id:
             # Filtra per professionista: colonne singole O relazioni M2M
             # Subquery per M2M nutrizionisti
@@ -199,6 +212,28 @@ class EligibilityService:
                     Cliente.cliente_id.in_(psicologi_select)
                 )
             )
+        elif target_prof_ids:
+            # Filtra per un set di professionisti
+            nutrizionisti_select = db.session.query(cliente_nutrizionisti.c.cliente_id).filter(
+                cliente_nutrizionisti.c.user_id.in_(target_prof_ids)
+            ).statement
+            coaches_select = db.session.query(cliente_coaches.c.cliente_id).filter(
+                cliente_coaches.c.user_id.in_(target_prof_ids)
+            ).statement
+            psicologi_select = db.session.query(cliente_psicologi.c.cliente_id).filter(
+                cliente_psicologi.c.user_id.in_(target_prof_ids)
+            ).statement
+
+            query = query.filter(
+                or_(
+                    Cliente.nutrizionista_id.in_(target_prof_ids),
+                    Cliente.coach_id.in_(target_prof_ids),
+                    Cliente.psicologa_id.in_(target_prof_ids),
+                    Cliente.cliente_id.in_(nutrizionisti_select),
+                    Cliente.cliente_id.in_(coaches_select),
+                    Cliente.cliente_id.in_(psicologi_select)
+                )
+            )
 
         all_clients = query.all()
 
@@ -209,6 +244,10 @@ class EligibilityService:
         if professionista_id:
             existing_elig_query = existing_elig_query.filter_by(
                 professionista_id=professionista_id
+            )
+        elif target_prof_ids:
+            existing_elig_query = existing_elig_query.filter(
+                EleggibilitaSettimanale.professionista_id.in_(target_prof_ids)
             )
 
         existing_elig_dict = {}
@@ -256,6 +295,8 @@ class EligibilityService:
         professionisti_ids = list(professionisti_set)
         if professionista_id:
             professionisti_ids = [professionista_id]
+        elif target_prof_ids:
+            professionisti_ids = target_prof_ids
 
         # OTTIMIZZAZIONE: Pre-carica tutti i professionisti in un dict
         professionisti_dict = {}
@@ -273,6 +314,8 @@ class EligibilityService:
             for prof_id in prof_ids:
                 # Filtra se richiesto professionista specifico
                 if professionista_id and prof_id != professionista_id:
+                    continue
+                if target_prof_ids and prof_id not in target_prof_ids:
                     continue
 
                 # Ottieni professionista dal dict pre-caricato
@@ -324,7 +367,10 @@ class EligibilityService:
         if to_add:
             db.session.bulk_save_objects(to_add)
 
-        db.session.commit()
+        if auto_commit:
+            db.session.commit()
+        else:
+            db.session.flush()
 
         return {
             'total_processed': total_processed,
