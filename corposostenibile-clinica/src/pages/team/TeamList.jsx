@@ -157,7 +157,9 @@ function TeamList() {
   // Stats - use global stats when no filters, otherwise use filtered results
   const totalMembers = hasActiveFilters ? pagination.total : (globalStats?.total_members || pagination.total);
   const totalActive = hasActiveFilters ? members.filter(m => m.is_active).length : (globalStats?.total_active || pagination.total);
-  const totalLeaders = hasActiveFilters ? members.filter(m => m.role === 'team_leader').length : (globalStats?.total_team_leaders || 0);
+  const totalLeaders = hasActiveFilters
+    ? members.filter(m => m.role === 'team_leader' || (m.teams_led?.length || 0) > 0).length
+    : (globalStats?.total_team_leaders || 0);
   const totalExternal = hasActiveFilters ? members.filter(m => m.is_external).length : (globalStats?.total_external || 0);
 
   return (

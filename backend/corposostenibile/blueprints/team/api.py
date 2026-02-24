@@ -269,8 +269,8 @@ def get_members():
     active_filter = request.args.get('active', '').strip()
     department_id = request.args.get('department_id', type=int)
 
-    # Base query
-    query = User.query
+    # Base query: escludi utenti legacy/senza ruolo dal modulo Team
+    query = User.query.filter(User.role.isnot(None))
 
     # Search filter
     if search_query:
@@ -725,22 +725,29 @@ def get_departments():
 @login_required
 def get_team_stats():
     """Get team statistics."""
-    # Total counts
-    total_members = User.query.count()  # All members
-    total_active = User.query.filter_by(is_active=True).count()  # Active only
-    total_admins = User.query.filter_by(is_admin=True, is_active=True).count()
-    total_trial = User.query.filter_by(is_trial=True, is_active=True).count()
+    visible_users = User.query.filter(User.role.isnot(None))
 
-    # Count by role
-    total_team_leaders = User.query.filter(
+    # Total counts
+    total_members = visible_users.count()
+    total_active = visible_users.filter(User.is_active == True).count()
+    total_admins = visible_users.filter(User.is_admin == True, User.is_active == True).count()
+    total_trial = visible_users.filter(User.is_trial == True, User.is_active == True).count()
+
+    # Count team leaders by active teams' head_id (source of truth), not only by user.role
+    total_team_leaders = db.session.query(func.count(distinct(Team.head_id))).join(
+        User, User.id == Team.head_id
+    ).filter(
+        Team.is_active == True,
+        Team.head_id.isnot(None),
         User.is_active == True,
-        User.role == UserRoleEnum.team_leader
-    ).count()
-    total_professionisti = User.query.filter(
+        User.role.isnot(None),
+    ).scalar() or 0
+
+    total_professionisti = visible_users.filter(
         User.is_active == True,
         User.role == UserRoleEnum.professionista
     ).count()
-    total_external = User.query.filter(
+    total_external = visible_users.filter(
         User.is_active == True,
         User.is_external == True
     ).count()
