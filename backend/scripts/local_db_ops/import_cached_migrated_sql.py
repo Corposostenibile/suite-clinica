@@ -6,6 +6,7 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime
+import textwrap
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -34,6 +35,12 @@ def run(cmd: list[str], *, check: bool = True) -> subprocess.CompletedProcess[st
 def run_passthrough(cmd: list[str]) -> None:
     log(f"[cmd] {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
+
+
+def run_python_inline(code: str) -> None:
+    cmd = ["poetry", "run", "python", "-"]
+    log(f"[cmd] {' '.join(cmd)}  # stdin script")
+    subprocess.run(cmd, check=True, text=True, input=code)
 
 
 def ts() -> str:
@@ -118,6 +125,113 @@ def normalize_legacy_statoclienteenum_values(db_url: str) -> None:
                         f"{old_val} -> {new_val} ({changed})"
                     )
     log(f"[step] post-import: normalizzazione statoclienteenum completata (rows={total_updates})")
+
+
+def normalize_users_like_production_migration() -> None:
+    """
+    Riallinea users con la stessa logica dello script di migrazione produzione
+    (schema_comparator.py): alias role/specialty + organigramma ufficiale.
+    """
+    log("[step] post-import: normalizzazione users (logica schema_comparator produzione)")
+    code = textwrap.dedent(
+        """
+        from corposostenibile import create_app
+        from corposostenibile.extensions import db
+        from corposostenibile.models import User, UserRoleEnum, UserSpecialtyEnum
+        from scripts.migration_scripts.schema_comparator import (
+            normalize_user_role,
+            normalize_user_specialty,
+            get_professional_info,
+            ALLOWED_USER_ROLES,
+            ALLOWED_USER_SPECIALTIES,
+        )
+
+        app = create_app()
+        clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach', 'medico'}
+
+        def _enum_value(v):
+            return getattr(v, 'value', v)
+
+        updated = 0
+        role_fixed = 0
+        specialty_fixed = 0
+
+        with app.app_context():
+            users = User.query.all()
+            for u in users:
+                first = (u.first_name or '').strip()
+                last = (u.last_name or '').strip()
+                raw_specialty = str((_enum_value(getattr(u, 'specialty', None)) or '')).strip().lower()
+                raw_role = str((_enum_value(getattr(u, 'role', None)) or '')).strip().lower()
+
+                normalized_specialty = normalize_user_specialty(raw_specialty)
+                normalized_role = normalize_user_role(raw_role)
+                is_professional_role = normalized_role in {'professionista', 'team_leader'}
+                is_professional_by_specialty = (raw_specialty in clinical_specialties) and normalized_role != 'admin'
+                is_professional_user = is_professional_role or is_professional_by_specialty
+
+                spec, role = get_professional_info(first, last)
+                target_specialty = spec or normalized_specialty or None
+                target_role = role or normalized_role or None
+
+                # Boolean defaults coerenti con schema_comparator
+                if u.is_admin is None:
+                    u.is_admin = False
+                if u.is_active is None:
+                    u.is_active = True
+                if u.is_external is None:
+                    u.is_external = False
+                if getattr(u, 'is_trial', None) is None:
+                    u.is_trial = False
+
+                if u.is_admin:
+                    target_role = 'admin'
+
+                if not target_role:
+                    if u.is_admin:
+                        target_role = 'admin'
+                    elif u.is_external:
+                        target_role = 'team_esterno'
+                    elif target_specialty in clinical_specialties:
+                        target_role = 'professionista'
+
+                if target_role and target_role not in ALLOWED_USER_ROLES:
+                    target_role = None
+                if target_specialty and target_specialty not in ALLOWED_USER_SPECIALTIES:
+                    target_specialty = None
+
+                if not (u.first_name or '').strip():
+                    u.first_name = 'Utente'
+                if not (u.last_name or '').strip():
+                    u.last_name = 'Sconosciuto'
+
+                cur_role = _enum_value(getattr(u, 'role', None))
+                cur_specialty = _enum_value(getattr(u, 'specialty', None))
+                changed = False
+
+                if str(cur_role or '') != str(target_role or ''):
+                    u.role = UserRoleEnum(target_role) if target_role else None
+                    changed = True
+                    role_fixed += 1
+
+                if str(cur_specialty or '') != str(target_specialty or ''):
+                    u.specialty = UserSpecialtyEnum(target_specialty) if target_specialty else None
+                    changed = True
+                    specialty_fixed += 1
+
+                # Se l'utente è professionista ma non mappabile da organigramma e senza specialty,
+                # lasciamo la role normalizzata ma non inventiamo una specialty.
+                if changed:
+                    updated += 1
+
+            db.session.commit()
+            print(
+                f"users_normalized total={len(users)} updated={updated} "
+                f"role_fixed={role_fixed} specialty_fixed={specialty_fixed}"
+            )
+        """
+    )
+    run_python_inline(code)
 
 
 def import_sql(db_url: str, sql_path: Path) -> None:
@@ -367,6 +481,7 @@ def main() -> int:
         else:
             import_sql(db_url, sql_path)
         normalize_legacy_statoclienteenum_values(db_url)
+        normalize_users_like_production_migration()
         reset_dev_password()
         show_counts(db_url)
         log(f"[ok] Import cache SQL completato (durata totale={fmt_seconds(time.time() - started)})")
