@@ -1,46 +1,19 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
-from pathlib import Path
 from datetime import datetime
-import textwrap
+from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_SQL = BACKEND_DIR / "backups" / "migration_output_local" / "migrated_db_local.sql"
-TABLES_DIR = BACKEND_DIR / "backups" / "migration_output_local" / "tables"
-ORDER_FILE = TABLES_DIR / "order.tsv"
-LOG_DIR = BACKEND_DIR / "backups" / "migration_output_local" / "logs"
-PROGRESS_EVERY_SECONDS = 20
-
-
-def load_database_url_from_env_file() -> str:
-    env_path = BACKEND_DIR / ".env"
-    if not env_path.exists():
-        raise FileNotFoundError(f".env non trovato: {env_path}")
-    for line in env_path.read_text().splitlines():
-        if line.startswith("DATABASE_URL="):
-            return line.split("=", 1)[1].strip()
-    raise RuntimeError("DATABASE_URL non trovato in backend/.env")
-
-
-def run(cmd: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
-    log(f"[cmd] {' '.join(cmd)}")
-    return subprocess.run(cmd, check=check, text=True, capture_output=True)
-
-
-def run_passthrough(cmd: list[str]) -> None:
-    log(f"[cmd] {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
-
-
-def run_python_inline(code: str) -> None:
-    cmd = ["poetry", "run", "python", "-"]
-    log(f"[cmd] {' '.join(cmd)}  # stdin script")
-    subprocess.run(cmd, check=True, text=True, input=code)
+DEFAULT_DUMP_DIR = BACKEND_DIR / "backups" / "prod_db_local"
+DEFAULT_DUMP_FILE = DEFAULT_DUMP_DIR / "prod_db.dump"
 
 
 def ts() -> str:
@@ -58,361 +31,149 @@ def fmt_seconds(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-def fmt_pct(num: int, den: int) -> str:
-    if den <= 0:
-        return "100.00"
-    return f"{(num / den) * 100:.2f}"
+def run(cmd: list[str], *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    log(f"[cmd] {' '.join(cmd)}")
+    return subprocess.run(cmd, check=True, text=True, capture_output=True, env=env)
 
 
-def ensure_enum_values(db_url: str) -> None:
-    log("[step] enum fix: aggiungo valori legacy a statoclienteenum se mancanti")
-    sqls = [
-        "ALTER TYPE public.statoclienteenum ADD VALUE IF NOT EXISTS 'freeze';",
-        "ALTER TYPE public.statoclienteenum ADD VALUE IF NOT EXISTS 'insoluto';",
-    ]
-    for sql in sqls:
-        run_passthrough(["psql", db_url, "-v", "ON_ERROR_STOP=1", "-c", sql])
+def run_passthrough(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
+    log(f"[cmd] {' '.join(cmd)}")
+    subprocess.run(cmd, check=True, env=env)
 
 
-# Allineato a backend/scripts/migration_scripts/schema_comparator.py (ENUM_ALIASES['statoclienteenum'])
-STATO_CLIENTE_ENUM_ALIASES = {
-    "freeze": "pausa",
-    "insoluto": "stop",
-}
+def load_database_url_from_env_file(key: str = "DATABASE_URL") -> str:
+    env_path = BACKEND_DIR / ".env"
+    if not env_path.exists():
+        raise FileNotFoundError(f".env non trovato: {env_path}")
+    for raw in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(f"{key}="):
+            return line.split("=", 1)[1].strip()
+    raise RuntimeError(f"{key} non trovato in {env_path}")
 
 
-def normalize_legacy_statoclienteenum_values(db_url: str) -> None:
-    """
-    Normalizza i valori legacy del tipo enum public.statoclienteenum su tutte le colonne
-    che usano quel tipo, replicando la stessa mappa alias usata dallo script di migrazione
-    produzione (schema_comparator.py).
-    """
-    log("[step] post-import: normalizzazione alias legacy per public.statoclienteenum")
-    list_cols_sql = """
-    SELECT table_schema, table_name, column_name
-    FROM information_schema.columns
-    WHERE udt_schema = 'public'
-      AND udt_name = 'statoclienteenum'
-    ORDER BY table_schema, table_name, ordinal_position;
-    """
-    res = run(["psql", db_url, "-At", "-F", "|", "-c", list_cols_sql])
-    rows = [line.split("|", 2) for line in res.stdout.strip().splitlines() if line.strip()]
-    if not rows:
-        log("[info] nessuna colonna con tipo public.statoclienteenum trovata")
+def quote_ident(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def admin_db_url(target_url: str) -> tuple[str, str]:
+    parsed = urlparse(target_url)
+    db_name = parsed.path.lstrip("/")
+    if not db_name:
+        raise RuntimeError("DATABASE_URL target senza nome DB")
+    return urlunparse(parsed._replace(path="/postgres")), db_name
+
+
+def reset_target_db(target_url: str) -> None:
+    admin_url, db_name = admin_db_url(target_url)
+    ident = quote_ident(db_name)
+    db_name_esc = db_name.replace("'", "''")
+    run_passthrough(
+        [
+            "psql",
+            admin_url,
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name_esc}' AND pid <> pg_backend_pid();",
+        ]
+    )
+    drop_cmd = ["psql", admin_url, "-v", "ON_ERROR_STOP=1", "-c", f"DROP DATABASE IF EXISTS {ident};"]
+    drop_res = subprocess.run(drop_cmd)
+    if drop_res.returncode == 0:
+        run_passthrough(["psql", admin_url, "-v", "ON_ERROR_STOP=1", "-c", f"CREATE DATABASE {ident};"])
         return
 
-    total_updates = 0
-    for schema_name, table_name, column_name in rows:
-        for old_val, new_val in STATO_CLIENTE_ENUM_ALIASES.items():
-            sql = f"""
-            UPDATE "{schema_name}"."{table_name}"
-            SET "{column_name}" = '{new_val}'
-            WHERE "{column_name}"::text = '{old_val}';
-            """
-            upd = run(["psql", db_url, "-At", "-F", "|", "-c", sql])
-            # psql prints e.g. "UPDATE 13"
-            out = (upd.stdout or "").strip()
-            if out.startswith("UPDATE "):
-                try:
-                    changed = int(out.split()[1])
-                except Exception:
-                    changed = 0
-                if changed:
-                    total_updates += changed
-                    log(
-                        "[enum-normalize] "
-                        f"{schema_name}.{table_name}.{column_name}: "
-                        f"{old_val} -> {new_val} ({changed})"
-                    )
-    log(f"[step] post-import: normalizzazione statoclienteenum completata (rows={total_updates})")
+    log("[warn] DROP DATABASE fallito (ownership?). Fallback: reset schema public.")
+    run_passthrough(
+        [
+            "psql",
+            target_url,
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO CURRENT_USER;",
+        ]
+    )
 
 
-def normalize_users_like_production_migration() -> None:
-    """
-    Riallinea users con la stessa logica dello script di migrazione produzione
-    (schema_comparator.py): alias role/specialty + organigramma ufficiale.
-    """
-    log("[step] post-import: normalizzazione users (logica schema_comparator produzione)")
-    code = textwrap.dedent(
-        """
-        from corposostenibile import create_app
-        from corposostenibile.extensions import db
-        from corposostenibile.models import User, UserRoleEnum, UserSpecialtyEnum
-        from scripts.migration_scripts.schema_comparator import (
-            normalize_user_role,
-            normalize_user_specialty,
-            get_professional_info,
-            ALLOWED_USER_ROLES,
-            ALLOWED_USER_SPECIALTIES,
+def detect_dump_kind(path: Path) -> str:
+    with path.open("rb") as fh:
+        head = fh.read(8)
+    if head.startswith(b"PGDMP"):
+        return "custom"
+    return "plain"
+
+
+def dump_production_db(source_url: str, out_file: Path) -> None:
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    started = time.time()
+    log(f"[step] dump produzione -> {out_file}")
+    run_passthrough(
+        [
+            "pg_dump",
+            "--format=custom",
+            "--no-owner",
+            "--no-privileges",
+            "--file",
+            str(out_file),
+            source_url,
+        ]
+    )
+    log(f"[step] dump produzione completato in {fmt_seconds(time.time() - started)}")
+
+
+def restore_dump_to_local(target_url: str, dump_file: Path) -> None:
+    if not dump_file.exists():
+        raise FileNotFoundError(f"Dump non trovato: {dump_file}")
+    kind = detect_dump_kind(dump_file)
+    started = time.time()
+    log(f"[step] restore locale da dump ({kind})")
+    reset_target_db(target_url)
+    if kind == "custom":
+        run_passthrough(
+            [
+                "pg_restore",
+                "--no-owner",
+                "--no-privileges",
+                "--exit-on-error",
+                "--dbname",
+                target_url,
+                str(dump_file),
+            ]
         )
-
-        app = create_app()
-        clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach', 'medico'}
-
-        def _enum_value(v):
-            return getattr(v, 'value', v)
-
-        updated = 0
-        role_fixed = 0
-        specialty_fixed = 0
-
-        with app.app_context():
-            users = User.query.all()
-            for u in users:
-                first = (u.first_name or '').strip()
-                last = (u.last_name or '').strip()
-                raw_specialty = str((_enum_value(getattr(u, 'specialty', None)) or '')).strip().lower()
-                raw_role = str((_enum_value(getattr(u, 'role', None)) or '')).strip().lower()
-
-                normalized_specialty = normalize_user_specialty(raw_specialty)
-                normalized_role = normalize_user_role(raw_role)
-                is_professional_role = normalized_role in {'professionista', 'team_leader'}
-                is_professional_by_specialty = (raw_specialty in clinical_specialties) and normalized_role != 'admin'
-                is_professional_user = is_professional_role or is_professional_by_specialty
-
-                spec, role = get_professional_info(first, last)
-                target_specialty = spec or normalized_specialty or None
-                target_role = role or normalized_role or None
-
-                # Boolean defaults coerenti con schema_comparator
-                if u.is_admin is None:
-                    u.is_admin = False
-                if u.is_active is None:
-                    u.is_active = True
-                if u.is_external is None:
-                    u.is_external = False
-                if getattr(u, 'is_trial', None) is None:
-                    u.is_trial = False
-
-                if u.is_admin:
-                    target_role = 'admin'
-
-                if not target_role:
-                    if u.is_admin:
-                        target_role = 'admin'
-                    elif u.is_external:
-                        target_role = 'team_esterno'
-                    elif target_specialty in clinical_specialties:
-                        target_role = 'professionista'
-
-                if target_role and target_role not in ALLOWED_USER_ROLES:
-                    target_role = None
-                if target_specialty and target_specialty not in ALLOWED_USER_SPECIALTIES:
-                    target_specialty = None
-
-                if not (u.first_name or '').strip():
-                    u.first_name = 'Utente'
-                if not (u.last_name or '').strip():
-                    u.last_name = 'Sconosciuto'
-
-                cur_role = _enum_value(getattr(u, 'role', None))
-                cur_specialty = _enum_value(getattr(u, 'specialty', None))
-                changed = False
-
-                if str(cur_role or '') != str(target_role or ''):
-                    u.role = UserRoleEnum(target_role) if target_role else None
-                    changed = True
-                    role_fixed += 1
-
-                if str(cur_specialty or '') != str(target_specialty or ''):
-                    u.specialty = UserSpecialtyEnum(target_specialty) if target_specialty else None
-                    changed = True
-                    specialty_fixed += 1
-
-                # Se l'utente è professionista ma non mappabile da organigramma e senza specialty,
-                # lasciamo la role normalizzata ma non inventiamo una specialty.
-                if changed:
-                    updated += 1
-
-            db.session.commit()
-            print(
-                f"users_normalized total={len(users)} updated={updated} "
-                f"role_fixed={role_fixed} specialty_fixed={specialty_fixed}"
+    else:
+        # Compatibilità con dump generati da versioni pg_dump più nuove del psql locale
+        # (es. PG16+ con "SET transaction_timeout = 0;").
+        with tempfile.NamedTemporaryFile(prefix="prod_db_plain_", suffix=".sql", delete=False) as tf:
+            filtered_path = Path(tf.name)
+        try:
+            with dump_file.open("r", encoding="utf-8", errors="ignore") as src, filtered_path.open(
+                "w", encoding="utf-8"
+            ) as dst:
+                for line in src:
+                    if line.startswith("SET transaction_timeout"):
+                        continue
+                    dst.write(line)
+            run_passthrough(
+                [
+                    "psql",
+                    target_url,
+                    "-v",
+                    "ON_ERROR_STOP=1",
+                    "-f",
+                    str(filtered_path),
+                ]
             )
-        """
-    )
-    run_python_inline(code)
-
-
-def import_sql(db_url: str, sql_path: Path) -> None:
-    if not sql_path.exists():
-        raise FileNotFoundError(f"SQL migrato non trovato: {sql_path}")
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    err_log = LOG_DIR / f"import_cached_migrated_sql_{datetime.now().strftime('%Y%m%d_%H%M%S')}.stderr.log"
-    log(f"[step] import: avvio psql su {sql_path}")
-    log(f"[info] stderr psql -> {err_log}")
-    cmd = ["psql", db_url, "-v", "ON_ERROR_STOP=0", "-f", str(sql_path)]
-    log(f"[cmd] {' '.join(cmd)}")
-    started = time.time()
-    with err_log.open("w") as err_fh:
-        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err_fh, text=True)
-        while True:
-            rc = proc.poll()
-            if rc is not None:
-                if rc != 0:
-                    raise subprocess.CalledProcessError(rc, cmd)
-                break
-            elapsed = time.time() - started
-            counts = read_counts_safe(db_url)
-            err_size = err_log.stat().st_size if err_log.exists() else 0
-            if counts:
-                log(
-                    "[progress] import in corso "
-                    f"(elapsed={fmt_seconds(elapsed)}, pid={proc.pid}, "
-                    f"users={counts['users']}, clienti={counts['clienti']}, "
-                    f"push_subscriptions={counts['push_subscriptions']}, "
-                    f"app_notifications={counts['app_notifications']}, "
-                    f"stderr_kb={err_size // 1024})"
-                )
-            else:
-                log(
-                    "[progress] import in corso "
-                    f"(elapsed={fmt_seconds(elapsed)}, pid={proc.pid}, stderr_kb={err_size // 1024})"
-                )
+        finally:
             try:
-                proc.wait(timeout=PROGRESS_EVERY_SECONDS)
-            except subprocess.TimeoutExpired:
+                filtered_path.unlink(missing_ok=True)
+            except Exception:
                 pass
-    log(f"[step] import: completato in {fmt_seconds(time.time() - started)}")
-
-
-def parse_order_file(order_path: Path) -> list[dict[str, object]]:
-    if not order_path.exists():
-        raise FileNotFoundError(f"order.tsv non trovato: {order_path}")
-    rows: list[dict[str, object]] = []
-    with order_path.open("r", encoding="utf-8") as fh:
-        for i, line in enumerate(fh):
-            line = line.rstrip("\n")
-            if not line:
-                continue
-            if i == 0 and line.startswith("idx\t"):
-                continue
-            parts = line.split("\t")
-            if len(parts) != 4:
-                raise RuntimeError(f"Riga order.tsv non valida ({i+1}): {line}")
-            idx_s, table, source_s, file_s = parts
-            rows.append(
-                {
-                    "idx": int(idx_s),
-                    "table": table,
-                    "source_rows": int(source_s),
-                    "file": Path(file_s),
-                }
-            )
-    if not rows:
-        raise RuntimeError(f"Nessuna tabella in {order_path}")
-    return rows
-
-
-def psql_scalar(db_url: str, sql: str) -> str:
-    res = run(["psql", db_url, "-At", "-F", "|", "-c", sql])
-    return res.stdout.strip()
-
-
-def get_table_count(db_url: str, table: str) -> int:
-    try:
-        out = psql_scalar(db_url, f'SELECT count(*) FROM public."{table}";')
-        return int(out or "0")
-    except Exception:
-        return 0
-
-
-def truncate_replay_tables(db_url: str, order_rows: list[dict[str, object]]) -> None:
-    table_sql = ", ".join(f'public."{r["table"]}"' for r in order_rows)
-    log(f"[step] truncate: {len(order_rows)} tabelle (CASCADE)")
-    run_passthrough(["psql", db_url, "-v", "ON_ERROR_STOP=1", "-c", f"TRUNCATE TABLE {table_sql} CASCADE;"])
-
-
-def import_split_tables(db_url: str, order_path: Path = ORDER_FILE) -> None:
-    order_rows = parse_order_file(order_path)
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    err_log = LOG_DIR / f"import_cached_migrated_sql_{datetime.now().strftime('%Y%m%d_%H%M%S')}.stderr.log"
-    total_tables = len(order_rows)
-    total_source = sum(int(r["source_rows"]) for r in order_rows)
-    total_target = 0
-    started = time.time()
-    log(f"[step] import(split): replay da {order_path}")
-    log(f"[info] tables_dir={TABLES_DIR}")
-    log(f"[info] stderr psql -> {err_log}")
-    truncate_replay_tables(db_url, order_rows)
-
-    with err_log.open("w") as err_fh:
-        for step, row in enumerate(order_rows, start=1):
-            table = str(row["table"])
-            source_rows = int(row["source_rows"])
-            sql_file = Path(str(row["file"]))
-            if not sql_file.exists():
-                raise FileNotFoundError(f"File SQL tabella non trovato: {sql_file}")
-
-            table_started = time.time()
-            cmd = ["psql", db_url, "-q", "-v", "ON_ERROR_STOP=1", "-f", str(sql_file)]
-            log(f"[cmd] {' '.join(cmd)}")
-            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=err_fh, text=True)
-            while True:
-                rc = proc.poll()
-                if rc is not None:
-                    if rc != 0:
-                        raise subprocess.CalledProcessError(rc, cmd)
-                    break
-                elapsed = time.time() - started
-                table_elapsed = time.time() - table_started
-                target_now = get_table_count(db_url, table)
-                err_size = err_log.stat().st_size if err_log.exists() else 0
-                log(
-                    "[migration][progress] "
-                    f"table={table} step={step}/{total_tables} "
-                    f"source={source_rows} target={target_now} "
-                    f"table_pct={fmt_pct(target_now, source_rows)} "
-                    f"total_target={total_target + target_now} total_source={total_source} "
-                    f"total_pct={fmt_pct(total_target + target_now, total_source)} "
-                    f"elapsed={fmt_seconds(elapsed)} table_elapsed={fmt_seconds(table_elapsed)} "
-                    f"pid={proc.pid} stderr_kb={(err_size // 1024)}"
-                )
-                try:
-                    proc.wait(timeout=PROGRESS_EVERY_SECONDS)
-                except subprocess.TimeoutExpired:
-                    pass
-
-            target_rows = get_table_count(db_url, table)
-            total_target += target_rows
-            log(
-                "[migration][done] "
-                f"table={table} step={step}/{total_tables} "
-                f"source={source_rows} target={target_rows} "
-                f"table_pct={fmt_pct(target_rows, source_rows)} "
-                f"total_target={total_target} total_source={total_source} "
-                f"total_pct={fmt_pct(total_target, total_source)} "
-                f"table_time={fmt_seconds(time.time() - table_started)}"
-            )
-
-    log(f"[step] import(split): completato in {fmt_seconds(time.time() - started)}")
-
-
-def reset_dev_password() -> None:
-    log("[step] post-import: ensure/reset utente dev")
-    script = (
-        "from corposostenibile import create_app;"
-        "from corposostenibile.extensions import db;"
-        "from corposostenibile.models import User,UserRoleEnum;"
-        "app=create_app();"
-        "ctx=app.app_context();ctx.push();"
-        "u=User.query.filter_by(email='dev@corposostenibile.it').first();"
-        "created=False;"
-        "import builtins;"
-        "u = u or User(email='dev@corposostenibile.it', first_name='Dev', last_name='Admin');"
-        "created = (u.id is None);"
-        "created and db.session.add(u);"
-        "u.set_password('Dev123?');"
-        "u.is_active=True;"
-        "u.is_admin=True;"
-        "u.is_external=False;"
-        "u.is_trial=False;"
-        "u.role=UserRoleEnum.admin;"
-        "db.session.commit();"
-        "print('dev_user_created=', created, 'dev_user_id=', u.id);"
-        "ctx.pop()"
-    )
-    run_passthrough(["poetry", "run", "python", "-c", script])
+    run_passthrough(["psql", target_url, "-v", "ON_ERROR_STOP=1", "-c", "ANALYZE;"])
+    log(f"[step] restore locale completato in {fmt_seconds(time.time() - started)}")
 
 
 def show_counts(db_url: str) -> None:
@@ -427,72 +188,109 @@ def show_counts(db_url: str) -> None:
     log(f"[counts] users|clienti|push_subscriptions|app_notifications = {res.stdout.strip()}")
 
 
-def read_counts_safe(db_url: str) -> dict[str, int] | None:
-    sql = (
-        "select "
-        "(select count(*) from users),"
-        "(select count(*) from clienti),"
-        "(select count(*) from push_subscriptions),"
-        "(select count(*) from app_notifications);"
+def usage() -> str:
+    return (
+        "Uso:\n"
+        "  poetry run python scripts/local_db_ops/import_cached_migrated_sql.py --source-url <PROD_DATABASE_URL> [--dump-file <path>] [--keep-dump]\n"
+        "  poetry run python scripts/local_db_ops/import_cached_migrated_sql.py --dump-file <path>\n\n"
+        "Note:\n"
+        "  - DATABASE_URL locale letto da env o backend/.env\n"
+        "  - Nessun reset utente dev: il DB viene importato 'as is' dalla produzione\n"
     )
-    try:
-        res = subprocess.run(
-            ["psql", db_url, "-At", "-F", "|", "-c", sql],
-            check=True,
-            text=True,
-            capture_output=True,
-        )
-        values = [int(x) for x in res.stdout.strip().split("|")]
-        if len(values) != 4:
-            return None
-        return {
-            "users": values[0],
-            "clienti": values[1],
-            "push_subscriptions": values[2],
-            "app_notifications": values[3],
-        }
-    except Exception:
-        return None
+
+
+def parse_args(argv: list[str]) -> dict[str, object]:
+    source_url: str | None = None
+    dump_file: Path | None = None
+    keep_dump = False
+    use_temp_dump = False
+
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--source-url":
+            i += 1
+            if i >= len(argv):
+                raise RuntimeError("Manca valore per --source-url")
+            source_url = argv[i]
+        elif a == "--dump-file":
+            i += 1
+            if i >= len(argv):
+                raise RuntimeError("Manca valore per --dump-file")
+            dump_file = Path(argv[i]).resolve()
+        elif a == "--keep-dump":
+            keep_dump = True
+        elif a in {"-h", "--help"}:
+            print(usage())
+            raise SystemExit(0)
+        else:
+            raise RuntimeError(f"Argomento non supportato: {a}")
+        i += 1
+
+    if not source_url and not dump_file:
+        source_url = os.environ.get("PROD_DATABASE_URL", "").strip() or None
+        if not source_url and DEFAULT_DUMP_FILE.exists():
+            dump_file = DEFAULT_DUMP_FILE
+
+    if source_url and dump_file is None:
+        dump_file = DEFAULT_DUMP_FILE
+    if source_url and dump_file and not keep_dump and dump_file == DEFAULT_DUMP_FILE:
+        keep_dump = True  # cache locale di default
+    if source_url and dump_file and dump_file.name == "":
+        raise RuntimeError("Dump file non valido")
+
+    return {
+        "source_url": source_url,
+        "dump_file": dump_file,
+        "keep_dump": keep_dump,
+        "use_temp_dump": use_temp_dump,
+    }
 
 
 def main() -> int:
     try:
         started = time.time()
-        db_url = os.environ.get("DATABASE_URL") or load_database_url_from_env_file()
-        mode = "auto"
-        sql_path = DEFAULT_SQL
-        for arg in sys.argv[1:]:
-            if arg == "--split":
-                mode = "split"
-            elif arg == "--monolith":
-                mode = "monolith"
-            elif arg.startswith("-"):
-                raise RuntimeError(f"Argomento non supportato: {arg}")
-            else:
-                sql_path = Path(arg).resolve()
-        log("[start] import_cached_migrated_sql")
-        if mode == "auto":
-            mode = "split" if ORDER_FILE.exists() else "monolith"
-        log(f"[info] mode={mode}")
-        log(f"[info] sql_path={sql_path}")
-        ensure_enum_values(db_url)
-        if mode == "split":
-            import_split_tables(db_url, ORDER_FILE)
+        args = parse_args(sys.argv[1:])
+        target_url = os.environ.get("DATABASE_URL") or load_database_url_from_env_file("DATABASE_URL")
+        source_url = args["source_url"]
+        dump_file = args["dump_file"]
+        keep_dump = bool(args["keep_dump"])
+
+        if not dump_file:
+            raise RuntimeError("Serve --source-url oppure --dump-file (o DEFAULT_DUMP_FILE esistente)")
+
+        dump_path = Path(dump_file)
+        temp_file: tempfile.NamedTemporaryFile | None = None
+        if source_url:
+            if not keep_dump:
+                temp_file = tempfile.NamedTemporaryFile(prefix="prod_db_", suffix=".dump", delete=False)
+                temp_file.close()
+                dump_path = Path(temp_file.name)
+            log("[start] import DB produzione -> locale")
+            dump_production_db(str(source_url), dump_path)
         else:
-            import_sql(db_url, sql_path)
-        normalize_legacy_statoclienteenum_values(db_url)
-        normalize_users_like_production_migration()
-        reset_dev_password()
-        show_counts(db_url)
-        log(f"[ok] Import cache SQL completato (durata totale={fmt_seconds(time.time() - started)})")
+            log("[start] restore dump produzione già disponibile -> locale")
+
+        restore_dump_to_local(target_url, dump_path)
+        show_counts(target_url)
+        log(f"[ok] Import DB produzione completato (durata totale={fmt_seconds(time.time() - started)})")
+
+        if temp_file is not None:
+            try:
+                dump_path.unlink(missing_ok=True)
+            except Exception:
+                pass
         return 0
     except subprocess.CalledProcessError as exc:
         print(exc.stdout or "", end="")
         print(exc.stderr or "", end="", file=sys.stderr)
         print(f"{ts()} [error] comando fallito (exit={exc.returncode}): {exc.cmd}", file=sys.stderr)
         return exc.returncode or 2
+    except SystemExit as exc:
+        return int(exc.code or 0)
     except Exception as exc:
         print(f"{ts()} [error] {exc}", file=sys.stderr)
+        print(usage(), file=sys.stderr)
         return 2
 
 
