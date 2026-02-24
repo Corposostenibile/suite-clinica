@@ -36,6 +36,7 @@ def get_accessible_clients_query():
                     Cliente.nutrizionista_id.in_(team_members_query),
                     Cliente.coach_id.in_(team_members_query),
                     Cliente.psicologa_id.in_(team_members_query),
+                    Cliente.consulente_alimentare_id.in_(team_members_query),
                 )
             )
         )
@@ -47,9 +48,11 @@ def get_accessible_clients_query():
                 Cliente.nutrizionista_id == current_user.id,
                 Cliente.coach_id == current_user.id,
                 Cliente.psicologa_id == current_user.id,
+                Cliente.consulente_alimentare_id == current_user.id,
                 Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
                 Cliente.coaches_multipli.any(User.id == current_user.id),
                 Cliente.psicologi_multipli.any(User.id == current_user.id),
+                Cliente.consulenti_multipli.any(User.id == current_user.id),
             )
         )
     )

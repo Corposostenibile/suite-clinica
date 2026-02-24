@@ -269,10 +269,12 @@ def da_leggere():
                 Cliente.nutrizionista_id.in_(member_ids_list),
                 Cliente.coach_id.in_(member_ids_list),
                 Cliente.psicologa_id.in_(member_ids_list),
+                Cliente.consulente_alimentare_id.in_(member_ids_list),
                 # Relazioni multiple - controlla se QUALSIASI membro del team è nelle liste
                 Cliente.nutrizionisti_multipli.any(User.id.in_(member_ids_list)),
                 Cliente.coaches_multipli.any(User.id.in_(member_ids_list)),
                 Cliente.psicologi_multipli.any(User.id.in_(member_ids_list)),
+                Cliente.consulenti_multipli.any(User.id.in_(member_ids_list)),
             )
         )
 
@@ -284,10 +286,12 @@ def da_leggere():
                 Cliente.nutrizionista_id == current_user.id,
                 Cliente.coach_id == current_user.id,
                 Cliente.psicologa_id == current_user.id,
+                Cliente.consulente_alimentare_id == current_user.id,
                 # Relazioni multiple (many-to-many)
                 Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
                 Cliente.coaches_multipli.any(User.id == current_user.id),
                 Cliente.psicologi_multipli.any(User.id == current_user.id),
+                Cliente.consulenti_multipli.any(User.id == current_user.id),
             )
         )
 
@@ -406,9 +410,11 @@ def conferma_lettura(response_type, response_id):
             cliente.nutrizionista_id == current_user.id or
             cliente.coach_id == current_user.id or
             cliente.psicologa_id == current_user.id or
+            cliente.consulente_alimentare_id == current_user.id or
             current_user in cliente.nutrizionisti_multipli or
             current_user in cliente.coaches_multipli or
-            current_user in cliente.psicologi_multipli
+            current_user in cliente.psicologi_multipli or
+            current_user in cliente.consulenti_multipli
         )
 
         if not is_assigned and not current_user.is_admin and current_user.id != 95:
@@ -2903,6 +2909,7 @@ def api_da_leggere():
                         Cliente.nutrizionista_id.in_(team_members_query),
                         Cliente.coach_id.in_(team_members_query),
                         Cliente.psicologa_id.in_(team_members_query),
+                        Cliente.consulente_alimentare_id.in_(team_members_query),
                     )
                 )
             )
@@ -2916,9 +2923,11 @@ def api_da_leggere():
                         Cliente.nutrizionista_id == current_user.id,
                         Cliente.coach_id == current_user.id,
                         Cliente.psicologa_id == current_user.id,
+                        Cliente.consulente_alimentare_id == current_user.id,
                         Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
                         Cliente.coaches_multipli.any(User.id == current_user.id),
                         Cliente.psicologi_multipli.any(User.id == current_user.id),
+                        Cliente.consulenti_multipli.any(User.id == current_user.id),
                     )
                 )
             )

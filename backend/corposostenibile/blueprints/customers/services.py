@@ -1296,6 +1296,7 @@ def apply_role_filtering(query):
                     Cliente.nutrizionista_id.in_(member_ids_list),
                     Cliente.coach_id.in_(member_ids_list),
                     Cliente.psicologa_id.in_(member_ids_list),
+                    Cliente.consulente_alimentare_id.in_(member_ids_list),
                     # Assegnazione tramite M2M
                     exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))),
                     exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(member_ids_list))),
@@ -1314,6 +1315,7 @@ def apply_role_filtering(query):
                 Cliente.nutrizionista_id == user_id,
                 Cliente.coach_id == user_id,
                 Cliente.psicologa_id == user_id,
+                Cliente.consulente_alimentare_id == user_id,
                 # Assegnazione tramite M2M
                 exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == user_id)),
                 exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == user_id)),
