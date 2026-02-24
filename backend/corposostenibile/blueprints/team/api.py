@@ -2266,7 +2266,7 @@ def get_member_clients(user_id):
     - Single FK (nutrizionista_id, coach_id, psicologa_id)
     - Many-to-many relationships (nutrizionisti_multipli, coaches_multipli, psicologi_multipli)
     """
-    from corposostenibile.models import Cliente, cliente_nutrizionisti, cliente_coaches, cliente_psicologi
+    from corposostenibile.models import Cliente, cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
     from sqlalchemy import select, exists
 
     user = User.query.get_or_404(user_id)
@@ -2298,6 +2298,13 @@ def get_member_clients(user_id):
         )
     )
 
+    consulente_exists = exists(
+        select(cliente_consulenti.c.cliente_id).where(
+            cliente_consulenti.c.cliente_id == Cliente.cliente_id,
+            cliente_consulenti.c.user_id == user_id
+        )
+    )
+
     # Base query: find clients where this user is assigned
     # Relationships already have lazy="selectin" in the model, so no need for explicit loading
     query = Cliente.query.filter(
@@ -2312,6 +2319,7 @@ def get_member_clients(user_id):
             nutri_exists,
             coach_exists,
             psico_exists,
+            consulente_exists,
         )
     )
 
@@ -2420,7 +2428,7 @@ def get_member_client_checks(user_id):
     """
     from corposostenibile.models import (
         Cliente, WeeklyCheck, WeeklyCheckResponse, DCACheck, DCACheckResponse,
-        cliente_nutrizionisti, cliente_coaches, cliente_psicologi,
+        cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
         ClientCheckReadConfirmation
     )
     from sqlalchemy import select, exists
@@ -2484,6 +2492,13 @@ def get_member_client_checks(user_id):
         )
     )
 
+    consulente_exists = exists(
+        select(cliente_consulenti.c.cliente_id).where(
+            cliente_consulenti.c.cliente_id == Cliente.cliente_id,
+            cliente_consulenti.c.user_id == user_id
+        )
+    )
+
     # Get all client IDs for this professional
     client_ids_query = Cliente.query.filter(
         or_(
@@ -2495,6 +2510,7 @@ def get_member_client_checks(user_id):
             nutri_exists,
             coach_exists,
             psico_exists,
+            consulente_exists,
         )
     ).with_entities(Cliente.cliente_id)
 
