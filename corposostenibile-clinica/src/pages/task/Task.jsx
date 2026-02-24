@@ -249,7 +249,10 @@ function Task() {
                 </div>
             </div>
 
-            <div className="row g-3 mb-4" data-tour="stats-cards">
+            <div className="d-flex align-items-center mb-2 d-md-none text-muted small bg-light p-2 rounded-3" style={{ width: 'fit-content' }}>
+                <i className="ri-drag-move-fill me-2 fs-5"></i> Scorri le schede KPI
+            </div>
+            <div className="row g-3 mb-4 mobile-kpi-scroll" data-tour="stats-cards">
                 {Object.entries(TASK_CATEGORIES).map(([key, cat]) => (
                     <div className="col-xl-2 col-md-4 col-6" key={key}>
                         <div

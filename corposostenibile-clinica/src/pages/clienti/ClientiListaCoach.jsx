@@ -323,7 +323,10 @@ function ClientiListaCoach() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4 clienti-stats-row">
+      <div className="d-flex align-items-center mb-2 d-md-none text-muted small bg-light p-2 rounded-3" style={{ width: 'fit-content' }}>
+        <i className="ri-drag-move-fill me-2 fs-5"></i> Scorri le schede KPI
+      </div>
+      <div className="row g-3 mb-4 clienti-stats-row mobile-kpi-scroll">
         {[
           { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-run-line', bg: 'success' },
           { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },

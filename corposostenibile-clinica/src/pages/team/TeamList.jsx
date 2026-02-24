@@ -234,7 +234,10 @@ function TeamList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4 clienti-stats-row" data-tour="stats">
+      <div className="d-flex align-items-center mb-2 d-md-none text-muted small bg-light p-2 rounded-3" style={{ width: 'fit-content' }}>
+        <i className="ri-drag-move-fill me-2 fs-5"></i> Scorri le schede KPI
+      </div>
+      <div className="row g-3 mb-4 clienti-stats-row mobile-kpi-scroll" data-tour="stats">
         {[
           { label: 'Membri Totali', value: totalMembers, icon: 'ri-team-line', bg: 'primary' },
           { label: 'Attivi', value: totalActive, icon: 'ri-checkbox-circle-line', bg: 'success' },

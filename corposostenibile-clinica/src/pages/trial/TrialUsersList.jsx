@@ -184,7 +184,10 @@ function TrialUsersList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
+      <div className="d-flex align-items-center mb-2 d-md-none text-muted small bg-light p-2 rounded-3" style={{ width: 'fit-content' }}>
+        <i className="ri-drag-move-fill me-2 fs-5"></i> Scorri le schede KPI
+      </div>
+      <div className="row g-3 mb-4 mobile-kpi-scroll">
         {[
           { label: 'Totale In Prova', value: stats.total, icon: 'ri-user-star-line', bg: 'primary' },
           { label: 'Stage 1 - Training', value: stats.stage_1, icon: 'ri-book-read-line', bg: 'warning' },

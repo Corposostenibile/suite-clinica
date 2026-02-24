@@ -24,18 +24,22 @@ const NavHader = ({ compactTopBar }) => {
   if (compactTopBar) {
     return (
       <div
-        className="nav-header"
+        className="nav-header compact-nav-header"
         style={{
-          width: NAV_COMPACT_SIZE,
-          minWidth: NAV_COMPACT_SIZE,
           height: NAV_COMPACT_SIZE,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          padding: 0,
+          justifyContent: 'space-between',
+          padding: '0 10px',
           boxSizing: 'border-box',
+          zIndex: 1000,
         }}
       >
+        <Link to="/dashboard" className="brand-logo compact-brand-logo">
+          <img className="logo-abbr" src={logo} alt="" style={{ width: '40px' }} />
+          <span className="logo-compact" style={logoTextStyle}>CLINICA</span>
+          <span className="brand-title" style={logoTextStyle}>CLINICA</span>
+        </Link>
         <div
           className="nav-control"
           role="button"
@@ -45,9 +49,9 @@ const NavHader = ({ compactTopBar }) => {
           style={{ position: 'relative', transform: 'none' }}
         >
           <div className={`hamburger ${menuToggle ? "is-active" : ""}`}>
-            <span className="line"></span>
-            <span className="line"></span>
-            <span className="line"></span>
+            <span className="line" style={{ background: '#fff' }}></span>
+            <span className="line" style={{ background: '#fff' }}></span>
+            <span className="line" style={{ background: '#fff' }}></span>
           </div>
         </div>
       </div>
@@ -67,9 +71,9 @@ const NavHader = ({ compactTopBar }) => {
         onClick={() => openMenuToggle()}
       >
         <div className={`hamburger ${menuToggle ? "is-active" : ""}`}>
-          <span className="line"></span>
-          <span className="line"></span>
-          <span className="line"></span>
+          <span className="line" style={{ background: '#fff' }}></span>
+          <span className="line" style={{ background: '#fff' }}></span>
+          <span className="line" style={{ background: '#fff' }}></span>
         </div>
       </div>
     </div>

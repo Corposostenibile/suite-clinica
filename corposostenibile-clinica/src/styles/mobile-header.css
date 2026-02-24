@@ -6,13 +6,14 @@
  */
 
 #main-wrapper.compact-topbar {
-  --mh-bar-height: 44px;
-  --mh-nav-width: 44px;
+  --mh-bar-height: 54px;
+  --mh-nav-width: 54px;
   --mh-padding-x: 16px;
-  --mh-gap: 8px;
-  --mh-icon-size: 20px;
-  --mh-search-max-w: 140px;
-  --mh-search-height: 32px;
+  --mh-gap: 12px;
+  --mh-icon-size: 22px;
+  --mh-search-max-w: 160px;
+  --mh-search-height: 38px;
+  --mh-outer-margin: 12px;
 }
 
 /* ========== NAV HEADER: solo hamburger, logo nascosto ========== */
@@ -27,10 +28,32 @@
   padding: 0 !important;
   box-sizing: border-box !important;
   z-index: 1000 !important;
+  top: var(--mh-outer-margin) !important;
+  left: var(--mh-outer-margin) !important;
+  border-radius: 12px !important;
 }
 
-#main-wrapper.compact-topbar .nav-header .brand-logo {
+#main-wrapper.compact-topbar:not(.menu-toggle) .nav-header .brand-logo {
   display: none !important;
+}
+
+#main-wrapper.compact-topbar.menu-toggle .nav-header {
+  width: 17.1875rem !important;
+  /* var(--cs-sidebar-width) */
+  justify-content: flex-start !important;
+  padding-left: 1rem !important;
+  background: transparent !important;
+  max-width: calc(100vw - var(--mh-outer-margin) * 2) !important;
+}
+
+#main-wrapper.compact-topbar.menu-toggle .nav-header .brand-logo {
+  display: flex !important;
+  align-items: center !important;
+  margin-right: auto !important;
+}
+
+#main-wrapper.compact-topbar.menu-toggle .nav-control {
+  margin-left: auto;
 }
 
 #main-wrapper.compact-topbar .nav-control {
@@ -55,6 +78,11 @@
   padding-right: 0 !important;
   display: flex !important;
   align-items: center !important;
+  top: var(--mh-outer-margin) !important;
+  left: var(--mh-outer-margin) !important;
+  width: calc(100% - (var(--mh-outer-margin) * 2)) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
 }
 
 #main-wrapper.compact-topbar .header .header-content {
@@ -76,6 +104,8 @@
   align-items: center !important;
   flex: 1 !important;
   min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 #main-wrapper.compact-topbar .header-left {
@@ -171,7 +201,7 @@
 }
 
 #main-wrapper.compact-topbar .content-body {
-  padding-top: var(--mh-bar-height) !important;
+  padding-top: calc(var(--mh-bar-height) + var(--mh-outer-margin) + 24px) !important;
 }
 
 #main-wrapper.compact-topbar .deznav {

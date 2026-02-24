@@ -656,7 +656,10 @@ function Formazione() {
                     </div>
 
                     {/* Stats Row - KPI sui training */}
-                    <div className="row g-3 mb-4" data-tour="stats-cards">
+                    <div className="d-flex align-items-center mb-2 d-md-none text-muted small bg-light p-2 rounded-3" style={{ width: 'fit-content' }}>
+                        <i className="ri-drag-move-fill me-2 fs-5"></i> Scorri le schede KPI
+                    </div>
+                    <div className="row g-3 mb-4 mobile-kpi-scroll" data-tour="stats-cards">
                         {[
                             { label: 'Training Ricevuti', value: stats.totalTrainings, icon: 'ri-book-open-line', bg: 'primary', badge: stats.unacknowledged > 0 ? stats.unacknowledged : null },
                             { label: 'Training Erogati', value: stats.totalGiven, icon: 'ri-presentation-line', bg: 'success', badge: stats.givenPending > 0 ? stats.givenPending : null },
@@ -1602,7 +1605,10 @@ function Formazione() {
                     </div>
 
                     {/* Stats */}
-                    <div className="row g-3 mb-4">
+                    <div className="d-flex align-items-center mb-2 d-md-none text-muted small bg-light p-2 rounded-3" style={{ width: 'fit-content' }}>
+                        <i className="ri-drag-move-fill me-2 fs-5"></i> Scorri le schede KPI
+                    </div>
+                    <div className="row g-3 mb-4 mobile-kpi-scroll">
                         <div className="col-xl-4 col-sm-6">
                             <div className="card border-0 shadow-sm">
                                 <div className="card-body">

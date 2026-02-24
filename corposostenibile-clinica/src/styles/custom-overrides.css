@@ -26,6 +26,41 @@
   display: none;
 }
 
+/* ===================================================================
+   KPI CARDS SCROLL MOBILE - scroll orizzontale stats su viewport stretti
+   =================================================================== */
+
+.mobile-kpi-scroll {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767.98px) {
+  .mobile-kpi-scroll {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    padding-bottom: 12px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    /* Hide scrollbar */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-kpi-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-kpi-scroll>div {
+    flex: 0 0 calc(60% - 6px) !important;
+    max-width: none !important;
+    scroll-snap-align: center;
+    margin-top: 0 !important;
+  }
+}
+
 /* Layout più compatto su mobile (dashboard e pagine interne) */
 @media (max-width: 767.98px) {
   .content-body .container-fluid {
