@@ -506,6 +506,15 @@
     padding: 12px !important;
   }
 
+  /* --- Fix salvataggio utility per sovrapposizioni (es. Avatar) --- */
+  .card-body.pt-5 {
+    padding-top: 3rem !important;
+  }
+
+  .card-body.pt-4 {
+    padding-top: 1.5rem !important;
+  }
+
   /* --- Headings scaled down --- */
   h1,
   .h1 {
