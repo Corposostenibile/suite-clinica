@@ -22,6 +22,10 @@
         padding: 1.5rem 1rem !important;
     }
 
+    .profilo-page-container .card-body.text-center.pt-5 {
+        padding-top: 4rem !important;
+    }
+
     /* ---- Tab Nav: Scrollabile Orizzontalmente ---- */
     .profilo-page-container .nav-tabs {
         display: flex !important;

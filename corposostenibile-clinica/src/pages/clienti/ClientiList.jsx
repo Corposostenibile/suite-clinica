@@ -324,7 +324,10 @@ function ClientiList() {
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4 clienti-stats-row" data-tour="stats">
+      <div className="mobile-swipe-indicator mb-2 d-md-none text-muted small text-center">
+        <i className="ri-arrow-left-right-line me-1"></i> Scorri per vedere le altre statistiche
+      </div>
+      <div className="row g-3 mb-4 clienti-stats-row mobile-kpi-scroll" data-tour="stats">
         {[
           { label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', bg: 'primary' },
           { label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', bg: 'success' },

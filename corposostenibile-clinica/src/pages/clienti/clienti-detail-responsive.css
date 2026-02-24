@@ -61,7 +61,7 @@
 
     /* Less top padding after avatar */
     .cd-profile .card-body.text-center.pt-5.mt-3 {
-        padding-top: 2rem !important;
+        padding-top: 3.5rem !important;
         margin-top: 0.5rem !important;
     }
 
