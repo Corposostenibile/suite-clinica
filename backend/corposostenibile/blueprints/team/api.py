@@ -2230,6 +2230,14 @@ def update_professional_capacity(user_id: int):
             'full_name': user.full_name,
             'specialty': _get_user_specialty(user),
             'role_type': role_type,
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None,
+                }
+                for t in (user.teams or [])
+            ],
             'capienza_contrattuale': max_clients,
             'clienti_assegnati': assigned_clients,
             'percentuale_capienza': capacity_percentage,

@@ -142,16 +142,6 @@ function TeamCapacity() {
       }
     });
 
-    const noTeamMembers = filteredRows.filter((row) => !row.teams || row.teams.length === 0);
-    if (noTeamMembers.length > 0) {
-      groups.push({
-        key: 'no-team',
-        title: 'Senza Team / Da assegnare',
-        teamType: null,
-        rows: noTeamMembers,
-      });
-    }
-
     return groups;
   }, [filteredRows, showTeamGrouping]);
 
@@ -174,7 +164,7 @@ function TeamCapacity() {
     try {
       const data = await teamService.updateProfessionalCapacity(userId, Number(value));
       const updated = data.row;
-      setRows((prev) => prev.map((r) => (r.user_id === userId ? updated : r)));
+      setRows((prev) => prev.map((r) => (r.user_id === userId ? { ...r, ...updated } : r)));
       setEditingValues((prev) => ({ ...prev, [userId]: updated.capienza_contrattuale }));
     } catch (err) {
       alert(err?.response?.data?.message || 'Errore nel salvataggio della capienza contrattuale');
