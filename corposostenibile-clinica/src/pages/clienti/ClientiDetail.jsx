@@ -278,16 +278,6 @@ function ClientiDetail() {
         onEnter: () => setNutrizioneSubTab('patologie')
       },
       {
-        target: '[data-tour="nutrizione-piani"]',
-        title: 'Piani Alimentari',
-        content: 'Il cuore della nutrizione: carica nuovi PDF, modifica quelli attivi e consulta lo storico.',
-        placement: 'top',
-        icon: <FaAppleAlt size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-        tabId: 'nutrizione',
-        onEnter: () => setNutrizioneSubTab('piano')
-      },
-      {
         target: '[data-tour="nutrizione-diario"]',
         title: 'Diario Nutrizionale',
         content: 'Annota i progressi e le osservazioni durante il percorso nutrizionale.',
@@ -639,9 +629,16 @@ function ClientiDetail() {
   const [editPlanFile, setEditPlanFile] = useState(null);
   const [planVersions, setPlanVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
-  // Anamnesi state
+  // Anamnesi state (5 sezioni: remota, prossima, familiare, stileVita, terapie)
   const [anamnesiNutrizione, setAnamnesiNutrizione] = useState(null);
   const [anamnesiContent, setAnamnesiContent] = useState('');
+  const [anamnesiSections, setAnamnesiSections] = useState({
+    remota: '',
+    prossima: '',
+    familiare: '',
+    stileVita: '',
+    terapie: ''
+  });
   const [loadingAnamnesi, setLoadingAnamnesi] = useState(false);
   const [savingAnamnesi, setSavingAnamnesi] = useState(false);
   // Diario state (Nutrizione)
@@ -890,7 +887,7 @@ function ClientiDetail() {
   // Fetch anamnesi/diario when sub-tab changes
   useEffect(() => {
     if (activeTab === 'nutrizione' && id) {
-      if (nutrizioneSubTab === 'anamnesi') {
+      if (nutrizioneSubTab === 'patologie') {
         fetchAnamnesi();
       } else if (nutrizioneSubTab === 'diario') {
         fetchDiarioEntries();
@@ -1518,15 +1515,34 @@ function ClientiDetail() {
       const response = await clientiService.getAnamnesi(id, 'nutrizione');
       if (response.success && response.anamnesi) {
         setAnamnesiNutrizione(response.anamnesi);
-        setAnamnesiContent(response.anamnesi.content || '');
+        const raw = response.anamnesi.content || '';
+        setAnamnesiContent(raw);
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            setAnamnesiSections({
+              remota: parsed.remota || '',
+              prossima: parsed.prossima || '',
+              familiare: parsed.familiare || '',
+              stileVita: parsed.stileVita || '',
+              terapie: parsed.terapie || ''
+            });
+          } else {
+            setAnamnesiSections(prev => ({ ...prev, prossima: raw }));
+          }
+        } catch (_) {
+          setAnamnesiSections(prev => ({ ...prev, prossima: raw }));
+        }
       } else {
         setAnamnesiNutrizione(null);
         setAnamnesiContent('');
+        setAnamnesiSections({ remota: '', prossima: '', familiare: '', stileVita: '', terapie: '' });
       }
     } catch (err) {
       console.error('Error fetching anamnesi:', err);
       setAnamnesiNutrizione(null);
       setAnamnesiContent('');
+      setAnamnesiSections({ remota: '', prossima: '', familiare: '', stileVita: '', terapie: '' });
     } finally {
       setLoadingAnamnesi(false);
     }
@@ -1537,14 +1553,15 @@ function ClientiDetail() {
       setError('Salvataggio anamnesi nutrizione non consentito per il ruolo corrente.');
       return;
     }
-    if (!anamnesiContent.trim()) {
+    const contentToSave = JSON.stringify(anamnesiSections);
+    if (!contentToSave || contentToSave === '{}' || contentToSave === '{"remota":"","prossima":"","familiare":"","stileVita":"","terapie":""}') {
       alert('Inserisci il contenuto dell\'anamnesi');
       return;
     }
-
     setSavingAnamnesi(true);
     try {
-      await clientiService.saveAnamnesi(id, 'nutrizione', anamnesiContent);
+      await clientiService.saveAnamnesi(id, 'nutrizione', contentToSave);
+      setAnamnesiContent(contentToSave);
       fetchAnamnesi();
     } catch (err) {
       console.error('Error saving anamnesi:', err);
@@ -3799,8 +3816,7 @@ function ClientiDetail() {
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: '#22c55e' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
-                          { key: 'piano', label: 'Piano Alimentare', icon: 'ri-restaurant-line', color: '#10b981' },
+                          { key: 'patologie', label: 'Patologie e Anamnesi', icon: 'ri-stethoscope-line', color: '#f59e0b' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
                         ].map(({ key, label, icon, color }) => (
@@ -3876,6 +3892,56 @@ function ClientiDetail() {
                                 </div>
                               ) : (
                                 <p className="text-muted small mb-0">Nessun nutrizionista assegnato. Vai alla tab "Team" per assegnare.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Medico Assegnato - Controllo semestrale */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Medico Assegnato
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                       style={{ width: '32px', height: '32px' }}>
+                                    <i className="ri-stethoscope-line text-danger"></i>
+                                  </div>
+                                  <span className="fw-semibold">Medico (controllo semestrale)</span>
+                                </div>
+                                <span className="badge bg-danger">{getActiveProfessionals('medico').length} attivi</span>
+                              </div>
+
+                              {getActiveProfessionals('medico').length > 0 ? (
+                                <div className="d-flex flex-wrap gap-2">
+                                  {getActiveProfessionals('medico').map((assignment, idx) => (
+                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                      {assignment.avatar_path ? (
+                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                          {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                      <div>
+                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-muted small mb-0">Nessun medico assegnato. Vai alla tab &quot;Team&quot; per assegnare.</p>
                               )}
                             </div>
                           </div>
@@ -4262,6 +4328,33 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Date call di visita */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Date call di visita
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-calendar-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Date in cui sono state fatte le call di visita</span>
+                            </div>
+                            <ul className="list-unstyled mb-0 small">
+                              {formData.call_iniziale_nutrizionista && formData.data_call_iniziale_nutrizionista ? (
+                                <li className="d-flex align-items-center mb-2">
+                                  <i className="ri-check-line text-success me-2"></i>
+                                  Call iniziale nutrizionista: <strong className="ms-1">{formData.data_call_iniziale_nutrizionista}</strong>
+                                </li>
+                              ) : (
+                                <li className="text-muted">Nessuna data call di visita registrata. Compila &quot;Call Iniziale Nutrizionista&quot; sopra per registrare la data.</li>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -4370,10 +4463,10 @@ function ClientiDetail() {
                         </div>
                       </div>
 
-                      {/* ===== ANAMNESI MERGED ===== */}
+                      {/* ===== ANAMNESI (5 sezioni) ===== */}
                       <div className="col-12">
                         <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          Anamnesi Nutrizionale
+                          Anamnesi (sezioni)
                         </h6>
                         <div className="card border">
                           <div className="card-body p-3">
@@ -4382,7 +4475,7 @@ function ClientiDetail() {
                                 <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
                                   <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie e Anamnesi</span>
                               </div>
                               <button
                                 className="btn btn-sm btn-primary"
@@ -4404,13 +4497,24 @@ function ClientiDetail() {
                               </div>
                             ) : (
                               <>
-                                <textarea
-                                  className="form-control mb-3"
-                                  rows="10"
-                                  placeholder="Inserisci l'anamnesi nutrizionale del cliente...&#10;&#10;• Storia clinica&#10;• Abitudini alimentari&#10;• Obiettivi&#10;• Allergie e intolleranze&#10;• Farmaci in uso&#10;• Attività fisica&#10;• Stile di vita"
-                                  value={anamnesiContent}
-                                  onChange={(e) => setAnamnesiContent(e.target.value)}
-                                ></textarea>
+                                {[
+                                  { key: 'remota', title: 'Anamnesi Patologica Remota (Pregressa)', placeholder: 'Malattie infantili, malattie croniche, interventi chirurgici, ricoveri passati, infortuni o traumi.' },
+                                  { key: 'prossima', title: 'Anamnesi Patologica Prossima (Attuale)', placeholder: 'Sintomi attuali, disturbi recenti.' },
+                                  { key: 'familiare', title: 'Anamnesi Familiare', placeholder: 'Patologie ereditarie o congenite note nei parenti di primo grado.' },
+                                  { key: 'stileVita', title: 'Stile di Vita e Abitudini', placeholder: 'Abitudine al fumo, consumo di alcol, attività fisica, dieta.' },
+                                  { key: 'terapie', title: 'Terapie e Allergie', placeholder: 'Farmaci attualmente assunti, allergie a farmaci, alimenti o sostanze ambientali.' }
+                                ].map(({ key, title, placeholder }) => (
+                                  <div key={key} className="mb-4">
+                                    <label className="form-label small fw-semibold text-muted mb-1">{title}</label>
+                                    <textarea
+                                      className="form-control form-control-sm"
+                                      rows={3}
+                                      placeholder={placeholder}
+                                      value={anamnesiSections[key] || ''}
+                                      onChange={(e) => setAnamnesiSections(prev => ({ ...prev, [key]: e.target.value }))}
+                                    />
+                                  </div>
+                                ))}
                                 {anamnesiNutrizione && (
                                   <div className="small text-muted border-top pt-2">
                                     <i className="ri-information-line me-1"></i>
@@ -4684,9 +4788,6 @@ function ClientiDetail() {
                       </div>
                     </div>
                   )}
-
-
-
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {nutrizioneSubTab === 'diario' && (
                     <div className="col-12" data-tour="nutrizione-diario">
