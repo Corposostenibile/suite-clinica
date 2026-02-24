@@ -67,6 +67,59 @@ def ensure_enum_values(db_url: str) -> None:
         run_passthrough(["psql", db_url, "-v", "ON_ERROR_STOP=1", "-c", sql])
 
 
+# Allineato a backend/scripts/migration_scripts/schema_comparator.py (ENUM_ALIASES['statoclienteenum'])
+STATO_CLIENTE_ENUM_ALIASES = {
+    "freeze": "pausa",
+    "insoluto": "stop",
+}
+
+
+def normalize_legacy_statoclienteenum_values(db_url: str) -> None:
+    """
+    Normalizza i valori legacy del tipo enum public.statoclienteenum su tutte le colonne
+    che usano quel tipo, replicando la stessa mappa alias usata dallo script di migrazione
+    produzione (schema_comparator.py).
+    """
+    log("[step] post-import: normalizzazione alias legacy per public.statoclienteenum")
+    list_cols_sql = """
+    SELECT table_schema, table_name, column_name
+    FROM information_schema.columns
+    WHERE udt_schema = 'public'
+      AND udt_name = 'statoclienteenum'
+    ORDER BY table_schema, table_name, ordinal_position;
+    """
+    res = run(["psql", db_url, "-At", "-F", "|", "-c", list_cols_sql])
+    rows = [line.split("|", 2) for line in res.stdout.strip().splitlines() if line.strip()]
+    if not rows:
+        log("[info] nessuna colonna con tipo public.statoclienteenum trovata")
+        return
+
+    total_updates = 0
+    for schema_name, table_name, column_name in rows:
+        for old_val, new_val in STATO_CLIENTE_ENUM_ALIASES.items():
+            sql = f"""
+            UPDATE "{schema_name}"."{table_name}"
+            SET "{column_name}" = '{new_val}'
+            WHERE "{column_name}"::text = '{old_val}';
+            """
+            upd = run(["psql", db_url, "-At", "-F", "|", "-c", sql])
+            # psql prints e.g. "UPDATE 13"
+            out = (upd.stdout or "").strip()
+            if out.startswith("UPDATE "):
+                try:
+                    changed = int(out.split()[1])
+                except Exception:
+                    changed = 0
+                if changed:
+                    total_updates += changed
+                    log(
+                        "[enum-normalize] "
+                        f"{schema_name}.{table_name}.{column_name}: "
+                        f"{old_val} -> {new_val} ({changed})"
+                    )
+    log(f"[step] post-import: normalizzazione statoclienteenum completata (rows={total_updates})")
+
+
 def import_sql(db_url: str, sql_path: Path) -> None:
     if not sql_path.exists():
         raise FileNotFoundError(f"SQL migrato non trovato: {sql_path}")
@@ -313,6 +366,7 @@ def main() -> int:
             import_split_tables(db_url, ORDER_FILE)
         else:
             import_sql(db_url, sql_path)
+        normalize_legacy_statoclienteenum_values(db_url)
         reset_dev_password()
         show_counts(db_url)
         log(f"[ok] Import cache SQL completato (durata totale={fmt_seconds(time.time() - started)})")

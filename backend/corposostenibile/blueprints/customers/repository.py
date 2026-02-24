@@ -159,6 +159,7 @@ class CustomerRepository:
                             Cliente.nutrizionista_id.in_(member_ids_list),
                             Cliente.coach_id.in_(member_ids_list),
                             Cliente.psicologa_id.in_(member_ids_list),
+                            Cliente.consulente_alimentare_id.in_(member_ids_list),
                             # Assegnato a nutrizionista del team (M2M)
                             exists(
                                 select(cliente_nutrizionisti.c.cliente_id)
@@ -198,6 +199,7 @@ class CustomerRepository:
                         Cliente.nutrizionista_id == user_id,
                         Cliente.coach_id == user_id,
                         Cliente.psicologa_id == user_id,
+                        Cliente.consulente_alimentare_id == user_id,
                         # Pazienti assegnati come nutrizionista (M2M)
                         exists(
                             select(cliente_nutrizionisti.c.cliente_id)
