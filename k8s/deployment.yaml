@@ -50,15 +50,15 @@ spec:
         - name: DATABASE_URL
           value: "postgresql://suite_clinica:i1%5Bi%2FY%25y%5DD%25Ihg%2Bh@127.0.0.1:5432/suite_clinica_prod"
         - name: CELERY_BROKER_URL
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/0"
+          value: "redis://10.130.63.139:6379/0"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/1"
+          value: "redis://10.130.63.139:6379/1"
         - name: NUTRITION_CACHE_BACKEND
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/2"
+          value: "redis://10.130.63.139:6379/2"
         - name: WEBSOCKET_QUEUE
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/3"
+          value: "redis://10.130.63.139:6379/3"
         - name: RATELIMIT_STORAGE_URI
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/5"
+          value: "redis://10.130.63.139:6379/5"
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
         - name: SESSION_COOKIE_SECURE

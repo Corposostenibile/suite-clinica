@@ -175,17 +175,17 @@ class EligibilityService:
         if professionista_id:
             # Filtra per professionista: colonne singole O relazioni M2M
             # Subquery per M2M nutrizionisti
-            nutrizionisti_subq = db.session.query(cliente_nutrizionisti.c.cliente_id).filter(
+            nutrizionisti_select = db.session.query(cliente_nutrizionisti.c.cliente_id).filter(
                 cliente_nutrizionisti.c.user_id == professionista_id
-            ).subquery()
+            ).statement
             # Subquery per M2M coaches
-            coaches_subq = db.session.query(cliente_coaches.c.cliente_id).filter(
+            coaches_select = db.session.query(cliente_coaches.c.cliente_id).filter(
                 cliente_coaches.c.user_id == professionista_id
-            ).subquery()
+            ).statement
             # Subquery per M2M psicologi
-            psicologi_subq = db.session.query(cliente_psicologi.c.cliente_id).filter(
+            psicologi_select = db.session.query(cliente_psicologi.c.cliente_id).filter(
                 cliente_psicologi.c.user_id == professionista_id
-            ).subquery()
+            ).statement
 
             query = query.filter(
                 or_(
@@ -194,9 +194,9 @@ class EligibilityService:
                     Cliente.coach_id == professionista_id,
                     Cliente.psicologa_id == professionista_id,
                     # Relazioni M2M
-                    Cliente.cliente_id.in_(nutrizionisti_subq),
-                    Cliente.cliente_id.in_(coaches_subq),
-                    Cliente.cliente_id.in_(psicologi_subq)
+                    Cliente.cliente_id.in_(nutrizionisti_select),
+                    Cliente.cliente_id.in_(coaches_select),
+                    Cliente.cliente_id.in_(psicologi_select)
                 )
             )
 
