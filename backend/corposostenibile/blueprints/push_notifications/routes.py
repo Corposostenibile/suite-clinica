@@ -88,23 +88,32 @@ def delete_subscription():
 @bp.route("/notifications", methods=["GET"])
 @login_required
 def list_notifications():
-    unread_only = str(request.args.get("unread_only", "1")).lower() in {"1", "true", "yes"}
-    limit = min(max(int(request.args.get("limit", 20)), 1), 100)
+    try:
+        unread_only = str(request.args.get("unread_only", "1")).lower() in {"1", "true", "yes"}
+        limit = min(max(int(request.args.get("limit", 20)), 1), 100)
 
-    base_query = AppNotification.query.filter_by(user_id=current_user.id)
-    unread_count = base_query.filter_by(is_read=False).count()
+        base_query = AppNotification.query.filter_by(user_id=current_user.id)
+        unread_count = base_query.filter_by(is_read=False).count()
 
-    items_query = base_query.order_by(AppNotification.created_at.desc())
-    if unread_only:
-        items_query = items_query.filter_by(is_read=False)
-    items = items_query.limit(limit).all()
+        items_query = base_query.order_by(AppNotification.created_at.desc())
+        if unread_only:
+            items_query = items_query.filter_by(is_read=False)
+        items = items_query.limit(limit).all()
 
-    return jsonify(
-        {
-            "items": [item.to_dict() for item in items],
-            "unreadCount": unread_count,
-        }
-    )
+        return jsonify(
+            {
+                "items": [item.to_dict() for item in items],
+                "unreadCount": unread_count,
+            }
+        )
+    except Exception as e:
+        current_app.logger.warning(
+            "push notifications list failed for user %s: %s",
+            getattr(current_user, "id", None),
+            e,
+            exc_info=True,
+        )
+        return jsonify({"items": [], "unreadCount": 0})
 
 
 @bp.route("/notifications/<int:notification_id>/read", methods=["POST"])

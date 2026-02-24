@@ -6,7 +6,7 @@ from flask_login import current_user
 from sqlalchemy import or_
 
 from corposostenibile.extensions import db
-from corposostenibile.models import Cliente, User, Team
+from corposostenibile.models import Cliente, ClienteProfessionistaHistory, User, Team
 
 
 def get_accessible_clients_query():
@@ -39,7 +39,7 @@ def get_accessible_clients_query():
                 )
             )
         )
-    # Professionista: solo i propri clienti
+    # Professionista: solo i propri clienti (inclusi assegnazioni da history, es. Medico)
     return (
         db.session.query(Cliente.cliente_id)
         .filter(
@@ -50,6 +50,13 @@ def get_accessible_clients_query():
                 Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
                 Cliente.coaches_multipli.any(User.id == current_user.id),
                 Cliente.psicologi_multipli.any(User.id == current_user.id),
+                db.session.query(ClienteProfessionistaHistory.cliente_id)
+                .filter(
+                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                    ClienteProfessionistaHistory.user_id == current_user.id,
+                    ClienteProfessionistaHistory.is_active == True,
+                )
+                .exists(),
             )
         )
     )
