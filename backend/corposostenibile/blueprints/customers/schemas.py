@@ -187,6 +187,7 @@ class UserBriefSchema(ma.Schema):
     email = fields.String(dump_only=True)
     full_name = fields.String(dump_only=True)
     avatar_path = fields.String(dump_only=True)
+    avatar_url = fields.String(dump_only=True)
 
 
 class AllegatoSchema(SQLAlchemySchema):
