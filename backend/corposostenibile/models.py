@@ -472,6 +472,7 @@ class TeamTicketPriorityEnum(str, Enum):
 class TeamTicketSourceEnum(str, Enum):
     admin = "admin"
     teams = "teams"
+    planner = "planner"
 
 
 # ─────────────────────────── ENUM FERIE/PERMESSI ─────────────────────────── #
@@ -10135,6 +10136,7 @@ class GHLOpportunityData(TimestampMixin, db.Model):
     storia = db.Column(db.Text)
     pacchetto = db.Column(db.String(255))
     durata = db.Column(db.String(50))
+    addons = db.Column(db.Text)  # Selezione multipla da GHL, salvata come stringa
     received_at = db.Column(db.DateTime, default=datetime.utcnow)
     ip_address = db.Column(db.String(50))
     raw_payload = db.Column(db.JSON)
@@ -14253,6 +14255,9 @@ class TeamTicket(TimestampMixin, db.Model):
     teams_conversation_id = db.Column(db.String(500), nullable=True)
     teams_activity_id = db.Column(db.String(500), nullable=True)
 
+    # Planner integration
+    planner_task_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
+
     # Timestamps di risoluzione/chiusura
     resolved_at = db.Column(db.DateTime, nullable=True)
     closed_at = db.Column(db.DateTime, nullable=True)
@@ -14309,6 +14314,7 @@ class TeamTicket(TimestampMixin, db.Model):
                 for u in self.assigned_users
             ],
             "teams_conversation_id": self.teams_conversation_id,
+            "planner_task_id": self.planner_task_id,
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
             "closed_at": self.closed_at.isoformat() if self.closed_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -14434,6 +14440,18 @@ class TeamTicketStatusChange(TimestampMixin, db.Model):
             "source": self.source.value if self.source else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class PlannerSyncState(db.Model):
+    """Stato della sincronizzazione con Microsoft Planner."""
+    __tablename__ = "planner_sync_state"
+
+    id = db.Column(db.Integer, primary_key=True)
+    subscription_id = db.Column(db.String(255), nullable=True)
+    last_renewed_at = db.Column(db.DateTime, nullable=True)
+    plan_id = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 configure_mappers()          # deve vedere anche Task

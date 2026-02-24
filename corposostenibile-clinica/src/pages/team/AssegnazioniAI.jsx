@@ -646,7 +646,8 @@ function AssegnazioniAI() {
         (opp.lead_phone || '').toLowerCase().includes(q) ||
         (opp.health_manager_email || '').toLowerCase().includes(q) ||
         (opp.pacchetto || '').toLowerCase().includes(q) ||
-        (opp.storia || '').toLowerCase().includes(q)
+        (opp.storia || '').toLowerCase().includes(q) ||
+        (opp.addons || '').toLowerCase().includes(q)
       ));
     }
 
@@ -786,6 +787,7 @@ function AssegnazioniAI() {
                         <tr>
                           <th>Cliente</th>
                           <th>Pacchetto/Info</th>
+                          <th>Addons</th>
                           <th>Health Manager Email</th>
                           <th>Check 1</th>
                           <th>Check 2</th>
@@ -823,6 +825,15 @@ function AssegnazioniAI() {
                               <td>
                                 <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
                                 <span className="small text-muted">{opp.durata} gg</span>
+                              </td>
+                              <td>
+                                {opp.addons ? (
+                                  opp.addons.split(',').map((a, i) => (
+                                    <Badge key={i} bg="secondary" className="me-1 mb-1">{a.trim()}</Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-muted">-</span>
+                                )}
                               </td>
                               <td>
                                 {opp.health_manager_email ? (
@@ -1261,6 +1272,20 @@ function AssegnazioniAI() {
                                </Card.Body>
                            </Card>
                        </Col>
+                       {selectedOpportunity.addons && (
+                       <Col md={12}>
+                           <Card className="bg-light border-0">
+                               <Card.Body className="py-2">
+                                   <label className="text-uppercase text-muted small fw-bold mb-1">Addons</label>
+                                   <div className="d-flex flex-wrap gap-1 mt-1">
+                                       {selectedOpportunity.addons.split(',').map((a, i) => (
+                                           <Badge key={i} bg="secondary">{a.trim()}</Badge>
+                                       ))}
+                                   </div>
+                               </Card.Body>
+                           </Card>
+                       </Col>
+                       )}
                        <Col md={12}>
                            <Card className="bg-light border-0">
                                <Card.Body>

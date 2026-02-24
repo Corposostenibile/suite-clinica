@@ -148,6 +148,7 @@ def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
         "storia": d.storia,
         "pacchetto": d.pacchetto,
         "durata": d.durata,
+        "addons": d.addons,
         "received_at": d.received_at.isoformat() if d.received_at else None,
         "ip_address": d.ip_address,
         "processed": d.processed,
@@ -183,6 +184,60 @@ def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> G
         or payload.get("durata_in_giorni")
         or "0"
     )
+    raw_addons = (
+        custom_data.get("addons")
+        or custom_data.get("addon")
+        or custom_data.get("addOns")
+        or custom_data.get("add_ons")
+        or payload.get("addons")
+        or payload.get("addon")
+        or payload.get("addOns")
+        or ""
+    )
+    # Fallback: cerca addons in serviceBooking.services[].addOns[] (struttura nativa GHL)
+    if not raw_addons:
+        service_booking = payload.get("serviceBooking") or payload.get("service_booking") or {}
+        services = service_booking.get("services") or service_booking.get("selectedServices") or []
+        if isinstance(services, list):
+            all_addons = []
+            for svc in services:
+                svc_addons = svc.get("addOns") or svc.get("addons") or svc.get("add_ons") or []
+                if isinstance(svc_addons, list):
+                    for addon in svc_addons:
+                        if isinstance(addon, dict):
+                            name = addon.get("name") or addon.get("label") or addon.get("title") or ""
+                            if name:
+                                all_addons.append(str(name).strip())
+                        elif isinstance(addon, str) and addon.strip():
+                            all_addons.append(addon.strip())
+                elif isinstance(svc_addons, str) and svc_addons.strip():
+                    all_addons.append(svc_addons.strip())
+            if all_addons:
+                raw_addons = all_addons
+    # Fallback: cerca in triggerData
+    if not raw_addons:
+        trigger_data = payload.get("triggerData") or {}
+        raw_addons = trigger_data.get("addons") or trigger_data.get("addOns") or ""
+
+    # Normalizza: se è una lista, unisci con virgola
+    if isinstance(raw_addons, list):
+        addons = ", ".join(str(a) for a in raw_addons if a)
+    else:
+        addons_str = str(raw_addons).strip() if raw_addons else ""
+        # GHL Handlebars template produce: "Add-ons:  Addon1  Addon2  ..."
+        # Rimuovi prefisso "Add-ons:" e normalizza whitespace
+        import re
+        addons_str = re.sub(r'(?i)^add-?ons?\s*:\s*', '', addons_str).strip()
+        # Split su whitespace multipli (GHL usa spazi/tab come separatori tra addon)
+        # Ma solo se non ci sono virgole (altrimenti split su virgola come prima)
+        if ',' in addons_str:
+            parts = [p.strip() for p in addons_str.split(',') if p.strip()]
+        elif addons_str:
+            # GHL template mette ogni addon su spazi multipli/tab
+            parts = [p.strip() for p in re.split(r'\s{2,}', addons_str) if p.strip()]
+        else:
+            parts = []
+        addons = ", ".join(parts)
 
     opp_data = GHLOpportunityData(
         nome=nome,
@@ -192,6 +247,7 @@ def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> G
         storia=storia,
         pacchetto=pacchetto,
         durata=durata,
+        addons=addons or None,
         ip_address=client_ip,
         raw_payload=payload,
     )
@@ -567,6 +623,7 @@ def send_test_webhook():
                 'health_manager_email': test_hm_email,
                 'pacchetto': request.form.get('pacchetto', 'NCP'),
                 'storia': request.form.get('note', 'Lead di test inviato dalla pagina GHL interna'),
+                'addons': 'Addon Test 1, Addon Test 2',
             },
             'contact': {
                 'email': test_email,
@@ -1384,22 +1441,22 @@ def api_webhook_urls():
 def _get_current_assignments_for_opp(opp_data):
     """Recupera le assegnazioni correnti per un'opportunità GHL."""
     from corposostenibile.models import Cliente, ServiceClienteAssignment
-    
-    # Trova email nel payload
-    payload = opp_data.raw_payload or {}
-    email = payload.get('email') or payload.get('contact', {}).get('email')
-    
+
+    # Usa la stessa risoluzione email di _serialize_opportunity_data_row
+    extracted = _extract_opportunity_contact_fields(opp_data.raw_payload or {})
+    email = (opp_data.email or extracted["email"] or "").strip().lower()
+
     if not email:
         return {}
-        
-    cliente = Cliente.query.filter_by(mail=email).first()
+
+    cliente = Cliente.query.filter(Cliente.mail.ilike(email)).first()
     if not cliente:
         return {}
-        
+
     assignment = ServiceClienteAssignment.query.filter_by(cliente_id=cliente.cliente_id).first()
     if not assignment:
         return {}
-        
+
     return {
         'nutritionist_id': assignment.nutrizionista_assigned_id,
         'coach_id': assignment.coach_assigned_id,

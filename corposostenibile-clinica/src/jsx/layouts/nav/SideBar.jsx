@@ -111,12 +111,6 @@ const SideBar = () => {
                 if (item.title === 'Assegnazioni' && user?.role === 'professionista' && !user?.is_admin) {
                   return false;
                 }
-                // Capienze visibile solo ad admin/CCO/team leader
-                if (item.title === 'Capienze') {
-                  const isCco = user?.specialty === 'cco';
-                  const canViewCapacity = Boolean(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader' || isCco);
-                  return canViewCapacity;
-                }
                 return true;
               })
           ).map((data, index) => {

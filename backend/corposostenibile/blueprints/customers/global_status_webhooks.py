@@ -52,7 +52,18 @@ def _build_payload(cliente: Cliente, old_status: str | None, new_status: str) ->
 
 def _dispatch_webhook(payload: dict[str, Any]) -> None:
     mode = (current_app.config.get("GHL_GLOBAL_STATUS_WEBHOOK_MODE") or "mock").strip().lower()
-    webhook_url = (current_app.config.get("GHL_GLOBAL_STATUS_WEBHOOK_URL") or "").strip()
+
+    # URL specifico per stato (ghost/pausa), con fallback a URL generico
+    new_status = (payload.get("status") or {}).get("new", "")
+    if new_status == "ghost":
+        webhook_url = (current_app.config.get("GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST") or "").strip()
+    elif new_status == "pausa":
+        webhook_url = (current_app.config.get("GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA") or "").strip()
+    else:
+        webhook_url = ""
+    # Fallback a URL generico se non c'è URL specifico
+    if not webhook_url:
+        webhook_url = (current_app.config.get("GHL_GLOBAL_STATUS_WEBHOOK_URL") or "").strip()
 
     if mode == "mock" or not webhook_url:
         current_app.logger.info("[GHL_MOCK_WEBHOOK] Global status event triggered: %s", payload)
@@ -62,10 +73,11 @@ def _dispatch_webhook(payload: dict[str, Any]) -> None:
         response = requests.post(webhook_url, json=payload, timeout=8)
         response.raise_for_status()
         current_app.logger.info(
-            "[GHL_WEBHOOK] Global status event sent: cliente_id=%s status=%s http=%s",
+            "[GHL_WEBHOOK] Global status event sent: cliente_id=%s status=%s http=%s url=%s",
             payload.get("cliente", {}).get("id"),
-            payload.get("status", {}).get("new"),
+            new_status,
             response.status_code,
+            webhook_url[:60],
         )
     except Exception as exc:
         current_app.logger.error("[GHL_WEBHOOK] Global status webhook failed: %s", exc, exc_info=True)

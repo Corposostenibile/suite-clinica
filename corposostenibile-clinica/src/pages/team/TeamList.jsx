@@ -168,12 +168,20 @@ function TeamList() {
           <h4 className="mb-1">Gestione Team</h4>
           <p className="text-muted mb-0">{pagination.total} membri totali</p>
         </div>
-        {(user?.is_admin || user?.role === 'admin') && (
-          <Link to="/team-nuovo" className="btn btn-primary">
-            <i className="ri-user-add-line me-1"></i>
-            Nuovo Professionista
-          </Link>
-        )}
+        <div className="d-flex gap-2">
+          {(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader' || user?.specialty === 'cco') && (
+            <Link to="/team-capienza" className="btn btn-outline-primary">
+              <i className="ri-bar-chart-box-line me-1"></i>
+              Capienze
+            </Link>
+          )}
+          {(user?.is_admin || user?.role === 'admin') && (
+            <Link to="/team-nuovo" className="btn btn-primary">
+              <i className="ri-user-add-line me-1"></i>
+              Nuovo Professionista
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Stats Row */}

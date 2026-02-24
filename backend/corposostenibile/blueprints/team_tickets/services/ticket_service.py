@@ -88,6 +88,21 @@ def create_ticket(
             _save_attachment(ticket, f, created_by_id, source)
 
     db.session.commit()
+
+    # ── Planner sync (outbound) ──
+    try:
+        from corposostenibile.blueprints.team_tickets.services.planner_sync_service import (
+            sync_ticket_to_planner, is_syncing_from_planner,
+        )
+        if not is_syncing_from_planner():
+            planner_task_id = sync_ticket_to_planner(ticket)
+            if planner_task_id:
+                ticket.planner_task_id = planner_task_id
+                db.session.commit()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Planner sync failed for new ticket %s", ticket.ticket_number)
+
     return ticket
 
 
@@ -179,8 +194,31 @@ def update_ticket(
     if assignee_ids is not None:
         users = User.query.filter(User.id.in_(assignee_ids), User.is_active.is_(True)).all()
         ticket.assigned_users = users
+        _assignees_changed = True
+    else:
+        _assignees_changed = False
 
     db.session.commit()
+
+    # ── Planner sync (outbound) ──
+    try:
+        from corposostenibile.blueprints.team_tickets.services.planner_sync_service import (
+            sync_ticket_status_to_planner,
+            sync_ticket_priority_to_planner,
+            sync_ticket_assignees_to_planner,
+            is_syncing_from_planner,
+        )
+        if not is_syncing_from_planner():
+            if status is not None:
+                sync_ticket_status_to_planner(ticket)
+            if priority is not None:
+                sync_ticket_priority_to_planner(ticket)
+            if _assignees_changed:
+                sync_ticket_assignees_to_planner(ticket)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Planner sync failed for ticket update %s", ticket.ticket_number)
+
     return ticket
 
 
@@ -188,8 +226,22 @@ def update_ticket(
 
 def delete_ticket(ticket_id: int) -> bool:
     ticket = TeamTicket.query.get_or_404(ticket_id)
+    planner_task_id = ticket.planner_task_id
     db.session.delete(ticket)
     db.session.commit()
+
+    # ── Planner sync (outbound) ──
+    if planner_task_id:
+        try:
+            from corposostenibile.blueprints.team_tickets.services.planner_sync_service import (
+                sync_ticket_delete_to_planner, is_syncing_from_planner,
+            )
+            if not is_syncing_from_planner():
+                sync_ticket_delete_to_planner(planner_task_id)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Planner sync failed for ticket delete %s", planner_task_id)
+
     return True
 
 
@@ -209,6 +261,20 @@ def add_message(
     )
     db.session.add(msg)
     db.session.commit()
+
+    # ── Planner sync (outbound) ──
+    try:
+        from corposostenibile.blueprints.team_tickets.services.planner_sync_service import (
+            sync_message_to_planner, is_syncing_from_planner,
+        )
+        if not is_syncing_from_planner():
+            ticket = TeamTicket.query.get(ticket_id)
+            if ticket:
+                sync_message_to_planner(ticket, msg)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Planner sync failed for message on ticket %s", ticket_id)
+
     return msg
 
 

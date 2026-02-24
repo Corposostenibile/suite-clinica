@@ -6543,7 +6543,7 @@ function ClientiDetail() {
                               coach: { label: 'Coaching', icon: 'ri-run-line', color: '#6366f1' },
                               psicologa: { label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
                             }[cb.tipo_professionista] || { label: cb.tipo_professionista, icon: 'ri-user-line', color: '#6b7280' };
-                            const showActions = cb.is_assigned_professional && cb.status === 'accettata' && !cb.booking_confirmed;
+                            const showActions = cb.is_assigned_professional && cb.status === 'proposta';
                             return (
                               <tr key={cb.id}>
                                 <td><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
@@ -6873,39 +6873,19 @@ function ClientiDetail() {
                   </div>
                 )}
 
-                {/* ── STEP 3: Calendar Link + Confirm ── */}
+                {/* ── STEP 3: Confirmation message ── */}
                 {callBonusStep === 3 && selectedCallBonusProfessional && (
                   <div className="text-center">
                     <div className="mb-4">
-                      <div className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 600, fontSize: '1.3rem' }}>
-                        {selectedCallBonusProfessional.name ? selectedCallBonusProfessional.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '??'}
+                      <div className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #10b981, #34d399)', color: '#fff' }}>
+                        <i className="ri-check-line" style={{ fontSize: '1.8rem' }}></i>
                       </div>
-                      <h6 className="mb-1">{selectedCallBonusProfessional.name}</h6>
-                      <span className="badge rounded-pill" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
-                        Selezionato
-                      </span>
+                      <h6 className="mb-1">Richiesta inviata!</h6>
+                      <p className="text-muted small mb-0">
+                        La richiesta è stata inviata a <strong>{selectedCallBonusProfessional.name}</strong>.
+                        <br />Riceverà la notifica e potrà gestire la prenotazione.
+                      </p>
                     </div>
-
-                    {callBonusCalendarLink ? (
-                      <div className="mb-4">
-                        <a
-                          href={callBonusCalendarLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-outline-primary btn-lg d-inline-flex align-items-center gap-2"
-                        >
-                          <i className="ri-calendar-line"></i>
-                          Apri Calendario Call Bonus
-                          <i className="ri-external-link-line"></i>
-                        </a>
-                        <p className="text-muted small mt-2">Clicca per prenotare la call bonus nel calendario del professionista.</p>
-                      </div>
-                    ) : (
-                      <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-4" role="alert">
-                        <i className="ri-error-warning-line"></i>
-                        <span className="small">Il professionista non ha configurato un link calendario per le call bonus.</span>
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -6933,22 +6913,9 @@ function ClientiDetail() {
                   </button>
                 )}
                 {callBonusStep === 3 && (
-                  <>
-                    <button className="btn btn-secondary" onClick={() => setCallBonusStep(2)}>
-                      <i className="ri-arrow-left-line me-1"></i>Indietro
-                    </button>
-                    <button
-                      className="btn btn-success"
-                      onClick={handleConfirmCallBonusBooking}
-                      disabled={confirmingBooking}
-                    >
-                      {confirmingBooking ? (
-                        <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
-                      ) : (
-                        <><i className="ri-check-line me-1"></i>Ho prenotato la call</>
-                      )}
-                    </button>
-                  </>
+                  <button className="btn btn-primary" onClick={() => { setShowCallBonusModal(false); fetchCallBonusHistory(); }}>
+                    Chiudi
+                  </button>
                 )}
               </div>
             </div>

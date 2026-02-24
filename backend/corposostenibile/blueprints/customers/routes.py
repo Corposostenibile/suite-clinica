@@ -5810,9 +5810,8 @@ def api_call_bonus_select_professional(call_bonus_id: int):
         abort(HTTPStatus.NOT_FOUND, description="Professionista non trovato.")
 
     # Update call bonus with selected professional
+    # status resta "proposta" — sarà il professionista assegnato a confermare/rifiutare
     call_bonus.professionista_id = professional_id
-    call_bonus.status = CallBonusStatusEnum.accettata
-    call_bonus.data_risposta = date.today()
 
     db.session.commit()
 
@@ -5843,6 +5842,11 @@ def api_call_bonus_confirm_booking(call_bonus_id: int):
     if not call_bonus:
         abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
 
+    if call_bonus.professionista_id != current_user.id:
+        abort(HTTPStatus.FORBIDDEN, description="Non sei il professionista assegnato.")
+
+    call_bonus.status = CallBonusStatusEnum.accettata
+    call_bonus.data_risposta = date.today()
     call_bonus.booking_confirmed = True
     call_bonus.data_booking_confirmed = datetime.utcnow()
 

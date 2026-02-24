@@ -1048,16 +1048,22 @@ def api_confirm_assignment():
             if not opp_data:
                 return jsonify({'success': False, 'message': 'Lead non trovato'}), 404
             
-            # Estrai email dal payload se possibile
-            payload = opp_data.raw_payload or {}
-            email = payload.get('email') or payload.get('contact', {}).get('email')
-            
+            # Usa email dal modello o dal payload (stessa logica di _serialize_opportunity_data_row)
+            email = (opp_data.email or "").strip().lower()
             if not email:
-                # Fallback email se non trovata nel payload
+                payload = opp_data.raw_payload or {}
+                email = (
+                    payload.get('email')
+                    or payload.get('contact', {}).get('email')
+                    or ""
+                ).strip().lower()
+
+            if not email:
+                # Fallback email se non trovata
                 email = f"lead-{opp_data.id}@ghl-lead.com"
-                
-            # Verifica se esiste già un cliente con questa email
-            cliente = Cliente.query.filter_by(mail=email).first()
+
+            # Verifica se esiste già un cliente con questa email (case-insensitive)
+            cliente = Cliente.query.filter(Cliente.mail.ilike(email)).first()
             if not cliente:
                 cliente = Cliente(
                     nome_cognome=opp_data.nome,

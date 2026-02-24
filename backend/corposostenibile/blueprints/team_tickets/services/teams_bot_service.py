@@ -222,7 +222,7 @@ def _get_user_ticket_summary(turn_context) -> dict:
 async def _handle_turn(turn_context) -> None:
     """Gestisce il turno di conversazione."""
     from botbuilder.schema import ActivityTypes
-    from corposostenibile.blueprints.team_tickets.adaptive_cards.templates import welcome_card
+    from corposostenibile.blueprints.team_tickets.adaptive_cards.templates import intro_card
 
     activity = turn_context.activity
 
@@ -243,17 +243,15 @@ async def _handle_turn(turn_context) -> None:
             await _handle_file_attachments(turn_context, real_files)
             return
 
-        # Messaggio di testo: mostra welcome card con riepilogo
-        summary = _get_user_ticket_summary(turn_context)
-        await _send_card(turn_context, welcome_card(**summary))
+        # Messaggio di testo: mostra intro card
+        await _send_card(turn_context, intro_card())
         return
 
     elif activity.type == ActivityTypes.conversation_update:
         if activity.members_added:
             for member in activity.members_added:
                 if member.id != activity.recipient.id:
-                    summary = _get_user_ticket_summary(turn_context)
-                    await _send_card(turn_context, welcome_card(**summary))
+                    await _send_card(turn_context, intro_card())
 
 
 # ─────────────────────── Handle Search Invoke (Data.Query) ─────────────── #
@@ -469,7 +467,25 @@ async def _handle_card_submit(turn_context, value: dict) -> None:
     conv_id = turn_context.activity.conversation.id if turn_context.activity.conversation else None
     aad_id = teams_user.get("aad_id")
 
-    if action == "new_ticket":
+    # ── Navigazione sezioni ──
+    if action == "section_tickets":
+        from corposostenibile.blueprints.team_tickets.adaptive_cards.templates import welcome_card
+        summary = _get_user_ticket_summary(turn_context)
+        await _send_card(turn_context, welcome_card(**summary))
+        return
+
+    elif action == "section_kb":
+        from corposostenibile.blueprints.team_tickets.adaptive_cards.templates import kb_chat_card
+        doc_count, chunks_count = _get_kb_stats()
+        await _send_card(turn_context, kb_chat_card(doc_count, chunks_count))
+        return
+
+    elif action == "go_home":
+        from corposostenibile.blueprints.team_tickets.adaptive_cards.templates import intro_card
+        await _send_card(turn_context, intro_card())
+        return
+
+    elif action == "new_ticket":
         await _send_card(turn_context, create_ticket_form())
 
     elif action == "submit_ticket":

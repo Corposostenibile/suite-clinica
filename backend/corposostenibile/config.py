@@ -90,6 +90,13 @@ class BaseConfig:
     TEAMS_BOT_APP_PASSWORD: str = os.getenv("TEAMS_BOT_APP_PASSWORD", "")
     TEAMS_BOT_TENANT_ID: str = os.getenv("TEAMS_BOT_TENANT_ID", "")
 
+    # ─────────────────── Microsoft Planner Integration ─────────────
+    PLANNER_SYNC_ENABLED: bool = bool(int(os.getenv("PLANNER_SYNC_ENABLED", "0")))
+    PLANNER_PLAN_ID: str = os.getenv("PLANNER_PLAN_ID", "")
+    PLANNER_GROUP_ID: str = os.getenv("PLANNER_GROUP_ID", "")
+    PLANNER_WEBHOOK_URL: str = os.getenv("PLANNER_WEBHOOK_URL", "")
+    PLANNER_WEBHOOK_SECRET: str = os.getenv("PLANNER_WEBHOOK_SECRET", "planner-sync-secret")
+
     # --------------------------- CSRF ------------------------------
     WTF_CSRF_ENABLED: bool = True                   # disattivare solo nei test
     WTF_CSRF_EXEMPT_LIST: list = [
@@ -263,6 +270,8 @@ class BaseConfig:
     GHL_API_BASE_URL: str = os.getenv("GHL_API_BASE_URL", "https://rest.gohighlevel.com/v1")
     GHL_GLOBAL_STATUS_WEBHOOK_MODE: str = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_MODE", "mock")
     GHL_GLOBAL_STATUS_WEBHOOK_URL: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL")
+    GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST")
+    GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA")
 
     # ------------------ Respond.io Integration -----------------------
     RESPOND_IO_API_TOKEN: str | None = os.getenv("RESPOND_IO_API_TOKEN")

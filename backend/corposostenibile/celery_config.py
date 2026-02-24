@@ -135,6 +135,16 @@ CELERYBEAT_SCHEDULE = {
         }
     },
 
+    # PLANNER SYNC
+    'renew-planner-subscription': {
+        'task': 'corposostenibile.blueprints.team_tickets.services.planner_tasks.renew_planner_subscription_task',
+        'schedule': crontab(hour=3, minute=30, day_of_week='*/2'),
+        'options': {
+            'expires': 3600,
+            'priority': 5,
+        },
+    },
+
 }
 
 # Timezone per Celery Beat (importante per crontab)

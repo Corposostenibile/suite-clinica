@@ -8,10 +8,28 @@ Design coerente con navbar di navigazione sempre visibile.
 from __future__ import annotations
 
 
-# ─────────────────────── Navbar comune ─────────────────────── #
+# ─────────────────────── Navbar per sezione ─────────────────────── #
 
-def _nav_bar() -> list[dict]:
-    """Ritorna la barra di navigazione come elementi body, da appendere a ogni card."""
+def _nav_bar_home() -> list[dict]:
+    """Singolo bottone Home per tornare alla intro card."""
+    return [
+        {
+            "type": "ActionSet",
+            "separator": True,
+            "spacing": "Medium",
+            "actions": [
+                {
+                    "type": "Action.Submit",
+                    "title": "\ud83c\udfe0 Home",
+                    "data": {"action": "go_home"},
+                },
+            ],
+        },
+    ]
+
+
+def _nav_bar_tickets() -> list[dict]:
+    """Navbar con pulsanti solo ticket + Home."""
     return [
         {
             "type": "ActionSet",
@@ -46,12 +64,45 @@ def _nav_bar() -> list[dict]:
                 },
                 {
                     "type": "Action.Submit",
-                    "title": "\ud83d\udcda Knowledge Base",
-                    "data": {"action": "kb_chat"},
+                    "title": "\ud83c\udfe0 Home",
+                    "data": {"action": "go_home"},
                 },
             ],
         },
     ]
+
+
+def _nav_bar_kb() -> list[dict]:
+    """Navbar con pulsanti solo KB + Home."""
+    return [
+        {
+            "type": "ActionSet",
+            "separator": True,
+            "spacing": "Medium",
+            "actions": [
+                {
+                    "type": "Action.Submit",
+                    "title": "\ud83d\uddd1\ufe0f Nuova Conversazione",
+                    "data": {"action": "kb_new_session"},
+                },
+                {
+                    "type": "Action.Submit",
+                    "title": "\ud83c\udfe0 Home",
+                    "data": {"action": "go_home"},
+                },
+            ],
+        },
+    ]
+
+
+def _get_nav_bar(section: str) -> list[dict]:
+    """Ritorna la navbar appropriata per la sezione."""
+    if section == "tickets":
+        return _nav_bar_tickets()
+    elif section == "kb":
+        return _nav_bar_kb()
+    else:
+        return _nav_bar_home()
 
 
 # ─────────────────────── Costanti di stile ─────────────────────── #
@@ -94,17 +145,119 @@ def _priority_badge(priority: str) -> dict:
     }
 
 
-def _card(body: list[dict], actions: list[dict] | None = None) -> dict:
-    """Wrapper per creare una card con navbar inclusa."""
+def _card(body: list[dict], actions: list[dict] | None = None, section: str = "home") -> dict:
+    """Wrapper per creare una card con navbar inclusa.
+
+    section: "home" | "tickets" | "kb" — determina quale navbar mostrare.
+    """
     card = {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
-        "body": body + _nav_bar(),
+        "body": body + _get_nav_bar(section),
     }
     if actions:
         card["actions"] = actions
     return card
+
+
+# ═══════════════════════════════════════════════════════════════ #
+#                        INTRO CARD                               #
+# ═══════════════════════════════════════════════════════════════ #
+
+def intro_card() -> dict:
+    """Card introduttiva che presenta le funzionalita' del bot SUMI."""
+    body: list[dict] = [
+        # Header
+        {
+            "type": "Container",
+            "style": "emphasis",
+            "bleed": True,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": "Ciao! Sono SUMI",
+                    "weight": "Bolder",
+                    "size": "ExtraLarge",
+                    "color": "Accent",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": "Il tuo assistente su Teams. Ecco cosa posso fare per te:",
+                    "spacing": "None",
+                    "isSubtle": True,
+                    "wrap": True,
+                },
+            ],
+        },
+        # Due colonne con descrizione sezioni
+        {
+            "type": "ColumnSet",
+            "spacing": "Large",
+            "columns": [
+                {
+                    "type": "Column",
+                    "width": "1",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": "\ud83c\udfab Ticket",
+                            "weight": "Bolder",
+                            "size": "Medium",
+                        },
+                        {
+                            "type": "TextBlock",
+                            "text": "Crea, gestisci e monitora i ticket del team",
+                            "wrap": True,
+                            "size": "Small",
+                            "isSubtle": True,
+                            "spacing": "Small",
+                        },
+                    ],
+                },
+                {
+                    "type": "Column",
+                    "width": "1",
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": "\ud83d\udcda Knowledge Base",
+                            "weight": "Bolder",
+                            "size": "Medium",
+                        },
+                        {
+                            "type": "TextBlock",
+                            "text": "Cerca nelle procedure e documenti aziendali",
+                            "wrap": True,
+                            "size": "Small",
+                            "isSubtle": True,
+                            "spacing": "Small",
+                        },
+                    ],
+                },
+            ],
+        },
+    ]
+
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.4",
+        "body": body,
+        "actions": [
+            {
+                "type": "Action.Submit",
+                "title": "\ud83c\udfab Apri Ticket",
+                "style": "positive",
+                "data": {"action": "section_tickets"},
+            },
+            {
+                "type": "Action.Submit",
+                "title": "\ud83d\udcda Apri Knowledge Base",
+                "data": {"action": "section_kb"},
+            },
+        ],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -115,7 +268,7 @@ def welcome_card(
     assigned_tickets: list[dict] | None = None,
     my_open_tickets: list[dict] | None = None,
 ) -> dict:
-    """Card di benvenuto con riepilogo ticket aperti e menu principale."""
+    """Card home della sezione Ticket con riepilogo ticket aperti."""
     body: list[dict] = [
         # Header
         {
@@ -125,7 +278,7 @@ def welcome_card(
             "items": [
                 {
                     "type": "TextBlock",
-                    "text": "\ud83c\udfab  Team Tickets",
+                    "text": "\ud83c\udfab  Ticket",
                     "weight": "Bolder",
                     "size": "ExtraLarge",
                     "color": "Accent",
@@ -282,7 +435,7 @@ def welcome_card(
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.4",
-        "body": body + _nav_bar(),
+        "body": body + _nav_bar_tickets(),
     }
 
 
@@ -410,7 +563,7 @@ def create_ticket_form() -> dict:
             "style": "positive",
             "data": {"action": "submit_ticket"},
         },
-    ])
+    ], section="tickets")
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -501,7 +654,7 @@ def ticket_confirmation_card(ticket: dict) -> dict:
             "title": "\ud83d\udd0d  Vedi Dettaglio",
             "data": {"action": "view_ticket", "ticket_id": ticket["id"]},
         },
-    ])
+    ], section="tickets")
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -585,7 +738,7 @@ def ticket_notification_card(
             "title": "\ud83d\udd12  Chiudi Ticket",
             "data": {"action": "close_ticket", "ticket_id": ticket["id"]},
         },
-    ])
+    ], section="tickets")
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -642,7 +795,7 @@ def ticket_list_card(tickets: list[dict], list_title: str = "I Miei Ticket") -> 
                 "spacing": "Large",
             }],
         })
-        return _card(body)
+        return _card(body, section="tickets")
 
     for i, t in enumerate(tickets[:10]):
         status = t.get("status", "")
@@ -733,7 +886,7 @@ def ticket_list_card(tickets: list[dict], list_title: str = "I Miei Ticket") -> 
         }
         body.append(ticket_container)
 
-    return _card(body)
+    return _card(body, section="tickets")
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -970,7 +1123,7 @@ def ticket_detail_card(ticket: dict) -> dict:
             },
         ])
 
-    return _card(body, actions=actions or None)
+    return _card(body, actions=actions or None, section="tickets")
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -1008,7 +1161,7 @@ def reply_form_card(ticket_id: int, ticket_number: str) -> dict:
             "style": "positive",
             "data": {"action": "submit_reply", "ticket_id": ticket_id},
         },
-    ])
+    ], section="tickets")
 
 
 # ═══════════════════════════════════════════════════════════════ #
@@ -1060,7 +1213,7 @@ def kb_chat_card(doc_count: int, chunks_count: int) -> dict:
             "style": "positive",
             "data": {"action": "kb_ask"},
         },
-    ])
+    ], section="kb")
 
 
 def kb_response_card(answer: str, sources: list[str], question: str) -> dict:
@@ -1142,4 +1295,4 @@ def kb_response_card(answer: str, sources: list[str], question: str) -> dict:
             "title": "\ud83d\uddd1\ufe0f  Nuova conversazione",
             "data": {"action": "kb_new_session"},
         },
-    ])
+    ], section="kb")
