@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
+import { Modal } from 'react-bootstrap';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -25,6 +26,7 @@ function Task() {
     const [loading, setLoading] = useState(true);
     const [mostraTour, setMostraTour] = useState(false);
     const [searchParams] = useSearchParams();
+    const [selectedTask, setSelectedTask] = useState(null);
 
     const PAGE_SIZE = 15;
 
@@ -361,13 +363,13 @@ function Task() {
                                                         />
                                                     </div>
                                                 </td>
-                                                <td data-label="Attività">
+                                                <td data-label="Attività" onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>
                                                     <div className="d-flex flex-column">
                                                         <span className={`fw-medium ${task.completed ? 'text-decoration-line-through text-muted' : 'text-dark'}`}>
                                                             {task.title}
                                                         </span>
                                                         {task.description && (
-                                                            <small className="text-muted">{task.description}</small>
+                                                            <small className="text-muted text-truncate" style={{ maxWidth: '100%' }}>{task.description}</small>
                                                         )}
                                                     </div>
                                                 </td>
@@ -477,6 +479,77 @@ function Task() {
                     console.log('Tour Task completato');
                 }}
             />
+
+            {/* Task Detail Modal */}
+            <Modal show={!!selectedTask} onHide={() => setSelectedTask(null)} centered>
+                {selectedTask && (
+                    <>
+                        <Modal.Header closeButton className="border-0 pb-0">
+                            <Modal.Title className="h5 mb-0 fw-bold">Dettaglio Task</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body className="pt-3">
+                            <div className="mb-3">
+                                <label className="form-label text-muted small text-uppercase fw-semibold mb-1">Attività</label>
+                                <p className="fw-medium text-dark mb-0 fs-5">{selectedTask.title}</p>
+                            </div>
+
+                            {selectedTask.description && (
+                                <div className="mb-3 bg-light p-3 rounded-3">
+                                    <label className="form-label text-muted small text-uppercase fw-semibold mb-1">Descrizione</label>
+                                    <p className="text-dark mb-0" style={{ whiteSpace: 'pre-wrap', fontSize: '15px' }}>{selectedTask.description}</p>
+                                </div>
+                            )}
+
+                            <div className="row g-3">
+                                <div className="col-6">
+                                    <label className="form-label text-muted small text-uppercase fw-semibold mb-1">Scadenza</label>
+                                    <div className="d-flex align-items-center">
+                                        <i className="ri-calendar-event-line text-muted me-2"></i>
+                                        <span className="fw-medium">{formatDate(selectedTask.due_date)}</span>
+                                    </div>
+                                </div>
+                                <div className="col-6">
+                                    <label className="form-label text-muted small text-uppercase fw-semibold mb-1">Priorità</label>
+                                    <div className="d-flex align-items-center gap-1">
+                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: getPriorityColor(selectedTask.priority) }}></div>
+                                        <span style={{ color: getPriorityColor(selectedTask.priority), fontWeight: 600 }}>
+                                            {TASK_PRIORITIES[selectedTask.priority]?.label || selectedTask.priority}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="col-12">
+                                    <label className="form-label text-muted small text-uppercase fw-semibold mb-1">Paziente associato</label>
+                                    <div className="d-flex align-items-center p-2 border rounded-3 bg-white">
+                                        {selectedTask.client_name ? (
+                                            <>
+                                                <div className="avatar-xs me-2 bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center text-primary fw-bold" style={{ width: '32px', height: '32px', fontSize: '12px' }}>
+                                                    {selectedTask.client_name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <span className="fw-medium">{selectedTask.client_name}</span>
+                                            </>
+                                        ) : (
+                                            <span className="text-muted fst-italic px-2">Nessun paziente</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </Modal.Body>
+                        <Modal.Footer className="border-0 pt-0">
+                            <button className="btn btn-light" onClick={() => setSelectedTask(null)}>
+                                Chiudi
+                            </button>
+                            {(!selectedTask.completed && (selectedTask.client_id || (selectedTask.payload && (selectedTask.payload.client_id || selectedTask.payload.url)))) && (
+                                <button className="btn btn-primary shadow-sm" onClick={() => {
+                                    handleTaskAction(selectedTask);
+                                    setSelectedTask(null);
+                                }}>
+                                    Vai alla pagina <i className="ri-arrow-right-line ms-1"></i>
+                                </button>
+                            )}
+                        </Modal.Footer>
+                    </>
+                )}
+            </Modal>
         </div>
     );
 }
