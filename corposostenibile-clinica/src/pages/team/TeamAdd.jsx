@@ -224,7 +224,8 @@ function TeamAdd() {
   };
 
   const getSpecialtiesForRole = () => {
-    return USER_SPECIALTIES[formData.role] || [];
+    const roleKey = (formData.role || '').toLowerCase();
+    return USER_SPECIALTIES[roleKey] || [];
   };
 
   if (loadingData) {
@@ -445,7 +446,7 @@ function TeamAdd() {
                     <small className="text-muted">
                       {formData.role === 'admin' && 'Accesso completo a tutte le funzionalita'}
                       {formData.role === 'team_leader' && 'Gestisce un team di professionisti'}
-                      {formData.role === 'professionista' && 'Nutrizionista, Psicologo o Coach'}
+                      {formData.role === 'professionista' && 'Nutrizionista, Psicologo, Coach o Medico'}
                       {formData.role === 'team_esterno' && 'Collaboratore esterno'}
                       {formData.role === 'influencer' && 'Gestione origine e visibilità clienti'}
                       {formData.role === 'health_manager' && 'Health Manager – gestione pazienti e onboarding'}
