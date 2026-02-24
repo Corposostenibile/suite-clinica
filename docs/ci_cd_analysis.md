@@ -213,6 +213,12 @@ kubectl rollout status deployment/suite-clinica-backend --timeout=300s
 Mitigazione consigliata:
 - configurare una strategia di rollout compatibile con PVC `RWO` (es. `Recreate` oppure `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`)
 
+Scelta operativa attuale (24 febbraio 2026):
+- `k8s/deployment.yaml` usa `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`
+- obiettivo: evitare rollout bloccati quando il cluster non ha RAM/capacity per tenere `vecchio pod + nuovo pod` insieme
+- tradeoff accettato: breve downtime durante il deploy del backend (1 replica)
+- piano futuro: aggiungere capacity/headroom GKE per tornare a rollout senza downtime
+
 ### 6.6 `sync_criteria_prod.py` fallisce dopo riordino script
 
 Sintomo:
