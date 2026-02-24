@@ -39,6 +39,7 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     CallBonus,
     CallBonusStatusEnum,
     Cliente,
+    ClienteProfessionistaHistory,
     PaymentTransaction,
     SalesPerson,
     SubscriptionContract,
@@ -1302,11 +1303,19 @@ def apply_role_filtering(query):
                     exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(member_ids_list))),
                     exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(member_ids_list))),
                     exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(member_ids_list))),
+                    # Assegnazione tramite history (es. Medico nel team)
+                    exists(
+                        select(ClienteProfessionistaHistory.cliente_id).where(
+                            ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                            ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                            ClienteProfessionistaHistory.is_active == True,
+                        )
+                    ),
                 )
             )
         return query.filter(False)
     
-    # Professionista: vede solo i propri pazienti (FK singola + M2M)
+    # Professionista: vede solo i propri pazienti (FK singola + M2M + history assegnazioni Medico/altro)
     elif user_role == UserRoleEnum.professionista:
         user_id = current_user.id
         return query.filter(
@@ -1321,6 +1330,14 @@ def apply_role_filtering(query):
                 exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == user_id)),
                 exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == user_id)),
                 exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == user_id)),
+                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id == user_id,
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
                 # Pazienti con call bonus accettata assegnata a questo professionista
                 exists(select(CallBonus.cliente_id).where(
                     CallBonus.cliente_id == Cliente.cliente_id,

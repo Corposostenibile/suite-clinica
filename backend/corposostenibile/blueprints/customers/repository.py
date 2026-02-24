@@ -107,6 +107,7 @@ class CustomerRepository:
             TipologiaClienteEnum, UserRoleEnum,
             cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
             CallBonus, CallBonusStatusEnum,
+            ClienteProfessionistaHistory,
         )
         from flask_login import current_user
 
@@ -184,6 +185,14 @@ class CustomerRepository:
                                 .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
                                 .where(cliente_consulenti.c.user_id.in_(member_ids_list))
                             ),
+                            # Assegnazione tramite history (es. Medico nel team)
+                            exists(
+                                select(ClienteProfessionistaHistory.cliente_id).where(
+                                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                                    ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                                    ClienteProfessionistaHistory.is_active.is_(True),
+                                )
+                            ),
                         )
                     )
                 else:
@@ -230,6 +239,14 @@ class CustomerRepository:
                                 CallBonus.cliente_id == Cliente.cliente_id,
                                 CallBonus.professionista_id == user_id,
                                 CallBonus.status == CallBonusStatusEnum.accettata,
+                            )
+                        ),
+                        # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                        exists(
+                            select(ClienteProfessionistaHistory.cliente_id).where(
+                                ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                                ClienteProfessionistaHistory.user_id == user_id,
+                                ClienteProfessionistaHistory.is_active.is_(True),
                             )
                         ),
                     )

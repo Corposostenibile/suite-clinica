@@ -6,7 +6,14 @@ from flask_login import current_user
 from sqlalchemy import or_
 
 from corposostenibile.extensions import db
-from corposostenibile.models import CallBonus, CallBonusStatusEnum, Cliente, User, Team
+from corposostenibile.models import (
+    CallBonus,
+    CallBonusStatusEnum,
+    Cliente,
+    ClienteProfessionistaHistory,
+    User,
+    Team,
+)
 
 
 def _call_bonus_client_ids_for_user(user_id: int):
@@ -51,7 +58,7 @@ def get_accessible_clients_query():
                 )
             )
         )
-    # Professionista: propri clienti + clienti con call bonus attive assegnate
+    # Professionista: propri clienti + history attiva + clienti con call bonus attive assegnate
     cb_client_ids = _call_bonus_client_ids_for_user(current_user.id)
     return (
         db.session.query(Cliente.cliente_id)
@@ -66,6 +73,13 @@ def get_accessible_clients_query():
                 Cliente.psicologi_multipli.any(User.id == current_user.id),
                 Cliente.consulenti_multipli.any(User.id == current_user.id),
                 Cliente.cliente_id.in_(cb_client_ids),
+                db.session.query(ClienteProfessionistaHistory.cliente_id)
+                .filter(
+                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                    ClienteProfessionistaHistory.user_id == current_user.id,
+                    ClienteProfessionistaHistory.is_active == True,
+                )
+                .exists(),
             )
         )
     )

@@ -38,13 +38,16 @@ from flask import (
     abort,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import desc, and_
+from sqlalchemy import desc, and_, exists, select
 from sqlalchemy.orm import joinedload, defer
 from werkzeug.exceptions import HTTPException
 
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
-    Cliente, User, Department,
+    Cliente,
+    ClienteProfessionistaHistory,
+    User,
+    Department,
     CheckForm,
     CheckFormField,
     ClientCheckAssignment,
@@ -290,10 +293,18 @@ def da_leggere():
                 Cliente.coaches_multipli.any(User.id.in_(member_ids_list)),
                 Cliente.psicologi_multipli.any(User.id.in_(member_ids_list)),
                 Cliente.consulenti_multipli.any(User.id.in_(member_ids_list)),
+                # Assegnazione tramite history (es. Medico nel team)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
             )
         )
 
-    # 3. Professionista: vede solo i propri clienti
+    # 3. Professionista: vede solo i propri clienti (inclusi assegnazioni da history, es. Medico)
     else:
         query = query.filter(
             db.or_(
@@ -307,6 +318,14 @@ def da_leggere():
                 Cliente.coaches_multipli.any(User.id == current_user.id),
                 Cliente.psicologi_multipli.any(User.id == current_user.id),
                 Cliente.consulenti_multipli.any(User.id == current_user.id),
+                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id == current_user.id,
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
             )
         )
 
