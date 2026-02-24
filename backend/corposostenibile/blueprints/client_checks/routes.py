@@ -38,7 +38,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from sqlalchemy import desc, and_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, defer
 
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
@@ -3412,6 +3412,9 @@ def api_azienda_stats():
         weekly_responses = (
             base_query
             .options(
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .defer(Cliente.check_saltati),
                 joinedload(WeeklyCheckResponse.assignment)
                 .joinedload(WeeklyCheck.cliente)
                 .selectinload(Cliente.nutrizionisti_multipli),
