@@ -142,6 +142,9 @@
     border-radius: 12px;
     position: relative;
     z-index: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
 }
 
 .search-tab {
@@ -314,8 +317,20 @@
 
 .result-meta-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
+    width: 100%;
+}
+
+.result-meta-item i {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.result-meta-item span {
+    word-break: break-all;
+    flex: 1;
+    min-width: 0;
 }
 
 /* Empty State - Premium Illustration Feel */

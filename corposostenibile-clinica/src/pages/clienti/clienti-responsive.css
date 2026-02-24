@@ -6,7 +6,13 @@
 
 @media (max-width: 767.98px) {
 
-    /* ---- Contenitore: rimuovi lo scroll orizzontale ---- */
+    /* ---- Contenitore: rimuovi lo scroll orizzontale e formatta la card madre come invisibile ---- */
+    .ct-card {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
     .clienti-table-wrap .table-responsive {
         overflow-x: visible;
     }
@@ -29,12 +35,12 @@
 
     /* ---- Ogni riga = card ---- */
     .clienti-table tbody tr {
-        background: #fff;
-        border-radius: var(--cs-radius-lg, 12px);
-        box-shadow: var(--cs-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
-        margin-bottom: var(--cs-space-sm, 0.5rem);
-        padding: var(--cs-space-sm, 0.5rem) var(--cs-space-md, 1rem);
-        border: 1px solid var(--cs-border, #e9ecef);
+        background: #fff !important;
+        border-radius: var(--cs-radius-lg, 12px) !important;
+        box-shadow: var(--cs-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06)) !important;
+        margin-bottom: var(--cs-space-sm, 0.5rem) !important;
+        padding: var(--cs-space-sm, 0.5rem) var(--cs-space-md, 1rem) !important;
+        border: 1px solid var(--cs-border, #e9ecef) !important;
     }
 
     /* ---- Celle ---- */

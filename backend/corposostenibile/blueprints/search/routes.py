@@ -97,12 +97,14 @@ def global_search():
                 'category': 'paziente',
                 'id': c.cliente_id,
                 'title': c.nome_cognome,
-                'subtitle': c.mail or c.numero_telefono or 'Nessun contatto',
+                'subtitle': c.numero_telefono or 'Nessun telefono',
                 'avatar': None,
                 'link': f'/clienti-dettaglio/{c.cliente_id}',
                 'metadata': {
                     'tipologia': c.tipologia_cliente.value if c.tipologia_cliente else None,
-                    'stato': c.stato_cliente.value if c.stato_cliente else None
+                    'stato': c.stato_cliente.value if c.stato_cliente else None,
+                    'email': c.mail,
+                    'telefono': c.numero_telefono
                 }
             })
     

@@ -2891,7 +2891,7 @@ function ClientiDetail() {
               {activeTab === 'team' && (
                 <div className="row g-4">
                   {/* Sub-tabs for Team Clinico / Team Esterno */}
-                  <div className="col-12" data-tour="team-subtabs">
+                  <div className="col-12 cd-subtabs-scroll" data-tour="team-subtabs">
                     <ul className="nav nav-pills mb-4" style={{ gap: '8px' }}>
                       <li className="nav-item">
                         <button
@@ -3387,7 +3387,7 @@ function ClientiDetail() {
                   )}
 
                   {/* Sub-tab Navigation - Same style as Team tab */}
-                  <div className="col-12" data-tour="nutrizione-subtabs">
+                  <div className="col-12 cd-subtabs-scroll" data-tour="nutrizione-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -4410,7 +4410,7 @@ function ClientiDetail() {
               {activeTab === 'coaching' && (
                 <div className="row g-4">
                   {/* Sub-tab Navigation */}
-                  <div className="col-12" data-tour="coaching-subtabs">
+                  <div className="col-12 cd-subtabs-scroll" data-tour="coaching-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -5415,7 +5415,7 @@ function ClientiDetail() {
                   )}
 
                   {/* Sub-tab Navigation - Same style as Nutrizione/Coaching */}
-                  <div className="col-12" data-tour="psicologia-subtabs">
+                  <div className="col-12 cd-subtabs-scroll" data-tour="psicologia-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[

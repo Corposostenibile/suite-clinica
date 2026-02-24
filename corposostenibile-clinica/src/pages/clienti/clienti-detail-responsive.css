@@ -131,7 +131,20 @@
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        padding-bottom: 4px;
+        padding-bottom: 8px;
+        padding-top: 8px;
+        position: sticky;
+        top: 60px;
+        /* Offset for mobile header */
+        z-index: 40;
+        background: #f8fafc;
+        /* To hide content passing underneath */
+        margin-left: -12px;
+        margin-right: -12px;
+        padding-left: 12px;
+        padding-right: 12px;
+        box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        /* Slight shadow to separate from content below */
     }
 
     .cd-subtabs-scroll::-webkit-scrollbar {

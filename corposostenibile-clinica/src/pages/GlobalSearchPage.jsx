@@ -8,7 +8,7 @@ const GlobalSearchPage = () => {
     const navigate = useNavigate();
     const queryParams = new URLSearchParams(location.search);
     const initialQuery = queryParams.get('q') || '';
-    
+
     // State
     const [query, setQuery] = useState(initialQuery);
     const [results, setResults] = useState([]);
@@ -17,7 +17,7 @@ const GlobalSearchPage = () => {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, pages: 0 });
     const [resultCounts, setResultCounts] = useState({ all: 0, paziente: 0, check: 0, professional: 0 });
-    
+
     // Effect: Perform search when URL query changes
     useEffect(() => {
         const q = queryParams.get('q');
@@ -120,14 +120,14 @@ const GlobalSearchPage = () => {
         }
 
         return (
-            <div 
-                key={`${result.type}-${result.id}`} 
+            <div
+                key={`${result.type}-${result.id}`}
                 className="result-card-clean"
                 onClick={() => navigate(result.link)}
             >
                 {result.avatar ? (
-                    <div 
-                        className="result-avatar" 
+                    <div
+                        className="result-avatar"
                         style={{ backgroundImage: `url(${result.avatar})` }}
                     />
                 ) : (
@@ -135,18 +135,24 @@ const GlobalSearchPage = () => {
                         <i className={iconClass}></i>
                     </div>
                 )}
-                
+
                 <div className="result-info">
                     <div className="result-info-header">
                         <h4 className="result-name">{result.title}</h4>
                         <span className={`result-role-badge ${badgeClass}`}>{label}</span>
                     </div>
-                    
+
                     <div className="result-meta">
-                         <div className="result-meta-item">
+                        <div className="result-meta-item">
                             <i className="mdi mdi-information-outline"></i>
                             <span>{result.subtitle}</span>
                         </div>
+                        {result.metadata?.email && (
+                            <div className="result-meta-item mt-1 text-primary">
+                                <i className="mdi mdi-email-outline"></i>
+                                <span>{result.metadata.email}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -163,8 +169,8 @@ const GlobalSearchPage = () => {
                         {title} ({resultCounts[categoryKey]})
                     </span>
                     {resultCounts[categoryKey] > 10 && (
-                        <button 
-                            className="btn btn-sm btn-link text-primary" 
+                        <button
+                            className="btn btn-sm btn-link text-primary"
                             onClick={() => handleTabChange(categoryKey)}
                         >
                             Vedi tutti <i className="mdi mdi-arrow-right"></i>
@@ -192,9 +198,9 @@ const GlobalSearchPage = () => {
                             <div className="search-input-area mx-auto">
                                 <form onSubmit={handleSearchSubmit} className="search-input-wrapper">
                                     <i className="mdi mdi-magnify search-input-icon"></i>
-                                    <input 
-                                        type="text" 
-                                        className="search-input-field" 
+                                    <input
+                                        type="text"
+                                        className="search-input-field"
                                         placeholder="Cerca qualcuno o qualcosa..."
                                         value={query}
                                         onChange={(e) => setQuery(e.target.value)}
@@ -211,25 +217,25 @@ const GlobalSearchPage = () => {
                             {resultCounts.all > 0 && (
                                 <div className="d-flex justify-content-center">
                                     <div className="search-nav-tabs">
-                                        <button 
+                                        <button
                                             className={`search-tab ${activeTab === 'all' ? 'active' : ''}`}
                                             onClick={() => handleTabChange('all')}
                                         >
                                             Tutti <span className="search-tab-count">{resultCounts.all}</span>
                                         </button>
-                                        <button 
+                                        <button
                                             className={`search-tab ${activeTab === 'paziente' ? 'active' : ''}`}
                                             onClick={() => handleTabChange('paziente')}
                                         >
                                             Pazienti <span className="search-tab-count">{resultCounts.paziente}</span>
                                         </button>
-                                        <button 
+                                        <button
                                             className={`search-tab ${activeTab === 'check' ? 'active' : ''}`}
                                             onClick={() => handleTabChange('check')}
                                         >
                                             Check <span className="search-tab-count">{resultCounts.check}</span>
                                         </button>
-                                        <button 
+                                        <button
                                             className={`search-tab ${activeTab === 'professional' ? 'active' : ''}`}
                                             onClick={() => handleTabChange('professional')}
                                         >
@@ -263,7 +269,7 @@ const GlobalSearchPage = () => {
                                     <div className="results-grid-clean">
                                         {results.map(renderCard)}
                                     </div>
-                                    
+
                                     {/* Paginazione */}
                                     {pagination.pages > 1 && (
                                         <div className="d-flex flex-wrap justify-content-between align-items-center mt-5 pt-3 gap-3 border-top">
@@ -275,26 +281,26 @@ const GlobalSearchPage = () => {
                                             <nav>
                                                 <ul className="pagination mb-0" style={{ gap: '4px' }}>
                                                     <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
-                                                        <button 
-                                                            className="page-link border-0 shadow-sm rounded-3" 
+                                                        <button
+                                                            className="page-link border-0 shadow-sm rounded-3"
                                                             onClick={() => handlePageChange(page - 1)}
                                                             disabled={page === 1}
                                                         >
                                                             <i className="mdi mdi-chevron-left"></i>
                                                         </button>
                                                     </li>
-                                                    
+
                                                     {[...Array(Math.min(pagination.pages, 5))].map((_, i) => {
                                                         let pageNum;
                                                         if (pagination.pages <= 5) pageNum = i + 1;
                                                         else if (page <= 3) pageNum = i + 1;
                                                         else if (page >= pagination.pages - 2) pageNum = pagination.pages - 4 + i;
                                                         else pageNum = page - 2 + i;
-                                                        
+
                                                         const isActive = page === pageNum;
                                                         return (
                                                             <li key={pageNum} className="page-item">
-                                                                <button 
+                                                                <button
                                                                     className={`page-link border-0 shadow-sm rounded-3 ${isActive ? 'bg-primary text-white' : 'bg-white text-dark'}`}
                                                                     onClick={() => handlePageChange(pageNum)}
                                                                 >
@@ -305,8 +311,8 @@ const GlobalSearchPage = () => {
                                                     })}
 
                                                     <li className={`page-item ${page === pagination.pages ? 'disabled' : ''}`}>
-                                                        <button 
-                                                            className="page-link border-0 shadow-sm rounded-3" 
+                                                        <button
+                                                            className="page-link border-0 shadow-sm rounded-3"
                                                             onClick={() => handlePageChange(page + 1)}
                                                             disabled={page === pagination.pages}
                                                         >
@@ -328,7 +334,7 @@ const GlobalSearchPage = () => {
                                 <p>Non abbiamo trovato nulla che corrisponda a "{query}". Prova con un'altra parola chiave.</p>
                             </div>
                         ) : (
-                             <div className="search-empty-clean">
+                            <div className="search-empty-clean">
                                 <div className="empty-icon-clean">
                                     <i className="mdi mdi-magnify"></i>
                                 </div>

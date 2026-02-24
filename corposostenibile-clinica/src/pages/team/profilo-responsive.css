@@ -26,19 +26,30 @@
         padding-top: 4rem !important;
     }
 
-    /* ---- Tab Nav: Scrollabile Orizzontalmente ---- */
+    /* ---- Tab Nav: Scrollabile Orizzontalmente e Sticky ---- */
     .profilo-page-container .nav-tabs {
         display: flex !important;
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
         border-bottom: 1px solid #eef2f7;
-        padding-bottom: 2px;
+        padding-bottom: 10px;
+        padding-top: 10px;
         margin: 0 -15px 1.5rem -15px;
         /* Pull out to edges */
         padding-left: 15px;
         padding-right: 15px;
         gap: 5px;
+        position: sticky;
+        top: 60px;
+        /* Offset for header */
+        z-index: 40;
+        background: #f8fafc;
+        box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+    }
+
+    .profilo-page-container .nav-tabs::-webkit-scrollbar {
+        display: none;
     }
 
     .profilo-page-container .nav-tabs .nav-item {
