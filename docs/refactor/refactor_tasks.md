@@ -18,3 +18,18 @@
 ## Task / Admin
 
 - [x] Admin/CCO vede tutti i task (fatti e non fatti tramite toggle esistente) con filtri aggiuntivi per team, assegnatario, ruolo e specialità (`task/Task.jsx` + `/api/tasks`).
+
+## Team Leader / Permessi Visuale
+
+- [~] Dashboard: limitare KPI a solo proprio dipartimento/team (no KPI cross-dipartimento). (step UI: KPI globali nascosti in `Welcome` per `team_leader`; manca dashboard team-specific)
+- [~] Dashboard: rimuovere medie valutazioni altri team e totali globali per `team_leader`. (step UI `Welcome` fatto)
+- [~] Dashboard: nascondere sezioni/filtri non pertinenti ad altri ruoli (es. coach/psicologia se non pertinenti). (tab dashboard globali nascosti in `Welcome`)
+- [~] Check: mostrare solo check del proprio team per `team_leader`. (UI/endpoint professionisti allineati; lista check dipende da RBAC `get_accessible_clients_query` su `/client-checks/azienda/stats`)
+- [x] Check: limitare filtri alla sola specialità/ruolo del `team_leader`. (`CheckAzienda`: profType bloccato + dropdown professionisti del proprio team)
+- [ ] Task: validare visuale `team_leader` (task team, fatte + da fare) e allineare UX filtri.
+- [ ] Training: permettere a `team_leader` di vedere training dei membri del team.
+- [ ] Training: permettere a `team_leader` di assegnare/scrivere training ai membri del team.
+- [ ] Team: `team_leader` vede solo il proprio team (lista/dettaglio).
+- [ ] Professionisti: `team_leader` vede solo professionisti del proprio team.
+- [ ] Clienti: limitare a soli clienti del proprio team/dipartimento.
+- [ ] Clienti: rimuovere visuali cross-dipartimento non pertinenti (es. “visuale coach/psicologia”).

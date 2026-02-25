@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -221,6 +221,7 @@ const ProfessionalCell = ({ professionals, rating, progressRating, bgColor, text
 };
 
 function CheckAzienda() {
+  const { user } = useOutletContext();
   const navigate = useNavigate();
   const [period, setPeriod] = useState('month');
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -369,6 +370,54 @@ function CheckAzienda() {
   const [ratingFilter, setRatingFilter] = useState(null); // 'da_migliorare', 'negativo', null
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const teamLeaderProfType = useMemo(() => {
+    const specialty = String(user?.specialty || '').toLowerCase();
+    if (specialty === 'nutrizione' || specialty === 'nutrizionista') return 'nutrizione';
+    if (specialty === 'coach') return 'coach';
+    if (specialty === 'psicologia' || specialty === 'psicologo') return 'psicologia';
+    return null;
+  }, [user?.specialty]);
+  const isOwnRoleFilterLocked = Boolean(isTeamLeaderRestricted && teamLeaderProfType);
+
+  const visibleRatingColumns = useMemo(() => {
+    if (!isOwnRoleFilterLocked) {
+      return {
+        nutrizione: true,
+        psicologia: true,
+        coach: true,
+        progresso: true,
+      };
+    }
+    return {
+      nutrizione: teamLeaderProfType === 'nutrizione',
+      psicologia: teamLeaderProfType === 'psicologia',
+      coach: teamLeaderProfType === 'coach',
+      progresso: true,
+    };
+  }, [isOwnRoleFilterLocked, teamLeaderProfType]);
+
+  const visibleKpiConfigs = useMemo(() => {
+    const all = [
+      { key: 'nutrizione', icon: 'ri-restaurant-line text-success', label: 'Nutrizionista', value: stats?.avg_nutrizionista },
+      { key: 'psicologia', icon: 'ri-mental-health-line text-info', label: 'Psicologo', value: stats?.avg_psicologo },
+      { key: 'coach', icon: 'ri-run-line text-primary', label: 'Coach', value: stats?.avg_coach },
+    ];
+    return all.filter((kpi) => !isOwnRoleFilterLocked || visibleRatingColumns[kpi.key]);
+  }, [stats, isOwnRoleFilterLocked, visibleRatingColumns]);
+
+  const showProgressKpi = !isOwnRoleFilterLocked;
+  const showQualityKpi = !isOwnRoleFilterLocked;
+
+  useEffect(() => {
+    if (isOwnRoleFilterLocked && profType !== teamLeaderProfType) {
+      setProfType(teamLeaderProfType);
+      setProfId(null);
+      setCurrentPage(1);
+    }
+  }, [isOwnRoleFilterLocked, teamLeaderProfType, profType]);
+
   // Fetch data when filters or page change (except for custom period)
   useEffect(() => {
     if (period !== 'custom') {
@@ -448,6 +497,7 @@ function CheckAzienda() {
   };
 
   const handleProfTypeChange = (type) => {
+    if (isOwnRoleFilterLocked) return;
     if (profType === type) {
       // Deselect
       setProfType(null);
@@ -465,7 +515,7 @@ function CheckAzienda() {
   };
 
   const handleResetFilters = () => {
-    setProfType(null);
+    setProfType(isOwnRoleFilterLocked ? teamLeaderProfType : null);
     setProfId(null);
     setProfessionals([]);
     setRatingFilter(null);
@@ -480,13 +530,23 @@ function CheckAzienda() {
     if (ratingFilter === 'da_migliorare') {
       // Any rating below 8
       filtered = filtered.filter(r => {
-        const ratings = [r.nutritionist_rating, r.psychologist_rating, r.coach_rating, r.progress_rating].filter(v => v !== null && v !== undefined);
+        const ratings = [
+          visibleRatingColumns.nutrizione ? r.nutritionist_rating : null,
+          visibleRatingColumns.psicologia ? r.psychologist_rating : null,
+          visibleRatingColumns.coach ? r.coach_rating : null,
+          visibleRatingColumns.progresso ? r.progress_rating : null
+        ].filter(v => v !== null && v !== undefined);
         return ratings.some(rating => rating < 8);
       });
     } else if (ratingFilter === 'negativo') {
       // Any rating below 7
       filtered = filtered.filter(r => {
-        const ratings = [r.nutritionist_rating, r.psychologist_rating, r.coach_rating, r.progress_rating].filter(v => v !== null && v !== undefined);
+        const ratings = [
+          visibleRatingColumns.nutrizione ? r.nutritionist_rating : null,
+          visibleRatingColumns.psicologia ? r.psychologist_rating : null,
+          visibleRatingColumns.coach ? r.coach_rating : null,
+          visibleRatingColumns.progresso ? r.progress_rating : null
+        ].filter(v => v !== null && v !== undefined);
         return ratings.some(rating => rating < 7);
       });
     }
@@ -557,7 +617,9 @@ function CheckAzienda() {
       {/* Header - stesso stile di ClientiList */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header">
         <div>
-          <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Check Azienda</h4>
+          <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>
+            {isTeamLeaderRestricted ? 'Check Team' : 'Check Azienda'}
+          </h4>
           <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
             {(ratingFilter || showUnreadOnly) ? (
               <>
@@ -620,57 +682,46 @@ function CheckAzienda() {
             {/* KPI Averages */}
             <div className="col-lg-6" data-tour="kpi-dashboard">
               <div className="d-flex flex-wrap gap-3 justify-content-lg-end align-items-center">
-                {/* Nutrizionista */}
-                <div className="d-flex align-items-center gap-2">
-                  <i className="ri-restaurant-line text-success" style={{ fontSize: '18px' }}></i>
-                  <span className="text-muted small d-none d-xl-inline">Nutrizionista</span>
-                  <span style={getKpiBadgeStyle(stats?.avg_nutrizionista)}>
-                    {stats?.avg_nutrizionista ?? '-'}
-                  </span>
-                </div>
-
-                {/* Psicologo */}
-                <div className="d-flex align-items-center gap-2">
-                  <i className="ri-mental-health-line text-info" style={{ fontSize: '18px' }}></i>
-                  <span className="text-muted small d-none d-xl-inline">Psicologo</span>
-                  <span style={getKpiBadgeStyle(stats?.avg_psicologo)}>
-                    {stats?.avg_psicologo ?? '-'}
-                  </span>
-                </div>
-
-                {/* Coach */}
-                <div className="d-flex align-items-center gap-2">
-                  <i className="ri-run-line text-primary" style={{ fontSize: '18px' }}></i>
-                  <span className="text-muted small d-none d-xl-inline">Coach</span>
-                  <span style={getKpiBadgeStyle(stats?.avg_coach)}>
-                    {stats?.avg_coach ?? '-'}
-                  </span>
-                </div>
-
-                <div className="border-start ps-3 d-flex align-items-center gap-3">
-                  {/* Progresso */}
-                  <div className="d-flex align-items-center gap-2">
-                    <img
-                      src="/corposostenibile.jpg"
-                      alt="Progresso"
-                      className="rounded-circle"
-                      style={{ width: '18px', height: '18px', objectFit: 'cover' }}
-                    />
-                    <span className="text-muted small d-none d-xl-inline">Progresso</span>
-                    <span style={getKpiBadgeStyle(stats?.avg_progresso)}>
-                      {stats?.avg_progresso ?? '-'}
+                {visibleKpiConfigs.map((kpi) => (
+                  <div key={kpi.key} className="d-flex align-items-center gap-2">
+                    <i className={kpi.icon} style={{ fontSize: '18px' }}></i>
+                    <span className="text-muted small d-none d-xl-inline">{kpi.label}</span>
+                    <span style={getKpiBadgeStyle(kpi.value)}>
+                      {kpi.value ?? '-'}
                     </span>
                   </div>
+                ))}
+
+                {(showProgressKpi || showQualityKpi) && (
+                  <div className="border-start ps-3 d-flex align-items-center gap-3">
+                  {/* Progresso */}
+                    {showProgressKpi && (
+                      <div className="d-flex align-items-center gap-2">
+                        <img
+                          src="/corposostenibile.jpg"
+                          alt="Progresso"
+                          className="rounded-circle"
+                          style={{ width: '18px', height: '18px', objectFit: 'cover' }}
+                        />
+                        <span className="text-muted small d-none d-xl-inline">Progresso</span>
+                        <span style={getKpiBadgeStyle(stats?.avg_progresso)}>
+                          {stats?.avg_progresso ?? '-'}
+                        </span>
+                      </div>
+                    )}
 
                   {/* MPS */}
-                  <div className="d-flex align-items-center gap-2">
-                    <i className="ri-star-fill text-warning" style={{ fontSize: '18px' }}></i>
-                    <span className="text-muted small d-none d-xl-inline">MPS</span>
-                    <span style={getKpiBadgeStyle(stats?.avg_quality)}>
-                      {stats?.avg_quality ?? '-'}
-                    </span>
+                    {showQualityKpi && (
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="ri-star-fill text-warning" style={{ fontSize: '18px' }}></i>
+                        <span className="text-muted small d-none d-xl-inline">MPS</span>
+                        <span style={getKpiBadgeStyle(stats?.avg_quality)}>
+                          {stats?.avg_quality ?? '-'}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -750,34 +801,51 @@ function CheckAzienda() {
           <div className="row g-3 align-items-center">
             {/* Professional Type Filter */}
             <div className="col-lg-6" data-tour="prof-filters">
-              <div className="d-flex align-items-center gap-3">
+              <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span className="text-muted small fw-semibold">Filtra per:</span>
-                <div className="d-flex gap-2">
-                  {Object.entries(PROF_TYPES).map(([key, config]) => (
-                    <button
-                      key={key}
-                      className="btn"
-                      onClick={() => handleProfTypeChange(key)}
-                      disabled={loading}
-                      style={{
-                        height: '42px',
-                        borderRadius: '10px',
-                        border: profType === key ? 'none' : '1px solid #e2e8f0',
-                        background: profType === key
-                          ? `linear-gradient(135deg, ${config.color} 0%, ${config.color}dd 100%)`
-                          : '#f8fafc',
-                        color: profType === key ? 'white' : '#64748b',
-                        fontSize: '13px',
-                        fontWeight: profType === key ? 600 : 500,
-                        padding: '0 16px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <i className={`${config.icon} me-2`}></i>
-                      {config.label}
-                    </button>
-                  ))}
-                </div>
+                {isOwnRoleFilterLocked ? (
+                  <span
+                    className="badge"
+                    style={{
+                      background: `${PROF_TYPES[teamLeaderProfType]?.color || '#64748b'}15`,
+                      color: PROF_TYPES[teamLeaderProfType]?.color || '#64748b',
+                      border: `1px solid ${(PROF_TYPES[teamLeaderProfType]?.color || '#64748b')}33`,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <i className={`${PROF_TYPES[teamLeaderProfType]?.icon || 'ri-filter-line'} me-2`}></i>
+                    Solo {PROF_TYPES[teamLeaderProfType]?.label || 'ruolo del team'}
+                  </span>
+                ) : (
+                  <div className="d-flex gap-2">
+                    {Object.entries(PROF_TYPES).map(([key, config]) => (
+                      <button
+                        key={key}
+                        className="btn"
+                        onClick={() => handleProfTypeChange(key)}
+                        disabled={loading}
+                        style={{
+                          height: '42px',
+                          borderRadius: '10px',
+                          border: profType === key ? 'none' : '1px solid #e2e8f0',
+                          background: profType === key
+                            ? `linear-gradient(135deg, ${config.color} 0%, ${config.color}dd 100%)`
+                            : '#f8fafc',
+                          color: profType === key ? 'white' : '#64748b',
+                          fontSize: '13px',
+                          fontWeight: profType === key ? 600 : 500,
+                          padding: '0 16px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <i className={`${config.icon} me-2`}></i>
+                        {config.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -817,7 +885,7 @@ function CheckAzienda() {
                     </button>
                   </>
                 )}
-                {!profType && (
+                {!profType && !isOwnRoleFilterLocked && (
                   <span className="text-muted small fst-italic">
                     Seleziona un tipo di professionista per filtrare
                   </span>
@@ -984,10 +1052,10 @@ function CheckAzienda() {
                         <tr>
                           <th style={{ ...tableStyles.th, minWidth: '200px' }}>Cliente</th>
                           <th style={{ ...tableStyles.th, minWidth: '120px' }}>Data</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>
-                          <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>
+                          {visibleRatingColumns.nutrizione && <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>}
+                          {visibleRatingColumns.psicologia && <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>}
+                          {visibleRatingColumns.coach && <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>}
+                          {visibleRatingColumns.progresso && <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1050,59 +1118,35 @@ function CheckAzienda() {
                           </span>
                         </td>
 
-                        {/* Nutrizionista */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.nutrizionisti}
-                            rating={response.nutritionist_rating}
-                            progressRating={response.progress_rating}
-                            bgColor="#dcfce7"
-                            textColor="#166534"
-                          />
-                        </td>
-
-                        {/* Psicologo */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.psicologi}
-                            rating={response.psychologist_rating}
-                            progressRating={response.progress_rating}
-                            bgColor="#e0f2fe"
-                            textColor="#0369a1"
-                          />
-                        </td>
-
-                        {/* Coach */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.coaches}
-                            rating={response.coach_rating}
-                            progressRating={response.progress_rating}
-                            bgColor="#dbeafe"
-                            textColor="#1d4ed8"
-                          />
-                        </td>
-
-                        {/* Progresso */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <span style={getRatingStyle(response.progress_rating)}>
-                              {response.progress_rating ?? '-'}
-                            </span>
-                            <img
-                              src="/static/assets/immagini/logo_user.png"
-                              alt="Progresso"
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                objectFit: 'cover',
-                                border: '2px solid #fff',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                              }}
-                            />
-                          </div>
-                        </td>
+                        {visibleRatingColumns.nutrizione && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <ProfessionalCell professionals={response.nutrizionisti} rating={response.nutritionist_rating} progressRating={response.progress_rating} bgColor="#dcfce7" textColor="#166534" />
+                          </td>
+                        )}
+                        {visibleRatingColumns.psicologia && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <ProfessionalCell professionals={response.psicologi} rating={response.psychologist_rating} progressRating={response.progress_rating} bgColor="#e0f2fe" textColor="#0369a1" />
+                          </td>
+                        )}
+                        {visibleRatingColumns.coach && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <ProfessionalCell professionals={response.coaches} rating={response.coach_rating} progressRating={response.progress_rating} bgColor="#dbeafe" textColor="#1d4ed8" />
+                          </td>
+                        )}
+                        {visibleRatingColumns.progresso && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                              <span style={getRatingStyle(response.progress_rating)}>
+                                {response.progress_rating ?? '-'}
+                              </span>
+                              <img
+                                src="/static/assets/immagini/logo_user.png"
+                                alt="Progresso"
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}
+                              />
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1284,12 +1328,14 @@ function CheckAzienda() {
                     )}
 
                     {/* Ratings */}
-                    {(selectedCheckResponse.nutritionist_rating || selectedCheckResponse.psychologist_rating ||
-                      selectedCheckResponse.coach_rating || selectedCheckResponse.progress_rating) && (
+                    {((visibleRatingColumns.nutrizione && selectedCheckResponse.nutritionist_rating) ||
+                      (visibleRatingColumns.psicologia && selectedCheckResponse.psychologist_rating) ||
+                      (visibleRatingColumns.coach && selectedCheckResponse.coach_rating) ||
+                      (visibleRatingColumns.progresso && selectedCheckResponse.progress_rating)) && (
                       <div className="mb-4" data-tour="check-ratings">
                         <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
                         <div className="row g-3">
-                          {selectedCheckResponse.nutritionist_rating && (() => {
+                          {visibleRatingColumns.nutrizione && selectedCheckResponse.nutritionist_rating && (() => {
                             const nutri = selectedCheckResponse.nutrizionisti?.[0];
                             return (
                               <div className="col-6 col-md-3">
@@ -1311,7 +1357,7 @@ function CheckAzienda() {
                               </div>
                             );
                           })()}
-                          {selectedCheckResponse.psychologist_rating && (() => {
+                          {visibleRatingColumns.psicologia && selectedCheckResponse.psychologist_rating && (() => {
                             const psico = selectedCheckResponse.psicologi?.[0];
                             return (
                               <div className="col-6 col-md-3">
@@ -1333,7 +1379,7 @@ function CheckAzienda() {
                               </div>
                             );
                           })()}
-                          {selectedCheckResponse.coach_rating && (() => {
+                          {visibleRatingColumns.coach && selectedCheckResponse.coach_rating && (() => {
                             const coach = selectedCheckResponse.coaches?.[0];
                             return (
                               <div className="col-6 col-md-3">
@@ -1355,7 +1401,7 @@ function CheckAzienda() {
                               </div>
                             );
                           })()}
-                          {selectedCheckResponse.progress_rating && (
+                          {visibleRatingColumns.progresso && selectedCheckResponse.progress_rating && (
                             <div className="col-6 col-md-3">
                               <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
                                 <div className="mb-2 d-flex justify-content-center">
@@ -1404,7 +1450,7 @@ function CheckAzienda() {
                     )}
 
                     {/* Professional Feedback (for weekly check) */}
-                    {selectedCheckResponse.type === 'weekly' && (
+                    {selectedCheckResponse.type === 'weekly' && !isOwnRoleFilterLocked && (
                       <div className="mb-4">
                         <h6 className="text-muted mb-3"><i className="ri-feedback-line me-2"></i>Feedback Professionisti</h6>
                         <div className="row g-2">
@@ -1431,6 +1477,38 @@ function CheckAzienda() {
                     )}
 
                     {/* Programs Section (for weekly check) */}
+                    {selectedCheckResponse.type === 'weekly' && isOwnRoleFilterLocked && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-feedback-line me-2"></i>Feedback Professionista</h6>
+                        <div className="row g-2">
+                          {teamLeaderProfType === 'nutrizione' && (
+                            <div className="col-12">
+                              <div className="p-3 rounded" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                                <small className="text-muted d-block mb-1">Feedback Nutrizionista</small>
+                                <p className="mb-0 small">{selectedCheckResponse.nutritionist_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                              </div>
+                            </div>
+                          )}
+                          {teamLeaderProfType === 'psicologia' && (
+                            <div className="col-12">
+                              <div className="p-3 rounded" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+                                <small className="text-muted d-block mb-1">Feedback Psicologo</small>
+                                <p className="mb-0 small">{selectedCheckResponse.psychologist_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                              </div>
+                            </div>
+                          )}
+                          {teamLeaderProfType === 'coach' && (
+                            <div className="col-12">
+                              <div className="p-3 rounded" style={{ background: '#dbeafe', border: '1px solid #bfdbfe' }}>
+                                <small className="text-muted d-block mb-1">Feedback Coach</small>
+                                <p className="mb-0 small">{selectedCheckResponse.coach_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {selectedCheckResponse.type === 'weekly' && (
                       <div className="mb-4">
                         <h6 className="text-muted mb-3"><i className="ri-calendar-check-line me-2"></i>Programmi</h6>

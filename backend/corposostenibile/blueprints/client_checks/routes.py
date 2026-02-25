@@ -3562,7 +3562,7 @@ def api_get_professionisti_by_type(prof_type: str):
     API JSON: Ottiene la lista dei professionisti per tipo.
     prof_type: 'nutrizione', 'coach', 'psicologia'
     """
-    from corposostenibile.models import User
+    from corposostenibile.models import User, Team
 
     try:
         # Map prof_type to specialty values (from UserSpecialtyEnum)
@@ -3578,10 +3578,41 @@ def api_get_professionisti_by_type(prof_type: str):
         specialties = specialty_map[prof_type]
 
         # Query users with matching specialty
-        professionals = User.query.filter(
+        professionals_query = User.query.filter(
             User.specialty.in_(specialties),
             User.is_active == True
-        ).order_by(User.last_name, User.first_name).all()
+        )
+
+        # Team leader: only professionals of own led team(s) and only own specialty family
+        user_role = getattr(current_user, 'role', None)
+        current_specialty = getattr(current_user, 'specialty', None)
+        if hasattr(user_role, 'value'):
+            user_role = user_role.value
+        if hasattr(current_specialty, 'value'):
+            current_specialty = current_specialty.value
+
+        if str(user_role) == 'team_leader':
+            tl_specialty_map = {
+                'nutrizione': 'nutrizione',
+                'nutrizionista': 'nutrizione',
+                'coach': 'coach',
+                'psicologia': 'psicologia',
+                'psicologo': 'psicologia',
+            }
+            expected_prof_type = tl_specialty_map.get(str(current_specialty or '').lower())
+            if expected_prof_type and prof_type != expected_prof_type:
+                return jsonify({
+                    "success": True,
+                    "professionisti": []
+                })
+
+            led_team_ids = [t.id for t in (getattr(current_user, 'teams_led', None) or [])]
+            if led_team_ids:
+                professionals_query = professionals_query.filter(User.teams.any(Team.id.in_(led_team_ids)))
+            else:
+                professionals_query = professionals_query.filter(User.id == -1)
+
+        professionals = professionals_query.order_by(User.last_name, User.first_name).all()
 
         result = [{
             "id": p.id,
