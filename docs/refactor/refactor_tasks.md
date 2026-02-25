@@ -26,7 +26,7 @@
 - [~] Dashboard: nascondere sezioni/filtri non pertinenti ad altri ruoli (es. coach/psicologia se non pertinenti). (tab dashboard globali nascosti in `Welcome`)
 - [~] Check: mostrare solo check del proprio team per `team_leader`. (UI/endpoint professionisti allineati; lista check dipende da RBAC `get_accessible_clients_query` su `/client-checks/azienda/stats`)
 - [x] Check: limitare filtri alla sola specialità/ruolo del `team_leader`. (`CheckAzienda`: profType bloccato + dropdown professionisti del proprio team)
-- [ ] Task: validare visuale `team_leader` (task team, fatte + da fare) e allineare UX filtri.
+- [~] Task: validare visuale `team_leader` (task team, fatte + da fare) e allineare UX filtri. (aggiunto filtro professionista del proprio team in `task/Task.jsx`; da validare end-to-end con account TL)
 - [ ] Training: permettere a `team_leader` di vedere training dei membri del team.
 - [ ] Training: permettere a `team_leader` di assegnare/scrivere training ai membri del team.
 - [ ] Team: `team_leader` vede solo il proprio team (lista/dettaglio).

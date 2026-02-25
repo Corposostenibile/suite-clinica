@@ -36,6 +36,7 @@ function Task() {
         teams: [],
         members: [],
     });
+    const [teamLeaderAssigneeId, setTeamLeaderAssigneeId] = useState('');
 
     const PAGE_SIZE = 15;
     const isGlobalTaskViewer = Boolean(
@@ -43,6 +44,8 @@ function Task() {
         user?.role === 'admin' ||
         user?.specialty === 'cco'
     );
+    const isTeamLeaderTaskViewer = Boolean(user?.role === 'team_leader' && !isGlobalTaskViewer);
+    const showAssigneeColumn = isGlobalTaskViewer || isTeamLeaderTaskViewer;
 
     useEffect(() => {
         if (searchParams.get('startTour') === 'true') {
@@ -152,6 +155,8 @@ function Task() {
                 if (adminFilters.assignee_id) params.assignee_id = Number(adminFilters.assignee_id);
                 if (adminFilters.assignee_role) params.assignee_role = adminFilters.assignee_role;
                 if (adminFilters.assignee_specialty) params.assignee_specialty = adminFilters.assignee_specialty;
+            } else if (isTeamLeaderTaskViewer && teamLeaderAssigneeId) {
+                params.assignee_id = Number(teamLeaderAssigneeId);
             }
             const data = await taskService.getAll(params);
             setTasks(data);
@@ -160,16 +165,19 @@ function Task() {
         } finally {
             setLoading(false);
         }
-    }, [activeTab, showCompleted, isGlobalTaskViewer, adminFilters]);
+    }, [activeTab, showCompleted, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
 
     const fetchAdminFilterOptions = useCallback(async () => {
-        if (!isGlobalTaskViewer) return;
+        if (!isGlobalTaskViewer && !isTeamLeaderTaskViewer) return;
         setFilterOptionsLoading(true);
         try {
-            const [teamsRes, membersRes] = await Promise.all([
-                teamService.getTeams({ per_page: 500, active: '1' }),
-                teamService.getTeamMembers({ per_page: 5000, active: '1' }),
-            ]);
+            const requests = [teamService.getTeamMembers({ per_page: 5000, active: '1' })];
+            if (isGlobalTaskViewer) {
+                requests.unshift(teamService.getTeams({ per_page: 500, active: '1' }));
+            }
+            const results = await Promise.all(requests);
+            const teamsRes = isGlobalTaskViewer ? results[0] : { teams: [] };
+            const membersRes = isGlobalTaskViewer ? results[1] : results[0];
             setAdminFilterOptions({
                 teams: teamsRes.teams || [],
                 members: membersRes.members || [],
@@ -180,7 +188,7 @@ function Task() {
         } finally {
             setFilterOptionsLoading(false);
         }
-    }, [isGlobalTaskViewer]);
+    }, [isGlobalTaskViewer, isTeamLeaderTaskViewer]);
 
     useEffect(() => {
         fetchStats();
@@ -196,7 +204,7 @@ function Task() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [activeTab, showCompleted, searchTerm, adminFilters]);
+    }, [activeTab, showCompleted, searchTerm, adminFilters, teamLeaderAssigneeId]);
 
     useEffect(() => {
         if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -271,6 +279,10 @@ function Task() {
             return true;
         });
     }, [adminFilterOptions.members, adminFilters, isGlobalTaskViewer]);
+    const teamLeaderMemberOptions = useMemo(() => {
+        if (!isTeamLeaderTaskViewer) return [];
+        return (adminFilterOptions.members || []).filter((m) => m.role !== 'admin');
+    }, [adminFilterOptions.members, isTeamLeaderTaskViewer]);
 
     return (
         <>
@@ -387,6 +399,44 @@ function Task() {
                 </div>
             )}
 
+            {isTeamLeaderTaskViewer && (
+                <div className="card border-0 shadow-sm mb-3">
+                    <div className="card-body py-3">
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                            <h6 className="mb-0">Filtri Team</h6>
+                            <button
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => setTeamLeaderAssigneeId('')}
+                            >
+                                Reset filtro
+                            </button>
+                        </div>
+                        <div className="row g-2">
+                            <div className="col-lg-6">
+                                <select
+                                    className="form-select bg-light border-0"
+                                    value={teamLeaderAssigneeId}
+                                    onChange={(e) => setTeamLeaderAssigneeId(e.target.value)}
+                                    disabled={filterOptionsLoading}
+                                >
+                                    <option value="">Tutto il team</option>
+                                    {teamLeaderMemberOptions.map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || `#${m.id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-lg-6 d-flex align-items-center">
+                                <small className="text-muted">
+                                    Filtra i task per professionista del tuo team (fatte/da fare tramite toggle sopra).
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="row g-3 mb-4" data-tour="stats-cards">
                 {Object.entries(TASK_CATEGORIES).map(([key, cat]) => (
                     <div className="col-xl-2 col-md-4 col-6" key={key}>
@@ -472,7 +522,7 @@ function Task() {
                                         <th>Attività</th>
                                         <th style={{ width: '150px' }}>Categoria</th>
                                         <th style={{ width: '150px' }}>Cliente</th>
-                                        {isGlobalTaskViewer && <th style={{ width: '180px' }}>Assegnatario</th>}
+                                        {showAssigneeColumn && <th style={{ width: '180px' }}>Assegnatario</th>}
                                         <th style={{ width: '120px' }}>Scadenza</th>
                                         <th style={{ width: '100px' }}>Priorità</th>
                                         <th style={{ width: '80px' }}></th>
@@ -525,7 +575,7 @@ function Task() {
                                                         <span className="text-muted small">-</span>
                                                     )}
                                                 </td>
-                                                {isGlobalTaskViewer && (
+                                                {showAssigneeColumn && (
                                                     <td>
                                                         <div className="d-flex flex-column">
                                                             <span className="small fw-medium">{task.assignee_name || '-'}</span>
