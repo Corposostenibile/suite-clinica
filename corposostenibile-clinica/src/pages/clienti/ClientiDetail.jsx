@@ -806,6 +806,12 @@ function ClientiDetail() {
     fetchCliente();
   }, [id]);
 
+  // Preload professionisti history once so HM/team badges are available immediately
+  useEffect(() => {
+    if (!id || professionistiHistory.length > 0) return;
+    fetchProfessionistiHistory();
+  }, [id, professionistiHistory.length]);
+
   // Fetch professional history when Team tab is active
   useEffect(() => {
     if (activeTab === 'team' && id) {
@@ -2456,42 +2462,53 @@ function ClientiDetail() {
               <h6 className="text-uppercase text-muted small fw-semibold mb-3">Team Assegnato</h6>
               <div className="mb-4">
                 {/* Health Manager */}
-                {c.healthManagerUser && (
-                  <div className="mb-3">
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <div className="rounded-circle d-flex align-items-center justify-content-center"
-                           style={{ width: '20px', height: '20px', background: '#9333ea' }}>
-                        <i className="ri-user-star-line text-white" style={{ fontSize: '0.65rem' }}></i>
-                      </div>
-                      <small className="text-muted fw-semibold">Health Manager</small>
-                    </div>
-                    <div className="d-flex align-items-center gap-2 ms-4 mb-1">
-                      {c.healthManagerUser.avatar_path ? (
-                        <img
-                          src={c.healthManagerUser.avatar_path}
-                          alt=""
-                          className="rounded-circle"
-                          style={{ width: '28px', height: '28px', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div
-                          className="rounded-circle text-white d-flex align-items-center justify-content-center"
-                          style={{ width: '28px', height: '28px', fontSize: '0.7rem', background: '#9333ea' }}
-                        >
-                          {(c.healthManagerUser.full_name || c.healthManagerUser.email || '??')
-                            .split(' ')
-                            .map(n => n[0])
-                            .join('')
-                            .substring(0, 2)
-                            .toUpperCase()}
+                {(() => {
+                  const hmAssignment = getActiveProfessionals('health_manager')[0];
+                  const hmUser = c.healthManagerUser || formData.healthManagerUser || (hmAssignment && {
+                    id: hmAssignment.professionista_id,
+                    full_name: hmAssignment.professionista_nome,
+                    email: hmAssignment.professionista_email,
+                    avatar_path: hmAssignment.avatar_path,
+                  });
+                  if (!hmUser) return null;
+
+                  return (
+                    <div className="mb-3">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <div className="rounded-circle d-flex align-items-center justify-content-center"
+                             style={{ width: '20px', height: '20px', background: '#9333ea' }}>
+                          <i className="ri-user-star-line text-white" style={{ fontSize: '0.65rem' }}></i>
                         </div>
-                      )}
-                      <small className="fw-medium">
-                        {c.healthManagerUser.full_name || c.healthManagerUser.email}
-                      </small>
+                        <small className="text-muted fw-semibold">Health Manager</small>
+                      </div>
+                      <div className="d-flex align-items-center gap-2 ms-4 mb-1">
+                        {hmUser.avatar_path ? (
+                          <img
+                            src={hmUser.avatar_path}
+                            alt=""
+                            className="rounded-circle"
+                            style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div
+                            className="rounded-circle text-white d-flex align-items-center justify-content-center"
+                            style={{ width: '28px', height: '28px', fontSize: '0.7rem', background: '#9333ea' }}
+                          >
+                            {(hmUser.full_name || hmUser.email || '??')
+                              .split(' ')
+                              .map(n => n[0])
+                              .join('')
+                              .substring(0, 2)
+                              .toUpperCase()}
+                          </div>
+                        )}
+                        <small className="fw-medium">
+                          {hmUser.full_name || hmUser.email}
+                        </small>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Nutrizionisti */}
                 {c.nutrizionistiMultipli?.length > 0 && (

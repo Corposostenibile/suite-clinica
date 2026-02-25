@@ -364,6 +364,7 @@ class ClienteSchema(SQLAlchemyAutoSchema):
 
     # ──────────────── RELAZIONI annidate (dump-only) ──────────────── #
     personal_consultant = fields.Nested(SalesPersonBriefSchema, dump_only=True)
+    health_manager_user = fields.Nested(UserBriefSchema, dump_only=True)
     subscriptions       = fields.Nested(SubscriptionContractSchema, many=True, dump_only=True)
     cartelle            = fields.Nested(CartellaClinicaSchema,   many=True, dump_only=True)
 

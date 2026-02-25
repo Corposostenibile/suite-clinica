@@ -55,6 +55,22 @@ steps:
       - |
         set -euo pipefail
         flask db upgrade
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
+  # 4b. Schema parity check separato: evita falsi negativi e isola meglio exit code/risorse
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - exec
+      - deployment/suite-clinica-backend
+      - -c
+      - backend
+      - --
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
         PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
