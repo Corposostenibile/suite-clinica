@@ -5,6 +5,7 @@ import teamService, {
   TEAM_TYPE_COLORS,
   TEAM_TYPE_ICONS,
 } from '../../services/teamService';
+import { normalizeAvatarPath } from '../../utils/mediaUrl';
 
 // Colori sfondo header card in base al tipo team (coerenti con i KPI pazienti)
 const TYPE_GRADIENTS = {
@@ -209,7 +210,11 @@ function TeamsList() {
         <>
           {/* Teams Grid */}
           <div className="row g-4">
-            {teams.map((team) => (
+            {teams.map((team) => {
+              const leaderAvatar = normalizeAvatarPath(team.head?.avatar_path);
+              const leaderInitials = `${team.head?.first_name?.[0] || ''}${team.head?.last_name?.[0] || ''}`.toUpperCase();
+
+              return (
               <div key={team.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
                 <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: '12px' }}>
                   {/* Gradient Header */}
@@ -236,18 +241,38 @@ function TeamsList() {
                       </span>
                     </div>
 
-                    {/* Icon */}
+                    {/* Team Leader Avatar / Fallback */}
                     <div className="position-absolute start-50 translate-middle" style={{ top: '100%' }}>
-                      <div
-                        className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center"
-                        style={{
-                          width: '64px',
-                          height: '64px',
-                          background: '#fff'
-                        }}
-                      >
-                        <i className={`${TEAM_TYPE_ICONS[team.team_type]} fs-3 text-${TEAM_TYPE_COLORS[team.team_type]}`}></i>
-                      </div>
+                      {leaderAvatar ? (
+                        <img
+                          src={leaderAvatar}
+                          alt={team.head?.full_name || 'Team leader'}
+                          className="rounded-circle border border-3 border-white shadow-sm"
+                          style={{ width: '64px', height: '64px', objectFit: 'cover', background: '#fff' }}
+                        />
+                      ) : leaderInitials ? (
+                        <div
+                          className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center"
+                          style={{
+                            width: '64px',
+                            height: '64px',
+                            background: '#fff'
+                          }}
+                        >
+                          <span className="fw-bold fs-5 text-primary">{leaderInitials}</span>
+                        </div>
+                      ) : (
+                        <div
+                          className="rounded-circle border border-3 border-white shadow-sm d-flex align-items-center justify-content-center"
+                          style={{
+                            width: '64px',
+                            height: '64px',
+                            background: '#fff'
+                          }}
+                        >
+                          <i className={`${TEAM_TYPE_ICONS[team.team_type]} fs-3 text-${TEAM_TYPE_COLORS[team.team_type]}`}></i>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -280,9 +305,9 @@ function TeamsList() {
                     {team.head ? (
                       <div className="d-flex align-items-center justify-content-center">
                         <div className="flex-shrink-0">
-                          {team.head.avatar_path ? (
+                          {leaderAvatar ? (
                             <img
-                              src={team.head.avatar_path}
+                              src={leaderAvatar}
                               alt={team.head.full_name}
                               className="rounded-circle"
                               style={{ width: '28px', height: '28px', objectFit: 'cover' }}
@@ -326,7 +351,8 @@ function TeamsList() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Pagination */}

@@ -9,6 +9,7 @@ import teamService, {
   SPECIALTY_COLORS
 } from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
+import { normalizeAvatarPath } from '../../utils/mediaUrl';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con i KPI pazienti)
 const SPECIALTY_GRADIENTS = {
@@ -21,37 +22,6 @@ const SPECIALTY_GRADIENTS = {
 
 // Fallback gradient per membri senza specializzazione
 const DEFAULT_GRADIENT = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-
-const normalizeAvatarPath = (avatarPath) => {
-  if (!avatarPath) return null;
-  const rawPath = String(avatarPath).trim();
-  if (!rawPath) return null;
-
-  // Keep data/blob URLs as is.
-  if (/^(data:|blob:)/i.test(rawPath)) return rawPath;
-
-  // Normalize legacy absolute URLs to same-origin upload paths.
-  if (/^https?:\/\//i.test(rawPath) || rawPath.startsWith('//')) {
-    try {
-      const parsed = new URL(rawPath, window.location.origin);
-      const pathname = parsed.pathname || '';
-      if (pathname.startsWith('/uploads/')) return `${pathname}${parsed.search || ''}`;
-      if (pathname.startsWith('/avatars/')) return `/uploads${pathname}${parsed.search || ''}`;
-      if (pathname.startsWith('/')) return `${pathname}${parsed.search || ''}`;
-      return `/uploads/avatars/${pathname}${parsed.search || ''}`;
-    } catch {
-      return rawPath;
-    }
-  }
-
-  if (rawPath.startsWith('/uploads/')) return rawPath;
-  if (rawPath.startsWith('uploads/')) return `/${rawPath}`;
-  if (rawPath.startsWith('/avatars/')) return `/uploads${rawPath}`;
-  if (rawPath.startsWith('avatars/')) return `/uploads/${rawPath}`;
-  if (rawPath.startsWith('/')) return rawPath;
-
-  return `/uploads/avatars/${rawPath}`;
-};
 
 function TeamList() {
   const { user } = useAuth();
