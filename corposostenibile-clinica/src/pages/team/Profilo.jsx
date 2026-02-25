@@ -1543,101 +1543,198 @@ function Profilo() {
               </div>
               <div className="modal-body">
                 {checkDetailLoading ? (
-                  <div className="text-center py-4">
-                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                    Caricamento dettaglio check...
+                  <div className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status"></div>
+                    <p className="text-muted mt-3 mb-0">Caricamento dettagli...</p>
                   </div>
                 ) : (
                   <>
-                    <div className="row g-3 mb-3">
-                      <div className="col-md-4">
-                        <div className="border rounded p-3 h-100">
-                          <small className="text-muted d-block">Data invio</small>
-                          <div className="fw-semibold">{selectedCheckDetail.submit_date || '—'}</div>
-                        </div>
+                    <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                      <div>
+                        <small className="text-muted">Data compilazione</small>
+                        <p className="mb-0 fw-semibold">{selectedCheckDetail.submit_date || '—'}</p>
                       </div>
-                      <div className="col-md-4">
-                        <div className="border rounded p-3 h-100">
-                          <small className="text-muted d-block">Tipo</small>
-                          <div className="fw-semibold text-capitalize">{selectedCheckDetail.type || '—'}</div>
+                      {selectedCheckDetail.type === 'weekly' && (
+                        <div className="text-end">
+                          <small className="text-muted">Peso</small>
+                          <p className="mb-0 fw-semibold">
+                            {selectedCheckDetail.weight ? `${selectedCheckDetail.weight} kg` : <span className="text-muted">-</span>}
+                          </p>
                         </div>
-                      </div>
-                      <div className="col-md-4">
-                        <div className="border rounded p-3 h-100">
-                          <small className="text-muted d-block">Peso</small>
-                          <div className="fw-semibold">
-                            {selectedCheckDetail.weight != null ? `${selectedCheckDetail.weight} kg` : '—'}
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
-                    {checkRatingConfig && (
-                      <div
-                        className="border rounded p-3 mb-3"
-                        style={{ borderColor: `${checkRatingConfig.color}55`, background: `${checkRatingConfig.color}08` }}
-                      >
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div>
-                            <small className="text-muted d-block">Valutazione {checkRatingConfig.label}</small>
-                            <div className="fw-bold" style={{ fontSize: '1.35rem', color: checkRatingConfig.color }}>
-                              {selectedCheckDetail[checkRatingConfig.rowKey] ?? '—'}
+                    {selectedCheckDetail.type === 'weekly' && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-camera-line me-2"></i>Foto Progressi</h6>
+                        <div className="row g-3">
+                          {[
+                            ['photo_front', 'Frontale'],
+                            ['photo_side', 'Laterale'],
+                            ['photo_back', 'Posteriore'],
+                          ].map(([key, label]) => (
+                            <div key={key} className="col-4">
+                              <div className="text-center">
+                                <small className="text-muted d-block mb-2">{label}</small>
+                                {selectedCheckDetail[key] ? (
+                                  <img
+                                    src={selectedCheckDetail[key]}
+                                    alt={label}
+                                    className="img-fluid rounded"
+                                    style={{ maxHeight: '150px', objectFit: 'cover', cursor: 'pointer' }}
+                                    onClick={() => window.open(selectedCheckDetail[key], '_blank')}
+                                  />
+                                ) : (
+                                  <div className="p-4 rounded d-flex align-items-center justify-content-center" style={{ background: '#f8fafc', minHeight: '100px' }}>
+                                    <span className="text-muted small">Non caricata</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <span
-                            className="badge"
-                            style={{
-                              background: `${checkRatingConfig.color}15`,
-                              color: checkRatingConfig.color,
-                              border: `1px solid ${checkRatingConfig.color}33`,
-                            }}
-                          >
-                            Solo professionista corrente
-                          </span>
-                        </div>
-                        <div className="mt-3">
-                          <small className="text-muted d-block mb-1">Feedback {checkRatingConfig.label}</small>
-                          <div className="small">
-                            {selectedCheckDetail[checkRatingConfig.feedbackKey] || <span className="text-muted fst-italic">Non compilato</span>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {(selectedCheckDetail.photo_front || selectedCheckDetail.photo_side || selectedCheckDetail.photo_back) && (
-                      <div className="mb-3">
-                        <small className="text-muted d-block mb-2">Foto check</small>
-                        <div className="d-flex flex-wrap gap-2">
-                          {['photo_front', 'photo_side', 'photo_back'].map((key) => (
-                            selectedCheckDetail[key] ? (
-                              <img
-                                key={key}
-                                src={selectedCheckDetail[key]}
-                                alt=""
-                                onClick={() => window.open(selectedCheckDetail[key], '_blank')}
-                                style={{
-                                  width: 96,
-                                  height: 96,
-                                  objectFit: 'cover',
-                                  borderRadius: 10,
-                                  cursor: 'zoom-in',
-                                  border: '1px solid #e2e8f0',
-                                }}
-                              />
-                            ) : null
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {(selectedCheckDetail.extra_comments || selectedCheckDetail.what_worked || selectedCheckDetail.what_focus_next) && (
-                      <div className="border rounded p-3">
-                        <small className="text-muted d-block mb-2">Note paziente</small>
-                        {selectedCheckDetail.what_worked && <div className="small mb-2"><strong>Cosa ha funzionato:</strong> {selectedCheckDetail.what_worked}</div>}
-                        {selectedCheckDetail.what_focus_next && <div className="small mb-2"><strong>Focus prossima settimana:</strong> {selectedCheckDetail.what_focus_next}</div>}
-                        {selectedCheckDetail.extra_comments && <div className="small"><strong>Commenti extra:</strong> {selectedCheckDetail.extra_comments}</div>}
+                    {checkRatingConfig && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
+                        <div className="row g-3">
+                          <div className="col-6 col-md-3">
+                            <div className="p-3 rounded text-center" style={{ background: `${checkRatingConfig.color}15` }}>
+                              <div className="fw-bold fs-4" style={{ color: checkRatingConfig.color }}>
+                                {selectedCheckDetail[checkRatingConfig.rowKey] ?? '—'}
+                              </div>
+                              <small className="text-muted">{checkRatingConfig.label}</small>
+                            </div>
+                          </div>
+                          {selectedCheckDetail.progress_rating != null && (
+                            <div className="col-6 col-md-3">
+                              <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
+                                <div className="fw-bold fs-4" style={{ color: '#9333ea' }}>{selectedCheckDetail.progress_rating}</div>
+                                <small className="text-muted">Progresso</small>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
+
+                    {selectedCheckDetail.type === 'weekly' && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-heart-pulse-line me-2"></i>Benessere</h6>
+                        <div className="row g-2">
+                          {[
+                            { key: 'digestion_rating', label: 'Digestione', icon: '🍽️' },
+                            { key: 'energy_rating', label: 'Energia', icon: '⚡' },
+                            { key: 'strength_rating', label: 'Forza', icon: '💪' },
+                            { key: 'hunger_rating', label: 'Fame', icon: '🍴' },
+                            { key: 'sleep_rating', label: 'Sonno', icon: '😴' },
+                            { key: 'mood_rating', label: 'Umore', icon: '😊' },
+                            { key: 'motivation_rating', label: 'Motivazione', icon: '🔥' },
+                          ].map(item => (
+                            <div key={item.key} className="col-6 col-md-4">
+                              <div className="d-flex align-items-center p-2 rounded" style={{ background: '#f8fafc' }}>
+                                <span className="me-2">{item.icon}</span>
+                                <span className="small text-muted me-auto">{item.label}</span>
+                                <span className={`fw-semibold ${selectedCheckDetail[item.key] == null ? 'text-muted' : ''}`}>
+                                  {selectedCheckDetail[item.key] != null ? `${selectedCheckDetail[item.key]}/10` : '-'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {checkRatingConfig && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-feedback-line me-2"></i>Feedback Professionisti</h6>
+                        <div className="row g-2">
+                          <div className="col-12">
+                            <div className="p-3 rounded" style={{ background: `${checkRatingConfig.color}10`, border: `1px solid ${checkRatingConfig.color}33` }}>
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <small className="text-muted d-block">Feedback {checkRatingConfig.label}</small>
+                                <span className="badge" style={{ background: '#eef2ff', color: '#4338ca' }}>Solo professionista corrente</span>
+                              </div>
+                              <p className="mb-0 small">
+                                {selectedCheckDetail[checkRatingConfig.feedbackKey] || <span className="text-muted fst-italic">Non compilato</span>}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedCheckDetail.type === 'weekly' && (
+                      <div className="mb-3">
+                        <h6 className="text-muted mb-3"><i className="ri-calendar-check-line me-2"></i>Programmi</h6>
+                        <div className="row g-2 align-items-start">
+                          <div className="col-md-6 d-flex">
+                            <div className="p-3 rounded flex-fill" style={{ background: '#f8fafc' }}>
+                              <small className="text-muted d-block mb-1">Aderenza programma alimentare</small>
+                              <p className="mb-0 small">{selectedCheckDetail.nutrition_program_adherence || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                            </div>
+                          </div>
+                          <div className="col-md-6 d-flex">
+                            <div className="p-3 rounded flex-fill" style={{ background: '#f8fafc' }}>
+                              <small className="text-muted d-block mb-1">Aderenza programma sportivo</small>
+                              <p className="mb-0 small">{selectedCheckDetail.training_program_adherence || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                            </div>
+                          </div>
+                          <div className="col-12">
+                            <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
+                              <small className="text-muted d-block mb-1">Esercizi modificati/aggiunti</small>
+                              <p className="mb-0 small">{selectedCheckDetail.exercise_modifications || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mb-4">
+                      <h6 className="text-muted mb-3"><i className="ri-lightbulb-line me-2"></i>Riflessioni</h6>
+                      <div className="mb-3">
+                        <div className="p-3 rounded" style={{ background: '#f0fdf4' }}>
+                          <small className="text-muted d-block mb-1"><i className="ri-check-line me-1 text-success"></i>Cosa ha funzionato</small>
+                          <p className="mb-0">{selectedCheckDetail.what_worked || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        </div>
+                      </div>
+                      <div className="mb-3">
+                        <div className="p-3 rounded" style={{ background: '#fef2f2' }}>
+                          <small className="text-muted d-block mb-1"><i className="ri-close-line me-1 text-danger"></i>Cosa non ha funzionato</small>
+                          <p className="mb-0">{selectedCheckDetail.what_didnt_work || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        </div>
+                      </div>
+                      <div className="mb-3">
+                        <div className="p-3 rounded" style={{ background: '#fffbeb' }}>
+                          <small className="text-muted d-block mb-1"><i className="ri-lightbulb-line me-1 text-warning"></i>Cosa ho imparato</small>
+                          <p className="mb-0">{selectedCheckDetail.what_learned || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        </div>
+                      </div>
+                      <div className="mb-3">
+                        <div className="p-3 rounded" style={{ background: '#eff6ff' }}>
+                          <small className="text-muted d-block mb-1"><i className="ri-focus-line me-1 text-primary"></i>Focus prossima settimana</small>
+                          <p className="mb-0">{selectedCheckDetail.what_focus_next || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedCheckDetail.type === 'weekly' && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-user-add-line me-2"></i>Referral</h6>
+                        <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
+                          <p className="mb-0">{selectedCheckDetail.referral || <span className="text-muted fst-italic">Nessun referral indicato</span>}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mb-3">
+                      <h6 className="text-muted mb-2"><i className="ri-chat-1-line me-2"></i>Commenti extra</h6>
+                      <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
+                        <p className="mb-0">{selectedCheckDetail.extra_comments || <span className="text-muted fst-italic">Nessun commento aggiuntivo</span>}</p>
+                      </div>
+                    </div>
                   </>
                 )}
               </div>
