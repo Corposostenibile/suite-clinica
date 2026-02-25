@@ -367,6 +367,7 @@ class ClienteSchema(SQLAlchemyAutoSchema):
     cartelle            = fields.Nested(CartellaClinicaSchema,   many=True, dump_only=True)
 
     # ──────────────── PROFESSIONISTI MULTIPLI (dump-only) ──────────────── #
+    health_manager_user    = fields.Nested(UserBriefSchema, dump_only=True)
     nutrizionisti_multipli = fields.Nested(UserBriefSchema, many=True, dump_only=True)
     coaches_multipli       = fields.Nested(UserBriefSchema, many=True, dump_only=True)
     psicologi_multipli     = fields.Nested(UserBriefSchema, many=True, dump_only=True)

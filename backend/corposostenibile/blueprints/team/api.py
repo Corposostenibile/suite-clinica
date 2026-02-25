@@ -2309,6 +2309,9 @@ def get_member_clients(user_id):
     if stato_filter:
         query = query.filter(Cliente.stato_cliente == stato_filter)
 
+    # Eager load health_manager_user for HM column in team Profilo
+    query = query.options(selectinload(Cliente.health_manager_user))
+
     # Order by nome_cognome
     query = query.order_by(Cliente.nome_cognome)
 

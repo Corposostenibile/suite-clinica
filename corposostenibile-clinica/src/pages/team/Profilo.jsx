@@ -563,6 +563,16 @@ function Profilo() {
                     <div className="fw-semibold">{user.teams_led?.length || 0}</div>
                   </div>
                 </div>
+                {role === 'health_manager' && (
+                  <div className="col-12">
+                    <div className="bg-primary bg-opacity-10 rounded-3 p-3 border border-primary border-opacity-25">
+                      <div className="text-muted small mb-1">
+                        <i className="ri-user-heart-line me-1"></i>Ruolo
+                      </div>
+                      <div className="fw-semibold text-primary">Health Manager</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -825,6 +835,7 @@ function Profilo() {
                               <th>Stato</th>
                               <th>Programma</th>
                               <th>Rinnovo</th>
+                              <th>HM</th>
                               <th className="text-end">Azioni</th>
                             </tr>
                           </thead>
@@ -840,6 +851,27 @@ function Profilo() {
                                 </td>
                                 <td data-label="Programma">{c.programma_attuale || '—'}</td>
                                 <td data-label="Rinnovo">{safeDate(c.data_rinnovo)}</td>
+                                <td data-label="HM">
+                                  {c.health_manager_user ? (
+                                    <div className="d-flex align-items-center gap-2">
+                                      {c.health_manager_user.avatar_path ? (
+                                        <img
+                                          src={c.health_manager_user.avatar_path}
+                                          alt={c.health_manager_user.full_name}
+                                          className="rounded-circle"
+                                          style={{ width: '24px', height: '24px', objectFit: 'cover' }}
+                                        />
+                                      ) : (
+                                        <span className="rounded-circle bg-primary bg-opacity-25 d-inline-flex align-items-center justify-content-center text-primary fw-medium" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                                          {(c.health_manager_user.full_name || ' ')[0].toUpperCase()}
+                                        </span>
+                                      )}
+                                      <span className="small">{c.health_manager_user.full_name || '—'}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted small">—</span>
+                                  )}
+                                </td>
                                 <td className="text-end" data-label="Azioni">
                                   <button
                                     className="btn btn-sm btn-outline-primary"

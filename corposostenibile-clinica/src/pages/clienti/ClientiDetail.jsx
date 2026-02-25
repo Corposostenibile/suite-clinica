@@ -2289,8 +2289,16 @@ function ClientiDetail() {
     nutrizionista: cliente.nutrizionista,
     coach: cliente.coach,
     psicologa: cliente.psicologa,
-    // Team Esterno
-    healthManagerUser: cliente.health_manager_user || cliente.healthManagerUser,
+    // Team Esterno: da FK o da storico assegnazioni attive
+    healthManagerUser: cliente.health_manager_user || cliente.healthManagerUser || (() => {
+      const hmAssignment = professionistiHistory.find(h => h.tipo_professionista === 'health_manager' && h.is_active);
+      return hmAssignment ? {
+        id: hmAssignment.professionista_id,
+        full_name: hmAssignment.professionista_nome,
+        avatar_path: hmAssignment.avatar_path,
+        email: hmAssignment.email,
+      } : null;
+    })(),
     personalConsultant: cliente.personal_consultant || cliente.personalConsultant,
   };
 
@@ -2468,6 +2476,37 @@ function ClientiDetail() {
               {/* Team Quick View */}
               <h6 className="text-uppercase text-muted small fw-semibold mb-3">Team Assegnato</h6>
               <div className="mb-4">
+                {/* Health Manager */}
+                {c.healthManagerUser && (
+                  <div className="mb-3">
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                      <div className="bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                           style={{ width: '20px', height: '20px' }}>
+                        <i className="ri-user-heart-line text-white" style={{ fontSize: '0.65rem' }}></i>
+                      </div>
+                      <small className="text-muted fw-semibold">Health Manager</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2 ms-4 mb-1">
+                      {c.healthManagerUser.avatar_path ? (
+                        <img
+                          src={c.healthManagerUser.avatar_path}
+                          alt=""
+                          className="rounded-circle"
+                          style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                          style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
+                        >
+                          {(c.healthManagerUser.full_name || c.healthManagerUser.email || '??').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <small className="fw-medium">{c.healthManagerUser.full_name || c.healthManagerUser.email}</small>
+                    </div>
+                  </div>
+                )}
+
                 {/* Nutrizionisti */}
                 {c.nutrizionistiMultipli?.length > 0 && (
                   <div className="mb-3">
@@ -2568,7 +2607,7 @@ function ClientiDetail() {
                 )}
 
                 {/* Nessun professionista */}
-                {!c.nutrizionistiMultipli?.length && !c.coachesMultipli?.length && !c.psicologiMultipli?.length && (
+                {!c.healthManagerUser && !c.nutrizionistiMultipli?.length && !c.coachesMultipli?.length && !c.psicologiMultipli?.length && (
                   <div className="text-center py-2">
                     <small className="text-muted">Nessun professionista assegnato</small>
                   </div>
