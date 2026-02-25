@@ -149,6 +149,24 @@ def _get_team_leader_member_ids(user_id: int) -> set[int]:
     return {row[0] for row in rows}
 
 
+def _promote_team_head_to_team_leader(user_id: int | None) -> None:
+    """
+    Mantiene coerente users.role con teams.head_id.
+    Promozione solo in salita (non effettua downgrade automatici).
+    """
+    if not user_id:
+        return
+    user = User.query.get(user_id)
+    if not user or getattr(user, 'is_admin', False):
+        return
+
+    current_role = _get_user_role(user)
+    if current_role in ('admin', 'team_leader'):
+        return
+
+    user.role = UserRoleEnum.team_leader
+
+
 def _get_assigned_clients_count_map(user_ids: list[int]) -> dict[int, int]:
     """
     Conteggio clienti assegnati per utente (FK + many-to-many), con count distinct per cliente.
@@ -1767,6 +1785,8 @@ def create_team():
             members = User.query.filter(User.id.in_(member_ids)).all()
             team.members = members
 
+        _promote_team_head_to_team_leader(team.head_id)
+
         db.session.add(team)
         db.session.commit()
 
@@ -1826,6 +1846,7 @@ def update_team(team_id):
         # Update head_id
         if 'head_id' in data:
             team.head_id = data['head_id'] if data['head_id'] else None
+            _promote_team_head_to_team_leader(team.head_id)
 
         # Update is_active
         if 'is_active' in data:
