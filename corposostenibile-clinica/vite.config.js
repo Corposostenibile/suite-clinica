@@ -74,8 +74,9 @@ export default defineConfig(({ mode }) => {
               target: backendUrl,
               changeOrigin: true,
             },
-            // Note: /team routes are handled by React Router on the frontend
-            // Only /api/team/* routes are proxied to the backend
+            // Le route /team-dettaglio, /team-lista, ecc. sono frontend (React Router).
+            // Le API sono sotto /api/team/* (già coperte dal proxy '/api').
+            // NON proxy /team → backend altrimenti /team-dettaglio/4 viene servito dal backend (build vecchia).
             // Proxy client-checks routes (server-rendered pages, not API)
             '/client-checks': {
               target: backendUrl,
@@ -113,11 +114,6 @@ export default defineConfig(({ mode }) => {
             },
             // Proxy Post-it routes
             '/postit': {
-              target: backendUrl,
-              changeOrigin: true,
-            },
-            // Proxy Team routes (including trial users API)
-            '/team': {
               target: backendUrl,
               changeOrigin: true,
             },

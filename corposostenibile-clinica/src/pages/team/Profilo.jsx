@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   ROLE_LABELS,
@@ -16,7 +16,23 @@ import qualityService, {
   getBandBadgeStyle,
   getSuperMalusBadgeStyle,
 } from '../../services/qualityService';
+import checkService from '../../services/checkService';
+import CheckResponseDetailModal from '../../components/CheckResponseDetailModal';
 import './profilo-responsive.css';
+
+// Mapping specialty → rating per tab Check Associati (solo valutazione del professionista)
+const CHECK_SPECIALTY_RATING = {
+  nutrizione: { key: 'nutritionist_rating', label: 'Nutri', avgKey: 'avg_nutrizionista', role: 'nutrizionista' },
+  nutrizionista: { key: 'nutritionist_rating', label: 'Nutri', avgKey: 'avg_nutrizionista', role: 'nutrizionista' },
+  coach: { key: 'coach_rating', label: 'Coach', avgKey: 'avg_coach', role: 'coach' },
+  psicologia: { key: 'psychologist_rating', label: 'Psico', avgKey: 'avg_psicologo', role: 'psicologo' },
+  psicologo: { key: 'psychologist_rating', label: 'Psico', avgKey: 'avg_psicologo', role: 'psicologo' },
+};
+function getCheckRatingConfig(specialty) {
+  if (!specialty) return null;
+  const key = typeof specialty === 'string' ? specialty.toLowerCase() : specialty;
+  return CHECK_SPECIALTY_RATING[key] ?? CHECK_SPECIALTY_RATING[specialty] ?? null;
+}
 
 const ROLE_GRADIENTS = {
   admin: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -134,7 +150,9 @@ function Profilo() {
     avg_progresso: null,
     avg_quality: null,
   });
-  const [expandedCheckKey, setExpandedCheckKey] = useState(null);
+  const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
+  const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
+  const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
 
   const [trainings, setTrainings] = useState([]);
   const [trainingsLoading, setTrainingsLoading] = useState(false);
@@ -396,10 +414,6 @@ function Profilo() {
   }, [activeTab, fetchChecks]);
 
   useEffect(() => {
-    setExpandedCheckKey(null);
-  }, [checkPage, checkFilters.q, checkFilters.period, checkFilters.check_type]);
-
-  useEffect(() => {
     if (activeTab === 'formazione') fetchTrainings();
   }, [activeTab, fetchTrainings]);
 
@@ -417,6 +431,30 @@ function Profilo() {
 
   const role = user?.role || 'professionista';
   const specialty = user?.specialty;
+
+  const checkRatingConfig = useMemo(() => getCheckRatingConfig(specialty), [specialty]);
+
+  const handleViewCheckResponse = useCallback(async (response) => {
+    setSelectedCheckResponse({ ...response, type: response.type || 'weekly' });
+    setShowCheckResponseModal(true);
+    setLoadingCheckDetail(true);
+    try {
+      const result = await checkService.getResponseDetail(response.type || 'weekly', response.id);
+      if (result.success) {
+        setSelectedCheckResponse({
+          ...result.response,
+          type: response.type || 'weekly',
+          nutrizionisti: response.nutrizionisti,
+          psicologi: response.psicologi,
+          coaches: response.coaches,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching check response detail:', err);
+    } finally {
+      setLoadingCheckDetail(false);
+    }
+  }, []);
 
   const checkAvgQualityLabel = useMemo(() => {
     if (checkStats.avg_quality == null) return '—';
@@ -954,11 +992,13 @@ function Profilo() {
                     </div>
                   </div>
 
+                  {/* Un solo badge: media della valutazione del professionista (Nutri/Coach/Psico) */}
                   <div className="d-flex flex-wrap gap-3 mb-3">
-                    <span className="badge bg-light text-dark border">Quality media: {checkAvgQualityLabel}</span>
-                    <span className="badge bg-light text-dark border">Nutri: {checkStats.avg_nutrizionista ?? '—'}</span>
-                    <span className="badge bg-light text-dark border">Coach: {checkStats.avg_coach ?? '—'}</span>
-                    <span className="badge bg-light text-dark border">Psico: {checkStats.avg_psicologo ?? '—'}</span>
+                    <span className="badge bg-light text-dark border">
+                      {checkRatingConfig
+                        ? `${checkRatingConfig.label}: ${(checkStats[checkRatingConfig.avgKey] ?? '—').toString()}`
+                        : `Quality media: ${checkAvgQualityLabel}`}
+                    </span>
                   </div>
 
                   {checksLoading ? (
@@ -989,79 +1029,42 @@ function Profilo() {
                           <tbody>
                             {checks.map((r) => {
                               const rowKey = `${r.type}-${r.id}`;
-                              const isExpanded = expandedCheckKey === rowKey;
+                              const ratingVal = checkRatingConfig ? (r[checkRatingConfig.key] ?? '—') : (r.progress_rating ?? '—');
                               return (
-                                <Fragment key={rowKey}>
-                                  <tr
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => setExpandedCheckKey(isExpanded ? null : rowKey)}
-                                  >
-                                    <td className="fw-medium" data-label="Paziente">{r.cliente_nome || 'N/D'}</td>
-                                    <td data-label="Tipo">
-                                      <span className={`badge ${r.type === 'dca' ? 'bg-info' : 'bg-success'}`}>
-                                        {r.type === 'dca' ? 'DCA' : 'Weekly'}
-                                      </span>
-                                    </td>
-                                    <td data-label="Data">{r.submit_date || '—'}</td>
-                                    <td data-label="Valutazioni">
-                                      <small className="text-muted">
-                                        N:{r.nutritionist_rating ?? '—'} | C:{r.coach_rating ?? '—'} | P:{r.psychologist_rating ?? '—'} | Q:{r.progress_rating ?? '—'}
-                                      </small>
-                                    </td>
-                                    <td data-label="Dettaglio">
-                                      <i className={`ri-arrow-${isExpanded ? 'up' : 'down'}-s-line`}></i>
-                                    </td>
-                                  </tr>
-                                  {isExpanded && (
-                                    <tr className="table-light">
-                                      <td colSpan={5}>
-                                        <div className="py-2">
-                                          <div className="mb-2">
-                                            <strong>Valutazioni complete:</strong>{' '}
-                                            Nutrizionista: {r.nutritionist_rating ?? '—'} | Coach: {r.coach_rating ?? '—'} | Psicologo: {r.psychologist_rating ?? '—'} | Progresso: {r.progress_rating ?? '—'}
-                                          </div>
-                                          <div className="row g-2 mb-2">
-                                            <div className="col-md-4">
-                                              <small className="text-muted d-block mb-1">Nutrizionisti</small>
-                                              {(r.nutrizionisti || []).length === 0 ? '—' : (r.nutrizionisti || []).map((u) => (
-                                                <div key={`n-${u.id}`} className="small">
-                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
-                                                </div>
-                                              ))}
-                                            </div>
-                                            <div className="col-md-4">
-                                              <small className="text-muted d-block mb-1">Psicologi</small>
-                                              {(r.psicologi || []).length === 0 ? '—' : (r.psicologi || []).map((u) => (
-                                                <div key={`p-${u.id}`} className="small">
-                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
-                                                </div>
-                                              ))}
-                                            </div>
-                                            <div className="col-md-4">
-                                              <small className="text-muted d-block mb-1">Coaches</small>
-                                              {(r.coaches || []).length === 0 ? '—' : (r.coaches || []).map((u) => (
-                                                <div key={`c-${u.id}`} className="small">
-                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          {r.cliente_id && (
-                                            <button
-                                              className="btn btn-sm btn-outline-primary"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/clienti-dettaglio/${r.cliente_id}?tab=check_periodici`);
-                                              }}
-                                            >
-                                              Apri scheda check paziente
-                                            </button>
-                                          )}
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                                </Fragment>
+                                <tr
+                                  key={rowKey}
+                                  role="button"
+                                  tabIndex={0}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleViewCheckResponse(r);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      handleViewCheckResponse(r);
+                                    }
+                                  }}
+                                  title="Clicca per aprire il dettaglio check"
+                                >
+                                  <td className="fw-medium" data-label="Paziente">{r.cliente_nome || 'N/D'}</td>
+                                  <td data-label="Tipo">
+                                    <span className={`badge ${r.type === 'dca' ? 'bg-info' : 'bg-success'}`}>
+                                      {r.type === 'dca' ? 'DCA' : 'Weekly'}
+                                    </span>
+                                  </td>
+                                  <td data-label="Data">{r.submit_date || '—'}</td>
+                                  <td data-label="Valutazioni">
+                                    <small className="text-muted">
+                                      {checkRatingConfig ? `${checkRatingConfig.label}: ${ratingVal}` : `Q: ${ratingVal}`}
+                                    </small>
+                                  </td>
+                                  <td data-label="Dettaglio">
+                                    <i className="ri-arrow-right-s-line" aria-hidden></i>
+                                  </td>
+                                </tr>
                               );
                             })}
                           </tbody>
@@ -1507,6 +1510,14 @@ function Profilo() {
           </div>
         </div>
       </div>
+
+      <CheckResponseDetailModal
+        show={showCheckResponseModal && !!selectedCheckResponse}
+        onClose={() => { setShowCheckResponseModal(false); setSelectedCheckResponse(null); }}
+        response={selectedCheckResponse}
+        loading={loadingCheckDetail}
+        onlyProfessionalRole={checkRatingConfig?.role ?? undefined}
+      />
     </div>
   );
 }

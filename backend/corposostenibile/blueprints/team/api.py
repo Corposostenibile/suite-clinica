@@ -2412,7 +2412,7 @@ def get_member_client_checks(user_id):
         ClientCheckReadConfirmation
     )
     from sqlalchemy import select, exists
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, time
 
     user = User.query.get_or_404(user_id)
 
@@ -2449,6 +2449,10 @@ def get_member_client_checks(user_id):
     else:
         start_date = today - timedelta(days=30)
         end_date = today
+
+    # Use datetime for DB comparison (submit_date is DateTime)
+    start_dt = datetime.combine(start_date, time.min)
+    end_dt = datetime.combine(end_date, time.max)
 
     # Build exists clauses for many-to-many relationships
     nutri_exists = exists(
@@ -2510,8 +2514,8 @@ def get_member_client_checks(user_id):
         WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id
     ).filter(
         WeeklyCheck.cliente_id.in_(client_ids),
-        WeeklyCheckResponse.submit_date >= start_date,
-        WeeklyCheckResponse.submit_date <= end_date
+        WeeklyCheckResponse.submit_date >= start_dt,
+        WeeklyCheckResponse.submit_date <= end_dt
     ).all()
 
     # Get DCA check responses - join through DCACheck to filter by cliente_id
@@ -2519,8 +2523,8 @@ def get_member_client_checks(user_id):
         DCACheck, DCACheckResponse.dca_check_id == DCACheck.id
     ).filter(
         DCACheck.cliente_id.in_(client_ids),
-        DCACheckResponse.submit_date >= start_date,
-        DCACheckResponse.submit_date <= end_date
+        DCACheckResponse.submit_date >= start_dt,
+        DCACheckResponse.submit_date <= end_dt
     ).all()
 
     # Helper to get read status for a response
@@ -2557,8 +2561,8 @@ def get_member_client_checks(user_id):
 
             professionals['nutrizionisti'].append({
                 'id': u.id,
-                'nome': u.full_name,
-                'avatar_path': u.avatar_path,
+                'nome': getattr(u, 'full_name', None) or (f'{getattr(u, "first_name", "")} {getattr(u, "last_name", "")}'.strip()) or str(u.id),
+                'avatar_path': getattr(u, 'avatar_path', None),
                 'has_read': read_status is not None,
             })
 
@@ -2578,8 +2582,8 @@ def get_member_client_checks(user_id):
 
             professionals['psicologi'].append({
                 'id': u.id,
-                'nome': u.full_name,
-                'avatar_path': u.avatar_path,
+                'nome': getattr(u, 'full_name', None) or (f'{getattr(u, "first_name", "")} {getattr(u, "last_name", "")}'.strip()) or str(u.id),
+                'avatar_path': getattr(u, 'avatar_path', None),
                 'has_read': read_status is not None,
             })
 
@@ -2599,8 +2603,8 @@ def get_member_client_checks(user_id):
 
             professionals['coaches'].append({
                 'id': u.id,
-                'nome': u.full_name,
-                'avatar_path': u.avatar_path,
+                'nome': getattr(u, 'full_name', None) or (f'{getattr(u, "first_name", "")} {getattr(u, "last_name", "")}'.strip()) or str(u.id),
+                'avatar_path': getattr(u, 'avatar_path', None),
                 'has_read': read_status is not None,
             })
 
