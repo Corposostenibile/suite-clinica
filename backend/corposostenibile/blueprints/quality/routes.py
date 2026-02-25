@@ -37,6 +37,30 @@ def _is_cco_user(user) -> bool:
     return str(specialty).strip().lower() == 'cco' if specialty else False
 
 
+def _is_team_leader_user(user) -> bool:
+    role = getattr(user, 'role', None)
+    if hasattr(role, 'value'):
+        role = role.value
+    return str(role).strip().lower() == 'team_leader'
+
+
+def _normalize_quality_specialty(value) -> str | None:
+    if hasattr(value, 'value'):
+        value = value.value
+    value = str(value or '').strip().lower()
+    if value in {'nutrizione', 'nutrizionista'}:
+        return 'nutrizione'
+    if value == 'coach':
+        return 'coach'
+    if value in {'psicologia', 'psicologo'}:
+        return 'psicologia'
+    return None
+
+
+def _get_team_leader_team_ids(user) -> list[int]:
+    return [int(t.id) for t in (getattr(user, 'teams_led', []) or []) if getattr(t, 'is_active', True)]
+
+
 def admin_required(f):
     """Decorator per verificare accesso admin o CCO."""
     from functools import wraps
@@ -76,7 +100,6 @@ SPECIALTY_FILTER_MAP = {
 
 @bp.route('/weekly-scores')
 @login_required
-@admin_required
 def api_weekly_scores():
     """
     API: Restituisce Quality Score settimanali per tutti i professionisti di una specialità.
@@ -89,9 +112,39 @@ def api_weekly_scores():
     Returns JSON con lista di score per professionista.
     """
     try:
+        is_admin_or_cco = bool(current_user.is_admin or _is_cco_user(current_user))
+        is_team_leader = _is_team_leader_user(current_user)
+        if not (is_admin_or_cco or is_team_leader):
+            return jsonify({'success': False, 'error': 'Accesso negato'}), 403
+
         specialty = request.args.get('specialty', 'nutrizione')
         week_param = request.args.get('week')
         team_id = request.args.get('team_id', type=int)
+
+        allowed_team_ids = None
+        if is_team_leader and not is_admin_or_cco:
+            tl_specialty = _normalize_quality_specialty(getattr(current_user, 'specialty', None))
+            if tl_specialty:
+                specialty = tl_specialty
+            allowed_team_ids = _get_team_leader_team_ids(current_user)
+            if not allowed_team_ids:
+                return jsonify({
+                    'success': True,
+                    'week_start': date.today().strftime('%Y-%m-%d'),
+                    'week_end': date.today().strftime('%Y-%m-%d'),
+                    'specialty': specialty,
+                    'professionals': [],
+                    'stats': {
+                        'total_professionisti': 0,
+                        'with_score': 0,
+                        'total_eligible': 0,
+                        'total_checks': 0,
+                        'avg_quality': None,
+                        'avg_miss_rate': None,
+                    },
+                })
+            if team_id and team_id not in allowed_team_ids:
+                return jsonify({'success': False, 'error': 'Team non autorizzato'}), 403
 
         specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
         if not specialty_values:
@@ -118,6 +171,8 @@ def api_weekly_scores():
 
         if team_id:
             prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
+        elif allowed_team_ids is not None:
+            prof_query = prof_query.filter(User.teams.any(Team.id.in_(allowed_team_ids)))
 
         professionisti = prof_query.order_by(User.last_name).all()
 

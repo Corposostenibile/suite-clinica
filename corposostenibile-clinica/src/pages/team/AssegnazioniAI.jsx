@@ -4,6 +4,7 @@ import api from '../../services/api';
 import ghlService from '../../services/ghlService';
 import checkService from '../../services/checkService';
 import { TEAM_TYPE_COLORS } from '../../services/teamService';
+import { useAuth } from '../../context/AuthContext';
 
 // Stati possibili delle assegnazioni
 const STATUS_CONFIG = {
@@ -71,6 +72,8 @@ const getPackageRequirements = (rawPackage) => {
 };
 
 function AssegnazioniAI() {
+  const { user } = useAuth();
+  const isTeamLeader = user?.role === 'team_leader';
   // Stati Generali
   const [activeTab, setActiveTab] = useState('webhook-data');
   const [error, setError] = useState(null);
@@ -909,7 +912,7 @@ function AssegnazioniAI() {
                         onChange={(e) => setTeamFilter(e.target.value)}
                         style={{ minWidth: '200px', flex: 1 }}
                     >
-                        <option value="all">Tutti i team</option>
+                        <option value="all">{isTeamLeader ? 'I miei team' : 'Tutti i team'}</option>
                         {teamOptions.map(team => (
                             <option key={team.id} value={team.id}>
                                 {team.team_type ? `${team.team_type.charAt(0).toUpperCase() + team.team_type.slice(1)} - ` : ''}{team.name}

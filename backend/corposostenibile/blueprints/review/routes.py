@@ -1705,6 +1705,54 @@ def api_cancel_request(request_id):
     return jsonify({'success': True, 'message': 'Richiesta cancellata'})
 
 
+@bp.route('/api/request/<int:request_id>/respond', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_respond_request(request_id):
+    """
+    API JSON: Risponde a una richiesta di training ricevuta (accetta/rifiuta).
+    """
+    training_request = ReviewRequest.query.get_or_404(request_id)
+
+    is_cco = bool(getattr(current_user, 'department_id', None) == 17)
+    if training_request.requested_to_id != current_user.id and not (current_user.is_admin or is_cco):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
+    if training_request.status != 'pending':
+        return jsonify({'success': False, 'message': 'Questa richiesta è già stata gestita'}), 400
+
+    data = request.get_json() or {}
+    action = (data.get('action') or '').strip().lower()
+    response_notes = (data.get('response_notes') or '').strip()
+
+    if action not in {'accept', 'reject'}:
+        return jsonify({'success': False, 'message': 'Azione non valida'}), 400
+
+    training_request.response_notes = response_notes
+    training_request.responded_at = datetime.utcnow()
+    training_request.status = 'accepted' if action == 'accept' else 'rejected'
+
+    db.session.commit()
+
+    if action == 'reject':
+        try:
+            send_review_request_response_notification(training_request)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send request response notification: {e}")
+
+    return jsonify({
+        'success': True,
+        'message': 'Richiesta accettata' if action == 'accept' else 'Richiesta rifiutata',
+        'request': {
+            'id': training_request.id,
+            'status': training_request.status,
+            'respondedAt': training_request.responded_at.isoformat() if training_request.responded_at else None,
+            'responseNotes': training_request.response_notes,
+            'reviewId': training_request.review_id,
+        }
+    })
+
+
 @bp.route('/api/<int:review_id>/acknowledge', methods=['POST'])
 @csrf.exempt
 @login_required

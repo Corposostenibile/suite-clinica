@@ -96,7 +96,7 @@ const SideBar = () => {
                   return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
                 } else {
                   // Stage 3+ (già promosso): menu completo
-                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
+                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
                     return false;
                   }
                   return true;
@@ -104,7 +104,7 @@ const SideBar = () => {
               })
               : MenuList.filter(item => {
                 // Utenti normali: nascondi Quality per non-admin
-                if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
+                if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
                   return false;
                 }
                 // Nascondi Assegnazioni per utenti professionisti

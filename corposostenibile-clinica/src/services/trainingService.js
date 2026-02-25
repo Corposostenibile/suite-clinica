@@ -121,6 +121,16 @@ const trainingService = {
   },
 
   /**
+   * Risponde a una richiesta di training ricevuta (accetta/rifiuta)
+   * @param {number} requestId
+   * @param {{action: 'accept'|'reject', response_notes?: string}} data
+   */
+  respondToRequest: async (requestId, data) => {
+    const response = await reviewApi.post(`/request/${requestId}/respond`, data);
+    return response.data;
+  },
+
+  /**
    * Conferma la lettura di un training
    * @param {number} reviewId - ID del training
    * @param {string} notes - Note opzionali

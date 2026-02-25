@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import teamService from '../../services/teamService';
+import { useAuth } from '../../context/AuthContext';
 import qualityService, {
     QUALITY_SPECIALTIES,
     getWeekBounds,
@@ -122,6 +123,20 @@ const BAND_BADGE_STYLES = {
 };
 
 function Quality() {
+    const { user } = useAuth();
+    const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
+    const isCco = user?.specialty === 'cco';
+    const isTeamLeader = user?.role === 'team_leader';
+    const canCalculateQuality = isAdmin || isCco;
+
+    const lockedSpecialty = (() => {
+        const value = String(user?.specialty || '').toLowerCase();
+        if (value === 'coach') return 'coach';
+        if (value === 'nutrizione' || value === 'nutrizionista') return 'nutrizione';
+        if (value === 'psicologia' || value === 'psicologo') return 'psicologia';
+        return null;
+    })();
+
     // --- STATE ---
     
     // View Mode
@@ -164,6 +179,18 @@ function Quality() {
     const [calcTeamsLoading, setCalcTeamsLoading] = useState(false);
     const [calculating, setCalculating] = useState(false);
     const [calcResult, setCalcResult] = useState(null);
+
+    useEffect(() => {
+        if (isTeamLeader) {
+            setViewMode('weekly');
+        }
+    }, [isTeamLeader]);
+
+    useEffect(() => {
+        if (isTeamLeader && lockedSpecialty && specialty !== lockedSpecialty) {
+            setSpecialty(lockedSpecialty);
+        }
+    }, [isTeamLeader, lockedSpecialty, specialty]);
 
     // --- EFFECT & LOGIC: WEEKLY ---
 
@@ -386,6 +413,7 @@ function Quality() {
                 </div>
                 
                 {/* View Mode Selector */}
+                {!isTeamLeader && (
                 <div className="bg-white p-1 rounded-3 shadow-sm d-inline-flex border">
                     <button
                         className={`btn btn-sm px-3 fw-medium transition-all ${viewMode === 'weekly' ? 'btn-primary' : 'btn-light text-muted bg-transparent'}`}
@@ -405,6 +433,7 @@ function Quality() {
                         KPI Trimestrali & Malus
                     </button>
                 </div>
+                )}
             </div>
 
             {/* WEEKLY VIEW */}
@@ -420,7 +449,9 @@ function Quality() {
                             </p>
                         </div>
                         <div className="d-flex flex-wrap gap-2">
-                            {Object.entries(QUALITY_SPECIALTIES).map(([key, spec]) => (
+                            {Object.entries(QUALITY_SPECIALTIES)
+                                .filter(([key]) => !isTeamLeader || !lockedSpecialty || key === lockedSpecialty)
+                                .map(([key, spec]) => (
                                 <button
                                     key={key}
                                     className={`btn px-3 ${specialty === key ? '' : 'btn-outline-secondary'}`}
@@ -435,6 +466,7 @@ function Quality() {
                                     {spec.label}
                                 </button>
                             ))}
+                            {canCalculateQuality && (
                             <button
                                 className="btn btn-primary px-4"
                                 onClick={() => setShowCalcModal(true)}
@@ -442,6 +474,7 @@ function Quality() {
                                 <i className="ri-calculator-line me-2"></i>
                                 Calcola Quality
                             </button>
+                            )}
                         </div>
                     </div>
 
@@ -1069,7 +1102,7 @@ function Quality() {
             )}
 
             {/* Calculate Quality Modal (Weekly) */}
-            {showCalcModal && (
+            {showCalcModal && canCalculateQuality && (
                 <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                     <div className="modal-dialog modal-dialog-centered">
                         <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>

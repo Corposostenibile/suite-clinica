@@ -820,12 +820,20 @@ def api_get_professionals_criteria():
         UserSpecialtyEnum.psicologo, UserSpecialtyEnum.psicologia
     ]
     
-    professionals = User.query.options(
+    prof_query = User.query.options(
         selectinload(User.teams)
     ).filter(
         User.specialty.in_(target_specialties),
         User.is_active == True
-    ).order_by(User.first_name, User.last_name).all()
+    )
+
+    if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+        led_team_ids = [t.id for t in (current_user.teams_led or []) if getattr(t, 'is_active', True)]
+        if not led_team_ids:
+            return jsonify({'success': True, 'professionals': []})
+        prof_query = prof_query.filter(User.teams.any(Team.id.in_(led_team_ids)))
+
+    professionals = prof_query.order_by(User.first_name, User.last_name).all()
 
     current_app.logger.info(f"Found {len(professionals)} professionals with target specialties")
 
@@ -895,6 +903,11 @@ def api_update_professional_criteria(user_id: int):
          return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     
     user = User.query.get_or_404(user_id)
+
+    if not current_user.is_admin and _get_user_role(current_user) == 'team_leader':
+        allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+        if user.id not in allowed_ids:
+            return jsonify({'success': False, 'message': 'Puoi modificare solo membri dei tuoi team'}), 403
     data = request.get_json()
     
     if not data or 'criteria' not in data:
@@ -1051,6 +1064,20 @@ def api_match_professionals():
     from .ai_matching_service import AIMatchingService
     try:
         matches = AIMatchingService.match_professionals(criteria)
+
+        if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            filtered_matches = {}
+            for role_key, candidates in (matches or {}).items():
+                if isinstance(candidates, list):
+                    filtered_matches[role_key] = [
+                        c for c in candidates
+                        if isinstance(c, dict) and c.get('id') in allowed_ids
+                    ]
+                else:
+                    filtered_matches[role_key] = candidates
+            matches = filtered_matches
+
         return jsonify({
             'success': True,
             'matches': matches
@@ -1143,6 +1170,19 @@ def api_confirm_assignment():
         if not cliente:
             return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
             
+        if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            requested_prof_ids = {
+                pid for pid in [
+                    data.get('nutritionist_id'),
+                    data.get('coach_id'),
+                    data.get('psychologist_id'),
+                ]
+                if pid
+            }
+            if any(int(pid) not in allowed_ids for pid in requested_prof_ids):
+                return jsonify({'success': False, 'message': 'Puoi assegnare solo professionisti dei tuoi team'}), 403
+
         # Update assignment
         if data.get('ai_analysis'):
             assignment.ai_analysis = data.get('ai_analysis')

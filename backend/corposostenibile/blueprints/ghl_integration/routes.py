@@ -13,7 +13,15 @@ from .security import require_webhook_signature, require_permission, rate_limite
 from .validators import WebhookValidator
 from .tasks import process_acconto_open_webhook, process_chiuso_won_webhook, retry_failed_webhook
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import GHLOpportunity, GHLOpportunityData, ServiceClienteAssignment, Cliente
+from corposostenibile.models import (
+    GHLOpportunity,
+    GHLOpportunityData,
+    ServiceClienteAssignment,
+    Cliente,
+    Team,
+    UserRoleEnum,
+    team_members,
+)
 
 
 # ============================================================================
@@ -127,6 +135,34 @@ def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, An
         "health_manager_email": health_manager_email,
         "custom_data": custom_data,
     }
+
+
+def _is_team_leader_user(user) -> bool:
+    role = getattr(user, "role", None)
+    role_val = role.value if hasattr(role, "value") else str(role or "")
+    return role_val == UserRoleEnum.team_leader.value
+
+
+def _get_team_leader_member_ids(user_id: int) -> set[int]:
+    team_ids = db.session.query(Team.id).filter(
+        Team.head_id == user_id,
+        Team.is_active == True,
+    )
+    rows = db.session.query(team_members.c.user_id).filter(
+        team_members.c.team_id.in_(team_ids)
+    ).distinct().all()
+    return {int(row[0]) for row in rows}
+
+
+def _assignment_in_team_leader_scope(assignment: ServiceClienteAssignment, allowed_ids: set[int]) -> bool:
+    if not assignment:
+        return False
+    assignee_ids = {
+        assignment.nutrizionista_assigned_id,
+        assignment.coach_assigned_id,
+        assignment.psicologa_assigned_id,
+    }
+    return any(pid in allowed_ids for pid in assignee_ids if pid is not None)
 
 
 def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
@@ -664,7 +700,13 @@ def api_assignments():
         query = query.filter_by(status=status)
     assignments = query.order_by(
         ServiceClienteAssignment.created_at.desc()
-    ).limit(100).all()
+    ).limit(300).all()
+
+    if _is_team_leader_user(current_user) and not current_user.is_admin:
+        allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+        assignments = [a for a in assignments if _assignment_in_team_leader_scope(a, allowed_ids)]
+
+    assignments = assignments[:100]
 
     data = [{
         'id': ass.id,
@@ -1353,11 +1395,34 @@ def webhook_opportunity_data():
 def api_get_opportunity_data():
     """Recupera tutti i dati opportunity dal database."""
     try:
-        data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(100).all()
+        data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(200).all()
+        if _is_team_leader_user(current_user) and not current_user.is_admin:
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            scoped_rows = []
+            for d in data:
+                assignments = _get_current_assignments_for_opp(d)
+                assigned_ids = {
+                    assignments.get('nutritionist_id'),
+                    assignments.get('coach_id'),
+                    assignments.get('psychologist_id'),
+                }
+                if any(pid in allowed_ids for pid in assigned_ids if pid is not None):
+                    scoped_rows.append((d, assignments))
+            data_with_assignments = scoped_rows[:100]
+        else:
+            data_with_assignments = [(d, _get_current_assignments_for_opp(d)) for d in data[:100]]
+
         return jsonify({
             'success': True,
-            'data': [_serialize_opportunity_data_row(d) for d in data],
-            'total': len(data)
+            'data': [
+                {
+                    **_serialize_opportunity_data_row(d),
+                    'ai_analysis': d.ai_analysis,
+                    'assignments': assignments,
+                }
+                for d, assignments in data_with_assignments
+            ],
+            'total': len(data_with_assignments)
         })
     except Exception as e:
         current_app.logger.error(f"[GHL API] Error fetching opportunity data: {e}")

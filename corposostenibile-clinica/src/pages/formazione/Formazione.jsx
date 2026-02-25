@@ -156,6 +156,8 @@ function Formazione() {
     const [newRequest, setNewRequest] = useState({ subject: '', description: '', priority: 'normal', recipient_id: '' });
     const [actionLoading, setActionLoading] = useState(false);
     const [listSearch, setListSearch] = useState('');
+    const [requestResponseDrafts, setRequestResponseDrafts] = useState({});
+    const [requestResponseLoadingId, setRequestResponseLoadingId] = useState(null);
 
     // State per creare nuovo training
     const [showNewTrainingModal, setShowNewTrainingModal] = useState(false);
@@ -581,6 +583,70 @@ function Formazione() {
         } catch (err) {
             console.error('Errore cancellazione:', err);
             alert(err.response?.data?.error || 'Errore nella cancellazione della richiesta');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleRespondToReceivedRequest = async (request, action) => {
+        if (!request?.id) return;
+        if (!['accept', 'reject'].includes(action)) return;
+
+        try {
+            setRequestResponseLoadingId(request.id);
+            const responseNotes = (requestResponseDrafts[request.id] || '').trim();
+            const res = await trainingService.respondToRequest(request.id, {
+                action,
+                response_notes: responseNotes,
+            });
+
+            if (res?.success) {
+                setReceivedRequests(prev => prev.map(r => (
+                    r.id === request.id
+                        ? {
+                            ...r,
+                            status: res.request?.status || (action === 'accept' ? 'accepted' : 'rejected'),
+                            respondedAt: res.request?.respondedAt || new Date().toISOString(),
+                            responseNotes: res.request?.responseNotes ?? responseNotes,
+                            reviewId: res.request?.reviewId ?? r.reviewId,
+                        }
+                        : r
+                )));
+            }
+        } catch (err) {
+            console.error('Errore risposta richiesta:', err);
+            alert(err.response?.data?.message || err.response?.data?.error || 'Errore nella gestione della richiesta');
+        } finally {
+            setRequestResponseLoadingId(null);
+        }
+    };
+
+    const handleOpenTrainingFromRequest = async (request) => {
+        if (!canManageTeamTraining || !request?.requester?.id) return;
+
+        try {
+            setActionLoading(true);
+            const prof = {
+                id: request.requester.id,
+                firstName: request.requester.firstName || '',
+                lastName: request.requester.lastName || '',
+            };
+            setSelectedProfessional(prof);
+
+            const res = await trainingService.getAdminUserTrainings(request.requester.id);
+            setProfessionalTrainings(res.trainings || []);
+            setAdminView('trainings');
+            setAdminTab('team');
+
+            setNewTraining(prev => ({
+                ...prev,
+                title: prev.title?.trim() ? prev.title : `Training: ${request.subject || 'Richiesta Formazione'}`,
+                content: prev.content?.trim() ? prev.content : (request.description || ''),
+            }));
+            setShowNewTrainingModal(true);
+        } catch (err) {
+            console.error('Errore apertura scrittura training da richiesta:', err);
+            alert(err.response?.data?.error || 'Errore nel caricamento dei training del professionista');
         } finally {
             setActionLoading(false);
         }
@@ -1184,19 +1250,100 @@ function Formazione() {
                                                                 )}
 
                                                                 {request.status === 'pending' && (
-                                                                    <div className="alert alert-info">
-                                                                        <i className="ri-information-line me-2"></i>
-                                                                        <strong>Questa richiesta è in attesa di risposta.</strong>
-                                                                        <p className="mb-0 mt-2 small text-muted">
-                                                                            Puoi gestire questa richiesta dalla sezione Quality per creare il training.
-                                                                        </p>
-                                                                    </div>
+                                                                    <>
+                                                                        <div className="alert alert-info">
+                                                                            <i className="ri-information-line me-2"></i>
+                                                                            <strong>Questa richiesta è in attesa di risposta.</strong>
+                                                                            <p className="mb-0 mt-2 small text-muted">
+                                                                                Gestisci questa richiesta da questa sezione (Formazione): accettazione/risposta e creazione training sono qui.
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="bg-white rounded border p-3 mb-3">
+                                                                            <label className="form-label fw-semibold mb-2">
+                                                                                <i className="ri-chat-3-line me-2"></i>
+                                                                                Risposta / Note al collega
+                                                                            </label>
+                                                                            <textarea
+                                                                                className="form-control"
+                                                                                rows="3"
+                                                                                placeholder="Scrivi una risposta rapida (es. ok, creo il training oggi / ci sentiamo in call / ecc.)"
+                                                                                value={requestResponseDrafts[request.id] ?? (request.responseNotes || '')}
+                                                                                onChange={(e) => setRequestResponseDrafts(prev => ({ ...prev, [request.id]: e.target.value }))}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                disabled={requestResponseLoadingId === request.id}
+                                                                            />
+                                                                            <div className="d-flex flex-wrap gap-2 mt-3">
+                                                                                <button
+                                                                                    className="btn btn-success btn-sm"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleRespondToReceivedRequest(request, 'accept');
+                                                                                    }}
+                                                                                    disabled={requestResponseLoadingId === request.id}
+                                                                                >
+                                                                                    {requestResponseLoadingId === request.id ? (
+                                                                                        <span className="spinner-border spinner-border-sm me-1"></span>
+                                                                                    ) : (
+                                                                                        <i className="ri-check-line me-1"></i>
+                                                                                    )}
+                                                                                    Accetta
+                                                                                </button>
+                                                                                <button
+                                                                                    className="btn btn-outline-danger btn-sm"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleRespondToReceivedRequest(request, 'reject');
+                                                                                    }}
+                                                                                    disabled={requestResponseLoadingId === request.id}
+                                                                                >
+                                                                                    <i className="ri-close-line me-1"></i>
+                                                                                    Rifiuta
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </>
                                                                 )}
 
                                                                 {request.status === 'completed' && request.reviewId && (
                                                                     <div className="alert alert-success">
                                                                         <i className="ri-check-double-line me-2"></i>
                                                                         <strong>Training completato!</strong>
+                                                                    </div>
+                                                                )}
+
+                                                                {request.status === 'accepted' && (
+                                                                    <div className="alert alert-primary d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                                                        <div>
+                                                                            <i className="ri-check-line me-2"></i>
+                                                                            <strong>Richiesta accettata</strong>
+                                                                            {request.respondedAt && (
+                                                                                <span className="small ms-2">il {formatDateTime(request.respondedAt)}</span>
+                                                                            )}
+                                                                            {request.responseNotes && (
+                                                                                <div className="small mt-2">
+                                                                                    <strong>Risposta:</strong> {request.responseNotes}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        <button
+                                                                            className="btn btn-primary btn-sm"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleOpenTrainingFromRequest(request);
+                                                                            }}
+                                                                            disabled={actionLoading}
+                                                                        >
+                                                                            <i className="ri-edit-line me-1"></i>
+                                                                            Scrivi Training
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+
+                                                                {request.status === 'rejected' && request.responseNotes && (
+                                                                    <div className="alert alert-danger mb-0">
+                                                                        <i className="ri-chat-3-line me-2"></i>
+                                                                        <strong>Risposta inviata</strong>
+                                                                        <div className="small mt-2">{request.responseNotes}</div>
                                                                     </div>
                                                                 )}
                                                             </div>

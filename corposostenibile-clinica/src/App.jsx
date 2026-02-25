@@ -60,7 +60,6 @@ import Documentation from './pages/documentation/Documentation';
 import { GHLSettings, OriginSettings } from './pages/admin';
 
 // Components
-import AdminRoute from './components/AdminRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 // Public pages (no auth required)
@@ -154,9 +153,9 @@ function App() {
 
             {/* Quality */}
             <Route path="/quality" element={
-              <AdminRoute>
+              <RoleProtectedRoute allowedRoles={['team_leader']}>
                 <Quality />
-              </AdminRoute>
+              </RoleProtectedRoute>
             } />
 
             {/* Check */}
