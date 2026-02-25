@@ -9,6 +9,7 @@ import {
 import teamService from '../../services/teamService';
 import trainingService from '../../services/trainingService';
 import taskService, { TASK_CATEGORIES } from '../../services/taskService';
+import checkService from '../../services/checkService';
 import qualityService, {
   getAvailableQuarters,
   getCurrentQuarter,
@@ -133,7 +134,9 @@ function Profilo() {
     avg_progresso: null,
     avg_quality: null,
   });
-  const [expandedCheckKey, setExpandedCheckKey] = useState(null);
+  const [showCheckDetailModal, setShowCheckDetailModal] = useState(false);
+  const [selectedCheckDetail, setSelectedCheckDetail] = useState(null);
+  const [checkDetailLoading, setCheckDetailLoading] = useState(false);
 
   const [trainings, setTrainings] = useState([]);
   const [trainingsLoading, setTrainingsLoading] = useState(false);
@@ -395,7 +398,8 @@ function Profilo() {
   }, [activeTab, fetchChecks]);
 
   useEffect(() => {
-    setExpandedCheckKey(null);
+    setShowCheckDetailModal(false);
+    setSelectedCheckDetail(null);
   }, [checkPage, checkFilters.q, checkFilters.period, checkFilters.check_type]);
 
   useEffect(() => {
@@ -417,10 +421,78 @@ function Profilo() {
   const role = user?.role || 'professionista';
   const specialty = user?.specialty;
 
+  const normalizedCheckSpecialty = useMemo(() => {
+    if (specialty === 'nutrizione' || specialty === 'nutrizionista') return 'nutrizione';
+    if (specialty === 'psicologia' || specialty === 'psicologo') return 'psicologia';
+    if (specialty === 'coach') return 'coach';
+    return null;
+  }, [specialty]);
+
+  const checkRatingConfig = useMemo(() => {
+    const map = {
+      nutrizione: {
+        label: 'Nutrizione',
+        rowKey: 'nutritionist_rating',
+        statsKey: 'avg_nutrizionista',
+        feedbackKey: 'nutritionist_feedback',
+        color: '#22c55e',
+      },
+      coach: {
+        label: 'Coach',
+        rowKey: 'coach_rating',
+        statsKey: 'avg_coach',
+        feedbackKey: 'coach_feedback',
+        color: '#3b82f6',
+      },
+      psicologia: {
+        label: 'Psicologia',
+        rowKey: 'psychologist_rating',
+        statsKey: 'avg_psicologo',
+        feedbackKey: 'psychologist_feedback',
+        color: '#d97706',
+      },
+    };
+    return normalizedCheckSpecialty ? map[normalizedCheckSpecialty] : null;
+  }, [normalizedCheckSpecialty]);
+
   const checkAvgQualityLabel = useMemo(() => {
     if (checkStats.avg_quality == null) return '—';
     return checkStats.avg_quality.toFixed(1);
   }, [checkStats.avg_quality]);
+
+  const checkSpecificAvgLabel = useMemo(() => {
+    if (!checkRatingConfig) return null;
+    const value = checkStats[checkRatingConfig.statsKey];
+    if (value == null) return '—';
+    return Number(value).toFixed(1);
+  }, [checkStats, checkRatingConfig]);
+
+  const getCheckRowRatingValue = useCallback((row) => {
+    if (!checkRatingConfig || !row) return null;
+    return row[checkRatingConfig.rowKey];
+  }, [checkRatingConfig]);
+
+  const openCheckDetailModal = useCallback(async (row) => {
+    if (!row?.id) return;
+    setSelectedCheckDetail({ ...row, type: row.type || 'weekly' });
+    setShowCheckDetailModal(true);
+    setCheckDetailLoading(true);
+    try {
+      const result = await checkService.getResponseDetail(row.type || 'weekly', row.id);
+      if (result?.success && result.response) {
+        setSelectedCheckDetail({
+          ...result.response,
+          type: row.type || 'weekly',
+          cliente_id: row.cliente_id,
+          cliente_nome: row.cliente_nome,
+        });
+      }
+    } catch (err) {
+      console.error('Errore caricamento dettaglio check:', err);
+    } finally {
+      setCheckDetailLoading(false);
+    }
+  }, []);
 
   const filteredTrainings = useMemo(() => {
     const q = trainingFilters.q.trim().toLowerCase();
@@ -922,10 +994,13 @@ function Profilo() {
                   </div>
 
                   <div className="d-flex flex-wrap gap-3 mb-3">
-                    <span className="badge bg-light text-dark border">Quality media: {checkAvgQualityLabel}</span>
-                    <span className="badge bg-light text-dark border">Nutri: {checkStats.avg_nutrizionista ?? '—'}</span>
-                    <span className="badge bg-light text-dark border">Coach: {checkStats.avg_coach ?? '—'}</span>
-                    <span className="badge bg-light text-dark border">Psico: {checkStats.avg_psicologo ?? '—'}</span>
+                    {checkRatingConfig ? (
+                      <span className="badge bg-light text-dark border">
+                        Valutazione {checkRatingConfig.label}: {checkSpecificAvgLabel}
+                      </span>
+                    ) : (
+                      <span className="badge bg-light text-dark border">Quality media: {checkAvgQualityLabel}</span>
+                    )}
                   </div>
 
                   {checksLoading ? (
@@ -949,19 +1024,18 @@ function Profilo() {
                               <th>Paziente</th>
                               <th>Tipo</th>
                               <th>Data</th>
-                              <th>Valutazioni</th>
+                              <th>Valutazione</th>
                               <th>Dettagli</th>
                             </tr>
                           </thead>
                           <tbody>
                             {checks.map((r) => {
-                              const rowKey = `${r.type}-${r.id}`;
-                              const isExpanded = expandedCheckKey === rowKey;
+                              const currentRating = getCheckRowRatingValue(r);
                               return (
-                                <Fragment key={rowKey}>
+                                <Fragment key={`${r.type}-${r.id}`}>
                                   <tr
                                     style={{ cursor: 'pointer' }}
-                                    onClick={() => setExpandedCheckKey(isExpanded ? null : rowKey)}
+                                    onClick={() => openCheckDetailModal(r)}
                                   >
                                     <td className="fw-medium">{r.cliente_nome || 'N/D'}</td>
                                     <td>
@@ -971,63 +1045,25 @@ function Profilo() {
                                     </td>
                                     <td>{r.submit_date || '—'}</td>
                                     <td>
-                                      <small className="text-muted">
-                                        N:{r.nutritionist_rating ?? '—'} | C:{r.coach_rating ?? '—'} | P:{r.psychologist_rating ?? '—'} | Q:{r.progress_rating ?? '—'}
-                                      </small>
+                                      {checkRatingConfig ? (
+                                        <span
+                                          className="badge"
+                                          style={{
+                                            background: `${checkRatingConfig.color}15`,
+                                            color: checkRatingConfig.color,
+                                            border: `1px solid ${checkRatingConfig.color}33`,
+                                          }}
+                                        >
+                                          {currentRating ?? '—'}
+                                        </span>
+                                      ) : (
+                                        <small className="text-muted">{checkAvgQualityLabel}</small>
+                                      )}
                                     </td>
                                     <td>
-                                      <i className={`ri-arrow-${isExpanded ? 'up' : 'down'}-s-line`}></i>
+                                      <i className="ri-eye-line"></i>
                                     </td>
                                   </tr>
-                                  {isExpanded && (
-                                    <tr className="table-light">
-                                      <td colSpan={5}>
-                                        <div className="py-2">
-                                          <div className="mb-2">
-                                            <strong>Valutazioni complete:</strong>{' '}
-                                            Nutrizionista: {r.nutritionist_rating ?? '—'} | Coach: {r.coach_rating ?? '—'} | Psicologo: {r.psychologist_rating ?? '—'} | Progresso: {r.progress_rating ?? '—'}
-                                          </div>
-                                          <div className="row g-2 mb-2">
-                                            <div className="col-md-4">
-                                              <small className="text-muted d-block mb-1">Nutrizionisti</small>
-                                              {(r.nutrizionisti || []).length === 0 ? '—' : (r.nutrizionisti || []).map((u) => (
-                                                <div key={`n-${u.id}`} className="small">
-                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
-                                                </div>
-                                              ))}
-                                            </div>
-                                            <div className="col-md-4">
-                                              <small className="text-muted d-block mb-1">Psicologi</small>
-                                              {(r.psicologi || []).length === 0 ? '—' : (r.psicologi || []).map((u) => (
-                                                <div key={`p-${u.id}`} className="small">
-                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
-                                                </div>
-                                              ))}
-                                            </div>
-                                            <div className="col-md-4">
-                                              <small className="text-muted d-block mb-1">Coaches</small>
-                                              {(r.coaches || []).length === 0 ? '—' : (r.coaches || []).map((u) => (
-                                                <div key={`c-${u.id}`} className="small">
-                                                  {u.nome} {u.has_read ? '• letto' : '• non letto'}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          {r.cliente_id && (
-                                            <button
-                                              className="btn btn-sm btn-outline-primary"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate(`/clienti-dettaglio/${r.cliente_id}?tab=check_periodici`);
-                                              }}
-                                            >
-                                              Apri scheda check paziente
-                                            </button>
-                                          )}
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
                                 </Fragment>
                               );
                             })}
@@ -1474,6 +1510,157 @@ function Profilo() {
           </div>
         </div>
       </div>
+
+      {showCheckDetailModal && selectedCheckDetail && (
+        <div
+          className="modal show d-block"
+          style={{ background: 'rgba(15, 23, 42, 0.45)' }}
+          onClick={() => setShowCheckDetailModal(false)}
+        >
+          <div
+            className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content border-0 shadow">
+              <div
+                className="modal-header text-white"
+                style={{
+                  background: selectedCheckDetail.type === 'dca'
+                    ? 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)'
+                    : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                }}
+              >
+                <h5 className="modal-title">
+                  <i className={`me-2 ${selectedCheckDetail.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-calendar-check-line'}`}></i>
+                  {selectedCheckDetail.type === 'dca' ? 'Check DCA' : 'Check Settimanale'}
+                  {selectedCheckDetail.cliente_nome ? ` - ${selectedCheckDetail.cliente_nome}` : ''}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowCheckDetailModal(false)}
+                />
+              </div>
+              <div className="modal-body">
+                {checkDetailLoading ? (
+                  <div className="text-center py-4">
+                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Caricamento dettaglio check...
+                  </div>
+                ) : (
+                  <>
+                    <div className="row g-3 mb-3">
+                      <div className="col-md-4">
+                        <div className="border rounded p-3 h-100">
+                          <small className="text-muted d-block">Data invio</small>
+                          <div className="fw-semibold">{selectedCheckDetail.submit_date || '—'}</div>
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <div className="border rounded p-3 h-100">
+                          <small className="text-muted d-block">Tipo</small>
+                          <div className="fw-semibold text-capitalize">{selectedCheckDetail.type || '—'}</div>
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <div className="border rounded p-3 h-100">
+                          <small className="text-muted d-block">Peso</small>
+                          <div className="fw-semibold">
+                            {selectedCheckDetail.weight != null ? `${selectedCheckDetail.weight} kg` : '—'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {checkRatingConfig && (
+                      <div
+                        className="border rounded p-3 mb-3"
+                        style={{ borderColor: `${checkRatingConfig.color}55`, background: `${checkRatingConfig.color}08` }}
+                      >
+                        <div className="d-flex align-items-center justify-content-between">
+                          <div>
+                            <small className="text-muted d-block">Valutazione {checkRatingConfig.label}</small>
+                            <div className="fw-bold" style={{ fontSize: '1.35rem', color: checkRatingConfig.color }}>
+                              {selectedCheckDetail[checkRatingConfig.rowKey] ?? '—'}
+                            </div>
+                          </div>
+                          <span
+                            className="badge"
+                            style={{
+                              background: `${checkRatingConfig.color}15`,
+                              color: checkRatingConfig.color,
+                              border: `1px solid ${checkRatingConfig.color}33`,
+                            }}
+                          >
+                            Solo professionista corrente
+                          </span>
+                        </div>
+                        <div className="mt-3">
+                          <small className="text-muted d-block mb-1">Feedback {checkRatingConfig.label}</small>
+                          <div className="small">
+                            {selectedCheckDetail[checkRatingConfig.feedbackKey] || <span className="text-muted fst-italic">Non compilato</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(selectedCheckDetail.photo_front || selectedCheckDetail.photo_side || selectedCheckDetail.photo_back) && (
+                      <div className="mb-3">
+                        <small className="text-muted d-block mb-2">Foto check</small>
+                        <div className="d-flex flex-wrap gap-2">
+                          {['photo_front', 'photo_side', 'photo_back'].map((key) => (
+                            selectedCheckDetail[key] ? (
+                              <img
+                                key={key}
+                                src={selectedCheckDetail[key]}
+                                alt=""
+                                onClick={() => window.open(selectedCheckDetail[key], '_blank')}
+                                style={{
+                                  width: 96,
+                                  height: 96,
+                                  objectFit: 'cover',
+                                  borderRadius: 10,
+                                  cursor: 'zoom-in',
+                                  border: '1px solid #e2e8f0',
+                                }}
+                              />
+                            ) : null
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(selectedCheckDetail.extra_comments || selectedCheckDetail.what_worked || selectedCheckDetail.what_focus_next) && (
+                      <div className="border rounded p-3">
+                        <small className="text-muted d-block mb-2">Note paziente</small>
+                        {selectedCheckDetail.what_worked && <div className="small mb-2"><strong>Cosa ha funzionato:</strong> {selectedCheckDetail.what_worked}</div>}
+                        {selectedCheckDetail.what_focus_next && <div className="small mb-2"><strong>Focus prossima settimana:</strong> {selectedCheckDetail.what_focus_next}</div>}
+                        {selectedCheckDetail.extra_comments && <div className="small"><strong>Commenti extra:</strong> {selectedCheckDetail.extra_comments}</div>}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="modal-footer">
+                {selectedCheckDetail.cliente_id && (
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={() => {
+                      setShowCheckDetailModal(false);
+                      navigate(`/clienti-dettaglio/${selectedCheckDetail.cliente_id}?tab=check_periodici`);
+                    }}
+                  >
+                    Apri scheda check paziente
+                  </button>
+                )}
+                <button className="btn btn-secondary" onClick={() => setShowCheckDetailModal(false)}>
+                  Chiudi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

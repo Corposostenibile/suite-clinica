@@ -644,16 +644,25 @@ function ClientiListaNutrizione() {
                           </Link>
                         </td>
                         <td style={tableStyles.td}>
-                          <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
-                            {renderTeamAvatar(cliente.health_manager_user, 'hm', 'Health Manager')}
-                            {cliente.nutrizionisti_multipli?.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
-                            {cliente.coaches_multipli?.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
-                            {cliente.psicologi_multipli?.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
-                            {cliente.consulenti_multipli?.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
-                            {!cliente.health_manager_user && !cliente.nutrizionisti_multipli?.length &&
-                              !cliente.coaches_multipli?.length && !cliente.psicologi_multipli?.length &&
-                              !cliente.consulenti_multipli?.length && <span style={tableStyles.emptyCell}>—</span>}
-                          </div>
+                          {(() => {
+                            const healthManager = cliente.health_manager_user || cliente.healthManagerUser;
+                            const nutrizionistiList = cliente.nutrizionisti_multipli || cliente.nutrizionistiMultipli || [];
+                            const coachesList = cliente.coaches_multipli || cliente.coachesMultipli || [];
+                            const psicologiList = cliente.psicologi_multipli || cliente.psicologiMultipli || [];
+                            const consulentiList = cliente.consulenti_multipli || cliente.consulentiMultipli || [];
+                            const hasTeam = healthManager || nutrizionistiList.length || coachesList.length || psicologiList.length || consulentiList.length;
+
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
+                                {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
+                                {nutrizionistiList.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
+                                {coachesList.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
+                                {psicologiList.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
+                                {consulentiList.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
+                                {!hasTeam && <span style={tableStyles.emptyCell}>—</span>}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td style={tableStyles.td}>
                           <div className="d-flex align-items-center gap-1">
