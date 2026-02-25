@@ -38,6 +38,20 @@ def _is_admin_hr_or_cco(user) -> bool:
     )
 
 
+def _get_led_team_member_ids(user):
+    """Restituisce gli ID membri dei team guidati dall'utente (many-to-many), includendo sé stesso."""
+    visible_ids = set()
+    if not getattr(user, 'is_authenticated', False):
+        return visible_ids
+
+    visible_ids.add(user.id)
+    for team in (getattr(user, 'teams_led', None) or []):
+        for member in (getattr(team, 'members', None) or []):
+            if getattr(member, 'id', None):
+                visible_ids.add(member.id)
+    return visible_ids
+
+
 def can_view_member_reviews(user, member):
     """
     Verifica se un utente può vedere le review di un membro.
@@ -69,8 +83,13 @@ def can_view_member_reviews(user, member):
         if dept_cco and dept_cco.head_id == user.id:
             return True
 
-    # Team Leader Nutrizione può vedere membri del proprio team
-    if member.department_id == 2 and member.team_id:
+    # Team Leader: può vedere membri dei propri team (many-to-many)
+    led_member_ids = _get_led_team_member_ids(user)
+    if member.id in led_member_ids:
+        return True
+
+    # Fallback legacy (team_id diretto)
+    if member.department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -112,8 +131,13 @@ def can_write_review(user, member):
         if dept_cco and dept_cco.head_id == user.id:
             return True
 
-    # Team Leader Nutrizione può scrivere a membri del proprio team
-    if member.department_id == 2 and member.team_id:
+    # Team Leader: può scrivere ai membri dei propri team (many-to-many)
+    led_member_ids = _get_led_team_member_ids(user)
+    if member.id in led_member_ids and member.id != user.id:
+        return True
+
+    # Fallback legacy (team_id diretto)
+    if member.department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -1815,12 +1839,21 @@ def api_admin_professionals():
     """
     API JSON: Lista tutti i professionisti attivi (solo per admin/HR).
     """
-    # Verifica permessi admin o HR
-    if not _is_admin_hr_or_cco(current_user):
+    # Verifica permessi admin/HR/CCO o Team Leader (scope team)
+    is_team_leader = getattr(current_user, 'role', None) == UserRoleEnum.team_leader
+    if not (_is_admin_hr_or_cco(current_user) or is_team_leader):
         return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
     # Query per utenti attivi
-    users = User.query.filter_by(is_active=True).order_by(
+    query = User.query.filter_by(is_active=True)
+    if not _is_admin_hr_or_cco(current_user):
+        visible_ids = _get_led_team_member_ids(current_user)
+        visible_ids.discard(current_user.id)
+        if not visible_ids:
+            return jsonify({'success': True, 'professionals': []})
+        query = query.filter(User.id.in_(list(visible_ids)))
+
+    users = query.order_by(
         User.last_name, User.first_name
     ).all()
 
@@ -1868,12 +1901,12 @@ def api_admin_user_trainings(user_id):
     """
     API JSON: Ottiene i training di un utente specifico (solo per admin/HR).
     """
-    # Verifica permessi admin o HR
-    if not _is_admin_hr_or_cco(current_user):
-        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
-
     # Verifica che l'utente esista
     target_user = User.query.get_or_404(user_id)
+
+    # Verifica permessi (admin/HR/CCO oppure Team Leader nel proprio scope)
+    if not (_is_admin_hr_or_cco(current_user) or can_view_member_reviews(current_user, target_user)):
+        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
     # Query per i training dell'utente target
     reviews = Review.query.filter_by(

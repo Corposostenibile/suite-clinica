@@ -48,7 +48,22 @@ const PRIORITIES = {
 
 function Formazione() {
     const { user } = useOutletContext();
-    const isAdmin = user?.is_admin === true;
+    const isAdmin = Boolean(user?.is_admin === true || user?.role === 'admin' || user?.specialty === 'cco');
+    const isTeamLeader = Boolean(user?.role === 'team_leader' && !isAdmin);
+    const canManageTeamTraining = Boolean(isAdmin || isTeamLeader);
+    const teamLeaderSpecialtyGroup = (() => {
+        if (!isTeamLeader) return null;
+        const s = String(user?.specialty || '').toLowerCase();
+        if (s === 'nutrizione' || s === 'nutrizionista') return 'nutrizione';
+        if (s === 'coach') return 'coach';
+        if (s === 'psicologia' || s === 'psicologo') return 'psicologia';
+        return null;
+    })();
+    const teamLeaderSpecialtyFilterValue = teamLeaderSpecialtyGroup === 'nutrizione'
+        ? 'nutrizione,nutrizionista'
+        : teamLeaderSpecialtyGroup === 'psicologia'
+            ? 'psicologia,psicologo'
+            : teamLeaderSpecialtyGroup || '';
 
     // ==================== ADMIN STATE ====================
     const [adminTab, setAdminTab] = useState('myTrainings'); // 'myTrainings' | 'team'
@@ -167,7 +182,7 @@ function Formazione() {
             setLoading(true);
             setError(null);
 
-            if (isAdmin) {
+            if (canManageTeamTraining) {
                 // Admin: carica dati essenziali (NO recipients - lazy loaded)
                 const [trainingsRes, givenRes, requestsRes, receivedRes] = await Promise.all([
                     trainingService.getMyTrainings(),
@@ -201,7 +216,7 @@ function Formazione() {
         } finally {
             setLoading(false);
         }
-    }, [isAdmin]);
+    }, [canManageTeamTraining]);
 
     const loadRecipients = useCallback(async () => {
         if (recipientsLoaded || recipientsLoading) return;
@@ -222,7 +237,7 @@ function Formazione() {
         setTeamLoading(true);
         try {
             const teamRes = await teamService.getTeamMembers({ per_page: 5000, active: '1' });
-            const members = teamRes.members || [];
+            const members = (teamRes.members || []).filter(m => m.id !== user?.id);
             const mappedProfessionals = members.map(m => ({
                 id: m.id,
                 firstName: m.first_name,
@@ -242,7 +257,7 @@ function Formazione() {
         } finally {
             setTeamLoading(false);
         }
-    }, [teamLoaded, teamLoading]);
+    }, [teamLoaded, teamLoading, user?.id]);
 
     // ==================== EFFECTS ====================
     useEffect(() => {
@@ -256,10 +271,19 @@ function Formazione() {
     }, [showRequestModal, recipientsLoaded, loadRecipients]);
 
     useEffect(() => {
-        if (adminTab === 'team' && isAdmin && !teamLoaded) {
+        if (adminTab === 'team' && canManageTeamTraining && !teamLoaded) {
             loadTeamMembers();
         }
-    }, [adminTab, isAdmin, teamLoaded, loadTeamMembers]);
+    }, [adminTab, canManageTeamTraining, teamLoaded, loadTeamMembers]);
+
+    useEffect(() => {
+        if (!isTeamLeader || !teamLeaderSpecialtyFilterValue) return;
+        setAdminFilters((prev) => (
+            prev.specialty === teamLeaderSpecialtyFilterValue
+                ? prev
+                : { ...prev, specialty: teamLeaderSpecialtyFilterValue }
+        ));
+    }, [isTeamLeader, teamLeaderSpecialtyFilterValue]);
 
     useEffect(() => {
         if (!Number.isInteger(deepLinkTrainingId) || deepLinkTrainingId <= 0 || loading) {
@@ -317,7 +341,10 @@ function Formazione() {
     };
 
     const resetAdminFilters = () => {
-        setAdminFilters({ search: '', specialty: '' });
+        setAdminFilters({
+            search: '',
+            specialty: isTeamLeader ? teamLeaderSpecialtyFilterValue : '',
+        });
         setCurrentPage(1);
     };
 
@@ -353,6 +380,12 @@ function Formazione() {
         psicologia: professionals.filter(p => p.specialty === 'psicologo' || p.specialty === 'psicologia').length,
         coach: professionals.filter(p => p.specialty === 'coach').length,
     };
+    const allowedSpecialtyFilterOptions = isTeamLeader && teamLeaderSpecialtyGroup
+        ? SPECIALTY_FILTER_OPTIONS.filter((opt) => {
+            const values = String(opt.value || '').split(',').map(v => v.trim());
+            return values.includes(teamLeaderSpecialtyGroup);
+        })
+        : SPECIALTY_FILTER_OPTIONS;
 
     // ==================== USER FUNCTIONS ====================
     const stats = {
@@ -654,7 +687,7 @@ function Formazione() {
     }
 
     // ==================== ADMIN VIEW ====================
-    if (isAdmin) {
+    if (canManageTeamTraining) {
         // Se stiamo visualizzando i training di un professionista specifico
         if (adminView === 'trainings' && selectedProfessional) {
             // Questo blocco viene gestito sotto
@@ -1321,9 +1354,14 @@ function Formazione() {
                                                 className="form-select bg-light border-0"
                                                 value={adminFilters.specialty}
                                                 onChange={(e) => handleAdminFilterChange('specialty', e.target.value)}
+                                                disabled={isTeamLeader && !!teamLeaderSpecialtyFilterValue}
                                             >
-                                                <option value="">Tutte le Specializzazioni</option>
-                                                {SPECIALTY_FILTER_OPTIONS.map((opt) => (
+                                                <option value="">
+                                                    {isTeamLeader && teamLeaderSpecialtyGroup
+                                                        ? 'Solo la tua specialità'
+                                                        : 'Tutte le Specializzazioni'}
+                                                </option>
+                                                {allowedSpecialtyFilterOptions.map((opt) => (
                                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                 ))}
                                             </select>

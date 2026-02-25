@@ -27,8 +27,8 @@
 - [~] Check: mostrare solo check del proprio team per `team_leader`. (UI/endpoint professionisti allineati; lista check dipende da RBAC `get_accessible_clients_query` su `/client-checks/azienda/stats`)
 - [x] Check: limitare filtri alla sola specialità/ruolo del `team_leader`. (`CheckAzienda`: profType bloccato + dropdown professionisti del proprio team)
 - [~] Task: validare visuale `team_leader` (task team, fatte + da fare) e allineare UX filtri. (aggiunto filtro professionista del proprio team in `task/Task.jsx`; da validare end-to-end con account TL)
-- [ ] Training: permettere a `team_leader` di vedere training dei membri del team.
-- [ ] Training: permettere a `team_leader` di assegnare/scrivere training ai membri del team.
+- [x] Training: permettere a `team_leader` di vedere training dei membri del team. (UI `Formazione` abilita "Gestione Team"; backend `review/api/admin/trainings/<user_id>` scope team leader)
+- [x] Training: permettere a `team_leader` di assegnare/scrivere training ai membri del team. (backend `can_write_review` aggiornato a team many-to-many; UI `Formazione` "Scrivi Training" su membri team)
 - [x] Team: `team_leader` vede solo il proprio team (lista/dettaglio). (RBAC backend `/api/team/teams*` + UI azioni create/edit limitate)
 - [x] Professionisti: `team_leader` vede solo professionisti del proprio team. (RBAC backend `/api/team/members*` + UI no KPI/azioni admin)
 - [~] Clienti: limitare a soli clienti del proprio team/dipartimento. (da validare RBAC endpoint clienti con account TL)
