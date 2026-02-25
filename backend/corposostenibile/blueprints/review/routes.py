@@ -1600,9 +1600,9 @@ def api_request_recipients():
                         if not any(r.get('id') == user_team.head.id for r in possible_recipients):
                             possible_recipients.append({
                                 'id': user_team.head.id,
-                                'firstName': user_team.head.first_name,
-                                'lastName': user_team.head.last_name,
-                                'label': f"{user_team.head.first_name} {user_team.head.last_name} (Team Leader {user_team.name})"
+                                'name': f"{user_team.head.first_name} {user_team.head.last_name}",
+                                'role': f"Team Leader {user_team.name}",
+                                'department': user_team.head.specialty_display if hasattr(user_team.head, 'specialty_display') else None,
                             })
 
             # Aggiungi gli head dei dipartimenti principali come opzione
@@ -1613,9 +1613,9 @@ def api_request_recipients():
                     if not any(r.get('id') == dept.head.id for r in possible_recipients):
                         possible_recipients.append({
                             'id': dept.head.id,
-                            'firstName': dept.head.first_name,
-                            'lastName': dept.head.last_name,
-                            'label': f"{dept.head.first_name} {dept.head.last_name} (Head {dept.name})"
+                            'name': f"{dept.head.first_name} {dept.head.last_name}",
+                            'role': f"Head {dept.name}",
+                            'department': dept.head.specialty_display if hasattr(dept.head, 'specialty_display') else None,
                         })
 
         return jsonify({
