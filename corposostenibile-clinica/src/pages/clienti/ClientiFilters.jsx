@@ -18,7 +18,12 @@ const ClientiFilters = ({
     filters,
     onFilterChange,
     onReset,
-    professionisti = []
+    professionisti = [],
+    visibleProfessionalFilters = {
+        nutrizione: true,
+        coach: true,
+        psicologia: true,
+    }
 }) => {
     const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -125,50 +130,53 @@ const ClientiFilters = ({
                         </select>
                     </div>
 
-                    {/* Nutrizionista */}
-                    <div className="col-lg-2 col-md-4">
-                        <label className="form-label small text-muted fw-bold mb-1">Nutrizionista</label>
-                        <select
-                            className="form-select"
-                            value={filters.nutrizionista || ''}
-                            onChange={(e) => onFilterChange('nutrizionista', e.target.value)}
-                        >
-                            <option value="">Tutti</option>
-                            {nutrizionisti.map(p => (
-                                <option key={p.id} value={p.id}>{p.full_name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {visibleProfessionalFilters.nutrizione && (
+                        <div className="col-lg-2 col-md-4">
+                            <label className="form-label small text-muted fw-bold mb-1">Nutrizionista</label>
+                            <select
+                                className="form-select"
+                                value={filters.nutrizionista || ''}
+                                onChange={(e) => onFilterChange('nutrizionista', e.target.value)}
+                            >
+                                <option value="">Tutti</option>
+                                {nutrizionisti.map(p => (
+                                    <option key={p.id} value={p.id}>{p.full_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
-                    {/* Coach */}
-                    <div className="col-lg-2 col-md-4">
-                        <label className="form-label small text-muted fw-bold mb-1">Coach</label>
-                        <select
-                            className="form-select"
-                            value={filters.coach || ''}
-                            onChange={(e) => onFilterChange('coach', e.target.value)}
-                        >
-                            <option value="">Tutti</option>
-                            {coaches.map(p => (
-                                <option key={p.id} value={p.id}>{p.full_name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {visibleProfessionalFilters.coach && (
+                        <div className="col-lg-2 col-md-4">
+                            <label className="form-label small text-muted fw-bold mb-1">Coach</label>
+                            <select
+                                className="form-select"
+                                value={filters.coach || ''}
+                                onChange={(e) => onFilterChange('coach', e.target.value)}
+                            >
+                                <option value="">Tutti</option>
+                                {coaches.map(p => (
+                                    <option key={p.id} value={p.id}>{p.full_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
-                    {/* Psicologo (New) */}
-                    <div className="col-lg-2 col-md-4">
-                        <label className="form-label small text-muted fw-bold mb-1">Psicologo</label>
-                        <select
-                            className="form-select"
-                            value={filters.psicologa || ''}
-                            onChange={(e) => onFilterChange('psicologa', e.target.value)}
-                        >
-                            <option value="">Tutti</option>
-                            {psicologi.map(p => (
-                                <option key={p.id} value={p.id}>{p.full_name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    {visibleProfessionalFilters.psicologia && (
+                        <div className="col-lg-2 col-md-4">
+                            <label className="form-label small text-muted fw-bold mb-1">Psicologo</label>
+                            <select
+                                className="form-select"
+                                value={filters.psicologa || ''}
+                                onChange={(e) => onFilterChange('psicologa', e.target.value)}
+                            >
+                                <option value="">Tutti</option>
+                                {psicologi.map(p => (
+                                    <option key={p.id} value={p.id}>{p.full_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {/* --- ADVANCED FILTERS SECTION --- */}

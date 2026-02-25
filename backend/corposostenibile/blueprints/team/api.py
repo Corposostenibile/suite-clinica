@@ -120,6 +120,11 @@ def _can_edit_professional_capacity(user) -> bool:
     return user.is_authenticated and (user.is_admin or _is_cco_user(user))
 
 
+def _can_view_all_team_module_data(user) -> bool:
+    """Admin/CCO can view all data in Team module."""
+    return bool(user.is_authenticated and (user.is_admin or _is_cco_user(user)))
+
+
 def _get_capacity_role_type(user) -> str | None:
     """Normalizza role_type per tabella professionist_capacity."""
     specialty = _get_user_specialty(user)
@@ -272,6 +277,16 @@ def get_members():
     # Base query: escludi utenti legacy/senza ruolo dal modulo Team
     query = User.query.filter(User.role.isnot(None))
 
+    # RBAC base scope
+    if _can_view_all_team_module_data(current_user):
+        pass
+    elif _get_user_role(current_user) == 'team_leader':
+        visible_ids = _get_team_leader_member_ids(current_user.id)
+        visible_ids.add(current_user.id)
+        query = query.filter(User.id.in_(list(visible_ids)))
+    else:
+        query = query.filter(User.id == current_user.id)
+
     # Search filter
     if search_query:
         search_term = f"%{search_query}%"
@@ -340,6 +355,15 @@ def get_members():
 def get_member(user_id):
     """Get single team member details."""
     user = User.query.get_or_404(user_id)
+
+    if not _can_view_all_team_module_data(current_user):
+        if _get_user_role(current_user) == 'team_leader':
+            visible_ids = _get_team_leader_member_ids(current_user.id)
+            visible_ids.add(current_user.id)
+            if user_id not in visible_ids:
+                return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
+        elif user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
 
     return jsonify({
         'success': True,
@@ -1623,6 +1647,14 @@ def get_teams():
         joinedload(Team.head)  # Eager load team head only
     )
 
+    # RBAC base scope
+    if _can_view_all_team_module_data(current_user):
+        pass
+    elif _get_user_role(current_user) == 'team_leader':
+        query = query.filter(Team.head_id == current_user.id)
+    else:
+        query = query.filter(Team.members.any(User.id == current_user.id))
+
     # Filter by team_type
     if team_type_filter and team_type_filter in [e.value for e in TeamTypeEnum]:
         query = query.filter(Team.team_type == TeamTypeEnum(team_type_filter))
@@ -1659,6 +1691,13 @@ def get_teams():
 def get_team(team_id):
     """Get single team details with members."""
     team = Team.query.get_or_404(team_id)
+
+    if not _can_view_all_team_module_data(current_user):
+        if _get_user_role(current_user) == 'team_leader':
+            if team.head_id != current_user.id:
+                return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
+        elif not any(m.id == current_user.id for m in (team.members or [])):
+            return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
 
     return jsonify({
         'success': True,

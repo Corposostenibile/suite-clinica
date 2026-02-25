@@ -25,6 +25,8 @@ const DEFAULT_GRADIENT = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
 function TeamList() {
   const { user } = useAuth();
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
   const [searchParams, setSearchParams] = useSearchParams();
   const [members, setMembers] = useState([]);
   const [brokenAvatars, setBrokenAvatars] = useState({});
@@ -58,6 +60,7 @@ function TeamList() {
   // Fetch global stats on mount
   useEffect(() => {
     const fetchStats = async () => {
+      if (!isAdminOrCco) return;
       try {
         const stats = await teamService.getStats();
         setGlobalStats(stats);
@@ -66,7 +69,7 @@ function TeamList() {
       }
     };
     fetchStats();
-  }, []);
+  }, [isAdminOrCco]);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -125,12 +128,12 @@ function TeamList() {
   const hasActiveFilters = filters.search || filters.role || filters.specialty || (filters.status && filters.status !== 'active');
 
   // Stats - use global stats when no filters, otherwise use filtered results
-  const totalMembers = hasActiveFilters ? pagination.total : (globalStats?.total_members || pagination.total);
-  const totalActive = hasActiveFilters ? members.filter(m => m.is_active).length : (globalStats?.total_active || pagination.total);
-  const totalLeaders = hasActiveFilters
-    ? members.filter(m => m.role === 'team_leader' || (m.teams_led?.length || 0) > 0).length
-    : (globalStats?.total_team_leaders || 0);
-  const totalExternal = hasActiveFilters ? members.filter(m => m.is_external).length : (globalStats?.total_external || 0);
+  const totalMembers = isAdminOrCco && !hasActiveFilters ? (globalStats?.total_members || pagination.total) : pagination.total;
+  const totalActive = isAdminOrCco && !hasActiveFilters ? (globalStats?.total_active || pagination.total) : members.filter(m => m.is_active).length;
+  const totalLeaders = isAdminOrCco && !hasActiveFilters
+    ? (globalStats?.total_team_leaders || 0)
+    : members.filter(m => m.role === 'team_leader' || (m.teams_led?.length || 0) > 0).length;
+  const totalExternal = isAdminOrCco && !hasActiveFilters ? (globalStats?.total_external || 0) : members.filter(m => m.is_external).length;
 
   return (
     <div className="container-fluid p-0">
@@ -140,7 +143,7 @@ function TeamList() {
           <h4 className="mb-1">Gestione Team</h4>
           <p className="text-muted mb-0">{pagination.total} membri totali</p>
         </div>
-        {(user?.is_admin || user?.role === 'admin') && (
+        {isAdminOrCco && (
           <Link to="/team-nuovo" className="btn btn-primary">
             <i className="ri-user-add-line me-1"></i>
             Nuovo Professionista
@@ -148,34 +151,35 @@ function TeamList() {
         )}
       </div>
 
-      {/* Stats Row */}
-      <div className="row g-3 mb-4">
-        {[
-          { label: 'Membri Totali', value: totalMembers, icon: 'ri-team-line', bg: 'primary' },
-          { label: 'Attivi', value: totalActive, icon: 'ri-checkbox-circle-line', bg: 'success' },
-          { label: 'Team Leaders', value: totalLeaders, icon: 'ri-user-star-line', bg: 'info' },
-          { label: 'Esterni', value: totalExternal, icon: 'ri-external-link-line', bg: 'warning' },
-        ].map((stat, idx) => (
-          <div key={idx} className="col-xl-3 col-sm-6">
-            <div className={`card bg-${stat.bg} border-0 shadow-sm`}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                  </div>
-                  <div
-                    className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
-                    style={{ width: '48px', height: '48px' }}
-                  >
-                    <i className={`${stat.icon} text-white fs-4`}></i>
+      {!isTeamLeaderRestricted && (
+        <div className="row g-3 mb-4">
+          {[
+            { label: 'Membri Totali', value: totalMembers, icon: 'ri-team-line', bg: 'primary' },
+            { label: 'Attivi', value: totalActive, icon: 'ri-checkbox-circle-line', bg: 'success' },
+            { label: 'Team Leaders', value: totalLeaders, icon: 'ri-user-star-line', bg: 'info' },
+            { label: 'Esterni', value: totalExternal, icon: 'ri-external-link-line', bg: 'warning' },
+          ].map((stat, idx) => (
+            <div key={idx} className="col-xl-3 col-sm-6">
+              <div className={`card bg-${stat.bg} border-0 shadow-sm`}>
+                <div className="card-body py-3">
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div>
+                      <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
+                      <span className="text-white opacity-75 small">{stat.label}</span>
+                    </div>
+                    <div
+                      className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
+                      style={{ width: '48px', height: '48px' }}
+                    >
+                      <i className={`${stat.icon} text-white fs-4`}></i>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card shadow-sm border-0 mb-4">
@@ -377,12 +381,14 @@ function TeamList() {
                       >
                         <i className="ri-eye-line me-1"></i>Dettagli
                       </Link>
-                      <Link
-                        to={`/team-modifica/${member.id}`}
-                        className="btn btn-sm btn-outline-secondary flex-fill"
-                      >
-                        <i className="ri-edit-line me-1"></i>Modifica
-                      </Link>
+                      {isAdminOrCco && (
+                        <Link
+                          to={`/team-modifica/${member.id}`}
+                          className="btn btn-sm btn-outline-secondary flex-fill"
+                        >
+                          <i className="ri-edit-line me-1"></i>Modifica
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import teamService, {
   TEAM_TYPE_ICONS,
 } from '../../services/teamService';
 import { normalizeAvatarPath } from '../../utils/mediaUrl';
+import { useAuth } from '../../context/AuthContext';
 
 // Colori sfondo header card in base al tipo team (coerenti con i KPI pazienti)
 const TYPE_GRADIENTS = {
@@ -15,6 +16,8 @@ const TYPE_GRADIENTS = {
 };
 
 function TeamsList() {
+  const { user } = useAuth();
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const [searchParams, setSearchParams] = useSearchParams();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,10 +98,12 @@ function TeamsList() {
           <h4 className="mb-1">Gestione Team</h4>
           <p className="text-muted mb-0">{totalTeams} team totali</p>
         </div>
-        <Link to="/teams-nuovo" className="btn btn-primary btn-lg px-4">
-          <i className="ri-add-line me-2"></i>
-          Nuovo Team
-        </Link>
+        {isAdminOrCco && (
+          <Link to="/teams-nuovo" className="btn btn-primary btn-lg px-4">
+            <i className="ri-add-line me-2"></i>
+            Nuovo Team
+          </Link>
+        )}
       </div>
 
       {/* Stats Row */}
@@ -315,12 +320,14 @@ function TeamsList() {
                       >
                         <i className="ri-eye-line me-1"></i>Dettagli
                       </Link>
-                      <Link
-                        to={`/teams-modifica/${team.id}`}
-                        className="btn btn-sm btn-outline-secondary flex-fill"
-                      >
-                        <i className="ri-edit-line me-1"></i>Modifica
-                      </Link>
+                      {isAdminOrCco && (
+                        <Link
+                          to={`/teams-modifica/${team.id}`}
+                          className="btn btn-sm btn-outline-secondary flex-fill"
+                        >
+                          <i className="ri-edit-line me-1"></i>Modifica
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>

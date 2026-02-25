@@ -29,7 +29,7 @@
 - [~] Task: validare visuale `team_leader` (task team, fatte + da fare) e allineare UX filtri. (aggiunto filtro professionista del proprio team in `task/Task.jsx`; da validare end-to-end con account TL)
 - [ ] Training: permettere a `team_leader` di vedere training dei membri del team.
 - [ ] Training: permettere a `team_leader` di assegnare/scrivere training ai membri del team.
-- [ ] Team: `team_leader` vede solo il proprio team (lista/dettaglio).
-- [ ] Professionisti: `team_leader` vede solo professionisti del proprio team.
-- [ ] Clienti: limitare a soli clienti del proprio team/dipartimento.
-- [ ] Clienti: rimuovere visuali cross-dipartimento non pertinenti (es. “visuale coach/psicologia”).
+- [x] Team: `team_leader` vede solo il proprio team (lista/dettaglio). (RBAC backend `/api/team/teams*` + UI azioni create/edit limitate)
+- [x] Professionisti: `team_leader` vede solo professionisti del proprio team. (RBAC backend `/api/team/members*` + UI no KPI/azioni admin)
+- [~] Clienti: limitare a soli clienti del proprio team/dipartimento. (da validare RBAC endpoint clienti con account TL)
+- [~] Clienti: rimuovere visuali cross-dipartimento non pertinenti (es. “visuale coach/psicologia”). (UI `ClientiList`: pulsanti visuale + KPI + filtri base coerenti con specialità TL)

@@ -10,6 +10,7 @@ import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
 
 // Stili per la tabella professionale
 const tableStyles = {
@@ -131,6 +132,17 @@ const ROLE_COLORS = {
 };
 
 function ClientiList() {
+  const { user } = useAuth();
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const teamLeaderSpecialtyGroup = (() => {
+    const s = String(user?.specialty || '').toLowerCase();
+    if (s === 'nutrizione' || s === 'nutrizionista') return 'nutrizione';
+    if (s === 'coach') return 'coach';
+    if (s === 'psicologia' || s === 'psicologo') return 'psicologia';
+    return null;
+  })();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [clienti, setClienti] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -258,6 +270,17 @@ function ClientiList() {
     fetchInitialData();
   }, []);
 
+  useEffect(() => {
+    if (!isTeamLeaderRestricted || !teamLeaderSpecialtyGroup) return;
+    const next = {};
+    if (teamLeaderSpecialtyGroup !== 'nutrizione' && filters.nutrizionista) next.nutrizionista = '';
+    if (teamLeaderSpecialtyGroup !== 'coach' && filters.coach) next.coach = '';
+    if (teamLeaderSpecialtyGroup !== 'psicologia' && filters.psicologa) next.psicologa = '';
+    if (Object.keys(next).length > 0) {
+      setFilters((prev) => ({ ...prev, ...next }));
+    }
+  }, [isTeamLeaderRestricted, teamLeaderSpecialtyGroup, filters.nutrizionista, filters.coach, filters.psicologa]);
+
   const fetchClienti = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -347,6 +370,34 @@ function ClientiList() {
     setSearchParams(new URLSearchParams());
   };
 
+  const visibleProfessionalFilters = {
+    nutrizione: !isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione',
+    coach: !isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach',
+    psicologia: !isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'psicologia',
+  };
+
+  const visualButtons = [
+    { key: 'generale', to: '/clienti-lista', label: 'Lista Generale', icon: 'ri-list-check', className: 'btn btn-primary btn-sm' },
+    { key: 'nutrizione', to: '/clienti-nutrizione', label: 'Visuale Nutrizione', icon: 'ri-restaurant-line', className: 'btn btn-warning btn-sm text-white' },
+    { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line', className: 'btn btn-info btn-sm text-white' },
+    { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line', className: 'btn btn-danger btn-sm text-white' },
+  ].filter((btn) => {
+    if (!isTeamLeaderRestricted) return true;
+    if (btn.key === 'generale') return true;
+    return btn.key === teamLeaderSpecialtyGroup;
+  });
+
+  const statCards = [
+    { key: 'tot', label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', bg: 'primary' },
+    { key: 'nutrizione', label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', bg: 'success' },
+    { key: 'coach', label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line', bg: 'warning' },
+    { key: 'psicologia', label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
+  ].filter((stat) => {
+    if (!isTeamLeaderRestricted) return true;
+    if (stat.key === 'tot') return true;
+    return stat.key === teamLeaderSpecialtyGroup;
+  });
+
 
 
   // Helper per formattare le date
@@ -405,29 +456,17 @@ function ClientiList() {
           <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
         </div>
         <div className="d-flex gap-2">
-          <Link to="/clienti-lista" className="btn btn-primary btn-sm">
-            <i className="ri-list-check me-1"></i> Lista Generale
-          </Link>
-          <Link to="/clienti-nutrizione" className="btn btn-warning btn-sm text-white">
-            <i className="ri-restaurant-line me-1"></i> Visuale Nutrizione
-          </Link>
-          <Link to="/clienti-coach" className="btn btn-info btn-sm text-white">
-            <i className="ri-run-line me-1"></i> Visuale Coach
-          </Link>
-          <Link to="/clienti-psicologia" className="btn btn-danger btn-sm text-white">
-            <i className="ri-mental-health-line me-1"></i> Visuale Psicologia
-          </Link>
+          {visualButtons.map((btn) => (
+            <Link key={btn.key} to={btn.to} className={btn.className}>
+              <i className={`${btn.icon} me-1`}></i> {btn.label}
+            </Link>
+          ))}
         </div>
       </div>
 
       {/* Stats Row */}
       <div className="row g-3 mb-4" data-tour="stats">
-        {[
-          { label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line', bg: 'primary' },
-          { label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line', bg: 'success' },
-          { label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line', bg: 'warning' },
-          { label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
-        ].map((stat, idx) => (
+        {statCards.map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
             <div
               className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
@@ -458,6 +497,7 @@ function ClientiList() {
         onFilterChange={handleFilterChange}
         onReset={resetFilters}
         professionisti={professionisti}
+        visibleProfessionalFilters={visibleProfessionalFilters}
       />
 
       {/* Content */}
