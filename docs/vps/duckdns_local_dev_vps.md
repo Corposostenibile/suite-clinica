@@ -1,8 +1,8 @@
-# Deploy HTTPS su VPS (DuckDNS) + PWA tablet (stato reale)
+# Sviluppo Locale su VPS (DuckDNS) + PWA tablet (stato reale)
 
 Data aggiornamento: 17 Febbraio 2026
 
-Questa guida descrive la configurazione attuale su VPS per `suite-clinica.duckdns.org`, con URL web canonici in root (es. `/auth/login`, `/clienti-lista`) e PWA installabile.
+Questa guida descrive la configurazione attuale su VPS per `suite-clinica.duckdns.org`, usato come **ambiente locale/shared di sviluppo** (non GCP produzione), con URL web canonici in root (es. `/auth/login`, `/clienti-lista`) e PWA installabile.
 
 ## 1) Architettura attuale
 
@@ -59,9 +59,14 @@ bash scripts/setup_vps_https_pwa.sh \
   --duckdns-token NUOVO_TOKEN_DUCKDNS
 ```
 
-## 4) Gestione servizi runtime
+## 4) Gestione servizi runtime (verificare sempre lo stack attivo)
 
-### 4.1 Frontend PWA (systemd)
+Nota importante:
+- su questo ambiente il frontend clinica può essere servito da `systemd` (`clinica-pwa-preview`) **oppure** da `PM2` (es. `frontend-manu` con `npm run dev -- --port 3001 --host`)
+- prima di fare "deploy VPS" verificare quale processo sta effettivamente ascoltando su `:3001` / `:5001`
+- modificare i file del repo **non** aggiorna automaticamente il sito: serve restart del processo frontend/backend corretto
+
+### 4.1 Frontend PWA (systemd, se attivo)
 
 Servizio: `clinica-pwa-preview`
 
@@ -81,7 +86,22 @@ npx pm2 logs backend-manu --lines 100
 npx pm2 restart backend-manu
 ```
 
+### 4.3 Frontend PWA (PM2, alternativa usata spesso su questo VPS)
+
+Processo tipico: `frontend-manu`
+
+```bash
+npx pm2 list
+npx pm2 describe frontend-manu
+npx pm2 logs frontend-manu --lines 100
+npx pm2 restart frontend-manu
+```
+
 ## 5) Deploy frontend (PWA)
+
+Nota:
+- se il frontend live gira via `PM2 + npm run dev`, il `build` non è necessario per vedere le modifiche (serve solo restart/hot reload)
+- se invece gira via `clinica-pwa-preview` (systemd), va fatto `npm run build` e poi restart del servizio
 
 ```bash
 cd corposostenibile-clinica
@@ -228,7 +248,7 @@ sudo certbot certificates
 ## 11) Percorsi utili
 
 - Script setup HTTPS: `scripts/setup_vps_https_pwa.sh`
-- Doc VPS/PWA: `docs/vps/duckdns_pwa.md`
+- Doc VPS/PWA (sviluppo locale su VPS): `docs/vps/duckdns_local_dev_vps.md`
 - Frontend React: `corposostenibile-clinica`
 - Backend Poetry: `backend`
 - Vhost Nginx server: `/etc/nginx/sites-available/suite-clinica.duckdns.org`
