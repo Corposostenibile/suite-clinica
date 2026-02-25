@@ -62,13 +62,31 @@ spec:
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
         - name: SESSION_COOKIE_SECURE
-          value: "false"
+          value: "true"
         - name: SESSION_COOKIE_HTTPONLY
           value: "true"
         - name: SESSION_COOKIE_SAMESITE
           value: "Lax"
         - name: PREFERRED_URL_SCHEME
-          value: "http"
+          value: "https"
+        - name: SPA_HANDLE_AUTH_ROUTES
+          value: "1"
+        - name: VAPID_PUBLIC_KEY
+          value: "CHANGE_ME_VAPID_PUBLIC_KEY"
+        - name: VAPID_PRIVATE_KEY
+          value: "CHANGE_ME_VAPID_PRIVATE_KEY"
+        - name: VAPID_CLAIMS_SUB
+          value: "mailto:it@corposostenibile.com"
+        - name: RESPOND_IO_API_TOKEN
+          value: "CHANGE_ME_RESPOND_IO_API_TOKEN"
+        - name: RESPOND_IO_API_BASE_URL
+          value: "https://api.respond.io/v2"
+        - name: RESPOND_IO_DEFAULT_CHANNEL_ID
+          value: ""
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_MODE
+          value: "mock"
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_URL
+          value: ""
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
         volumeMounts:

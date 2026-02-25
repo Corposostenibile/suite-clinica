@@ -48,7 +48,7 @@ reviewApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      window.location.href = '/auth/login';
+      window.location.href = `${import.meta.env.BASE_URL}auth/login`;
     }
     return Promise.reject(error);
   }

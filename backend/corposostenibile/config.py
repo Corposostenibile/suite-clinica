@@ -147,6 +147,11 @@ class BaseConfig:
     # Redirect URI registrato sul progetto Google Cloud
     GOOGLE_REDIRECT_URL: str | None = os.getenv("GOOGLE_REDIRECT_URL")
 
+    # ------------------ Web Push / PWA Notifications -----------------------
+    VAPID_PUBLIC_KEY: str | None = os.getenv("VAPID_PUBLIC_KEY")
+    VAPID_PRIVATE_KEY: str | None = os.getenv("VAPID_PRIVATE_KEY")
+    VAPID_CLAIMS_SUB: str = os.getenv("VAPID_CLAIMS_SUB", "mailto:it@corposostenibile.com")
+
 
     # ------------------ File Upload Configuration -----------------
     # Cartella base per tutti gli upload
@@ -248,16 +253,26 @@ class BaseConfig:
     # Base URL del backend (per webhook GHL, link email, ecc.)
     # Necessario per sviluppatori: GHL deve raggiungere il backend dall'esterno
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:5001")
+    # Base URL pubblico dedicato ai link dei check cliente (puo' coincidere con BASE_URL)
+    PUBLIC_CHECKS_BASE_URL: str = os.getenv("PUBLIC_CHECKS_BASE_URL", BASE_URL)
 
     # ------------------ GHL (GoHighLevel) Integration ----------------
     GHL_WEBHOOK_SECRET: str | None = os.getenv("GHL_WEBHOOK_SECRET")
     GHL_API_KEY: str | None = os.getenv("GHL_API_KEY")
     GHL_LOCATION_ID: str | None = os.getenv("GHL_LOCATION_ID")
     GHL_API_BASE_URL: str = os.getenv("GHL_API_BASE_URL", "https://rest.gohighlevel.com/v1")
+    GHL_GLOBAL_STATUS_WEBHOOK_MODE: str = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_MODE", "mock")
+    GHL_GLOBAL_STATUS_WEBHOOK_URL: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL")
 
     # ------------------ Respond.io Integration -----------------------
     RESPOND_IO_API_TOKEN: str | None = os.getenv("RESPOND_IO_API_TOKEN")
     RESPOND_IO_API_BASE_URL: str = os.getenv("RESPOND_IO_API_BASE_URL", "https://api.respond.io/v2")
+    # Opzionale: canale specifico per invio messaggi API (se assente usa ultimo canale del contatto)
+    RESPOND_IO_DEFAULT_CHANNEL_ID: int | None = (
+        int(os.getenv("RESPOND_IO_DEFAULT_CHANNEL_ID"))
+        if os.getenv("RESPOND_IO_DEFAULT_CHANNEL_ID")
+        else None
+    )
     
     # Webhook Signing Keys
     RESPOND_IO_WEBHOOK_KEY_NEW_CONTACT: str | None = os.getenv("RESPOND_IO_WEBHOOK_KEY_NEW_CONTACT")

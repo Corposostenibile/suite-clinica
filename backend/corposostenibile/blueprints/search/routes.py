@@ -1,11 +1,12 @@
 from flask import jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import or_, desc, exists, select
+from sqlalchemy.orm import aliased
 from datetime import datetime
 
 from corposostenibile.models import (
     Cliente, WeeklyCheckResponse, WeeklyCheck, User, 
-    UserRoleEnum, Team,
+    UserRoleEnum, Team, Review, ReviewMessage,
     cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
 )
 from corposostenibile.extensions import db
@@ -17,7 +18,7 @@ def global_search():
     Global search endpoint across multiple entities.
     Query params:
         q: search query string
-        category: optional filter (paziente, check, professional)
+        category: optional filter (paziente, check, professional, training)
     """
     q = request.args.get('q', '').strip()
     category = request.args.get('category', '').strip()
@@ -27,12 +28,12 @@ def global_search():
     if not q or len(q) < 2:
         return jsonify({
             'results': [],
-            'counts': {'all': 0, 'paziente': 0, 'check': 0, 'professional': 0},
+            'counts': {'all': 0, 'paziente': 0, 'check': 0, 'professional': 0, 'training': 0},
             'pagination': {'page': page, 'per_page': per_page, 'total': 0, 'pages': 0}
         })
         
     results = []
-    counts = {'all': 0, 'paziente': 0, 'check': 0, 'professional': 0}
+    counts = {'all': 0, 'paziente': 0, 'check': 0, 'professional': 0, 'training': 0}
     pagination_meta = {'page': page, 'per_page': per_page, 'total': 0, 'pages': 0}
     
     # helper for role-based cliente filtering
@@ -244,8 +245,107 @@ def global_search():
                     'is_admin': user.is_admin
                 }
             })
+
+    # --- SEARCH TRAININGS (REVIEWS + CHAT MESSAGES) ---
+    message_sender = aliased(User)
+    reviewer_user = aliased(User)
+    reviewee_user = aliased(User)
+
+    message_match_exists = db.session.query(ReviewMessage.id) \
+        .join(message_sender, ReviewMessage.sender_id == message_sender.id) \
+        .filter(
+            ReviewMessage.review_id == Review.id,
+            ReviewMessage.deleted_at.is_(None),
+            or_(
+                ReviewMessage.content.ilike(f'%{q}%'),
+                message_sender.first_name.ilike(f'%{q}%'),
+                message_sender.last_name.ilike(f'%{q}%'),
+                message_sender.email.ilike(f'%{q}%')
+            )
+        ).exists()
+
+    training_base_query = Review.query \
+        .join(reviewer_user, Review.reviewer_id == reviewer_user.id) \
+        .join(reviewee_user, Review.reviewee_id == reviewee_user.id) \
+        .filter(
+            Review.deleted_at.is_(None),
+            Review.is_draft.is_(False),
+            or_(
+                Review.title.ilike(f'%{q}%'),
+                Review.content.ilike(f'%{q}%'),
+                message_match_exists
+            )
+        )
+
+    # Le review private restano visibili solo ad admin e reviewer
+    if current_user.role != UserRoleEnum.admin:
+        training_base_query = training_base_query.filter(
+            or_(
+                Review.is_private.is_(False),
+                Review.reviewer_id == current_user.id
+            )
+        )
+
+    # Permessi per ruolo
+    if current_user.role == UserRoleEnum.admin:
+        pass
+    elif current_user.role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        team_member_ids.add(current_user.id)
+        training_base_query = training_base_query.filter(
+            or_(
+                Review.reviewer_id.in_(list(team_member_ids)),
+                Review.reviewee_id.in_(list(team_member_ids))
+            )
+        )
+    else:
+        training_base_query = training_base_query.filter(
+            or_(
+                Review.reviewer_id == current_user.id,
+                Review.reviewee_id == current_user.id
+            )
+        )
+
+    counts['training'] = training_base_query.count()
+
+    if not category or category == 'training':
+        limit = 10 if not category else per_page
+        offset = 0 if not category else (page - 1) * per_page
+
+        training_results = training_base_query.order_by(desc(Review.updated_at)).offset(offset).limit(limit).all()
+
+        if category == 'training':
+            pagination_meta['total'] = counts['training']
+            pagination_meta['pages'] = (counts['training'] + per_page - 1) // per_page
+
+        for review in training_results:
+            reviewer_name = f"{review.reviewer.first_name or ''} {review.reviewer.last_name or ''}".strip() if review.reviewer else "N/A"
+            reviewee_name = f"{review.reviewee.first_name or ''} {review.reviewee.last_name or ''}".strip() if review.reviewee else "N/A"
+            date_str = review.updated_at.strftime('%d/%m/%Y') if review.updated_at else 'N/A'
+            training_tab = 'trainings'
+            if review.reviewer_id == current_user.id and review.reviewee_id != current_user.id:
+                training_tab = 'given'
+
+            results.append({
+                'type': 'training',
+                'category': 'training',
+                'id': review.id,
+                'title': review.title or f"Training #{review.id}",
+                'subtitle': f'Da {reviewer_name} a {reviewee_name} - {date_str}',
+                'avatar': None,
+                'link': f'/formazione?trainingId={review.id}&trainingTab={training_tab}',
+                'metadata': {
+                    'review_type': review.review_type,
+                    'reviewer_id': review.reviewer_id,
+                    'reviewee_id': review.reviewee_id,
+                    'is_private': review.is_private
+                }
+            })
     
-    counts['all'] = counts['paziente'] + counts['check'] + counts['professional']
+    counts['all'] = counts['paziente'] + counts['check'] + counts['professional'] + counts['training']
     
     return jsonify({
         'results': results,

@@ -240,7 +240,8 @@ TABLE_PRIORITY = [
     'minor_checks',
     'minor_check_responses',
 ]
-MIGRATION_TABLES = None
+_migration_tables_env = os.environ.get('MIGRATION_TABLES', '').strip()
+MIGRATION_TABLES = {t.strip() for t in _migration_tables_env.split(',') if t.strip()} or None
 EXCLUDED_TABLES = {
     t.strip()
     for t in os.environ.get('MIGRATION_EXCLUDED_TABLES', 'activity_log,global_activity_log').split(',')
@@ -258,13 +259,15 @@ TEAM_TYPE_BY_ID = {
     '6': 'psicologia',
     '7': 'coach',
 }
-ALLOWED_USER_ROLES = {'admin', 'team_leader', 'professionista', 'team_esterno', 'influencer'}
+ALLOWED_USER_ROLES = {'admin', 'team_leader', 'professionista', 'team_esterno', 'influencer', 'health_manager'}
 ALLOWED_USER_SPECIALTIES = {
-    'amministrazione', 'cco', 'nutrizione', 'psicologia', 'coach', 'nutrizionista', 'psicologo'
+    'amministrazione', 'cco', 'nutrizione', 'psicologia', 'coach', 'nutrizionista', 'psicologo', 'medico'
 }
 ROLE_ALIASES = {
     'team leader': 'team_leader',
     'teamleader': 'team_leader',
+    'health manager': 'health_manager',
+    'healthmanager': 'health_manager',
     'professional': 'professionista',
     'professionist': 'professionista',
     'external_team': 'team_esterno',
@@ -281,6 +284,8 @@ SPECIALTY_ALIASES = {
     'psicologo': 'psicologo',
     'psychologist': 'psicologo',
     'coach': 'coach',
+    'medico': 'medico',
+    'doctor': 'medico',
 }
 ENUM_ALIASES = {
     'checksaltatienum': {
@@ -295,6 +300,10 @@ ENUM_ALIASES = {
         'primo_pagamento': 'deposito_iniziale',
         'primo': 'deposito_iniziale',
         'first_payment': 'deposito_iniziale',
+    },
+    'statoclienteenum': {
+        'freeze': 'pausa',
+        'insoluto': 'stop',
     },
 }
 
@@ -325,6 +334,69 @@ def table_is_included(table_name, new_schema_def):
     if MIGRATION_TABLES is not None and table_name not in MIGRATION_TABLES:
         return False
     return True
+
+
+def refresh_new_schema_backup(schema_path: str) -> str:
+    """
+    Regenerate NEW_SUITE_BACKUP from target DB schema using pg_dump.
+    Controlled by env:
+      - MIGRATION_REFRESH_NEW_SCHEMA (default: 1)
+      - MIGRATION_SCHEMA_REFRESH_STRICT (default: 1)
+    """
+    enabled = os.environ.get('MIGRATION_REFRESH_NEW_SCHEMA', '1').strip().lower() in {'1', 'true', 'yes'}
+    strict = os.environ.get('MIGRATION_SCHEMA_REFRESH_STRICT', '1').strip().lower() in {'1', 'true', 'yes'}
+
+    if not enabled:
+        print(f"[schema-refresh] disabled (MIGRATION_REFRESH_NEW_SCHEMA=0), using existing: {schema_path}")
+        return schema_path
+
+    out_dir = os.path.dirname(schema_path) or "."
+    os.makedirs(out_dir, exist_ok=True)
+    tmp_path = f"{schema_path}.tmp"
+
+    pg_host = os.environ.get('PGHOST', '127.0.0.1')
+    pg_port = os.environ.get('PGPORT', '5432')
+    pg_user = os.environ.get('PGUSER', '')
+    pg_db = os.environ.get('PGDATABASE', '')
+
+    if not pg_user or not pg_db:
+        msg = "[schema-refresh] PGUSER/PGDATABASE non impostati: impossibile rigenerare lo schema"
+        if strict:
+            raise RuntimeError(msg)
+        print(f"{msg}; fallback file esistente")
+        return schema_path
+
+    cmd = [
+        'pg_dump',
+        '--schema-only',
+        '--no-owner',
+        '--no-privileges',
+        '--quote-all-identifiers',
+        '--no-comments',
+        '-h', pg_host,
+        '-p', pg_port,
+        '-U', pg_user,
+        '-d', pg_db,
+        '-f', tmp_path,
+    ]
+
+    print(f"[schema-refresh] regenerating schema backup: {schema_path}")
+    try:
+        subprocess.run(cmd, check=True)
+        os.replace(tmp_path, schema_path)
+        print("[schema-refresh] done")
+        return schema_path
+    except Exception as exc:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+        msg = f"[schema-refresh] failed: {exc}"
+        if strict:
+            raise RuntimeError(msg)
+        print(f"{msg}; fallback file esistente")
+        return schema_path
 
 def load_fk_dependencies_from_db():
     """
@@ -539,6 +611,17 @@ def apply_default_value(table, col, value, row):
     if table == 'sales_form_links' and col == 'unique_code' and (value is None or str(value).strip() == ''):
         link_id = str(row.get('id', '')).strip() or 'unknown'
         return f"legacy-link-{link_id}"
+    if table == 'lead_payments' and col == 'amount':
+        # Target DB enforces positive amounts (check_amount_positive).
+        # Legacy dump can contain 0.00 rows: keep row importable with a small positive floor.
+        if value is None:
+            return '0.01'
+        raw = str(value).strip().replace(',', '.')
+        try:
+            if float(raw) <= 0:
+                return '0.01'
+        except Exception:
+            return '0.01'
     if table == 'teams' and col == 'team_type' and value is None:
         team_id = str(row.get('id', '')).strip()
         return TEAM_TYPE_BY_ID.get(team_id, 'nutrizione')
@@ -557,15 +640,25 @@ def derived_user_value(col, row):
     is_external = normalize_bool(row.get('is_external'), default=False)
     raw_specialty = row.get('specialty')
     specialty = normalize_user_specialty(raw_specialty)
+    # Fallback: infer specialty from official organigram when source value is missing.
+    if not specialty:
+        inferred_specialty, _ = get_professional_info(
+            row.get('first_name') or '',
+            row.get('last_name') or '',
+        )
+        specialty = inferred_specialty
 
     if col == 'role':
         if is_admin:
             return 'admin'
         if role:
+            # A clinical role without specialty is invalid in the new model.
+            if role in {'professionista', 'team_leader'} and not specialty:
+                return None
             return role
         if is_external:
             return 'team_esterno'
-        return 'professionista'
+        return 'professionista' if specialty else None
     if col == 'specialty':
         return specialty
     if col == 'email':
@@ -666,6 +759,8 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
     split_dir = os.environ.get('MIGRATION_SPLIT_DIR', '').strip()
     order_file = os.environ.get('MIGRATION_ORDER_FILE', '').strip()
     skip_combined_dump = os.environ.get('MIGRATION_SKIP_COMBINED_DUMP', '0').strip().lower() in {'1', 'true', 'yes'}
+    users_by_name = {}
+    imported_team_heads = {}
 
     def get_table_file_path(table_name):
         path = table_file_paths.get(table_name)
@@ -790,11 +885,88 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
                 continue
             pending_values.append(f"({', '.join(sql_values)})")
             table_row_counts[current_table] += 1
+            if current_table == 'users':
+                uid = row.get('id')
+                first = (row.get('first_name') or '').strip()
+                last = (row.get('last_name') or '').strip()
+                if uid and (first or last):
+                    users_by_name[f"{first} {last}".strip().lower()] = uid
+            elif current_table == 'teams':
+                tid = row.get('id')
+                head_id = row.get('head_id')
+                if tid:
+                    imported_team_heads[str(tid).strip()] = str(head_id).strip() if head_id not in (None, '') else None
             if len(pending_values) >= insert_batch_size:
                 flush_pending()
 
         flush_pending()
         process.wait()
+
+        if table_row_counts.get('team_members', 0) == 0 and 'team_members' in new_schema_def:
+            synthetic_memberships = []
+            seen_memberships = set()
+
+            def add_membership(team_id, user_id):
+                if not team_id or not user_id:
+                    return
+                try:
+                    t_id = int(str(team_id).strip())
+                    u_id = int(str(user_id).strip())
+                except Exception:
+                    return
+                key = (t_id, u_id)
+                if key in seen_memberships:
+                    return
+                seen_memberships.add(key)
+                synthetic_memberships.append({
+                    'team_id': t_id,
+                    'user_id': u_id,
+                    'joined_at': datetime.now().isoformat(),
+                })
+
+            # Always include current team heads as members.
+            for team_id, head_id in imported_team_heads.items():
+                add_membership(team_id, head_id)
+
+            # Enrich memberships from official organigram when users are present in imported users.
+            for team_id, team in OFFICIAL_TEAMS.items():
+                if str(team_id) not in imported_team_heads:
+                    continue
+                for person_name in [team.get('leader')] + list(team.get('members', [])):
+                    if not person_name:
+                        continue
+                    add_membership(team_id, users_by_name.get(str(person_name).strip().lower()))
+
+            if synthetic_memberships:
+                current_table = 'team_members'
+                mapped_cols = []
+                for col in ['team_id', 'user_id', 'joined_at']:
+                    if col in new_schema_def['team_members']:
+                        mapped_cols.append((col, new_schema_def['team_members'].get(col, '')))
+                pending_values = []
+                for srow in synthetic_memberships:
+                    sql_values = []
+                    for col, col_type in mapped_cols:
+                        sql_values.append(to_sql_value(srow.get(col), col_type))
+                    pending_values.append(f"({', '.join(sql_values)})")
+                    if len(pending_values) >= insert_batch_size:
+                        final_cols_quoted = ", ".join(f'"{col}"' for col, _ in mapped_cols)
+                        append_table_sql(
+                            'team_members',
+                            f"INSERT INTO public.team_members ({final_cols_quoted}) VALUES {', '.join(pending_values)} ON CONFLICT DO NOTHING;\n"
+                        )
+                        pending_values = []
+                if pending_values:
+                    final_cols_quoted = ", ".join(f'"{col}"' for col, _ in mapped_cols)
+                    append_table_sql(
+                        'team_members',
+                        f"INSERT INTO public.team_members ({final_cols_quoted}) VALUES {', '.join(pending_values)} ON CONFLICT DO NOTHING;\n"
+                    )
+                table_row_counts['team_members'] = len(synthetic_memberships)
+                if 'team_members' not in inserted_tables_seen:
+                    inserted_tables_seen.add('team_members')
+                    inserted_tables.append('team_members')
+                print(f"[migration][prepare][derived] table=team_members source_rows={len(synthetic_memberships)} method=team_heads+official_organigram")
 
         ordered_tables = order_tables_by_fk(inserted_tables, fk_deps)
         ordered_tables = enforce_table_precedence(
@@ -918,7 +1090,7 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
 
     filtered_users = []
     name_to_id = {}
-    clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach'}
+    clinical_specialties = {'nutrizione', 'nutrizionista', 'psicologia', 'psicologo', 'coach', 'medico'}
     for u in table_data.get('users', []):
         first = (u.get('first_name') or '').strip()
         last = (u.get('last_name') or '').strip()
@@ -966,9 +1138,9 @@ def generate_migrated_dump(new_schema_path, old_dump_path, output_path, new_sche
             elif u.get('specialty') in clinical_specialties:
                 u['role'] = 'professionista'
             else:
-                u['role'] = 'influencer'
-        if u['role'] not in ALLOWED_USER_ROLES:
-            u['role'] = 'professionista'
+                u['role'] = None
+        if u.get('role') and u['role'] not in ALLOWED_USER_ROLES:
+            u['role'] = None
         if not u.get('first_name'):
             u['first_name'] = 'Utente'
         if not u.get('last_name'):
@@ -1137,5 +1309,6 @@ if __name__ == "__main__":
     NEW_SUITE_BACKUP = os.environ.get('NEW_SUITE_BACKUP', 'new_schema.sql')
     OLD_SUITE_BACKUP = os.environ.get('OLD_SUITE_BACKUP', 'old_suite.dump')
     OUTPUT_FILE = os.environ.get('OUTPUT_FILE', 'migrated_db.sql')
+    NEW_SUITE_BACKUP = refresh_new_schema_backup(NEW_SUITE_BACKUP)
     schema_def, enum_defs, fk_deps = parse_sql_dump(NEW_SUITE_BACKUP)
     generate_migrated_dump(NEW_SUITE_BACKUP, OLD_SUITE_BACKUP, OUTPUT_FILE, schema_def, enum_defs, fk_deps)

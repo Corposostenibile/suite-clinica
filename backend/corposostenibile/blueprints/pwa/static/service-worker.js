@@ -76,6 +76,17 @@ self.addEventListener("fetch", event => {
 
   const url = new URL(request.url);
 
+  // Public check links must always hit network/backend routes directly.
+  if (
+    url.pathname.startsWith("/client-checks/public/") ||
+    url.pathname.startsWith("/client-checks/weekly/") ||
+    url.pathname.startsWith("/client-checks/dca/") ||
+    url.pathname.startsWith("/client-checks/minor/")
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // ——— 1) Asset statici (icone, CSS, JS, manifest, ecc.)
   if (url.origin === self.location.origin && url.pathname.startsWith("/static")) {
     event.respondWith(cacheFirst(request));

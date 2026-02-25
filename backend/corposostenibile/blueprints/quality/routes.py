@@ -30,14 +30,21 @@ from .services import (
 from . import bp
 
 
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == 'cco' if specialty else False
+
+
 def admin_required(f):
-    """Decorator per verificare accesso admin."""
+    """Decorator per verificare accesso admin o CCO."""
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
+        if not current_user.is_authenticated or (not current_user.is_admin and not _is_cco_user(current_user)):
             print(f"Access denied for user {current_user}")  # Log access denied
-            return jsonify({'success': False, 'error': 'Accesso negato. Solo amministratori.'}), 403
+            return jsonify({'success': False, 'error': 'Accesso negato. Solo amministratori o CCO.'}), 403
         return f(*args, **kwargs)
     return decorated_function
 

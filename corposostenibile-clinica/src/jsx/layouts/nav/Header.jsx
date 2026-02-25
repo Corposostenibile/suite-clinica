@@ -1,6 +1,6 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 /// Scroll
 
 import { Dropdown } from "react-bootstrap";
@@ -12,6 +12,7 @@ import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
 import { SVGICON } from "../../constant/theme.jsx";
 import GlobalSearch from "../../../components/GlobalSearch";
+import pushNotificationService from "../../../services/pushNotificationService";
 
 // Role labels in Italian
 const ROLE_LABELS = {
@@ -28,11 +29,22 @@ const ROLE_LABELS = {
   psicologo: 'Psicologo',
 };
 
-const HEADER_COMPACT_NAV_WIDTH = 44;
-
-const Header = ({ onNote, compactTopBar }) => {
+const Header = ({ onNote }) => {
   const { background, changeBackground } = useContext(ThemeContext);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [pushStatus, setPushStatus] = useState({
+    supported: true,
+    backendEnabled: true,
+    permission: 'default',
+    subscribed: false,
+    enabled: false,
+  });
+  const [pushLoading, setPushLoading] = useState(true);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [notificationItems, setNotificationItems] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationLoading, setNotificationLoading] = useState(true);
 
   function ThemeChange() {
     if (background.value === "light") {
@@ -66,51 +78,112 @@ const Header = ({ onNote, compactTopBar }) => {
     }
     setFullScreen(false);
   };
-  const baseHeaderStyle = {
-    backdropFilter: 'blur(10px)',
-    background: 'rgba(255, 255, 255, 0.9)',
-    borderBottom: '1px solid #e2e8f0',
+
+  const loadPushStatus = async () => {
+    setPushLoading(true);
+    const status = await pushNotificationService.getPushStatus();
+    setPushStatus(status);
+    setPushLoading(false);
   };
-  const compactHeaderStyle = compactTopBar
-    ? {
-        ...baseHeaderStyle,
-        height: HEADER_COMPACT_NAV_WIDTH,
-        minHeight: HEADER_COMPACT_NAV_WIDTH,
-        paddingLeft: HEADER_COMPACT_NAV_WIDTH,
-        display: 'flex',
-        alignItems: 'center',
-      }
-    : baseHeaderStyle;
 
-  const compactContentStyle = compactTopBar
-    ? {
-        height: '100%',
-        flex: 1,
-        minWidth: 0,
-        paddingLeft: 10,
-        paddingRight: 10,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }
-    : undefined;
+  const loadNotifications = async () => {
+    setNotificationLoading(true);
+    try {
+      const data = await pushNotificationService.getNotifications({ unreadOnly: true, limit: 6 });
+      setNotificationCount(Number(data?.unreadCount || 0));
+      setNotificationItems(Array.isArray(data?.items) ? data.items : []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotificationCount(0);
+      setNotificationItems([]);
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
 
-  const compactNavbarCollapseStyle = compactTopBar
-    ? { height: '100%', display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }
-    : undefined;
-  const compactHeaderRightStyle = compactTopBar
-    ? { flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }
-    : undefined;
+  useEffect(() => {
+    if (user?.id) {
+      loadPushStatus();
+      loadNotifications();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const timer = setInterval(() => {
+      loadNotifications();
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [user?.id]);
+
+  const handleEnablePush = async () => {
+    setPushBusy(true);
+    const result = await pushNotificationService.enablePushNotifications();
+    await loadPushStatus();
+    setPushBusy(false);
+    if (!result?.subscribed) {
+      window.alert('Notifiche non abilitate. Verifica i permessi del browser/PWA.');
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setPushBusy(true);
+    await pushNotificationService.disablePushNotifications();
+    await loadPushStatus();
+    setPushBusy(false);
+  };
+
+  const pushDisabledReason = !pushStatus.supported
+    ? 'Il browser non supporta le notifiche push.'
+    : !pushStatus.backendEnabled
+      ? 'Push non configurate sul server.'
+      : pushStatus.permission === 'denied'
+        ? 'Permesso notifiche negato nel browser.'
+        : 'Riceverai notifiche push su task e aggiornamenti futuri.';
+
+  const formatNotificationTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+  };
+
+  const getNotificationDestination = (notification) => {
+    const href = notification?.url || '/task';
+    const external = /^https?:\/\//i.test(href);
+    return { href, external };
+  };
+
+  const handleNotificationClick = async (notification) => {
+    const res = await pushNotificationService.markNotificationAsRead(notification.id);
+    setNotificationItems((prev) => prev.filter((item) => item.id !== notification.id));
+    if (res?.ok && Number.isFinite(res.unreadCount)) {
+      setNotificationCount(res.unreadCount);
+    } else {
+      setNotificationCount((prev) => Math.max(0, prev - 1));
+    }
+
+    const destination = getNotificationDestination(notification);
+    if (destination.external) {
+      window.open(destination.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigate(destination.href);
+  };
+
+  const handleNotificationToggle = (isOpen) => {
+    if (isOpen) loadNotifications();
+  };
 
   return (
-    <div className="header" style={compactHeaderStyle}>
-      <div className="header-content" style={compactContentStyle}>
+    <div className="header" style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.9)', borderBottom: '1px solid #e2e8f0' }}>
+      <div className="header-content">
         <nav className="navbar navbar-expand">
-          <div className="collapse navbar-collapse justify-content-between" style={compactNavbarCollapseStyle}>
-            <div className="header-left" style={compactTopBar ? { flex: '0 1 auto', minWidth: 0, maxWidth: 140 } : undefined}>
+          <div className="collapse navbar-collapse justify-content-between">
+            <div className="header-left">
               <GlobalSearch />
             </div>
-            <ul className="navbar-nav header-right" style={compactHeaderRightStyle}>
+            <ul className="navbar-nav header-right">
               <li className="nav-item dropdown notification_dropdown">
                 <Link
                   to="/supporto"
@@ -118,7 +191,7 @@ const Header = ({ onNote, compactTopBar }) => {
                   title="Supporto"
                   style={{ transition: 'all 0.3s ease' }}
                 >
-                  <i className="fas fa-question-circle header-icon-size" style={{ color: '#64748b' }} />
+                  <i className="fas fa-question-circle" style={{ fontSize: '20px', color: '#64748b' }} />
                 </Link>
               </li>
               {fullScreen ? (
@@ -197,33 +270,104 @@ const Header = ({ onNote, compactTopBar }) => {
                   </Link>
                 </li>
               )}
-              <Dropdown as="li" className="nav-item notification_dropdown">
+              <Dropdown as="li" className="nav-item notification_dropdown" onToggle={handleNotificationToggle}>
                 <Dropdown.Toggle variant="" as="a"
                   className="nav-link i-false c-pointer dropdown-toggle-no-caret"
                   role="button"
                   data-toggle="dropdown"
-                  style={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s ease' }}
+                  style={{ display: 'flex', alignItems: 'center', transition: 'all 0.3s ease', position: 'relative' }}
                 >
-                  <i className="ri-notification-3-line header-icon-size" style={{ color: '#64748b' }}></i>
+                  <i className="ri-notification-3-line" style={{ fontSize: '20px', color: '#64748b' }}></i>
+                  {notificationCount > 0 && (
+                    <span
+                      className="badge bg-danger"
+                      style={{ position: 'absolute', top: '2px', right: '-4px', fontSize: '10px', minWidth: '18px', height: '18px', borderRadius: '999px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </span>
+                  )}
                 </Dropdown.Toggle>
                 <Dropdown.Menu align="end" style={{ minWidth: '320px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', borderRadius: '16px' }}>
                   <div className="p-4 text-center">
                     <div className="mb-3">
-                      <i className="ri-microsoft-fill" style={{ fontSize: '48px', color: '#5059C9' }}></i>
+                      <i className="ri-notification-3-line" style={{ fontSize: '48px', color: pushStatus.enabled ? '#25B36A' : '#64748b' }}></i>
                     </div>
-                    <h6 className="mb-2 fw-bold" style={{ color: '#1e293b' }}>Notifiche su Microsoft Teams</h6>
+                    <h6 className="mb-2 fw-bold" style={{ color: '#1e293b' }}>Notifiche Push</h6>
                     <p className="text-muted mb-3" style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                      Le notifiche verranno inviate direttamente su <strong>Microsoft Teams</strong>.
+                      {pushLoading ? 'Verifica stato notifiche...' : pushDisabledReason}
                     </p>
-                    <div className="p-2 bg-light rounded-3" style={{ fontSize: '11px', color: '#94a3b8' }}>
-                      Suite Clinica ottimizzata per Microsoft Teams
+                    <div className="mb-3">
+                      {pushStatus.enabled ? (
+                        <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">Attive</span>
+                      ) : (
+                        <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2">Disattivate</span>
+                      )}
                     </div>
+                    {pushStatus.enabled ? (
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={handleDisablePush}
+                        disabled={pushBusy || pushLoading}
+                      >
+                        {pushBusy ? 'Disattivo...' : 'Disattiva notifiche'}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleEnablePush}
+                        disabled={pushBusy || pushLoading || !pushStatus.supported || !pushStatus.backendEnabled || pushStatus.permission === 'denied'}
+                      >
+                        {pushBusy ? 'Attivo...' : 'Attiva notifiche push'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="border-top px-3 py-2 d-flex align-items-center justify-content-between">
+                    <span className="fw-semibold" style={{ color: '#1e293b', fontSize: '13px' }}>Notifiche non lette</span>
+                    <Link to="/task" style={{ fontSize: '12px' }}>Apri tutte</Link>
+                  </div>
+                  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                    {notificationLoading ? (
+                      <div className="px-3 py-3 text-muted text-center" style={{ fontSize: '12px' }}>Caricamento notifiche...</div>
+                    ) : notificationItems.length === 0 ? (
+                      <div className="px-3 py-3 text-muted text-center" style={{ fontSize: '12px' }}>Nessuna notifica disponibile</div>
+                    ) : (
+                      notificationItems.map((notification) => {
+                        const iconClass = notification.kind === 'task_assigned' ? 'ri-task-line' : 'ri-notification-3-line';
+                        const iconColor = notification.kind === 'task_assigned' ? '#25B36A' : '#64748b';
+                        return (
+                          <button
+                            key={notification.id}
+                            type="button"
+                            onClick={() => handleNotificationClick(notification)}
+                            className="w-100 text-start border-0 bg-white px-3 py-2 border-top"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div className="d-flex align-items-start justify-content-between gap-2">
+                              <div className="d-flex align-items-start gap-2">
+                                <i className={iconClass} style={{ color: iconColor, marginTop: '2px' }}></i>
+                                <div>
+                                  <div className="fw-semibold" style={{ fontSize: '12px', color: '#1e293b', lineHeight: 1.3 }}>
+                                    {notification.title || 'Nuova notifica'}
+                                  </div>
+                                  <div className="text-muted" style={{ fontSize: '11px' }}>
+                                    {notification.body || 'Apri per dettagli'}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-muted" style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                                {formatNotificationTime(notification.created_at)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </Dropdown.Menu>
               </Dropdown>
               <Dropdown as="li" className="nav-item dropdown header-profile">
-                <Dropdown.Toggle variant="" as="a" className="nav-link i-false c-pointer dropdown-toggle-no-caret header-profile-toggle" style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
-                  <img src={user?.avatar_path || defaultAvatar} alt="" className="header-profile-avatar" />
+                <Dropdown.Toggle variant="" as="a" className="nav-link i-false c-pointer dropdown-toggle-no-caret" style={{ background: '#f8fafc', borderRadius: '12px', padding: '6px 12px', marginLeft: '12px', border: '1px solid #f1f5f9' }}>
+                  <img src={user?.avatar_path || defaultAvatar} width={34} height={34} alt="" style={{ borderRadius: '10px' }} />
                   <div className="header-info ms-2">
                     <span style={{ fontSize: '13px' }}>Ciao, <strong style={{ color: '#1e293b' }}>{user?.first_name || 'Utente'}</strong></span>
                     <small style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>{ROLE_LABELS[user?.role] || user?.role || 'Profilo'}</small>
@@ -247,9 +391,9 @@ const Header = ({ onNote, compactTopBar }) => {
               <li className="nav-item right-sidebar ms-2">
                 <Link
                   to="#"
-                  className="nav-link bell i-false c-pointer ai-icon p-2 header-tasks-btn"
+                  className="nav-link bell i-false c-pointer ai-icon p-2"
                   onClick={() => onNote && onNote()}
-                  style={{ background: '#f1f5f9' }}
+                  style={{ background: '#f1f5f9', borderRadius: '12px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <svg id="icon-menu" viewBox="0 0 24 24" width="22" height="22" stroke="#64748b" strokeWidth="2" fill="none"
                     strokeLinecap="round" strokeLinejoin="round" className="css-i6dzq1 hoverEffect"

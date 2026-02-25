@@ -7,20 +7,11 @@ metadata:
 spec:
   # Elimina automaticamente il Job poco dopo il completamento
   ttlSecondsAfterFinished: 3600
-  backoffLimit: 2
+  backoffLimit: 6
   template:
     spec:
       restartPolicy: Never
-      nodeSelector:
-        topology.kubernetes.io/zone: europe-west8-b
-      tolerations:
-      - key: "node.kubernetes.io/memory-pressure"
-        operator: "Exists"
-        effect: "NoSchedule"
-      - key: "autoscaling.gke.io/defrag-candidate"
-        operator: "Exists"
-        effect: "NoSchedule"
-      
+
       # K8s 1.29+ Native Sidecar: Il proxy viene definito qui ma gira come sidecar
       initContainers:
       - name: cloud-sql-proxy
@@ -70,8 +61,12 @@ spec:
         - name: MIGRATION_STRICT_COUNTS
           value: "1"
         - name: MIGRATION_RESUME_FROM_STEP
-          value: "140"
+          value: "1"
         - name: MIGRATION_VALIDATE_FIRST
+          value: "0"
+        - name: MIGRATION_REFRESH_NEW_SCHEMA
+          value: "1"
+        - name: MIGRATION_SCHEMA_REFRESH_STRICT
           value: "1"
         - name: PGHOST
           value: "127.0.0.1"
@@ -192,33 +187,45 @@ spec:
           VALIDATE_FIRST="${MIGRATION_VALIDATE_FIRST:-1}"
           if [ "${VALIDATE_FIRST}" = "1" ] || [ "${VALIDATE_FIRST}" = "true" ] || [ "${VALIDATE_FIRST}" = "yes" ]; then
             echo "[migration] validate-first enabled: dry-run checks from step ${RESUME_FROM_STEP}/${TOTAL_TABLES} (display 1/${DISPLAY_TOTAL})"
-            VAL_ERRORS=0
-            VAL_STEP=0
-            ROW_NO=0
-            while IFS=$'\t' read -r V_IDX V_TBL V_SRC V_FILE; do
-              if [ "${V_IDX}" = "idx" ] || [ -z "${V_IDX}" ]; then
-                continue
+            # Validate the whole remaining segment in a single transaction so FK
+            # dependencies between resumed tables are checked correctly.
+            VAL_SCRIPT=$(mktemp)
+            {
+              echo "BEGIN;"
+              VAL_STEP=0
+              ROW_NO=0
+              while IFS=$'\t' read -r V_IDX V_TBL V_SRC V_FILE; do
+                if [ "${V_IDX}" = "idx" ] || [ -z "${V_IDX}" ]; then
+                  continue
+                fi
+                ROW_NO=$((ROW_NO + 1))
+                if [ "${ROW_NO}" -lt "${RESUME_FROM_STEP}" ]; then
+                  continue
+                fi
+                VAL_STEP=$((VAL_STEP + 1))
+                echo "\\echo [migration][validate][progress] step=${VAL_STEP}/${DISPLAY_TOTAL} table=${V_TBL} status=queued"
+                printf "\\i %s\n" "${V_FILE}"
+              done < "${MIGRATION_ORDER_FILE}"
+              echo "ROLLBACK;"
+            } > "${VAL_SCRIPT}"
+
+            V_ERR_FILE=$(mktemp)
+            if ! psql -v ON_ERROR_STOP=1 -f "${VAL_SCRIPT}" 2>"${V_ERR_FILE}" | sed -n 's/^\\[migration\\]\\[validate\\]\\[progress\\]/&/p'; then
+              ERR_SRC_FILE=$(sed -n 's#.*\(/data/backups/migration_output/tables/[0-9][0-9][0-9][0-9]_[^:]*\.sql\):.*#\1#p' "${V_ERR_FILE}" | head -n1)
+              if [ -n "${ERR_SRC_FILE}" ]; then
+                ERR_BASE=$(basename "${ERR_SRC_FILE}")
+                ERR_TABLE="${ERR_BASE#*_}"
+                ERR_TABLE="${ERR_TABLE%.sql}"
+                echo "[migration][validate][error] table=${ERR_TABLE} mode=cumulative"
+              else
+                echo "[migration][validate][error] table=unknown mode=cumulative"
               fi
-              ROW_NO=$((ROW_NO + 1))
-              if [ "${ROW_NO}" -lt "${RESUME_FROM_STEP}" ]; then
-                continue
-              fi
-              VAL_STEP=$((VAL_STEP + 1))
-              V_ERR_FILE=$(mktemp)
-              if ! printf "BEGIN;\n\\i %s\nROLLBACK;\n" "${V_FILE}" | psql -q -v ON_ERROR_STOP=1 >/dev/null 2>"${V_ERR_FILE}"
-              then
-                VAL_ERRORS=$((VAL_ERRORS + 1))
-                echo "[migration][validate][error] table=${V_TBL} step=${VAL_STEP}/${DISPLAY_TOTAL} source=${V_SRC}"
-                sed -n '1,12p' "${V_ERR_FILE}" | sed 's/^/[migration][validate][detail] /' || true
-              elif [ $((VAL_STEP % 20)) -eq 0 ]; then
-                echo "[migration][validate][progress] step=${VAL_STEP}/${DISPLAY_TOTAL} table=${V_TBL} status=ok"
-              fi
-              rm -f "${V_ERR_FILE}"
-            done < "${MIGRATION_ORDER_FILE}"
-            if [ "${VAL_ERRORS}" -gt 0 ]; then
-              echo "[migration][validate][summary] errors=${VAL_ERRORS} action=fix_and_rerun"
+              sed -n '1,20p' "${V_ERR_FILE}" | sed 's/^/[migration][validate][detail] /' || true
+              rm -f "${V_ERR_FILE}" "${VAL_SCRIPT}"
+              echo "[migration][validate][summary] errors=1 action=fix_and_rerun"
               exit 1
             fi
+            rm -f "${V_ERR_FILE}" "${VAL_SCRIPT}"
             echo "[migration][validate][summary] errors=0 action=replay"
           fi
 
@@ -261,35 +268,181 @@ spec:
           done < "${MIGRATION_ORDER_FILE}"
           print_key_score "final"
 
-          psql -q -v ON_ERROR_STOP=1 -c "
-            INSERT INTO public.users (
-              email, password_hash, first_name, last_name,
-              is_admin, is_active, role, is_external, is_trial,
-              created_at, updated_at
-            ) VALUES (
-              'dev@corposostenibile.it',
-              'scrypt:32768:8:1$LMH8SAMYpZQWvxow$f044cdba43c067d884837625b9057d6330fcbb5e5c3b5a1a0635de6f60f08c6f149f635d6973430c3f377138d2e2052c865b03ffa353669fd1f075d84b0b9128',
-              'Dev',
-              'Admin',
-              true,
-              true,
-              'admin',
-              false,
-              false,
-              NOW(),
-              NOW()
-            )
-            ON CONFLICT (email) DO UPDATE SET
-              password_hash = EXCLUDED.password_hash,
-              first_name = EXCLUDED.first_name,
-              last_name = EXCLUDED.last_name,
-              is_admin = true,
-              is_active = true,
-              role = 'admin',
-              is_external = false,
-              is_trial = false,
-              updated_at = NOW();
-          "
+          echo "[migration] post-alignment: backfill users.specialty..."
+          psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          WITH src AS (
+            SELECT nutrizionista_id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM clienti
+            WHERE nutrizionista_id IS NOT NULL
+            GROUP BY nutrizionista_id
+            UNION ALL
+            SELECT coach_id AS user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM clienti
+            WHERE coach_id IS NOT NULL
+            GROUP BY coach_id
+            UNION ALL
+            SELECT psicologa_id AS user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM clienti
+            WHERE psicologa_id IS NOT NULL
+            GROUP BY psicologa_id
+            UNION ALL
+            SELECT user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM cliente_nutrizionisti
+            GROUP BY user_id
+            UNION ALL
+            SELECT user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM cliente_coaches
+            GROUP BY user_id
+            UNION ALL
+            SELECT user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM cliente_psicologi
+            GROUP BY user_id
+            UNION ALL
+            SELECT u.id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM users u
+            JOIN clienti c ON lower(trim(c.nutrizionista)) = lower(trim(concat_ws(' ', u.first_name, u.last_name)))
+            GROUP BY u.id
+            UNION ALL
+            SELECT u.id AS user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM users u
+            JOIN clienti c ON lower(trim(c.coach)) = lower(trim(concat_ws(' ', u.first_name, u.last_name)))
+            GROUP BY u.id
+            UNION ALL
+            SELECT u.id AS user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM users u
+            JOIN clienti c ON lower(trim(c.psicologa)) = lower(trim(concat_ws(' ', u.first_name, u.last_name)))
+            GROUP BY u.id
+            UNION ALL
+            SELECT nutritionist_user_id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM typeform_responses WHERE nutritionist_user_id IS NOT NULL
+            GROUP BY nutritionist_user_id
+            UNION ALL
+            SELECT coach_user_id AS user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM typeform_responses WHERE coach_user_id IS NOT NULL
+            GROUP BY coach_user_id
+            UNION ALL
+            SELECT psychologist_user_id AS user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM typeform_responses WHERE psychologist_user_id IS NOT NULL
+            GROUP BY psychologist_user_id
+            UNION ALL
+            SELECT user_id,
+                   CASE
+                     WHEN lower(tipo_professionista) = 'nutrizionista' THEN 'nutrizionista'::public.userspecialtyenum
+                     WHEN lower(tipo_professionista) = 'coach' THEN 'coach'::public.userspecialtyenum
+                     WHEN lower(tipo_professionista) IN ('psicologa', 'psicologo') THEN 'psicologo'::public.userspecialtyenum
+                     WHEN lower(tipo_professionista) = 'consulente' THEN 'nutrizionista'::public.userspecialtyenum
+                     ELSE NULL
+                   END AS spec,
+                   count(*)::int AS cnt
+            FROM cliente_professionista_history
+            WHERE user_id IS NOT NULL
+            GROUP BY user_id,
+                     CASE
+                       WHEN lower(tipo_professionista) = 'nutrizionista' THEN 'nutrizionista'::public.userspecialtyenum
+                       WHEN lower(tipo_professionista) = 'coach' THEN 'coach'::public.userspecialtyenum
+                       WHEN lower(tipo_professionista) IN ('psicologa', 'psicologo') THEN 'psicologo'::public.userspecialtyenum
+                       WHEN lower(tipo_professionista) = 'consulente' THEN 'nutrizionista'::public.userspecialtyenum
+                       ELSE NULL
+                     END
+          ),
+          ranked AS (
+            SELECT user_id, spec, cnt,
+                   row_number() OVER (
+                     PARTITION BY user_id
+                     ORDER BY cnt DESC,
+                       CASE spec
+                         WHEN 'nutrizionista'::public.userspecialtyenum THEN 1
+                         WHEN 'coach'::public.userspecialtyenum THEN 2
+                         WHEN 'psicologo'::public.userspecialtyenum THEN 3
+                         ELSE 9
+                       END
+                   ) AS rn
+            FROM src
+            WHERE spec IS NOT NULL
+          ),
+          best AS (
+            SELECT user_id, spec
+            FROM ranked
+            WHERE rn = 1
+          )
+          UPDATE users u
+          SET specialty = b.spec
+          FROM best b
+          WHERE u.id = b.user_id
+            AND u.role = 'professionista'
+            AND u.specialty IS NULL;
+
+          UPDATE users
+          SET specialty = 'psicologo'::public.userspecialtyenum
+          WHERE role = 'professionista'
+            AND specialty IS NULL
+            AND (email ILIKE '%psi%' OR email ILIKE '%psic%');
+
+          UPDATE users
+          SET specialty = 'coach'::public.userspecialtyenum
+          WHERE role = 'professionista'
+            AND specialty IS NULL
+            AND email ILIKE '%coach%';
+
+          UPDATE users
+          SET specialty = 'nutrizionista'::public.userspecialtyenum
+          WHERE role = 'professionista'
+            AND specialty IS NULL
+            AND (email ILIKE '%nutri%' OR email ILIKE '%diet%');
+
+          SQL
+
+          echo "[migration] ensure required columns introduced by recent releases..."
+          psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER TABLE public.call_bonus
+            ADD COLUMN IF NOT EXISTS note_richiesta text,
+            ADD COLUMN IF NOT EXISTS ai_analysis jsonb,
+            ADD COLUMN IF NOT EXISTS ai_matches jsonb,
+            ADD COLUMN IF NOT EXISTS booking_confirmed boolean DEFAULT false,
+            ADD COLUMN IF NOT EXISTS data_booking_confirmed timestamp;
+
+          ALTER TABLE public.clienti_version
+            ADD COLUMN IF NOT EXISTS data_inizio_nutrizione date,
+            ADD COLUMN IF NOT EXISTS data_scadenza_nutrizione date,
+            ADD COLUMN IF NOT EXISTS data_inizio_coach date,
+            ADD COLUMN IF NOT EXISTS data_scadenza_coach date,
+            ADD COLUMN IF NOT EXISTS data_inizio_psicologia date,
+            ADD COLUMN IF NOT EXISTS data_scadenza_psicologia date,
+            ADD COLUMN IF NOT EXISTS show_in_clienti_lista boolean;
+          SQL
+
+          echo "[migration] running schema parity check..."
+          PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
+
+          psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO public.users (
+            email, password_hash, first_name, last_name,
+            is_admin, is_active, role, is_external, is_trial,
+            created_at, updated_at
+          ) VALUES (
+            'dev@corposostenibile.it',
+            'scrypt:32768:8:1$LMH8SAMYpZQWvxow$f044cdba43c067d884837625b9057d6330fcbb5e5c3b5a1a0635de6f60f08c6f149f635d6973430c3f377138d2e2052c865b03ffa353669fd1f075d84b0b9128',
+            'Dev',
+            'Admin',
+            true,
+            true,
+            'admin',
+            false,
+            false,
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT (email) DO UPDATE SET
+            password_hash = EXCLUDED.password_hash,
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            is_admin = true,
+            is_active = true,
+            role = 'admin',
+            is_external = false,
+            is_trial = false,
+            updated_at = NOW();
+          SQL
 
           echo "[migration] final row counts snapshot..."
           psql -v ON_ERROR_STOP=0 -c "select count(*) as users_count from public.users;" || true
@@ -310,20 +463,23 @@ spec:
         - name: migration-script
           mountPath: /app/scripts/migration_scripts/schema_comparator.py
           subPath: schema_comparator.py
+        - name: migration-script
+          mountPath: /app/scripts/migration_scripts/verify_schema_parity.py
+          subPath: verify_schema_parity.py
         resources:
           requests:
-            cpu: "1000m"
-            memory: "3Gi"
-            ephemeral-storage: "8Gi"
+            cpu: "100m"
+            memory: "256Mi"
+            ephemeral-storage: "1Gi"
           limits:
             cpu: "1000m"
             memory: "3Gi"
-            ephemeral-storage: "16Gi"
+            ephemeral-storage: "8Gi"
             
       volumes:
       - name: db-backups
         persistentVolumeClaim:
-          claimName: db-backups-pvc
+          claimName: db-backups-pvc-c
       - name: sql-proxy-key
         secret:
           secretName: sql-proxy-key

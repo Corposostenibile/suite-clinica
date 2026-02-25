@@ -11,7 +11,7 @@ from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import or_, func, cast, String
+from sqlalchemy import or_, func, cast, String, select, union_all, distinct
 from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -20,7 +20,9 @@ from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, 
     team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory, 
-    ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity
+    ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
+    ProfessionistCapacity, cliente_nutrizionisti, cliente_coaches,
+    cliente_psicologi, cliente_consulenti
 )
 
 
@@ -93,6 +95,98 @@ def _get_user_specialty(user):
     if hasattr(user, 'specialty') and user.specialty:
         return user.specialty.value if hasattr(user.specialty, 'value') else str(user.specialty)
     return None
+
+
+def _is_cco_user(user) -> bool:
+    """True se utente CCO (specialty CCO o dipartimento CCO)."""
+    specialty = _get_user_specialty(user)
+    if specialty == 'cco':
+        return True
+    department_name = getattr(getattr(user, 'department', None), 'name', None)
+    return str(department_name).strip().lower() == 'cco' if department_name else False
+
+
+def _can_view_professional_capacity(user) -> bool:
+    """ACL visualizzazione capienza: admin/CCO tutto, team leader solo membri."""
+    if not user.is_authenticated:
+        return False
+    if user.is_admin or _is_cco_user(user):
+        return True
+    return _get_user_role(user) == 'team_leader'
+
+
+def _can_edit_professional_capacity(user) -> bool:
+    """ACL modifica capienza contrattuale: solo admin o CCO."""
+    return user.is_authenticated and (user.is_admin or _is_cco_user(user))
+
+
+def _get_capacity_role_type(user) -> str | None:
+    """Normalizza role_type per tabella professionist_capacity."""
+    specialty = _get_user_specialty(user)
+    if specialty in ('nutrizione', 'nutrizionista'):
+        return 'nutrizionista'
+    if specialty in ('psicologia', 'psicologo'):
+        return 'psicologa'
+    if specialty == 'coach':
+        return 'coach'
+    return None
+
+
+def _get_team_leader_member_ids(user_id: int) -> set[int]:
+    """Ritorna ID membri dei team guidati dal team leader."""
+    team_ids = db.session.query(Team.id).filter(
+        Team.head_id == user_id,
+        Team.is_active == True
+    )
+    rows = db.session.query(team_members.c.user_id).filter(
+        team_members.c.team_id.in_(team_ids)
+    ).distinct().all()
+    return {row[0] for row in rows}
+
+
+def _get_assigned_clients_count_map(user_ids: list[int]) -> dict[int, int]:
+    """
+    Conteggio clienti assegnati per utente (FK + many-to-many), con count distinct per cliente.
+    """
+    if not user_ids:
+        return {}
+
+    sources = [
+        select(Cliente.nutrizionista_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.nutrizionista_id.in_(user_ids)
+        ),
+        select(Cliente.coach_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.coach_id.in_(user_ids)
+        ),
+        select(Cliente.psicologa_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.psicologa_id.in_(user_ids)
+        ),
+        select(Cliente.consulente_alimentare_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.consulente_alimentare_id.in_(user_ids)
+        ),
+        select(Cliente.health_manager_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.health_manager_id.in_(user_ids)
+        ),
+        select(cliente_nutrizionisti.c.user_id.label('user_id'), cliente_nutrizionisti.c.cliente_id.label('cliente_id')).where(
+            cliente_nutrizionisti.c.user_id.in_(user_ids)
+        ),
+        select(cliente_coaches.c.user_id.label('user_id'), cliente_coaches.c.cliente_id.label('cliente_id')).where(
+            cliente_coaches.c.user_id.in_(user_ids)
+        ),
+        select(cliente_psicologi.c.user_id.label('user_id'), cliente_psicologi.c.cliente_id.label('cliente_id')).where(
+            cliente_psicologi.c.user_id.in_(user_ids)
+        ),
+        select(cliente_consulenti.c.user_id.label('user_id'), cliente_consulenti.c.cliente_id.label('cliente_id')).where(
+            cliente_consulenti.c.user_id.in_(user_ids)
+        ),
+    ]
+
+    assignments_sq = union_all(*sources).subquery()
+    rows = db.session.query(
+        assignments_sq.c.user_id,
+        func.count(distinct(assignments_sq.c.cliente_id)).label('assigned_clients')
+    ).group_by(assignments_sq.c.user_id).all()
+    return {int(user_id): int(count) for user_id, count in rows}
 
 
 def _serialize_user(user, include_details=False, include_teams_led=True):
@@ -1514,7 +1608,8 @@ def get_teams():
     team_type_filter = request.args.get('team_type', '').strip()
     active_filter = request.args.get('active', '').strip()
     search_query = request.args.get('q', '').strip()
-    include_members = request.args.get('include_members', '').strip() == '1'
+    include_members_raw = request.args.get('include_members', '').strip().lower()
+    include_members = include_members_raw in {'1', 'true', 'yes', 'on'}
 
     # Base query with eager loading for head only (fast)
     query = Team.query.options(
@@ -1869,6 +1964,7 @@ def get_available_professionals(team_type):
     Get available professionals for a specific team type.
 
     For nutrizione/coach/psicologia: role = professionista and compatible specialty.
+    For medico: role = professionista and specialty = medico.
     For health_manager: role = health_manager (or department_id = 13 if present).
     """
     team_type = (team_type or "").strip().lower()
@@ -1883,6 +1979,18 @@ def get_available_professionals(team_type):
         professionals = User.query.filter(
             User.is_active == True,
             cast(User.role, String) == "health_manager",
+        ).order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'professionals': [_serialize_user(u) for u in professionals],
+            'total': len(professionals)
+        })
+
+    if team_type == "medico":
+        professionals = User.query.filter(
+            User.is_active == True,
+            User.role == UserRoleEnum.professionista,
+            cast(User.specialty, String) == "medico",
         ).order_by(User.first_name, User.last_name).all()
         return jsonify({
             'success': True,
@@ -1912,6 +2020,214 @@ def get_available_professionals(team_type):
         'success': True,
         'professionals': [_serialize_user(u) for u in professionals],
         'total': len(professionals)
+    })
+
+
+# =============================================================================
+# Professional Capacity Endpoints
+# =============================================================================
+
+@team_api_bp.route("/capacity", methods=["GET"])
+@login_required
+def get_professionals_capacity():
+    """
+    Tabella capienza professionisti.
+
+    ACL visualizzazione:
+    - admin/CCO: tutti i professionisti
+    - team_leader: solo i propri membri
+    - altri ruoli: nessun accesso
+    """
+    if not _can_view_professional_capacity(current_user):
+        return jsonify({
+            'success': False,
+            'message': 'Non autorizzato a visualizzare la capienza professionisti'
+        }), HTTPStatus.FORBIDDEN
+
+    user_id_filter = request.args.get('user_id', type=int)
+
+    clinical_specialties = [
+        UserSpecialtyEnum.nutrizione,
+        UserSpecialtyEnum.nutrizionista,
+        UserSpecialtyEnum.coach,
+        UserSpecialtyEnum.psicologia,
+        UserSpecialtyEnum.psicologo,
+        UserSpecialtyEnum.medico,
+    ]
+
+    query = User.query.filter(
+        User.is_active == True,
+        User.specialty.in_(clinical_specialties),
+        User.role == UserRoleEnum.professionista,
+    )
+
+    # Team Leader: visibilità limitata ai membri dei team guidati.
+    if not (current_user.is_admin or _is_cco_user(current_user)):
+        visible_member_ids = _get_team_leader_member_ids(current_user.id)
+        if not visible_member_ids:
+            return jsonify({
+                'success': True,
+                'rows': [],
+                'total': 0,
+                'can_edit': False
+            })
+        query = query.filter(User.id.in_(visible_member_ids))
+
+    if user_id_filter:
+        query = query.filter(User.id == user_id_filter)
+
+    professionals = query.order_by(User.first_name, User.last_name).all()
+    if not professionals:
+        return jsonify({
+            'success': True,
+            'rows': [],
+            'total': 0,
+            'can_edit': _can_edit_professional_capacity(current_user)
+        })
+
+    user_ids = [u.id for u in professionals]
+    assigned_map = _get_assigned_clients_count_map(user_ids)
+
+    capacities = ProfessionistCapacity.query.filter(
+        ProfessionistCapacity.user_id.in_(user_ids)
+    ).all()
+    capacity_by_pair = {(c.user_id, c.role_type): c for c in capacities}
+
+    rows = []
+    changed = False
+
+    for prof in professionals:
+        role_type = _get_capacity_role_type(prof)
+        if not role_type:
+            continue
+
+        capacity = capacity_by_pair.get((prof.id, role_type))
+        if not capacity:
+            capacity = ProfessionistCapacity(
+                user_id=prof.id,
+                role_type=role_type,
+                max_clients=30,
+                current_clients=0,
+                is_available=True,
+            )
+            db.session.add(capacity)
+            capacity_by_pair[(prof.id, role_type)] = capacity
+            changed = True
+
+        assigned_clients = assigned_map.get(prof.id, 0)
+        if capacity.current_clients != assigned_clients:
+            capacity.current_clients = assigned_clients
+            changed = True
+
+        contractual_capacity = capacity.max_clients or 0
+        capacity_percentage = 0 if contractual_capacity <= 0 else round((assigned_clients / contractual_capacity) * 100, 2)
+
+        rows.append({
+            'user_id': prof.id,
+            'full_name': prof.full_name,
+            'specialty': _get_user_specialty(prof),
+            'role_type': role_type,
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None,
+                }
+                for t in (prof.teams or [])
+            ],
+            'capienza_contrattuale': contractual_capacity,
+            'clienti_assegnati': assigned_clients,
+            'percentuale_capienza': capacity_percentage,
+            'is_over_capacity': contractual_capacity > 0 and assigned_clients > contractual_capacity,
+        })
+
+    if changed:
+        db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'rows': rows,
+        'total': len(rows),
+        'can_edit': _can_edit_professional_capacity(current_user)
+    })
+
+
+@team_api_bp.route("/capacity/<int:user_id>", methods=["PUT"])
+@login_required
+def update_professional_capacity(user_id: int):
+    """Aggiorna capienza contrattuale (solo admin/CCO)."""
+    if not _can_edit_professional_capacity(current_user):
+        return jsonify({
+            'success': False,
+            'message': 'Solo admin o CCO possono modificare la capienza contrattuale'
+        }), HTTPStatus.FORBIDDEN
+
+    user = User.query.get_or_404(user_id)
+    role_type = _get_capacity_role_type(user)
+    if not role_type or _get_user_role(user) != 'professionista':
+        return jsonify({
+            'success': False,
+            'message': 'Utente non gestibile nella tabella capienza professionisti'
+        }), HTTPStatus.BAD_REQUEST
+
+    data = request.get_json() or {}
+    max_clients = data.get('capienza_contrattuale', data.get('max_clients'))
+    if max_clients is None:
+        return jsonify({
+            'success': False,
+            'message': 'Campo capienza_contrattuale obbligatorio'
+        }), HTTPStatus.BAD_REQUEST
+
+    try:
+        max_clients = int(max_clients)
+    except (TypeError, ValueError):
+        return jsonify({
+            'success': False,
+            'message': 'capienza_contrattuale deve essere un numero intero'
+        }), HTTPStatus.BAD_REQUEST
+
+    if max_clients < 0:
+        return jsonify({
+            'success': False,
+            'message': 'capienza_contrattuale non può essere negativa'
+        }), HTTPStatus.BAD_REQUEST
+
+    capacity = ProfessionistCapacity.query.filter_by(
+        user_id=user.id,
+        role_type=role_type
+    ).first()
+
+    if not capacity:
+        capacity = ProfessionistCapacity(
+            user_id=user.id,
+            role_type=role_type,
+            max_clients=max_clients,
+            current_clients=0,
+            is_available=True,
+        )
+        db.session.add(capacity)
+    else:
+        capacity.max_clients = max_clients
+
+    assigned_clients = _get_assigned_clients_count_map([user.id]).get(user.id, 0)
+    capacity.current_clients = assigned_clients
+
+    db.session.commit()
+
+    capacity_percentage = 0 if max_clients <= 0 else round((assigned_clients / max_clients) * 100, 2)
+    return jsonify({
+        'success': True,
+        'message': 'Capienza contrattuale aggiornata',
+        'row': {
+            'user_id': user.id,
+            'full_name': user.full_name,
+            'specialty': _get_user_specialty(user),
+            'role_type': role_type,
+            'capienza_contrattuale': max_clients,
+            'clienti_assegnati': assigned_clients,
+            'percentuale_capienza': capacity_percentage,
+            'is_over_capacity': max_clients > 0 and assigned_clients > max_clients,
+        }
     })
 
 

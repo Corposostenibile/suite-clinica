@@ -1,12 +1,15 @@
 import os
 import sys
 import argparse
+import re
+import unicodedata
+from difflib import SequenceMatcher
 from pathlib import Path
 import zipfile
 import xml.etree.ElementTree as ET
 
 # Add backend directory to path to load app
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.append(str(BASE_DIR))
 
 from corposostenibile import create_app
@@ -17,6 +20,89 @@ from corposostenibile.blueprints.team.criteria_service import CriteriaService
 def normalize_key(key):
     """Normalize Excel header to match schema key (trim spaces)."""
     return key.strip()
+
+
+def normalize_person_name(name):
+    """Normalize person names for matching across Excel/DB variants."""
+    text = (name or "").strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.replace("’", "'")
+    text = re.sub(r"[^a-z0-9' ]+", " ", text)
+    text = text.replace("'", "")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def name_tokens(name):
+    return [t for t in normalize_person_name(name).split(" ") if t]
+
+
+def _find_best_user_match(prof_name, target_specialty, users):
+    """Match Excel name to DB user, avoiding ambiguous single-word coach rows."""
+    search_norm = normalize_person_name(prof_name)
+    search_tokens = [t for t in search_norm.split(" ") if t]
+    if not search_tokens:
+        return None, "empty"
+
+    candidates = [
+        u for u in users
+        if getattr(u, "role", None) == "professionista" or str(getattr(u, "role", "")) == "UserRoleEnum.professionista"
+    ]
+    if target_specialty:
+        candidates = [
+            u for u in candidates
+            if (
+                getattr(u, "specialty", None) == target_specialty
+                or str(getattr(u, "specialty", "")).endswith(f".{target_specialty}")
+            )
+        ]
+
+    prepared = []
+    for u in candidates:
+        full = f"{u.first_name or ''} {u.last_name or ''}".strip()
+        rev = f"{u.last_name or ''} {u.first_name or ''}".strip()
+        prepared.append((u, full, normalize_person_name(full), normalize_person_name(rev), name_tokens(full)))
+
+    # 1) Exact normalized full/reversed match
+    for u, _full, full_norm, rev_norm, _tokens in prepared:
+        if search_norm == full_norm or search_norm == rev_norm:
+            return u, "exact"
+
+    # Single-word entries (common in COACH sheet) are intentionally skipped.
+    if len(search_tokens) < 2:
+        return None, "single_token_skipped"
+
+    # 2) Multiword token subset match (e.g. "Nicolo Lorenzo Marinelli" vs "Nicolo Marinelli")
+    subset_matches = []
+    search_set = set(search_tokens)
+    for u, _full, _full_norm, _rev_norm, u_tokens in prepared:
+        u_set = set(u_tokens)
+        if len(u_set) >= 2 and (search_set.issubset(u_set) or u_set.issubset(search_set)):
+            subset_matches.append(u)
+    if len(subset_matches) == 1:
+        return subset_matches[0], "token_subset"
+
+    # 3) Fuzzy multiword match on full string + surname (handles small typos like Andreola/Adreola)
+    fuzzy_matches = []
+    for u, _full, full_norm, _rev_norm, u_tokens in prepared:
+        if len(u_tokens) < 2:
+            continue
+        full_ratio = SequenceMatcher(None, search_norm, full_norm).ratio()
+        surname_ratio = SequenceMatcher(None, search_tokens[-1], u_tokens[-1]).ratio()
+        first_ratio = SequenceMatcher(None, search_tokens[0], u_tokens[0]).ratio()
+        if first_ratio >= 0.9 and surname_ratio >= 0.84 and full_ratio >= 0.84:
+            fuzzy_matches.append((full_ratio + surname_ratio, u))
+    if len(fuzzy_matches) == 1:
+        return fuzzy_matches[0][1], "fuzzy"
+    if len(fuzzy_matches) > 1:
+        fuzzy_matches.sort(key=lambda x: x[0], reverse=True)
+        top_score = fuzzy_matches[0][0]
+        second_score = fuzzy_matches[1][0]
+        if top_score - second_score > 0.08:
+            return fuzzy_matches[0][1], "fuzzy_ranked"
+
+    return None, "no_match"
 
 def parse_shared_strings(z):
     """Read shared strings from Excel xlsx."""
@@ -119,8 +205,8 @@ def process_sheet(z, sheet_filename, role_key):
             
     return data
 
-def sync_db(all_data):
-    """Sync parsed data with Database Users. Create missing ones."""
+def sync_db(all_data, create_missing=False):
+    """Sync parsed data with Database Users. Optionally create missing ones."""
     print("\n--- Syncing with Database ---")
     from werkzeug.security import generate_password_hash
     
@@ -134,23 +220,24 @@ def sync_db(all_data):
         target_specialty = info['specialty']
         
         # Try to match user
-        matched_user = None
-        search_name = prof_name.lower().replace("  ", " ")
-        
-        for u in users:
-            u_full = f"{u.first_name} {u.last_name}".lower()
-            u_rev = f"{u.last_name} {u.first_name}".lower()
-            
-            if search_name == u_full or search_name == u_rev:
-                matched_user = u
-                break
+        matched_user, match_mode = _find_best_user_match(prof_name, target_specialty, users)
         
         if matched_user:
-            print(f"✅ Updating ID {matched_user.id} ({matched_user.email}) | Specialty: {target_specialty}")
+            print(
+                f"✅ Updating ID {matched_user.id} ({matched_user.email}) | "
+                f"Specialty: {target_specialty} | match={match_mode}"
+            )
             matched_user.assignment_criteria = criteria
             matched_user.specialty = target_specialty
             updated_count += 1
         else:
+            if not create_missing:
+                print(
+                    f"⏭️  Skipping missing user '{prof_name}' "
+                    f"(reason={match_mode}, create_missing disabled)"
+                )
+                continue
+
             print(f"➕ Creating '{prof_name}' | Specialty: {target_specialty}")
             # Create a slug for email
             email_prefix = prof_name.lower().replace(" ", ".").replace("'", "")
@@ -172,6 +259,14 @@ def sync_db(all_data):
     print(f"\nCompleted. Updated: {updated_count} | Created: {created_count}")
 
 def main():
+    parser = argparse.ArgumentParser(description="Sync AI criteria from Excel into prod DB users")
+    parser.add_argument(
+        "--create-missing",
+        action="store_true",
+        help="Create missing users found in the Excel (disabled by default for safety in prod)",
+    )
+    args = parser.parse_args()
+
     app = create_app()
     
     file_path = str(BASE_DIR / 'corposostenibile/blueprints/sales_form/assegnazioni_xlsx/Criteri Ai.xlsx')
@@ -232,7 +327,7 @@ def main():
                     coach_data = process_sheet(z, sheet_map['COACH'], 'COACH')
                     all_data.update(coach_data)
                 
-                sync_db(all_data)
+                sync_db(all_data, create_missing=args.create_missing)
                 
         except Exception as e:
             print(f"Error: {e}")

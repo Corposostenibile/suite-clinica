@@ -120,6 +120,37 @@ def _frontend_base_url() -> str:
 
     return request.host_url.rstrip("/")
 
+
+def _get_weekly_professional_snapshot(cliente: Cliente | None) -> Dict[str, int | None]:
+    """
+    Restituisce gli ID professionisti da salvare nel WeeklyCheckResponse
+    come snapshot storico al momento della compilazione.
+    """
+    if not cliente:
+        return {
+            "nutritionist_user_id": None,
+            "psychologist_user_id": None,
+            "coach_user_id": None,
+        }
+
+    nutritionist_id = cliente.nutrizionista_id
+    if not nutritionist_id and cliente.nutrizionisti_multipli:
+        nutritionist_id = cliente.nutrizionisti_multipli[0].id
+
+    psychologist_id = cliente.psicologa_id
+    if not psychologist_id and cliente.psicologi_multipli:
+        psychologist_id = cliente.psicologi_multipli[0].id
+
+    coach_id = cliente.coach_id
+    if not coach_id and cliente.coaches_multipli:
+        coach_id = cliente.coaches_multipli[0].id
+
+    return {
+        "nutritionist_user_id": nutritionist_id,
+        "psychologist_user_id": psychologist_id,
+        "coach_user_id": coach_id,
+    }
+
 # --------------------------------------------------------------------------- #
 #  Blueprint setup                                                            #
 # --------------------------------------------------------------------------- #
@@ -989,6 +1020,11 @@ def public_form(token: str):
         
         if request.method == "POST" and form.validate_on_submit():
             try:
+                # Evita compilazioni multiple dello stesso check
+                if assignment.response_count > 0:
+                    flash("Questo check e' gia' stato compilato.", "info")
+                    return redirect(url_for("client_checks.public_success", token=token))
+
                 # Salva la risposta
                 response = ClientCheckService.save_response(
                     assignment_id=assignment.id,
@@ -1174,6 +1210,10 @@ def weekly_check_public(token: str):
                     ip_address=get_client_ip(),
                     user_agent=get_user_agent(),
                 )
+                snapshot = _get_weekly_professional_snapshot(weekly_check.cliente)
+                response.nutritionist_user_id = snapshot["nutritionist_user_id"]
+                response.psychologist_user_id = snapshot["psychologist_user_id"]
+                response.coach_user_id = snapshot["coach_user_id"]
 
                 # ─── UPLOAD FOTO ────────────────────────────────────────────
                 upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
@@ -2683,6 +2723,12 @@ def api_cliente_checks(cliente_id: int):
                     "nutritionist_rating": resp.nutritionist_rating,
                     "psychologist_rating": resp.psychologist_rating,
                     "coach_rating": resp.coach_rating,
+                    "nutritionist_user_id": resp.nutritionist_user_id,
+                    "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
+                    "psychologist_user_id": resp.psychologist_user_id,
+                    "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
+                    "coach_user_id": resp.coach_user_id,
+                    "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
                     "is_read": read_confirmation is not None,
                     "read_at": read_confirmation.read_at.strftime('%d/%m/%Y %H:%M') if read_confirmation else None
                 })
@@ -3072,10 +3118,16 @@ def api_get_response_detail(response_type: str, response_id: int):
                 # Professional ratings
                 "nutritionist_rating": resp.nutritionist_rating,
                 "nutritionist_feedback": resp.nutritionist_feedback,
+                "nutritionist_user_id": resp.nutritionist_user_id,
+                "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
                 "psychologist_rating": resp.psychologist_rating,
                 "psychologist_feedback": resp.psychologist_feedback,
+                "psychologist_user_id": resp.psychologist_user_id,
+                "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
                 "coach_rating": resp.coach_rating,
                 "coach_feedback": resp.coach_feedback,
+                "coach_user_id": resp.coach_user_id,
+                "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
                 # Progress
                 "progress_rating": resp.progress_rating,
                 "coordinator_rating": resp.coordinator_rating,
@@ -3535,6 +3587,237 @@ def api_get_professionisti_by_type(prof_type: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@api_bp.route("/initial-assignments", methods=["GET"])
+@login_required
+def api_initial_assignments():
+    """
+    API JSON: lista lead con stato Check 1 / Check 2 iniziali.
+    Filtri:
+      - client_search: nome/cognome/email
+      - status: all | completed_all | completed_any | pending
+      - page, per_page
+    """
+    try:
+        client_search = request.args.get("client_search", "").strip().lower()
+        status = request.args.get("status", "all").strip().lower()
+        page = max(request.args.get("page", 1, type=int), 1)
+        per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+        client_ids_raw = (request.args.get("client_ids") or "").strip()
+        client_ids = {
+            int(cid)
+            for cid in client_ids_raw.split(",")
+            if cid.strip().isdigit()
+        } if client_ids_raw else set()
+
+        check_1_form, check_2_form = _get_initial_check_forms()
+
+        target_form_ids = [f.id for f in [check_1_form, check_2_form] if f]
+        if not target_form_ids:
+            return jsonify({
+                "success": True,
+                "items": [],
+                "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0},
+                "meta": {"check_1_name": "Check 1", "check_2_name": "Check 2"},
+            })
+
+        query = (
+            ClientCheckAssignment.query
+            .options(
+                joinedload(ClientCheckAssignment.cliente),
+                joinedload(ClientCheckAssignment.form),
+            )
+            .filter(
+                ClientCheckAssignment.is_active.is_(True),
+                ClientCheckAssignment.form_id.in_(target_form_ids),
+            )
+            .order_by(desc(ClientCheckAssignment.created_at))
+        )
+
+        if client_ids:
+            query = query.filter(ClientCheckAssignment.cliente_id.in_(client_ids))
+
+        accessible_clients_query = get_accessible_clients_query()
+        if accessible_clients_query is not None:
+            query = query.filter(
+                ClientCheckAssignment.cliente_id.in_(accessible_clients_query)
+            )
+
+        assignments = query.all()
+
+        grouped: Dict[int, Dict[str, Any]] = {}
+        for assignment in assignments:
+            cliente = assignment.cliente
+            if not cliente:
+                continue
+
+            if client_search:
+                nome = (cliente.nome or "").lower()
+                cognome = (cliente.cognome or "").lower()
+                email = (cliente.mail or "").lower()
+                full_name = f"{nome} {cognome}".strip()
+                if (
+                    client_search not in nome
+                    and client_search not in cognome
+                    and client_search not in email
+                    and client_search not in full_name
+                ):
+                    continue
+
+            row = grouped.setdefault(
+                cliente.cliente_id,
+                {
+                    "lead_id": cliente.cliente_id,
+                    "lead_name": cliente.nome_cognome,
+                    "lead_email": cliente.mail,
+                    "latest_activity_at": assignment.created_at,
+                    "check_1": {"assigned": False, "completed": False, "response_count": 0},
+                    "check_2": {"assigned": False, "completed": False, "response_count": 0},
+                },
+            )
+
+            if assignment.created_at and assignment.created_at > row["latest_activity_at"]:
+                row["latest_activity_at"] = assignment.created_at
+
+            if check_1_form and assignment.form_id == check_1_form.id:
+                row["check_1"] = {
+                    "assigned": True,
+                    "completed": assignment.response_count > 0,
+                    "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
+                    "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
+                }
+            elif check_2_form and assignment.form_id == check_2_form.id:
+                row["check_2"] = {
+                    "assigned": True,
+                    "completed": assignment.response_count > 0,
+                    "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
+                    "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
+                }
+
+        items = list(grouped.values())
+
+        def _match_status(item: Dict[str, Any]) -> bool:
+            c1 = item["check_1"]["completed"]
+            c2 = item["check_2"]["completed"]
+            if status == "completed_all":
+                return c1 and c2
+            if status == "completed_any":
+                return c1 or c2
+            if status == "pending":
+                return not (c1 or c2)
+            return True
+
+        items = [item for item in items if _match_status(item)]
+        items.sort(key=lambda x: x["latest_activity_at"] or datetime.min, reverse=True)
+
+        total = len(items)
+        pages = (total + per_page - 1) // per_page if total else 0
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_items = items[start:end]
+
+        return jsonify({
+            "success": True,
+            "items": page_items,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": pages,
+            },
+            "meta": {
+                "check_1_name": check_1_form.name if check_1_form else "Check 1",
+                "check_2_name": check_2_form.name if check_2_form else "Check 2",
+            },
+        })
+    except Exception as e:
+        current_app.logger.error(f"[API] Errore initial assignments: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _get_initial_check_forms():
+    check_1_form = (
+        CheckForm.query
+        .filter(CheckForm.name.ilike("Check 1 - PRE-CHECK INIZIALE"))
+        .first()
+    )
+    check_2_form = (
+        CheckForm.query
+        .filter(CheckForm.name.ilike("Check 2 - Mockup Follow-up Iniziale"))
+        .first()
+    )
+    return check_1_form, check_2_form
+
+
+@api_bp.route("/initial-assignments/<int:lead_id>/check/<int:check_number>/response", methods=["GET"])
+@login_required
+def api_initial_assignment_check_response(lead_id: int, check_number: int):
+    """Restituisce il dettaglio della compilazione check iniziale per il modal React."""
+    try:
+        if check_number not in (1, 2):
+            return jsonify({"success": False, "error": "check_number non valido"}), 400
+
+        check_1_form, check_2_form = _get_initial_check_forms()
+        target_form = check_1_form if check_number == 1 else check_2_form
+        if not target_form:
+            return jsonify({"success": False, "error": "Form check non trovato"}), 404
+
+        query = ClientCheckAssignment.query.filter(
+            ClientCheckAssignment.cliente_id == lead_id,
+            ClientCheckAssignment.form_id == target_form.id,
+            ClientCheckAssignment.is_active.is_(True),
+        )
+        accessible_clients_query = get_accessible_clients_query()
+        if accessible_clients_query is not None:
+            query = query.filter(
+                ClientCheckAssignment.cliente_id.in_(accessible_clients_query)
+            )
+
+        assignment = (
+            query
+            .options(
+                joinedload(ClientCheckAssignment.form).joinedload(CheckForm.fields),
+                joinedload(ClientCheckAssignment.responses),
+                joinedload(ClientCheckAssignment.cliente),
+            )
+            .order_by(desc(ClientCheckAssignment.created_at))
+            .first()
+        )
+
+        if not assignment:
+            return jsonify({"success": False, "error": "Assegnazione non trovata"}), 404
+        if assignment.response_count <= 0 or not assignment.latest_response:
+            return jsonify({"success": False, "error": "Check non ancora compilato"}), 404
+
+        response = assignment.latest_response
+        payload = []
+        for field in sorted(assignment.form.fields, key=lambda f: f.position):
+            payload.append({
+                "field_id": field.id,
+                "label": field.label,
+                "field_type": field.field_type.value if hasattr(field.field_type, "value") else str(field.field_type),
+                "value": response.get_response_value(field.id),
+            })
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "lead_id": lead_id,
+                "lead_name": assignment.cliente.nome_cognome if assignment.cliente else None,
+                "check_number": check_number,
+                "form_name": assignment.form.name,
+                "response_id": response.id,
+                "submitted_at": response.created_at.isoformat() if response.created_at else None,
+                "responses": payload,
+            },
+        })
+    except Exception as e:
+        current_app.logger.error(
+            f"[API] Errore dettaglio check iniziale lead={lead_id} check={check_number}: {e}",
+            exc_info=True,
+        )
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ============================================================================
 # PUBLIC API ENDPOINTS (No authentication required - for React frontend)
 # ============================================================================
@@ -3572,26 +3855,36 @@ def api_public_get_check_info(check_type: str, token: str):
         if not cliente:
             return jsonify({"success": False, "error": "Cliente non trovato"}), 404
 
-        # Get professionals info
+        # Get professionals info (supporta assegnazioni singole e multiple)
         professionisti = []
-        if cliente.nutrizionista:
+        seen_keys = set()
+
+        def append_prof(user, ruolo, rating_field, feedback_field):
+            if not user:
+                return
+            key = f"{ruolo}:{user.id}"
+            if key in seen_keys:
+                return
+            seen_keys.add(key)
             professionisti.append({
-                "id": cliente.nutrizionista.id,
-                "nome": cliente.nutrizionista.nome_cognome,
-                "ruolo": "Nutrizionista"
+                "id": user.id,
+                "nome": user.full_name or user.email,
+                "ruolo": ruolo,
+                "rating_field": rating_field,
+                "feedback_field": feedback_field,
             })
-        if cliente.coach:
-            professionisti.append({
-                "id": cliente.coach.id,
-                "nome": cliente.coach.nome_cognome,
-                "ruolo": "Coach"
-            })
-        if cliente.psicologa:
-            professionisti.append({
-                "id": cliente.psicologa.id,
-                "nome": cliente.psicologa.nome_cognome,
-                "ruolo": "Psicologo/a"
-            })
+
+        append_prof(cliente.nutrizionista_user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+        for user in (cliente.nutrizionisti_multipli or []):
+            append_prof(user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+
+        append_prof(cliente.psicologa_user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+        for user in (cliente.psicologi_multipli or []):
+            append_prof(user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+
+        append_prof(cliente.coach_user, "Coach", "coach_rating", "coach_feedback")
+        for user in (cliente.coaches_multipli or []):
+            append_prof(user, "Coach", "coach_rating", "coach_feedback")
 
         response = jsonify({
             "success": True,
@@ -3640,11 +3933,15 @@ def api_public_submit_weekly(token: str):
             data = request.form.to_dict()
 
         # Create response with correct model field names
+        snapshot = _get_weekly_professional_snapshot(check.cliente)
         response = WeeklyCheckResponse(
             weekly_check_id=check.id,
             submit_date=datetime.utcnow(),
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string if request.user_agent else None,
+            nutritionist_user_id=snapshot["nutritionist_user_id"],
+            psychologist_user_id=snapshot["psychologist_user_id"],
+            coach_user_id=snapshot["coach_user_id"],
             # Text fields
             what_worked=data.get('what_worked'),
             what_didnt_work=data.get('what_didnt_work'),

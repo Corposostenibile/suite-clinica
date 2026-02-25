@@ -29,4 +29,15 @@ export const MenuList = [
     iconStyle: <i className="fas fa-robot" />,
     to: '/sop-chat',
   },
+  {
+    title: 'AMMINISTRAZIONE',
+    classsChange: 'menu-title',
+    adminOnly: true,
+  },
+  {
+    title: 'Notifiche Push',
+    iconStyle: <i className="fas fa-bell" />,
+    to: '/admin/push-notifications',
+    adminOnly: true,
+  },
 ];

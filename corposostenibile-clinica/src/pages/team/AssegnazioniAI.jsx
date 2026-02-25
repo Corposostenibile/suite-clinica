@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Table, Badge, Card, Spinner, Alert, Button, ButtonGroup, Modal, Tab, Tabs, Form, Row, Col, Toast, ToastContainer } from 'react-bootstrap';
 import api from '../../services/api';
 import ghlService from '../../services/ghlService';
+import checkService from '../../services/checkService';
 import { TEAM_TYPE_COLORS } from '../../services/teamService';
 
 // Stati possibili delle assegnazioni
@@ -76,10 +77,15 @@ function AssegnazioniAI() {
 
   // Stati Assegnazioni
   const [assignments, setAssignments] = useState([]);
+  const [initialChecksByLead, setInitialChecksByLead] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
+  const [checkResponseLoading, setCheckResponseLoading] = useState(false);
+  const [checkResponseError, setCheckResponseError] = useState('');
+  const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
 
   // Stati Webhook (Lead)
   const [opportunityData, setOpportunityData] = useState([]);
@@ -117,6 +123,42 @@ function AssegnazioniAI() {
 
   // --- FETCH DATA ---
 
+  const loadInitialChecksStatus = async (clientIds) => {
+    const normalizedIds = [
+      ...new Set(
+        (clientIds || [])
+          .filter((v) => Number.isInteger(v) || (typeof v === 'string' && /^\\d+$/.test(v)))
+          .map((v) => Number(v))
+      )
+    ];
+
+    if (normalizedIds.length === 0) {
+      setInitialChecksByLead({});
+      return;
+    }
+
+    try {
+      const checksResp = await checkService.getInitialAssignments({
+        status: 'all',
+        page: 1,
+        perPage: 100,
+        clientIds: normalizedIds
+      });
+
+      const map = {};
+      (checksResp?.items || []).forEach((item) => {
+        map[item.lead_id] = {
+          check_1: item.check_1 || { assigned: false, completed: false, response_count: 0 },
+          check_2: item.check_2 || { assigned: false, completed: false, response_count: 0 }
+        };
+      });
+      setInitialChecksByLead(map);
+    } catch (err) {
+      console.error('Errore caricamento stato check iniziali:', err);
+      setInitialChecksByLead({});
+    }
+  };
+
   const fetchAssignments = async () => {
     setLoading(true);
     try {
@@ -125,13 +167,57 @@ function AssegnazioniAI() {
       });
       if (response.data.success !== false) {
         const data = response.data.assignments || response.data || [];
-        setAssignments(Array.isArray(data) ? data : []);
+        const normalized = Array.isArray(data) ? data : [];
+        setAssignments(normalized);
+        await loadInitialChecksStatus(normalized.map((a) => a.cliente_id));
       }
     } catch (err) {
       console.error('Errore assegnazioni:', err);
+      setInitialChecksByLead({});
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderInitialCheckBadge = (check) => {
+    if (check?.completed) {
+      return <Badge bg="success">Compilato</Badge>;
+    }
+    return <Badge bg="warning" text="dark">Non completato</Badge>;
+  };
+
+  const handleOpenCheckResponseModal = async (leadId, checkNumber, check) => {
+    if (!check?.completed || !leadId) return;
+    setShowCheckResponseModal(true);
+    setCheckResponseLoading(true);
+    setCheckResponseError('');
+    setSelectedCheckResponse(null);
+    try {
+      const result = await checkService.getInitialCheckResponseDetail(leadId, checkNumber);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Dettaglio check non disponibile');
+      }
+      setSelectedCheckResponse(result.data);
+    } catch (err) {
+      setCheckResponseError(err?.message || 'Errore caricamento check compilato');
+    } finally {
+      setCheckResponseLoading(false);
+    }
+  };
+
+  const renderInitialCheckCell = (leadId, checkNumber, check) => {
+    if (!check?.completed) {
+      return renderInitialCheckBadge(check);
+    }
+    return (
+      <Button
+        variant="link"
+        className="p-0 text-decoration-none"
+        onClick={() => handleOpenCheckResponseModal(leadId, checkNumber, check)}
+      >
+        {renderInitialCheckBadge(check)}
+      </Button>
+    );
   };
 
   const fetchOpportunityData = async () => {
@@ -139,8 +225,10 @@ function AssegnazioniAI() {
     try {
       const result = await ghlService.getOpportunityData();
       if (result.success) {
-        setOpportunityData(result.data || []);
-        return result.data || [];
+        const rows = result.data || [];
+        setOpportunityData(rows);
+        await loadInitialChecksStatus(rows.map((opp) => opp.cliente_id));
+        return rows;
       }
     } catch (err) {
       console.error('Errore opportunity data:', err);
@@ -554,6 +642,9 @@ function AssegnazioniAI() {
       const q = leadSearch.trim().toLowerCase();
       rows = rows.filter((opp) => (
         (opp.nome || '').toLowerCase().includes(q) ||
+        (opp.email || '').toLowerCase().includes(q) ||
+        (opp.lead_phone || '').toLowerCase().includes(q) ||
+        (opp.health_manager_email || '').toLowerCase().includes(q) ||
         (opp.pacchetto || '').toLowerCase().includes(q) ||
         (opp.storia || '').toLowerCase().includes(q)
       ));
@@ -682,7 +773,7 @@ function AssegnazioniAI() {
                   <div className="bg-light rounded p-3 mx-auto mt-3" style={{ maxWidth: '520px' }}>
                     <p className="small mb-2"><strong>Endpoint webhook:</strong></p>
                     <code>POST {webhookUrls.opportunity_data_url || 'Caricamento...'}</code>
-                    <p className="small mt-2 mb-0 text-muted">Campi attesi: nome, storia, pacchetto, durata, email</p>
+                    <p className="small mt-2 mb-0 text-muted">Campi attesi: nome, storia, pacchetto, durata, email, telefono, health_manager_email</p>
                   </div>
                 </div>
               ) : filteredLeads.length === 0 ? (
@@ -695,6 +786,9 @@ function AssegnazioniAI() {
                         <tr>
                           <th>Cliente</th>
                           <th>Pacchetto/Info</th>
+                          <th>Health Manager Email</th>
+                          <th>Check 1</th>
+                          <th>Check 2</th>
                           <th>Assegnazioni</th>
                           <th>Ricevuto</th>
                           <th className="text-end">Azioni</th>
@@ -708,6 +802,7 @@ function AssegnazioniAI() {
                           const assignedCount = getLeadAssignedCount(opp);
                           const statusKey = assignedCount === 0 ? 'unassigned' : (assignedCount === requiredCount ? 'complete' : 'partial');
                           const status = LEAD_STATUS_STYLES[statusKey];
+                          const checks = initialChecksByLead[opp.cliente_id] || {};
 
                           return (
                             <tr key={opp.id}>
@@ -719,11 +814,25 @@ function AssegnazioniAI() {
                                     <a href={`mailto:${opp.email}`}>{opp.email}</a>
                                   </small>
                                 )}
+                                {opp.lead_phone && (
+                                  <small className="d-block">
+                                    <a href={`tel:${opp.lead_phone}`}>{opp.lead_phone}</a>
+                                  </small>
+                                )}
                               </td>
                               <td>
                                 <Badge bg="info" className="me-1">{opp.pacchetto}</Badge>
                                 <span className="small text-muted">{opp.durata} gg</span>
                               </td>
+                              <td>
+                                {opp.health_manager_email ? (
+                                  <small><a href={`mailto:${opp.health_manager_email}`}>{opp.health_manager_email}</a></small>
+                                ) : (
+                                  <small className="text-muted">-</small>
+                                )}
+                              </td>
+                              <td>{renderInitialCheckCell(opp.cliente_id, 1, checks.check_1)}</td>
+                              <td>{renderInitialCheckCell(opp.cliente_id, 2, checks.check_2)}</td>
                               <td>
                                 <div className="d-flex align-items-center flex-wrap gap-2">
                                   <div className="d-flex gap-1">
@@ -997,6 +1106,8 @@ function AssegnazioniAI() {
                       <th>ID</th>
                       <th>Cliente</th>
                       <th>Stato</th>
+                      <th>Check 1</th>
+                      <th>Check 2</th>
                       <th>Professionisti</th>
                       <th>Data</th>
                       <th></th>
@@ -1008,6 +1119,12 @@ function AssegnazioniAI() {
                         <td>#{assignment.id}</td>
                         <td>{assignment.cliente_nome}</td>
                         <td><StatusBadge status={assignment.status} /></td>
+                        <td>
+                          {renderInitialCheckCell(assignment.cliente_id, 1, initialChecksByLead[assignment.cliente_id]?.check_1)}
+                        </td>
+                        <td>
+                          {renderInitialCheckCell(assignment.cliente_id, 2, initialChecksByLead[assignment.cliente_id]?.check_2)}
+                        </td>
                         <td>
                             <div className="d-flex gap-1">
                                 {assignment.nutrizionista_assigned && <Badge bg="success">N</Badge>}
@@ -1128,7 +1245,7 @@ function AssegnazioniAI() {
                        <Col md={12}>
                            <Card className="bg-light border-0">
                                <Card.Body className="py-2">
-                                   <label className="text-uppercase text-muted small fw-bold mb-1">Email</label>
+                                   <label className="text-uppercase text-muted small fw-bold mb-1">Contatti</label>
                                    <div>
                                        {selectedOpportunity.email ? (
                                            <a href={`mailto:${selectedOpportunity.email}`}>{selectedOpportunity.email}</a>
@@ -1136,6 +1253,11 @@ function AssegnazioniAI() {
                                            <em className="text-muted">Non disponibile</em>
                                        )}
                                    </div>
+                                   {selectedOpportunity.lead_phone && (
+                                       <div className="mt-1">
+                                           <a href={`tel:${selectedOpportunity.lead_phone}`}>{selectedOpportunity.lead_phone}</a>
+                                       </div>
+                                   )}
                                </Card.Body>
                            </Card>
                        </Col>
@@ -1161,6 +1283,67 @@ function AssegnazioniAI() {
             }}>
                 <i className="ri-sparkling-fill me-1"></i> Apri Gestione AI
             </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showCheckResponseModal} onHide={() => setShowCheckResponseModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Check Compilato</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {checkResponseLoading ? (
+            <div className="text-center py-4">
+              <Spinner animation="border" size="sm" className="me-2" />
+              <span>Caricamento risposta...</span>
+            </div>
+          ) : checkResponseError ? (
+            <Alert variant="danger" className="mb-0">{checkResponseError}</Alert>
+          ) : selectedCheckResponse ? (
+            <div>
+              <div className="mb-3">
+                <div className="fw-bold">{selectedCheckResponse.form_name}</div>
+                <small className="text-muted">
+                  Lead: {selectedCheckResponse.lead_name || '-'} | Inviato: {formatDate(selectedCheckResponse.submitted_at)}
+                </small>
+              </div>
+              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                {(selectedCheckResponse.responses || []).map((item) => {
+                  const rawValue = item?.value;
+                  let renderedValue = '-';
+                  if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+                    if (typeof rawValue === 'object') {
+                      if (rawValue?.type === 'file' && rawValue?.path) {
+                        renderedValue = (
+                          <a href={rawValue.path} target="_blank" rel="noreferrer">
+                            {rawValue.filename || 'Apri file'}
+                          </a>
+                        );
+                      } else {
+                        renderedValue = (
+                          <code style={{ whiteSpace: 'pre-wrap' }}>
+                            {JSON.stringify(rawValue)}
+                          </code>
+                        );
+                      }
+                    } else {
+                      renderedValue = String(rawValue);
+                    }
+                  }
+                  return (
+                    <div key={`${item.field_id}-${item.label}`} className="mb-3">
+                      <div className="small text-muted">{item.label}</div>
+                      <div>{renderedValue}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted">Nessun dato disponibile.</div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCheckResponseModal(false)}>Chiudi</Button>
         </Modal.Footer>
       </Modal>
 

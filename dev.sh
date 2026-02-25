@@ -491,6 +491,17 @@ db_upgrade() {
     log_info "Applicazione migrazioni per $dev..."
     poetry run flask db upgrade
 }
+seed_initial_checks() {
+    local dev=$1
+    validate_developer "$dev"
+    set_project_dir "$dev"
+    local info=($(get_developer_info "$dev"))
+    local db_name="${info[2]}"
+    cd "$PROJECT_DIR/backend"
+    export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
+    log_info "Seed check iniziali (Check 1 PDF + Check 2 mockup) per $dev..."
+    poetry run python corposostenibile/blueprints/client_checks/scripts/seed_initial_checks.py
+}
 setup_environment() {
     local dev=$1
     validate_developer "$dev"
@@ -500,6 +511,7 @@ setup_environment() {
     install_dependencies "$dev"
     setup_database "$dev"
     create_admin_user "$dev"
+    seed_initial_checks "$dev"
     log_success "Setup completato! Usa '$0 debug $dev' per sviluppare o '$0 start $dev' per avviare il servizio."
 }
 
@@ -637,6 +649,9 @@ reset_database() {
     # 5. Crea admin
     create_admin_user "$dev"
 
+    # 6. Seed check iniziali
+    seed_initial_checks "$dev"
+
     log_success "✨ Database per $dev resettato con successo!"
     log_info "Credenziali admin: admin@suiteclinica.com / admin123"
 }
@@ -770,8 +785,18 @@ start_pm2() {
     update_env_database_url "$dev"
 
     # Avvia Backend
-    log_info "Avvio Backend Flask..."
-    npx pm2 start "poetry run flask run --host=0.0.0.0 --port=$be_port --debug" --name "backend-$dev" --namespace "$dev" --force
+    # Nota: con PM2 usiamo il watch di PM2 (non il reloader Flask) per evitare
+    # processi duplicati e restart loop.
+    log_info "Avvio Backend Flask (PM2 watch/reload)..."
+    npx pm2 start "poetry run flask run --host=0.0.0.0 --port=$be_port" \
+        --name "backend-$dev" \
+        --namespace "$dev" \
+        --cwd "$PROJECT_DIR/backend" \
+        --watch \
+        --watch-delay 700 \
+        --ignore-watch "uploads logs .venv __pycache__ .pytest_cache migrations/versions .git node_modules" \
+        --time \
+        --force
 
     # Avvia Frontend
     log_info "Avvio Frontend React..."

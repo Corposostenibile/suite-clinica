@@ -23,6 +23,21 @@ from corposostenibile.models import (
 from corposostenibile.extensions import db
 
 
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == 'cco' if specialty else False
+
+
+def _is_admin_hr_or_cco(user) -> bool:
+    return bool(
+        user.is_admin
+        or (hasattr(user, 'department_id') and user.department_id == 17)
+        or _is_cco_user(user)
+    )
+
+
 def can_view_member_reviews(user, member):
     """
     Verifica se un utente può vedere le review di un membro.
@@ -1801,7 +1816,7 @@ def api_admin_professionals():
     API JSON: Lista tutti i professionisti attivi (solo per admin/HR).
     """
     # Verifica permessi admin o HR
-    if not (current_user.is_admin or current_user.department_id == 17):
+    if not _is_admin_hr_or_cco(current_user):
         return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
     # Query per utenti attivi
@@ -1854,7 +1869,7 @@ def api_admin_user_trainings(user_id):
     API JSON: Ottiene i training di un utente specifico (solo per admin/HR).
     """
     # Verifica permessi admin o HR
-    if not (current_user.is_admin or current_user.department_id == 17):
+    if not _is_admin_hr_or_cco(current_user):
         return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
     # Verifica che l'utente esista

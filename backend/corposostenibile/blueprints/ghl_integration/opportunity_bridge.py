@@ -3,13 +3,13 @@ opportunity_bridge
 =================
 
 Bridge tra webhook opportunity-data e sistema Check Iniziali.
-Quando GHL invia dati con email (lead vinta), crea Cliente, assegna Check 1/2/3
-e invia una singola email con i tre link.
+Quando GHL invia dati con email (lead vinta), crea Cliente, assegna 2 check iniziali
+e invia una singola email con i link.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from flask import current_app
 
@@ -20,11 +20,18 @@ from corposostenibile.models import (
 )
 
 
-# Check iniziali da assegnare (come in processors.py)
+# Check iniziali da assegnare
 INITIAL_CHECKS = [
-    {"name": "Check 1 - Anagrafica", "type": "iniziale", "description": "Dati anagrafici e obiettivi"},
-    {"name": "Check 2 - Fisico", "type": "iniziale", "description": "Misure e foto"},
-    {"name": "Check 3 - Psico-Alimentare", "type": "iniziale", "description": "Questionario approfondito"},
+    {
+        "name": "Check 1 - PRE-CHECK INIZIALE",
+        "type": "iniziale",
+        "description": "Questionario iniziale completo (profilo clinico, alimentare e stile di vita).",
+    },
+    {
+        "name": "Check 2 - Mockup Follow-up Iniziale",
+        "type": "iniziale",
+        "description": "Mockup temporaneo in attesa del secondo questionario definitivo.",
+    },
 ]
 
 
@@ -32,8 +39,8 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
     """
     Dopo il salvataggio di GHLOpportunityData, se email è presente:
     1. Crea/aggiorna Cliente (nome, email)
-    2. Crea i 3 ClientCheckAssignment (Check 1, 2, 3) – con auto-seeding form se mancanti
-    3. Invia una sola email con i 3 link
+    2. Crea i 2 ClientCheckAssignment – con auto-seeding form se mancanti
+    3. Invia una sola email con i link
 
     Returns:
         Dict con success, cliente_id, assignments_count, email_sent
@@ -52,6 +59,7 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
         return result
 
     nome = (opp_data.nome or "N/D").strip()
+    lead_phone = (opp_data.lead_phone or "").strip()
     if nome == "N/D" and opp_data.raw_payload:
         payload = opp_data.raw_payload or {}
         custom = payload.get("customData", {})
@@ -61,6 +69,18 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             or f"{payload.get('first_name', '')} {payload.get('last_name', '')}".strip()
             or "N/D"
         )
+        if not lead_phone:
+            contact = payload.get("contact", {}) if isinstance(payload.get("contact"), dict) else {}
+            lead_phone = (
+                custom.get("telefono")
+                or custom.get("phone")
+                or custom.get("cellulare")
+                or payload.get("telefono")
+                or payload.get("phone")
+                or payload.get("cellulare")
+                or contact.get("phone")
+                or ""
+            ).strip()
 
     try:
         # 1. Crea o recupera Cliente
@@ -79,7 +99,12 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             # Aggiorna nome se diverso
             if cliente.nome_cognome != nome:
                 cliente.nome_cognome = nome
+            if lead_phone:
+                cliente.cellulare = lead_phone
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
+
+        if lead_phone and not getattr(cliente, "cellulare", None):
+            cliente.cellulare = lead_phone
 
         # 2. Ottieni admin per assigned_by_id
         admin_user = User.query.filter_by(is_admin=True).first() or User.query.first()
@@ -87,15 +112,33 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             raise RuntimeError("[opportunity_bridge] Nessun utente disponibile per assigned_by_id")
         admin_id = admin_user.id
 
-        # 3. Crea/assegna i 3 Check (senza invio notifiche individuali)
+        # 3. Crea/assegna i check iniziali (senza invio notifiche individuali)
         assignments: List[ClientCheckAssignment] = []
+        attempted_seed = False
         for check_data in INITIAL_CHECKS:
             check_form = CheckForm.query.filter_by(
                 name=check_data["name"],
                 form_type=CheckFormTypeEnum.iniziale,
             ).first()
 
-            # Auto-seeding se non esiste
+            # Prova seed completo dei check iniziali se i form non sono presenti
+            if not check_form and not attempted_seed:
+                try:
+                    from corposostenibile.blueprints.client_checks.scripts.seed_initial_checks import seed_initial_checks
+
+                    seed_initial_checks()
+                    attempted_seed = True
+                    check_form = CheckForm.query.filter_by(
+                        name=check_data["name"],
+                        form_type=CheckFormTypeEnum.iniziale,
+                    ).first()
+                    current_app.logger.info("[opportunity_bridge] Seed check iniziali eseguito on-demand")
+                except Exception as seed_err:
+                    current_app.logger.warning(
+                        f"[opportunity_bridge] Seed on-demand fallito: {seed_err}"
+                    )
+
+            # Fallback minimo se ancora non esiste
             if not check_form:
                 check_form = CheckForm(
                     name=check_data["name"],
@@ -136,11 +179,20 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
         result["cliente_id"] = cliente.cliente_id
         result["assignments_count"] = len(assignments)
 
-        # 4. Invia email con i 3 link (una sola email)
+        # 4. Invia email con i link (una sola email)
         if assignments:
             from corposostenibile.blueprints.client_checks.services import send_initial_checks_single_email
             send_initial_checks_single_email(cliente, assignments)
             result["email_sent"] = True
+
+            # 5. Sync verso Respond.io (assegna chat lead a HM + messaggio mock)
+            respond_sync = _sync_respond_io_on_initial_checks_sent(
+                cliente=cliente,
+                lead_phone=(opp_data.lead_phone or getattr(cliente, "cellulare", None) or "").strip(),
+                health_manager_email=(opp_data.health_manager_email or "").strip().lower() or None,
+                checks_count=len(assignments),
+            )
+            result["respond_io"] = respond_sync
 
         # Marca come processato
         opp_data.processed = True
@@ -158,3 +210,114 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
         raise
 
     return result
+
+
+def _build_respond_identifier(*, phone: str, email: str) -> Optional[str]:
+    phone_clean = (phone or "").strip().replace(" ", "")
+    if phone_clean:
+        return f"phone:{phone_clean}"
+
+    email_clean = (email or "").strip().lower()
+    if email_clean:
+        return f"email:{email_clean}"
+
+    return None
+
+
+def _sync_respond_io_on_initial_checks_sent(
+    *,
+    cliente: Cliente,
+    lead_phone: str,
+    health_manager_email: Optional[str],
+    checks_count: int,
+) -> Dict[str, Any]:
+    """
+    Chiamate Respond.io nel momento in cui inviamo la mail con i check iniziali:
+    1) assign/unassign conversazione al/alla HM
+    2) invio messaggio testo mock
+    """
+    sync_result: Dict[str, Any] = {
+        "enabled": False,
+        "identifier": None,
+        "assigned": False,
+        "message_sent": False,
+        "errors": [],
+    }
+
+    api_token = current_app.config.get("RESPOND_IO_API_TOKEN")
+    if not api_token:
+        current_app.logger.info(
+            "[opportunity_bridge] Respond.io non configurato (RESPOND_IO_API_TOKEN assente), skip sync"
+        )
+        return sync_result
+
+    identifier = _build_respond_identifier(
+        phone=lead_phone,
+        email=getattr(cliente, "mail", None) or getattr(cliente, "email", None) or "",
+    )
+    if not identifier:
+        sync_result["errors"].append("missing_identifier")
+        current_app.logger.warning(
+            "[opportunity_bridge] Respond.io skip: nessun identifier (telefono/email) per cliente %s",
+            cliente.cliente_id,
+        )
+        return sync_result
+
+    sync_result["enabled"] = True
+    sync_result["identifier"] = identifier
+
+    try:
+        from corposostenibile.blueprints.respond_io.client import RespondIOClient
+        respond_client = RespondIOClient(current_app.config)
+    except Exception as client_err:
+        sync_result["errors"].append(f"client_init_error:{client_err}")
+        current_app.logger.error(
+            "[opportunity_bridge] Respond.io client init error: %s",
+            client_err,
+        )
+        return sync_result
+
+    # 1) Assign conversazione a HM (se disponibile)
+    if health_manager_email:
+        try:
+            respond_client.assign_conversation(
+                identifier=identifier,
+                assignee=health_manager_email,
+            )
+            sync_result["assigned"] = True
+        except Exception as assign_err:
+            sync_result["errors"].append(f"assign_error:{assign_err}")
+            current_app.logger.error(
+                "[opportunity_bridge] Respond.io assign error identifier=%s hm=%s err=%s",
+                identifier,
+                health_manager_email,
+                assign_err,
+            )
+    else:
+        sync_result["errors"].append("missing_health_manager_email")
+        current_app.logger.warning(
+            "[opportunity_bridge] Respond.io assign skip: health_manager_email assente per cliente %s",
+            cliente.cliente_id,
+        )
+
+    # 2) Messaggio mock (senza channelId: usa ultimo canale interagito)
+    try:
+        mock_message = (
+            f"Ciao {cliente.nome_cognome or 'Cliente'}, abbiamo ricevuto la tua richiesta. "
+            f"Ti abbiamo inviato {checks_count} check iniziali via email."
+        )
+        respond_client.send_message(
+            contact_id=identifier,
+            message=mock_message,
+            channel_id=current_app.config.get("RESPOND_IO_DEFAULT_CHANNEL_ID"),
+        )
+        sync_result["message_sent"] = True
+    except Exception as msg_err:
+        sync_result["errors"].append(f"message_error:{msg_err}")
+        current_app.logger.error(
+            "[opportunity_bridge] Respond.io message error identifier=%s err=%s",
+            identifier,
+            msg_err,
+        )
+
+    return sync_result

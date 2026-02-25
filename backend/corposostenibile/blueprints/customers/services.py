@@ -1272,8 +1272,13 @@ def apply_role_filtering(query):
         
     user_role = getattr(current_user, 'role', None)
     
-    # Admin: vede tutto
-    if user_role == UserRoleEnum.admin:
+    specialty = getattr(current_user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    is_cco = str(specialty).strip().lower() == 'cco' if specialty else False
+
+    # Admin/CCO: vede tutto
+    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco:
         return query
     
     # Team Leader: vede i pazienti assegnati ai membri del suo team

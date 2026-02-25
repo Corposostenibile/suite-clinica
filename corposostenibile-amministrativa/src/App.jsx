@@ -16,6 +16,7 @@ import SOPChat from './pages/sop/SOPChat';
 import TeamTicketsDashboard from './pages/team-tickets/TeamTicketsDashboard';
 import TeamTicketDetail from './pages/team-tickets/TeamTicketDetail';
 import TeamTicketsAnalytics from './pages/team-tickets/TeamTicketsAnalytics';
+import AdminPushNotifications from './pages/admin/AdminPushNotifications';
 
 function App() {
   return (
@@ -38,6 +39,9 @@ function App() {
             <Route path="/team-tickets" element={<TeamTicketsDashboard />} />
             <Route path="/team-tickets/analytics" element={<TeamTicketsAnalytics />} />
             <Route path="/team-tickets/:id" element={<TeamTicketDetail />} />
+
+            {/* Admin */}
+            <Route path="/admin/push-notifications" element={<AdminPushNotifications />} />
           </Route>
 
           {/* Default redirect to appointment-setting */}

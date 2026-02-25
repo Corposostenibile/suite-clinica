@@ -54,6 +54,7 @@ def register_enums() -> None:
 # helper per riutilizzare il tipo Postgres esistente senza ricrearlo
 _def = lambda enum_cls: db.Enum(
     enum_cls,
+    values_callable=lambda cls: [m.value for m in cls],
     name=enum_cls.__name__.lower(),
     schema="public",             # 👈 ANCHE QUI
     create_type=False,
@@ -176,6 +177,7 @@ class TipoProfessionistaEnum(str, Enum):
     nutrizionista = "nutrizionista"
     coach = "coach"
     psicologa = "psicologa"
+    medico = "medico"
     health_manager = "health_manager"
     consulente = "consulente"
 
@@ -256,6 +258,7 @@ class UserSpecialtyEnum(str, Enum):
     # Professionista specific
     nutrizionista = "nutrizionista"
     psicologo = "psicologo"
+    medico = "medico"
 
 
 class TeamTypeEnum(str, Enum):
@@ -1149,7 +1152,7 @@ class User(UserMixin, TimestampMixin, db.Model):
     role = db.Column(
         _def(UserRoleEnum),
         default=UserRoleEnum.professionista,
-        nullable=False,
+        nullable=True,
         index=True,
         comment="Ruolo utente: admin, team_leader, professionista, team_esterno"
     )
@@ -1210,6 +1213,12 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     tasks_assigned   = relationship("Task", back_populates="assignee",
                                     lazy="selectin")
+    push_subscriptions = relationship(
+        "PushSubscription",
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
     objectives       = relationship(
         "Objective",
@@ -1328,12 +1337,15 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     @property
     def avatar_url(self) -> str:
-        from flask import url_for
-        return (
-            url_for("team.serve_avatar", user_id=self.id)
-            if self.avatar_path
-            else "/static/assets/immagini/logo_user.png"
-        )
+        if not self.avatar_path:
+            return "/static/assets/immagini/logo_user.png"
+        if self.avatar_path.startswith("/uploads/"):
+            return self.avatar_path
+        if self.avatar_path.startswith("uploads/"):
+            return f"/{self.avatar_path}"
+        if self.avatar_path.startswith("avatars/"):
+            return f"/uploads/{self.avatar_path}"
+        return f"/uploads/avatars/{self.avatar_path.lstrip('/')}"
 
     @property
     def has_sales_access(self) -> bool:
@@ -1368,6 +1380,8 @@ class User(UserMixin, TimestampMixin, db.Model):
             'professionista': 'Professionista',
             'team_esterno': 'Team Esterno',
         }
+        if not self.role:
+            return ""
         role_value = self.role.value if hasattr(self.role, 'value') else str(self.role)
         return role_labels.get(role_value, role_value)
 
@@ -1384,6 +1398,7 @@ class User(UserMixin, TimestampMixin, db.Model):
             'coach': 'Coach',
             'nutrizionista': 'Nutrizionista',
             'psicologo': 'Psicologo',
+            'medico': 'Medico',
         }
         spec_value = self.specialty.value if hasattr(self.specialty, 'value') else str(self.specialty)
         return specialty_labels.get(spec_value, spec_value)
@@ -3048,6 +3063,80 @@ class Task(TimestampMixin, db.Model):
     # ----------------------------------------------------- #
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Task {self.id} – {self.title!r}>"
+
+
+class PushSubscription(TimestampMixin, db.Model):
+    __tablename__ = "push_subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.String(512), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    expiration_time = db.Column(db.BigInteger)
+    user_agent = db.Column(db.String(512))
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="push_subscriptions")
+
+    def to_webpush_info(self) -> dict:
+        return {
+            "endpoint": self.endpoint,
+            "keys": {
+                "p256dh": self.p256dh,
+                "auth": self.auth,
+            },
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<PushSubscription {self.id} user={self.user_id}>"
+
+
+class AppNotification(TimestampMixin, db.Model):
+    __tablename__ = "app_notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind = db.Column(db.String(50), nullable=False, default="generic", index=True)
+    title = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    url = db.Column(db.String(1024), nullable=False, default="/")
+    payload = db.Column(db.JSON, default=dict)
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    user = relationship("User", backref=db.backref("app_notifications", lazy="dynamic", cascade="all, delete-orphan"))
+
+    def mark_as_read(self) -> None:
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "title": self.title,
+            "body": self.body,
+            "url": self.url,
+            "payload": self.payload or {},
+            "is_read": bool(self.is_read),
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<AppNotification {self.id} user={self.user_id} kind={self.kind}>"
 
 
 
@@ -10050,6 +10139,8 @@ class GHLOpportunityData(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255))
+    lead_phone = db.Column(db.String(64))
+    health_manager_email = db.Column(db.String(255))
     storia = db.Column(db.Text)
     pacchetto = db.Column(db.String(255))
     durata = db.Column(db.String(50))
@@ -10894,6 +10985,10 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
     weight = db.Column(db.Float, comment="Peso in Kg")
 
     # ─── Valutazioni Professionisti (con feedback) ──────────────────────────
+    # Snapshot professionisti al momento della compilazione (storico immutabile)
+    nutritionist_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    psychologist_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    coach_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     nutritionist_rating = db.Column(db.Integer, comment="Valutazione nutrizionista (1-10)")
     nutritionist_feedback = db.Column(db.Text, comment="Feedback nutrizionista")
     psychologist_rating = db.Column(db.Integer, comment="Valutazione psicologo (1-10)")
@@ -10909,6 +11004,9 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
 
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("WeeklyCheck", back_populates="responses")
+    nutritionist_user = relationship("User", foreign_keys=[nutritionist_user_id])
+    psychologist_user = relationship("User", foreign_keys=[psychologist_user_id])
+    coach_user = relationship("User", foreign_keys=[coach_user_id])
 
     def __repr__(self) -> str:
         return f"<WeeklyCheckResponse(id={self.id}, check={self.weekly_check_id}, date={self.submit_date})>"

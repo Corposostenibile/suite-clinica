@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: suite-clinica-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "suite-clinica-managed-cert"
+    networking.gke.io/v1beta1.FrontendConfig: "suite-clinica-frontend-config"
+spec:
+  rules:
+  - host: suite-clinica.duckdns.org
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: suite-clinica-service
+            port:
+              number: 80

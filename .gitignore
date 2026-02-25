@@ -66,6 +66,7 @@ Thumbs.db
 *.zip
 *.tar.gz
 .running_pids
+backend/vapid_private.pem
 backend/corposostenibile/blueprints/documentation/static/
 # DB old suite backups
 backend/backups
@@ -75,3 +76,6 @@ AGENTS.md
 
 # .agent/rules/clinica.md
 ./agent/rules/*
+
+# root screenshots folder for agent screenshots
+screenshots/

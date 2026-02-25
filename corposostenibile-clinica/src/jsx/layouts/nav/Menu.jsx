@@ -86,6 +86,11 @@ export const MenuList = [
         iconStyle: SVGICON.Users,
         to: 'team-lista',
     },
+    {
+        title: 'Capienze',
+        iconStyle: SVGICON.Team,
+        to: 'team-capienza',
+    },
     // Quality
     {
         title: 'Quality',

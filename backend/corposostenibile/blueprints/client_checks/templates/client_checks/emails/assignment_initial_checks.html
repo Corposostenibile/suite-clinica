@@ -102,12 +102,12 @@
     <div class="wrapper">
         <div class="header">
             <h1>I tuoi questionari iniziali</h1>
-            <p class="sub">Completa i 3 questionari per iniziare il tuo percorso</p>
+            <p class="sub">Completa i {{ checks_count }} questionari per iniziare il tuo percorso</p>
         </div>
         <div class="content">
             <p class="greeting">Ciao {{ cliente.nome_cognome }},</p>
             <p class="intro">
-                Benvenuto! Per avviare il tuo percorso ti chiediamo di compilare i tre questionari iniziali.
+                Benvenuto! Per avviare il tuo percorso ti chiediamo di compilare {{ checks_count }} questionari iniziali.
                 Clicca su ciascun pulsante qui sotto per accedere e inviare le tue risposte.
             </p>
             {% for item in assignments %}

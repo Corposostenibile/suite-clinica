@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   ROLE_LABELS,
   SPECIALTY_LABELS,
@@ -88,6 +88,7 @@ function renderPagination(page, totalPages, onChange) {
 
 function Profilo() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const outletContext = useOutletContext();
   const currentUser = outletContext?.user || null;
@@ -95,6 +96,11 @@ function Profilo() {
   const [profileUser, setProfileUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
+  const [capacityLoading, setCapacityLoading] = useState(false);
+  const [capacityError, setCapacityError] = useState('');
+  const [capacityRow, setCapacityRow] = useState(null);
+  const [capacityInput, setCapacityInput] = useState('');
+  const [capacitySaving, setCapacitySaving] = useState(false);
 
   const [clients, setClients] = useState([]);
   const [clientsLoading, setClientsLoading] = useState(false);
@@ -188,6 +194,26 @@ function Profilo() {
 
   const user = profileUser;
   const isOwnProfile = !id || (currentUser && user && currentUser.id === user.id);
+  const isCurrentUserCco = currentUser?.specialty === 'cco';
+  const isCurrentUserAdmin = Boolean(currentUser?.is_admin || currentUser?.role === 'admin');
+  const canViewCapacityTab = Boolean(
+    isCurrentUserAdmin || currentUser?.role === 'team_leader' || isCurrentUserCco
+  );
+  const canEditCapacity = Boolean(isCurrentUserAdmin || isCurrentUserCco);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(location.search).get('tab');
+    if (!requestedTab) return;
+
+    const allowedTabs = new Set(['info', 'teams', 'clienti', 'check', 'formazione', 'task', 'quality']);
+    if (canViewCapacityTab) {
+      allowedTabs.add('capienza');
+    }
+
+    if (allowedTabs.has(requestedTab) && requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [location.search, canViewCapacityTab, activeTab]);
 
   const fetchClients = useCallback(async () => {
     if (!user?.id) return;
@@ -261,7 +287,7 @@ function Profilo() {
     setTrainingsError('');
     try {
       const isOwn = currentUser?.id === user.id;
-      const canReadOther = Boolean(currentUser?.is_admin || currentUser?.department_id === 17);
+      const canReadOther = Boolean(isCurrentUserAdmin || isCurrentUserCco);
 
       let payload = null;
       if (isOwn) {
@@ -281,7 +307,7 @@ function Profilo() {
     } finally {
       setTrainingsLoading(false);
     }
-  }, [user?.id, currentUser?.id, currentUser?.is_admin, currentUser?.department_id]);
+  }, [user?.id, currentUser?.id, isCurrentUserAdmin, isCurrentUserCco]);
 
   const fetchTasks = useCallback(async () => {
     if (!user?.id) return;
@@ -310,10 +336,10 @@ function Profilo() {
     setQualityLoading(true);
     setQualityError('');
     try {
-      if (!currentUser?.is_admin) {
+      if (!(isCurrentUserAdmin || isCurrentUserCco)) {
         setQualityKpi(null);
         setQualityTrend({ labels: [], quality_final: [], quality_month: [], quality_trim: [] });
-        setQualityError('Quality visibile solo ad amministrazione');
+        setQualityError('Quality visibile solo ad amministrazione o CCO');
         return;
       }
 
@@ -337,7 +363,29 @@ function Profilo() {
     } finally {
       setQualityLoading(false);
     }
-  }, [user?.id, currentUser?.is_admin, qualityQuarter]);
+  }, [user?.id, isCurrentUserAdmin, isCurrentUserCco, qualityQuarter]);
+
+  const fetchCapacity = useCallback(async () => {
+    if (!user?.id) return;
+    setCapacityLoading(true);
+    setCapacityError('');
+    try {
+      const response = await teamService.getProfessionalCapacity({ user_id: user.id });
+      const row = (response.rows || [])[0] || null;
+      setCapacityRow(row);
+      setCapacityInput(row ? String(row.capienza_contrattuale ?? '') : '');
+    } catch (err) {
+      setCapacityRow(null);
+      setCapacityInput('');
+      if (err?.response?.status === 403) {
+        setCapacityError('Non autorizzato a visualizzare la capienza di questo professionista.');
+      } else {
+        setCapacityError(err?.response?.data?.message || 'Errore nel caricamento capienza.');
+      }
+    } finally {
+      setCapacityLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (activeTab === 'clienti') fetchClients();
@@ -362,6 +410,10 @@ function Profilo() {
   useEffect(() => {
     if (activeTab === 'quality') fetchQuality();
   }, [activeTab, fetchQuality]);
+
+  useEffect(() => {
+    if (activeTab === 'capienza') fetchCapacity();
+  }, [activeTab, fetchCapacity]);
 
   const role = user?.role || 'professionista';
   const specialty = user?.specialty;
@@ -563,6 +615,14 @@ function Profilo() {
                     Quality
                   </button>
                 </li>
+                {canViewCapacityTab && (
+                  <li className="nav-item">
+                    <button className={`nav-link px-4 py-3 ${activeTab === 'capienza' ? 'active' : ''}`} onClick={() => setActiveTab('capienza')}>
+                      <i className="ri-bar-chart-box-line me-2"></i>
+                      Capienza
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
 
@@ -1335,6 +1395,79 @@ function Profilo() {
                         </table>
                       </div>
                     </>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'capienza' && (
+                <div>
+                  {capacityLoading ? (
+                    <div className="text-center py-4">
+                      <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Caricamento capienza...
+                    </div>
+                  ) : capacityError ? (
+                    <div className="alert alert-warning mb-0">{capacityError}</div>
+                  ) : !capacityRow ? (
+                    <div className="alert alert-light border mb-0">Nessun dato capienza disponibile per questo professionista.</div>
+                  ) : (
+                    <div className="table-responsive border rounded">
+                      <table className="table table-sm align-middle mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th>Professionista</th>
+                            <th>Capienza contrattuale</th>
+                            <th>Clienti assegnati</th>
+                            <th>% Capienza</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="fw-medium">{capacityRow.full_name}</td>
+                            <td style={{ minWidth: 220 }}>
+                              {canEditCapacity ? (
+                                <div className="d-flex gap-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="form-control form-control-sm"
+                                    value={capacityInput}
+                                    onChange={(e) => setCapacityInput(e.target.value)}
+                                  />
+                                  <button
+                                    className="btn btn-sm btn-primary"
+                                    disabled={capacitySaving}
+                                    onClick={async () => {
+                                      if (capacityInput === '' || Number.isNaN(Number(capacityInput))) return;
+                                      setCapacitySaving(true);
+                                      try {
+                                        const res = await teamService.updateProfessionalCapacity(user.id, Number(capacityInput));
+                                        setCapacityRow(res.row);
+                                        setCapacityInput(String(res.row.capienza_contrattuale ?? ''));
+                                      } catch (err) {
+                                        alert(err?.response?.data?.message || 'Errore nel salvataggio della capienza contrattuale');
+                                      } finally {
+                                        setCapacitySaving(false);
+                                      }
+                                    }}
+                                  >
+                                    {capacitySaving ? '...' : 'Salva'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span>{capacityRow.capienza_contrattuale}</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={`badge ${capacityRow.is_over_capacity ? 'bg-danger' : 'bg-light text-dark border'}`}>
+                                {capacityRow.clienti_assegnati}
+                              </span>
+                            </td>
+                            <td>{(capacityRow.percentuale_capienza || 0).toFixed(1)}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               )}

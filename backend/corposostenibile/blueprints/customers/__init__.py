@@ -91,6 +91,10 @@ def init_app(app: Flask) -> None:  # noqa: D401
     from . import routes as _routes             # side-effect: definisce blueprint
     _routes.register_routes(app)
 
+    # ── Listener webhook stato globale cliente (pausa/ghost) ──────────────
+    from .global_status_webhooks import register_global_status_webhook_listeners
+    register_global_status_webhook_listeners(app)
+
     # ── Jinja filters ----------------------------------------------------
     # basename: "/foo/bar/file.pdf" → "file.pdf"
     if "basename" not in app.jinja_env.filters:

@@ -26,7 +26,6 @@ import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
-import './clienti-detail-responsive.css';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -229,16 +228,6 @@ function ClientiDetail() {
         iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
         tabId: 'nutrizione',
         onEnter: () => setNutrizioneSubTab('patologie')
-      },
-      {
-        target: '[data-tour="nutrizione-piani"]',
-        title: 'Piani Alimentari',
-        content: 'Il cuore della nutrizione: carica nuovi PDF, modifica quelli attivi e consulta lo storico.',
-        placement: 'top',
-        icon: <FaAppleAlt size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-        tabId: 'nutrizione',
-        onEnter: () => setNutrizioneSubTab('piano')
       },
       {
         target: '[data-tour="nutrizione-diario"]',
@@ -474,7 +463,7 @@ function ClientiDetail() {
             Tab selezionata: <strong>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')}</strong>
           </p>
           <p className="mb-3 small text-muted">
-            Che tipo di tour vuoi seguire oggi?
+             Che tipo di tour vuoi seguire oggi?
           </p>
           <div className="d-flex flex-column gap-2">
             <button
@@ -510,10 +499,10 @@ function ClientiDetail() {
   const [searchParams] = useSearchParams();
   useEffect(() => {
     if (searchParams.get('startTour') === 'true' && !loading) {
-      // Avvia il tour con un leggero ritardo per assicurare il rendering
-      setTimeout(() => {
-        handleTourStart();
-      }, 800);
+        // Avvia il tour con un leggero ritardo per assicurare il rendering
+        setTimeout(() => {
+            handleTourStart();
+        }, 800);
     }
   }, [searchParams, loading]);
 
@@ -532,7 +521,7 @@ function ClientiDetail() {
 
     const mapped = tabAliases[requestedTab] || requestedTab;
     const validTabs = new Set([
-      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'check_periodici', 'check_iniziali'
+      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico', 'check_periodici', 'check_iniziali'
     ]);
 
     if (validTabs.has(mapped)) {
@@ -543,16 +532,16 @@ function ClientiDetail() {
   const handleTourSelection = (type) => {
     let steps = [];
     if (type === 'general') {
-      steps = commonSteps;
+       steps = commonSteps;
     } else {
-      const specific = tabSpecificSteps[activeTab] || [];
-      if (specific.length === 0) {
-        // Fallback if no specific steps
-        steps = commonSteps;
-        alert('Nessun tour specifico per questa tab. Avvio tour generale.');
-      } else {
-        steps = specific;
-      }
+       const specific = tabSpecificSteps[activeTab] || [];
+       if (specific.length === 0) {
+         // Fallback if no specific steps
+         steps = commonSteps;
+         alert('Nessun tour specifico per questa tab. Avvio tour generale.');
+       } else {
+         steps = specific;
+       }
     }
     setActiveTourSteps(steps);
     setTourKey(prev => prev + 1);
@@ -589,9 +578,16 @@ function ClientiDetail() {
   const [editPlanFile, setEditPlanFile] = useState(null);
   const [planVersions, setPlanVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
-  // Anamnesi state
+  // Anamnesi state (5 sezioni: remota, prossima, familiare, stileVita, terapie)
   const [anamnesiNutrizione, setAnamnesiNutrizione] = useState(null);
   const [anamnesiContent, setAnamnesiContent] = useState('');
+  const [anamnesiSections, setAnamnesiSections] = useState({
+    remota: '',
+    prossima: '',
+    familiare: '',
+    stileVita: '',
+    terapie: ''
+  });
   const [loadingAnamnesi, setLoadingAnamnesi] = useState(false);
   const [savingAnamnesi, setSavingAnamnesi] = useState(false);
   // Diario state (Nutrizione)
@@ -665,7 +661,7 @@ function ClientiDetail() {
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
 
   const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
-
+  
   // Check Sub-tabs states
   const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly');
   const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
@@ -830,7 +826,7 @@ function ClientiDetail() {
   // Fetch anamnesi/diario when sub-tab changes
   useEffect(() => {
     if (activeTab === 'nutrizione' && id) {
-      if (nutrizioneSubTab === 'anamnesi') {
+      if (nutrizioneSubTab === 'patologie') {
         fetchAnamnesi();
       } else if (nutrizioneSubTab === 'diario') {
         fetchDiarioEntries();
@@ -881,6 +877,16 @@ function ClientiDetail() {
       }
     }
   }, [activeTab, psicologiaSubTab, id]);
+
+  // Fetch medico data when Medico tab is active
+  useEffect(() => {
+    if (activeTab === 'medico' && id) {
+      if (professionistiHistory.length === 0) {
+        fetchProfessionistiHistory();
+      }
+      fetchAvailableProfessionals();
+    }
+  }, [activeTab, id]);
 
   // Fetch check data when check tab is active
   useEffect(() => {
@@ -1403,29 +1409,45 @@ function ClientiDetail() {
       const response = await clientiService.getAnamnesi(id, 'nutrizione');
       if (response.success && response.anamnesi) {
         setAnamnesiNutrizione(response.anamnesi);
-        setAnamnesiContent(response.anamnesi.content || '');
+        const raw = response.anamnesi.content || '';
+        setAnamnesiContent(raw);
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            setAnamnesiSections({
+              remota: parsed.remota || '',
+              prossima: parsed.prossima || '',
+              familiare: parsed.familiare || '',
+              stileVita: parsed.stileVita || '',
+              terapie: parsed.terapie || ''
+            });
+          } else {
+            setAnamnesiSections(prev => ({ ...prev, prossima: raw }));
+          }
+        } catch (_) {
+          setAnamnesiSections(prev => ({ ...prev, prossima: raw }));
+        }
       } else {
         setAnamnesiNutrizione(null);
         setAnamnesiContent('');
+        setAnamnesiSections({ remota: '', prossima: '', familiare: '', stileVita: '', terapie: '' });
       }
     } catch (err) {
       console.error('Error fetching anamnesi:', err);
       setAnamnesiNutrizione(null);
       setAnamnesiContent('');
+      setAnamnesiSections({ remota: '', prossima: '', familiare: '', stileVita: '', terapie: '' });
     } finally {
       setLoadingAnamnesi(false);
     }
   };
 
   const handleSaveAnamnesi = async () => {
-    if (!anamnesiContent.trim()) {
-      alert('Inserisci il contenuto dell\'anamnesi');
-      return;
-    }
-
+    const contentToSave = JSON.stringify(anamnesiSections);
     setSavingAnamnesi(true);
     try {
-      await clientiService.saveAnamnesi(id, 'nutrizione', anamnesiContent);
+      await clientiService.saveAnamnesi(id, 'nutrizione', contentToSave);
+      setAnamnesiContent(contentToSave);
       fetchAnamnesi();
     } catch (err) {
       console.error('Error saving anamnesi:', err);
@@ -1858,16 +1880,18 @@ function ClientiDetail() {
 
   const fetchAvailableProfessionals = async () => {
     try {
-      const [nutri, coach, psico, hm] = await Promise.all([
+      const [nutri, coach, psico, medico, hm] = await Promise.all([
         teamService.getAvailableProfessionals('nutrizione'),
         teamService.getAvailableProfessionals('coach'),
         teamService.getAvailableProfessionals('psicologia'),
+        teamService.getAvailableProfessionals('medico'),
         teamService.getAvailableProfessionals('health_manager'),
       ]);
       setAvailableProfessionals({
         nutrizionista: nutri.professionals || [],
         coach: coach.professionals || [],
         psicologa: psico.professionals || [],
+        medico: medico.professionals || [],
         health_manager: hm.professionals || [],
       });
     } catch (err) {
@@ -1949,6 +1973,50 @@ function ClientiDetail() {
   // Get active professionals by type from history
   const getActiveProfessionals = (tipo) => {
     return professionistiHistory.filter(h => h.tipo_professionista === tipo && h.is_active);
+  };
+
+  const getWeeklySnapshotProfessional = (response, role) => {
+    const roleMap = {
+      nutritionist: {
+        idKey: 'nutritionist_user_id',
+        nameKey: 'nutritionist_name',
+        historyType: 'nutrizionista',
+        fallbackLabel: 'Nutrizionista',
+      },
+      psychologist: {
+        idKey: 'psychologist_user_id',
+        nameKey: 'psychologist_name',
+        historyType: 'psicologa',
+        fallbackLabel: 'Psicologo/a',
+      },
+      coach: {
+        idKey: 'coach_user_id',
+        nameKey: 'coach_name',
+        historyType: 'coach',
+        fallbackLabel: 'Coach',
+      },
+    };
+
+    const config = roleMap[role];
+    if (!config) return null;
+
+    const professionalId = response?.[config.idKey];
+    const professionalName = response?.[config.nameKey];
+
+    const fromHistory = professionalId
+      ? professionistiHistory.find(
+        (h) =>
+          h.tipo_professionista === config.historyType &&
+            Number(h.professionista_id) === Number(professionalId),
+      )
+      : null;
+
+    const activeFallback = getActiveProfessionals(config.historyType)[0];
+
+    return {
+      assignment: fromHistory || activeFallback || null,
+      name: professionalName || fromHistory?.professionista_nome || activeFallback?.professionista_nome || config.fallbackLabel,
+    };
   };
 
   // Get history for timeline (sorted by date desc)
@@ -2235,7 +2303,7 @@ function ClientiDetail() {
     if (!name) return '??';
     const parts = name.split(' ');
     return parts.length >= 2
-      ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+      ? `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase()
       : name.substring(0, 2).toUpperCase();
   };
 
@@ -2247,6 +2315,7 @@ function ClientiDetail() {
     { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
     { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
+    { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
@@ -2266,7 +2335,7 @@ function ClientiDetail() {
         accentColor="#85FF00"
       />
       {/* Page Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 cd-page-header" data-tour="header-dettaglio">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header-dettaglio">
         <div>
           <h4 className="mb-1">Dettaglio Paziente</h4>
           <nav aria-label="breadcrumb">
@@ -2312,7 +2381,7 @@ function ClientiDetail() {
 
       <div className="row g-4">
         {/* Profile Card - Left Column */}
-        <div className="col-lg-4 cd-profile" data-tour="profilo-paziente">
+        <div className="col-lg-4" data-tour="profilo-paziente">
           <div className="card shadow-sm border-0 overflow-hidden">
             {/* Gradient Header */}
             <div
@@ -2404,7 +2473,7 @@ function ClientiDetail() {
                   <div className="mb-3">
                     <div className="d-flex align-items-center gap-2 mb-2">
                       <div className="bg-success rounded-circle d-flex align-items-center justify-content-center"
-                        style={{ width: '20px', height: '20px' }}>
+                           style={{ width: '20px', height: '20px' }}>
                         <i className="ri-heart-pulse-line text-white" style={{ fontSize: '0.65rem' }}></i>
                       </div>
                       <small className="text-muted fw-semibold">Nutrizione</small>
@@ -2437,7 +2506,7 @@ function ClientiDetail() {
                   <div className="mb-3">
                     <div className="d-flex align-items-center gap-2 mb-2">
                       <div className="bg-warning rounded-circle d-flex align-items-center justify-content-center"
-                        style={{ width: '20px', height: '20px' }}>
+                           style={{ width: '20px', height: '20px' }}>
                         <i className="ri-run-line text-dark" style={{ fontSize: '0.65rem' }}></i>
                       </div>
                       <small className="text-muted fw-semibold">Coach</small>
@@ -2470,7 +2539,7 @@ function ClientiDetail() {
                   <div className="mb-3">
                     <div className="d-flex align-items-center gap-2 mb-2">
                       <div className="bg-info rounded-circle d-flex align-items-center justify-content-center"
-                        style={{ width: '20px', height: '20px' }}>
+                           style={{ width: '20px', height: '20px' }}>
                         <i className="ri-mental-health-line text-white" style={{ fontSize: '0.65rem' }}></i>
                       </div>
                       <small className="text-muted fw-semibold">Psicologia</small>
@@ -2521,7 +2590,7 @@ function ClientiDetail() {
         </div>
 
         {/* Details Section - Right Column */}
-        <div className="col-lg-8 cd-tabs">
+        <div className="col-lg-8">
           <div className="card shadow-sm border-0">
             {/* Tabs Navigation */}
             <div className="card-header bg-transparent border-bottom p-0">
@@ -2891,7 +2960,7 @@ function ClientiDetail() {
               {activeTab === 'team' && (
                 <div className="row g-4">
                   {/* Sub-tabs for Team Clinico / Team Esterno */}
-                  <div className="col-12 cd-subtabs-scroll" data-tour="team-subtabs">
+                  <div className="col-12" data-tour="team-subtabs">
                     <ul className="nav nav-pills mb-4" style={{ gap: '8px' }}>
                       <li className="nav-item">
                         <button
@@ -2934,350 +3003,409 @@ function ClientiDetail() {
                   {teamSubTab === 'clinico' && (
                     <div className="col-12" data-tour="team-clinico-wrapper">
                       <div className="row g-4">
-                        {/* Professionisti Clinici */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Professionisti Assegnati
-                          </h6>
-                          {loadingHistory ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento...</small>
-                            </div>
-                          ) : (
-                            <div className="row g-3 align-items-start">
-                              {/* Nutrizionisti */}
-                              <div className="col-md-4">
-                                <div className="card border">
-                                  <div className="card-body p-3">
-                                    <div className="d-flex align-items-center justify-content-between mb-2">
-                                      <div className="d-flex align-items-center">
-                                        <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                          style={{ width: '28px', height: '28px' }}>
-                                          <i className="ri-heart-pulse-line text-success" style={{ fontSize: '0.85rem' }}></i>
-                                        </div>
-                                        <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Nutrizionista</span>
+                      {/* Professionisti Clinici */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Professionisti Assegnati
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : (
+                          <div className="row g-3 align-items-start">
+                            {/* Nutrizionisti */}
+                            <div className="col-md-6 col-xl-3">
+                              <div className="card border">
+                                <div className="card-body p-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center">
+                                      <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                           style={{ width: '28px', height: '28px' }}>
+                                        <i className="ri-heart-pulse-line text-success" style={{ fontSize: '0.85rem' }}></i>
                                       </div>
-                                      <button
-                                        className="btn btn-success btn-sm d-flex align-items-center justify-content-center"
-                                        onClick={() => handleOpenAssignModal('nutrizionista')}
-                                        title="Aggiungi Nutrizionista"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
-                                      >
-                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
-                                      </button>
+                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Nutrizionista</span>
                                     </div>
-                                    {getActiveProfessionals('nutrizionista').length > 0 ? (
-                                      getActiveProfessionals('nutrizionista').map((assignment, idx) => (
-                                        <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                          <div className="d-flex align-items-center">
-                                            {assignment.avatar_path ? (
-                                              <img
-                                                src={assignment.avatar_path}
-                                                alt=""
-                                                className="rounded-circle me-2"
-                                                style={{ width: '28px', height: '28px', objectFit: 'cover' }}
-                                              />
-                                            ) : (
-                                              <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2"
-                                                style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
-                                                {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                            <div>
-                                              <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
-                                            </div>
-                                          </div>
-                                          <button
-                                            className="btn btn-sm btn-link text-danger p-0"
-                                            onClick={() => handleOpenInterruptModal(assignment)}
-                                            title="Rimuovi"
-                                          >
-                                            <i className="ri-close-line"></i>
-                                          </button>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <small className="text-muted">Nessuno assegnato</small>
-                                    )}
+                                    <button
+                                      className="btn btn-success btn-sm d-flex align-items-center justify-content-center"
+                                      onClick={() => handleOpenAssignModal('nutrizionista')}
+                                      title="Aggiungi Nutrizionista"
+                                      style={{ width: '26px', height: '26px', padding: 0 }}
+                                    >
+                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                    </button>
                                   </div>
-                                </div>
-                              </div>
-
-                              {/* Coach */}
-                              <div className="col-md-4">
-                                <div className="card border">
-                                  <div className="card-body p-3">
-                                    <div className="d-flex align-items-center justify-content-between mb-2">
-                                      <div className="d-flex align-items-center">
-                                        <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                          style={{ width: '28px', height: '28px' }}>
-                                          <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
-                                        </div>
-                                        <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Coach</span>
-                                      </div>
-                                      <button
-                                        className="btn btn-warning btn-sm d-flex align-items-center justify-content-center"
-                                        onClick={() => handleOpenAssignModal('coach')}
-                                        title="Aggiungi Coach"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
-                                      >
-                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
-                                      </button>
-                                    </div>
-                                    {getActiveProfessionals('coach').length > 0 ? (
-                                      getActiveProfessionals('coach').map((assignment, idx) => (
-                                        <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                          <div className="d-flex align-items-center">
-                                            {assignment.avatar_path ? (
-                                              <img
-                                                src={assignment.avatar_path}
-                                                alt=""
-                                                className="rounded-circle me-2"
-                                                style={{ width: '28px', height: '28px', objectFit: 'cover' }}
-                                              />
-                                            ) : (
-                                              <div className="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-2"
-                                                style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
-                                                {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                            <div>
-                                              <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                  {getActiveProfessionals('nutrizionista').length > 0 ? (
+                                    getActiveProfessionals('nutrizionista').map((assignment, idx) => (
+                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
+                                        <div className="d-flex align-items-center">
+                                          {assignment.avatar_path ? (
+                                            <img
+                                              src={assignment.avatar_path}
+                                              alt=""
+                                              className="rounded-circle me-2"
+                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2"
+                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                              {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
+                                          )}
+                                          <div>
+                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                           </div>
-                                          <button
-                                            className="btn btn-sm btn-link text-danger p-0"
-                                            onClick={() => handleOpenInterruptModal(assignment)}
-                                            title="Rimuovi"
-                                          >
-                                            <i className="ri-close-line"></i>
-                                          </button>
                                         </div>
-                                      ))
-                                    ) : (
-                                      <small className="text-muted">Nessuno assegnato</small>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Psicologi */}
-                              <div className="col-md-4">
-                                <div className="card border">
-                                  <div className="card-body p-3">
-                                    <div className="d-flex align-items-center justify-content-between mb-2">
-                                      <div className="d-flex align-items-center">
-                                        <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                          style={{ width: '28px', height: '28px' }}>
-                                          <i className="ri-mental-health-line text-info" style={{ fontSize: '0.85rem' }}></i>
-                                        </div>
-                                        <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Psicologo</span>
-                                      </div>
-                                      <button
-                                        className="btn btn-info btn-sm d-flex align-items-center justify-content-center"
-                                        onClick={() => handleOpenAssignModal('psicologa')}
-                                        title="Aggiungi Psicologo"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
-                                      >
-                                        <i className="ri-add-line text-white" style={{ fontSize: '0.9rem' }}></i>
-                                      </button>
-                                    </div>
-                                    {getActiveProfessionals('psicologa').length > 0 ? (
-                                      getActiveProfessionals('psicologa').map((assignment, idx) => (
-                                        <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                          <div className="d-flex align-items-center">
-                                            {assignment.avatar_path ? (
-                                              <img
-                                                src={assignment.avatar_path}
-                                                alt=""
-                                                className="rounded-circle me-2"
-                                                style={{ width: '28px', height: '28px', objectFit: 'cover' }}
-                                              />
-                                            ) : (
-                                              <div className="rounded-circle bg-info text-white d-flex align-items-center justify-content-center me-2"
-                                                style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
-                                                {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                            <div>
-                                              <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
-                                            </div>
-                                          </div>
-                                          <button
-                                            className="btn btn-sm btn-link text-danger p-0"
-                                            onClick={() => handleOpenInterruptModal(assignment)}
-                                            title="Rimuovi"
-                                          >
-                                            <i className="ri-close-line"></i>
-                                          </button>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <small className="text-muted">Nessuno assegnato</small>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Timeline Storico Assegnazioni - Orizzontale */}
-                        <div className="col-12 mt-4" data-tour="team-timeline">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
-                            Storico Assegnazioni
-                          </h6>
-                          {loadingHistory ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                            </div>
-                          ) : getTimelineHistory().length > 0 ? (
-                            <div className="timeline-horizontal" style={{
-                              overflowX: 'auto',
-                              paddingBottom: '10px',
-                              position: 'relative',
-                            }}>
-                              {/* Horizontal line */}
-                              <div style={{
-                                position: 'absolute',
-                                left: '0',
-                                right: '0',
-                                top: '24px',
-                                height: '3px',
-                                background: 'linear-gradient(to right, #10b981, #3b82f6, #8b5cf6)',
-                                borderRadius: '2px',
-                                zIndex: 0,
-                              }}></div>
-
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
-                                {getTimelineHistory().map((item, idx) => {
-                                  const colorConfig = TIPO_PROFESSIONISTA_COLORS[item.tipo_professionista] || { bg: 'secondary', icon: 'text-secondary' };
-                                  const icon = TIPO_PROFESSIONISTA_ICONS[item.tipo_professionista] || 'ri-user-line';
-
-                                  return (
-                                    <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '160px', maxWidth: '180px' }}>
-                                      {/* Dot on line */}
-                                      <div className="d-flex justify-content-center mb-2">
-                                        <div
-                                          className={`rounded-circle d-flex align-items-center justify-content-center bg-${colorConfig.bg}`}
-                                          style={{
-                                            width: '28px',
-                                            height: '28px',
-                                            border: '3px solid #fff',
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                          }}
+                                        <button
+                                          className="btn btn-sm btn-link text-danger p-0"
+                                          onClick={() => handleOpenInterruptModal(assignment)}
+                                          title="Rimuovi"
                                         >
-                                          <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                          <i className="ri-close-line"></i>
+                                        </button>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <small className="text-muted">Nessuno assegnato</small>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Coach */}
+                            <div className="col-md-6 col-xl-3">
+                              <div className="card border">
+                                <div className="card-body p-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center">
+                                      <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                           style={{ width: '28px', height: '28px' }}>
+                                        <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                                      </div>
+                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Coach</span>
+                                    </div>
+                                    <button
+                                      className="btn btn-warning btn-sm d-flex align-items-center justify-content-center"
+                                      onClick={() => handleOpenAssignModal('coach')}
+                                      title="Aggiungi Coach"
+                                      style={{ width: '26px', height: '26px', padding: 0 }}
+                                    >
+                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                    </button>
+                                  </div>
+                                  {getActiveProfessionals('coach').length > 0 ? (
+                                    getActiveProfessionals('coach').map((assignment, idx) => (
+                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
+                                        <div className="d-flex align-items-center">
+                                          {assignment.avatar_path ? (
+                                            <img
+                                              src={assignment.avatar_path}
+                                              alt=""
+                                              className="rounded-circle me-2"
+                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div className="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-2"
+                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                              {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                            </div>
+                                          )}
+                                          <div>
+                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                          </div>
                                         </div>
+                                        <button
+                                          className="btn btn-sm btn-link text-danger p-0"
+                                          onClick={() => handleOpenInterruptModal(assignment)}
+                                          title="Rimuovi"
+                                        >
+                                          <i className="ri-close-line"></i>
+                                        </button>
                                       </div>
+                                    ))
+                                  ) : (
+                                    <small className="text-muted">Nessuno assegnato</small>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
 
-                                      {/* Date label */}
-                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
-                                        {item.data_dal || '—'}
-                                        {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                            {/* Psicologi */}
+                            <div className="col-md-6 col-xl-3">
+                              <div className="card border">
+                                <div className="card-body p-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center">
+                                      <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                           style={{ width: '28px', height: '28px' }}>
+                                        <i className="ri-mental-health-line text-info" style={{ fontSize: '0.85rem' }}></i>
                                       </div>
+                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Psicologo</span>
+                                    </div>
+                                    <button
+                                      className="btn btn-info btn-sm d-flex align-items-center justify-content-center"
+                                      onClick={() => handleOpenAssignModal('psicologa')}
+                                      title="Aggiungi Psicologo"
+                                      style={{ width: '26px', height: '26px', padding: 0 }}
+                                    >
+                                      <i className="ri-add-line text-white" style={{ fontSize: '0.9rem' }}></i>
+                                    </button>
+                                  </div>
+                                  {getActiveProfessionals('psicologa').length > 0 ? (
+                                    getActiveProfessionals('psicologa').map((assignment, idx) => (
+                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
+                                        <div className="d-flex align-items-center">
+                                          {assignment.avatar_path ? (
+                                            <img
+                                              src={assignment.avatar_path}
+                                              alt=""
+                                              className="rounded-circle me-2"
+                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div className="rounded-circle bg-info text-white d-flex align-items-center justify-content-center me-2"
+                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                              {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                            </div>
+                                          )}
+                                          <div>
+                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                          </div>
+                                        </div>
+                                        <button
+                                          className="btn btn-sm btn-link text-danger p-0"
+                                          onClick={() => handleOpenInterruptModal(assignment)}
+                                          title="Rimuovi"
+                                        >
+                                          <i className="ri-close-line"></i>
+                                        </button>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <small className="text-muted">Nessuno assegnato</small>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
 
-                                      {/* Card */}
+                            {/* Medici */}
+                            <div className="col-md-6 col-xl-3">
+                              <div className="card border">
+                                <div className="card-body p-3">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center">
+                                      <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                           style={{ width: '28px', height: '28px' }}>
+                                        <i className="ri-stethoscope-line text-danger" style={{ fontSize: '0.85rem' }}></i>
+                                      </div>
+                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Medico</span>
+                                    </div>
+                                    <button
+                                      className="btn btn-danger btn-sm d-flex align-items-center justify-content-center"
+                                      onClick={() => handleOpenAssignModal('medico')}
+                                      title="Aggiungi Medico"
+                                      style={{ width: '26px', height: '26px', padding: 0 }}
+                                    >
+                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                    </button>
+                                  </div>
+                                  {getActiveProfessionals('medico').length > 0 ? (
+                                    getActiveProfessionals('medico').map((assignment, idx) => (
+                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
+                                        <div className="d-flex align-items-center">
+                                          {assignment.avatar_path ? (
+                                            <img
+                                              src={assignment.avatar_path}
+                                              alt=""
+                                              className="rounded-circle me-2"
+                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2"
+                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                              {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                            </div>
+                                          )}
+                                          <div>
+                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                          </div>
+                                        </div>
+                                        <button
+                                          className="btn btn-sm btn-link text-danger p-0"
+                                          onClick={() => handleOpenInterruptModal(assignment)}
+                                          title="Rimuovi"
+                                        >
+                                          <i className="ri-close-line"></i>
+                                        </button>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <small className="text-muted">Nessuno assegnato</small>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Timeline Storico Assegnazioni - Orizzontale */}
+                      <div className="col-12 mt-4" data-tour="team-timeline">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          <i className="ri-history-line me-2"></i>
+                          Storico Assegnazioni
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                          </div>
+                        ) : getTimelineHistory().length > 0 ? (
+                          <div className="timeline-horizontal" style={{
+                            overflowX: 'auto',
+                            paddingBottom: '10px',
+                            position: 'relative',
+                          }}>
+                            {/* Horizontal line */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '0',
+                              right: '0',
+                              top: '24px',
+                              height: '3px',
+                              background: 'linear-gradient(to right, #10b981, #3b82f6, #8b5cf6)',
+                              borderRadius: '2px',
+                              zIndex: 0,
+                            }}></div>
+
+                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              {getTimelineHistory().map((item, idx) => {
+                                const colorConfig = TIPO_PROFESSIONISTA_COLORS[item.tipo_professionista] || { bg: 'secondary', icon: 'text-secondary' };
+                                const icon = TIPO_PROFESSIONISTA_ICONS[item.tipo_professionista] || 'ri-user-line';
+
+                                return (
+                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '160px', maxWidth: '180px' }}>
+                                    {/* Dot on line */}
+                                    <div className="d-flex justify-content-center mb-2">
                                       <div
-                                        className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
+                                        className={`rounded-circle d-flex align-items-center justify-content-center bg-${colorConfig.bg}`}
                                         style={{
-                                          borderRadius: '12px',
-                                          background: item.is_active ? '#fff' : '#f8fafc',
+                                          width: '28px',
+                                          height: '28px',
+                                          border: '3px solid #fff',
+                                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                                         }}
                                       >
-                                        <div className="card-body p-2">
-                                          {/* Status badge */}
-                                          <div className="mb-2">
-                                            {item.is_active ? (
-                                              <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
-                                            ) : (
-                                              <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
-                                            )}
-                                          </div>
+                                        <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                      </div>
+                                    </div>
 
-                                          {/* Avatar */}
-                                          <div className="d-flex justify-content-center mb-2">
-                                            {item.avatar_path ? (
-                                              <img
-                                                src={item.avatar_path}
-                                                alt=""
-                                                className="rounded-circle"
-                                                style={{ width: '36px', height: '36px', objectFit: 'cover' }}
-                                              />
-                                            ) : (
-                                              <div
-                                                className={`rounded-circle bg-${colorConfig.bg} text-white d-flex align-items-center justify-content-center`}
-                                                style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
-                                              >
-                                                {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                          </div>
+                                    {/* Date label */}
+                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                      {item.data_dal || '—'}
+                                      {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                    </div>
 
-                                          {/* Name */}
-                                          <div className="fw-semibold small mb-1" style={{
-                                            fontSize: '0.8rem',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                          }}>
-                                            {item.professionista_nome}
-                                          </div>
-
-                                          {/* Type badge */}
-                                          <span className={`badge bg-${colorConfig.bg}-subtle text-${colorConfig.bg}`} style={{ fontSize: '0.6rem' }}>
-                                            {TIPO_PROFESSIONISTA_LABELS[item.tipo_professionista] || item.tipo_professionista}
-                                          </span>
-
-                                          {/* Motivazione (tooltip style) */}
-                                          {item.motivazione_aggiunta && (
-                                            <div className="mt-2 text-start" style={{ fontSize: '0.65rem' }}>
-                                              <span className="text-success">
-                                                <i className="ri-add-line me-1"></i>
-                                                {item.motivazione_aggiunta.length > 30
-                                                  ? item.motivazione_aggiunta.substring(0, 30) + '...'
-                                                  : item.motivazione_aggiunta}
-                                              </span>
-                                            </div>
+                                    {/* Card */}
+                                    <div
+                                      className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
+                                      style={{
+                                        borderRadius: '12px',
+                                        background: item.is_active ? '#fff' : '#f8fafc',
+                                      }}
+                                    >
+                                      <div className="card-body p-2">
+                                        {/* Status badge */}
+                                        <div className="mb-2">
+                                          {item.is_active ? (
+                                            <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                          ) : (
+                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
                                           )}
-                                          {item.motivazione_interruzione && (
-                                            <div className="mt-1 text-start" style={{ fontSize: '0.65rem' }}>
-                                              <span className="text-danger">
-                                                <i className="ri-close-line me-1"></i>
-                                                {item.motivazione_interruzione.length > 30
-                                                  ? item.motivazione_interruzione.substring(0, 30) + '...'
-                                                  : item.motivazione_interruzione}
-                                              </span>
-                                            </div>
-                                          )}
+                                        </div>
 
-                                          {/* Legacy indicator */}
-                                          {!item.has_history && (
-                                            <div className="mt-1">
-                                              <span className="badge bg-warning-subtle text-warning" style={{ fontSize: '0.55rem' }}>
-                                                Legacy
-                                              </span>
+                                        {/* Avatar */}
+                                        <div className="d-flex justify-content-center mb-2">
+                                          {item.avatar_path ? (
+                                            <img
+                                              src={item.avatar_path}
+                                              alt=""
+                                              className="rounded-circle"
+                                              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div
+                                              className={`rounded-circle bg-${colorConfig.bg} text-white d-flex align-items-center justify-content-center`}
+                                              style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
+                                            >
+                                              {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
                                           )}
                                         </div>
+
+                                        {/* Name */}
+                                        <div className="fw-semibold small mb-1" style={{
+                                          fontSize: '0.8rem',
+                                          whiteSpace: 'nowrap',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                        }}>
+                                          {item.professionista_nome}
+                                        </div>
+
+                                        {/* Type badge */}
+                                        <span className={`badge bg-${colorConfig.bg}-subtle text-${colorConfig.bg}`} style={{ fontSize: '0.6rem' }}>
+                                          {TIPO_PROFESSIONISTA_LABELS[item.tipo_professionista] || item.tipo_professionista}
+                                        </span>
+
+                                        {/* Motivazione (tooltip style) */}
+                                        {item.motivazione_aggiunta && (
+                                          <div className="mt-2 text-start" style={{ fontSize: '0.65rem' }}>
+                                            <span className="text-success">
+                                              <i className="ri-add-line me-1"></i>
+                                              {item.motivazione_aggiunta.length > 30
+                                                ? item.motivazione_aggiunta.substring(0, 30) + '...'
+                                                : item.motivazione_aggiunta}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {item.motivazione_interruzione && (
+                                          <div className="mt-1 text-start" style={{ fontSize: '0.65rem' }}>
+                                            <span className="text-danger">
+                                              <i className="ri-close-line me-1"></i>
+                                              {item.motivazione_interruzione.length > 30
+                                                ? item.motivazione_interruzione.substring(0, 30) + '...'
+                                                : item.motivazione_interruzione}
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {/* Legacy indicator */}
+                                        {!item.has_history && (
+                                          <div className="mt-1">
+                                            <span className="badge bg-warning-subtle text-warning" style={{ fontSize: '0.55rem' }}>
+                                              Legacy
+                                            </span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
-                                  );
-                                })}
-                              </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          ) : (
-                            <div className="text-center py-4 bg-light rounded">
-                              <i className="ri-history-line text-muted fs-3 mb-2 d-block"></i>
-                              <small className="text-muted">Nessuna assegnazione registrata</small>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 bg-light rounded">
+                            <i className="ri-history-line text-muted fs-3 mb-2 d-block"></i>
+                            <small className="text-muted">Nessuna assegnazione registrata</small>
+                          </div>
+                        )}
+                      </div>
                       </div>
                     </div>
                   )}
@@ -3290,7 +3418,7 @@ function ClientiDetail() {
                           <div className="d-flex align-items-center justify-content-between mb-2">
                             <div className="d-flex align-items-center">
                               <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                style={{ width: '28px', height: '28px' }}>
+                                   style={{ width: '28px', height: '28px' }}>
                                 <i className="ri-user-star-line text-primary" style={{ fontSize: '0.85rem' }}></i>
                               </div>
                               <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Health Manager</span>
@@ -3325,7 +3453,7 @@ function ClientiDetail() {
                                       />
                                     ) : (
                                       <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
-                                        style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                           style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
                                         {(hmUser.full_name || '')
                                           .split(' ')
                                           .map((n) => n[0])
@@ -3387,14 +3515,13 @@ function ClientiDetail() {
                   )}
 
                   {/* Sub-tab Navigation - Same style as Team tab */}
-                  <div className="col-12 cd-subtabs-scroll" data-tour="nutrizione-subtabs">
+                  <div className="col-12" data-tour="nutrizione-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: '#22c55e' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
-                          { key: 'piano', label: 'Piano Alimentare', icon: 'ri-restaurant-line', color: '#10b981' },
+                          { key: 'patologie', label: 'Patologie e Anamnesi', icon: 'ri-stethoscope-line', color: '#f59e0b' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
                         ].map(({ key, label, icon, color }) => (
@@ -3426,238 +3553,288 @@ function ClientiDetail() {
                   {nutrizioneSubTab === 'panoramica' && (
                     <div className="col-12" data-tour="nutrizione-panoramica">
                       <div className="row g-4">
-                        {/* Nutrizionisti Assegnati - Same style as Team tab */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Nutrizionisti Assegnati
-                          </h6>
-                          {loadingHistory ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-success" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento...</small>
-                            </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center justify-content-between mb-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                      style={{ width: '32px', height: '32px' }}>
-                                      <i className="ri-heart-pulse-line text-success"></i>
-                                    </div>
-                                    <span className="fw-semibold">Team Nutrizione</span>
+                      {/* Nutrizionisti Assegnati - Same style as Team tab */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Nutrizionisti Assegnati
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                       style={{ width: '32px', height: '32px' }}>
+                                    <i className="ri-heart-pulse-line text-success"></i>
                                   </div>
-                                  <span className="badge bg-success">{getActiveProfessionals('nutrizionista').length} attivi</span>
+                                  <span className="fw-semibold">Team Nutrizione</span>
                                 </div>
-
-                                {getActiveProfessionals('nutrizionista').length > 0 ? (
-                                  <div className="d-flex flex-wrap gap-2">
-                                    {getActiveProfessionals('nutrizionista').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
-                                        {assignment.avatar_path ? (
-                                          <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
-                                        ) : (
-                                          <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
-                                            {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                          </div>
-                                        )}
-                                        <div>
-                                          <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                          <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-muted small mb-0">Nessun nutrizionista assegnato. Vai alla tab "Team" per assegnare.</p>
-                                )}
+                                <span className="badge bg-success">{getActiveProfessionals('nutrizionista').length} attivi</span>
                               </div>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Storico Assegnazioni Timeline - Orizzontale come Team tab */}
-                        {professionistiHistory.filter(h => h.tipo_professionista === 'nutrizionista').length > 0 && (
-                          <div className="col-12">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                              <i className="ri-history-line me-2"></i>
-                              Storico Assegnazioni
-                            </h6>
-                            <div className="timeline-horizontal" style={{
-                              overflowX: 'auto',
-                              paddingBottom: '10px',
-                              position: 'relative',
-                            }}>
-                              {/* Horizontal line */}
-                              <div style={{
-                                position: 'absolute',
-                                left: '0',
-                                right: '0',
-                                top: '24px',
-                                height: '3px',
-                                background: 'linear-gradient(to right, #22c55e, #16a34a)',
-                                borderRadius: '2px',
-                                zIndex: 0,
-                              }}></div>
-
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
-                                {professionistiHistory
-                                  .filter(h => h.tipo_professionista === 'nutrizionista')
-                                  .sort((a, b) => {
-                                    const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
-                                    const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
-                                    return dateB - dateA;
-                                  })
-                                  .map((item, idx) => (
-                                    <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
-                                      {/* Dot on line */}
-                                      <div className="d-flex justify-content-center mb-2">
-                                        <div
-                                          className="rounded-circle d-flex align-items-center justify-content-center bg-success"
-                                          style={{
-                                            width: '28px',
-                                            height: '28px',
-                                            border: '3px solid #fff',
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                          }}
-                                        >
-                                          <i className="ri-heart-pulse-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                              {getActiveProfessionals('nutrizionista').length > 0 ? (
+                                <div className="d-flex flex-wrap gap-2">
+                                  {getActiveProfessionals('nutrizionista').map((assignment, idx) => (
+                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                      {assignment.avatar_path ? (
+                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                          {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
-                                      </div>
-
-                                      {/* Date label */}
-                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
-                                        {item.data_dal || '—'}
-                                        {item.data_al && <span className="d-block">→ {item.data_al}</span>}
-                                      </div>
-
-                                      {/* Card */}
-                                      <div
-                                        className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
-                                        style={{
-                                          borderRadius: '12px',
-                                          background: item.is_active ? '#fff' : '#f8fafc',
-                                        }}
-                                      >
-                                        <div className="card-body p-2">
-                                          {/* Status badge */}
-                                          <div className="mb-2">
-                                            {item.is_active ? (
-                                              <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
-                                            ) : (
-                                              <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
-                                            )}
-                                          </div>
-
-                                          {/* Avatar */}
-                                          <div className="d-flex justify-content-center mb-2">
-                                            {item.avatar_path ? (
-                                              <img
-                                                src={item.avatar_path}
-                                                alt=""
-                                                className="rounded-circle"
-                                                style={{ width: '36px', height: '36px', objectFit: 'cover' }}
-                                              />
-                                            ) : (
-                                              <div
-                                                className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center"
-                                                style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
-                                              >
-                                                {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          {/* Name */}
-                                          <div className="fw-semibold small" style={{
-                                            fontSize: '0.8rem',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                          }}>
-                                            {item.professionista_nome}
-                                          </div>
-                                        </div>
+                                      )}
+                                      <div>
+                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                       </div>
                                     </div>
                                   ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Stati Servizio e Chat in row */}
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Stato Servizio
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-heart-pulse-line text-success" style={{ fontSize: '0.85rem' }}></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Nutrizione</span>
-                              </div>
-                              <select
-                                className="form-select form-select-sm mb-2"
-                                value={formData.stato_nutrizione || ''}
-                                onChange={(e) => handleInputChange('stato_nutrizione', e.target.value)}
-                              >
-                                <option value="">Seleziona stato...</option>
-                                <option value="attivo">Attivo</option>
-                                <option value="pausa">Pausa</option>
-                                <option value="ghost">Ghost</option>
-                                <option value="stop">Ex-Cliente</option>
-                              </select>
-                              {c.stato_nutrizione_data && (
-                                <small className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                  <i className="ri-calendar-line me-1"></i>
-                                  Ultimo cambio: {new Date(c.stato_nutrizione_data).toLocaleDateString('it-IT')}
-                                </small>
+                              ) : (
+                                <p className="text-muted small mb-0">Nessun nutrizionista assegnato. Vai alla tab "Team" per assegnare.</p>
                               )}
                             </div>
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Stato Chat
-                          </h6>
+                      {/* Medico Assegnato - Controllo semestrale */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Medico Assegnato
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : (
                           <div className="card border">
                             <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-chat-3-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                              <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                       style={{ width: '32px', height: '32px' }}>
+                                    <i className="ri-stethoscope-line text-danger"></i>
+                                  </div>
+                                  <span className="fw-semibold">Medico (controllo semestrale)</span>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Nutrizione</span>
+                                <span className="badge bg-danger">{getActiveProfessionals('medico').length} attivi</span>
                               </div>
-                              <select
-                                className="form-select form-select-sm mb-2"
-                                value={formData.stato_cliente_chat_nutrizione || ''}
-                                onChange={(e) => handleInputChange('stato_cliente_chat_nutrizione', e.target.value)}
-                              >
-                                <option value="">Seleziona stato...</option>
-                                <option value="attivo">Attivo</option>
-                                <option value="pausa">Pausa</option>
-                                <option value="ghost">Ghost</option>
-                              </select>
+
+                              {getActiveProfessionals('medico').length > 0 ? (
+                                <div className="d-flex flex-wrap gap-2">
+                                  {getActiveProfessionals('medico').map((assignment, idx) => (
+                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                      {assignment.avatar_path ? (
+                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                          {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                      <div>
+                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-muted small mb-0">Nessun medico assegnato. Vai alla tab &quot;Team&quot; per assegnare.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Storico Assegnazioni Timeline - Orizzontale come Team tab */}
+                      {professionistiHistory.filter(h => h.tipo_professionista === 'nutrizionista').length > 0 && (
+                        <div className="col-12">
+                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                            <i className="ri-history-line me-2"></i>
+                            Storico Assegnazioni
+                          </h6>
+                          <div className="timeline-horizontal" style={{
+                            overflowX: 'auto',
+                            paddingBottom: '10px',
+                            position: 'relative',
+                          }}>
+                            {/* Horizontal line */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '0',
+                              right: '0',
+                              top: '24px',
+                              height: '3px',
+                              background: 'linear-gradient(to right, #22c55e, #16a34a)',
+                              borderRadius: '2px',
+                              zIndex: 0,
+                            }}></div>
+
+                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              {professionistiHistory
+                                .filter(h => h.tipo_professionista === 'nutrizionista')
+                                .sort((a, b) => {
+                                  const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
+                                  const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
+                                  return dateB - dateA;
+                                })
+                                .map((item, idx) => (
+                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                    {/* Dot on line */}
+                                    <div className="d-flex justify-content-center mb-2">
+                                      <div
+                                        className="rounded-circle d-flex align-items-center justify-content-center bg-success"
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          border: '3px solid #fff',
+                                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                        }}
+                                      >
+                                        <i className="ri-heart-pulse-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                      </div>
+                                    </div>
+
+                                    {/* Date label */}
+                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                      {item.data_dal || '—'}
+                                      {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                    </div>
+
+                                    {/* Card */}
+                                    <div
+                                      className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
+                                      style={{
+                                        borderRadius: '12px',
+                                        background: item.is_active ? '#fff' : '#f8fafc',
+                                      }}
+                                    >
+                                      <div className="card-body p-2">
+                                        {/* Status badge */}
+                                        <div className="mb-2">
+                                          {item.is_active ? (
+                                            <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                          ) : (
+                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                          )}
+                                        </div>
+
+                                        {/* Avatar */}
+                                        <div className="d-flex justify-content-center mb-2">
+                                          {item.avatar_path ? (
+                                            <img
+                                              src={item.avatar_path}
+                                              alt=""
+                                              className="rounded-circle"
+                                              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div
+                                              className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center"
+                                              style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
+                                            >
+                                              {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Name */}
+                                        <div className="fw-semibold small" style={{
+                                          fontSize: '0.8rem',
+                                          whiteSpace: 'nowrap',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                        }}>
+                                          {item.professionista_nome}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
                             </div>
                           </div>
                         </div>
+                      )}
 
-                        {/* Timeline Storico Stati Unificata */}
-                        <div className="col-12" data-tour="nutrizione-storico">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
-                            Storico Stati (Servizio + Chat)
-                          </h6>
-                          {loadingStoricoNutrizione ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-success" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento storico...</small>
+                      {/* Stati Servizio e Chat in row */}
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Stato Servizio
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-heart-pulse-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Nutrizione</span>
                             </div>
-                          ) : (storicoStatoNutrizione.length > 0 || storicoChatNutrizione.length > 0) ? (
+                            <select
+                              className="form-select form-select-sm mb-2"
+                              value={formData.stato_nutrizione || ''}
+                              onChange={(e) => handleInputChange('stato_nutrizione', e.target.value)}
+                            >
+                              <option value="">Seleziona stato...</option>
+                              <option value="attivo">Attivo</option>
+                              <option value="pausa">Pausa</option>
+                              <option value="ghost">Ghost</option>
+                              <option value="stop">Ex-Cliente</option>
+                            </select>
+                            {c.stato_nutrizione_data && (
+                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                <i className="ri-calendar-line me-1"></i>
+                                Ultimo cambio: {new Date(c.stato_nutrizione_data).toLocaleDateString('it-IT')}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Stato Chat
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-chat-3-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Nutrizione</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm mb-2"
+                              value={formData.stato_cliente_chat_nutrizione || ''}
+                              onChange={(e) => handleInputChange('stato_cliente_chat_nutrizione', e.target.value)}
+                            >
+                              <option value="">Seleziona stato...</option>
+                              <option value="attivo">Attivo</option>
+                              <option value="pausa">Pausa</option>
+                              <option value="ghost">Ghost</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Timeline Storico Stati Unificata */}
+                      <div className="col-12" data-tour="nutrizione-storico">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          <i className="ri-history-line me-2"></i>
+                          Storico Stati (Servizio + Chat)
+                        </h6>
+                        {loadingStoricoNutrizione ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento storico...</small>
+                          </div>
+                        ) : (storicoStatoNutrizione.length > 0 || storicoChatNutrizione.length > 0) ? (
                             <div className="timeline-horizontal" style={{
                               overflowX: 'auto',
                               paddingBottom: '10px',
@@ -3757,16 +3934,16 @@ function ClientiDetail() {
                                   })}
                               </div>
                             </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3 text-center text-muted">
-                                <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                                <p className="mb-0 small">Nessuno storico stati disponibile</p>
-                                <small>I cambi di stato verranno tracciati automaticamente</small>
-                              </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3 text-center text-muted">
+                              <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
+                              <p className="mb-0 small">Nessuno storico stati disponibile</p>
+                              <small>I cambi di stato verranno tracciati automaticamente</small>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
                       </div>
                     </div>
                   )}
@@ -3775,87 +3952,114 @@ function ClientiDetail() {
                   {nutrizioneSubTab === 'setup' && (
                     <div className="col-12" data-tour="nutrizione-setup">
                       <div className="row g-4">
-                        {/* Call Iniziale */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Call Iniziale
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Nutrizionista</span>
+                      {/* Call Iniziale */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Call Iniziale
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
                               </div>
-                              <div className="form-check form-switch mb-2">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  id="callNutrizionista"
-                                  checked={formData.call_iniziale_nutrizionista || false}
-                                  onChange={(e) => handleInputChange('call_iniziale_nutrizionista', e.target.checked)}
-                                />
-                                <label className="form-check-label small" htmlFor="callNutrizionista">
-                                  {formData.call_iniziale_nutrizionista ? 'Effettuata' : 'Non effettuata'}
-                                </label>
-                                {formData.call_iniziale_nutrizionista && (
-                                  <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
-                                )}
-                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Nutrizionista</span>
+                            </div>
+                            <div className="form-check form-switch mb-2">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="callNutrizionista"
+                                checked={formData.call_iniziale_nutrizionista || false}
+                                onChange={(e) => handleInputChange('call_iniziale_nutrizionista', e.target.checked)}
+                              />
+                              <label className="form-check-label small" htmlFor="callNutrizionista">
+                                {formData.call_iniziale_nutrizionista ? 'Effettuata' : 'Non effettuata'}
+                              </label>
                               {formData.call_iniziale_nutrizionista && (
-                                <div className="mt-3">
-                                  <label className="form-label small text-muted mb-1">Data Call</label>
-                                  <input
-                                    type="date"
-                                    className="form-control form-control-sm"
-                                    value={formData.data_call_iniziale_nutrizionista || ''}
-                                    onChange={(e) => handleInputChange('data_call_iniziale_nutrizionista', e.target.value)}
-                                  />
-                                </div>
+                                <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
                               )}
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Reach Out */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Reach Out Settimanale
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                            {formData.call_iniziale_nutrizionista && (
+                              <div className="mt-3">
+                                <label className="form-label small text-muted mb-1">Data Call</label>
+                                <input
+                                  type="date"
+                                  className="form-control form-control-sm"
+                                  value={formData.data_call_iniziale_nutrizionista || ''}
+                                  onChange={(e) => handleInputChange('data_call_iniziale_nutrizionista', e.target.value)}
+                                />
                               </div>
-                              <select
-                                className="form-select form-select-sm"
-                                value={formData.reach_out_nutrizione || ''}
-                                onChange={(e) => handleInputChange('reach_out_nutrizione', e.target.value)}
-                              >
-                                <option value="">Seleziona giorno...</option>
-                                <option value="lunedi">Lunedì</option>
-                                <option value="martedi">Martedì</option>
-                                <option value="mercoledi">Mercoledì</option>
-                                <option value="giovedi">Giovedì</option>
-                                <option value="venerdi">Venerdì</option>
-                                <option value="sabato">Sabato</option>
-                                <option value="domenica">Domenica</option>
-                              </select>
-                              {formData.reach_out_nutrizione && (
-                                <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
-                                  <i className="ri-calendar-event-line me-1"></i>
-                                  Reach out ogni {
-                                    { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_nutrizione]
-                                  }
-                                </small>
-                              )}
-                            </div>
+                            )}
                           </div>
                         </div>
+                      </div>
+
+                      {/* Reach Out */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Reach Out Settimanale
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm"
+                              value={formData.reach_out_nutrizione || ''}
+                              onChange={(e) => handleInputChange('reach_out_nutrizione', e.target.value)}
+                            >
+                              <option value="">Seleziona giorno...</option>
+                              <option value="lunedi">Lunedì</option>
+                              <option value="martedi">Martedì</option>
+                              <option value="mercoledi">Mercoledì</option>
+                              <option value="giovedi">Giovedì</option>
+                              <option value="venerdi">Venerdì</option>
+                              <option value="sabato">Sabato</option>
+                              <option value="domenica">Domenica</option>
+                            </select>
+                            {formData.reach_out_nutrizione && (
+                              <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
+                                <i className="ri-calendar-event-line me-1"></i>
+                                Reach out ogni {
+                                  { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_nutrizione]
+                                }
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Date call di visita */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Date call di visita
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-calendar-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Date in cui sono state fatte le call di visita</span>
+                            </div>
+                            <ul className="list-unstyled mb-0 small">
+                              {formData.call_iniziale_nutrizionista && formData.data_call_iniziale_nutrizionista ? (
+                                <li className="d-flex align-items-center mb-2">
+                                  <i className="ri-check-line text-success me-2"></i>
+                                  Call iniziale nutrizionista: <strong className="ms-1">{formData.data_call_iniziale_nutrizionista}</strong>
+                                </li>
+                              ) : (
+                                <li className="text-muted">Nessuna data call di visita registrata. Compila &quot;Call Iniziale Nutrizionista&quot; sopra per registrare la data.</li>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -3864,508 +4068,269 @@ function ClientiDetail() {
                   {nutrizioneSubTab === 'patologie' && (
                     <div className="col-12" data-tour="nutrizione-patologie">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Patologie del Cliente
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-stethoscope-line text-warning" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie Nutrizionali</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Patologie del Cliente
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-stethoscope-line text-warning" style={{ fontSize: '0.85rem' }}></i>
                               </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie Nutrizionali</span>
+                            </div>
 
-                              {/* Nessuna Patologia - in evidenza */}
-                              <div
-                                className={`p-2 rounded mb-3 border ${formData.nessuna_patologia ? 'bg-success-subtle border-success' : 'border-secondary'}`}
-                              >
-                                <div className="form-check mb-0">
-                                  <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    id="nessuna_patologia"
-                                    checked={formData.nessuna_patologia || false}
-                                    onChange={(e) => handleInputChange('nessuna_patologia', e.target.checked)}
-                                  />
-                                  <label className={`form-check-label small ${formData.nessuna_patologia ? 'fw-semibold text-success' : ''}`} htmlFor="nessuna_patologia">
-                                    Nessuna Patologia
-                                  </label>
-                                </div>
+                            {/* Nessuna Patologia - in evidenza */}
+                            <div
+                              className={`p-2 rounded mb-3 border ${formData.nessuna_patologia ? 'bg-success-subtle border-success' : 'border-secondary'}`}
+                            >
+                              <div className="form-check mb-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="nessuna_patologia"
+                                  checked={formData.nessuna_patologia || false}
+                                  onChange={(e) => handleInputChange('nessuna_patologia', e.target.checked)}
+                                />
+                                <label className={`form-check-label small ${formData.nessuna_patologia ? 'fw-semibold text-success' : ''}`} htmlFor="nessuna_patologia">
+                                  Nessuna Patologia
+                                </label>
                               </div>
+                            </div>
 
-                              {/* Lista patologie */}
-                              <div className="row g-1">
-                                {[
-                                  { key: 'patologia_ibs', label: 'IBS' },
-                                  { key: 'patologia_reflusso', label: 'Reflusso' },
-                                  { key: 'patologia_gastrite', label: 'Gastrite' },
-                                  { key: 'patologia_dca', label: 'DCA' },
-                                  { key: 'patologia_insulino_resistenza', label: 'Insulino Resistenza' },
-                                  { key: 'patologia_diabete', label: 'Diabete' },
-                                  { key: 'patologia_dislipidemie', label: 'Dislipidemie' },
-                                  { key: 'patologia_steatosi_epatica', label: 'Steatosi Epatica' },
-                                  { key: 'patologia_ipertensione', label: 'Ipertensione' },
-                                  { key: 'patologia_pcos', label: 'PCOS' },
-                                  { key: 'patologia_endometriosi', label: 'Endometriosi' },
-                                  { key: 'patologia_obesita_sindrome', label: 'Obesità' },
-                                  { key: 'patologia_osteoporosi', label: 'Osteoporosi' },
-                                  { key: 'patologia_diverticolite', label: 'Diverticolite' },
-                                  { key: 'patologia_crohn', label: 'Crohn' },
-                                  { key: 'patologia_stitichezza', label: 'Stitichezza' },
-                                  { key: 'patologia_tiroidee', label: 'Tiroidee' },
-                                ].map(({ key, label }) => (
-                                  <div key={key} className="col-md-4 col-6">
-                                    <div className="form-check">
-                                      <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id={key}
-                                        checked={formData[key] || false}
-                                        onChange={(e) => handleInputChange(key, e.target.checked)}
-                                      />
-                                      <label className={`form-check-label small ${formData[key] ? 'fw-medium' : ''}`} htmlFor={key}>
-                                        {label}
-                                      </label>
-                                    </div>
-                                  </div>
-                                ))}
-                                {/* Altro Checkbox */}
-                                <div className="col-md-4 col-6">
+                            {/* Lista patologie */}
+                            <div className="row g-1">
+                              {[
+                                { key: 'patologia_ibs', label: 'IBS' },
+                                { key: 'patologia_reflusso', label: 'Reflusso' },
+                                { key: 'patologia_gastrite', label: 'Gastrite' },
+                                { key: 'patologia_dca', label: 'DCA' },
+                                { key: 'patologia_insulino_resistenza', label: 'Insulino Resistenza' },
+                                { key: 'patologia_diabete', label: 'Diabete' },
+                                { key: 'patologia_dislipidemie', label: 'Dislipidemie' },
+                                { key: 'patologia_steatosi_epatica', label: 'Steatosi Epatica' },
+                                { key: 'patologia_ipertensione', label: 'Ipertensione' },
+                                { key: 'patologia_pcos', label: 'PCOS' },
+                                { key: 'patologia_endometriosi', label: 'Endometriosi' },
+                                { key: 'patologia_obesita_sindrome', label: 'Obesità' },
+                                { key: 'patologia_osteoporosi', label: 'Osteoporosi' },
+                                { key: 'patologia_diverticolite', label: 'Diverticolite' },
+                                { key: 'patologia_crohn', label: 'Crohn' },
+                                { key: 'patologia_stitichezza', label: 'Stitichezza' },
+                                { key: 'patologia_tiroidee', label: 'Tiroidee' },
+                              ].map(({ key, label }) => (
+                                <div key={key} className="col-md-4 col-6">
                                   <div className="form-check">
                                     <input
                                       className="form-check-input"
                                       type="checkbox"
-                                      id="patologia_altro_check"
-                                      checked={formData.patologia_altro_check || false}
-                                      onChange={(e) => handleInputChange('patologia_altro_check', e.target.checked)}
+                                      id={key}
+                                      checked={formData[key] || false}
+                                      onChange={(e) => handleInputChange(key, e.target.checked)}
                                     />
-                                    <label className={`form-check-label small ${formData.patologia_altro_check ? 'fw-medium' : ''}`} htmlFor="patologia_altro_check">
-                                      Altro...
+                                    <label className={`form-check-label small ${formData[key] ? 'fw-medium' : ''}`} htmlFor={key}>
+                                      {label}
                                     </label>
                                   </div>
                                 </div>
-                              </div>
-
-                              {/* Altro Input */}
-                              {formData.patologia_altro_check && (
-                                <div className="mt-2">
+                              ))}
+                              {/* Altro Checkbox */}
+                              <div className="col-md-4 col-6">
+                                <div className="form-check">
                                   <input
-                                    type="text"
-                                    className="form-control form-control-sm"
-                                    placeholder="Specifica altra patologia..."
-                                    value={formData.patologia_altro || ''}
-                                    onChange={(e) => handleInputChange('patologia_altro', e.target.value)}
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="patologia_altro_check"
+                                    checked={formData.patologia_altro_check || false}
+                                    onChange={(e) => handleInputChange('patologia_altro_check', e.target.checked)}
                                   />
+                                  <label className={`form-check-label small ${formData.patologia_altro_check ? 'fw-medium' : ''}`} htmlFor="patologia_altro_check">
+                                    Altro...
+                                  </label>
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* ===== ANAMNESI MERGED ===== */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Anamnesi Nutrizionale
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                    <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
-                                </div>
-                                <button
-                                  className="btn btn-sm btn-primary"
-                                  onClick={handleSaveAnamnesi}
-                                  disabled={savingAnamnesi || loadingAnamnesi}
-                                >
-                                  {savingAnamnesi ? (
-                                    <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
-                                  ) : (
-                                    <><i className="ri-save-line me-1"></i>Salva</>
-                                  )}
-                                </button>
                               </div>
-
-                              {loadingAnamnesi ? (
-                                <div className="text-center py-4">
-                                  <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                  <small className="ms-2 text-muted">Caricamento anamnesi...</small>
-                                </div>
-                              ) : (
-                                <>
-                                  <textarea
-                                    className="form-control mb-3"
-                                    rows="10"
-                                    placeholder="Inserisci l'anamnesi nutrizionale del cliente...&#10;&#10;• Storia clinica&#10;• Abitudini alimentari&#10;• Obiettivi&#10;• Allergie e intolleranze&#10;• Farmaci in uso&#10;• Attività fisica&#10;• Stile di vita"
-                                    value={anamnesiContent}
-                                    onChange={(e) => setAnamnesiContent(e.target.value)}
-                                  ></textarea>
-                                  {anamnesiNutrizione && (
-                                    <div className="small text-muted border-top pt-2">
-                                      <i className="ri-information-line me-1"></i>
-                                      Creato: {anamnesiNutrizione.created_at} da {anamnesiNutrizione.created_by || 'N/D'}
-                                      {anamnesiNutrizione.last_modified_by && (
-                                        <span className="ms-3">
-                                          | Ultima modifica: {anamnesiNutrizione.updated_at} da {anamnesiNutrizione.last_modified_by}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </>
-                              )}
                             </div>
+                            
+                            {/* Altro Input */}
+                            {formData.patologia_altro_check && (
+                              <div className="mt-2">
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  placeholder="Specifica altra patologia..."
+                                  value={formData.patologia_altro || ''}
+                                  onChange={(e) => handleInputChange('patologia_altro', e.target.value)}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* ===== PIANO ALIMENTARE SUB-TAB ===== */}
-                  {nutrizioneSubTab === 'piano' && (
-                    <div className="col-12" data-tour="nutrizione-piani-wrapper">
-                      <div className="row g-4">
-                        {/* Piano Attivo */}
-                        <div className="col-12" data-tour="nutrizione-piani">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Piano Alimentare Attivo
-                          </h6>
-                          {loadingMealPlans ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-success" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento piani...</small>
-                            </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center justify-content-between mb-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                      <i className="ri-restaurant-line text-success" style={{ fontSize: '0.85rem' }}></i>
-                                    </div>
-                                    <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
-                                  </div>
-                                  <button
-                                    className="btn btn-sm btn-success"
-                                    onClick={() => setShowAddMealPlanModal(true)}
-                                  >
-                                    <i className="ri-add-line me-1"></i>
-                                    Nuovo Piano
-                                  </button>
+                      {/* ===== ANAMNESI (5 sezioni) ===== */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Anamnesi (sezioni)
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
+                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
                                 </div>
-
-                                {(() => {
-                                  const activePlan = mealPlans.find(p => p.is_active);
-                                  if (activePlan) {
-                                    return (
-                                      <div className="p-3 rounded-3 bg-success-subtle">
-                                        <div className="d-flex justify-content-between align-items-start mb-2">
-                                          <div>
-                                            <h6 className="mb-1 fw-semibold">{activePlan.name || 'Piano Alimentare'}</h6>
-                                            <small className="text-muted">
-                                              <i className="ri-calendar-line me-1"></i>
-                                              {activePlan.start_date ? new Date(activePlan.start_date).toLocaleDateString('it-IT') : '-'}
-                                              {' → '}
-                                              {activePlan.end_date ? new Date(activePlan.end_date).toLocaleDateString('it-IT') : '-'}
-                                              {activePlan.duration_days && (
-                                                <span className="ms-2">({activePlan.duration_days} giorni)</span>
-                                              )}
-                                            </small>
-                                          </div>
-                                          <span className="badge bg-success">Attivo</span>
-                                        </div>
-
-                                        {activePlan.notes && (
-                                          <p className="small text-muted mb-2 mt-2">
-                                            <i className="ri-sticky-note-line me-1"></i>
-                                            {activePlan.notes}
-                                          </p>
-                                        )}
-
-                                        <div className="d-flex gap-2 mt-3 flex-wrap">
-                                          {activePlan.has_file && activePlan.piano_alimentare_file_path && (
-                                            <button
-                                              className="btn btn-sm btn-success"
-                                              onClick={() => handlePreviewPlan(activePlan)}
-                                            >
-                                              <i className="ri-eye-line me-1"></i>
-                                              Visualizza
-                                            </button>
-                                          )}
-                                          <button
-                                            className="btn btn-sm btn-outline-primary"
-                                            onClick={() => handleOpenEditPlan(activePlan)}
-                                          >
-                                            <i className="ri-edit-line me-1"></i>
-                                            Modifica
-                                          </button>
-                                          <button
-                                            className="btn btn-sm btn-outline-secondary"
-                                            onClick={() => handleViewVersions(activePlan)}
-                                          >
-                                            <i className="ri-history-line me-1"></i>
-                                            Storico
-                                          </button>
-                                          {activePlan.extra_files && activePlan.extra_files.length > 0 && (
-                                            <span className="badge bg-secondary align-self-center">
-                                              +{activePlan.extra_files.length} file extra
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  } else {
-                                    return (
-                                      <p className="text-muted small mb-0">
-                                        <i className="ri-information-line me-1"></i>
-                                        Nessun piano alimentare attivo
-                                      </p>
-                                    );
-                                  }
-                                })()}
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie e Anamnesi</span>
                               </div>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={handleSaveAnamnesi}
+                                disabled={savingAnamnesi || loadingAnamnesi}
+                              >
+                                {savingAnamnesi ? (
+                                  <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
+                                ) : (
+                                  <><i className="ri-save-line me-1"></i>Salva</>
+                                )}
+                              </button>
                             </div>
-                          )}
+
+                            {loadingAnamnesi ? (
+                              <div className="text-center py-4">
+                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
+                              </div>
+                            ) : (
+                              <>
+                                {[
+                                  { key: 'remota', title: 'Anamnesi Patologica Remota (Pregressa)', placeholder: 'Malattie infantili, malattie croniche, interventi chirurgici, ricoveri passati, infortuni o traumi.' },
+                                  { key: 'prossima', title: 'Anamnesi Patologica Prossima (Attuale)', placeholder: 'Sintomi attuali, disturbi recenti.' },
+                                  { key: 'familiare', title: 'Anamnesi Familiare', placeholder: 'Patologie ereditarie o congenite note nei parenti di primo grado.' },
+                                  { key: 'stileVita', title: 'Stile di Vita e Abitudini', placeholder: 'Abitudine al fumo, consumo di alcol, attività fisica, dieta.' },
+                                  { key: 'terapie', title: 'Terapie e Allergie', placeholder: 'Farmaci attualmente assunti, allergie a farmaci, alimenti o sostanze ambientali.' }
+                                ].map(({ key, title, placeholder }) => (
+                                  <div key={key} className="mb-4">
+                                    <label className="form-label small fw-semibold text-muted mb-1">{title}</label>
+                                    <textarea
+                                      className="form-control form-control-sm"
+                                      rows={3}
+                                      placeholder={placeholder}
+                                      value={anamnesiSections[key] || ''}
+                                      onChange={(e) => setAnamnesiSections(prev => ({ ...prev, [key]: e.target.value }))}
+                                    />
+                                  </div>
+                                ))}
+                                {anamnesiNutrizione && (
+                                  <div className="small text-muted border-top pt-2">
+                                    <i className="ri-information-line me-1"></i>
+                                    Creato: {anamnesiNutrizione.created_at} da {anamnesiNutrizione.created_by || 'N/D'}
+                                    {anamnesiNutrizione.last_modified_by && (
+                                      <span className="ms-3">
+                                        | Ultima modifica: {anamnesiNutrizione.updated_at} da {anamnesiNutrizione.last_modified_by}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
-
-                        {/* Storico Piani */}
-                        {mealPlans.filter(p => !p.is_active).length > 0 && (
-                          <div className="col-12">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                              <i className="ri-history-line me-2"></i>
-                              Storico Piani Alimentari
-                            </h6>
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center mb-3">
-                                  <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                    <i className="ri-archive-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piani Precedenti</span>
-                                  <span className="badge bg-secondary ms-auto">{mealPlans.filter(p => !p.is_active).length}</span>
-                                </div>
-
-                                <div className="table-responsive">
-                                  <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
-                                    <thead>
-                                      <tr className="text-muted">
-                                        <th style={{ fontWeight: '500' }}>Nome</th>
-                                        <th style={{ fontWeight: '500' }}>Periodo</th>
-                                        <th style={{ fontWeight: '500' }}>Durata</th>
-                                        <th style={{ fontWeight: '500' }} className="text-end">Azioni</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {mealPlans
-                                        .filter(p => !p.is_active)
-                                        .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
-                                        .map((plan) => (
-                                          <tr key={plan.id || plan.start_date}>
-                                            <td data-label="Nome">
-                                              <span className="fw-medium">{plan.name || 'Piano Alimentare'}</span>
-                                              {plan.is_legacy && (
-                                                <span className="badge bg-warning-subtle text-warning ms-2" style={{ fontSize: '0.65rem' }}>Legacy</span>
-                                              )}
-                                            </td>
-                                            <td data-label="Periodo" className="text-muted">
-                                              {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
-                                              {' → '}
-                                              {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
-                                            </td>
-                                            <td data-label="Durata" className="text-muted">
-                                              {plan.duration_days ? `${plan.duration_days}gg` : '-'}
-                                            </td>
-                                            <td data-label="Azioni" className="text-end">
-                                              <div className="d-flex gap-1 justify-content-end">
-                                                {plan.has_file && plan.piano_alimentare_file_path && (
-                                                  <>
-                                                    <button
-                                                      className="btn btn-sm btn-outline-success py-0 px-2"
-                                                      onClick={() => handlePreviewPlan(plan)}
-                                                      title="Visualizza"
-                                                    >
-                                                      <i className="ri-eye-line"></i>
-                                                    </button>
-                                                    <a
-                                                      href={`/uploads/${plan.piano_alimentare_file_path}`}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="btn btn-sm btn-outline-success py-0 px-2"
-                                                      title="Scarica"
-                                                    >
-                                                      <i className="ri-download-line"></i>
-                                                    </a>
-                                                  </>
-                                                )}
-                                                {!plan.is_legacy && (
-                                                  <>
-                                                    <button
-                                                      className="btn btn-sm btn-outline-primary py-0 px-2"
-                                                      onClick={() => handleOpenEditPlan(plan)}
-                                                      title="Modifica"
-                                                    >
-                                                      <i className="ri-edit-line"></i>
-                                                    </button>
-                                                    <button
-                                                      className="btn btn-sm btn-outline-secondary py-0 px-2"
-                                                      onClick={() => handleViewVersions(plan)}
-                                                      title="Storico"
-                                                    >
-                                                      <i className="ri-history-line"></i>
-                                                    </button>
-                                                  </>
-                                                )}
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Date Dieta Legacy dal modello Cliente */}
-                        {(c.dieta_dal || c.nuova_dieta_dal) && (
-                          <div className="col-12">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                              Date Riferimento
-                            </h6>
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center mb-3">
-                                  <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                    <i className="ri-calendar-2-line text-info" style={{ fontSize: '0.85rem' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Date Dieta Cliente</span>
-                                </div>
-                                <div className="row g-3">
-                                  <div className="col-md-6">
-                                    <label className="form-label small text-muted mb-1">Dieta Dal</label>
-                                    <input
-                                      type="date"
-                                      className="form-control form-control-sm"
-                                      value={formData.dieta_dal || ''}
-                                      onChange={(e) => handleInputChange('dieta_dal', e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="col-md-6">
-                                    <label className="form-label small text-muted mb-1">Nuova Dieta Dal</label>
-                                    <input
-                                      type="date"
-                                      className="form-control form-control-sm"
-                                      value={formData.nuova_dieta_dal || ''}
-                                      onChange={(e) => handleInputChange('nuova_dieta_dal', e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                      </div>
                       </div>
                     </div>
                   )}
-
-
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {nutrizioneSubTab === 'diario' && (
                     <div className="col-12" data-tour="nutrizione-diario">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Diario Nutrizionale
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fce7f3' }}>
-                                    <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#ec4899' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
-                                  <span className="badge bg-secondary ms-2">{diarioEntries.length}</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Diario Nutrizionale
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fce7f3' }}>
+                                  <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#ec4899' }}></i>
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-primary"
-                                  onClick={() => handleOpenDiarioModal()}
-                                >
-                                  <i className="ri-add-line me-1"></i>
-                                  Nuova Nota
-                                </button>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
+                                <span className="badge bg-secondary ms-2">{diarioEntries.length}</span>
                               </div>
-
-                              {loadingDiario ? (
-                                <div className="text-center py-4">
-                                  <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                  <small className="ms-2 text-muted">Caricamento diario...</small>
-                                </div>
-                              ) : diarioEntries.length === 0 ? (
-                                <p className="text-muted small mb-0 text-center py-3">
-                                  <i className="ri-information-line me-1"></i>
-                                  Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
-                                </p>
-                              ) : (
-                                <div className="d-flex flex-column gap-3">
-                                  {diarioEntries.map((entry) => (
-                                    <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
-                                      <div className="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                          <span className="badge bg-primary-subtle text-primary me-2">
-                                            <i className="ri-calendar-line me-1"></i>
-                                            {entry.entry_date_display}
-                                            {entry.created_at && (
-                                              <span className="ms-1 opacity-75 small">
-                                                ({entry.created_at.split(' ')[1]})
-                                              </span>
-                                            )}
-                                          </span>
-                                          <small className="text-muted">
-                                            <i className="ri-user-line me-1"></i>
-                                            {entry.author}
-                                          </small>
-                                        </div>
-                                        <div className="d-flex gap-1">
-                                          <button
-                                            className="btn btn-sm btn-outline-primary py-0 px-2"
-                                            onClick={() => handleOpenDiarioModal(entry)}
-                                            title="Modifica"
-                                          >
-                                            <i className="ri-edit-line"></i>
-                                          </button>
-                                          {(user?.is_admin || user?.role === 'admin') && (
-                                            <button
-                                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                                              onClick={() => handleDeleteDiarioEntry(entry.id)}
-                                              title="Elimina"
-                                            >
-                                              <i className="ri-delete-bin-line"></i>
-                                            </button>
-                                          )}
-                                          <button
-                                            className="btn btn-sm btn-outline-secondary py-0 px-2"
-                                            onClick={() => handleOpenHistoryModal(entry, 'nutrizione')}
-                                            title="Storico Modifiche"
-                                          >
-                                            <i className="ri-history-line"></i>
-                                          </button>
-                                        </div>
-                                      </div>
-                                      <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => handleOpenDiarioModal()}
+                              >
+                                <i className="ri-add-line me-1"></i>
+                                Nuova Nota
+                              </button>
                             </div>
+
+                            {loadingDiario ? (
+                              <div className="text-center py-4">
+                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento diario...</small>
+                              </div>
+                            ) : diarioEntries.length === 0 ? (
+                              <p className="text-muted small mb-0 text-center py-3">
+                                <i className="ri-information-line me-1"></i>
+                                Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
+                              </p>
+                            ) : (
+                              <div className="d-flex flex-column gap-3">
+                                {diarioEntries.map((entry) => (
+                                  <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                      <div>
+                                        <span className="badge bg-primary-subtle text-primary me-2">
+                                          <i className="ri-calendar-line me-1"></i>
+                                          {entry.entry_date_display}
+                                          {entry.created_at && (
+                                            <span className="ms-1 opacity-75 small">
+                                              ({entry.created_at.split(' ')[1]})
+                                            </span>
+                                          )}
+                                        </span>
+                                        <small className="text-muted">
+                                          <i className="ri-user-line me-1"></i>
+                                          {entry.author}
+                                        </small>
+                                      </div>
+                                      <div className="d-flex gap-1">
+                                        <button
+                                          className="btn btn-sm btn-outline-primary py-0 px-2"
+                                          onClick={() => handleOpenDiarioModal(entry)}
+                                          title="Modifica"
+                                        >
+                                          <i className="ri-edit-line"></i>
+                                        </button>
+                                        {(user?.is_admin || user?.role === 'admin') && (
+                                          <button
+                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            onClick={() => handleDeleteDiarioEntry(entry.id)}
+                                            title="Elimina"
+                                          >
+                                            <i className="ri-delete-bin-line"></i>
+                                          </button>
+                                        )}
+                                        <button
+                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          onClick={() => handleOpenHistoryModal(entry, 'nutrizione')}
+                                          title="Storico Modifiche"
+                                        >
+                                          <i className="ri-history-line"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -4374,32 +4339,32 @@ function ClientiDetail() {
                   {nutrizioneSubTab === 'alert' && (
                     <div className="col-12" data-tour="nutrizione-alert">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Alert e Criticità
-                          </h6>
-                          <div className="card border border-danger">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold text-danger" style={{ fontSize: '0.9rem' }}>Alert Nutrizione</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Alert e Criticità
+                        </h6>
+                        <div className="card border border-danger">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
                               </div>
-                              <p className="text-muted small mb-2">
-                                Informazioni critiche: allergie, intolleranze, controindicazioni alimentari.
-                                Queste note saranno sempre visibili in evidenza.
-                              </p>
-                              <textarea
-                                className="form-control border-danger"
-                                rows="4"
-                                placeholder="Es: Allergia alle arachidi, Intolleranza al lattosio, Celiachia..."
-                                value={formData.alert_nutrizione || ''}
-                                onChange={(e) => handleInputChange('alert_nutrizione', e.target.value)}
-                              ></textarea>
+                              <span className="fw-semibold text-danger" style={{ fontSize: '0.9rem' }}>Alert Nutrizione</span>
                             </div>
+                            <p className="text-muted small mb-2">
+                              Informazioni critiche: allergie, intolleranze, controindicazioni alimentari.
+                              Queste note saranno sempre visibili in evidenza.
+                            </p>
+                            <textarea
+                              className="form-control border-danger"
+                              rows="4"
+                              placeholder="Es: Allergia alle arachidi, Intolleranza al lattosio, Celiachia..."
+                              value={formData.alert_nutrizione || ''}
+                              onChange={(e) => handleInputChange('alert_nutrizione', e.target.value)}
+                            ></textarea>
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -4410,7 +4375,7 @@ function ClientiDetail() {
               {activeTab === 'coaching' && (
                 <div className="row g-4">
                   {/* Sub-tab Navigation */}
-                  <div className="col-12 cd-subtabs-scroll" data-tour="coaching-subtabs">
+                  <div className="col-12" data-tour="coaching-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -4450,238 +4415,238 @@ function ClientiDetail() {
                   {coachingSubTab === 'panoramica' && (
                     <div className="col-12" data-tour="coaching-panoramica">
                       <div className="row g-4">
-                        {/* Coach Assegnati - Same style as Nutrizione */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Coach Assegnati
-                          </h6>
-                          {loadingHistory ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento...</small>
-                            </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center justify-content-between mb-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                      style={{ width: '32px', height: '32px' }}>
-                                      <i className="ri-run-line text-warning"></i>
-                                    </div>
-                                    <span className="fw-semibold">Team Coaching</span>
+                      {/* Coach Assegnati - Same style as Nutrizione */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Coach Assegnati
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                       style={{ width: '32px', height: '32px' }}>
+                                    <i className="ri-run-line text-warning"></i>
                                   </div>
-                                  <span className="badge bg-warning">{getActiveProfessionals('coach').length} attivi</span>
+                                  <span className="fw-semibold">Team Coaching</span>
                                 </div>
-
-                                {getActiveProfessionals('coach').length > 0 ? (
-                                  <div className="d-flex flex-wrap gap-2">
-                                    {getActiveProfessionals('coach').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
-                                        {assignment.avatar_path ? (
-                                          <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
-                                        ) : (
-                                          <div className="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
-                                            {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                          </div>
-                                        )}
-                                        <div>
-                                          <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                          <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-muted small mb-0">Nessun coach assegnato. Vai alla tab "Team" per assegnare.</p>
-                                )}
+                                <span className="badge bg-warning">{getActiveProfessionals('coach').length} attivi</span>
                               </div>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Storico Assegnazioni Timeline - Orizzontale come Nutrizione */}
-                        {professionistiHistory.filter(h => h.tipo_professionista === 'coach').length > 0 && (
-                          <div className="col-12">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                              <i className="ri-history-line me-2"></i>
-                              Storico Assegnazioni
-                            </h6>
-                            <div className="timeline-horizontal" style={{
-                              overflowX: 'auto',
-                              paddingBottom: '10px',
-                              position: 'relative',
-                            }}>
-                              {/* Horizontal line */}
-                              <div style={{
-                                position: 'absolute',
-                                left: '0',
-                                right: '0',
-                                top: '24px',
-                                height: '3px',
-                                background: 'linear-gradient(to right, #f59e0b, #d97706)',
-                                borderRadius: '2px',
-                                zIndex: 0,
-                              }}></div>
-
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
-                                {professionistiHistory
-                                  .filter(h => h.tipo_professionista === 'coach')
-                                  .sort((a, b) => {
-                                    const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
-                                    const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
-                                    return dateB - dateA;
-                                  })
-                                  .map((item, idx) => (
-                                    <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
-                                      {/* Dot on line */}
-                                      <div className="d-flex justify-content-center mb-2">
-                                        <div
-                                          className="rounded-circle d-flex align-items-center justify-content-center bg-warning"
-                                          style={{
-                                            width: '28px',
-                                            height: '28px',
-                                            border: '3px solid #fff',
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                          }}
-                                        >
-                                          <i className="ri-run-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                              {getActiveProfessionals('coach').length > 0 ? (
+                                <div className="d-flex flex-wrap gap-2">
+                                  {getActiveProfessionals('coach').map((assignment, idx) => (
+                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                      {assignment.avatar_path ? (
+                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                          {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
-                                      </div>
-
-                                      {/* Date label */}
-                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
-                                        {item.data_dal || '—'}
-                                        {item.data_al && <span className="d-block">→ {item.data_al}</span>}
-                                      </div>
-
-                                      {/* Card */}
-                                      <div
-                                        className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
-                                        style={{
-                                          borderRadius: '12px',
-                                          background: item.is_active ? '#fff' : '#f8fafc',
-                                        }}
-                                      >
-                                        <div className="card-body p-2">
-                                          {/* Status badge */}
-                                          <div className="mb-2">
-                                            {item.is_active ? (
-                                              <span className="badge bg-warning" style={{ fontSize: '0.65rem' }}>Attivo</span>
-                                            ) : (
-                                              <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
-                                            )}
-                                          </div>
-
-                                          {/* Avatar */}
-                                          <div className="d-flex justify-content-center mb-2">
-                                            {item.avatar_path ? (
-                                              <img
-                                                src={item.avatar_path}
-                                                alt=""
-                                                className="rounded-circle"
-                                                style={{ width: '36px', height: '36px', objectFit: 'cover' }}
-                                              />
-                                            ) : (
-                                              <div
-                                                className="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center"
-                                                style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
-                                              >
-                                                {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          {/* Name */}
-                                          <div className="fw-semibold small" style={{
-                                            fontSize: '0.8rem',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                          }}>
-                                            {item.professionista_nome}
-                                          </div>
-                                        </div>
+                                      )}
+                                      <div>
+                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                       </div>
                                     </div>
                                   ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Stati Servizio e Chat in row */}
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Stato Servizio
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Coaching</span>
-                              </div>
-                              <select
-                                className="form-select form-select-sm mb-2"
-                                value={formData.stato_coach || ''}
-                                onChange={(e) => handleInputChange('stato_coach', e.target.value)}
-                              >
-                                <option value="">Seleziona stato...</option>
-                                <option value="attivo">Attivo</option>
-                                <option value="pausa">Pausa</option>
-                                <option value="ghost">Ghost</option>
-                                <option value="stop">Ex-Cliente</option>
-                              </select>
-                              {c.stato_coach_data && (
-                                <small className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                  <i className="ri-calendar-line me-1"></i>
-                                  Ultimo cambio: {new Date(c.stato_coach_data).toLocaleDateString('it-IT')}
-                                </small>
+                              ) : (
+                                <p className="text-muted small mb-0">Nessun coach assegnato. Vai alla tab "Team" per assegnare.</p>
                               )}
                             </div>
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Stato Chat
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-chat-3-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Coaching</span>
-                              </div>
-                              <select
-                                className="form-select form-select-sm mb-2"
-                                value={formData.stato_cliente_chat_coaching || ''}
-                                onChange={(e) => handleInputChange('stato_cliente_chat_coaching', e.target.value)}
-                              >
-                                <option value="">Seleziona stato...</option>
-                                <option value="attivo">Attivo</option>
-                                <option value="pausa">Pausa</option>
-                                <option value="ghost">Ghost</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Timeline Storico Stati Unificata */}
+                      {/* Storico Assegnazioni Timeline - Orizzontale come Nutrizione */}
+                      {professionistiHistory.filter(h => h.tipo_professionista === 'coach').length > 0 && (
                         <div className="col-12">
                           <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                             <i className="ri-history-line me-2"></i>
-                            Storico Stati (Servizio + Chat)
+                            Storico Assegnazioni
                           </h6>
-                          {loadingStoricoCoaching ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento storico...</small>
+                          <div className="timeline-horizontal" style={{
+                            overflowX: 'auto',
+                            paddingBottom: '10px',
+                            position: 'relative',
+                          }}>
+                            {/* Horizontal line */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '0',
+                              right: '0',
+                              top: '24px',
+                              height: '3px',
+                              background: 'linear-gradient(to right, #f59e0b, #d97706)',
+                              borderRadius: '2px',
+                              zIndex: 0,
+                            }}></div>
+
+                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              {professionistiHistory
+                                .filter(h => h.tipo_professionista === 'coach')
+                                .sort((a, b) => {
+                                  const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
+                                  const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
+                                  return dateB - dateA;
+                                })
+                                .map((item, idx) => (
+                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                    {/* Dot on line */}
+                                    <div className="d-flex justify-content-center mb-2">
+                                      <div
+                                        className="rounded-circle d-flex align-items-center justify-content-center bg-warning"
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          border: '3px solid #fff',
+                                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                        }}
+                                      >
+                                        <i className="ri-run-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                      </div>
+                                    </div>
+
+                                    {/* Date label */}
+                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                      {item.data_dal || '—'}
+                                      {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                    </div>
+
+                                    {/* Card */}
+                                    <div
+                                      className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
+                                      style={{
+                                        borderRadius: '12px',
+                                        background: item.is_active ? '#fff' : '#f8fafc',
+                                      }}
+                                    >
+                                      <div className="card-body p-2">
+                                        {/* Status badge */}
+                                        <div className="mb-2">
+                                          {item.is_active ? (
+                                            <span className="badge bg-warning" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                          ) : (
+                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                          )}
+                                        </div>
+
+                                        {/* Avatar */}
+                                        <div className="d-flex justify-content-center mb-2">
+                                          {item.avatar_path ? (
+                                            <img
+                                              src={item.avatar_path}
+                                              alt=""
+                                              className="rounded-circle"
+                                              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                            />
+                                          ) : (
+                                            <div
+                                              className="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center"
+                                              style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
+                                            >
+                                              {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Name */}
+                                        <div className="fw-semibold small" style={{
+                                          fontSize: '0.8rem',
+                                          whiteSpace: 'nowrap',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                        }}>
+                                          {item.professionista_nome}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
                             </div>
-                          ) : (storicoStatoCoaching.length > 0 || storicoChatCoaching.length > 0) ? (
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stati Servizio e Chat in row */}
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Stato Servizio
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Coaching</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm mb-2"
+                              value={formData.stato_coach || ''}
+                              onChange={(e) => handleInputChange('stato_coach', e.target.value)}
+                            >
+                              <option value="">Seleziona stato...</option>
+                              <option value="attivo">Attivo</option>
+                              <option value="pausa">Pausa</option>
+                              <option value="ghost">Ghost</option>
+                              <option value="stop">Ex-Cliente</option>
+                            </select>
+                            {c.stato_coach_data && (
+                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                <i className="ri-calendar-line me-1"></i>
+                                Ultimo cambio: {new Date(c.stato_coach_data).toLocaleDateString('it-IT')}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Stato Chat
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-chat-3-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Coaching</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm mb-2"
+                              value={formData.stato_cliente_chat_coaching || ''}
+                              onChange={(e) => handleInputChange('stato_cliente_chat_coaching', e.target.value)}
+                            >
+                              <option value="">Seleziona stato...</option>
+                              <option value="attivo">Attivo</option>
+                              <option value="pausa">Pausa</option>
+                              <option value="ghost">Ghost</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Timeline Storico Stati Unificata */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          <i className="ri-history-line me-2"></i>
+                          Storico Stati (Servizio + Chat)
+                        </h6>
+                        {loadingStoricoCoaching ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento storico...</small>
+                          </div>
+                        ) : (storicoStatoCoaching.length > 0 || storicoChatCoaching.length > 0) ? (
                             <div className="timeline-horizontal" style={{
                               overflowX: 'auto',
                               paddingBottom: '10px',
@@ -4781,16 +4746,16 @@ function ClientiDetail() {
                                   })}
                               </div>
                             </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3 text-center text-muted">
-                                <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                                <p className="mb-0 small">Nessuno storico stati disponibile</p>
-                                <small>I cambi di stato verranno tracciati automaticamente</small>
-                              </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3 text-center text-muted">
+                              <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
+                              <p className="mb-0 small">Nessuno storico stati disponibile</p>
+                              <small>I cambi di stato verranno tracciati automaticamente</small>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
 
                       </div>
                     </div>
@@ -4800,87 +4765,87 @@ function ClientiDetail() {
                   {coachingSubTab === 'setup' && (
                     <div className="col-12" data-tour="coaching-setup">
                       <div className="row g-4">
-                        {/* Call Iniziale */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Call Iniziale
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Coach</span>
+                      {/* Call Iniziale */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Call Iniziale
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
                               </div>
-                              <div className="form-check form-switch mb-2">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  id="callCoach"
-                                  checked={formData.call_iniziale_coach || false}
-                                  onChange={(e) => handleInputChange('call_iniziale_coach', e.target.checked)}
-                                />
-                                <label className="form-check-label small" htmlFor="callCoach">
-                                  {formData.call_iniziale_coach ? 'Effettuata' : 'Non effettuata'}
-                                </label>
-                                {formData.call_iniziale_coach && (
-                                  <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
-                                )}
-                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Coach</span>
+                            </div>
+                            <div className="form-check form-switch mb-2">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="callCoach"
+                                checked={formData.call_iniziale_coach || false}
+                                onChange={(e) => handleInputChange('call_iniziale_coach', e.target.checked)}
+                              />
+                              <label className="form-check-label small" htmlFor="callCoach">
+                                {formData.call_iniziale_coach ? 'Effettuata' : 'Non effettuata'}
+                              </label>
                               {formData.call_iniziale_coach && (
-                                <div className="mt-3">
-                                  <label className="form-label small text-muted mb-1">Data Call</label>
-                                  <input
-                                    type="date"
-                                    className="form-control form-control-sm"
-                                    value={formData.data_call_iniziale_coach || ''}
-                                    onChange={(e) => handleInputChange('data_call_iniziale_coach', e.target.value)}
-                                  />
-                                </div>
+                                <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
                               )}
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Reach Out */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Reach Out Settimanale
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                            {formData.call_iniziale_coach && (
+                              <div className="mt-3">
+                                <label className="form-label small text-muted mb-1">Data Call</label>
+                                <input
+                                  type="date"
+                                  className="form-control form-control-sm"
+                                  value={formData.data_call_iniziale_coach || ''}
+                                  onChange={(e) => handleInputChange('data_call_iniziale_coach', e.target.value)}
+                                />
                               </div>
-                              <select
-                                className="form-select form-select-sm"
-                                value={formData.reach_out_coaching || ''}
-                                onChange={(e) => handleInputChange('reach_out_coaching', e.target.value)}
-                              >
-                                <option value="">Seleziona giorno...</option>
-                                <option value="lunedi">Lunedì</option>
-                                <option value="martedi">Martedì</option>
-                                <option value="mercoledi">Mercoledì</option>
-                                <option value="giovedi">Giovedì</option>
-                                <option value="venerdi">Venerdì</option>
-                                <option value="sabato">Sabato</option>
-                                <option value="domenica">Domenica</option>
-                              </select>
-                              {formData.reach_out_coaching && (
-                                <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
-                                  <i className="ri-calendar-event-line me-1"></i>
-                                  Reach out ogni {
-                                    { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_coaching]
-                                  }
-                                </small>
-                              )}
-                            </div>
+                            )}
                           </div>
                         </div>
+                      </div>
+
+                      {/* Reach Out */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Reach Out Settimanale
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm"
+                              value={formData.reach_out_coaching || ''}
+                              onChange={(e) => handleInputChange('reach_out_coaching', e.target.value)}
+                            >
+                              <option value="">Seleziona giorno...</option>
+                              <option value="lunedi">Lunedì</option>
+                              <option value="martedi">Martedì</option>
+                              <option value="mercoledi">Mercoledì</option>
+                              <option value="giovedi">Giovedì</option>
+                              <option value="venerdi">Venerdì</option>
+                              <option value="sabato">Sabato</option>
+                              <option value="domenica">Domenica</option>
+                            </select>
+                            {formData.reach_out_coaching && (
+                              <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
+                                <i className="ri-calendar-event-line me-1"></i>
+                                Reach out ogni {
+                                  { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_coaching]
+                                }
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -4889,164 +4854,164 @@ function ClientiDetail() {
                   {coachingSubTab === 'piano' && (
                     <div className="col-12" data-tour="coaching-piani-wrapper">
                       <div className="row g-4">
-                        <div className="col-12" data-tour="coaching-schede">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Piano Allenamento Attivo
-                          </h6>
-                          {loadingTrainingPlans ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento piani...</small>
-                            </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center justify-content-between mb-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                      <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
-                                    </div>
-                                    <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
+                      <div className="col-12" data-tour="coaching-schede">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Piano Allenamento Attivo
+                        </h6>
+                        {loadingTrainingPlans ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento piani...</small>
+                          </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                    <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
                                   </div>
-                                  <button
-                                    className="btn btn-sm btn-warning"
-                                    onClick={() => setShowAddTrainingPlanModal(true)}
-                                  >
-                                    <i className="ri-add-line me-1"></i>
-                                    Nuovo Piano
-                                  </button>
+                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
                                 </div>
-                                {(() => {
-                                  const activePlan = trainingPlans.find(p => p.is_active);
-                                  if (activePlan) {
-                                    return (
-                                      <div className="p-3 rounded-3 bg-warning-subtle">
-                                        <div className="d-flex justify-content-between align-items-start mb-2">
-                                          <div>
-                                            <h6 className="mb-1 fw-semibold">{activePlan.name || 'Piano Allenamento'}</h6>
-                                            <small className="text-muted">
-                                              <i className="ri-calendar-line me-1"></i>
-                                              {activePlan.start_date ? new Date(activePlan.start_date).toLocaleDateString('it-IT') : '-'}
-                                              {' → '}
-                                              {activePlan.end_date ? new Date(activePlan.end_date).toLocaleDateString('it-IT') : '-'}
-                                            </small>
-                                          </div>
-                                          <span className="badge bg-warning">Attivo</span>
+                                <button
+                                  className="btn btn-sm btn-warning"
+                                  onClick={() => setShowAddTrainingPlanModal(true)}
+                                >
+                                  <i className="ri-add-line me-1"></i>
+                                  Nuovo Piano
+                                </button>
+                              </div>
+                              {(() => {
+                                const activePlan = trainingPlans.find(p => p.is_active);
+                                if (activePlan) {
+                                  return (
+                                    <div className="p-3 rounded-3 bg-warning-subtle">
+                                      <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                          <h6 className="mb-1 fw-semibold">{activePlan.name || 'Piano Allenamento'}</h6>
+                                          <small className="text-muted">
+                                            <i className="ri-calendar-line me-1"></i>
+                                            {activePlan.start_date ? new Date(activePlan.start_date).toLocaleDateString('it-IT') : '-'}
+                                            {' → '}
+                                            {activePlan.end_date ? new Date(activePlan.end_date).toLocaleDateString('it-IT') : '-'}
+                                          </small>
                                         </div>
-                                        {activePlan.notes && (
-                                          <p className="small text-muted mb-2 mt-2">
-                                            <i className="ri-sticky-note-line me-1"></i>
-                                            {activePlan.notes}
-                                          </p>
-                                        )}
-                                        <div className="d-flex gap-2 mt-3 flex-wrap">
-                                          {activePlan.has_file && activePlan.piano_allenamento_file_path && (
-                                            <button
-                                              className="btn btn-sm btn-warning"
-                                              onClick={() => handlePreviewTrainingPlan(activePlan)}
-                                            >
-                                              <i className="ri-eye-line me-1"></i>
-                                              Visualizza
-                                            </button>
-                                          )}
-                                          <button
-                                            className="btn btn-sm btn-outline-primary"
-                                            onClick={() => handleOpenEditTrainingPlan(activePlan)}
-                                          >
-                                            <i className="ri-edit-line me-1"></i>
-                                            Modifica
-                                          </button>
-                                          <button
-                                            className="btn btn-sm btn-outline-secondary"
-                                            onClick={() => handleViewTrainingVersions(activePlan)}
-                                          >
-                                            <i className="ri-history-line me-1"></i>
-                                            Storico
-                                          </button>
-                                        </div>
+                                        <span className="badge bg-warning">Attivo</span>
                                       </div>
-                                    );
-                                  } else {
-                                    return (
-                                      <p className="text-muted small mb-0">
-                                        <i className="ri-information-line me-1"></i>
-                                        Nessun piano allenamento attivo
-                                      </p>
-                                    );
-                                  }
-                                })()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        {/* Storico Piani */}
-                        {trainingPlans.filter(p => !p.is_active).length > 0 && (
-                          <div className="col-12">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                              <i className="ri-history-line me-2"></i>
-                              Storico Piani Allenamento
-                            </h6>
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="table-responsive">
-                                  <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
-                                    <thead>
-                                      <tr className="text-muted">
-                                        <th style={{ fontWeight: '500' }}>Nome</th>
-                                        <th style={{ fontWeight: '500' }}>Periodo</th>
-                                        <th style={{ fontWeight: '500' }}>Durata</th>
-                                        <th style={{ fontWeight: '500' }} className="text-end">Azioni</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {trainingPlans
-                                        .filter(p => !p.is_active)
-                                        .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
-                                        .map((plan) => (
-                                          <tr key={plan.id}>
-                                            <td data-label="Nome"><span className="fw-medium">{plan.name || 'Piano Allenamento'}</span></td>
-                                            <td data-label="Periodo" className="text-muted">
-                                              {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
-                                              {' → '}
-                                              {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
-                                            </td>
-                                            <td data-label="Durata" className="text-muted">{plan.duration_days ? `${plan.duration_days}gg` : '-'}</td>
-                                            <td data-label="Azioni" className="text-end">
-                                              <div className="d-flex gap-1 justify-content-end">
-                                                {plan.has_file && plan.piano_allenamento_file_path && (
-                                                  <button
-                                                    className="btn btn-sm btn-outline-warning py-0 px-2"
-                                                    onClick={() => handlePreviewTrainingPlan(plan)}
-                                                    title="Visualizza"
-                                                  >
-                                                    <i className="ri-eye-line"></i>
-                                                  </button>
-                                                )}
-                                                <button
-                                                  className="btn btn-sm btn-outline-primary py-0 px-2"
-                                                  onClick={() => handleOpenEditTrainingPlan(plan)}
-                                                  title="Modifica"
-                                                >
-                                                  <i className="ri-edit-line"></i>
-                                                </button>
-                                                <button
-                                                  className="btn btn-sm btn-outline-secondary py-0 px-2"
-                                                  onClick={() => handleViewTrainingVersions(plan)}
-                                                  title="Storico"
-                                                >
-                                                  <i className="ri-history-line"></i>
-                                                </button>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
+                                      {activePlan.notes && (
+                                        <p className="small text-muted mb-2 mt-2">
+                                          <i className="ri-sticky-note-line me-1"></i>
+                                          {activePlan.notes}
+                                        </p>
+                                      )}
+                                      <div className="d-flex gap-2 mt-3 flex-wrap">
+                                        {activePlan.has_file && activePlan.piano_allenamento_file_path && (
+                                          <button
+                                            className="btn btn-sm btn-warning"
+                                            onClick={() => handlePreviewTrainingPlan(activePlan)}
+                                          >
+                                            <i className="ri-eye-line me-1"></i>
+                                            Visualizza
+                                          </button>
+                                        )}
+                                        <button
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() => handleOpenEditTrainingPlan(activePlan)}
+                                        >
+                                          <i className="ri-edit-line me-1"></i>
+                                          Modifica
+                                        </button>
+                                        <button
+                                          className="btn btn-sm btn-outline-secondary"
+                                          onClick={() => handleViewTrainingVersions(activePlan)}
+                                        >
+                                          <i className="ri-history-line me-1"></i>
+                                          Storico
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <p className="text-muted small mb-0">
+                                      <i className="ri-information-line me-1"></i>
+                                      Nessun piano allenamento attivo
+                                    </p>
+                                  );
+                                }
+                              })()}
                             </div>
                           </div>
                         )}
+                      </div>
+                      {/* Storico Piani */}
+                      {trainingPlans.filter(p => !p.is_active).length > 0 && (
+                        <div className="col-12">
+                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                            <i className="ri-history-line me-2"></i>
+                            Storico Piani Allenamento
+                          </h6>
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="table-responsive">
+                                <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
+                                  <thead>
+                                    <tr className="text-muted">
+                                      <th style={{ fontWeight: '500' }}>Nome</th>
+                                      <th style={{ fontWeight: '500' }}>Periodo</th>
+                                      <th style={{ fontWeight: '500' }}>Durata</th>
+                                      <th style={{ fontWeight: '500' }} className="text-end">Azioni</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {trainingPlans
+                                      .filter(p => !p.is_active)
+                                      .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
+                                      .map((plan) => (
+                                        <tr key={plan.id}>
+                                          <td><span className="fw-medium">{plan.name || 'Piano Allenamento'}</span></td>
+                                          <td className="text-muted">
+                                            {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
+                                            {' → '}
+                                            {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
+                                          </td>
+                                          <td className="text-muted">{plan.duration_days ? `${plan.duration_days}gg` : '-'}</td>
+                                          <td className="text-end">
+                                            <div className="d-flex gap-1 justify-content-end">
+                                              {plan.has_file && plan.piano_allenamento_file_path && (
+                                                <button
+                                                  className="btn btn-sm btn-outline-warning py-0 px-2"
+                                                  onClick={() => handlePreviewTrainingPlan(plan)}
+                                                  title="Visualizza"
+                                                >
+                                                  <i className="ri-eye-line"></i>
+                                                </button>
+                                              )}
+                                              <button
+                                                className="btn btn-sm btn-outline-primary py-0 px-2"
+                                                onClick={() => handleOpenEditTrainingPlan(plan)}
+                                                title="Modifica"
+                                              >
+                                                <i className="ri-edit-line"></i>
+                                              </button>
+                                              <button
+                                                className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                                onClick={() => handleViewTrainingVersions(plan)}
+                                                title="Storico"
+                                              >
+                                                <i className="ri-history-line"></i>
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       </div>
                     </div>
                   )}
@@ -5055,152 +5020,152 @@ function ClientiDetail() {
                   {coachingSubTab === 'luoghi' && (
                     <div className="col-12" data-tour="coaching-luoghi">
                       <div className="row g-4">
-                        {/* Header con bottone Nuovo Luogo */}
-                        <div className="col-12">
-                          <div className="d-flex align-items-center justify-content-between mb-3">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-0">
-                              <i className="ri-map-pin-line me-2"></i>
-                              Storico Luoghi di Allenamento
-                            </h6>
-                            <button
-                              className="btn btn-sm btn-success"
-                              onClick={() => handleOpenLocationModal()}
-                            >
-                              <i className="ri-add-line me-1"></i>
-                              Nuovo Luogo
-                            </button>
-                          </div>
+                      {/* Header con bottone Nuovo Luogo */}
+                      <div className="col-12">
+                        <div className="d-flex align-items-center justify-content-between mb-3">
+                          <h6 className="text-uppercase text-muted small fw-semibold mb-0">
+                            <i className="ri-map-pin-line me-2"></i>
+                            Storico Luoghi di Allenamento
+                          </h6>
+                          <button
+                            className="btn btn-sm btn-success"
+                            onClick={() => handleOpenLocationModal()}
+                          >
+                            <i className="ri-add-line me-1"></i>
+                            Nuovo Luogo
+                          </button>
                         </div>
+                      </div>
 
-                        {/* Timeline Orizzontale Luoghi */}
-                        <div className="col-12">
-                          {loadingLocations ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-success" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento luoghi...</small>
+                      {/* Timeline Orizzontale Luoghi */}
+                      <div className="col-12">
+                        {loadingLocations ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento luoghi...</small>
+                          </div>
+                        ) : trainingLocations.length === 0 ? (
+                          <div className="card border">
+                            <div className="card-body p-3 text-center text-muted">
+                              <i className="ri-map-pin-line fs-3 d-block mb-2 opacity-50"></i>
+                              <p className="mb-0 small">Nessun luogo configurato</p>
+                              <small>Clicca "Nuovo Luogo" per aggiungerne uno</small>
                             </div>
-                          ) : trainingLocations.length === 0 ? (
-                            <div className="card border">
-                              <div className="card-body p-3 text-center text-muted">
-                                <i className="ri-map-pin-line fs-3 d-block mb-2 opacity-50"></i>
-                                <p className="mb-0 small">Nessun luogo configurato</p>
-                                <small>Clicca "Nuovo Luogo" per aggiungerne uno</small>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="timeline-horizontal" style={{
-                              overflowX: 'auto',
-                              paddingBottom: '10px',
-                              position: 'relative',
-                            }}>
-                              {/* Horizontal line */}
-                              <div style={{
-                                position: 'absolute',
-                                left: '0',
-                                right: '0',
-                                top: '24px',
-                                height: '3px',
-                                background: 'linear-gradient(to right, #10b981, #3b82f6, #f59e0b)',
-                                borderRadius: '2px',
-                                zIndex: 0,
-                              }}></div>
+                          </div>
+                        ) : (
+                          <div className="timeline-horizontal" style={{
+                            overflowX: 'auto',
+                            paddingBottom: '10px',
+                            position: 'relative',
+                          }}>
+                            {/* Horizontal line */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '0',
+                              right: '0',
+                              top: '24px',
+                              height: '3px',
+                              background: 'linear-gradient(to right, #10b981, #3b82f6, #f59e0b)',
+                              borderRadius: '2px',
+                              zIndex: 0,
+                            }}></div>
 
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
-                                {trainingLocations
-                                  .sort((a, b) => {
-                                    const dateA = new Date(a.start_date || 0);
-                                    const dateB = new Date(b.start_date || 0);
-                                    return dateB - dateA;
-                                  })
-                                  .map((loc, idx) => {
-                                    const locationLabels = { casa: 'Casa', palestra: 'Palestra', ibrido: 'Ibrido' };
-                                    const locationColors = { casa: '#3b82f6', palestra: '#f59e0b', ibrido: '#10b981' };
-                                    const locationIcons = { casa: 'ri-home-line', palestra: 'ri-building-line', ibrido: 'ri-shuffle-line' };
-                                    const bgColor = locationColors[loc.location] || '#6b7280';
+                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              {trainingLocations
+                                .sort((a, b) => {
+                                  const dateA = new Date(a.start_date || 0);
+                                  const dateB = new Date(b.start_date || 0);
+                                  return dateB - dateA;
+                                })
+                                .map((loc, idx) => {
+                                  const locationLabels = { casa: 'Casa', palestra: 'Palestra', ibrido: 'Ibrido' };
+                                  const locationColors = { casa: '#3b82f6', palestra: '#f59e0b', ibrido: '#10b981' };
+                                  const locationIcons = { casa: 'ri-home-line', palestra: 'ri-building-line', ibrido: 'ri-shuffle-line' };
+                                  const bgColor = locationColors[loc.location] || '#6b7280';
 
-                                    return (
-                                      <div key={loc.id || idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
-                                        {/* Dot on line */}
-                                        <div className="d-flex justify-content-center mb-2">
-                                          <div
-                                            className="rounded-circle d-flex align-items-center justify-content-center"
-                                            style={{
-                                              width: '28px',
-                                              height: '28px',
-                                              background: bgColor,
-                                              border: '3px solid #fff',
-                                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                            }}
-                                          >
-                                            <i className={`${locationIcons[loc.location]} text-white`} style={{ fontSize: '0.75rem' }}></i>
-                                          </div>
-                                        </div>
-
-                                        {/* Date label */}
-                                        <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
-                                          {loc.start_date ? new Date(loc.start_date).toLocaleDateString('it-IT') : '—'}
-                                          {loc.end_date ? (
-                                            <span className="d-block">→ {new Date(loc.end_date).toLocaleDateString('it-IT')}</span>
-                                          ) : (
-                                            <span className="d-block text-success">→ In corso</span>
-                                          )}
-                                        </div>
-
-                                        {/* Card */}
+                                  return (
+                                    <div key={loc.id || idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                      {/* Dot on line */}
+                                      <div className="d-flex justify-content-center mb-2">
                                         <div
-                                          className={`card border-0 shadow-sm ${!loc.is_active ? 'opacity-75' : ''}`}
+                                          className="rounded-circle d-flex align-items-center justify-content-center"
                                           style={{
-                                            borderRadius: '12px',
-                                            background: loc.is_active ? '#fff' : '#f8fafc',
-                                            cursor: 'pointer',
+                                            width: '28px',
+                                            height: '28px',
+                                            background: bgColor,
+                                            border: '3px solid #fff',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                                           }}
-                                          onClick={() => handleOpenLocationModal(loc)}
                                         >
-                                          <div className="card-body p-2">
-                                            {/* Status badge */}
-                                            <div className="mb-1">
-                                              {loc.is_active ? (
-                                                <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
-                                              ) : (
-                                                <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
-                                              )}
-                                            </div>
+                                          <i className={`${locationIcons[loc.location]} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                        </div>
+                                      </div>
 
-                                            {/* Location icon */}
-                                            <div className="d-flex justify-content-center mb-1">
-                                              <div
-                                                className="rounded-circle d-flex align-items-center justify-content-center"
-                                                style={{ width: '36px', height: '36px', background: `${bgColor}20` }}
-                                              >
-                                                <i className={locationIcons[loc.location]} style={{ color: bgColor, fontSize: '1rem' }}></i>
-                                              </div>
-                                            </div>
+                                      {/* Date label */}
+                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                        {loc.start_date ? new Date(loc.start_date).toLocaleDateString('it-IT') : '—'}
+                                        {loc.end_date ? (
+                                          <span className="d-block">→ {new Date(loc.end_date).toLocaleDateString('it-IT')}</span>
+                                        ) : (
+                                          <span className="d-block text-success">→ In corso</span>
+                                        )}
+                                      </div>
 
-                                            {/* Location name */}
-                                            <div className="fw-semibold small" style={{ fontSize: '0.8rem' }}>
-                                              {locationLabels[loc.location] || loc.location}
-                                            </div>
-
-                                            {/* Duration */}
-                                            {loc.duration_days > 0 && !loc.is_active && (
-                                              <div className="text-muted" style={{ fontSize: '0.6rem' }}>
-                                                {loc.duration_days} giorni
-                                              </div>
+                                      {/* Card */}
+                                      <div
+                                        className={`card border-0 shadow-sm ${!loc.is_active ? 'opacity-75' : ''}`}
+                                        style={{
+                                          borderRadius: '12px',
+                                          background: loc.is_active ? '#fff' : '#f8fafc',
+                                          cursor: 'pointer',
+                                        }}
+                                        onClick={() => handleOpenLocationModal(loc)}
+                                      >
+                                        <div className="card-body p-2">
+                                          {/* Status badge */}
+                                          <div className="mb-1">
+                                            {loc.is_active ? (
+                                              <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                            ) : (
+                                              <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
                                             )}
+                                          </div>
 
-                                            {/* Edit hint */}
-                                            <div className="text-primary mt-1" style={{ fontSize: '0.6rem' }}>
-                                              <i className="ri-edit-line me-1"></i>Modifica
+                                          {/* Location icon */}
+                                          <div className="d-flex justify-content-center mb-1">
+                                            <div
+                                              className="rounded-circle d-flex align-items-center justify-content-center"
+                                              style={{ width: '36px', height: '36px', background: `${bgColor}20` }}
+                                            >
+                                              <i className={locationIcons[loc.location]} style={{ color: bgColor, fontSize: '1rem' }}></i>
                                             </div>
+                                          </div>
+
+                                          {/* Location name */}
+                                          <div className="fw-semibold small" style={{ fontSize: '0.8rem' }}>
+                                            {locationLabels[loc.location] || loc.location}
+                                          </div>
+
+                                          {/* Duration */}
+                                          {loc.duration_days > 0 && !loc.is_active && (
+                                            <div className="text-muted" style={{ fontSize: '0.6rem' }}>
+                                              {loc.duration_days} giorni
+                                            </div>
+                                          )}
+
+                                          {/* Edit hint */}
+                                          <div className="text-primary mt-1" style={{ fontSize: '0.6rem' }}>
+                                            <i className="ri-edit-line me-1"></i>Modifica
                                           </div>
                                         </div>
                                       </div>
-                                    );
-                                  })}
-                              </div>
+                                    </div>
+                                  );
+                                })}
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5209,61 +5174,61 @@ function ClientiDetail() {
                   {coachingSubTab === 'patologie' && (
                     <div className="col-12" data-tour="coaching-patologie">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Patologie e Anamnesi Coaching
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                    <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Patologie e Anamnesi Coaching
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
+                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-primary"
-                                  onClick={handleSaveAnamnesiCoaching}
-                                  disabled={savingAnamnesiCoaching || loadingAnamnesiCoaching}
-                                >
-                                  {savingAnamnesiCoaching ? (
-                                    <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
-                                  ) : (
-                                    <><i className="ri-save-line me-1"></i>Salva</>
-                                  )}
-                                </button>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
                               </div>
-                              {loadingAnamnesiCoaching ? (
-                                <div className="text-center py-4">
-                                  <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                  <small className="ms-2 text-muted">Caricamento anamnesi...</small>
-                                </div>
-                              ) : (
-                                <>
-                                  <textarea
-                                    className="form-control mb-3"
-                                    rows="10"
-                                    placeholder="Inserisci l'anamnesi coaching del cliente...&#10;&#10;• Esperienza sportiva&#10;• Obiettivi fitness&#10;• Infortuni pregressi&#10;• Limitazioni fisiche&#10;• Attrezzatura disponibile&#10;• Frequenza allenamenti"
-                                    value={anamnesiCoachingContent}
-                                    onChange={(e) => setAnamnesiCoachingContent(e.target.value)}
-                                  ></textarea>
-                                  {anamnesiCoaching && (
-                                    <div className="small text-muted border-top pt-2">
-                                      <i className="ri-information-line me-1"></i>
-                                      Creato: {anamnesiCoaching.created_at} da {anamnesiCoaching.created_by || 'N/D'}
-                                      {anamnesiCoaching.last_modified_by && (
-                                        <span className="ms-3">
-                                          | Ultima modifica: {anamnesiCoaching.updated_at} da {anamnesiCoaching.last_modified_by}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </>
-                              )}
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={handleSaveAnamnesiCoaching}
+                                disabled={savingAnamnesiCoaching || loadingAnamnesiCoaching}
+                              >
+                                {savingAnamnesiCoaching ? (
+                                  <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
+                                ) : (
+                                  <><i className="ri-save-line me-1"></i>Salva</>
+                                )}
+                              </button>
                             </div>
+                            {loadingAnamnesiCoaching ? (
+                              <div className="text-center py-4">
+                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
+                              </div>
+                            ) : (
+                              <>
+                                <textarea
+                                  className="form-control mb-3"
+                                  rows="10"
+                                  placeholder="Inserisci l'anamnesi coaching del cliente...&#10;&#10;• Esperienza sportiva&#10;• Obiettivi fitness&#10;• Infortuni pregressi&#10;• Limitazioni fisiche&#10;• Attrezzatura disponibile&#10;• Frequenza allenamenti"
+                                  value={anamnesiCoachingContent}
+                                  onChange={(e) => setAnamnesiCoachingContent(e.target.value)}
+                                ></textarea>
+                                {anamnesiCoaching && (
+                                  <div className="small text-muted border-top pt-2">
+                                    <i className="ri-information-line me-1"></i>
+                                    Creato: {anamnesiCoaching.created_at} da {anamnesiCoaching.created_by || 'N/D'}
+                                    {anamnesiCoaching.last_modified_by && (
+                                      <span className="ms-3">
+                                        | Ultima modifica: {anamnesiCoaching.updated_at} da {anamnesiCoaching.last_modified_by}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5272,92 +5237,92 @@ function ClientiDetail() {
                   {coachingSubTab === 'diario' && (
                     <div className="col-12" data-tour="coaching-diario">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Diario Coaching
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fce7f3' }}>
-                                    <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#ec4899' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
-                                  <span className="badge bg-secondary ms-2">{diarioCoachingEntries.length}</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Diario Coaching
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fce7f3' }}>
+                                  <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#ec4899' }}></i>
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-primary"
-                                  onClick={() => handleOpenDiarioCoachingModal()}
-                                >
-                                  <i className="ri-add-line me-1"></i>
-                                  Nuova Nota
-                                </button>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
+                                <span className="badge bg-secondary ms-2">{diarioCoachingEntries.length}</span>
                               </div>
-                              {loadingDiarioCoaching ? (
-                                <div className="text-center py-4">
-                                  <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                  <small className="ms-2 text-muted">Caricamento diario...</small>
-                                </div>
-                              ) : diarioCoachingEntries.length === 0 ? (
-                                <p className="text-muted small mb-0 text-center py-3">
-                                  <i className="ri-information-line me-1"></i>
-                                  Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
-                                </p>
-                              ) : (
-                                <div className="d-flex flex-column gap-3">
-                                  {diarioCoachingEntries.map((entry) => (
-                                    <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
-                                      <div className="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                          <span className="badge bg-warning-subtle text-warning me-2">
-                                            <i className="ri-calendar-line me-1"></i>
-                                            {entry.entry_date_display}
-                                            {entry.created_at && (
-                                              <span className="ms-1 opacity-75 small">
-                                                ({entry.created_at.split(' ')[1]})
-                                              </span>
-                                            )}
-                                          </span>
-                                          <small className="text-muted">
-                                            <i className="ri-user-line me-1"></i>
-                                            {entry.author}
-                                          </small>
-                                        </div>
-                                        <div className="d-flex gap-1">
-                                          <button
-                                            className="btn btn-sm btn-outline-primary py-0 px-2"
-                                            onClick={() => handleOpenDiarioCoachingModal(entry)}
-                                            title="Modifica"
-                                          >
-                                            <i className="ri-edit-line"></i>
-                                          </button>
-                                          {(user?.is_admin || user?.role === 'admin') && (
-                                            <button
-                                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                                              onClick={() => handleDeleteDiarioCoaching(entry.id)}
-                                              title="Elimina"
-                                            >
-                                              <i className="ri-delete-bin-line"></i>
-                                            </button>
-                                          )}
-                                          <button
-                                            className="btn btn-sm btn-outline-secondary py-0 px-2"
-                                            onClick={() => handleOpenHistoryModal(entry, 'coaching')}
-                                            title="Storico Modifiche"
-                                          >
-                                            <i className="ri-history-line"></i>
-                                          </button>
-                                        </div>
-                                      </div>
-                                      <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => handleOpenDiarioCoachingModal()}
+                              >
+                                <i className="ri-add-line me-1"></i>
+                                Nuova Nota
+                              </button>
                             </div>
+                            {loadingDiarioCoaching ? (
+                              <div className="text-center py-4">
+                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento diario...</small>
+                              </div>
+                            ) : diarioCoachingEntries.length === 0 ? (
+                              <p className="text-muted small mb-0 text-center py-3">
+                                <i className="ri-information-line me-1"></i>
+                                Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
+                              </p>
+                            ) : (
+                              <div className="d-flex flex-column gap-3">
+                                {diarioCoachingEntries.map((entry) => (
+                                  <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                      <div>
+                                        <span className="badge bg-warning-subtle text-warning me-2">
+                                          <i className="ri-calendar-line me-1"></i>
+                                          {entry.entry_date_display}
+                                          {entry.created_at && (
+                                            <span className="ms-1 opacity-75 small">
+                                              ({entry.created_at.split(' ')[1]})
+                                            </span>
+                                          )}
+                                        </span>
+                                        <small className="text-muted">
+                                          <i className="ri-user-line me-1"></i>
+                                          {entry.author}
+                                        </small>
+                                      </div>
+                                      <div className="d-flex gap-1">
+                                        <button
+                                          className="btn btn-sm btn-outline-primary py-0 px-2"
+                                          onClick={() => handleOpenDiarioCoachingModal(entry)}
+                                          title="Modifica"
+                                        >
+                                          <i className="ri-edit-line"></i>
+                                        </button>
+                                        {(user?.is_admin || user?.role === 'admin') && (
+                                          <button
+                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            onClick={() => handleDeleteDiarioCoaching(entry.id)}
+                                            title="Elimina"
+                                          >
+                                            <i className="ri-delete-bin-line"></i>
+                                          </button>
+                                        )}
+                                        <button
+                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          onClick={() => handleOpenHistoryModal(entry, 'coaching')}
+                                          title="Storico Modifiche"
+                                        >
+                                          <i className="ri-history-line"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5366,32 +5331,32 @@ function ClientiDetail() {
                   {coachingSubTab === 'alert' && (
                     <div className="col-12" data-tour="coaching-alert">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Alert e Criticità
-                          </h6>
-                          <div className="card border border-danger">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Alert Coaching</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Alert e Criticità
+                        </h6>
+                        <div className="card border border-danger">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
                               </div>
-                              <p className="text-muted small mb-2">
-                                Informazioni critiche: infortuni, limitazioni fisiche, controindicazioni.
-                                Queste note saranno sempre visibili in evidenza.
-                              </p>
-                              <textarea
-                                className="form-control border-danger"
-                                rows="4"
-                                placeholder="Es: Ernia lombare, Non può fare squat profondi, Problemi alle ginocchia..."
-                                value={formData.alert_coaching || ''}
-                                onChange={(e) => handleInputChange('alert_coaching', e.target.value)}
-                              ></textarea>
+                              <span className="fw-semibold text-danger" style={{ fontSize: '0.9rem' }}>Alert Coaching</span>
                             </div>
+                            <p className="text-muted small mb-2">
+                              Informazioni critiche: infortuni, limitazioni fisiche, controindicazioni.
+                              Queste note saranno sempre visibili in evidenza.
+                            </p>
+                            <textarea
+                              className="form-control border-danger"
+                              rows="4"
+                              placeholder="Es: Ernia lombare, Non può fare squat profondi, Problemi alle ginocchia..."
+                              value={formData.alert_coaching || ''}
+                              onChange={(e) => handleInputChange('alert_coaching', e.target.value)}
+                            ></textarea>
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5415,7 +5380,7 @@ function ClientiDetail() {
                   )}
 
                   {/* Sub-tab Navigation - Same style as Nutrizione/Coaching */}
-                  <div className="col-12 cd-subtabs-scroll" data-tour="psicologia-subtabs">
+                  <div className="col-12" data-tour="psicologia-subtabs">
                     <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         {[
@@ -5453,246 +5418,246 @@ function ClientiDetail() {
                   {psicologiaSubTab === 'panoramica' && (
                     <div className="col-12" data-tour="psicologia-panoramica">
                       <div className="row g-4">
-                        {/* Psicologi Assegnati */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Psicologi Assegnati
-                          </h6>
-                          {loadingHistory ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm text-purple" role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento...</small>
-                            </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center justify-content-between mb-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="rounded-circle d-flex align-items-center justify-content-center me-2"
-                                      style={{ width: '32px', height: '32px', background: '#f3e8ff' }}>
-                                      <i className="ri-mental-health-line" style={{ color: '#a855f7' }}></i>
-                                    </div>
-                                    <span className="fw-semibold">Team Psicologia</span>
+                      {/* Psicologi Assegnati */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Psicologi Assegnati
+                        </h6>
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-purple" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3">
+                              <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2"
+                                       style={{ width: '32px', height: '32px', background: '#f3e8ff' }}>
+                                    <i className="ri-mental-health-line" style={{ color: '#a855f7' }}></i>
                                   </div>
-                                  <span className="badge" style={{ background: '#a855f7' }}>{getActiveProfessionals('psicologa').length} attivi</span>
+                                  <span className="fw-semibold">Team Psicologia</span>
                                 </div>
-
-                                {getActiveProfessionals('psicologa').length > 0 ? (
-                                  <div className="d-flex flex-wrap gap-2">
-                                    {getActiveProfessionals('psicologa').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
-                                        {assignment.avatar_path ? (
-                                          <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
-                                        ) : (
-                                          <div className="rounded-circle text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem', background: '#a855f7' }}>
-                                            {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                          </div>
-                                        )}
-                                        <div>
-                                          <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                          <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-muted small mb-0">Nessun psicologo assegnato. Vai alla tab "Team" per assegnare.</p>
-                                )}
+                                <span className="badge" style={{ background: '#a855f7' }}>{getActiveProfessionals('psicologa').length} attivi</span>
                               </div>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Storico Assegnazioni Timeline */}
-                        {professionistiHistory.filter(h => h.tipo_professionista === 'psicologa').length > 0 && (
-                          <div className="col-12">
-                            <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                              <i className="ri-history-line me-2"></i>
-                              Storico Assegnazioni
-                            </h6>
-                            <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
-                              <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #a855f7, #7c3aed)', borderRadius: '2px', zIndex: 0 }}></div>
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
-                                {professionistiHistory
-                                  .filter(h => h.tipo_professionista === 'psicologa')
-                                  .sort((a, b) => {
-                                    const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
-                                    const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
-                                    return dateB - dateA;
-                                  })
-                                  .map((item, idx) => (
-                                    <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
-                                      <div className="d-flex justify-content-center mb-2">
-                                        <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: '#a855f7', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                                          <i className="ri-mental-health-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                              {getActiveProfessionals('psicologa').length > 0 ? (
+                                <div className="d-flex flex-wrap gap-2">
+                                  {getActiveProfessionals('psicologa').map((assignment, idx) => (
+                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                      {assignment.avatar_path ? (
+                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem', background: '#a855f7' }}>
+                                          {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
-                                      </div>
-                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
-                                        {item.data_dal || '—'}
-                                        {item.data_al && <span className="d-block">→ {item.data_al}</span>}
-                                      </div>
-                                      <div className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_active ? '#fff' : '#f8fafc' }}>
-                                        <div className="card-body p-2">
-                                          <div className="mb-2">
-                                            {item.is_active ? (
-                                              <span className="badge" style={{ fontSize: '0.65rem', background: '#a855f7' }}>Attivo</span>
-                                            ) : (
-                                              <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
-                                            )}
-                                          </div>
-                                          <div className="d-flex justify-content-center mb-2">
-                                            {item.avatar_path ? (
-                                              <img src={item.avatar_path} alt="" className="rounded-circle" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />
-                                            ) : (
-                                              <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', fontSize: '0.75rem', background: '#a855f7' }}>
-                                                {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                              </div>
-                                            )}
-                                          </div>
-                                          <div className="fw-semibold small" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {item.professionista_nome}
-                                          </div>
-                                        </div>
+                                      )}
+                                      <div>
+                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                       </div>
                                     </div>
                                   ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Stati Servizio e Chat */}
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Stato Servizio</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                  <i className="ri-mental-health-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Psicologia</span>
-                              </div>
-                              <select
-                                className="form-select form-select-sm mb-2"
-                                value={formData.stato_psicologia || ''}
-                                onChange={(e) => handleInputChange('stato_psicologia', e.target.value)}
-                              >
-                                <option value="">Seleziona stato...</option>
-                                <option value="attivo">Attivo</option>
-                                <option value="pausa">Pausa</option>
-                                <option value="ghost">Ghost</option>
-                                <option value="stop">Ex-Cliente</option>
-                              </select>
-                              {c.stato_psicologia_data && (
-                                <small className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                  <i className="ri-calendar-line me-1"></i>
-                                  Ultimo cambio: {new Date(c.stato_psicologia_data).toLocaleDateString('it-IT')}
-                                </small>
+                              ) : (
+                                <p className="text-muted small mb-0">Nessun psicologo assegnato. Vai alla tab "Team" per assegnare.</p>
                               )}
                             </div>
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Stato Chat</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-chat-3-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Psicologia</span>
-                              </div>
-                              <select
-                                className="form-select form-select-sm mb-2"
-                                value={formData.stato_cliente_chat_psicologia || ''}
-                                onChange={(e) => handleInputChange('stato_cliente_chat_psicologia', e.target.value)}
-                              >
-                                <option value="">Seleziona stato...</option>
-                                <option value="attivo">Attivo</option>
-                                <option value="pausa">Pausa</option>
-                                <option value="ghost">Ghost</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Timeline Storico Stati Unificata */}
+                      {/* Storico Assegnazioni Timeline */}
+                      {professionistiHistory.filter(h => h.tipo_professionista === 'psicologa').length > 0 && (
                         <div className="col-12">
                           <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                             <i className="ri-history-line me-2"></i>
-                            Storico Stati (Servizio + Chat)
+                            Storico Assegnazioni
                           </h6>
-                          {loadingStoricoPsicologia ? (
-                            <div className="text-center py-4">
-                              <div className="spinner-border spinner-border-sm" style={{ color: '#a855f7' }} role="status"></div>
-                              <small className="ms-2 text-muted">Caricamento storico...</small>
-                            </div>
-                          ) : (storicoStatoPsicologia.length > 0 || storicoChatPsicologia.length > 0) ? (
-                            <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
-                              <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #a855f7, #6b7280)', borderRadius: '2px', zIndex: 0 }}></div>
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
-                                {[
-                                  ...storicoStatoPsicologia.map(item => ({ ...item, tipo: 'servizio' })),
-                                  ...storicoChatPsicologia.map(item => ({ ...item, tipo: 'chat' }))
-                                ]
-                                  .sort((a, b) => {
-                                    const dateA = new Date(a.data_inizio?.split('/').reverse().join('-') || 0);
-                                    const dateB = new Date(b.data_inizio?.split('/').reverse().join('-') || 0);
-                                    return dateB - dateA;
-                                  })
-                                  .map((item, idx) => {
-                                    const isServizio = item.tipo === 'servizio';
-                                    const bgColor = isServizio ? '#a855f7' : '#6b7280';
-                                    const icon = isServizio ? 'ri-mental-health-line' : 'ri-chat-3-line';
-                                    return (
-                                      <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '130px', maxWidth: '150px' }}>
+                          <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #a855f7, #7c3aed)', borderRadius: '2px', zIndex: 0 }}></div>
+                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              {professionistiHistory
+                                .filter(h => h.tipo_professionista === 'psicologa')
+                                .sort((a, b) => {
+                                  const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
+                                  const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
+                                  return dateB - dateA;
+                                })
+                                .map((item, idx) => (
+                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                    <div className="d-flex justify-content-center mb-2">
+                                      <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: '#a855f7', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                                        <i className="ri-mental-health-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                      </div>
+                                    </div>
+                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                      {item.data_dal || '—'}
+                                      {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                    </div>
+                                    <div className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_active ? '#fff' : '#f8fafc' }}>
+                                      <div className="card-body p-2">
+                                        <div className="mb-2">
+                                          {item.is_active ? (
+                                            <span className="badge" style={{ fontSize: '0.65rem', background: '#a855f7' }}>Attivo</span>
+                                          ) : (
+                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                          )}
+                                        </div>
                                         <div className="d-flex justify-content-center mb-2">
-                                          <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: bgColor, border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                                            <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
-                                          </div>
-                                        </div>
-                                        <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
-                                          {item.data_inizio || '—'}
-                                          {item.data_fine && <span className="d-block">→ {item.data_fine}</span>}
-                                        </div>
-                                        <div className={`card border-0 shadow-sm ${!item.is_attivo ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_attivo ? '#fff' : '#f8fafc' }}>
-                                          <div className="card-body p-2">
-                                            <div className="mb-1">
-                                              <span className="badge" style={{ fontSize: '0.6rem', background: isServizio ? '#f3e8ff' : '#f3f4f6', color: bgColor }}>
-                                                {isServizio ? 'Servizio' : 'Chat'}
-                                              </span>
+                                          {item.avatar_path ? (
+                                            <img src={item.avatar_path} alt="" className="rounded-circle" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />
+                                          ) : (
+                                            <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', fontSize: '0.75rem', background: '#a855f7' }}>
+                                              {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
-                                            <div className="mb-1">
-                                              <span className={`badge bg-${STATUS_COLORS[item.stato] || 'secondary'}`} style={{ fontSize: '0.7rem' }}>
-                                                {STATO_LABELS[item.stato] || item.stato}
-                                              </span>
-                                            </div>
-                                            {item.is_attivo && (
-                                              <div style={{ fontSize: '0.65rem', color: '#a855f7' }}>
-                                                <i className="ri-checkbox-circle-fill me-1"></i>In corso
-                                              </div>
-                                            )}
-                                            {item.durata_giorni > 0 && !item.is_attivo && (
-                                              <div className="text-muted" style={{ fontSize: '0.6rem' }}>{item.durata_giorni} giorni</div>
-                                            )}
-                                          </div>
+                                          )}
+                                        </div>
+                                        <div className="fw-semibold small" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          {item.professionista_nome}
                                         </div>
                                       </div>
-                                    );
-                                  })}
-                              </div>
+                                    </div>
+                                  </div>
+                                ))}
                             </div>
-                          ) : (
-                            <div className="card border">
-                              <div className="card-body p-3 text-center text-muted">
-                                <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                                <p className="mb-0 small">Nessuno storico stati disponibile</p>
-                                <small>I cambi di stato verranno tracciati automaticamente</small>
-                              </div>
-                            </div>
-                          )}
+                          </div>
                         </div>
+                      )}
+
+                      {/* Stati Servizio e Chat */}
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Stato Servizio</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
+                                <i className="ri-mental-health-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Psicologia</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm mb-2"
+                              value={formData.stato_psicologia || ''}
+                              onChange={(e) => handleInputChange('stato_psicologia', e.target.value)}
+                            >
+                              <option value="">Seleziona stato...</option>
+                              <option value="attivo">Attivo</option>
+                              <option value="pausa">Pausa</option>
+                              <option value="ghost">Ghost</option>
+                              <option value="stop">Ex-Cliente</option>
+                            </select>
+                            {c.stato_psicologia_data && (
+                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                <i className="ri-calendar-line me-1"></i>
+                                Ultimo cambio: {new Date(c.stato_psicologia_data).toLocaleDateString('it-IT')}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Stato Chat</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-chat-3-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Psicologia</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm mb-2"
+                              value={formData.stato_cliente_chat_psicologia || ''}
+                              onChange={(e) => handleInputChange('stato_cliente_chat_psicologia', e.target.value)}
+                            >
+                              <option value="">Seleziona stato...</option>
+                              <option value="attivo">Attivo</option>
+                              <option value="pausa">Pausa</option>
+                              <option value="ghost">Ghost</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Timeline Storico Stati Unificata */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          <i className="ri-history-line me-2"></i>
+                          Storico Stati (Servizio + Chat)
+                        </h6>
+                        {loadingStoricoPsicologia ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm" style={{ color: '#a855f7' }} role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento storico...</small>
+                          </div>
+                        ) : (storicoStatoPsicologia.length > 0 || storicoChatPsicologia.length > 0) ? (
+                          <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #a855f7, #6b7280)', borderRadius: '2px', zIndex: 0 }}></div>
+                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              {[
+                                ...storicoStatoPsicologia.map(item => ({ ...item, tipo: 'servizio' })),
+                                ...storicoChatPsicologia.map(item => ({ ...item, tipo: 'chat' }))
+                              ]
+                                .sort((a, b) => {
+                                  const dateA = new Date(a.data_inizio?.split('/').reverse().join('-') || 0);
+                                  const dateB = new Date(b.data_inizio?.split('/').reverse().join('-') || 0);
+                                  return dateB - dateA;
+                                })
+                                .map((item, idx) => {
+                                  const isServizio = item.tipo === 'servizio';
+                                  const bgColor = isServizio ? '#a855f7' : '#6b7280';
+                                  const icon = isServizio ? 'ri-mental-health-line' : 'ri-chat-3-line';
+                                  return (
+                                    <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '130px', maxWidth: '150px' }}>
+                                      <div className="d-flex justify-content-center mb-2">
+                                        <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: bgColor, border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                                          <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                        </div>
+                                      </div>
+                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                        {item.data_inizio || '—'}
+                                        {item.data_fine && <span className="d-block">→ {item.data_fine}</span>}
+                                      </div>
+                                      <div className={`card border-0 shadow-sm ${!item.is_attivo ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_attivo ? '#fff' : '#f8fafc' }}>
+                                        <div className="card-body p-2">
+                                          <div className="mb-1">
+                                            <span className="badge" style={{ fontSize: '0.6rem', background: isServizio ? '#f3e8ff' : '#f3f4f6', color: bgColor }}>
+                                              {isServizio ? 'Servizio' : 'Chat'}
+                                            </span>
+                                          </div>
+                                          <div className="mb-1">
+                                            <span className={`badge bg-${STATUS_COLORS[item.stato] || 'secondary'}`} style={{ fontSize: '0.7rem' }}>
+                                              {STATO_LABELS[item.stato] || item.stato}
+                                            </span>
+                                          </div>
+                                          {item.is_attivo && (
+                                            <div style={{ fontSize: '0.65rem', color: '#a855f7' }}>
+                                              <i className="ri-checkbox-circle-fill me-1"></i>In corso
+                                            </div>
+                                          )}
+                                          {item.durata_giorni > 0 && !item.is_attivo && (
+                                            <div className="text-muted" style={{ fontSize: '0.6rem' }}>{item.durata_giorni} giorni</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="card border">
+                            <div className="card-body p-3 text-center text-muted">
+                              <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
+                              <p className="mb-0 small">Nessuno storico stati disponibile</p>
+                              <small>I cambi di stato verranno tracciati automaticamente</small>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5701,130 +5666,130 @@ function ClientiDetail() {
                   {psicologiaSubTab === 'setup' && (
                     <div className="col-12" data-tour="psicologia-setup">
                       <div className="row g-4">
-                        {/* Call Iniziale */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Call Iniziale</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Psicologa</span>
+                      {/* Call Iniziale */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Call Iniziale</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
                               </div>
-                              <div className="form-check form-switch mb-2">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  id="callPsicologa"
-                                  checked={formData.call_iniziale_psicologa || false}
-                                  onChange={(e) => handleInputChange('call_iniziale_psicologa', e.target.checked)}
-                                />
-                                <label className="form-check-label small" htmlFor="callPsicologa">
-                                  {formData.call_iniziale_psicologa ? 'Effettuata' : 'Non effettuata'}
-                                </label>
-                                {formData.call_iniziale_psicologa && (
-                                  <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
-                                )}
-                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Psicologa</span>
+                            </div>
+                            <div className="form-check form-switch mb-2">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="callPsicologa"
+                                checked={formData.call_iniziale_psicologa || false}
+                                onChange={(e) => handleInputChange('call_iniziale_psicologa', e.target.checked)}
+                              />
+                              <label className="form-check-label small" htmlFor="callPsicologa">
+                                {formData.call_iniziale_psicologa ? 'Effettuata' : 'Non effettuata'}
+                              </label>
                               {formData.call_iniziale_psicologa && (
-                                <div className="mt-3">
-                                  <label className="form-label small text-muted mb-1">Data Call</label>
-                                  <input
-                                    type="date"
-                                    className="form-control form-control-sm"
-                                    value={formData.data_call_iniziale_psicologia || ''}
-                                    onChange={(e) => handleInputChange('data_call_iniziale_psicologia', e.target.value)}
-                                  />
-                                </div>
+                                <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
                               )}
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Reach Out */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Reach Out Settimanale</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
-                              </div>
-                              <select
-                                className="form-select form-select-sm"
-                                value={formData.reach_out_psicologia || ''}
-                                onChange={(e) => handleInputChange('reach_out_psicologia', e.target.value)}
-                              >
-                                <option value="">Seleziona giorno...</option>
-                                <option value="lunedi">Lunedì</option>
-                                <option value="martedi">Martedì</option>
-                                <option value="mercoledi">Mercoledì</option>
-                                <option value="giovedi">Giovedì</option>
-                                <option value="venerdi">Venerdì</option>
-                                <option value="sabato">Sabato</option>
-                                <option value="domenica">Domenica</option>
-                              </select>
-                              {formData.reach_out_psicologia && (
-                                <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
-                                  <i className="ri-calendar-event-line me-1"></i>
-                                  Reach out ogni {{ lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_psicologia]}
-                                </small>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Sedute Counter */}
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Sedute Acquistate</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '40px', height: '40px', background: '#dbeafe' }}>
-                                    <i className="ri-shopping-cart-line text-primary" style={{ fontSize: '1rem' }}></i>
-                                  </div>
-                                  <span className="fw-semibold">Sedute Comprate</span>
-                                </div>
+                            {formData.call_iniziale_psicologa && (
+                              <div className="mt-3">
+                                <label className="form-label small text-muted mb-1">Data Call</label>
                                 <input
-                                  type="number"
-                                  className="form-control form-control-sm text-center"
-                                  style={{ width: '80px' }}
-                                  min="0"
-                                  value={formData.sedute_psicologia_comprate || 0}
-                                  onChange={(e) => handleInputChange('sedute_psicologia_comprate', parseInt(e.target.value) || 0)}
+                                  type="date"
+                                  className="form-control form-control-sm"
+                                  value={formData.data_call_iniziale_psicologia || ''}
+                                  onChange={(e) => handleInputChange('data_call_iniziale_psicologia', e.target.value)}
                                 />
                               </div>
-                            </div>
+                            )}
                           </div>
                         </div>
+                      </div>
 
-                        <div className="col-md-6">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Sedute Svolte</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '40px', height: '40px', background: '#d1fae5' }}>
-                                    <i className="ri-check-double-line text-success" style={{ fontSize: '1rem' }}></i>
-                                  </div>
-                                  <span className="fw-semibold">Sedute Svolte</span>
-                                </div>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm text-center"
-                                  style={{ width: '80px' }}
-                                  min="0"
-                                  value={formData.sedute_psicologia_svolte || 0}
-                                  onChange={(e) => handleInputChange('sedute_psicologia_svolte', parseInt(e.target.value) || 0)}
-                                />
+                      {/* Reach Out */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Reach Out Settimanale</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
                               </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                            </div>
+                            <select
+                              className="form-select form-select-sm"
+                              value={formData.reach_out_psicologia || ''}
+                              onChange={(e) => handleInputChange('reach_out_psicologia', e.target.value)}
+                            >
+                              <option value="">Seleziona giorno...</option>
+                              <option value="lunedi">Lunedì</option>
+                              <option value="martedi">Martedì</option>
+                              <option value="mercoledi">Mercoledì</option>
+                              <option value="giovedi">Giovedì</option>
+                              <option value="venerdi">Venerdì</option>
+                              <option value="sabato">Sabato</option>
+                              <option value="domenica">Domenica</option>
+                            </select>
+                            {formData.reach_out_psicologia && (
+                              <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
+                                <i className="ri-calendar-event-line me-1"></i>
+                                Reach out ogni {{ lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_psicologia]}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sedute Counter */}
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Sedute Acquistate</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '40px', height: '40px', background: '#dbeafe' }}>
+                                  <i className="ri-shopping-cart-line text-primary" style={{ fontSize: '1rem' }}></i>
+                                </div>
+                                <span className="fw-semibold">Sedute Comprate</span>
+                              </div>
+                              <input
+                                type="number"
+                                className="form-control form-control-sm text-center"
+                                style={{ width: '80px' }}
+                                min="0"
+                                value={formData.sedute_psicologia_comprate || 0}
+                                onChange={(e) => handleInputChange('sedute_psicologia_comprate', parseInt(e.target.value) || 0)}
+                              />
                             </div>
                           </div>
                         </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Sedute Svolte</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '40px', height: '40px', background: '#d1fae5' }}>
+                                  <i className="ri-check-double-line text-success" style={{ fontSize: '1rem' }}></i>
+                                </div>
+                                <span className="fw-semibold">Sedute Svolte</span>
+                              </div>
+                              <input
+                                type="number"
+                                className="form-control form-control-sm text-center"
+                                style={{ width: '80px' }}
+                                min="0"
+                                value={formData.sedute_psicologia_svolte || 0}
+                                onChange={(e) => handleInputChange('sedute_psicologia_svolte', parseInt(e.target.value) || 0)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5833,105 +5798,105 @@ function ClientiDetail() {
                   {psicologiaSubTab === 'patologie' && (
                     <div className="col-12" data-tour="psicologia-patologie">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Patologie Psicologiche</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fef3c7' }}>
-                                  <i className="ri-stethoscope-line text-warning" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie Psicologiche</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Patologie Psicologiche</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fef3c7' }}>
+                                <i className="ri-stethoscope-line text-warning" style={{ fontSize: '0.85rem' }}></i>
                               </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie Psicologiche</span>
+                            </div>
 
-                              {/* Nessuna Patologia */}
-                              <div className={`p-2 rounded mb-3 border ${formData.nessuna_patologia_psico ? 'bg-success-subtle border-success' : 'border-secondary'}`}>
-                                <div className="form-check mb-0">
-                                  <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    id="nessuna_patologia_psico"
-                                    checked={formData.nessuna_patologia_psico || false}
-                                    onChange={(e) => handleInputChange('nessuna_patologia_psico', e.target.checked)}
-                                  />
-                                  <label className={`form-check-label small ${formData.nessuna_patologia_psico ? 'fw-semibold text-success' : ''}`} htmlFor="nessuna_patologia_psico">
-                                    Nessuna Patologia Psicologica
-                                  </label>
-                                </div>
+                            {/* Nessuna Patologia */}
+                            <div className={`p-2 rounded mb-3 border ${formData.nessuna_patologia_psico ? 'bg-success-subtle border-success' : 'border-secondary'}`}>
+                              <div className="form-check mb-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="nessuna_patologia_psico"
+                                  checked={formData.nessuna_patologia_psico || false}
+                                  onChange={(e) => handleInputChange('nessuna_patologia_psico', e.target.checked)}
+                                />
+                                <label className={`form-check-label small ${formData.nessuna_patologia_psico ? 'fw-semibold text-success' : ''}`} htmlFor="nessuna_patologia_psico">
+                                  Nessuna Patologia Psicologica
+                                </label>
                               </div>
+                            </div>
 
-                              {/* Lista patologie */}
-                              <div className="row g-1">
-                                {PATOLOGIE_PSICO.map(({ key, label }) => (
-                                  <div key={key} className="col-md-6 col-12">
-                                    <div className="form-check">
-                                      <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id={key}
-                                        checked={formData[key] || false}
-                                        onChange={(e) => handleInputChange(key, e.target.checked)}
-                                      />
-                                      <label className={`form-check-label small ${formData[key] ? 'fw-medium' : ''}`} htmlFor={key}>
-                                        {label}
-                                      </label>
-                                    </div>
-                                  </div>
-                                ))}
-                                {/* Altro Checkbox Psicologia */}
-                                <div className="col-md-6 col-12">
+                            {/* Lista patologie */}
+                            <div className="row g-1">
+                              {PATOLOGIE_PSICO.map(({ key, label }) => (
+                                <div key={key} className="col-md-6 col-12">
                                   <div className="form-check">
                                     <input
                                       className="form-check-input"
                                       type="checkbox"
-                                      id="patologia_psico_altro_check"
-                                      checked={formData.patologia_psico_altro_check || false}
-                                      onChange={(e) => handleInputChange('patologia_psico_altro_check', e.target.checked)}
+                                      id={key}
+                                      checked={formData[key] || false}
+                                      onChange={(e) => handleInputChange(key, e.target.checked)}
                                     />
-                                    <label className={`form-check-label small ${formData.patologia_psico_altro_check ? 'fw-medium' : ''}`} htmlFor="patologia_psico_altro_check">
-                                      Altro...
+                                    <label className={`form-check-label small ${formData[key] ? 'fw-medium' : ''}`} htmlFor={key}>
+                                      {label}
                                     </label>
                                   </div>
                                 </div>
-                              </div>
-
-                              {/* Altro Input Psicologia */}
-                              {formData.patologia_psico_altro_check && (
-                                <div className="mt-2">
+                              ))}
+                              {/* Altro Checkbox Psicologia */}
+                              <div className="col-md-6 col-12">
+                                <div className="form-check">
                                   <input
-                                    type="text"
-                                    className="form-control form-control-sm"
-                                    placeholder="Specifica altra patologia psicologica..."
-                                    value={formData.patologia_psico_altro || ''}
-                                    onChange={(e) => handleInputChange('patologia_psico_altro', e.target.value)}
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="patologia_psico_altro_check"
+                                    checked={formData.patologia_psico_altro_check || false}
+                                    onChange={(e) => handleInputChange('patologia_psico_altro_check', e.target.checked)}
                                   />
+                                  <label className={`form-check-label small ${formData.patologia_psico_altro_check ? 'fw-medium' : ''}`} htmlFor="patologia_psico_altro_check">
+                                    Altro...
+                                  </label>
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* ===== ANAMNESI MERGED ===== */}
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Storia Psicologica</h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Anamnesi Psicologica</span>
                               </div>
-                              <textarea
-                                className="form-control mb-3"
-                                rows="8"
-                                placeholder="Scrivi qui l'anamnesi psicologica del cliente...&#10;&#10;• Storia clinica&#10;• Motivazioni&#10;• Obiettivi terapeutici&#10;• Note iniziali"
-                                value={formData.storia_psicologica || ''}
-                                onChange={(e) => handleInputChange('storia_psicologica', e.target.value)}
-                              ></textarea>
                             </div>
+
+                            {/* Altro Input Psicologia */}
+                            {formData.patologia_psico_altro_check && (
+                              <div className="mt-2">
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  placeholder="Specifica altra patologia psicologica..."
+                                  value={formData.patologia_psico_altro || ''}
+                                  onChange={(e) => handleInputChange('patologia_psico_altro', e.target.value)}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
+                      </div>
+
+                      {/* ===== ANAMNESI MERGED ===== */}
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Storia Psicologica</h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
+                                <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
+                              </div>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Anamnesi Psicologica</span>
+                            </div>
+                            <textarea
+                              className="form-control mb-3"
+                              rows="8"
+                              placeholder="Scrivi qui l'anamnesi psicologica del cliente...&#10;&#10;• Storia clinica&#10;• Motivazioni&#10;• Obiettivi terapeutici&#10;• Note iniziali"
+                              value={formData.storia_psicologica || ''}
+                              onChange={(e) => handleInputChange('storia_psicologica', e.target.value)}
+                            ></textarea>
+                          </div>
+                        </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -5942,94 +5907,94 @@ function ClientiDetail() {
                   {psicologiaSubTab === 'diario' && (
                     <div className="col-12" data-tour="psicologia-diario">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            Diario Psicologia
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                    <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
-                                  </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
-                                  <span className="badge ms-2" style={{ background: '#a855f7' }}>{diarioPsicologiaEntries.length}</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          Diario Psicologia
+                        </h6>
+                        <div className="card border">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                              <div className="d-flex align-items-center">
+                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
+                                  <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
                                 </div>
-                                <button
-                                  className="btn btn-sm"
-                                  style={{ background: '#a855f7', color: 'white' }}
-                                  onClick={() => handleOpenDiarioPsicologiaModal()}
-                                >
-                                  <i className="ri-add-line me-1"></i>
-                                  Nuova Nota
-                                </button>
+                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
+                                <span className="badge ms-2" style={{ background: '#a855f7' }}>{diarioPsicologiaEntries.length}</span>
                               </div>
-
-                              {loadingDiarioPsicologia ? (
-                                <div className="text-center py-4">
-                                  <div className="spinner-border spinner-border-sm" style={{ color: '#a855f7' }} role="status"></div>
-                                  <small className="ms-2 text-muted">Caricamento diario...</small>
-                                </div>
-                              ) : diarioPsicologiaEntries.length === 0 ? (
-                                <p className="text-muted small mb-0 text-center py-3">
-                                  <i className="ri-information-line me-1"></i>
-                                  Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
-                                </p>
-                              ) : (
-                                <div className="d-flex flex-column gap-3">
-                                  {diarioPsicologiaEntries.map((entry) => (
-                                    <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
-                                      <div className="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                          <span className="badge me-2" style={{ background: '#f3e8ff', color: '#a855f7' }}>
-                                            <i className="ri-calendar-line me-1"></i>
-                                            {entry.entry_date_display || entry.entry_date}
-                                            {entry.created_at && (
-                                              <span className="ms-1 opacity-75 small">
-                                                ({entry.created_at.split(' ')[1]})
-                                              </span>
-                                            )}
-                                          </span>
-                                          <small className="text-muted">
-                                            <i className="ri-user-line me-1"></i>
-                                            {entry.author || 'Staff'}
-                                          </small>
-                                        </div>
-                                        <div className="d-flex gap-1">
-                                          <button
-                                            className="btn btn-sm btn-outline-primary py-0 px-2"
-                                            onClick={() => handleOpenDiarioPsicologiaModal(entry)}
-                                            title="Modifica"
-                                          >
-                                            <i className="ri-edit-line"></i>
-                                          </button>
-                                          {(user?.is_admin || user?.role === 'admin') && (
-                                            <button
-                                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                                              onClick={() => handleDeleteDiarioPsicologia(entry.id)}
-                                              title="Elimina"
-                                            >
-                                              <i className="ri-delete-bin-line"></i>
-                                            </button>
-                                          )}
-                                          <button
-                                            className="btn btn-sm btn-outline-secondary py-0 px-2"
-                                            onClick={() => handleOpenHistoryModal(entry, 'psicologia')}
-                                            title="Storico Modifiche"
-                                          >
-                                            <i className="ri-history-line"></i>
-                                          </button>
-                                        </div>
-                                      </div>
-                                      <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                              <button
+                                className="btn btn-sm"
+                                style={{ background: '#a855f7', color: 'white' }}
+                                onClick={() => handleOpenDiarioPsicologiaModal()}
+                              >
+                                <i className="ri-add-line me-1"></i>
+                                Nuova Nota
+                              </button>
                             </div>
+
+                            {loadingDiarioPsicologia ? (
+                              <div className="text-center py-4">
+                                <div className="spinner-border spinner-border-sm" style={{ color: '#a855f7' }} role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento diario...</small>
+                              </div>
+                            ) : diarioPsicologiaEntries.length === 0 ? (
+                              <p className="text-muted small mb-0 text-center py-3">
+                                <i className="ri-information-line me-1"></i>
+                                Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
+                              </p>
+                            ) : (
+                              <div className="d-flex flex-column gap-3">
+                                {diarioPsicologiaEntries.map((entry) => (
+                                  <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                      <div>
+                                        <span className="badge me-2" style={{ background: '#f3e8ff', color: '#a855f7' }}>
+                                          <i className="ri-calendar-line me-1"></i>
+                                          {entry.entry_date_display || entry.entry_date}
+                                          {entry.created_at && (
+                                            <span className="ms-1 opacity-75 small">
+                                              ({entry.created_at.split(' ')[1]})
+                                            </span>
+                                          )}
+                                        </span>
+                                        <small className="text-muted">
+                                          <i className="ri-user-line me-1"></i>
+                                          {entry.author || 'Staff'}
+                                        </small>
+                                      </div>
+                                      <div className="d-flex gap-1">
+                                        <button
+                                          className="btn btn-sm btn-outline-primary py-0 px-2"
+                                          onClick={() => handleOpenDiarioPsicologiaModal(entry)}
+                                          title="Modifica"
+                                        >
+                                          <i className="ri-edit-line"></i>
+                                        </button>
+                                        {(user?.is_admin || user?.role === 'admin') && (
+                                          <button
+                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            onClick={() => handleDeleteDiarioPsicologia(entry.id)}
+                                            title="Elimina"
+                                          >
+                                            <i className="ri-delete-bin-line"></i>
+                                          </button>
+                                        )}
+                                        <button
+                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          onClick={() => handleOpenHistoryModal(entry, 'psicologia')}
+                                          title="Storico Modifiche"
+                                        >
+                                          <i className="ri-history-line"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -6038,26 +6003,26 @@ function ClientiDetail() {
                   {psicologiaSubTab === 'alert' && (
                     <div className="col-12" data-tour="psicologia-alert">
                       <div className="row g-4">
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">Alert / Criticità</h6>
-                          <div className="card border border-danger">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
-                                </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note Critiche Psicologia</span>
+                      <div className="col-12">
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Alert / Criticità</h6>
+                        <div className="card border border-danger">
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center mb-3">
+                              <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
+                                <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
                               </div>
-                              <textarea
-                                className="form-control"
-                                rows="6"
-                                placeholder="Inserisci qui eventuali alert o criticità importanti per la gestione del cliente...&#10;&#10;⚠️ Queste note sono visibili a tutto il team"
-                                value={formData.alert_psicologia || ''}
-                                onChange={(e) => handleInputChange('alert_psicologia', e.target.value)}
-                              ></textarea>
+                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note Critiche Psicologia</span>
                             </div>
+                            <textarea
+                              className="form-control"
+                              rows="6"
+                              placeholder="Inserisci qui eventuali alert o criticità importanti per la gestione del cliente...&#10;&#10;⚠️ Queste note sono visibili a tutto il team"
+                              value={formData.alert_psicologia || ''}
+                              onChange={(e) => handleInputChange('alert_psicologia', e.target.value)}
+                            ></textarea>
                           </div>
                         </div>
+                      </div>
                       </div>
                     </div>
                   )}
@@ -6065,6 +6030,146 @@ function ClientiDetail() {
               )}
 
               {/* ========== CHECK TAB ========== */}
+              {/* ========== MEDICO TAB ========== */}
+              {activeTab === 'medico' && (
+                <div className="row g-4">
+                  <div className="col-12">
+                    <div className="card border">
+                      <div className="card-body p-3">
+                        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                          <div className="d-flex align-items-center">
+                            <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
+                                 style={{ width: '34px', height: '34px' }}>
+                              <i className="ri-stethoscope-line text-danger"></i>
+                            </div>
+                            <div>
+                              <div className="fw-semibold">Medico</div>
+                              <small className="text-muted">Gestione assegnazioni mediche del paziente</small>
+                            </div>
+                          </div>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleOpenAssignModal('medico')}
+                          >
+                            <i className="ri-add-line me-1"></i>
+                            Assegna Medico
+                          </button>
+                        </div>
+
+                        {loadingHistory ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
+                            <small className="ms-2 text-muted">Caricamento...</small>
+                          </div>
+                        ) : getActiveProfessionals('medico').length > 0 ? (
+                          <div className="d-flex flex-column gap-2">
+                            {getActiveProfessionals('medico').map((assignment, idx) => (
+                              <div key={idx} className="d-flex align-items-center justify-content-between p-2 bg-light rounded">
+                                <div className="d-flex align-items-center">
+                                  {assignment.avatar_path ? (
+                                    <img
+                                      src={assignment.avatar_path}
+                                      alt=""
+                                      className="rounded-circle me-2"
+                                      style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2"
+                                         style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}>
+                                      {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="fw-medium small">{assignment.professionista_nome}</div>
+                                    <small className="text-muted">Assegnato dal {assignment.data_dal || '—'}</small>
+                                  </div>
+                                </div>
+                                <button
+                                  className="btn btn-sm btn-link text-danger p-0"
+                                  onClick={() => handleOpenInterruptModal(assignment)}
+                                  title="Rimuovi assegnazione"
+                                >
+                                  <i className="ri-close-line fs-5"></i>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 bg-light rounded">
+                            <i className="ri-stethoscope-line text-muted fs-3 d-block mb-2"></i>
+                            <small className="text-muted">Nessun medico assegnato</small>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-12">
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <i className="ri-history-line me-2"></i>
+                      Storico Assegnazioni Medico
+                    </h6>
+                    {professionistiHistory.filter(h => h.tipo_professionista === 'medico').length > 0 ? (
+                      <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #ef4444, #b91c1c)', borderRadius: '2px', zIndex: 0 }}></div>
+                        <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                          {professionistiHistory
+                            .filter(h => h.tipo_professionista === 'medico')
+                            .sort((a, b) => {
+                              const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
+                              const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
+                              return dateB - dateA;
+                            })
+                            .map((item, idx) => (
+                              <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '150px', maxWidth: '170px' }}>
+                                <div className="d-flex justify-content-center mb-2">
+                                  <div className="rounded-circle d-flex align-items-center justify-content-center bg-danger" style={{ width: '28px', height: '28px', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                                    <i className="ri-stethoscope-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                  </div>
+                                </div>
+                                <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                  {item.data_dal || '—'}
+                                  {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                </div>
+                                <div className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_active ? '#fff' : '#f8fafc' }}>
+                                  <div className="card-body p-2">
+                                    <div className="mb-2">
+                                      {item.is_active ? (
+                                        <span className="badge bg-danger" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                      ) : (
+                                        <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                      )}
+                                    </div>
+                                    <div className="d-flex justify-content-center mb-2">
+                                      {item.avatar_path ? (
+                                        <img src={item.avatar_path} alt="" className="rounded-circle" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}>
+                                          {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="fw-semibold small" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {item.professionista_nome}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="card border">
+                        <div className="card-body p-3 text-center text-muted">
+                          <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
+                          <p className="mb-0 small">Nessuno storico medico disponibile</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ========== CHECK PERIODICI TAB ========== */}
               {activeTab === 'check_periodici' && (
                 <div className="row g-4">
@@ -6072,24 +6177,24 @@ function ClientiDetail() {
                   <div className="col-12" data-tour="check-periodici-tabs">
                     <ul className="nav nav-pills mb-3">
                       <li className="nav-item">
-                        <button
-                          className={`nav-link ${activePeriodiciTab === 'weekly' ? 'active' : ''}`}
+                        <button 
+                          className={`nav-link ${activePeriodiciTab === 'weekly' ? 'active' : ''}`} 
                           onClick={() => setActivePeriodiciTab('weekly')}
                         >
                           Settimanale
                         </button>
                       </li>
                       <li className="nav-item">
-                        <button
-                          className={`nav-link ${activePeriodiciTab === 'dca' ? 'active' : ''}`}
+                        <button 
+                          className={`nav-link ${activePeriodiciTab === 'dca' ? 'active' : ''}`} 
                           onClick={() => setActivePeriodiciTab('dca')}
                         >
                           DCA
                         </button>
                       </li>
                       <li className="nav-item">
-                        <button
-                          className={`nav-link ${activePeriodiciTab === 'minor' ? 'active' : ''}`}
+                        <button 
+                          className={`nav-link ${activePeriodiciTab === 'minor' ? 'active' : ''}`} 
                           onClick={() => setActivePeriodiciTab('minor')}
                         >
                           Minori
@@ -6108,55 +6213,55 @@ function ClientiDetail() {
                       {Object.values(CHECK_TYPES)
                         .filter(t => t.key === activePeriodiciTab)
                         .map((checkType) => {
-                          const existingCheck = checkData.checks[checkType.key];
-                          return (
-                            <div key={checkType.key} className="col-md-6 col-lg-4">
-                              <div className="card border">
-                                <div className="card-body p-3">
-                                  <div className="d-flex align-items-center">
-                                    <div className="rounded-circle d-flex align-items-center justify-content-center me-2"
-                                      style={{ width: '32px', height: '32px', background: checkType.bgColor }}>
-                                      <i className={checkType.icon} style={{ color: checkType.color, fontSize: '14px' }}></i>
-                                    </div>
-                                    <div>
-                                      <span className="fw-semibold d-block" style={{ fontSize: '0.85rem' }}>{checkType.label}</span>
-                                      {existingCheck && (
-                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                          {existingCheck.response_count} compilazioni
-                                        </small>
-                                      )}
-                                    </div>
+                        const existingCheck = checkData.checks[checkType.key];
+                        return (
+                          <div key={checkType.key} className="col-md-6 col-lg-4">
+                            <div className="card border">
+                              <div className="card-body p-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2"
+                                       style={{ width: '32px', height: '32px', background: checkType.bgColor }}>
+                                    <i className={checkType.icon} style={{ color: checkType.color, fontSize: '14px' }}></i>
                                   </div>
-                                  <div className="d-flex gap-2 mt-4">
-                                    <button
-                                      className="btn btn-sm flex-grow-1"
-                                      style={{ background: checkType.color, color: 'white', fontSize: '0.75rem' }}
-                                      onClick={() => handleGenerateCheckLink(checkType.key)}
-                                      disabled={generatingLink === checkType.key}
-                                    >
-                                      {generatingLink === checkType.key ? (
-                                        <span className="spinner-border spinner-border-sm me-1"></span>
-                                      ) : (
-                                        <i className={existingCheck ? 'ri-file-copy-line me-1' : 'ri-add-line me-1'}></i>
-                                      )}
-                                      {existingCheck ? 'Copia Link' : 'Genera Link'}
-                                    </button>
+                                  <div>
+                                    <span className="fw-semibold d-block" style={{ fontSize: '0.85rem' }}>{checkType.label}</span>
                                     {existingCheck && (
-                                      <button
-                                        className="btn btn-sm btn-outline-secondary"
-                                        onClick={() => handleOpenCheckForm(existingCheck.url)}
-                                        title="Apri form"
-                                        style={{ fontSize: '0.75rem' }}
-                                      >
-                                        <i className="ri-external-link-line"></i>
-                                      </button>
+                                      <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                        {existingCheck.response_count} compilazioni
+                                      </small>
                                     )}
                                   </div>
                                 </div>
+                                <div className="d-flex gap-2 mt-4">
+                                  <button
+                                    className="btn btn-sm flex-grow-1"
+                                    style={{ background: checkType.color, color: 'white', fontSize: '0.75rem' }}
+                                    onClick={() => handleGenerateCheckLink(checkType.key)}
+                                    disabled={generatingLink === checkType.key}
+                                  >
+                                    {generatingLink === checkType.key ? (
+                                      <span className="spinner-border spinner-border-sm me-1"></span>
+                                    ) : (
+                                      <i className={existingCheck ? 'ri-file-copy-line me-1' : 'ri-add-line me-1'}></i>
+                                    )}
+                                    {existingCheck ? 'Copia Link' : 'Genera Link'}
+                                  </button>
+                                  {existingCheck && (
+                                    <button
+                                      className="btn btn-sm btn-outline-secondary"
+                                      onClick={() => handleOpenCheckForm(existingCheck.url)}
+                                      title="Apri form"
+                                      style={{ fontSize: '0.75rem' }}
+                                    >
+                                      <i className="ri-external-link-line"></i>
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          );
-                        })}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -6193,65 +6298,65 @@ function ClientiDetail() {
                                 {checkData.responses
                                   .filter(r => r.type === activePeriodiciTab)
                                   .map((response) => (
-                                    <tr key={`${response.type}-${response.id}`}>
-                                      <td data-label="Data">
-                                        <small className="fw-medium">{response.submit_date}</small>
-                                      </td>
-                                      <td data-label="Tipo">
-                                        <span className="badge" style={{
-                                          background: CHECK_TYPES[response.type]?.bgColor || '#f1f5f9',
-                                          color: CHECK_TYPES[response.type]?.color || '#64748b',
-                                          fontSize: '0.7rem'
-                                        }}>
-                                          <i className={`${CHECK_TYPES[response.type]?.icon} me-1`}></i>
-                                          {CHECK_TYPES[response.type]?.label || response.type}
+                                  <tr key={`${response.type}-${response.id}`}>
+                                    <td>
+                                      <small className="fw-medium">{response.submit_date}</small>
+                                    </td>
+                                    <td>
+                                      <span className="badge" style={{
+                                        background: CHECK_TYPES[response.type]?.bgColor || '#f1f5f9',
+                                        color: CHECK_TYPES[response.type]?.color || '#64748b',
+                                        fontSize: '0.7rem'
+                                      }}>
+                                        <i className={`${CHECK_TYPES[response.type]?.icon} me-1`}></i>
+                                        {CHECK_TYPES[response.type]?.label || response.type}
+                                      </span>
+                                    </td>
+                                    <td className="text-center">
+                                      {response.type === 'weekly' && (
+                                        <div className="d-flex justify-content-center gap-2">
+                                          {response.nutritionist_rating && (
+                                            <span style={checkService.getRatingBadgeStyle(response.nutritionist_rating)} title="Nutrizionista">
+                                              🥗 {response.nutritionist_rating}
+                                            </span>
+                                          )}
+                                          {response.psychologist_rating && (
+                                            <span style={checkService.getRatingBadgeStyle(response.psychologist_rating)} title="Psicologo">
+                                              🧠 {response.psychologist_rating}
+                                            </span>
+                                          )}
+                                          {response.coach_rating && (
+                                            <span style={checkService.getRatingBadgeStyle(response.coach_rating)} title="Coach">
+                                              🏋️ {response.coach_rating}
+                                            </span>
+                                          )}
+                                          {response.progress_rating && (
+                                            <span style={checkService.getRatingBadgeStyle(response.progress_rating)} title="Progresso">
+                                              📈 {response.progress_rating}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {response.type === 'minor' && response.score_global && (
+                                        <span style={checkService.getRatingBadgeStyle(10 - response.score_global)}>
+                                          EDE-Q6: {response.score_global.toFixed(1)}
                                         </span>
-                                      </td>
-                                      <td data-label="Valutazioni" className="text-center">
-                                        {response.type === 'weekly' && (
-                                          <div className="d-flex justify-content-center gap-2">
-                                            {response.nutritionist_rating && (
-                                              <span style={checkService.getRatingBadgeStyle(response.nutritionist_rating)} title="Nutrizionista">
-                                                🥗 {response.nutritionist_rating}
-                                              </span>
-                                            )}
-                                            {response.psychologist_rating && (
-                                              <span style={checkService.getRatingBadgeStyle(response.psychologist_rating)} title="Psicologo">
-                                                🧠 {response.psychologist_rating}
-                                              </span>
-                                            )}
-                                            {response.coach_rating && (
-                                              <span style={checkService.getRatingBadgeStyle(response.coach_rating)} title="Coach">
-                                                🏋️ {response.coach_rating}
-                                              </span>
-                                            )}
-                                            {response.progress_rating && (
-                                              <span style={checkService.getRatingBadgeStyle(response.progress_rating)} title="Progresso">
-                                                📈 {response.progress_rating}
-                                              </span>
-                                            )}
-                                          </div>
-                                        )}
-                                        {response.type === 'minor' && response.score_global && (
-                                          <span style={checkService.getRatingBadgeStyle(10 - response.score_global)}>
-                                            EDE-Q6: {response.score_global.toFixed(1)}
-                                          </span>
-                                        )}
-                                        {response.type === 'dca' && (
-                                          <small className="text-muted">-</small>
-                                        )}
-                                      </td>
-                                      <td data-label="Azioni" className="text-center">
-                                        <button
-                                          className="btn btn-sm btn-outline-primary py-0 px-2"
-                                          onClick={() => handleViewCheckResponse(response)}
-                                          title="Visualizza dettagli"
-                                        >
-                                          <i className="ri-eye-line"></i>
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
+                                      )}
+                                      {response.type === 'dca' && (
+                                        <small className="text-muted">-</small>
+                                      )}
+                                    </td>
+                                    <td className="text-center">
+                                      <button
+                                        className="btn btn-sm btn-outline-primary py-0 px-2"
+                                        onClick={() => handleViewCheckResponse(response)}
+                                        title="Visualizza dettagli"
+                                      >
+                                        <i className="ri-eye-line"></i>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
                               </tbody>
                             </table>
                           </div>
@@ -6264,119 +6369,103 @@ function ClientiDetail() {
 
               {/* ========== CHECK INIZIALI TAB ========== */}
               {activeTab === 'check_iniziali' && (
-                <div className="row g-4">
-                  {/* Pills Navigation */}
-                  <div className="col-12" data-tour="check-iniziali-tabs">
-                    <ul className="nav nav-pills mb-3">
-                      <li className="nav-item">
-                        <button className={`nav-link ${activeInizialiTab === 'check_1' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_1')}>Check 1</button>
-                      </li>
-                      <li className="nav-item">
-                        <button className={`nav-link ${activeInizialiTab === 'check_2' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_2')}>Check 2</button>
-                      </li>
-                      <li className="nav-item">
-                        <button className={`nav-link ${activeInizialiTab === 'check_3' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_3')}>Check 3</button>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Content */}
-                  <div className="col-12" data-tour="check-iniziali-contenuto">
-                    <div className="card border">
-                      <div className="card-body p-4">
-                        {loadingInitialChecks ? (
-                          <div className="text-center py-5">
-                            <div className="spinner-border text-primary" role="status"></div>
-                            <p className="mt-2 text-muted">Caricamento risposte...</p>
-                          </div>
-                        ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
-                          <div className="text-center py-5">
-                            <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
-                            <h5>Nessun dato disponibile</h5>
-                            <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
-                          </div>
-                        ) : (() => {
-                          const checkData = initialChecksData[activeInizialiTab];
-                          const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
-                          const hasUrl = checkData.url;
-                          if (!hasResponses && hasUrl) {
-                            return (
-                              <div>
-                                <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                                  <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
-                                </div>
-                                <div className="alert alert-info d-flex align-items-center">
-                                  <i className="ri-link fs-4 me-3"></i>
-                                  <div className="flex-grow-1">
-                                    <strong>Link da inviare al cliente</strong>
-                                    <p className="mb-2 mt-1 text-muted small">Il cliente non ha ancora compilato. Copia il link qui sotto e invialo al cliente per permettergli di compilare il questionario.</p>
-                                    <div className="input-group">
-                                      <input type="text" className="form-control" value={checkData.url} readOnly />
-                                      <button className="btn btn-primary" type="button" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato negli appunti'); }}>
-                                        <i className="ri-file-copy-line me-1"></i>Copia
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
-                          if (!hasResponses && !hasUrl) {
-                            return (
-                              <div className="text-center py-5">
-                                <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
-                                <h5>Nessun dato disponibile</h5>
-                                <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
-                              </div>
-                            );
-                          }
-                          return (
-                            <div>
-                              <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                                <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
-                                {checkData.completed_at && (
-                                  <span className="badge bg-light text-dark border">
-                                    <i className="ri-calendar-event-line me-1"></i>
-                                    Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
-                                  </span>
-                                )}
-                                {hasUrl && (
-                                  <button className="btn btn-sm btn-outline-primary ms-2" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
-                                    <i className="ri-file-copy-line me-1"></i>Copia link
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Score for Check 3 */}
-                              {activeInizialiTab === 'check_3' && initialChecksData.check_3?.score != null && (
-                                <div className="alert alert-info d-flex align-items-center mb-4">
-                                  <i className="ri-scales-3-line fs-4 me-3"></i>
-                                  <div>
-                                    <strong>Punteggio Psico-Alimentare:</strong> {initialChecksData.check_3.score} / 78
-                                    {initialChecksData.check_3.type && (
-                                      <span className="ms-3 badge bg-primary">Profilo {initialChecksData.check_3.type}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Responses List */}
-                              <div className="responses-list">
-                                {Object.entries(checkData.responses).map(([question, answer], idx) => (
-                                  <div key={idx} className="mb-3 p-3 bg-light rounded-2">
-                                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Domanda {idx + 1}</small>
-                                    <div className="fw-semibold text-dark mb-1">{question}</div>
-                                    <div className="text-secondary" style={{ whiteSpace: 'pre-wrap' }}>{Array.isArray(answer) ? answer.join(', ') : String(answer)}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
+                 <div className="row g-4">
+                    {/* Pills Navigation */}
+                    <div className="col-12" data-tour="check-iniziali-tabs">
+                       <ul className="nav nav-pills mb-3">
+                          <li className="nav-item">
+                             <button className={`nav-link ${activeInizialiTab === 'check_1' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_1')}>Check 1</button>
+                          </li>
+                          <li className="nav-item">
+                             <button className={`nav-link ${activeInizialiTab === 'check_2' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_2')}>Check 2</button>
+                          </li>
+                       </ul>
                     </div>
-                  </div>
-                </div>
+                    
+                    {/* Content */}
+                     <div className="col-12" data-tour="check-iniziali-contenuto">
+                       <div className="card border">
+                          <div className="card-body p-4">
+                             {loadingInitialChecks ? (
+                                <div className="text-center py-5">
+                                   <div className="spinner-border text-primary" role="status"></div>
+                                   <p className="mt-2 text-muted">Caricamento risposte...</p>
+                                </div>
+                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
+                                <div className="text-center py-5">
+                                   <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
+                                   <h5>Nessun dato disponibile</h5>
+                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
+                                </div>
+                             ) : (() => {
+                                const checkData = initialChecksData[activeInizialiTab];
+                                const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
+                                const hasUrl = checkData.url;
+                                if (!hasResponses && hasUrl) {
+                                  return (
+                                    <div>
+                                      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                                        <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
+                                      </div>
+                                      <div className="alert alert-info d-flex align-items-center">
+                                        <i className="ri-link fs-4 me-3"></i>
+                                        <div className="flex-grow-1">
+                                          <strong>Link da inviare al cliente</strong>
+                                          <p className="mb-2 mt-1 text-muted small">Il cliente non ha ancora compilato. Copia il link qui sotto e invialo al cliente per permettergli di compilare il questionario.</p>
+                                          <div className="input-group">
+                                            <input type="text" className="form-control" value={checkData.url} readOnly />
+                                            <button className="btn btn-primary" type="button" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato negli appunti'); }}>
+                                              <i className="ri-file-copy-line me-1"></i>Copia
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                if (!hasResponses && !hasUrl) {
+                                  return (
+                                    <div className="text-center py-5">
+                                      <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
+                                      <h5>Nessun dato disponibile</h5>
+                                      <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                <div>
+                                   <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+                                      <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
+                                      {checkData.completed_at && (
+                                         <span className="badge bg-light text-dark border">
+                                            <i className="ri-calendar-event-line me-1"></i>
+                                            Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
+                                         </span>
+                                      )}
+                                      {hasUrl && (
+                                         <button className="btn btn-sm btn-outline-primary ms-2" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
+                                            <i className="ri-file-copy-line me-1"></i>Copia link
+                                         </button>
+                                      )}
+                                   </div>
+                                   
+                                   {/* Responses List */}
+                                   <div className="responses-list">
+                                      {Object.entries(checkData.responses).map(([question, answer], idx) => (
+                                         <div key={idx} className="mb-3 p-3 bg-light rounded-2">
+                                            <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>Domanda {idx + 1}</small>
+                                            <div className="fw-semibold text-dark mb-1">{question}</div>
+                                            <div className="text-secondary" style={{whiteSpace: 'pre-wrap'}}>{Array.isArray(answer) ? answer.join(', ') : String(answer)}</div>
+                                         </div>
+                                      ))}
+                                   </div>
+                                </div>
+                                );
+                             })()}
+                          </div>
+                       </div>
+                    </div>
+                 </div>
               )}
 
               {/* ========== TICKETS TAB ========== */}
@@ -6422,28 +6511,28 @@ function ClientiDetail() {
                             }[t.priority] || { label: t.priority, bg: '#f3f4f6', color: '#374151' };
                             return (
                               <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => openTicketDetail(t.id)}>
-                                <td data-label="Numero"><span className="fw-semibold text-primary">{t.ticket_number}</span></td>
-                                <td data-label="Titolo">{t.title || <span className="text-muted fst-italic">{(t.description || '').slice(0, 50)}</span>}</td>
-                                <td data-label="Stato">
+                                <td><span className="fw-semibold text-primary">{t.ticket_number}</span></td>
+                                <td>{t.title || <span className="text-muted fst-italic">{(t.description || '').slice(0, 50)}</span>}</td>
+                                <td>
                                   <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
                                     {statusCfg.label}
                                   </span>
                                 </td>
-                                <td data-label="Priorita'">
+                                <td>
                                   <span className="badge rounded-pill px-2 py-1" style={{ background: prioCfg.bg, color: prioCfg.color, fontSize: '0.75rem' }}>
                                     {prioCfg.label}
                                   </span>
                                 </td>
-                                <td data-label="Assegnatari">
+                                <td>
                                   <span className="small text-muted">
                                     {(t.assigned_users || []).map(u => u.name).join(', ') || '—'}
                                   </span>
                                 </td>
-                                <td data-label="Fonte">
+                                <td>
                                   <i className={`ri-${t.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
                                 </td>
-                                <td data-label="Data"><small className="text-muted">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</small></td>
-                                <td data-label="Azioni">
+                                <td><small className="text-muted">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td>
                                   <span className="text-muted small">
                                     {t.messages_count > 0 && <span className="me-2"><i className="ri-chat-3-line"></i> {t.messages_count}</span>}
                                     {t.attachments_count > 0 && <span><i className="ri-attachment-2"></i> {t.attachments_count}</span>}
@@ -6472,10 +6561,10 @@ function ClientiDetail() {
                       (c.coachesMultipli || []).some(n => n.id === user?.id) ||
                       (c.psicologiMultipli || []).some(n => n.id === user?.id)
                     ) && (
-                        <button className="btn btn-primary" onClick={handleOpenCallBonusModal}>
-                          <i className="ri-add-line me-1"></i>Richiedi Call Bonus
-                        </button>
-                      )}
+                      <button className="btn btn-primary" onClick={handleOpenCallBonusModal}>
+                        <i className="ri-add-line me-1"></i>Richiedi Call Bonus
+                      </button>
+                    )}
                   </div>
 
                   {loadingCallBonus ? (
@@ -6519,15 +6608,15 @@ function ClientiDetail() {
                             const showActions = cb.is_assigned_professional && cb.status === 'accettata' && !cb.booking_confirmed;
                             return (
                               <tr key={cb.id}>
-                                <td data-label="Data"><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
-                                <td data-label="Tipo">
+                                <td><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td>
                                   <span className="d-flex align-items-center gap-1">
                                     <i className={tipoCfg.icon} style={{ color: tipoCfg.color }}></i>
                                     <span className="small">{tipoCfg.label}</span>
                                   </span>
                                 </td>
-                                <td data-label="Professionista"><span className="small">{cb.professionista_nome || '—'}</span></td>
-                                <td data-label="Stato">
+                                <td><span className="small">{cb.professionista_nome || '—'}</span></td>
+                                <td>
                                   <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
                                     {statusCfg.label}
                                   </span>
@@ -6535,9 +6624,9 @@ function ClientiDetail() {
                                     <i className="ri-calendar-check-line text-success ms-1" title="Prenotazione confermata"></i>
                                   )}
                                 </td>
-                                <td data-label="Richiesta da"><span className="small text-muted">{cb.created_by_nome || '—'}</span></td>
-                                <td data-label="Note"><span className="small text-muted">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
-                                <td data-label="Azioni">
+                                <td><span className="small text-muted">{cb.created_by_nome || '—'}</span></td>
+                                <td><span className="small text-muted">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
+                                <td>
                                   {showActions && (
                                     <button
                                       className="btn btn-sm btn-primary"
@@ -7409,30 +7498,30 @@ function ClientiDetail() {
                       <tbody>
                         {planVersions.map((version, idx) => (
                           <tr key={version.transaction_id || idx} className={version.is_current ? 'table-success' : ''}>
-                            <td data-label="Versione">
+                            <td>
                               <span className="badge bg-secondary">v{version.version_number}</span>
                               {version.is_current && (
                                 <span className="badge bg-success ms-1">Attuale</span>
                               )}
                             </td>
-                            <td data-label="Data Modifica" className="text-muted">
+                            <td className="text-muted">
                               {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
                                 day: '2-digit', month: '2-digit', year: 'numeric',
                                 hour: '2-digit', minute: '2-digit'
                               }) : '-'}
                             </td>
-                            <td data-label="Modificato da">{version.changed_by || '-'}</td>
-                            <td data-label="Periodo" className="text-muted">
+                            <td>{version.changed_by || '-'}</td>
+                            <td className="text-muted">
                               {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
                               {' → '}
                               {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
                             </td>
-                            <td data-label="Motivo" className="text-muted" style={{ maxWidth: '200px' }}>
+                            <td className="text-muted" style={{ maxWidth: '200px' }}>
                               <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }} title={version.change_reason}>
                                 {version.change_reason || '-'}
                               </span>
                             </td>
-                            <td data-label="PDF">
+                            <td>
                               {version.has_file && version.piano_alimentare_file_path ? (
                                 <a
                                   href={`/uploads/${version.piano_alimentare_file_path}`}
@@ -7788,30 +7877,30 @@ function ClientiDetail() {
                       <tbody>
                         {trainingVersions.map((version, idx) => (
                           <tr key={version.transaction_id || idx} className={version.is_current ? 'table-warning' : ''}>
-                            <td data-label="Versione">
+                            <td>
                               <span className="badge bg-secondary">v{version.version_number}</span>
                               {version.is_current && (
                                 <span className="badge bg-warning ms-1">Attuale</span>
                               )}
                             </td>
-                            <td data-label="Data Modifica" className="text-muted">
+                            <td className="text-muted">
                               {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
                                 day: '2-digit', month: '2-digit', year: 'numeric',
                                 hour: '2-digit', minute: '2-digit'
                               }) : '-'}
                             </td>
-                            <td data-label="Modificato da">{version.changed_by || '-'}</td>
-                            <td data-label="Periodo" className="text-muted">
+                            <td>{version.changed_by || '-'}</td>
+                            <td className="text-muted">
                               {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
                               {' → '}
                               {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
                             </td>
-                            <td data-label="Motivo" className="text-muted" style={{ maxWidth: '200px' }}>
+                            <td className="text-muted" style={{ maxWidth: '200px' }}>
                               <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }} title={version.change_reason}>
                                 {version.change_reason || '-'}
                               </span>
                             </td>
-                            <td data-label="PDF">
+                            <td>
                               {version.has_file && version.piano_allenamento_file_path ? (
                                 <a
                                   href={`/uploads/${version.piano_allenamento_file_path}`}
@@ -8061,8 +8150,8 @@ function ClientiDetail() {
             <div className="modal-content" style={{ borderRadius: '16px', overflow: 'hidden' }}>
               <div className="modal-header" style={{
                 background: selectedCheckResponse.type === 'weekly' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-                  selectedCheckResponse.type === 'dca' ? 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)' :
-                    'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                           selectedCheckResponse.type === 'dca' ? 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)' :
+                           'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                 color: 'white',
                 border: 'none'
               }}>
@@ -8160,94 +8249,97 @@ function ClientiDetail() {
                     {/* Ratings */}
                     {(selectedCheckResponse.nutritionist_rating || selectedCheckResponse.psychologist_rating ||
                       selectedCheckResponse.coach_rating || selectedCheckResponse.progress_rating) && (
-                        <div className="mb-4">
-                          <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
-                          <div className="row g-3">
-                            {selectedCheckResponse.nutritionist_rating && (() => {
-                              const nutri = getActiveProfessionals('nutrizionista')[0];
-                              return (
-                                <div className="col-6 col-md-3">
-                                  <div className="p-3 rounded text-center" style={{ background: '#dcfce7' }}>
-                                    {nutri && (
-                                      <div className="mb-2 d-flex justify-content-center">
-                                        {nutri.avatar_path ? (
-                                          <img src={nutri.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #22c55e' }} />
-                                        ) : (
-                                          <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
-                                            {nutri.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                    <div className="fw-bold fs-4 text-success">{selectedCheckResponse.nutritionist_rating}</div>
-                                    <small className="text-muted">{nutri?.professionista_nome || 'Nutrizionista'}</small>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                            {selectedCheckResponse.psychologist_rating && (() => {
-                              const psico = getActiveProfessionals('psicologa')[0];
-                              return (
-                                <div className="col-6 col-md-3">
-                                  <div className="p-3 rounded text-center" style={{ background: '#fef3c7' }}>
-                                    {psico && (
-                                      <div className="mb-2 d-flex justify-content-center">
-                                        {psico.avatar_path ? (
-                                          <img src={psico.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #d97706' }} />
-                                        ) : (
-                                          <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem', background: '#d97706' }}>
-                                            {psico.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                    <div className="fw-bold fs-4" style={{ color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
-                                    <small className="text-muted">{psico?.professionista_nome || 'Psicologo'}</small>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                            {selectedCheckResponse.coach_rating && (() => {
-                              const coach = getActiveProfessionals('coach')[0];
-                              return (
-                                <div className="col-6 col-md-3">
-                                  <div className="p-3 rounded text-center" style={{ background: '#dbeafe' }}>
-                                    {coach && (
-                                      <div className="mb-2 d-flex justify-content-center">
-                                        {coach.avatar_path ? (
-                                          <img src={coach.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #3b82f6' }} />
-                                        ) : (
-                                          <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
-                                            {coach.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??'}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                    <div className="fw-bold fs-4 text-primary">{selectedCheckResponse.coach_rating}</div>
-                                    <small className="text-muted">{coach?.professionista_nome || 'Coach'}</small>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                            {selectedCheckResponse.progress_rating && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
+                        <div className="row g-3">
+                          {selectedCheckResponse.nutritionist_rating && (() => {
+                            const nutriInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'nutritionist');
+                            const nutri = nutriInfo?.assignment;
+                            return (
                               <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
-                                  <div className="mb-2 d-flex justify-content-center">
-                                    <img
-                                      src="/corposostenibile.jpg"
-                                      alt="Corpo Sostenibile"
-                                      className="rounded-circle"
-                                      style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #9333ea' }}
-                                    />
-                                  </div>
-                                  <div className="fw-bold fs-4" style={{ color: '#9333ea' }}>{selectedCheckResponse.progress_rating}</div>
-                                  <small className="text-muted">Progresso</small>
+                                <div className="p-3 rounded text-center" style={{ background: '#dcfce7' }}>
+                                  {nutri && (
+                                    <div className="mb-2 d-flex justify-content-center">
+                                      {nutri.avatar_path ? (
+                                        <img src={nutri.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #22c55e' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
+                                          {nutri.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="fw-bold fs-4 text-success">{selectedCheckResponse.nutritionist_rating}</div>
+                                  <small className="text-muted">{nutriInfo?.name || 'Nutrizionista'}</small>
                                 </div>
                               </div>
-                            )}
-                          </div>
+                            );
+                          })()}
+                          {selectedCheckResponse.psychologist_rating && (() => {
+                            const psicoInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'psychologist');
+                            const psico = psicoInfo?.assignment;
+                            return (
+                              <div className="col-6 col-md-3">
+                                <div className="p-3 rounded text-center" style={{ background: '#fef3c7' }}>
+                                  {psico && (
+                                    <div className="mb-2 d-flex justify-content-center">
+                                      {psico.avatar_path ? (
+                                        <img src={psico.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #d97706' }} />
+                                      ) : (
+                                        <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem', background: '#d97706' }}>
+                                          {psico.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="fw-bold fs-4" style={{ color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
+                                  <small className="text-muted">{psicoInfo?.name || 'Psicologo/a'}</small>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {selectedCheckResponse.coach_rating && (() => {
+                            const coachInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'coach');
+                            const coach = coachInfo?.assignment;
+                            return (
+                              <div className="col-6 col-md-3">
+                                <div className="p-3 rounded text-center" style={{ background: '#dbeafe' }}>
+                                  {coach && (
+                                    <div className="mb-2 d-flex justify-content-center">
+                                      {coach.avatar_path ? (
+                                        <img src={coach.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #3b82f6' }} />
+                                      ) : (
+                                        <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
+                                          {coach.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="fw-bold fs-4 text-primary">{selectedCheckResponse.coach_rating}</div>
+                                  <small className="text-muted">{coachInfo?.name || 'Coach'}</small>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {selectedCheckResponse.progress_rating && (
+                            <div className="col-6 col-md-3">
+                              <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
+                                <div className="mb-2 d-flex justify-content-center">
+                                  <img
+                                    src="/corposostenibile.jpg"
+                                    alt="Corpo Sostenibile"
+                                    className="rounded-circle"
+                                    style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #9333ea' }}
+                                  />
+                                </div>
+                                <div className="fw-bold fs-4" style={{ color: '#9333ea' }}>{selectedCheckResponse.progress_rating}</div>
+                                <small className="text-muted">Progresso</small>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    )}
 
                     {/* Wellness Ratings (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (

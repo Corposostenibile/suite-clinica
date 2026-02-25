@@ -53,6 +53,13 @@ _DEFAULT_EAGER_LOAD = (
     selectinload(Cliente.health_manager_user),
 )
 
+
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, "specialty", None)
+    if hasattr(specialty, "value"):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == "cco" if specialty else False
+
 # --------------------------------------------------------------------------- #
 #  Repository                                                                 #
 # --------------------------------------------------------------------------- #
@@ -127,8 +134,8 @@ class CustomerRepository:
         if current_user.is_authenticated and not current_user.is_trial:
             user_role = getattr(current_user, 'role', None)
             
-            # Admin: vede tutto (nessun filtro)
-            if user_role == UserRoleEnum.admin:
+            # Admin/CCO: vede tutto (nessun filtro)
+            if user_role == UserRoleEnum.admin or current_user.is_admin or _is_cco_user(current_user):
                 pass  # Nessun filtro aggiuntivo
             
             # Influencer: già gestito in routes.py

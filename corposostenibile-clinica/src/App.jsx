@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 
 // Context
 import ThemeContextProvider from './context/ThemeContext';
@@ -15,7 +16,7 @@ import './styles/mobile-header.css';
 import Welcome from './pages/Welcome';
 
 // Team pages
-import { TeamList, TeamAdd, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI } from './pages/team';
+import { TeamList, TeamAdd, TeamCapacity, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI } from './pages/team';
 
 // Trial (In Prova) pages
 import { TrialUsersList, TrialUserDetail, TrialUserForm, AssignClients } from './pages/trial';
@@ -73,10 +74,22 @@ import {
   CheckSuccess,
 } from './pages/public';
 
+function PublicClientCheckRedirect() {
+  const { token } = useParams();
+
+  useEffect(() => {
+    if (!token) return;
+    const target = `${window.location.protocol}//${window.location.hostname}:5001/client-checks/public/${token}${window.location.search}${window.location.hash}`;
+    window.location.replace(target);
+  }, [token]);
+
+  return null;
+}
+
 function App() {
   return (
     <ThemeContextProvider>
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <Routes>
           {/* Auth Routes (no layout) */}
           <Route path="/auth/login" element={<Login />} />
@@ -90,6 +103,7 @@ function App() {
             <Route path="/check/minor/:token" element={<MinorCheckForm />} />
             <Route path="/check/:checkType/:token/success" element={<CheckSuccess />} />
           </Route>
+          <Route path="/client-checks/public/:token" element={<PublicClientCheckRedirect />} />
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>
@@ -97,6 +111,7 @@ function App() {
 
             {/* Team Member Routes */}
             <Route path="/team-lista" element={<TeamList />} />
+            <Route path="/team-capienza" element={<TeamCapacity />} />
             <Route path="/team-nuovo" element={<TeamAdd />} />
             <Route path="/team-dettaglio/:id" element={<Profilo />} /> {/* Redirect to Profilo for detail */}
             <Route path="/team-modifica/:id" element={<TeamAdd />} />
