@@ -9,3 +9,8 @@
 
 - [x] Mostrare solo la valutazione del professionista corrente nella tab check del profilo (`team/Profilo`).
 - [x] Click su riga check apre modal dettaglio (con fetch dettaglio check) nella tab check del profilo (`team/Profilo`).
+
+## Team UI
+
+- [x] In `teams`, rimosso il nome team leader duplicato nella card (titolo card = leader; info team spostate sotto).
+- [x] In `teams`, avatar principale card usa la foto del team leader (fallback robusto `avatar_path`/`avatar_url`).

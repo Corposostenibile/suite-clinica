@@ -211,8 +211,9 @@ function TeamsList() {
           {/* Teams Grid */}
           <div className="row g-4">
             {teams.map((team) => {
-              const leaderAvatar = normalizeAvatarPath(team.head?.avatar_path);
+              const leaderAvatar = normalizeAvatarPath(team.head?.avatar_path || team.head?.avatar_url);
               const leaderInitials = `${team.head?.first_name?.[0] || ''}${team.head?.last_name?.[0] || ''}`.toUpperCase();
+              const leaderDisplayName = team.head?.full_name || 'Nessun leader';
 
               return (
               <div key={team.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
@@ -278,7 +279,7 @@ function TeamsList() {
 
                   {/* Card Body */}
                   <div className="card-body text-center pt-5 pb-3">
-                    {/* Name */}
+                    {/* Main title: leader name (avoid duplicate rendering below) */}
                     <h5 className="fw-semibold mb-1">
                       <Link
                         to={`/teams-dettaglio/${team.id}`}
@@ -287,49 +288,22 @@ function TeamsList() {
                         onMouseOver={(e) => e.target.style.color = '#667eea'}
                         onMouseOut={(e) => e.target.style.color = ''}
                       >
-                        {team.name}
+                        {leaderDisplayName}
                       </Link>
                     </h5>
 
-                    {/* Description */}
+                    {/* Secondary info: team name */}
                     <p className="text-muted small mb-3" style={{
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                       maxWidth: '100%'
                     }}>
-                      {team.description || 'Nessuna descrizione'}
+                      {team.name || 'Team senza nome'}
                     </p>
-
-                    {/* Team Leader */}
-                    {team.head ? (
-                      <div className="d-flex align-items-center justify-content-center">
-                        <div className="flex-shrink-0">
-                          {leaderAvatar ? (
-                            <img
-                              src={leaderAvatar}
-                              alt={team.head.full_name}
-                              className="rounded-circle"
-                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <div
-                              className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white"
-                              style={{ width: '28px', height: '28px', fontSize: '11px' }}
-                            >
-                              {team.head.first_name?.[0]}{team.head.last_name?.[0]}
-                            </div>
-                          )}
-                        </div>
-                        <small className="ms-2 text-muted">
-                          {team.head.full_name}
-                        </small>
-                      </div>
-                    ) : (
-                      <small className="text-muted">
-                        Nessun leader
-                      </small>
-                    )}
+                    <small className="text-muted d-block">
+                      {TEAM_TYPE_LABELS[team.team_type]} • {team.member_count || 0} membri
+                    </small>
                   </div>
 
                   {/* Card Footer */}
