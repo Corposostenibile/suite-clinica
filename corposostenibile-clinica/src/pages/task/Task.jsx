@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
+import teamService, { ROLE_LABELS, SPECIALTY_LABELS } from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import {
@@ -22,10 +23,26 @@ function Task() {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
+    const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
     const [mostraTour, setMostraTour] = useState(false);
     const [searchParams] = useSearchParams();
+    const [adminFilters, setAdminFilters] = useState({
+        team_id: '',
+        assignee_id: '',
+        assignee_role: '',
+        assignee_specialty: '',
+    });
+    const [adminFilterOptions, setAdminFilterOptions] = useState({
+        teams: [],
+        members: [],
+    });
 
     const PAGE_SIZE = 15;
+    const isGlobalTaskViewer = Boolean(
+        user?.is_admin ||
+        user?.role === 'admin' ||
+        user?.specialty === 'cco'
+    );
 
     useEffect(() => {
         if (searchParams.get('startTour') === 'true') {
@@ -130,6 +147,12 @@ function Task() {
                 completed: showCompleted ? 'true' : 'false'
             };
             if (activeTab !== 'all') params.category = activeTab;
+            if (isGlobalTaskViewer) {
+                if (adminFilters.team_id) params.team_id = Number(adminFilters.team_id);
+                if (adminFilters.assignee_id) params.assignee_id = Number(adminFilters.assignee_id);
+                if (adminFilters.assignee_role) params.assignee_role = adminFilters.assignee_role;
+                if (adminFilters.assignee_specialty) params.assignee_specialty = adminFilters.assignee_specialty;
+            }
             const data = await taskService.getAll(params);
             setTasks(data);
         } catch (error) {
@@ -137,7 +160,27 @@ function Task() {
         } finally {
             setLoading(false);
         }
-    }, [activeTab, showCompleted]);
+    }, [activeTab, showCompleted, isGlobalTaskViewer, adminFilters]);
+
+    const fetchAdminFilterOptions = useCallback(async () => {
+        if (!isGlobalTaskViewer) return;
+        setFilterOptionsLoading(true);
+        try {
+            const [teamsRes, membersRes] = await Promise.all([
+                teamService.getTeams({ per_page: 500, active: '1' }),
+                teamService.getTeamMembers({ per_page: 5000, active: '1' }),
+            ]);
+            setAdminFilterOptions({
+                teams: teamsRes.teams || [],
+                members: membersRes.members || [],
+            });
+        } catch (error) {
+            console.error('Error fetching task admin filter options:', error);
+            setAdminFilterOptions({ teams: [], members: [] });
+        } finally {
+            setFilterOptionsLoading(false);
+        }
+    }, [isGlobalTaskViewer]);
 
     useEffect(() => {
         fetchStats();
@@ -148,8 +191,12 @@ function Task() {
     }, [fetchTasks]);
 
     useEffect(() => {
+        fetchAdminFilterOptions();
+    }, [fetchAdminFilterOptions]);
+
+    useEffect(() => {
         setCurrentPage(1);
-    }, [activeTab, showCompleted, searchTerm]);
+    }, [activeTab, showCompleted, searchTerm, adminFilters]);
 
     useEffect(() => {
         if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -204,6 +251,26 @@ function Task() {
 
     const getPriorityColor = (priority) => TASK_PRIORITIES[priority]?.color || '#6c757d';
     const getCategoryInfo = (catKey) => TASK_CATEGORIES[catKey] || { label: catKey, color: '#6c757d', bg: 'secondary' };
+    const roleOptions = useMemo(() => {
+        const roles = new Set((adminFilterOptions.members || []).map((m) => m.role).filter(Boolean));
+        return Array.from(roles).sort();
+    }, [adminFilterOptions.members]);
+    const specialtyOptions = useMemo(() => {
+        const specs = new Set((adminFilterOptions.members || []).map((m) => m.specialty).filter(Boolean));
+        return Array.from(specs).sort();
+    }, [adminFilterOptions.members]);
+    const filteredMemberOptions = useMemo(() => {
+        if (!isGlobalTaskViewer) return [];
+        return (adminFilterOptions.members || []).filter((m) => {
+            if (adminFilters.assignee_role && m.role !== adminFilters.assignee_role) return false;
+            if (adminFilters.assignee_specialty && m.specialty !== adminFilters.assignee_specialty) return false;
+            if (adminFilters.team_id) {
+                const teamIds = (m.teams || []).map((t) => String(t.id));
+                if (!teamIds.includes(String(adminFilters.team_id))) return false;
+            }
+            return true;
+        });
+    }, [adminFilterOptions.members, adminFilters, isGlobalTaskViewer]);
 
     return (
         <>
@@ -247,6 +314,78 @@ function Task() {
                     </div>
                 </div>
             </div>
+
+            {isGlobalTaskViewer && (
+                <div className="card border-0 shadow-sm mb-3">
+                    <div className="card-body py-3">
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                            <h6 className="mb-0">Filtri Admin</h6>
+                            <button
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => setAdminFilters({ team_id: '', assignee_id: '', assignee_role: '', assignee_specialty: '' })}
+                            >
+                                Reset filtri
+                            </button>
+                        </div>
+                        <div className="row g-2">
+                            <div className="col-xl-3 col-md-6">
+                                <select
+                                    className="form-select bg-light border-0"
+                                    value={adminFilters.team_id}
+                                    onChange={(e) => setAdminFilters((prev) => ({ ...prev, team_id: e.target.value, assignee_id: '' }))}
+                                    disabled={filterOptionsLoading}
+                                >
+                                    <option value="">Tutti i team</option>
+                                    {(adminFilterOptions.teams || []).map((team) => (
+                                        <option key={team.id} value={team.id}>{team.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-xl-3 col-md-6">
+                                <select
+                                    className="form-select bg-light border-0"
+                                    value={adminFilters.assignee_role}
+                                    onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_role: e.target.value, assignee_id: '' }))}
+                                    disabled={filterOptionsLoading}
+                                >
+                                    <option value="">Tutti i ruoli</option>
+                                    {roleOptions.map((role) => (
+                                        <option key={role} value={role}>{ROLE_LABELS[role] || role}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-xl-3 col-md-6">
+                                <select
+                                    className="form-select bg-light border-0"
+                                    value={adminFilters.assignee_specialty}
+                                    onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_specialty: e.target.value, assignee_id: '' }))}
+                                    disabled={filterOptionsLoading}
+                                >
+                                    <option value="">Tutte le specialità</option>
+                                    {specialtyOptions.map((spec) => (
+                                        <option key={spec} value={spec}>{SPECIALTY_LABELS[spec] || spec}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-xl-3 col-md-6">
+                                <select
+                                    className="form-select bg-light border-0"
+                                    value={adminFilters.assignee_id}
+                                    onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_id: e.target.value }))}
+                                    disabled={filterOptionsLoading}
+                                >
+                                    <option value="">Tutti gli assegnatari</option>
+                                    {filteredMemberOptions.map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || `#${m.id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="row g-3 mb-4" data-tour="stats-cards">
                 {Object.entries(TASK_CATEGORIES).map(([key, cat]) => (
@@ -333,6 +472,7 @@ function Task() {
                                         <th>Attività</th>
                                         <th style={{ width: '150px' }}>Categoria</th>
                                         <th style={{ width: '150px' }}>Cliente</th>
+                                        {isGlobalTaskViewer && <th style={{ width: '180px' }}>Assegnatario</th>}
                                         <th style={{ width: '120px' }}>Scadenza</th>
                                         <th style={{ width: '100px' }}>Priorità</th>
                                         <th style={{ width: '80px' }}></th>
@@ -385,6 +525,18 @@ function Task() {
                                                         <span className="text-muted small">-</span>
                                                     )}
                                                 </td>
+                                                {isGlobalTaskViewer && (
+                                                    <td>
+                                                        <div className="d-flex flex-column">
+                                                            <span className="small fw-medium">{task.assignee_name || '-'}</span>
+                                                            <small className="text-muted">
+                                                                {[ROLE_LABELS[task.assignee_role] || task.assignee_role, SPECIALTY_LABELS[task.assignee_specialty] || task.assignee_specialty]
+                                                                    .filter(Boolean)
+                                                                    .join(' • ') || '—'}
+                                                            </small>
+                                                        </div>
+                                                    </td>
+                                                )}
                                                 <td>
                                                     <small className={`${task.due_date && new Date(task.due_date) < new Date() && !task.completed ? 'text-danger fw-bold' : 'text-muted'}`}>
                                                         {formatDate(task.due_date)}

@@ -68,6 +68,18 @@ def list_tasks():
     if assignee_id:
         query = query.filter(Task.assignee_id == assignee_id)
 
+    assignee_role = request.args.get('assignee_role', '').strip()
+    if assignee_role:
+        query = query.filter(Task.assignee.has(User.role == assignee_role))
+
+    assignee_specialty = request.args.get('assignee_specialty', '').strip()
+    if assignee_specialty:
+        query = query.filter(Task.assignee.has(User.specialty == assignee_specialty))
+
+    team_id = request.args.get('team_id', type=int)
+    if team_id:
+        query = query.filter(Task.assignee.has(User.teams.any(id=team_id)))
+
     search_query = request.args.get('q', '').strip()
     if search_query:
         search_term = f"%{search_query}%"
@@ -202,6 +214,8 @@ def _serialize_task(task):
         'created_at': task.created_at.isoformat() if task.created_at else None,
         'assignee_id': task.assignee_id,
         'assignee_name': task.assignee.full_name if task.assignee else None,
+        'assignee_role': (task.assignee.role.value if hasattr(task.assignee.role, 'value') else task.assignee.role) if task.assignee else None,
+        'assignee_specialty': (task.assignee.specialty.value if getattr(task.assignee, 'specialty', None) and hasattr(task.assignee.specialty, 'value') else str(task.assignee.specialty) if getattr(task.assignee, 'specialty', None) else None),
         'client_name': task.client.nome_cognome if task.client else None,
         'client_id': task.client_id,
         'completed': task.status == TaskStatusEnum.done,

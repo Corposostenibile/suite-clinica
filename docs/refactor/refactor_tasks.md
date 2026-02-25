@@ -14,3 +14,7 @@
 
 - [x] In `teams`, rimosso il nome team leader duplicato nella card (titolo card = leader; info team spostate sotto).
 - [x] In `teams`, avatar principale card usa la foto del team leader (fallback robusto `avatar_path`/`avatar_url`).
+
+## Task / Admin
+
+- [x] Admin/CCO vede tutti i task (fatti e non fatti tramite toggle esistente) con filtri aggiuntivi per team, assegnatario, ruolo e specialità (`task/Task.jsx` + `/api/tasks`).
