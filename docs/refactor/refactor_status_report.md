@@ -141,6 +141,7 @@ Nota coerenza ruoli:
 - `Professionista`
   - no `CheckAzienda` globale
   - redirect verso area personale (`Profilo > Check`)
+  - su `ClientiDetail` può generare/copiare i link dei check periodici del proprio paziente (permessi backend su RBAC paziente)
 - `Da fare / Aperto`
   - verifica/fix funzionale completo `Creazione link check` (weekly/dca/minor) su flusso end-to-end
 - `Aggiornamenti recenti`

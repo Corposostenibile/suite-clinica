@@ -81,7 +81,9 @@ function ClientiDetail() {
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const canSaveGlobalClientCard = !isProfessionista;
   const canManageTeamAssignments = !isProfessionista;
-  const canGenerateCheckLinks = !isProfessionista;
+  // La generazione dei check periodici è consentita anche al professionista:
+  // il backend applica il vero controllo RBAC sul paziente.
+  const canGenerateCheckLinks = true;
   const canCreateCallBonus = !isProfessionista;
   const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
@@ -975,7 +977,7 @@ function ClientiDetail() {
 
   const handleGenerateCheckLink = async (checkType) => {
     if (!canGenerateCheckLinks) {
-      setError('Generazione link check non consentita per il ruolo Professionista.');
+      setError('Generazione link check non consentita.');
       return;
     }
     setGeneratingLink(checkType);
@@ -6681,7 +6683,7 @@ function ClientiDetail() {
                     ) : (
                       <div className="alert alert-light border mb-0">
                         <small className="text-muted">
-                          La generazione dei link check non è disponibile per il ruolo Professionista.
+                          La generazione dei link check non è disponibile per questo utente.
                         </small>
                       </div>
                     )}
