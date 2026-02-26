@@ -21,7 +21,7 @@ from corposostenibile.models import (
     User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, 
     team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory, 
     ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
-    ProfessionistCapacity, cliente_nutrizionisti, cliente_coaches,
+    ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
     cliente_psicologi, cliente_consulenti
 )
 
@@ -233,6 +233,93 @@ def _get_assigned_clients_count_map(user_ids: list[int]) -> dict[int, int]:
         func.count(distinct(assignments_sq.c.cliente_id)).label('assigned_clients')
     ).group_by(assignments_sq.c.user_id).all()
     return {int(user_id): int(count) for user_id, count in rows}
+
+
+def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[tuple[int, str], int]:
+    """
+    Conteggio clienti assegnati per (user_id, role_type) considerando solo
+    lo stato servizio 'attivo' (stato_nutrizione, stato_coach, stato_psicologia).
+    Usato per la tabella capienza professionisti.
+    """
+    if not user_ids:
+        return {}
+
+    result: dict[tuple[int, str], int] = {}
+
+    # Nutrizionista: nutrizionista_id, consulente_alimentare_id, m2m nutrizionisti/consulenti + stato_nutrizione = attivo
+    nut_sources = [
+        select(Cliente.nutrizionista_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.nutrizionista_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(Cliente.consulente_alimentare_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.consulente_alimentare_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(cliente_nutrizionisti.c.user_id.label('user_id'), cliente_nutrizionisti.c.cliente_id.label('cliente_id')).select_from(
+            cliente_nutrizionisti.join(Cliente, cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_nutrizionisti.c.user_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(cliente_consulenti.c.user_id.label('user_id'), cliente_consulenti.c.cliente_id.label('cliente_id')).select_from(
+            cliente_consulenti.join(Cliente, cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_consulenti.c.user_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+    ]
+    nut_sq = union_all(*nut_sources).subquery()
+    nut_rows = db.session.query(
+        nut_sq.c.user_id,
+        func.count(distinct(nut_sq.c.cliente_id)).label('cnt'),
+    ).group_by(nut_sq.c.user_id).all()
+    for user_id, cnt in nut_rows:
+        result[(int(user_id), 'nutrizionista')] = int(cnt)
+
+    # Coach: coach_id, cliente_coaches + stato_coach = attivo
+    coach_sources = [
+        select(Cliente.coach_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.coach_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+        select(cliente_coaches.c.user_id.label('user_id'), cliente_coaches.c.cliente_id.label('cliente_id')).select_from(
+            cliente_coaches.join(Cliente, cliente_coaches.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_coaches.c.user_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+    ]
+    coach_sq = union_all(*coach_sources).subquery()
+    coach_rows = db.session.query(
+        coach_sq.c.user_id,
+        func.count(distinct(coach_sq.c.cliente_id)).label('cnt'),
+    ).group_by(coach_sq.c.user_id).all()
+    for user_id, cnt in coach_rows:
+        result[(int(user_id), 'coach')] = int(cnt)
+
+    # Psicologa: psicologa_id, cliente_psicologi + stato_psicologia = attivo
+    psico_sources = [
+        select(Cliente.psicologa_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.psicologa_id.in_(user_ids),
+            Cliente.stato_psicologia == StatoClienteEnum.attivo,
+        ),
+        select(cliente_psicologi.c.user_id.label('user_id'), cliente_psicologi.c.cliente_id.label('cliente_id')).select_from(
+            cliente_psicologi.join(Cliente, cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_psicologi.c.user_id.in_(user_ids),
+            Cliente.stato_psicologia == StatoClienteEnum.attivo,
+        ),
+    ]
+    psico_sq = union_all(*psico_sources).subquery()
+    psico_rows = db.session.query(
+        psico_sq.c.user_id,
+        func.count(distinct(psico_sq.c.cliente_id)).label('cnt'),
+    ).group_by(psico_sq.c.user_id).all()
+    for user_id, cnt in psico_rows:
+        result[(int(user_id), 'psicologa')] = int(cnt)
+
+    return result
 
 
 def _serialize_user(user, include_details=False, include_teams_led=True):
@@ -2228,7 +2315,7 @@ def get_professionals_capacity():
         })
 
     user_ids = [u.id for u in professionals]
-    assigned_map = _get_assigned_clients_count_map(user_ids)
+    assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
 
     capacities = ProfessionistCapacity.query.filter(
         ProfessionistCapacity.user_id.in_(user_ids)
@@ -2256,7 +2343,7 @@ def get_professionals_capacity():
             capacity_by_pair[(prof.id, role_type)] = capacity
             changed = True
 
-        assigned_clients = assigned_map.get(prof.id, 0)
+        assigned_clients = assigned_map.get((prof.id, role_type), 0)
         if capacity.current_clients != assigned_clients:
             capacity.current_clients = assigned_clients
             changed = True
@@ -2351,7 +2438,8 @@ def update_professional_capacity(user_id: int):
     else:
         capacity.max_clients = max_clients
 
-    assigned_clients = _get_assigned_clients_count_map([user.id]).get(user.id, 0)
+    assigned_map = _get_assigned_clients_count_map_active_by_role([user.id])
+    assigned_clients = assigned_map.get((user.id, role_type), 0)
     capacity.current_clients = assigned_clients
 
     db.session.commit()
