@@ -11,6 +11,7 @@ import SupportWidget from '../../components/SupportWidget';
 import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+import { isProfessionistaStandard } from '../../utils/rbacScope';
 
 // Stili per la tabella professionale
 const tableStyles = {
@@ -135,6 +136,7 @@ function ClientiList() {
   const { user } = useAuth();
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const isProfessionista = isProfessionistaStandard(user);
   const teamLeaderSpecialtyGroup = (() => {
     const s = String(user?.specialty || '').toLowerCase();
     if (s === 'nutrizione' || s === 'nutrizionista') return 'nutrizione';
@@ -257,6 +259,11 @@ function ClientiList() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
+        if (isProfessionista) {
+          setStats(null);
+          setProfessionisti([]);
+          return;
+        }
         const [statsData, profData] = await Promise.all([
           clientiService.getStats(),
           teamService.getTeamMembers({ per_page: 100, active: '1' }),
@@ -268,7 +275,7 @@ function ClientiList() {
       }
     };
     fetchInitialData();
-  }, []);
+  }, [isProfessionista]);
 
   useEffect(() => {
     if (!isTeamLeaderRestricted || !teamLeaderSpecialtyGroup) return;
@@ -371,9 +378,9 @@ function ClientiList() {
   };
 
   const visibleProfessionalFilters = {
-    nutrizione: !isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione',
-    coach: !isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach',
-    psicologia: !isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'psicologia',
+    nutrizione: !isProfessionista && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione'),
+    coach: !isProfessionista && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach'),
+    psicologia: !isProfessionista && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'psicologia'),
   };
 
   const visualButtons = [
@@ -382,6 +389,7 @@ function ClientiList() {
     { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line', className: 'btn btn-info btn-sm text-white' },
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line', className: 'btn btn-danger btn-sm text-white' },
   ].filter((btn) => {
+    if (isProfessionista) return btn.key === 'generale';
     if (!isTeamLeaderRestricted) return true;
     if (btn.key === 'generale') return true;
     return btn.key === teamLeaderSpecialtyGroup;
@@ -393,6 +401,7 @@ function ClientiList() {
     { key: 'coach', label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line', bg: 'warning' },
     { key: 'psicologia', label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
   ].filter((stat) => {
+    if (isProfessionista) return stat.key === 'tot';
     if (!isTeamLeaderRestricted) return true;
     if (stat.key === 'tot') return true;
     return stat.key === teamLeaderSpecialtyGroup;
@@ -661,18 +670,20 @@ function ClientiList() {
                           >
                             <i className="ri-eye-line" style={{ fontSize: '16px' }}></i>
                           </Link>
-                          <Link
-                            to={`/clienti-modifica/${clienteId}`}
-                            style={{
-                              ...tableStyles.actionBtn,
-                              borderColor: '#3b82f6',
-                              color: '#3b82f6',
-                              background: isHovered ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            }}
-                            title="Modifica"
-                          >
-                            <i className="ri-edit-line" style={{ fontSize: '16px' }}></i>
-                          </Link>
+                          {!isProfessionista && (
+                            <Link
+                              to={`/clienti-modifica/${clienteId}`}
+                              style={{
+                                ...tableStyles.actionBtn,
+                                borderColor: '#3b82f6',
+                                color: '#3b82f6',
+                                background: isHovered ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                              }}
+                              title="Modifica"
+                            >
+                              <i className="ri-edit-line" style={{ fontSize: '16px' }}></i>
+                            </Link>
+                          )}
                         </td>
                       </tr>
                     );

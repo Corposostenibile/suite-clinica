@@ -6,7 +6,9 @@ import trialUserService from '../services/trialUserService';
 import trainingService from '../services/trainingService';
 import clientiService from '../services/clientiService';
 import checkService from '../services/checkService';
+import taskService from '../services/taskService';
 import logoFoglia from '../images/logo_foglia.png';
+import { isProfessionistaStandard, isTeamLeaderRestricted } from '../utils/rbacScope';
 
 // Tab configuration
 const TABS = [
@@ -19,12 +21,254 @@ const TABS = [
   { key: 'professionisti', label: 'Professionisti', icon: 'ri-user-star-line' },
 ];
 
-function Welcome() {
+function RoleScopedWelcome({ user, mode }) {
+  const isTeamLeaderMode = mode === 'team_leader';
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [scopeData, setScopeData] = useState(null);
+  const [taskStats, setTaskStats] = useState(null);
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [trainingSummary, setTrainingSummary] = useState({
+    myTrainings: 0,
+    pendingMyTrainings: 0,
+    myRequests: 0,
+    receivedRequests: 0,
+  });
+
+  const loadScopedData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const requests = [
+        teamService.getAdminDashboardStats(),
+        taskService.getStats(),
+        taskService.getAll({ completed: 'false' }),
+        trainingService.getMyTrainings(),
+        trainingService.getMyRequests(),
+      ];
+
+      if (isTeamLeaderMode) {
+        requests.push(trainingService.getReceivedRequests());
+      }
+
+      const [
+        dashboardRes,
+        taskStatsRes,
+        tasksRes,
+        myTrainingsRes,
+        myRequestsRes,
+        receivedRequestsRes,
+      ] = await Promise.all(requests);
+
+      setScopeData(dashboardRes);
+      setTaskStats(taskStatsRes || null);
+      setRecentTasks(Array.isArray(tasksRes) ? tasksRes.slice(0, 6) : []);
+      const myTrainings = myTrainingsRes?.trainings || [];
+      const myRequests = myRequestsRes?.requests || [];
+      const receivedRequests = receivedRequestsRes?.requests || [];
+      setTrainingSummary({
+        myTrainings: myTrainings.length,
+        pendingMyTrainings: myTrainings.filter(t => !t.acknowledged_at && !t.is_acknowledged).length,
+        myRequests: myRequests.length,
+        receivedRequests: receivedRequests.length,
+      });
+    } catch (err) {
+      console.error('Error loading scoped dashboard:', err);
+      setError('Errore nel caricamento della dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, [isTeamLeaderMode]);
+
+  useEffect(() => {
+    loadScopedData();
+  }, [loadScopedData]);
+
+  const scopeTitle = isTeamLeaderMode ? 'Dashboard Team Leader' : 'Dashboard Professionista';
+  const scopeSubtitle = isTeamLeaderMode ? 'Panoramica operativa del tuo team' : 'Panoramica personale';
+  const teamSummary = scopeData?.teamsSummary || [];
+  const kpi = scopeData?.kpi || {};
+  const qualitySummary = scopeData?.qualitySummary || {};
+  const clientLoad = scopeData?.clientLoad || {};
+
+  const cards = isTeamLeaderMode
+    ? [
+        { label: 'Team gestiti', value: teamSummary.length, icon: 'ri-team-line', color: '#3b82f6' },
+        { label: 'Membri visibili', value: kpi.totalActive ?? 0, icon: 'ri-user-star-line', color: '#22c55e' },
+        { label: 'Task aperti team', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#f97316' },
+        { label: 'Richieste ricevute', value: trainingSummary.receivedRequests, icon: 'ri-mail-open-line', color: '#8b5cf6' },
+      ]
+    : [
+        { label: 'Task aperti', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#3b82f6' },
+        { label: 'Training ricevuti', value: trainingSummary.myTrainings, icon: 'ri-book-open-line', color: '#22c55e' },
+        { label: 'Training da leggere', value: trainingSummary.pendingMyTrainings, icon: 'ri-notification-3-line', color: '#f97316' },
+        { label: 'Mie richieste formazione', value: trainingSummary.myRequests, icon: 'ri-question-answer-line', color: '#8b5cf6' },
+      ];
+
+  return (
+    <>
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+          <h4 className="mb-1" style={{ fontWeight: 700, color: '#1e293b' }}>
+            Ciao, {user?.first_name || 'Utente'}!
+          </h4>
+          <p className="text-muted mb-0">{scopeSubtitle}</p>
+        </div>
+        <button onClick={loadScopedData} className="btn btn-light d-flex align-items-center gap-2" style={{ borderRadius: '12px' }}>
+          <i className="ri-refresh-line"></i>
+          Aggiorna
+        </button>
+      </div>
+
+      <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
+        <div className="card-body p-4">
+          <div className="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div>
+              <h5 className="mb-1" style={{ color: '#1e293b' }}>{scopeTitle}</h5>
+              <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
+                {isTeamLeaderMode
+                  ? 'Metriche e liste operative limitate ai membri del tuo team/specialità.'
+                  : 'Metriche e attività limitate al tuo perimetro personale.'}
+              </p>
+            </div>
+            <div className="d-flex gap-2 flex-wrap">
+              <Link to="/task" className="btn btn-outline-primary btn-sm"><i className="ri-task-line me-1"></i>Task</Link>
+              <Link to="/formazione" className="btn btn-outline-success btn-sm"><i className="ri-book-open-line me-1"></i>Formazione</Link>
+              <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm"><i className="ri-group-line me-1"></i>Pazienti</Link>
+              {isTeamLeaderMode && <Link to="/check-azienda" className="btn btn-outline-warning btn-sm"><i className="ri-checkbox-circle-line me-1"></i>Check</Link>}
+              {!isTeamLeaderMode && <Link to="/profilo?tab=check" className="btn btn-outline-warning btn-sm"><i className="ri-checkbox-circle-line me-1"></i>Miei Check</Link>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="alert alert-danger">{error}</div>
+      )}
+
+      <div className="row g-3 mb-4">
+        {cards.map((card) => (
+          <div key={card.label} className="col-xl-3 col-sm-6">
+            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '14px' }}>
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="text-muted small">{card.label}</div>
+                    <div className="fw-bold" style={{ fontSize: '1.5rem', color: '#1e293b' }}>
+                      {loading ? '…' : card.value}
+                    </div>
+                  </div>
+                  <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: 42, height: 42, background: `${card.color}18`, color: card.color }}>
+                    <i className={`${card.icon} fs-5`}></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="row g-3">
+        <div className="col-lg-7">
+          <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
+            <div className="card-header bg-white border-0 pb-0">
+              <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                <i className="ri-task-line me-2"></i>
+                Task aperti recenti
+              </h6>
+            </div>
+            <div className="card-body">
+              {loading ? (
+                <div className="text-muted">Caricamento...</div>
+              ) : recentTasks.length === 0 ? (
+                <div className="text-muted">Nessun task aperto.</div>
+              ) : (
+                <div className="d-flex flex-column gap-2">
+                  {recentTasks.map((task) => (
+                    <div key={task.id} className="d-flex align-items-center justify-content-between border rounded-3 p-2">
+                      <div className="pe-3">
+                        <div className="fw-medium" style={{ color: '#1e293b' }}>{task.title || 'Task'}</div>
+                        <div className="text-muted small">{task.client_name || task.category || '—'}</div>
+                      </div>
+                      <span className="badge bg-light text-dark">{task.priority || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="col-lg-5">
+          <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
+            <div className="card-header bg-white border-0 pb-0">
+              <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                <i className="ri-team-line me-2"></i>
+                Scope visibile
+              </h6>
+            </div>
+            <div className="card-body">
+              {loading ? (
+                <div className="text-muted">Caricamento...</div>
+              ) : (
+                <>
+                  <div className="small text-muted mb-2">Team</div>
+                  <div className="d-flex flex-wrap gap-2 mb-3">
+                    {(teamSummary.length ? teamSummary : [{ id: 'self', name: 'Personale', team_type: null }]).map((team) => (
+                      <span key={team.id} className="badge rounded-pill text-bg-light">
+                        {team.name}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="small text-muted mb-2">Client load (scope)</div>
+                  <div className="d-flex flex-column gap-1">
+                    {Object.entries(clientLoad).map(([key, value]) => (
+                      <div key={key} className="d-flex justify-content-between small">
+                        <span style={{ color: '#475569' }}>{key}</span>
+                        <span className="fw-semibold">{value?.clients || 0} clienti / {value?.professionals || 0} prof.</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+            <div className="card-header bg-white border-0 pb-0">
+              <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                <i className="ri-star-line me-2"></i>
+                Quality (scope)
+              </h6>
+            </div>
+            <div className="card-body">
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted small">Media quality</span>
+                <span className="fw-semibold">{loading ? '…' : (qualitySummary.avgQuality ?? '—')}</span>
+              </div>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted small">Trend su</span>
+                <span className="fw-semibold">{loading ? '…' : (qualitySummary.trendUp ?? 0)}</span>
+              </div>
+              <div className="d-flex justify-content-between">
+                <span className="text-muted small">Trend giù</span>
+                <span className="fw-semibold">{loading ? '…' : (qualitySummary.trendDown ?? 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function LegacyWelcomeDashboard() {
   const { user } = useOutletContext();
   const [activeTab, setActiveTab] = useState('panoramica');
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isTeamLeader = user?.role === 'team_leader';
   const isRestrictedTeamLeaderDashboard = Boolean(isTeamLeader && !isAdminOrCco);
+  const isProfessionistaDashboard = isProfessionistaStandard(user);
 
   // Independent loading states for progressive rendering
   const [customerStats, setCustomerStats] = useState(null);
@@ -559,6 +803,20 @@ function Welcome() {
       )}
     </>
   );
+}
+
+function Welcome() {
+  const { user } = useOutletContext();
+
+  if (isTeamLeaderRestricted(user)) {
+    return <RoleScopedWelcome user={user} mode="team_leader" />;
+  }
+
+  if (isProfessionistaStandard(user)) {
+    return <RoleScopedWelcome user={user} mode="professionista" />;
+  }
+
+  return <LegacyWelcomeDashboard />;
 }
 
 // ==================== FORMAZIONE TAB ====================

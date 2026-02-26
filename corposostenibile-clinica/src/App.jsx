@@ -61,6 +61,17 @@ import { GHLSettings, OriginSettings } from './pages/admin';
 
 // Components
 import RoleProtectedRoute from './components/RoleProtectedRoute';
+import { useAuth } from './context/AuthContext';
+import {
+  canAccessAiAssignments,
+  canAccessCapacity,
+  canAccessGlobalCheckPage,
+  canAccessQualityPage,
+  canAccessTeamLists,
+  canAccessTrialPages,
+  canViewOtherProfessionalProfile,
+  isAdminOrCco,
+} from './utils/rbacScope';
 
 // Public pages (no auth required)
 import {
@@ -81,6 +92,17 @@ function PublicClientCheckRedirect() {
   }, [token]);
 
   return null;
+}
+
+function TeamDetailRouteGuard({ children }) {
+  const { user, loading } = useAuth();
+  const { id } = useParams();
+
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth/login" replace />;
+  if (!id) return children;
+  if (isAdminOrCco(user) || canViewOtherProfessionalProfile(user)) return children;
+  return Number(id) === Number(user.id) ? children : <Navigate to="/profilo" replace />;
 }
 
 function App() {
@@ -107,31 +129,43 @@ function App() {
             <Route path="/welcome" element={<Welcome />} />
 
             {/* Team Member Routes */}
-            <Route path="/team-lista" element={<TeamList />} />
-            <Route path="/team-capienza" element={<TeamCapacity />} />
-            <Route path="/team-nuovo" element={<TeamAdd />} />
-            <Route path="/team-dettaglio/:id" element={<Profilo />} /> {/* Redirect to Profilo for detail */}
-            <Route path="/team-modifica/:id" element={<TeamAdd />} />
+            <Route path="/team-lista" element={
+              <RoleProtectedRoute allowIf={canAccessTeamLists}>
+                <TeamList />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/team-capienza" element={
+              <RoleProtectedRoute allowIf={canAccessCapacity}>
+                <TeamCapacity />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/team-nuovo" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamAdd /></RoleProtectedRoute>} />
+            <Route path="/team-dettaglio/:id" element={
+              <TeamDetailRouteGuard>
+                <Profilo />
+              </TeamDetailRouteGuard>
+            } /> {/* Redirect to Profilo for detail */}
+            <Route path="/team-modifica/:id" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamAdd /></RoleProtectedRoute>} />
 
             {/* Team Entity Routes */}
-            <Route path="/teams" element={<TeamsList />} />
-            <Route path="/teams-nuovo" element={<TeamsAdd />} />
-            <Route path="/teams-dettaglio/:id" element={<TeamsDetail />} />
-            <Route path="/teams-modifica/:id" element={<TeamsAdd />} />
+            <Route path="/teams" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamsList /></RoleProtectedRoute>} />
+            <Route path="/teams-nuovo" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamsAdd /></RoleProtectedRoute>} />
+            <Route path="/teams-dettaglio/:id" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamsDetail /></RoleProtectedRoute>} />
+            <Route path="/teams-modifica/:id" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamsAdd /></RoleProtectedRoute>} />
 
             {/* AI Assignments */}
             <Route path="/assegnazioni-ai" element={
-              <RoleProtectedRoute deniedRoles={['professionista']}>
+              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
                 <AssegnazioniAI />
               </RoleProtectedRoute>
             } />
 
             {/* In Prova (Trial Users) */}
-            <Route path="/in-prova" element={<TrialUsersList />} />
-            <Route path="/in-prova/nuovo" element={<TrialUserForm />} />
-            <Route path="/in-prova/:userId" element={<TrialUserDetail />} />
-            <Route path="/in-prova/:userId/modifica" element={<TrialUserForm />} />
-            <Route path="/in-prova/:userId/assegna-clienti" element={<AssignClients />} />
+            <Route path="/in-prova" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><TrialUsersList /></RoleProtectedRoute>} />
+            <Route path="/in-prova/nuovo" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><TrialUserForm /></RoleProtectedRoute>} />
+            <Route path="/in-prova/:userId" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><TrialUserDetail /></RoleProtectedRoute>} />
+            <Route path="/in-prova/:userId/modifica" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><TrialUserForm /></RoleProtectedRoute>} />
+            <Route path="/in-prova/:userId/assegna-clienti" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><AssignClients /></RoleProtectedRoute>} />
 
             {/* Clienti Routes */}
             <Route path="/clienti-lista" element={<ClientiList />} />
@@ -153,13 +187,17 @@ function App() {
 
             {/* Quality */}
             <Route path="/quality" element={
-              <RoleProtectedRoute allowedRoles={['team_leader']}>
+              <RoleProtectedRoute allowIf={canAccessQualityPage}>
                 <Quality />
               </RoleProtectedRoute>
             } />
 
             {/* Check */}
-            <Route path="/check-azienda" element={<CheckAzienda />} />
+            <Route path="/check-azienda" element={
+              <RoleProtectedRoute allowIf={canAccessGlobalCheckPage}>
+                <CheckAzienda />
+              </RoleProtectedRoute>
+            } />
             <Route path="/check-da-leggere" element={<CheckDaLeggere />} />
 
             {/* Calendario */}

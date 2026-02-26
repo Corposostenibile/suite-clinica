@@ -149,6 +149,29 @@ def _get_team_leader_member_ids(user_id: int) -> set[int]:
     return {row[0] for row in rows}
 
 
+def _can_access_member_scoped_data(requesting_user, target_user_id: int) -> bool:
+    """
+    ACL per endpoint /members/<id>/* usati in profilo/team.
+    - admin/CCO: tutto
+    - team leader: sé stesso + membri dei propri team
+    - altri: solo sé stessi
+    """
+    if not getattr(requesting_user, 'is_authenticated', False):
+        return False
+    if _can_view_all_team_module_data(requesting_user):
+        return True
+
+    requester_id = getattr(requesting_user, 'id', None)
+    if requester_id is None:
+        return False
+
+    if _get_user_role(requesting_user) == 'team_leader':
+        allowed_ids = _get_team_leader_member_ids(requester_id) | {requester_id}
+        return int(target_user_id) in allowed_ids
+
+    return int(target_user_id) == int(requester_id)
+
+
 def _promote_team_head_to_team_leader(user_id: int | None) -> None:
     """
     Mantiene coerente users.role con teams.head_id.
@@ -2369,6 +2392,12 @@ def get_member_clients(user_id):
     from corposostenibile.models import Cliente, cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
     from sqlalchemy import select, exists
 
+    if not _can_access_member_scoped_data(current_user, user_id):
+        return jsonify({
+            'success': False,
+            'message': 'Non autorizzato a visualizzare i clienti di questo professionista'
+        }), HTTPStatus.FORBIDDEN
+
     user = User.query.get_or_404(user_id)
 
     page = request.args.get('page', 1, type=int)
@@ -2536,6 +2565,12 @@ def get_member_client_checks(user_id):
     )
     from sqlalchemy import select, exists
     from datetime import datetime, timedelta, time
+
+    if not _can_access_member_scoped_data(current_user, user_id):
+        return jsonify({
+            'success': False,
+            'message': 'Non autorizzato a visualizzare i check di questo professionista'
+        }), HTTPStatus.FORBIDDEN
 
     user = User.query.get_or_404(user_id)
 

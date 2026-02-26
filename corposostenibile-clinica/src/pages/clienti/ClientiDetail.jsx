@@ -26,6 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
+import { isProfessionistaStandard, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -74,6 +75,25 @@ function ClientiDetail() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isProfessionista = isProfessionistaStandard(user);
+  const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
+  const canSaveGlobalClientCard = !isProfessionista;
+
+  const getAllowedMainTabsForUser = useCallback(() => {
+    if (!isProfessionista) {
+      return new Set([
+        'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
+        'check_periodici', 'check_iniziali', 'tickets', 'call_bonus'
+      ]);
+    }
+
+    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'check_iniziali', 'tickets', 'call_bonus']);
+    if (specialtyGroup === 'nutrizione') allowed.add('nutrizione');
+    if (specialtyGroup === 'coach') allowed.add('coaching');
+    if (specialtyGroup === 'psicologia') allowed.add('psicologia');
+    if (specialtyGroup === 'medico') allowed.add('medico');
+    return allowed;
+  }, [isProfessionista, specialtyGroup]);
 
   // State
   const [cliente, setCliente] = useState(null);
@@ -530,14 +550,12 @@ function ClientiDetail() {
     };
 
     const mapped = tabAliases[requestedTab] || requestedTab;
-    const validTabs = new Set([
-      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico', 'check_periodici', 'check_iniziali'
-    ]);
+    const validTabs = getAllowedMainTabsForUser();
 
     if (validTabs.has(mapped)) {
       setActiveTab(mapped);
     }
-  }, [searchParams]);
+  }, [searchParams, getAllowedMainTabsForUser]);
 
   const handleTourSelection = (type) => {
     let steps = [];
@@ -2163,6 +2181,10 @@ function ClientiDetail() {
 
   // Save form
   const handleSave = async () => {
+    if (isProfessionista) {
+      setError('Modifica globale paziente non consentita per il ruolo Professionista.');
+      return;
+    }
     setSaving(true);
     setSaveSuccess(false);
     try {
@@ -2313,7 +2335,13 @@ function ClientiDetail() {
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
-  ];
+  ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
+
+  useEffect(() => {
+    if (!mainTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(mainTabs[0]?.id || 'anagrafica');
+    }
+  }, [mainTabs, activeTab]);
 
   return (
     <>
@@ -2345,15 +2373,17 @@ function ClientiDetail() {
             <i className="ri-arrow-left-line me-1"></i>
             Torna alla Lista
           </Link>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
-            {saving ? (
-              <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-            ) : saveSuccess ? (
-              <><i className="ri-check-line me-1"></i>Salvato!</>
-            ) : (
-              <><i className="ri-save-line me-1"></i>Salva Modifiche</>
-            )}
-          </button>
+          {canSaveGlobalClientCard && (
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
+              {saving ? (
+                <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+              ) : saveSuccess ? (
+                <><i className="ri-check-line me-1"></i>Salvato!</>
+              ) : (
+                <><i className="ri-save-line me-1"></i>Salva Modifiche</>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

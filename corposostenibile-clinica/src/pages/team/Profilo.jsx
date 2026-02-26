@@ -17,6 +17,7 @@ import qualityService, {
   getBandBadgeStyle,
   getSuperMalusBadgeStyle,
 } from '../../services/qualityService';
+import { isProfessionistaStandard } from '../../utils/rbacScope';
 
 const ROLE_GRADIENTS = {
   admin: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -198,16 +199,31 @@ function Profilo() {
   const isOwnProfile = !id || (currentUser && user && currentUser.id === user.id);
   const isCurrentUserCco = currentUser?.specialty === 'cco';
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin || currentUser?.role === 'admin');
+  const isCurrentUserProfessionista = isProfessionistaStandard(currentUser);
   const canViewCapacityTab = Boolean(
     isCurrentUserAdmin || currentUser?.role === 'team_leader' || isCurrentUserCco
   );
   const canEditCapacity = Boolean(isCurrentUserAdmin || isCurrentUserCco);
+  const canViewQualityTab = Boolean(isCurrentUserAdmin || isCurrentUserCco);
+
+  useEffect(() => {
+    if (!id || !currentUser || !isCurrentUserProfessionista) return;
+    if (Number(id) !== Number(currentUser.id)) {
+      navigate('/profilo', { replace: true });
+    }
+  }, [id, currentUser, isCurrentUserProfessionista, navigate]);
 
   useEffect(() => {
     const requestedTab = new URLSearchParams(location.search).get('tab');
     if (!requestedTab) return;
 
-    const allowedTabs = new Set(['info', 'teams', 'clienti', 'check', 'formazione', 'task', 'quality']);
+    const allowedTabs = new Set(['info', 'clienti', 'check', 'formazione', 'task']);
+    if (!isCurrentUserProfessionista) {
+      allowedTabs.add('teams');
+    }
+    if (canViewQualityTab) {
+      allowedTabs.add('quality');
+    }
     if (canViewCapacityTab) {
       allowedTabs.add('capienza');
     }
@@ -215,7 +231,16 @@ function Profilo() {
     if (allowedTabs.has(requestedTab) && requestedTab !== activeTab) {
       setActiveTab(requestedTab);
     }
-  }, [location.search, canViewCapacityTab, activeTab]);
+  }, [location.search, canViewCapacityTab, canViewQualityTab, isCurrentUserProfessionista, activeTab]);
+
+  useEffect(() => {
+    if (isCurrentUserProfessionista && activeTab === 'teams') {
+      setActiveTab('info');
+    }
+    if (!canViewQualityTab && activeTab === 'quality') {
+      setActiveTab('info');
+    }
+  }, [isCurrentUserProfessionista, canViewQualityTab, activeTab]);
 
   const fetchClients = useCallback(async () => {
     if (!user?.id) return;
@@ -649,13 +674,15 @@ function Profilo() {
                     Informazioni
                   </button>
                 </li>
-                <li className="nav-item">
-                  <button className={`nav-link px-4 py-3 ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>
-                    <i className="ri-team-line me-2"></i>
-                    Team Guidati
-                    {user.teams_led?.length > 0 && <span className="badge bg-primary ms-2">{user.teams_led.length}</span>}
-                  </button>
-                </li>
+                {!isCurrentUserProfessionista && (
+                  <li className="nav-item">
+                    <button className={`nav-link px-4 py-3 ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>
+                      <i className="ri-team-line me-2"></i>
+                      Team Guidati
+                      {user.teams_led?.length > 0 && <span className="badge bg-primary ms-2">{user.teams_led.length}</span>}
+                    </button>
+                  </li>
+                )}
                 <li className="nav-item">
                   <button className={`nav-link px-4 py-3 ${activeTab === 'clienti' ? 'active' : ''}`} onClick={() => setActiveTab('clienti')}>
                     <i className="ri-user-heart-line me-2"></i>
@@ -680,12 +707,14 @@ function Profilo() {
                     Task
                   </button>
                 </li>
-                <li className="nav-item">
-                  <button className={`nav-link px-4 py-3 ${activeTab === 'quality' ? 'active' : ''}`} onClick={() => setActiveTab('quality')}>
-                    <i className="ri-star-line me-2"></i>
-                    Quality
-                  </button>
-                </li>
+                {canViewQualityTab && (
+                  <li className="nav-item">
+                    <button className={`nav-link px-4 py-3 ${activeTab === 'quality' ? 'active' : ''}`} onClick={() => setActiveTab('quality')}>
+                      <i className="ri-star-line me-2"></i>
+                      Quality
+                    </button>
+                  </li>
+                )}
                 {canViewCapacityTab && (
                   <li className="nav-item">
                     <button className={`nav-link px-4 py-3 ${activeTab === 'capienza' ? 'active' : ''}`} onClick={() => setActiveTab('capienza')}>

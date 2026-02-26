@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import teamService, {
   ROLE_LABELS,
   SPECIALTY_LABELS,
@@ -10,6 +10,7 @@ import teamService, {
 } from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeAvatarPath } from '../../utils/mediaUrl';
+import { isProfessionistaStandard } from '../../utils/rbacScope';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con i KPI pazienti)
 const SPECIALTY_GRADIENTS = {
@@ -25,8 +26,10 @@ const DEFAULT_GRADIENT = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
 
 function TeamList() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const isProfessionista = isProfessionistaStandard(user);
   const [searchParams, setSearchParams] = useSearchParams();
   const [members, setMembers] = useState([]);
   const [brokenAvatars, setBrokenAvatars] = useState({});
@@ -59,6 +62,10 @@ function TeamList() {
 
   // Fetch global stats on mount
   useEffect(() => {
+    if (isProfessionista) {
+      navigate('/profilo', { replace: true });
+      return;
+    }
     const fetchStats = async () => {
       if (!isAdminOrCco) return;
       try {
@@ -69,7 +76,7 @@ function TeamList() {
       }
     };
     fetchStats();
-  }, [isAdminOrCco]);
+  }, [isAdminOrCco, isProfessionista, navigate]);
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -100,8 +107,9 @@ function TeamList() {
   }, [pagination.page, pagination.perPage, filters]);
 
   useEffect(() => {
+    if (isProfessionista) return;
     fetchMembers();
-  }, [fetchMembers]);
+  }, [fetchMembers, isProfessionista]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));

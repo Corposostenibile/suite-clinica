@@ -5,6 +5,15 @@ import { Link } from "react-router-dom";
 import { MenuList } from './Menu';
 import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
+import {
+  canAccessAiAssignments,
+  canAccessCapacity,
+  canAccessGlobalCheckPage,
+  canAccessQualityPage,
+  canAccessTeamLists,
+  canAccessTrialPages,
+  isProfessionistaStandard,
+} from "../../../utils/rbacScope";
 
 const reducer = (previousState, updatedState) => ({
   ...previousState,
@@ -26,10 +35,6 @@ const SideBar = () => {
   } = useContext(ThemeContext);
 
   const { user } = useAuth();
-
-  // DEBUG: Verifica contenuto user
-  console.log('🔍 SideBar - User object:', user);
-  console.log('🔍 is_trial:', user?.is_trial, 'trial_stage:', user?.trial_stage);
 
   const [state, setState] = useReducer(reducer, initialState);
   const handleMenuActive = status => {
@@ -103,25 +108,26 @@ const SideBar = () => {
                 }
               })
               : MenuList.filter(item => {
-                // Utenti normali: nascondi Quality per non-admin
-                if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
+                if (item.title === 'Quality' && !canAccessQualityPage(user)) {
                   return false;
                 }
-                // Nascondi Assegnazioni per utenti professionisti
-                if (item.title === 'Assegnazioni' && user?.role === 'professionista' && !user?.is_admin) {
+                if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
                   return false;
                 }
-                // Capienze visibile solo ad admin/CCO/team leader
-                if (item.title === 'Capienze') {
-                  const isCco = user?.specialty === 'cco';
-                  const canViewCapacity = Boolean(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader' || isCco);
-                  return canViewCapacity;
+                if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
+                if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
+                if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
+                if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
+                  return false;
                 }
                 return true;
               })
           ).map((data, index) => {
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
+              if (menuClass !== "menu-title" && user && isProfessionistaStandard(user) && data.title === 'TEAM') {
+                return null;
+              }
               return (
                 <li className={`nav-label  ${menuClass} ${data.extraclass}`} key={index}>{data.title}</li>
               )

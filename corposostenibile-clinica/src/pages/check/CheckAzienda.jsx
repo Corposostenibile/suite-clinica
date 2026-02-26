@@ -12,6 +12,7 @@ import {
     FaInfoCircle,
     FaLightbulb
 } from 'react-icons/fa';
+import { isProfessionistaStandard } from '../../utils/rbacScope';
 
 // Stili per la tabella (stesso stile di ClientiList)
 const tableStyles = {
@@ -233,13 +234,18 @@ function CheckAzienda() {
   // Tour
   const [mostraTour, setMostraTour] = useState(false);
   const [searchParams] = useSearchParams();
+  const isProfessionista = isProfessionistaStandard(user);
 
   // Effetto per avvio automatico tour da Hub Supporto
   useEffect(() => {
+    if (isProfessionista) {
+      navigate('/profilo?tab=check', { replace: true });
+      return;
+    }
     if (searchParams.get('startTour') === 'true') {
       setMostraTour(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isProfessionista, navigate]);
   
   const tourSteps = [
     {
