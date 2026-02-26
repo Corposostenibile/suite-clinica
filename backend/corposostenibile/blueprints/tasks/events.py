@@ -231,7 +231,14 @@ def trigger_training_request_task(mapper, connection, target):
 
     requester_name = None
     try:
-        requester_name = target.requester.full_name if getattr(target, "requester", None) else None
+        requester = getattr(target, "requester", None)
+        if requester is None and getattr(target, "requester_id", None):
+            # In after_insert la relationship puo' non essere caricata: fallback esplicito.
+            from corposostenibile.models import User
+            requester = session.get(User, target.requester_id) or User.query.get(target.requester_id)
+        requester_name = getattr(requester, "full_name", None)
+        if not requester_name and requester is not None:
+            requester_name = f"{getattr(requester, 'first_name', '')} {getattr(requester, 'last_name', '')}".strip()
     except Exception:
         requester_name = None
     if not requester_name:
