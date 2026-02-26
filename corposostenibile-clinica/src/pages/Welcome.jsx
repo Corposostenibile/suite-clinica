@@ -8,7 +8,7 @@ import clientiService from '../services/clientiService';
 import checkService from '../services/checkService';
 import taskService from '../services/taskService';
 import logoFoglia from '../images/logo_foglia.png';
-import { isProfessionistaStandard, isTeamLeaderRestricted } from '../utils/rbacScope';
+import { isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../utils/rbacScope';
 
 // Tab configuration
 const TABS = [
@@ -88,15 +88,22 @@ function RoleScopedWelcome({ user, mode }) {
   const scopeSubtitle = isTeamLeaderMode ? 'Panoramica operativa del tuo team' : 'Panoramica personale';
   const teamSummary = scopeData?.teamsSummary || [];
   const kpi = scopeData?.kpi || {};
-  const qualitySummary = scopeData?.qualitySummary || {};
   const clientLoad = scopeData?.clientLoad || {};
+  const tlSpecialtyGroup = normalizeSpecialtyGroup(user?.specialty);
+  const tlSpecialtyLoad = tlSpecialtyGroup ? clientLoad?.[tlSpecialtyGroup] : null;
+  const tlSpecialtyLabel = {
+    nutrizione: 'Nutrizione',
+    coach: 'Coach',
+    psicologia: 'Psicologia',
+    medico: 'Medico',
+  }[tlSpecialtyGroup] || 'Specialità';
 
   const cards = isTeamLeaderMode
     ? [
         { label: 'Team gestiti', value: teamSummary.length, icon: 'ri-team-line', color: '#3b82f6' },
         { label: 'Membri team', value: kpi.totalActive ?? 0, icon: 'ri-user-star-line', color: '#22c55e' },
         { label: 'Task aperti team', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#f97316' },
-        { label: 'Richieste formazione team', value: trainingSummary.receivedRequests, icon: 'ri-mail-open-line', color: '#8b5cf6' },
+        { label: `Pazienti attivi (${tlSpecialtyLabel})`, value: tlSpecialtyLoad?.clients ?? 0, icon: 'ri-group-line', color: '#8b5cf6' },
       ]
     : [
         { label: 'Task aperti', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#3b82f6' },
@@ -200,62 +207,108 @@ function RoleScopedWelcome({ user, mode }) {
         </div>
 
         <div className="col-lg-5">
-          <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 pb-0">
-              <h6 className="mb-0" style={{ color: '#1e293b' }}>
-                <i className="ri-team-line me-2"></i>
-                Scope visibile
-              </h6>
-            </div>
-            <div className="card-body">
-              {loading ? (
-                <div className="text-muted">Caricamento...</div>
-              ) : (
-                <>
-                  <div className="small text-muted mb-2">Team</div>
-                  <div className="d-flex flex-wrap gap-2 mb-3">
-                    {(teamSummary.length ? teamSummary : [{ id: 'self', name: 'Personale', team_type: null }]).map((team) => (
-                      <span key={team.id} className="badge rounded-pill text-bg-light">
-                        {team.name}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="small text-muted mb-2">Client load (scope)</div>
-                  <div className="d-flex flex-column gap-1" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                    {Object.entries(clientLoad).map(([key, value]) => (
-                      <div key={key} className="d-flex justify-content-between small">
-                        <span style={{ color: '#475569' }}>{key}</span>
-                        <span className="fw-semibold">{value?.clients || 0} clienti / {value?.professionals || 0} prof.</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          {isTeamLeaderMode ? (
+            <>
+              <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
+                <div className="card-header bg-white border-0 pb-0">
+                  <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                    <i className="ri-team-line me-2"></i>
+                    Team gestiti
+                  </h6>
+                </div>
+                <div className="card-body">
+                  {loading ? (
+                    <div className="text-muted">Caricamento...</div>
+                  ) : teamSummary.length === 0 ? (
+                    <div className="text-muted">Nessun team associato.</div>
+                  ) : (
+                    <div className="d-flex flex-column gap-2">
+                      {teamSummary.map((team) => (
+                        <div key={team.id} className="d-flex align-items-center justify-content-between border rounded-3 p-2">
+                          <div>
+                            <div className="fw-medium" style={{ color: '#1e293b' }}>{team.name}</div>
+                            <div className="small text-muted">
+                              {team.team_type || 'team'} • {team.member_count || 0} membri
+                            </div>
+                          </div>
+                          <Link to="/team-lista" className="btn btn-light btn-sm">Apri</Link>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 pb-0">
-              <h6 className="mb-0" style={{ color: '#1e293b' }}>
-                <i className="ri-star-line me-2"></i>
-                Quality (scope)
-              </h6>
+              <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
+                <div className="card-header bg-white border-0 pb-0">
+                  <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                    <i className="ri-group-line me-2"></i>
+                    Pazienti del tuo ambito ({tlSpecialtyLabel})
+                  </h6>
+                </div>
+                <div className="card-body">
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted small">Pazienti attivi/in pausa</span>
+                    <span className="fw-semibold">{loading ? '…' : (tlSpecialtyLoad?.clients ?? 0)}</span>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted small">Professionisti del team</span>
+                    <span className="fw-semibold">{loading ? '…' : (tlSpecialtyLoad?.professionals ?? 0)}</span>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted small">Carico medio</span>
+                    <span className="fw-semibold">{loading ? '…' : `${tlSpecialtyLoad?.avgLoad ?? 0} clienti/prof.`}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+                <div className="card-header bg-white border-0 pb-0">
+                  <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                    <i className="ri-book-open-line me-2"></i>
+                    Formazione team
+                  </h6>
+                </div>
+                <div className="card-body">
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted small">Richieste ricevute</span>
+                    <span className="fw-semibold">{loading ? '…' : trainingSummary.receivedRequests}</span>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted small">Mie richieste</span>
+                    <span className="fw-semibold">{loading ? '…' : trainingSummary.myRequests}</span>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted small">Training da leggere (miei)</span>
+                    <span className="fw-semibold">{loading ? '…' : trainingSummary.pendingMyTrainings}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+              <div className="card-header bg-white border-0 pb-0">
+                <h6 className="mb-0" style={{ color: '#1e293b' }}>
+                  <i className="ri-book-open-line me-2"></i>
+                  Formazione
+                </h6>
+              </div>
+              <div className="card-body">
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted small">Training ricevuti</span>
+                  <span className="fw-semibold">{loading ? '…' : trainingSummary.myTrainings}</span>
+                </div>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted small">Da leggere</span>
+                  <span className="fw-semibold">{loading ? '…' : trainingSummary.pendingMyTrainings}</span>
+                </div>
+                <div className="d-flex justify-content-between">
+                  <span className="text-muted small">Mie richieste</span>
+                  <span className="fw-semibold">{loading ? '…' : trainingSummary.myRequests}</span>
+                </div>
+              </div>
             </div>
-            <div className="card-body">
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted small">Media quality</span>
-                <span className="fw-semibold">{loading ? '…' : (qualitySummary.avgQuality ?? '—')}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted small">Trend su</span>
-                <span className="fw-semibold">{loading ? '…' : (qualitySummary.trendUp ?? 0)}</span>
-              </div>
-              <div className="d-flex justify-content-between">
-                <span className="text-muted small">Trend giù</span>
-                <span className="fw-semibold">{loading ? '…' : (qualitySummary.trendDown ?? 0)}</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </>

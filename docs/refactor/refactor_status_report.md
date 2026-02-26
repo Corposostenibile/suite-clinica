@@ -33,6 +33,8 @@ Nota coerenza ruoli:
   - nascosti KPI/tab globali non pertinenti
   - quick actions verso moduli operativi
   - copy KPI/dashboard TL reso più chiaro (etichette meno ambigue)
+  - rimossi blocchi dashboard TL troppo tecnici/confusivi (`Scope visibile`, `Client load`, `Quality`)
+  - sostituiti con blocchi più operativi (team gestiti, pazienti del proprio ambito, formazione team)
   - da validare su dati reali: coerenza KPI/liste per scope team/specialità
 - `Professionista`
   - dashboard personale scoped (senza KPI globali/cross-team)
@@ -100,7 +102,8 @@ Nota coerenza ruoli:
   - frontend:
     - tab principali servizio-specifiche filtrate per specialità TL (`nutrizione` / `coaching` / `psicologia`)
     - azioni principali nelle sezioni (piani/diari/luoghi) allineate alla specialità visibile
-    - assegnazioni/interruzioni nel tab `Team` limitate anche in UI alla categoria coerente con la specialità TL (più `Health Manager`)
+    - assegnazioni/interruzioni nel tab `Team` limitate anche in UI alla categoria coerente con la specialità TL
+    - `Team Esterno` nascosto ai TL (nessuna possibilità UI di gestire HM/esterni dalla scheda paziente)
   - backend:
     - controlli service-specifici verificano anche il perimetro clienti del team del TL
     - controllo di perimetro anche su endpoint principale scheda (`GET /api/v1/customers/<id>`) e operazioni principali (`PATCH/DELETE/history`)

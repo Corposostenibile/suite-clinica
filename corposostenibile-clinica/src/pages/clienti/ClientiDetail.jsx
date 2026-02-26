@@ -87,10 +87,11 @@ function ClientiDetail() {
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
+  const canViewExternalTeamTab = !isRestrictedTeamLeader;
   const canManageAssignmentType = useCallback((tipo) => {
     if (!canManageTeamAssignments) return false;
     if (!isRestrictedTeamLeader) return true;
-    if (tipo === 'health_manager') return true;
+    if (tipo === 'health_manager') return false;
 
     const allowedBySpecialty = {
       nutrizione: new Set(['nutrizionista']),
@@ -605,6 +606,11 @@ function ClientiDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [teamSubTab, setTeamSubTab] = useState('clinico'); // 'clinico' or 'esterno'
+  useEffect(() => {
+    if (!canViewExternalTeamTab && teamSubTab === 'esterno') {
+      setTeamSubTab('clinico');
+    }
+  }, [canViewExternalTeamTab, teamSubTab]);
 
   // Professional assignment state
   const [professionistiHistory, setProfessionistiHistory] = useState([]);
@@ -3182,23 +3188,25 @@ function ClientiDetail() {
                           Team Clinico
                         </button>
                       </li>
-                      <li className="nav-item">
-                        <button
-                          className={`nav-link ${teamSubTab === 'esterno' ? 'active' : ''}`}
-                          onClick={() => setTeamSubTab('esterno')}
-                          style={{
-                            background: teamSubTab === 'esterno' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#f1f5f9',
-                            color: teamSubTab === 'esterno' ? '#fff' : '#64748b',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '10px 20px',
-                            fontWeight: 600,
-                          }}
-                        >
-                          <i className="ri-team-line me-2"></i>
-                          Team Esterno
-                        </button>
-                      </li>
+                      {canViewExternalTeamTab && (
+                        <li className="nav-item">
+                          <button
+                            className={`nav-link ${teamSubTab === 'esterno' ? 'active' : ''}`}
+                            onClick={() => setTeamSubTab('esterno')}
+                            style={{
+                              background: teamSubTab === 'esterno' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#f1f5f9',
+                              color: teamSubTab === 'esterno' ? '#fff' : '#64748b',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '10px 20px',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <i className="ri-team-line me-2"></i>
+                            Team Esterno
+                          </button>
+                        </li>
+                      )}
                     </ul>
                   </div>
 
@@ -3622,7 +3630,7 @@ function ClientiDetail() {
                   )}
 
                   {/* ===== TEAM ESTERNO ===== */}
-                  {teamSubTab === 'esterno' && (
+                  {canViewExternalTeamTab && teamSubTab === 'esterno' && (
                     <div className="col-12" data-tour="team-esterno">
                       <div className="card border">
                         <div className="card-body p-3">
