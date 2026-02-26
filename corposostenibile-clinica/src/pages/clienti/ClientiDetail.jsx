@@ -78,6 +78,13 @@ function ClientiDetail() {
   const isProfessionista = isProfessionistaStandard(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const canSaveGlobalClientCard = !isProfessionista;
+  const canManageTeamAssignments = !isProfessionista;
+  const canGenerateCheckLinks = !isProfessionista;
+  const canCreateCallBonus = !isProfessionista;
+  const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
+  const canManageNutritionSection = !isProfessionista || specialtyGroup === 'nutrizione';
+  const canManageCoachingSection = !isProfessionista || specialtyGroup === 'coach';
+  const canManagePsychologySection = !isProfessionista || specialtyGroup === 'psicologia';
 
   const getAllowedMainTabsForUser = useCallback(() => {
     if (!isProfessionista) {
@@ -943,6 +950,10 @@ function ClientiDetail() {
   };
 
   const handleGenerateCheckLink = async (checkType) => {
+    if (!canGenerateCheckLinks) {
+      setError('Generazione link check non consentita per il ruolo Professionista.');
+      return;
+    }
     setGeneratingLink(checkType);
     try {
       const result = await checkService.generateCheckLink(checkType, id);
@@ -1076,6 +1087,10 @@ function ClientiDetail() {
 
   // ── Call Bonus Handlers ──
   const handleOpenCallBonusModal = () => {
+    if (!canCreateCallBonus) {
+      setError('Richiesta call bonus non consentita per il ruolo Professionista.');
+      return;
+    }
     setCallBonusStep(1);
     setCallBonusForm({ tipo_professionista: '', note_richiesta: '' });
     setCallBonusAnalysis(null);
@@ -1087,6 +1102,10 @@ function ClientiDetail() {
   };
 
   const handleCallBonusAnalyze = async () => {
+    if (!canCreateCallBonus) {
+      setError('Richiesta call bonus non consentita per il ruolo Professionista.');
+      return;
+    }
     if (!callBonusForm.tipo_professionista) return;
     setCallBonusAiLoading(true);
     try {
@@ -1214,6 +1233,10 @@ function ClientiDetail() {
   };
 
   const handleOpenDiarioPsicologiaModal = (entry = null) => {
+    if (!canManagePsychologySection) {
+      setError('Modifica diario psicologia non consentita per il ruolo corrente.');
+      return;
+    }
     if (entry) {
       setDiarioPsicologiaForm({
         id: entry.id,
@@ -1231,6 +1254,10 @@ function ClientiDetail() {
   };
 
   const handleSaveDiarioPsicologia = async () => {
+    if (!canManagePsychologySection) {
+      setError('Salvataggio diario psicologia non consentito per il ruolo corrente.');
+      return;
+    }
     if (!diarioPsicologiaForm.entry_date || !diarioPsicologiaForm.content.trim()) {
       alert('Compila data e contenuto');
       return;
@@ -1265,6 +1292,10 @@ function ClientiDetail() {
   };
 
   const handleDeleteDiarioPsicologia = async (entryId) => {
+    if (!canManagePsychologySection) {
+      setError('Eliminazione diario psicologia non consentita per il ruolo corrente.');
+      return;
+    }
     if (!confirm('Sei sicuro di voler eliminare questa nota?')) return;
     try {
       await clientiService.deleteDiaryEntry(id, 'psicologia', entryId);
@@ -1288,6 +1319,10 @@ function ClientiDetail() {
   };
 
   const handleAddMealPlan = async () => {
+    if (!canManageNutritionSection) {
+      setError('Gestione piano alimentare non consentita per il ruolo corrente.');
+      return;
+    }
     if (!mealPlanForm.start_date || !mealPlanForm.end_date) {
       alert('Inserisci le date di inizio e fine');
       return;
@@ -1361,6 +1396,10 @@ function ClientiDetail() {
 
   // Open edit modal for a meal plan
   const handleOpenEditPlan = (plan) => {
+    if (!canManageNutritionSection) {
+      setError('Modifica piano alimentare non consentita per il ruolo corrente.');
+      return;
+    }
     setSelectedPlan(plan);
     setEditPlanForm({
       start_date: plan.start_date || '',
@@ -1374,6 +1413,10 @@ function ClientiDetail() {
 
   // Update existing meal plan
   const handleUpdateMealPlan = async () => {
+    if (!canManageNutritionSection) {
+      setError('Aggiornamento piano alimentare non consentito per il ruolo corrente.');
+      return;
+    }
     if (!selectedPlan) return;
 
     if (!editPlanForm.start_date || !editPlanForm.end_date) {
@@ -1451,6 +1494,10 @@ function ClientiDetail() {
   };
 
   const handleSaveAnamnesi = async () => {
+    if (!canManageNutritionSection) {
+      setError('Salvataggio anamnesi nutrizione non consentito per il ruolo corrente.');
+      return;
+    }
     if (!anamnesiContent.trim()) {
       alert('Inserisci il contenuto dell\'anamnesi');
       return;
@@ -1486,6 +1533,10 @@ function ClientiDetail() {
   };
 
   const handleOpenDiarioModal = (entry = null) => {
+    if (!canManageNutritionSection) {
+      setError('Modifica diario nutrizione non consentita per il ruolo corrente.');
+      return;
+    }
     if (entry) {
       setDiarioForm({
         id: entry.id,
@@ -1503,6 +1554,10 @@ function ClientiDetail() {
   };
 
   const handleSaveDiarioEntry = async () => {
+    if (!canManageNutritionSection) {
+      setError('Salvataggio diario nutrizione non consentito per il ruolo corrente.');
+      return;
+    }
     if (!diarioForm.content.trim()) {
       alert('Inserisci il contenuto della nota');
       return;
@@ -1527,6 +1582,10 @@ function ClientiDetail() {
   };
 
   const handleDeleteDiarioEntry = async (entryId) => {
+    if (!canManageNutritionSection) {
+      setError('Eliminazione diario nutrizione non consentita per il ruolo corrente.');
+      return;
+    }
     if (!confirm('Sei sicuro di voler eliminare questa nota?')) return;
 
     try {
@@ -1571,6 +1630,10 @@ function ClientiDetail() {
   };
 
   const handleAddTrainingPlan = async () => {
+    if (!canManageCoachingSection) {
+      setError('Gestione piano allenamento non consentita per il ruolo corrente.');
+      return;
+    }
     if (!trainingPlanForm.start_date || !trainingPlanForm.end_date) {
       alert('Inserisci le date di inizio e fine');
       return;
@@ -1629,6 +1692,10 @@ function ClientiDetail() {
   };
 
   const handleOpenEditTrainingPlan = (plan) => {
+    if (!canManageCoachingSection) {
+      setError('Modifica piano allenamento non consentita per il ruolo corrente.');
+      return;
+    }
     setSelectedTrainingPlan(plan);
     setEditTrainingForm({
       start_date: plan.start_date || '',
@@ -1641,6 +1708,10 @@ function ClientiDetail() {
   };
 
   const handleUpdateTrainingPlan = async () => {
+    if (!canManageCoachingSection) {
+      setError('Aggiornamento piano allenamento non consentito per il ruolo corrente.');
+      return;
+    }
     if (!selectedTrainingPlan) return;
 
     if (!editTrainingForm.start_date || !editTrainingForm.end_date) {
@@ -1708,6 +1779,10 @@ function ClientiDetail() {
   };
 
   const handleOpenLocationModal = (location = null) => {
+    if (!canManageCoachingSection) {
+      setError('Gestione luoghi allenamento non consentita per il ruolo corrente.');
+      return;
+    }
     if (location) {
       setLocationForm({
         id: location.id,
@@ -1731,6 +1806,10 @@ function ClientiDetail() {
   };
 
   const handleSaveLocation = async () => {
+    if (!canManageCoachingSection) {
+      setError('Salvataggio luogo allenamento non consentito per il ruolo corrente.');
+      return;
+    }
     if (!locationForm.location) {
       alert('Seleziona un luogo di allenamento');
       return;
@@ -1791,6 +1870,10 @@ function ClientiDetail() {
   };
 
   const handleSaveAnamnesiCoaching = async () => {
+    if (!canManageCoachingSection) {
+      setError('Salvataggio anamnesi coaching non consentito per il ruolo corrente.');
+      return;
+    }
     if (!anamnesiCoachingContent.trim()) {
       alert('Inserisci il contenuto dell\'anamnesi');
       return;
@@ -1825,6 +1908,10 @@ function ClientiDetail() {
   };
 
   const handleOpenDiarioCoachingModal = (entry = null) => {
+    if (!canManageCoachingSection) {
+      setError('Modifica diario coaching non consentita per il ruolo corrente.');
+      return;
+    }
     if (entry) {
       setDiarioCoachingForm({
         id: entry.id,
@@ -1842,6 +1929,10 @@ function ClientiDetail() {
   };
 
   const handleSaveDiarioCoaching = async () => {
+    if (!canManageCoachingSection) {
+      setError('Salvataggio diario coaching non consentito per il ruolo corrente.');
+      return;
+    }
     if (!diarioCoachingForm.content.trim()) {
       alert('Inserisci il contenuto della nota');
       return;
@@ -1866,6 +1957,10 @@ function ClientiDetail() {
   };
 
   const handleDeleteDiarioCoaching = async (entryId) => {
+    if (!canManageCoachingSection) {
+      setError('Eliminazione diario coaching non consentita per il ruolo corrente.');
+      return;
+    }
     if (!confirm('Sei sicuro di voler eliminare questa nota?')) return;
 
     try {
@@ -1912,6 +2007,10 @@ function ClientiDetail() {
 
   // Handle assign professional
   const handleOpenAssignModal = (tipo) => {
+    if (!canManageTeamAssignments) {
+      setError('Assegnazione professionisti non consentita per il ruolo Professionista.');
+      return;
+    }
     setAssigningType(tipo);
     setAssignForm({ user_id: '', data_dal: new Date().toISOString().split('T')[0], motivazione_aggiunta: '' });
     setShowAssignModal(true);
@@ -1945,6 +2044,10 @@ function ClientiDetail() {
 
   // Handle interrupt assignment
   const handleOpenInterruptModal = (assignment) => {
+    if (!canManageTeamAssignments) {
+      setError('Interruzione assegnazioni non consentita per il ruolo Professionista.');
+      return;
+    }
     setInterruptingAssignment(assignment);
     setInterruptForm({ motivazione_interruzione: '' });
     setShowInterruptModal(true);
@@ -2248,6 +2351,10 @@ function ClientiDetail() {
 
   // Delete
   const handleDelete = async () => {
+    if (!canDeleteClientRecord) {
+      setError('Eliminazione paziente non consentita.');
+      return;
+    }
     setDeleting(true);
     try {
       await clientiService.deleteCliente(id);
@@ -2648,15 +2755,17 @@ function ClientiDetail() {
               </div>
 
               {/* Action Buttons */}
-              <div className="d-grid gap-2">
-                <button
-                  className="btn btn-outline-danger"
-                  onClick={() => setShowDeleteModal(true)}
-                >
-                  <i className="ri-delete-bin-line me-2"></i>
-                  Elimina Paziente
-                </button>
-              </div>
+              {canDeleteClientRecord && (
+                <div className="d-grid gap-2">
+                  <button
+                    className="btn btn-outline-danger"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    <i className="ri-delete-bin-line me-2"></i>
+                    Elimina Paziente
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -4249,13 +4358,15 @@ function ClientiDetail() {
                                   </div>
                                   <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-success"
-                                  onClick={() => setShowAddMealPlanModal(true)}
-                                >
-                                  <i className="ri-add-line me-1"></i>
-                                  Nuovo Piano
-                                </button>
+                                {canManageNutritionSection && (
+                                  <button
+                                    className="btn btn-sm btn-success"
+                                    onClick={() => setShowAddMealPlanModal(true)}
+                                  >
+                                    <i className="ri-add-line me-1"></i>
+                                    Nuovo Piano
+                                  </button>
+                                )}
                               </div>
 
                               {(() => {
@@ -4296,13 +4407,15 @@ function ClientiDetail() {
                                             Visualizza
                                           </button>
                                         )}
-                                        <button
-                                          className="btn btn-sm btn-outline-primary"
-                                          onClick={() => handleOpenEditPlan(activePlan)}
-                                        >
-                                          <i className="ri-edit-line me-1"></i>
-                                          Modifica
-                                        </button>
+                                        {canManageNutritionSection && (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary"
+                                            onClick={() => handleOpenEditPlan(activePlan)}
+                                          >
+                                            <i className="ri-edit-line me-1"></i>
+                                            Modifica
+                                          </button>
+                                        )}
                                         <button
                                           className="btn btn-sm btn-outline-secondary"
                                           onClick={() => handleViewVersions(activePlan)}
@@ -4403,13 +4516,15 @@ function ClientiDetail() {
                                               )}
                                               {!plan.is_legacy && (
                                                 <>
-                                                  <button
-                                                    className="btn btn-sm btn-outline-primary py-0 px-2"
-                                                    onClick={() => handleOpenEditPlan(plan)}
-                                                    title="Modifica"
-                                                  >
-                                                    <i className="ri-edit-line"></i>
-                                                  </button>
+                                                  {canManageNutritionSection && (
+                                                    <button
+                                                      className="btn btn-sm btn-outline-primary py-0 px-2"
+                                                      onClick={() => handleOpenEditPlan(plan)}
+                                                      title="Modifica"
+                                                    >
+                                                      <i className="ri-edit-line"></i>
+                                                    </button>
+                                                  )}
                                                   <button
                                                     className="btn btn-sm btn-outline-secondary py-0 px-2"
                                                     onClick={() => handleViewVersions(plan)}
@@ -4493,13 +4608,15 @@ function ClientiDetail() {
                                 <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
                                 <span className="badge bg-secondary ms-2">{diarioEntries.length}</span>
                               </div>
-                              <button
-                                className="btn btn-sm btn-primary"
-                                onClick={() => handleOpenDiarioModal()}
-                              >
-                                <i className="ri-add-line me-1"></i>
-                                Nuova Nota
-                              </button>
+                              {canManageNutritionSection && (
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => handleOpenDiarioModal()}
+                                >
+                                  <i className="ri-add-line me-1"></i>
+                                  Nuova Nota
+                                </button>
+                              )}
                             </div>
 
                             {loadingDiario ? (
@@ -4533,13 +4650,15 @@ function ClientiDetail() {
                                         </small>
                                       </div>
                                       <div className="d-flex gap-1">
-                                        <button
-                                          className="btn btn-sm btn-outline-primary py-0 px-2"
-                                          onClick={() => handleOpenDiarioModal(entry)}
-                                          title="Modifica"
-                                        >
-                                          <i className="ri-edit-line"></i>
-                                        </button>
+                                        {canManageNutritionSection && (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary py-0 px-2"
+                                            onClick={() => handleOpenDiarioModal(entry)}
+                                            title="Modifica"
+                                          >
+                                            <i className="ri-edit-line"></i>
+                                          </button>
+                                        )}
                                         {(user?.is_admin || user?.role === 'admin') && (
                                           <button
                                             className="btn btn-sm btn-outline-danger py-0 px-2"
@@ -5108,13 +5227,15 @@ function ClientiDetail() {
                                   </div>
                                   <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-warning"
-                                  onClick={() => setShowAddTrainingPlanModal(true)}
-                                >
-                                  <i className="ri-add-line me-1"></i>
-                                  Nuovo Piano
-                                </button>
+                                {canManageCoachingSection && (
+                                  <button
+                                    className="btn btn-sm btn-warning"
+                                    onClick={() => setShowAddTrainingPlanModal(true)}
+                                  >
+                                    <i className="ri-add-line me-1"></i>
+                                    Nuovo Piano
+                                  </button>
+                                )}
                               </div>
                               {(() => {
                                 const activePlan = trainingPlans.find(p => p.is_active);
@@ -5149,13 +5270,15 @@ function ClientiDetail() {
                                             Visualizza
                                           </button>
                                         )}
-                                        <button
-                                          className="btn btn-sm btn-outline-primary"
-                                          onClick={() => handleOpenEditTrainingPlan(activePlan)}
-                                        >
-                                          <i className="ri-edit-line me-1"></i>
-                                          Modifica
-                                        </button>
+                                        {canManageCoachingSection && (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary"
+                                            onClick={() => handleOpenEditTrainingPlan(activePlan)}
+                                          >
+                                            <i className="ri-edit-line me-1"></i>
+                                            Modifica
+                                          </button>
+                                        )}
                                         <button
                                           className="btn btn-sm btn-outline-secondary"
                                           onClick={() => handleViewTrainingVersions(activePlan)}
@@ -5222,13 +5345,15 @@ function ClientiDetail() {
                                                   <i className="ri-eye-line"></i>
                                                 </button>
                                               )}
-                                              <button
-                                                className="btn btn-sm btn-outline-primary py-0 px-2"
-                                                onClick={() => handleOpenEditTrainingPlan(plan)}
-                                                title="Modifica"
-                                              >
-                                                <i className="ri-edit-line"></i>
-                                              </button>
+                                              {canManageCoachingSection && (
+                                                <button
+                                                  className="btn btn-sm btn-outline-primary py-0 px-2"
+                                                  onClick={() => handleOpenEditTrainingPlan(plan)}
+                                                  title="Modifica"
+                                                >
+                                                  <i className="ri-edit-line"></i>
+                                                </button>
+                                              )}
                                               <button
                                                 className="btn btn-sm btn-outline-secondary py-0 px-2"
                                                 onClick={() => handleViewTrainingVersions(plan)}
@@ -5262,13 +5387,15 @@ function ClientiDetail() {
                             <i className="ri-map-pin-line me-2"></i>
                             Storico Luoghi di Allenamento
                           </h6>
-                          <button
-                            className="btn btn-sm btn-success"
-                            onClick={() => handleOpenLocationModal()}
-                          >
-                            <i className="ri-add-line me-1"></i>
-                            Nuovo Luogo
-                          </button>
+                          {canManageCoachingSection && (
+                            <button
+                              className="btn btn-sm btn-success"
+                              onClick={() => handleOpenLocationModal()}
+                            >
+                              <i className="ri-add-line me-1"></i>
+                              Nuovo Luogo
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -5352,9 +5479,9 @@ function ClientiDetail() {
                                         style={{
                                           borderRadius: '12px',
                                           background: loc.is_active ? '#fff' : '#f8fafc',
-                                          cursor: 'pointer',
+                                          cursor: canManageCoachingSection ? 'pointer' : 'default',
                                         }}
-                                        onClick={() => handleOpenLocationModal(loc)}
+                                        onClick={canManageCoachingSection ? () => handleOpenLocationModal(loc) : undefined}
                                       >
                                         <div className="card-body p-2">
                                           {/* Status badge */}
@@ -5486,13 +5613,15 @@ function ClientiDetail() {
                                 <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
                                 <span className="badge bg-secondary ms-2">{diarioCoachingEntries.length}</span>
                               </div>
-                              <button
-                                className="btn btn-sm btn-primary"
-                                onClick={() => handleOpenDiarioCoachingModal()}
-                              >
-                                <i className="ri-add-line me-1"></i>
-                                Nuova Nota
-                              </button>
+                              {canManageCoachingSection && (
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => handleOpenDiarioCoachingModal()}
+                                >
+                                  <i className="ri-add-line me-1"></i>
+                                  Nuova Nota
+                                </button>
+                              )}
                             </div>
                             {loadingDiarioCoaching ? (
                               <div className="text-center py-4">
@@ -5525,13 +5654,15 @@ function ClientiDetail() {
                                         </small>
                                       </div>
                                       <div className="d-flex gap-1">
-                                        <button
-                                          className="btn btn-sm btn-outline-primary py-0 px-2"
-                                          onClick={() => handleOpenDiarioCoachingModal(entry)}
-                                          title="Modifica"
-                                        >
-                                          <i className="ri-edit-line"></i>
-                                        </button>
+                                        {canManageCoachingSection && (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary py-0 px-2"
+                                            onClick={() => handleOpenDiarioCoachingModal(entry)}
+                                            title="Modifica"
+                                          >
+                                            <i className="ri-edit-line"></i>
+                                          </button>
+                                        )}
                                         {(user?.is_admin || user?.role === 'admin') && (
                                           <button
                                             className="btn btn-sm btn-outline-danger py-0 px-2"
@@ -6156,14 +6287,16 @@ function ClientiDetail() {
                                 <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
                                 <span className="badge ms-2" style={{ background: '#a855f7' }}>{diarioPsicologiaEntries.length}</span>
                               </div>
-                              <button
-                                className="btn btn-sm"
-                                style={{ background: '#a855f7', color: 'white' }}
-                                onClick={() => handleOpenDiarioPsicologiaModal()}
-                              >
-                                <i className="ri-add-line me-1"></i>
-                                Nuova Nota
-                              </button>
+                              {canManagePsychologySection && (
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ background: '#a855f7', color: 'white' }}
+                                  onClick={() => handleOpenDiarioPsicologiaModal()}
+                                >
+                                  <i className="ri-add-line me-1"></i>
+                                  Nuova Nota
+                                </button>
+                              )}
                             </div>
 
                             {loadingDiarioPsicologia ? (
@@ -6197,13 +6330,15 @@ function ClientiDetail() {
                                         </small>
                                       </div>
                                       <div className="d-flex gap-1">
-                                        <button
-                                          className="btn btn-sm btn-outline-primary py-0 px-2"
-                                          onClick={() => handleOpenDiarioPsicologiaModal(entry)}
-                                          title="Modifica"
-                                        >
-                                          <i className="ri-edit-line"></i>
-                                        </button>
+                                        {canManagePsychologySection && (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary py-0 px-2"
+                                            onClick={() => handleOpenDiarioPsicologiaModal(entry)}
+                                            title="Modifica"
+                                          >
+                                            <i className="ri-edit-line"></i>
+                                          </button>
+                                        )}
                                         {(user?.is_admin || user?.role === 'admin') && (
                                           <button
                                             className="btn btn-sm btn-outline-danger py-0 px-2"
@@ -6440,11 +6575,13 @@ function ClientiDetail() {
 
                   {/* Link Generation Section (Filtered) */}
                   <div className="col-12" data-tour="check-periodici-link">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      <i className="ri-link me-2"></i>
-                      Genera Link Check
-                    </h6>
-                    <div className="row g-3">
+                    {canGenerateCheckLinks ? (
+                      <>
+                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                          <i className="ri-link me-2"></i>
+                          Genera Link Check
+                        </h6>
+                        <div className="row g-3">
                       {Object.values(CHECK_TYPES)
                         .filter(t => t.key === activePeriodiciTab)
                         .map((checkType) => {
@@ -6497,7 +6634,15 @@ function ClientiDetail() {
                           </div>
                         );
                       })}
-                    </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="alert alert-light border mb-0">
+                        <small className="text-muted">
+                          La generazione dei link check non è disponibile per il ruolo Professionista.
+                        </small>
+                      </div>
+                    )}
                   </div>
 
                   {/* Responses History Section (Filtered) */}
@@ -6791,7 +6936,7 @@ function ClientiDetail() {
                       <i className="ri-phone-line me-2 text-primary"></i>
                       Storico Call Bonus
                     </h5>
-                    {(user?.is_admin || user?.role === 'admin' ||
+                    {canCreateCallBonus && (user?.is_admin || user?.role === 'admin' ||
                       (c.nutrizionistiMultipli || []).some(n => n.id === user?.id) ||
                       (c.coachesMultipli || []).some(n => n.id === user?.id) ||
                       (c.psicologiMultipli || []).some(n => n.id === user?.id)

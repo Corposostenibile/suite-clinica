@@ -82,6 +82,18 @@ from .helpers import (
 from .rbac import get_accessible_clients_query
 
 
+def _can_access_cliente_checks(cliente_id: int) -> bool:
+    accessible_query = get_accessible_clients_query()
+    if accessible_query is None:
+        return True
+    return db.session.query(accessible_query.filter(Cliente.cliente_id == cliente_id).exists()).scalar()
+
+
+def _abort_if_no_cliente_checks_access(cliente_id: int) -> None:
+    if not _can_access_cliente_checks(cliente_id):
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato a visualizzare i check di questo paziente.")
+
+
 def _frontend_base_url() -> str:
     """
     Calcola il base URL del frontend pubblico per i link dei check.
@@ -2684,6 +2696,7 @@ def api_cliente_checks(cliente_id: int):
 
     try:
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         base_url = _frontend_base_url()
 
@@ -2818,6 +2831,9 @@ def api_generate_check_link(check_type: str, cliente_id: int):
                 return jsonify({"success": False, "error": "Non autorizzato"}), 403
 
         cliente = Cliente.query.get_or_404(cliente_id)
+        # Difesa aggiuntiva: se in futuro il ruolo viene esteso oltre admin, resta il controllo sul perimetro cliente
+        if not current_user.is_admin and not _can_access_cliente_checks(cliente_id):
+            return jsonify({"success": False, "error": "Non autorizzato"}), 403
 
         # Select correct model
         if check_type == 'weekly':
@@ -3100,6 +3116,8 @@ def api_get_response_detail(response_type: str, response_id: int):
         if response_type == 'weekly':
             resp = WeeklyCheckResponse.query.get_or_404(response_id)
             cliente = resp.assignment.cliente if resp.assignment else None
+            if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
 
             # Check read status
             read_conf = ClientCheckReadConfirmation.query.filter_by(
@@ -3167,6 +3185,8 @@ def api_get_response_detail(response_type: str, response_id: int):
         elif response_type == 'dca':
             resp = DCACheckResponse.query.get_or_404(response_id)
             cliente = resp.assignment.cliente if resp.assignment else None
+            if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
 
             read_conf = ClientCheckReadConfirmation.query.filter_by(
                 response_type='dca_check',
@@ -3227,6 +3247,8 @@ def api_get_response_detail(response_type: str, response_id: int):
         elif response_type == 'minor':
             resp = MinorCheckResponse.query.get_or_404(response_id)
             cliente = resp.assignment.cliente if resp.assignment else None
+            if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
 
             data = {
                 "id": resp.id,

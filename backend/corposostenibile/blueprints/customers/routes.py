@@ -2561,6 +2561,8 @@ def assign_professionista(cliente_id: int):
     from flask_login import current_user
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato ad assegnare professionisti"}), 403
     data = request.get_json() or {}
 
     # Validazione campi obbligatori
@@ -2646,6 +2648,8 @@ def interrupt_professionista(cliente_id: int, history_id: int):
     from flask_login import current_user
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     history = db.session.query(ClienteProfessionistaHistory).filter_by(
         id=history_id,
         cliente_id=cliente_id,
@@ -2713,6 +2717,8 @@ def interrupt_legacy_professionista(cliente_id: int):
     from flask_login import current_user
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     data = request.get_json() or {}
 
     user_id = data.get("user_id")
@@ -3295,6 +3301,7 @@ def api_training_add(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -3399,6 +3406,7 @@ def api_training_change(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -3504,6 +3512,7 @@ def api_training_change(cliente_id: int):
 def api_training_history(cliente_id: int):
     """Restituisce lo storico completo dei piani allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     plans = db.session.query(TrainingPlan).filter_by(cliente_id=cliente_id).order_by(TrainingPlan.start_date.desc()).all()
 
     def _serialize(plan: TrainingPlan):
@@ -3557,6 +3566,7 @@ def api_training_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_training_versions(cliente_id: int, plan_id: int):
     """Restituisce lo storico delle versioni di un piano allenamento specifico."""
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3645,6 +3655,7 @@ def api_training_download(cliente_id: int, plan_id: int):
     import os
     from flask import current_app, send_from_directory
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il cliente e il piano esistano e siano collegati
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3685,6 +3696,7 @@ def api_training_extra_file_add(cliente_id: int, plan_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
         cliente_id=cliente_id
@@ -3771,6 +3783,7 @@ def api_training_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
     import os
     from flask import current_app
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3809,6 +3822,7 @@ def api_training_extra_file_download(cliente_id: int, plan_id: int, file_id: int
     from flask import send_file, current_app
     import os
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3892,6 +3906,7 @@ def api_storico_patologie(cliente_id: int):
 
     # Verifica che il cliente esista
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
     storico = PatologiaLog.query.filter_by(
@@ -3930,6 +3945,7 @@ def api_storico_patologie_psico(cliente_id: int):
 
     # Verifica che il cliente esista
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "psicologia")
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
     storico = PatologiaPsicoLog.query.filter_by(
@@ -3967,6 +3983,7 @@ def api_storico_patologie_psico(cliente_id: int):
 def api_location_add(cliente_id: int):
     """Aggiunge un nuovo storico luogo allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -4040,6 +4057,7 @@ def api_location_add(cliente_id: int):
 def api_location_change(cliente_id: int, loc_id: int):
     """Cambia storico luogo allenamento esistente."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -4097,6 +4115,7 @@ def api_location_change(cliente_id: int, loc_id: int):
 def api_location_history(cliente_id: int):
     """Restituisce lo storico completo dei luoghi allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     locations = db.session.query(TrainingLocation).filter_by(cliente_id=cliente_id).order_by(TrainingLocation.start_date.desc()).all()
 
     def _serialize(loc: TrainingLocation):
@@ -4137,6 +4156,7 @@ def api_location_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_location_versions(cliente_id: int, location_id: int):
     """Restituisce lo storico delle versioni di un luogo allenamento specifico."""
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il luogo appartenga al cliente
     location = db.session.query(TrainingLocation).filter_by(
         id=location_id,
@@ -4227,6 +4247,7 @@ def api_nutrition_add(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     if not _can_manage_meal_plans(cliente):
         abort(403)
 
@@ -4331,6 +4352,7 @@ def api_nutrition_change(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     if not _can_manage_meal_plans(cliente):
         abort(403)
 
@@ -4436,6 +4458,7 @@ def api_nutrition_change(cliente_id: int):
 def api_nutrition_history(cliente_id: int):
     """Restituisce lo storico completo dei piani alimentari."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     plans = db.session.query(MealPlan).filter_by(cliente_id=cliente_id).order_by(MealPlan.start_date.desc()).all()
 
     def _serialize(plan: MealPlan):
@@ -4489,6 +4512,7 @@ def api_nutrition_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_versions(cliente_id: int, plan_id: int):
     """Restituisce lo storico delle versioni di un piano alimentare specifico."""
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -4575,6 +4599,7 @@ def api_nutrition_download(cliente_id: int, plan_id: int):
     from flask import send_file, current_app
     import os
 
+    cliente = _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -4613,6 +4638,7 @@ def api_nutrition_extra_file_add(cliente_id: int, plan_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
         cliente_id=cliente_id
@@ -4700,6 +4726,7 @@ def api_nutrition_extra_file_delete(cliente_id: int, plan_id: int, file_id: int)
     import os
     from flask import current_app
 
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -4738,6 +4765,7 @@ def api_nutrition_extra_file_download(cliente_id: int, plan_id: int, file_id: in
     from flask import send_file, current_app
     import os
 
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -5335,6 +5363,7 @@ def get_anamnesi(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     anamnesi = ServiceAnamnesi.query.filter_by(
         cliente_id=cliente_id,
@@ -5365,6 +5394,7 @@ def save_anamnesi(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -5416,6 +5446,7 @@ def get_diary_entries(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     entries = ServiceDiaryEntry.query.filter_by(
         cliente_id=cliente_id,
@@ -5444,6 +5475,7 @@ def create_diary_entry(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -5496,6 +5528,7 @@ def update_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     entry = ServiceDiaryEntry.query.filter_by(
         id=entry_id,
@@ -5547,6 +5580,7 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     if not current_user.is_admin:
         return jsonify({"success": False, "error": "Solo gli amministratori possono eliminare le note del diario"}), HTTPStatus.FORBIDDEN
@@ -5585,6 +5619,7 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
     
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     ServiceDiaryEntryVersion = version_class(ServiceDiaryEntry)
     
@@ -5629,6 +5664,41 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
     )
 
 
+def _is_professionista_standard(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    return (not getattr(user, "is_admin", False)) and role_value == "professionista"
+
+
+def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> bool:
+    """Scope granulare per i professionisti sulle sezioni servizio-specifiche."""
+    if getattr(user, "is_admin", False):
+        return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value == "admin":
+        return True
+    if role_value != "professionista":
+        return True
+
+    if service_type == "nutrizione":
+        return getattr(cliente, "nutrizionista_id", None) == user.id or user in (cliente.nutrizionisti_multipli or [])
+    if service_type == "coaching":
+        return getattr(cliente, "coach_id", None) == user.id or user in (cliente.coaches_multipli or [])
+    if service_type == "psicologia":
+        return getattr(cliente, "psicologa_id", None) == user.id or user in (cliente.psicologi_multipli or [])
+    return False
+
+
+def _require_service_scope_or_403(cliente_id: int, service_type: str) -> "Cliente":
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente_for_service(current_user, cliente, service_type):
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato per questo servizio del paziente.")
+    return cliente
+
+
 @api_bp.route("/<int:cliente_id>/call-bonus-history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_call_bonus_history(cliente_id: int):
@@ -5638,6 +5708,8 @@ def api_call_bonus_history(cliente_id: int):
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
 
     import json as _json
 
@@ -5799,6 +5871,11 @@ def api_call_bonus_select_professional(call_bonus_id: int):
     call_bonus = db.session.get(CallBonus, call_bonus_id)
     if not call_bonus:
         abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+    cliente = db.session.get(Cliente, call_bonus.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
 
     payload = request.get_json() or {}
     professional_id = payload.get("professional_id")
@@ -5842,6 +5919,19 @@ def api_call_bonus_confirm_booking(call_bonus_id: int):
     call_bonus = db.session.get(CallBonus, call_bonus_id)
     if not call_bonus:
         abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+    cliente = db.session.get(Cliente, call_bonus.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    is_internal_owner = (
+        getattr(current_user, "is_admin", False)
+        or call_bonus.created_by_id == current_user.id
+        or call_bonus.professionista_id == current_user.id
+    )
+    if not is_internal_owner:
+        role = getattr(current_user, "role", None)
+        role_value = role.value if hasattr(role, "value") else str(role or "")
+        if role_value == "professionista" or not _is_assigned_to_cliente(current_user, cliente):
+            abort(HTTPStatus.FORBIDDEN, description="Non autorizzato a confermare questa call bonus.")
 
     call_bonus.booking_confirmed = True
     call_bonus.data_booking_confirmed = datetime.utcnow()
