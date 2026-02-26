@@ -8,14 +8,14 @@ steps:
         set -euo pipefail
         IMAGE="europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA"
         for attempt in 1 2 3; do
-          echo "Docker build attempt ${attempt}/3 for ${IMAGE}"
-          if docker build -t "${IMAGE}" .; then
+          echo "Docker build attempt $${attempt}/3 for $${IMAGE}"
+          if docker build -t "$${IMAGE}" .; then
             exit 0
           fi
-          rc=$?
-          echo "docker build failed (rc=${rc})"
-          if [ "${attempt}" -eq 3 ]; then
-            exit "${rc}"
+          rc=$$?
+          echo "docker build failed (rc=$${rc})"
+          if [ "$${attempt}" -eq 3 ]; then
+            exit "$${rc}"
           fi
           echo "Retrying docker build in 10s (transient builder failure mitigation)..."
           sleep 10
@@ -30,14 +30,14 @@ steps:
         set -euo pipefail
         IMAGE="europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA"
         for attempt in 1 2 3; do
-          echo "Docker push attempt ${attempt}/3 for ${IMAGE}"
-          if docker push "${IMAGE}"; then
+          echo "Docker push attempt $${attempt}/3 for $${IMAGE}"
+          if docker push "$${IMAGE}"; then
             exit 0
           fi
-          rc=$?
-          echo "docker push failed (rc=${rc})"
-          if [ "${attempt}" -eq 3 ]; then
-            exit "${rc}"
+          rc=$$?
+          echo "docker push failed (rc=$${rc})"
+          if [ "$${attempt}" -eq 3 ]; then
+            exit "$${rc}"
           fi
           echo "Retrying docker push in 10s..."
           sleep 10
