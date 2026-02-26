@@ -69,6 +69,7 @@ Nota coerenza ruoli:
   - accesso consentito solo al proprio profilo
   - blocco/redirect su profili altrui
   - tabs profilo ridotti (es. no `Team guidati`, no `Quality`)
+  - tab `Team` disponibile sul proprio profilo in sola lettura (membri + Team Leader visibili, senza link cliccabili)
 - `Note`
   - `Dettaglio professionista > Check`: visibile solo la valutazione del professionista corrente, con modal allineato alla scheda check paziente
   - backend team profile hardening su `/api/team/members/<id>/clients` e `/api/team/members/<id>/checks`:

@@ -163,6 +163,9 @@ function Profilo() {
   });
   const [qualityKpi, setQualityKpi] = useState(null);
   const [qualityQuarter, setQualityQuarter] = useState(getCurrentQuarter());
+  const [teamDetailsById, setTeamDetailsById] = useState({});
+  const [teamDetailsLoading, setTeamDetailsLoading] = useState(false);
+  const [teamDetailsError, setTeamDetailsError] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -218,7 +221,7 @@ function Profilo() {
     if (!requestedTab) return;
 
     const allowedTabs = new Set(['info', 'clienti', 'check', 'formazione', 'task']);
-    if (!isCurrentUserProfessionista) {
+    if (!isCurrentUserProfessionista || isOwnProfile) {
       allowedTabs.add('teams');
     }
     if (canViewQualityTab) {
@@ -231,16 +234,58 @@ function Profilo() {
     if (allowedTabs.has(requestedTab) && requestedTab !== activeTab) {
       setActiveTab(requestedTab);
     }
-  }, [location.search, canViewCapacityTab, canViewQualityTab, isCurrentUserProfessionista, activeTab]);
+  }, [location.search, canViewCapacityTab, canViewQualityTab, isCurrentUserProfessionista, isOwnProfile, activeTab]);
 
   useEffect(() => {
-    if (isCurrentUserProfessionista && activeTab === 'teams') {
+    if (isCurrentUserProfessionista && !isOwnProfile && activeTab === 'teams') {
       setActiveTab('info');
     }
     if (!canViewQualityTab && activeTab === 'quality') {
       setActiveTab('info');
     }
-  }, [isCurrentUserProfessionista, canViewQualityTab, activeTab]);
+  }, [isCurrentUserProfessionista, isOwnProfile, canViewQualityTab, activeTab]);
+
+  useEffect(() => {
+    const shouldLoadTeamDetails = activeTab === 'teams' && isCurrentUserProfessionista && isOwnProfile && Array.isArray(user?.teams) && user.teams.length > 0;
+    if (!shouldLoadTeamDetails) return;
+
+    const missingTeamIds = user.teams
+      .map((t) => t?.id)
+      .filter(Boolean)
+      .filter((teamId) => !teamDetailsById[teamId]);
+
+    if (missingTeamIds.length === 0) return;
+
+    let cancelled = false;
+    setTeamDetailsLoading(true);
+    setTeamDetailsError('');
+
+    Promise.all(missingTeamIds.map((teamId) => teamService.getTeam(teamId)))
+      .then((results) => {
+        if (cancelled) return;
+        setTeamDetailsById((prev) => {
+          const next = { ...prev };
+          results.forEach((res) => {
+            if (res?.success && res?.id) {
+              next[res.id] = res;
+            }
+          });
+          return next;
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Errore caricamento dettagli team profilo:', err);
+        setTeamDetailsError(err?.response?.data?.message || 'Errore nel caricamento dei membri del team');
+      })
+      .finally(() => {
+        if (!cancelled) setTeamDetailsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, isCurrentUserProfessionista, isOwnProfile, user?.teams, teamDetailsById]);
 
   const fetchClients = useCallback(async () => {
     if (!user?.id) return;
@@ -674,12 +719,13 @@ function Profilo() {
                     Informazioni
                   </button>
                 </li>
-                {!isCurrentUserProfessionista && (
+                {(!isCurrentUserProfessionista || isOwnProfile) && (
                   <li className="nav-item">
                     <button className={`nav-link px-4 py-3 ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>
                       <i className="ri-team-line me-2"></i>
-                      Team Guidati
-                      {user.teams_led?.length > 0 && <span className="badge bg-primary ms-2">{user.teams_led.length}</span>}
+                      {isCurrentUserProfessionista ? 'Team' : 'Team Guidati'}
+                      {!isCurrentUserProfessionista && user.teams_led?.length > 0 && <span className="badge bg-primary ms-2">{user.teams_led.length}</span>}
+                      {isCurrentUserProfessionista && user.teams?.length > 0 && <span className="badge bg-primary ms-2">{user.teams.length}</span>}
                     </button>
                   </li>
                 )}
@@ -786,6 +832,7 @@ function Profilo() {
 
               {activeTab === 'teams' && (
                 <>
+                  {!isCurrentUserProfessionista && (
                   <div className="mb-4">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-shield-star-line me-2"></i>
@@ -822,16 +869,80 @@ function Profilo() {
                       </div>
                     )}
                   </div>
+                  )}
 
                   <div>
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       <i className="ri-group-line me-2"></i>
-                      Membro di Team
+                      {isCurrentUserProfessionista ? 'Il tuo Team' : 'Membro di Team'}
                     </h6>
+                    {isCurrentUserProfessionista && (
+                      <div className="alert alert-light border py-2 px-3 mb-3">
+                        <small className="text-muted">
+                          Vista informativa: puoi vedere i team di cui fai parte e i membri (incluso il Team Leader), senza link di navigazione.
+                        </small>
+                      </div>
+                    )}
+                    {isCurrentUserProfessionista && teamDetailsLoading && (
+                      <div className="text-muted small mb-3">
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        Caricamento membri del team...
+                      </div>
+                    )}
+                    {isCurrentUserProfessionista && teamDetailsError && (
+                      <div className="alert alert-warning py-2 px-3">{teamDetailsError}</div>
+                    )}
                     {user.teams && user.teams.length > 0 ? (
                       <div className="row g-3">
                         {user.teams.map((team) => (
                           <div key={team.id} className="col-12">
+                            {isCurrentUserProfessionista ? (
+                              <div className="border rounded-3 p-3">
+                                <div className="d-flex align-items-center">
+                                  <div className="flex-shrink-0">
+                                    <div
+                                      className="rounded-circle d-flex align-items-center justify-content-center text-white"
+                                      style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}
+                                    >
+                                      <i className="ri-team-line fs-5"></i>
+                                    </div>
+                                  </div>
+                                  <div className="flex-grow-1 ms-3">
+                                    <h6 className="mb-0">{team.name}</h6>
+                                    <small className="text-muted">
+                                      <i className="ri-user-line me-1"></i>Membro
+                                    </small>
+                                  </div>
+                                </div>
+                                {teamDetailsById[team.id] && (
+                                  <div className="mt-3 pt-3 border-top">
+                                    {teamDetailsById[team.id]?.head && (
+                                      <div className="mb-2">
+                                        <small className="text-muted d-block mb-1">Team Leader</small>
+                                        <span className="badge bg-primary-subtle text-primary border">
+                                          {teamDetailsById[team.id].head.full_name || `${teamDetailsById[team.id].head.first_name || ''} ${teamDetailsById[team.id].head.last_name || ''}`.trim()}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <small className="text-muted d-block mb-1">Membri</small>
+                                      <div className="d-flex flex-wrap gap-2">
+                                        {(teamDetailsById[team.id]?.members || []).map((member) => (
+                                          <span
+                                            key={member.id}
+                                            className={`badge ${Number(member.id) === Number(user.id) ? 'bg-success-subtle text-success' : 'bg-light text-dark border'}`}
+                                            title={member.email || ''}
+                                          >
+                                            {member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email}
+                                            {Number(member.id) === Number(user.id) ? ' (tu)' : ''}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
                             <Link to={`/teams-dettaglio/${team.id}`} className="text-decoration-none">
                               <div className="border rounded-3 p-3 d-flex align-items-center">
                                 <div className="flex-shrink-0">
@@ -850,6 +961,7 @@ function Profilo() {
                                 </div>
                               </div>
                             </Link>
+                            )}
                           </div>
                         ))}
                       </div>
