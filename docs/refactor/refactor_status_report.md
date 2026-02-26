@@ -193,6 +193,7 @@ Nota coerenza ruoli:
 - `Stato`: `Parziale`
 - `Admin/CCO`
   - accesso previsto completo, da testare end-to-end
+  - importata suite test backend per calcoli/eleggibilità/super malus/filtri (`quality`)
 - `Team Leader`
   - accesso limitato a propri team / propria specialità
   - UI in sola lettura (no calcolo / no trimestrale)
@@ -213,11 +214,13 @@ Nota coerenza ruoli:
 
 ### Capienza
 
-- `Stato`: `Da fare (P0)`
+- `Stato`: `Parziale`
 - `Admin/CCO`
-  - da correggere logica conteggio “clienti assegnati” considerando stato attivo del professionista per ruolo
+  - importato fix logica conteggio: considera solo clienti con stato servizio attivo
+  - da validare su dati reali / casi limite
 - `Team Leader`
   - da chiarire/validare se il comportamento atteso è condiviso con admin nella vista disponibile
+  - da verificare che la vista erediti lo stesso conteggio corretto
 - `Professionista`
   - non prevista come area operativa
 
@@ -247,6 +250,7 @@ Nota coerenza ruoli:
 
 - Python syntax check (`py_compile`) sui moduli backend modificati ✅
 - Frontend build `npm run build` (Vite) ✅ quando toccato il frontend
+- Importata suite test backend `quality` (calcoli/filtri/eleggibilità/super malus) ✅
 - Verifiche funzionali manuali ancora necessarie per i flussi ruolo-specifici (`TL` / `Professionista`)
 
 ## Cosa manca da fare (P0 / P1 / P2)
@@ -263,7 +267,7 @@ Nota coerenza ruoli:
 - `Check` / `Task` / `Clienti` (`Team Leader`)
   - validazione end-to-end scope dati team (oltre ai filtri UI)
 - `Capienza`
-  - fix logica conteggio “clienti assegnati”
+  - QA funzionale dopo fix logica conteggio “clienti assegnati” (solo clienti attivi)
 - `Check`
   - validazione end-to-end `Creazione link check` dopo fix backend permessi (weekly/dca/minor)
 
@@ -277,7 +281,7 @@ Nota coerenza ruoli:
   - fix topbar/avatar/sidebar visual (`margini`, `X`, highlight, immagini profilo, ruolo TL in topbar)
   - verifica/allineamento `Tab medico`
 - `Quality` (`Admin/CCO`)
-  - test completo del flusso
+  - test completo del flusso UI/API (oltre alla suite test backend importata)
 - `In Prova` (`Admin/CCO`)
   - test completo del flusso
 
