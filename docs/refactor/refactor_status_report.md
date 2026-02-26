@@ -182,6 +182,7 @@ Nota coerenza ruoli:
 - `Professionista`
   - flusso personale in gran parte coerente
   - fix visuale dashboard `Formazione`: card KPI non più allungate e pulsante `Richiedi Training` nuovamente cliccabile
+  - `Richiedi Training`: ripristinato trigger automatico task per il destinatario (listener `tasks/events` su `ReviewRequest`)
   - da validare su casi limite reali
 - `Note`
   - possibile miglioramento futuro: thread/chat dedicata per richieste (decisione prodotto)

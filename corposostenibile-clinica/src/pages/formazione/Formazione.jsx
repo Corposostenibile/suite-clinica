@@ -1665,10 +1665,18 @@ function Formazione() {
                                     <div className="modal-body">
                                         <div className="mb-3">
                                             <label className="form-label">Destinatario *</label>
-                                            <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading}>
+                                            <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading || recipientsLoading}>
                                                 <option value="">Seleziona un destinatario...</option>
                                                 {recipients.map(r => <option key={r.id} value={r.id}>{r.name} {r.role ? `- ${r.role}` : ''} {r.department ? `(${r.department})` : ''}</option>)}
                                             </select>
+                                            {recipientsLoading && (
+                                                <small className="text-muted d-block mt-2">Caricamento destinatari...</small>
+                                            )}
+                                            {!recipientsLoading && recipientsLoaded && recipients.length === 0 && (
+                                                <small className="text-danger d-block mt-2">
+                                                    Nessun destinatario disponibile. Verificare assegnazione Team Leader / configurazione team.
+                                                </small>
+                                            )}
                                         </div>
                                         <div className="mb-3">
                                             <label className="form-label">Argomento *</label>
@@ -2234,11 +2242,20 @@ function Formazione() {
                 <button
                     className="btn btn-success"
                     onClick={() => setShowRequestModal(true)}
-                    disabled={recipients.length === 0}
+                    disabled={recipientsLoading}
                     style={{ position: 'relative', zIndex: 3 }}
                 >
-                    <i className="ri-add-circle-line me-2"></i>
-                    Richiedi Training
+                    {recipientsLoading ? (
+                        <>
+                            <span className="spinner-border spinner-border-sm me-2"></span>
+                            Caricamento...
+                        </>
+                    ) : (
+                        <>
+                            <i className="ri-add-circle-line me-2"></i>
+                            Richiedi Training
+                        </>
+                    )}
                 </button>
             </div>
 
@@ -2652,10 +2669,18 @@ function Formazione() {
                             <div className="modal-body">
                                 <div className="mb-3">
                                     <label className="form-label">Destinatario *</label>
-                                    <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading}>
+                                    <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading || recipientsLoading}>
                                         <option value="">Seleziona un destinatario...</option>
                                         {recipients.map(r => <option key={r.id} value={r.id}>{r.name} {r.role ? `- ${r.role}` : ''} {r.department ? `(${r.department})` : ''}</option>)}
                                     </select>
+                                    {recipientsLoading && (
+                                        <small className="text-muted d-block mt-2">Caricamento destinatari...</small>
+                                    )}
+                                    {!recipientsLoading && recipientsLoaded && recipients.length === 0 && (
+                                        <small className="text-danger d-block mt-2">
+                                            Nessun destinatario disponibile. Verificare assegnazione Team Leader / configurazione team.
+                                        </small>
+                                    )}
                                 </div>
                                 <div className="mb-3">
                                     <label className="form-label">Argomento *</label>
