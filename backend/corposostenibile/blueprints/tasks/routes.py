@@ -8,6 +8,106 @@ from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, Task
 bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
 
 
+def _is_done_status(value) -> bool:
+    if value == TaskStatusEnum.done:
+        return True
+    raw = value.value if hasattr(value, "value") else value
+    return raw == "done"
+
+
+def _normalize_check_task_payload(payload: dict | None):
+    """Estrae il riferimento check dal payload task in formati legacy/nuovi."""
+    if not isinstance(payload, dict):
+        return None, None
+
+    response_type = payload.get("response_type") or payload.get("check_response_type")
+    response_id = payload.get("response_id") or payload.get("check_response_id")
+
+    # Compatibilità con payload tipo {"check_type":"weekly","check_id":123}
+    if not response_type and payload.get("check_type") in {"weekly", "dca"}:
+        response_type = f"{payload['check_type']}_check"
+    if not response_id:
+        response_id = payload.get("check_id")
+
+    try:
+        response_id = int(response_id) if response_id is not None else None
+    except (TypeError, ValueError):
+        response_id = None
+
+    if response_type not in {"weekly_check", "dca_check"}:
+        return None, None
+    if not response_id:
+        return response_type, None
+    return response_type, response_id
+
+
+def _mark_check_as_read_from_task_if_needed(task: Task) -> None:
+    """Se il task è un task check con payload compatibile, marca il check come letto per l'assignee."""
+    if task.category != TaskCategoryEnum.check:
+        return
+
+    response_type, response_id = _normalize_check_task_payload(task.payload or {})
+    if not response_type or not response_id:
+        current_app.logger.info(
+            "[TASKS] Task check %s completato senza payload compatibile per conferma lettura",
+            task.id,
+        )
+        return
+
+    from corposostenibile.models import (
+        ClientCheckReadConfirmation,
+        WeeklyCheckResponse,
+        DCACheckResponse,
+    )
+
+    if response_type == "weekly_check":
+        response = WeeklyCheckResponse.query.get(response_id)
+        cliente = response.assignment.cliente if response and response.assignment else None
+    else:
+        response = DCACheckResponse.query.get(response_id)
+        cliente = response.assignment.cliente if response and response.assignment else None
+
+    if not response or not cliente:
+        current_app.logger.warning(
+            "[TASKS] Task check %s: response %s:%s non trovata o senza cliente",
+            task.id, response_type, response_id
+        )
+        return
+
+    # Il task completato vale come "letto" solo per il professionista assegnatario del task.
+    assignee = task.assignee_id
+    if not assignee:
+        return
+
+    # Verifica accesso al cliente per sicurezza (task legacy/storici incoerenti non devono scrivere letture).
+    from corposostenibile.blueprints.client_checks.routes import _can_access_cliente_checks
+    if assignee != current_user.id or not _can_access_cliente_checks(cliente.cliente_id):
+        current_app.logger.warning(
+            "[TASKS] Task check %s: skip conferma lettura per assignee=%s current_user=%s cliente=%s",
+            task.id, assignee, getattr(current_user, "id", None), getattr(cliente, "cliente_id", None)
+        )
+        return
+
+    existing = ClientCheckReadConfirmation.query.filter_by(
+        response_type=response_type,
+        response_id=response_id,
+        user_id=assignee,
+    ).first()
+    if existing:
+        return
+
+    db.session.add(ClientCheckReadConfirmation(
+        response_type=response_type,
+        response_id=response_id,
+        user_id=assignee,
+        read_at=datetime.utcnow(),
+    ))
+    current_app.logger.info(
+        "[TASKS] Check marcato come letto via completamento task: task=%s %s:%s user=%s",
+        task.id, response_type, response_id, assignee
+    )
+
+
 def _is_cco_user(user) -> bool:
     specialty = getattr(user, 'specialty', None)
     if hasattr(specialty, 'value'):
@@ -143,6 +243,8 @@ def update_task(task_id):
 
     data = request.json
 
+    previous_status = task.status
+
     if 'status' in data:
         task.status = data['status']
     
@@ -152,6 +254,17 @@ def update_task(task_id):
 
     if 'archive' in data and data['archive']:
         task.status = TaskStatusEnum.archived
+
+    became_done = _is_done_status(task.status) and not _is_done_status(previous_status)
+    if became_done:
+        try:
+            _mark_check_as_read_from_task_if_needed(task)
+        except Exception:
+            current_app.logger.error(
+                "[TASKS] Errore nel sync task->check letto per task_id=%s",
+                task.id,
+                exc_info=True,
+            )
 
     db.session.commit()
     return jsonify(_serialize_task(task))

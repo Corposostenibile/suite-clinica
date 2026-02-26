@@ -165,6 +165,7 @@ Nota coerenza ruoli:
   - da validare flusso completo team (fatte/non fatte/conteggi)
 - `Professionista`
   - UI coerente in gran parte con task personali
+  - completando un task `check` (con payload check compatibile) viene marcato automaticamente anche il check come `letto` per quel professionista
   - da validare con utenti reali su casi limite
 
 ### Formazione
@@ -245,8 +246,8 @@ Nota coerenza ruoli:
 ## Verifiche tecniche eseguite
 
 - Python syntax check (`py_compile`) sui moduli backend modificati ✅
-- Frontend build `npm run build` (Vite) ✅
-- Build completata con warning dimensione chunk (non bloccante)
+- Frontend build `npm run build` (Vite) ✅ quando toccato il frontend
+- Verifiche funzionali manuali ancora necessarie per i flussi ruolo-specifici (`TL` / `Professionista`)
 
 ## Cosa manca da fare (P0 / P1 / P2)
 
