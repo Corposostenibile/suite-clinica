@@ -2603,6 +2603,7 @@ def assign_professionista(cliente_id: int):
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+    _require_team_leader_assignment_scope_or_403(current_user, tipo_professionista, int(user_id))
 
     # Parse data
     try:
@@ -2669,6 +2670,7 @@ def interrupt_professionista(cliente_id: int, history_id: int):
         cliente_id=cliente_id,
         is_active=True
     ).first_or_404()
+    _require_team_leader_assignment_scope_or_403(current_user, history.tipo_professionista, int(history.user_id))
 
     data = request.get_json() or {}
     motivazione = data.get("motivazione_interruzione")
@@ -2748,6 +2750,7 @@ def interrupt_legacy_professionista(cliente_id: int):
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+    _require_team_leader_assignment_scope_or_403(current_user, tipo_professionista, int(user_id))
 
     try:
         today = date.today()
@@ -5682,6 +5685,58 @@ def _is_professionista_standard(user) -> bool:
     role = getattr(user, "role", None)
     role_value = role.value if hasattr(role, "value") else str(role or "")
     return (not getattr(user, "is_admin", False)) and role_value == "professionista"
+
+
+def _normalize_specialty_group_for_rbac(user) -> str | None:
+    specialty = getattr(user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    specialty_value = specialty_value.strip().lower()
+    if specialty_value in ("nutrizionista", "nutrizione"):
+        return "nutrizione"
+    if specialty_value in ("psicologo", "psicologia", "psicologa"):
+        return "psicologia"
+    if specialty_value == "coach":
+        return "coach"
+    if specialty_value == "medico":
+        return "medico"
+    return None
+
+
+def _team_leader_visible_member_ids(user) -> set[int]:
+    visible_ids = {getattr(user, "id", None)}
+    for team in getattr(user, "teams_led", []) or []:
+        if not getattr(team, "is_active", True):
+            continue
+        for member in getattr(team, "members", []) or []:
+            visible_ids.add(member.id)
+    return {uid for uid in visible_ids if uid is not None}
+
+
+def _team_leader_can_manage_assignment_type(user, tipo_professionista: str | None) -> bool:
+    tipo = (tipo_professionista or "").strip().lower()
+    if tipo == "health_manager":
+        return True
+    allowed_by_specialty = {
+        "nutrizione": {"nutrizionista"},
+        "coach": {"coach"},
+        "psicologia": {"psicologa"},
+        "medico": {"medico"},
+    }
+    specialty_group = _normalize_specialty_group_for_rbac(user)
+    if not specialty_group:
+        return False
+    return tipo in allowed_by_specialty.get(specialty_group, set())
+
+
+def _require_team_leader_assignment_scope_or_403(user, tipo_professionista: str, target_user_id: int) -> None:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return
+    if not _team_leader_can_manage_assignment_type(user, tipo_professionista):
+        abort(HTTPStatus.FORBIDDEN, description="Tipo professionista non gestibile per la tua specialità.")
+    if int(target_user_id) not in _team_leader_visible_member_ids(user):
+        abort(HTTPStatus.FORBIDDEN, description="Professionista fuori dal perimetro del tuo team.")
 
 
 def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> bool:

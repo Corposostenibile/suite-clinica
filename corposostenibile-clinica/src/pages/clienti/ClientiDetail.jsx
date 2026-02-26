@@ -87,6 +87,19 @@ function ClientiDetail() {
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
+  const canManageAssignmentType = useCallback((tipo) => {
+    if (!canManageTeamAssignments) return false;
+    if (!isRestrictedTeamLeader) return true;
+    if (tipo === 'health_manager') return true;
+
+    const allowedBySpecialty = {
+      nutrizione: new Set(['nutrizionista']),
+      coach: new Set(['coach']),
+      psicologia: new Set(['psicologa']),
+      medico: new Set(['medico']),
+    };
+    return allowedBySpecialty[specialtyGroup]?.has(tipo) ?? false;
+  }, [canManageTeamAssignments, isRestrictedTeamLeader, specialtyGroup]);
 
   const getAllowedMainTabsForUser = useCallback(() => {
     if (!isSpecialtyRestrictedRole) {
@@ -2012,8 +2025,8 @@ function ClientiDetail() {
 
   // Handle assign professional
   const handleOpenAssignModal = (tipo) => {
-    if (!canManageTeamAssignments) {
-      setError('Assegnazione professionisti non consentita per il ruolo Professionista.');
+    if (!canManageAssignmentType(tipo)) {
+      setError('Assegnazione non consentita per il ruolo/specialità corrente.');
       return;
     }
     setAssigningType(tipo);
@@ -2051,6 +2064,10 @@ function ClientiDetail() {
   const handleOpenInterruptModal = (assignment) => {
     if (!canManageTeamAssignments) {
       setError('Interruzione assegnazioni non consentita per il ruolo Professionista.');
+      return;
+    }
+    if (!canManageAssignmentType(assignment?.tipo_professionista)) {
+      setError('Interruzione assegnazione non consentita per il ruolo/specialità corrente.');
       return;
     }
     setInterruptingAssignment(assignment);
@@ -3213,14 +3230,16 @@ function ClientiDetail() {
                                       </div>
                                       <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Nutrizionista</span>
                                     </div>
-                                    <button
-                                      className="btn btn-success btn-sm d-flex align-items-center justify-content-center"
-                                      onClick={() => handleOpenAssignModal('nutrizionista')}
-                                      title="Aggiungi Nutrizionista"
-                                      style={{ width: '26px', height: '26px', padding: 0 }}
-                                    >
-                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
-                                    </button>
+                                    {canManageAssignmentType('nutrizionista') && (
+                                      <button
+                                        className="btn btn-success btn-sm d-flex align-items-center justify-content-center"
+                                        onClick={() => handleOpenAssignModal('nutrizionista')}
+                                        title="Aggiungi Nutrizionista"
+                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                      >
+                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                      </button>
+                                    )}
                                   </div>
                                   {getActiveProfessionals('nutrizionista').length > 0 ? (
                                     getActiveProfessionals('nutrizionista').map((assignment, idx) => (
@@ -3272,14 +3291,16 @@ function ClientiDetail() {
                                       </div>
                                       <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Coach</span>
                                     </div>
-                                    <button
-                                      className="btn btn-warning btn-sm d-flex align-items-center justify-content-center"
-                                      onClick={() => handleOpenAssignModal('coach')}
-                                      title="Aggiungi Coach"
-                                      style={{ width: '26px', height: '26px', padding: 0 }}
-                                    >
-                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
-                                    </button>
+                                    {canManageAssignmentType('coach') && (
+                                      <button
+                                        className="btn btn-warning btn-sm d-flex align-items-center justify-content-center"
+                                        onClick={() => handleOpenAssignModal('coach')}
+                                        title="Aggiungi Coach"
+                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                      >
+                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                      </button>
+                                    )}
                                   </div>
                                   {getActiveProfessionals('coach').length > 0 ? (
                                     getActiveProfessionals('coach').map((assignment, idx) => (
@@ -3331,14 +3352,16 @@ function ClientiDetail() {
                                       </div>
                                       <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Psicologo</span>
                                     </div>
-                                    <button
-                                      className="btn btn-info btn-sm d-flex align-items-center justify-content-center"
-                                      onClick={() => handleOpenAssignModal('psicologa')}
-                                      title="Aggiungi Psicologo"
-                                      style={{ width: '26px', height: '26px', padding: 0 }}
-                                    >
-                                      <i className="ri-add-line text-white" style={{ fontSize: '0.9rem' }}></i>
-                                    </button>
+                                    {canManageAssignmentType('psicologa') && (
+                                      <button
+                                        className="btn btn-info btn-sm d-flex align-items-center justify-content-center"
+                                        onClick={() => handleOpenAssignModal('psicologa')}
+                                        title="Aggiungi Psicologo"
+                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                      >
+                                        <i className="ri-add-line text-white" style={{ fontSize: '0.9rem' }}></i>
+                                      </button>
+                                    )}
                                   </div>
                                   {getActiveProfessionals('psicologa').length > 0 ? (
                                     getActiveProfessionals('psicologa').map((assignment, idx) => (
@@ -3390,14 +3413,16 @@ function ClientiDetail() {
                                       </div>
                                       <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Medico</span>
                                     </div>
-                                    <button
-                                      className="btn btn-danger btn-sm d-flex align-items-center justify-content-center"
-                                      onClick={() => handleOpenAssignModal('medico')}
-                                      title="Aggiungi Medico"
-                                      style={{ width: '26px', height: '26px', padding: 0 }}
-                                    >
-                                      <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
-                                    </button>
+                                    {canManageAssignmentType('medico') && (
+                                      <button
+                                        className="btn btn-danger btn-sm d-flex align-items-center justify-content-center"
+                                        onClick={() => handleOpenAssignModal('medico')}
+                                        title="Aggiungi Medico"
+                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                      >
+                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                      </button>
+                                    )}
                                   </div>
                                   {getActiveProfessionals('medico').length > 0 ? (
                                     getActiveProfessionals('medico').map((assignment, idx) => (
@@ -3609,14 +3634,16 @@ function ClientiDetail() {
                               </div>
                               <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Health Manager</span>
                             </div>
-                            <button
-                              className="btn btn-primary btn-sm d-flex align-items-center justify-content-center"
-                              onClick={() => handleOpenAssignModal('health_manager')}
-                              title="Assegna Health Manager"
-                              style={{ width: '26px', height: '26px', padding: 0 }}
-                            >
-                              <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
-                            </button>
+                            {canManageAssignmentType('health_manager') && (
+                              <button
+                                className="btn btn-primary btn-sm d-flex align-items-center justify-content-center"
+                                onClick={() => handleOpenAssignModal('health_manager')}
+                                title="Assegna Health Manager"
+                                style={{ width: '26px', height: '26px', padding: 0 }}
+                              >
+                                <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                              </button>
+                            )}
                           </div>
                           {(formData.healthManagerUser || getActiveProfessionals('health_manager')[0]) ? (
                             (() => {
@@ -6422,13 +6449,15 @@ function ClientiDetail() {
                               <small className="text-muted">Gestione assegnazioni mediche del paziente</small>
                             </div>
                           </div>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleOpenAssignModal('medico')}
-                          >
-                            <i className="ri-add-line me-1"></i>
-                            Assegna Medico
-                          </button>
+                          {canManageAssignmentType('medico') && (
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleOpenAssignModal('medico')}
+                            >
+                              <i className="ri-add-line me-1"></i>
+                              Assegna Medico
+                            </button>
+                          )}
                         </div>
 
                         {loadingHistory ? (

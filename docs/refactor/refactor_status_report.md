@@ -32,6 +32,7 @@ Nota coerenza ruoli:
   - dashboard team-scoped operativa su `Welcome` (al posto del placeholder “vista limitata”)
   - nascosti KPI/tab globali non pertinenti
   - quick actions verso moduli operativi
+  - copy KPI/dashboard TL reso più chiaro (etichette meno ambigue)
   - da validare su dati reali: coerenza KPI/liste per scope team/specialità
 - `Professionista`
   - dashboard personale scoped (senza KPI globali/cross-team)
@@ -72,6 +73,7 @@ Nota coerenza ruoli:
     - `admin/CCO`: tutto
     - `TL`: sé stesso + membri dei propri team
     - `professionista`: solo sé stesso
+  - endpoint `available-professionals` filtrato per `TL` al perimetro dei propri membri (no professionisti di team esterni)
 
 ### Clienti (lista)
 
@@ -98,9 +100,11 @@ Nota coerenza ruoli:
   - frontend:
     - tab principali servizio-specifiche filtrate per specialità TL (`nutrizione` / `coaching` / `psicologia`)
     - azioni principali nelle sezioni (piani/diari/luoghi) allineate alla specialità visibile
+    - assegnazioni/interruzioni nel tab `Team` limitate anche in UI alla categoria coerente con la specialità TL (più `Health Manager`)
   - backend:
     - controlli service-specifici verificano anche il perimetro clienti del team del TL
     - controllo di perimetro anche su endpoint principale scheda (`GET /api/v1/customers/<id>`) e operazioni principali (`PATCH/DELETE/history`)
+    - assegnazione/interruzione professionisti bloccata con `403` se TL prova categoria fuori specialità o professionista fuori team
   - da validare:
     - coerenza tab/azioni su casi reali
     - `403` su cliente fuori team nelle azioni service-specifiche

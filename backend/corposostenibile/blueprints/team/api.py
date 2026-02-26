@@ -2103,13 +2103,20 @@ def get_available_professionals(team_type):
         "healthmanager": "health_manager",
     }
     team_type = team_type_aliases.get(team_type, team_type)
+    requesting_role = _get_user_role(current_user)
+    tl_visible_member_ids = None
+    if requesting_role == "team_leader" and not _can_view_all_team_module_data(current_user):
+        tl_visible_member_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
 
     # Health Manager: return users with role health_manager
     if team_type == "health_manager":
-        professionals = User.query.filter(
+        query = User.query.filter(
             User.is_active == True,
             cast(User.role, String) == "health_manager",
-        ).order_by(User.first_name, User.last_name).all()
+        )
+        if tl_visible_member_ids is not None:
+            query = query.filter(User.id.in_(tl_visible_member_ids))
+        professionals = query.order_by(User.first_name, User.last_name).all()
         return jsonify({
             'success': True,
             'professionals': [_serialize_user(u) for u in professionals],
@@ -2117,11 +2124,14 @@ def get_available_professionals(team_type):
         })
 
     if team_type == "medico":
-        professionals = User.query.filter(
+        query = User.query.filter(
             User.is_active == True,
             User.role == UserRoleEnum.professionista,
             cast(User.specialty, String) == "medico",
-        ).order_by(User.first_name, User.last_name).all()
+        )
+        if tl_visible_member_ids is not None:
+            query = query.filter(User.id.in_(tl_visible_member_ids))
+        professionals = query.order_by(User.first_name, User.last_name).all()
         return jsonify({
             'success': True,
             'professionals': [_serialize_user(u) for u in professionals],
@@ -2143,6 +2153,8 @@ def get_available_professionals(team_type):
         User.role == UserRoleEnum.professionista,
         User.specialty.in_(compatible_specialties)
     ).order_by(User.first_name, User.last_name)
+    if tl_visible_member_ids is not None:
+        query = query.filter(User.id.in_(tl_visible_member_ids))
 
     professionals = query.all()
 

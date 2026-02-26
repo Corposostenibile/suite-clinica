@@ -94,9 +94,9 @@ function RoleScopedWelcome({ user, mode }) {
   const cards = isTeamLeaderMode
     ? [
         { label: 'Team gestiti', value: teamSummary.length, icon: 'ri-team-line', color: '#3b82f6' },
-        { label: 'Membri visibili', value: kpi.totalActive ?? 0, icon: 'ri-user-star-line', color: '#22c55e' },
+        { label: 'Membri team', value: kpi.totalActive ?? 0, icon: 'ri-user-star-line', color: '#22c55e' },
         { label: 'Task aperti team', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#f97316' },
-        { label: 'Richieste ricevute', value: trainingSummary.receivedRequests, icon: 'ri-mail-open-line', color: '#8b5cf6' },
+        { label: 'Richieste formazione team', value: trainingSummary.receivedRequests, icon: 'ri-mail-open-line', color: '#8b5cf6' },
       ]
     : [
         { label: 'Task aperti', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#3b82f6' },
