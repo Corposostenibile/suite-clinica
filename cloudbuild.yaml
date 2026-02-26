@@ -12,7 +12,8 @@ steps:
         set -euo pipefail
         IMAGE_TAG="$${CB_COMMIT_SHA}"
         if [ -z "$${IMAGE_TAG}" ]; then
-          IMAGE_TAG="$${CB_BUILD_ID}"
+          echo "ERROR: COMMIT_SHA substitution mancante. Esegui gcloud builds submit con --substitutions=COMMIT_SHA=<git-sha>" >&2
+          exit 2
         fi
         IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
         for attempt in 1 2 3; do
@@ -42,7 +43,8 @@ steps:
         set -euo pipefail
         IMAGE_TAG="$${CB_COMMIT_SHA}"
         if [ -z "$${IMAGE_TAG}" ]; then
-          IMAGE_TAG="$${CB_BUILD_ID}"
+          echo "ERROR: COMMIT_SHA substitution mancante. Esegui gcloud builds submit con --substitutions=COMMIT_SHA=<git-sha>" >&2
+          exit 2
         fi
         IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
         for attempt in 1 2 3; do
