@@ -2222,7 +2222,7 @@ function Formazione() {
     return (
         <>
             {/* Page Header */}
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 position-relative" style={{ zIndex: 2 }}>
                 <div>
                     <h4 className="mb-1">La tua Formazione</h4>
                     <p className="text-muted mb-0">
@@ -2235,6 +2235,7 @@ function Formazione() {
                     className="btn btn-success"
                     onClick={() => setShowRequestModal(true)}
                     disabled={recipients.length === 0}
+                    style={{ position: 'relative', zIndex: 3 }}
                 >
                     <i className="ri-add-circle-line me-2"></i>
                     Richiedi Training
@@ -2242,11 +2243,12 @@ function Formazione() {
             </div>
 
             {/* Stats Cards */}
-            <div className="row g-3 mb-4">
+            <div className="row g-3 mb-4 align-items-start">
                 <div className="col-xl-3 col-sm-6">
                     <div
-                        className="card border-0 shadow-sm h-100"
+                        className="card border-0 shadow-sm"
                         style={{
+                            height: 'auto',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
                             borderLeft: activeTab === 'trainings' ? '4px solid #6f42c1' : 'none'
@@ -2275,8 +2277,9 @@ function Formazione() {
 
                 <div className="col-xl-3 col-sm-6">
                     <div
-                        className="card border-0 shadow-sm h-100"
+                        className="card border-0 shadow-sm"
                         style={{
+                            height: 'auto',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
                             borderLeft: activeTab === 'requests' ? '4px solid #0dcaf0' : 'none'
@@ -2304,7 +2307,7 @@ function Formazione() {
                 </div>
 
                 <div className="col-xl-3 col-sm-6">
-                    <div className="card border-0 shadow-sm h-100">
+                    <div className="card border-0 shadow-sm" style={{ height: 'auto' }}>
                         <div className="card-body">
                             <div className="d-flex align-items-center">
                                 <div className="rounded-circle d-flex align-items-center justify-content-center"
@@ -2324,7 +2327,7 @@ function Formazione() {
                 </div>
 
                 <div className="col-xl-3 col-sm-6">
-                    <div className="card border-0 shadow-sm h-100">
+                    <div className="card border-0 shadow-sm" style={{ height: 'auto' }}>
                         <div className="card-body">
                             <div className="d-flex align-items-center">
                                 <div className="rounded-circle d-flex align-items-center justify-content-center"

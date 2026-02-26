@@ -180,6 +180,7 @@ Nota coerenza ruoli:
   - rimossa indicazione errata verso `Quality`
 - `Professionista`
   - flusso personale in gran parte coerente
+  - fix visuale dashboard `Formazione`: card KPI non più allungate e pulsante `Richiedi Training` nuovamente cliccabile
   - da validare su casi limite reali
 - `Note`
   - possibile miglioramento futuro: thread/chat dedicata per richieste (decisione prodotto)
