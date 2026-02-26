@@ -2,17 +2,25 @@ steps:
   # 1. Build Layer: Crea l'immagine Docker
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
+    env:
+      - 'CB_PROJECT_ID=$PROJECT_ID'
+      - 'CB_COMMIT_SHA=$COMMIT_SHA'
+      - 'CB_BUILD_ID=$BUILD_ID'
     args:
       - -lc
       - |
         set -euo pipefail
-        IMAGE="europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA"
+        IMAGE_TAG="$${CB_COMMIT_SHA}"
+        if [ -z "$${IMAGE_TAG}" ]; then
+          IMAGE_TAG="$${CB_BUILD_ID}"
+        fi
+        IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
         for attempt in 1 2 3; do
           echo "Docker build attempt $${attempt}/3 for $${IMAGE}"
           if docker build -t "$${IMAGE}" .; then
             exit 0
           fi
-          rc=$$?
+          rc=$?
           echo "docker build failed (rc=$${rc})"
           if [ "$${attempt}" -eq 3 ]; then
             exit "$${rc}"
@@ -24,17 +32,25 @@ steps:
   # 2. Push Layer: Carica su Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
+    env:
+      - 'CB_PROJECT_ID=$PROJECT_ID'
+      - 'CB_COMMIT_SHA=$COMMIT_SHA'
+      - 'CB_BUILD_ID=$BUILD_ID'
     args:
       - -lc
       - |
         set -euo pipefail
-        IMAGE="europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA"
+        IMAGE_TAG="$${CB_COMMIT_SHA}"
+        if [ -z "$${IMAGE_TAG}" ]; then
+          IMAGE_TAG="$${CB_BUILD_ID}"
+        fi
+        IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
         for attempt in 1 2 3; do
           echo "Docker push attempt $${attempt}/3 for $${IMAGE}"
           if docker push "$${IMAGE}"; then
             exit 0
           fi
-          rc=$$?
+          rc=$?
           echo "docker push failed (rc=$${rc})"
           if [ "$${attempt}" -eq 3 ]; then
             exit "$${rc}"
