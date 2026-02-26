@@ -26,20 +26,29 @@ spec:
         command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "3", "--threads", "2", "--timeout", "600", "wsgi:app"]
         ports:
         - containerPort: 8080
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          periodSeconds: 15
+          timeoutSeconds: 20
+          failureThreshold: 40
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 30
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 10
           periodSeconds: 20
-          timeoutSeconds: 20
+          timeoutSeconds: 30
+          failureThreshold: 6
         resources:
           requests:
             cpu: "500m"
