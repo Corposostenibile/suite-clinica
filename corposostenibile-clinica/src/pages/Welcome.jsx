@@ -146,11 +146,11 @@ function RoleScopedWelcome({ user, mode }) {
         <div className="alert alert-danger">{error}</div>
       )}
 
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4 align-items-start">
         {cards.map((card) => (
           <div key={card.label} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '14px' }}>
-              <div className="card-body">
+            <div className="card border-0 shadow-sm" style={{ borderRadius: '14px', height: 'auto' }}>
+              <div className="card-body" style={{ padding: '14px 16px' }}>
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
                     <div className="text-muted small">{card.label}</div>
@@ -168,9 +168,9 @@ function RoleScopedWelcome({ user, mode }) {
         ))}
       </div>
 
-      <div className="row g-3">
+      <div className="row g-3 align-items-start">
         <div className="col-lg-7">
-          <div className="card border-0 shadow-sm h-100" style={{ borderRadius: '16px' }}>
+          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
             <div className="card-header bg-white border-0 pb-0">
               <h6 className="mb-0" style={{ color: '#1e293b' }}>
                 <i className="ri-task-line me-2"></i>
@@ -183,7 +183,7 @@ function RoleScopedWelcome({ user, mode }) {
               ) : recentTasks.length === 0 ? (
                 <div className="text-muted">Nessun task aperto.</div>
               ) : (
-                <div className="d-flex flex-column gap-2">
+                <div className="d-flex flex-column gap-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                   {recentTasks.map((task) => (
                     <div key={task.id} className="d-flex align-items-center justify-content-between border rounded-3 p-2">
                       <div className="pe-3">
@@ -221,7 +221,7 @@ function RoleScopedWelcome({ user, mode }) {
                     ))}
                   </div>
                   <div className="small text-muted mb-2">Client load (scope)</div>
-                  <div className="d-flex flex-column gap-1">
+                  <div className="d-flex flex-column gap-1" style={{ maxHeight: '220px', overflowY: 'auto' }}>
                     {Object.entries(clientLoad).map(([key, value]) => (
                       <div key={key} className="d-flex justify-content-between small">
                         <span style={{ color: '#475569' }}>{key}</span>

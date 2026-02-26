@@ -2368,6 +2368,27 @@ function ClientiDetail() {
     }
   };
 
+  // Tabs configuration (must stay before early returns to keep hook order stable)
+  const mainTabs = [
+    { id: 'anagrafica', label: 'Anagrafica', icon: 'ri-user-line' },
+    { id: 'programma', label: 'Programma', icon: 'ri-file-list-3-line' },
+    { id: 'team', label: 'Team', icon: 'ri-team-line' },
+    { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
+    { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
+    { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
+    { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
+    { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
+    { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
+    { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
+    { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
+  ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
+
+  useEffect(() => {
+    if (!mainTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(mainTabs[0]?.id || 'anagrafica');
+    }
+  }, [mainTabs, activeTab]);
+
   // Loading state
   if (loading) {
     return (
@@ -2428,27 +2449,6 @@ function ClientiDetail() {
       ? `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase()
       : name.substring(0, 2).toUpperCase();
   };
-
-  // Tabs configuration
-  const mainTabs = [
-    { id: 'anagrafica', label: 'Anagrafica', icon: 'ri-user-line' },
-    { id: 'programma', label: 'Programma', icon: 'ri-file-list-3-line' },
-    { id: 'team', label: 'Team', icon: 'ri-team-line' },
-    { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
-    { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
-    { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
-    { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
-    { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
-    { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
-    { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
-    { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
-  ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
-
-  useEffect(() => {
-    if (!mainTabs.some((tab) => tab.id === activeTab)) {
-      setActiveTab(mainTabs[0]?.id || 'anagrafica');
-    }
-  }, [mainTabs, activeTab]);
 
   return (
     <>
