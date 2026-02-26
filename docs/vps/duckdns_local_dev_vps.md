@@ -4,6 +4,32 @@ Data aggiornamento: 17 Febbraio 2026
 
 Questa guida descrive la configurazione attuale su VPS per `suite-clinica.duckdns.org`, usato come **ambiente locale/shared di sviluppo** (non GCP produzione), con URL web canonici in root (es. `/auth/login`, `/clienti-lista`) e PWA installabile.
 
+## 0) Due ambienti diversi (separazione importante)
+
+### Ambiente normale / generico (sviluppo locale classico)
+
+- Uso tipico: laptop/dev machine con avvio manuale di backend/frontend
+- Comandi `dev.sh` tipici:
+  - `fullstack`, `debug`, `frontend`, `start/stop/restart`
+- Non è detto che usi `PM2`/`systemd`
+
+### Nostro ambiente VPS locale (DuckDNS) - quello usato quotidianamente
+
+- Dominio: `https://suite-clinica.duckdns.org`
+- Backend live: `PM2` (`backend-manu`)
+- Frontend live: **auto-detect** tra:
+  - `systemd` (`clinica-pwa-preview`) oppure
+  - `PM2` (`frontend-manu`)
+- Comandi `dev.sh` da usare qui:
+  - `vps-status`
+  - `vps-restart-backend`
+  - `vps-restart-frontend`
+  - `vps-refresh`
+  - `vps-watch-backend` / `vps-unwatch-backend`
+
+Regola pratica:
+- se stai lavorando su `suite-clinica.duckdns.org`, usa i comandi `vps-*` e non i comandi generici.
+
 ## 1) Architettura attuale
 
 Dominio pubblico:
@@ -66,6 +92,36 @@ Nota importante:
 - prima di fare "deploy VPS" verificare quale processo sta effettivamente ascoltando su `:3001` / `:5001`
 - modificare i file del repo **non** aggiorna automaticamente il sito: serve restart del processo frontend/backend corretto
 
+### 4.0 Comandi consigliati via `dev.sh` (nuovo flusso)
+
+Per evitare errori (es. usare `./dev.sh restart manu` che fa anche check/setup con `sudo`), usare i comandi VPS dedicati:
+
+```bash
+# Stato stack live (backend PM2 + frontend auto-detect systemd/PM2)
+./dev.sh vps-status manu
+
+# Applica modifiche al VPS locale:
+# - backend: PM2 restart
+# - frontend: auto-detect
+#   - systemd -> build + restart clinica-pwa-preview
+#   - PM2     -> restart frontend-manu (senza build)
+./dev.sh vps-refresh manu
+
+# Solo backend (PM2)
+./dev.sh vps-restart-backend manu
+
+# Solo frontend (auto-detect stack live)
+./dev.sh vps-restart-frontend manu
+
+# Auto-restart backend su modifiche codice (PM2 watch, utile in sviluppo VPS)
+./dev.sh vps-watch-backend manu
+./dev.sh vps-unwatch-backend manu
+```
+
+Nota:
+- se il frontend live è `systemd` (`clinica-pwa-preview`), il restart richiede `sudo`
+- `dev.sh vps-restart-frontend` prova `sudo -n`: se non hai sessione sudo attiva, farà comunque la build e poi avviserà che serve password
+
 ### 4.1 Frontend PWA (systemd, se attivo)
 
 Servizio: `clinica-pwa-preview`
@@ -86,6 +142,12 @@ npx pm2 logs backend-manu --lines 100
 npx pm2 restart backend-manu
 ```
 
+Alternativa consigliata (wrapper con naming standard):
+
+```bash
+./dev.sh vps-restart-backend manu
+```
+
 ### 4.3 Frontend PWA (PM2, alternativa usata spesso su questo VPS)
 
 Processo tipico: `frontend-manu`
@@ -95,6 +157,12 @@ npx pm2 list
 npx pm2 describe frontend-manu
 npx pm2 logs frontend-manu --lines 100
 npx pm2 restart frontend-manu
+```
+
+Alternativa consigliata (auto-detect stack live):
+
+```bash
+./dev.sh vps-restart-frontend manu
 ```
 
 ## 5) Deploy frontend (PWA)
@@ -108,6 +176,12 @@ cd corposostenibile-clinica
 npm ci
 npm run build
 sudo systemctl restart clinica-pwa-preview
+```
+
+Shortcut consigliato (se lo stack live è già configurato):
+
+```bash
+./dev.sh vps-restart-frontend manu
 ```
 
 Verifiche minime:
@@ -125,6 +199,12 @@ cd backend
 poetry install
 poetry run flask db upgrade
 npx pm2 restart backend-manu
+```
+
+Shortcut consigliato:
+
+```bash
+./dev.sh vps-restart-backend manu
 ```
 
 Verifiche minime:
@@ -193,6 +273,16 @@ curl -I https://suite-clinica.duckdns.org/auth/login
 curl -i https://suite-clinica.duckdns.org/api/auth/me | head -n 20
 ```
 
+Versione rapida (riavvio stack live già installato/configurato):
+
+```bash
+./dev.sh vps-refresh manu
+```
+
+Nota:
+- `vps-refresh` non esegue `git pull`, `npm ci`, `poetry install`, né migrazioni DB
+- serve per applicare rapidamente modifiche codice già presenti sul VPS locale
+
 Nota importante:
 - la migrazione va sempre deployata insieme al codice che introduce nuovi modelli/tabelle (es. `push_subscriptions`).
 
@@ -233,6 +323,14 @@ sudo ss -ltnp | rg ':80|:443'
 ss -ltnp | rg ':5001'
 npx pm2 list
 npx pm2 logs backend-manu --lines 100
+```
+
+Comandi `dev.sh` utili:
+
+```bash
+./dev.sh vps-status manu
+./dev.sh vps-restart-backend manu
+./dev.sh vps-watch-backend manu   # per sviluppo con auto-restart alle modifiche
 ```
 
 ## 10) Sicurezza operativa
