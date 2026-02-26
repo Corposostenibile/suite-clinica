@@ -26,7 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
-import { isProfessionistaStandard, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -76,18 +76,20 @@ function ClientiDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
+  const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
+  const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const canSaveGlobalClientCard = !isProfessionista;
   const canManageTeamAssignments = !isProfessionista;
   const canGenerateCheckLinks = !isProfessionista;
   const canCreateCallBonus = !isProfessionista;
   const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
-  const canManageNutritionSection = !isProfessionista || specialtyGroup === 'nutrizione';
-  const canManageCoachingSection = !isProfessionista || specialtyGroup === 'coach';
-  const canManagePsychologySection = !isProfessionista || specialtyGroup === 'psicologia';
+  const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
+  const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
+  const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
 
   const getAllowedMainTabsForUser = useCallback(() => {
-    if (!isProfessionista) {
+    if (!isSpecialtyRestrictedRole) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
         'check_periodici', 'check_iniziali', 'tickets', 'call_bonus'
@@ -95,12 +97,15 @@ function ClientiDetail() {
     }
 
     const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'check_iniziali', 'tickets', 'call_bonus']);
+    if (isRestrictedTeamLeader) {
+      allowed.add('team');
+    }
     if (specialtyGroup === 'nutrizione') allowed.add('nutrizione');
     if (specialtyGroup === 'coach') allowed.add('coaching');
     if (specialtyGroup === 'psicologia') allowed.add('psicologia');
     if (specialtyGroup === 'medico') allowed.add('medico');
     return allowed;
-  }, [isProfessionista, specialtyGroup]);
+  }, [isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup]);
 
   // State
   const [cliente, setCliente] = useState(null);

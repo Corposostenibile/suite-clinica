@@ -1463,6 +1463,16 @@ def api_list() -> Any:
         }
     )
 
+
+def _require_cliente_scope_or_403(cliente_id: int) -> None:
+    """
+    Verifica che il cliente sia nel perimetro RBAC dell'utente corrente
+    (admin=globale, TL=team, professionista=propri clienti).
+    """
+    scoped_query = apply_role_filtering(db.session.query(Cliente.cliente_id))
+    if scoped_query.filter(Cliente.cliente_id == cliente_id).first() is None:
+        abort(HTTPStatus.FORBIDDEN, description="Cliente fuori dal perimetro autorizzato.")
+
 @api_bp.route("/<int:cliente_id>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_detail(cliente_id: int) -> Any:
@@ -1483,6 +1493,7 @@ def api_detail(cliente_id: int) -> Any:
                     "message": "Puoi visualizzare solo i clienti assegnati a te"
                 }), HTTPStatus.FORBIDDEN
     
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id, eager=True)
     return jsonify({"data": cliente_schema.dump(cliente)})
 
@@ -1503,6 +1514,7 @@ def api_create() -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["PATCH"])
 @permission_required(CustomerPerm.EDIT)
 def api_update(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
     # Use schema with session for validation
@@ -1516,6 +1528,7 @@ def api_update(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.DELETE)
 def api_delete(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     delete_cliente(cliente, current_user)
     return "", HTTPStatus.NO_CONTENT
@@ -1524,6 +1537,7 @@ def api_delete(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW_HISTORY)
 def api_history(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     limit = request.args.get("limit", 100, type=int)
     versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
 
@@ -5678,6 +5692,17 @@ def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> boo
     role_value = role.value if hasattr(role, "value") else str(role or "")
     if role_value == "admin":
         return True
+    if role_value == "team_leader":
+        # TL: almeno cliente nel perimetro dei team gestiti (specialità gestita lato UI / altri filtri)
+        try:
+            from corposostenibile.blueprints.client_checks.rbac import get_accessible_clients_query
+            accessible_query = get_accessible_clients_query()
+            if accessible_query is None:
+                return True
+            return accessible_query.filter(Cliente.cliente_id == cliente.cliente_id).first() is not None
+        except Exception:
+            logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
+            return False
     if role_value != "professionista":
         return True
 
