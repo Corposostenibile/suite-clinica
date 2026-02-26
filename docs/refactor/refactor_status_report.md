@@ -142,7 +142,14 @@ Nota coerenza ruoli:
   - no `CheckAzienda` globale
   - redirect verso area personale (`Profilo > Check`)
 - `Da fare / Aperto`
-  - `P0` fix puntuale `Creazione link check non funziona`
+  - verifica/fix funzionale completo `Creazione link check` (weekly/dca/minor) su flusso end-to-end
+- `Aggiornamenti recenti`
+  - fix backend `Creazione link check` (weekly/dca/minor):
+    - rimossa dipendenza dai dipartimenti (non più usati nel progetto) per `generate/deactivate`
+    - i permessi ora usano il perimetro RBAC del paziente (`cliente`) invece del controllo `department`
+    - evitato `AttributeError` in produzione su `current_user.department` durante la generazione link
+  - `Weekly Check`: implementato invio email automatico al paziente con copia/riepilogo della compilazione (best effort, non blocca il salvataggio se l'email fallisce)
+  - da validare in produzione il contenuto/formattazione della nuova email riepilogo weekly (template HTML + testo)
 
 ### Task
 
@@ -253,7 +260,7 @@ Nota coerenza ruoli:
 - `Capienza`
   - fix logica conteggio “clienti assegnati”
 - `Check`
-  - fix `Creazione link check non funziona`
+  - validazione end-to-end `Creazione link check` dopo fix backend permessi (weekly/dca/minor)
 
 ### P1 (importanti, non bloccanti)
 

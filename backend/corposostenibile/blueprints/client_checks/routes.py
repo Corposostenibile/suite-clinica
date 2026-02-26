@@ -22,6 +22,7 @@ Route per il sistema di gestione check clienti:
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from typing import Dict, Any
 from urllib.parse import urlparse
 
@@ -39,6 +40,7 @@ from flask import (
 from flask_login import current_user, login_required
 from sqlalchemy import desc, and_
 from sqlalchemy.orm import joinedload, defer
+from werkzeug.exceptions import HTTPException
 
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
@@ -80,7 +82,6 @@ from .helpers import (
     get_user_agent,
 )
 from .rbac import get_accessible_clients_query
-
 
 def _can_access_cliente_checks(cliente_id: int) -> bool:
     accessible_query = get_accessible_clients_query()
@@ -225,6 +226,8 @@ def dashboard():
             recent_forms=recent_forms,
             recent_responses=recent_responses,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore dashboard client_checks: {e}")
         flash("Errore nel caricamento della dashboard", "error")
@@ -455,6 +458,8 @@ def conferma_lettura(response_type, response_id):
 
         return redirect(url_for("client_checks.da_leggere"))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Errore conferma lettura: {e}")
@@ -503,6 +508,8 @@ def forms_list():
             current_type=form_type,
             current_search=search,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore lista form: {e}")
         flash("Errore nel caricamento dei form", "error")
@@ -589,6 +596,8 @@ def preview_form(id: int):
             "client_checks/form_preview.html",
             form=form
         )
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore anteprima form {id}: {e}")
         flash("Errore nel caricamento dell'anteprima", "error")
@@ -677,6 +686,8 @@ def delete_form(id: int):
     try:
         CheckFormService.delete_form(id)
         flash("Form eliminato con successo!", "success")
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore eliminazione form: {e}")
         flash("Errore nell'eliminazione del form", "error")
@@ -691,6 +702,8 @@ def delete_form_api(id: int):
     try:
         CheckFormService.delete_form(id)
         return jsonify({"success": True, "message": "Form eliminato con successo!"})
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore eliminazione form: {e}")
         return jsonify({"success": False, "error": "Errore nell'eliminazione del form"}), 500
@@ -777,6 +790,8 @@ def assign_to_single_client(client_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=client_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore assegnazione check a cliente {client_id}: {e}")
         flash("Errore nell'assegnazione del check", "error")
@@ -1327,6 +1342,15 @@ def weekly_check_public(token: str):
                     current_app.logger.error(f"[WEEKLY_CHECK] Errore invio notifiche: {e}")
                     # Non bloccare il flusso se l'invio email fallisce
 
+                try:
+                    NotificationService.send_weekly_check_summary_to_patient(
+                        cliente=weekly_check.cliente,
+                        weekly_response=response,
+                    )
+                except Exception as e:
+                    current_app.logger.error(f"[WEEKLY_CHECK] Errore invio riepilogo paziente: {e}")
+                    # Non bloccare il flusso se l'invio email fallisce
+
                 flash("Grazie! Il tuo check settimanale è stato salvato con successo.", "success")
                 return redirect(url_for("client_checks.weekly_check_success", token=token))
 
@@ -1386,23 +1410,14 @@ def generate_weekly_check_link(cliente_id: int):
     LINK PERMANENTE: il cliente usa sempre lo stesso link per compilare più volte.
     Se esiste già un assignment attivo, ritorna quello esistente.
 
-    Permessi: Admin, Nutrizionisti (dept 2), Coach (dept 3), Psicologi (dept 4), Health Manager (dept 22)
+    Permessi: utenti con accesso al paziente (RBAC su cliente).
     """
     from corposostenibile.models import WeeklyCheck
     import secrets
 
     try:
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[WEEKLY_CHECK] Accesso negato per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                abort(403, "Non hai i permessi per generare check settimanali")
-
-        # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         # Cerca assignment ATTIVO esistente
         existing_check = (
@@ -1473,6 +1488,8 @@ def generate_weekly_check_link(cliente_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[WEEKLY_CHECK] Errore generazione link: {e}", exc_info=True)
@@ -1498,14 +1515,7 @@ def deactivate_weekly_check(check_id: int):
     try:
         weekly_check = WeeklyCheck.query.get_or_404(check_id)
 
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[WEEKLY_CHECK] Disattivazione negata per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                return jsonify({"success": False, "error": "Non hai i permessi per disattivare check settimanali"}), 403
+        _abort_if_no_cliente_checks_access(weekly_check.cliente_id)
 
         # Disattiva il check
         weekly_check.is_active = False
@@ -1525,6 +1535,8 @@ def deactivate_weekly_check(check_id: int):
             "response_count": weekly_check.response_count
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[WEEKLY_CHECK] Errore disattivazione: {e}", exc_info=True)
@@ -1639,23 +1651,14 @@ def generate_dca_check_link(cliente_id: int):
     LINK PERMANENTE: il cliente usa sempre lo stesso link per compilare più volte.
     Se esiste già un assignment attivo, ritorna quello esistente.
 
-    Permessi: Admin, Nutrizionisti (dept 2), Coach (dept 3), Psicologi (dept 4), Health Manager (dept 22)
+    Permessi: utenti con accesso al paziente (RBAC su cliente).
     """
     from corposostenibile.models import DCACheck
     import secrets
 
     try:
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[DCA_CHECK] Accesso negato per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                abort(403, "Non hai i permessi per generare check DCA")
-
-        # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         # Cerca assignment ATTIVO esistente
         existing_check = (
@@ -1726,6 +1729,8 @@ def generate_dca_check_link(cliente_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[DCA_CHECK] Errore generazione link: {e}", exc_info=True)
@@ -1910,14 +1915,7 @@ def deactivate_dca_check(check_id: int):
     try:
         dca_check = DCACheck.query.get_or_404(check_id)
 
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[DCA_CHECK] Disattivazione negata per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                return jsonify({"success": False, "error": "Non hai i permessi per disattivare check DCA"}), 403
+        _abort_if_no_cliente_checks_access(dca_check.cliente_id)
 
         # Disattiva il check
         dca_check.is_active = False
@@ -1937,6 +1935,8 @@ def deactivate_dca_check(check_id: int):
             "response_count": dca_check.response_count
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[DCA_CHECK] Errore disattivazione: {e}", exc_info=True)
@@ -2189,22 +2189,13 @@ def generate_minor_check_link(cliente_id: int):
     LINK PERMANENTE: il cliente usa sempre lo stesso link per compilare più volte.
     Se esiste già un assignment attivo, ritorna quello esistente.
 
-    Permessi: Admin, Nutrizionisti (dept 2), Coach (dept 3), Psicologi (dept 4), Health Manager (dept 22)
+    Permessi: utenti con accesso al paziente (RBAC su cliente).
     """
     import secrets
 
     try:
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[MINOR_CHECK] Accesso negato per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                abort(403, "Non hai i permessi per generare check minori")
-
-        # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         # Cerca assignment ATTIVO esistente
         existing_check = (
@@ -2275,6 +2266,8 @@ def generate_minor_check_link(cliente_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[MINOR_CHECK] Errore generazione link: {e}", exc_info=True)
@@ -2425,14 +2418,7 @@ def deactivate_minor_check(check_id: int):
     try:
         minor_check = MinorCheck.query.get_or_404(check_id)
 
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[MINOR_CHECK] Disattivazione negata per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                return jsonify({"success": False, "error": "Non hai i permessi per disattivare check minori"}), 403
+        _abort_if_no_cliente_checks_access(minor_check.cliente_id)
 
         # Disattiva il check
         minor_check.is_active = False
@@ -2452,6 +2438,8 @@ def deactivate_minor_check(check_id: int):
             "response_count": minor_check.response_count
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[MINOR_CHECK] Errore disattivazione: {e}", exc_info=True)
@@ -2825,14 +2813,8 @@ def api_generate_check_link(check_type: str, cliente_id: int):
         return jsonify({"success": False, "error": "Tipo check non valido"}), 400
 
     try:
-        # Verifica permessi
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                return jsonify({"success": False, "error": "Non autorizzato"}), 403
-
         cliente = Cliente.query.get_or_404(cliente_id)
-        # Difesa aggiuntiva: se in futuro il ruolo viene esteso oltre admin, resta il controllo sul perimetro cliente
-        if not current_user.is_admin and not _can_access_cliente_checks(cliente_id):
+        if not _can_access_cliente_checks(cliente_id):
             return jsonify({"success": False, "error": "Non autorizzato"}), 403
 
         # Select correct model
@@ -2882,6 +2864,8 @@ def api_generate_check_link(check_type: str, cliente_id: int):
             "response_count": 0
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[API] Errore generazione link {check_type}: {e}", exc_info=True)
