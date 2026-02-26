@@ -52,6 +52,9 @@ COPY backend/wsgi.py ./
 # Generates static HTML files in corposostenibile/blueprints/documentation/static
 RUN mkdocs build -f corposostenibile/blueprints/documentation/mkdocs.yml
 
+# Ensure upload paths exist even when uploads are provided by PVC (prod) or local volume
+RUN mkdir -p /var/corposostenibile/uploads /app/uploads
+
 
 # Copy built frontend assets from Stage 1
 # We allow __init__.py to serve them via send_from_directory
