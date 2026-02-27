@@ -25,7 +25,7 @@ export function isHealthManagerScopeUser(user) {
 }
 
 export function isTeamLeaderRestricted(user) {
-  return Boolean(isTeamLeader(user) && !isAdminOrCco(user));
+  return Boolean(isTeamLeader(user) && !isAdminOrCco(user) && !isHealthManagerTeamLeader(user));
 }
 
 export function isProfessionistaStandard(user) {
@@ -46,7 +46,7 @@ export function canAccessGlobalCheckPage(user) {
 }
 
 export function canAccessQualityPage(user) {
-  return Boolean(isAdminOrCco(user) || isTeamLeader(user));
+  return Boolean(isAdminOrCco(user) || isTeamLeaderRestricted(user));
 }
 
 export function canAccessTeamLists(user) {
@@ -62,7 +62,7 @@ export function canAccessAiAssignments(user) {
 }
 
 export function canAccessCapacity(user) {
-  return Boolean(isAdminOrCco(user) || isTeamLeader(user));
+  return Boolean(isAdminOrCco(user) || isTeamLeaderRestricted(user) || isHealthManagerTeamLeader(user));
 }
 
 export function canViewOtherProfessionalProfile(user) {

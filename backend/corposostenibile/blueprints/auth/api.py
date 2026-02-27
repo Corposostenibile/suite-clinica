@@ -13,7 +13,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User
+from corposostenibile.models import User, Team, TeamTypeEnum
 from .routes import _generate_reset_token, _verify_reset_token, _send_reset_email, _send_password_changed_email
 
 # --------------------------------------------------------------------------- #
@@ -260,11 +260,12 @@ def _user_to_dict(user: User) -> dict:
     full_name = getattr(user, "full_name", None) or f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
     is_hm_team_leader = False
     if role_value == "team_leader":
-        teams_led = getattr(user, "teams_led", []) or []
-        is_hm_team_leader = any(
-            (getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None)) == "health_manager")
-            for team in teams_led
-        )
+        # Query esplicita per evitare edge-case di lazy-loading sulla relazione teams_led.
+        is_hm_team_leader = db.session.query(Team.id).filter(
+            Team.head_id == user.id,
+            Team.is_active == True,
+            Team.team_type == TeamTypeEnum.health_manager,
+        ).first() is not None
     return {
         "id": user.id,
         "email": user.email,

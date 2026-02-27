@@ -213,7 +213,9 @@ function TeamList() {
                 onChange={(e) => handleFilterChange('role', e.target.value)}
               >
                 <option value="">Tutti i Ruoli</option>
-                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                {Object.entries(ROLE_LABELS)
+                  .filter(([value]) => value !== 'team_leader')
+                  .map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>

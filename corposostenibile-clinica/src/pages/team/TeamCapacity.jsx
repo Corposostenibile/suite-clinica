@@ -154,7 +154,15 @@ function TeamCapacity() {
   }, [teamFilter, teamOptions]);
 
   const isCco = user?.specialty === 'cco';
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || isCco);
+  const canUseSpecialtyFilters = isAdminOrCco;
   const canAccessPage = Boolean(user?.is_admin || user?.role === 'team_leader' || isCco || user?.role === 'admin');
+
+  useEffect(() => {
+    if (!canUseSpecialtyFilters && profFilter !== 'all') {
+      setProfFilter('all');
+    }
+  }, [canUseSpecialtyFilters, profFilter]);
 
   const handleSave = async (userId) => {
     const value = editingValues[userId];
@@ -262,12 +270,16 @@ function TeamCapacity() {
       </div>
 
       <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-3">
-        <ButtonGroup>
-          <Button variant={profFilter === 'all' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('all')}>Tutti</Button>
-          <Button variant={profFilter === 'nutrizione' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('nutrizione')}>Nutrizione</Button>
-          <Button variant={profFilter === 'coach' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('coach')}>Coach</Button>
-          <Button variant={profFilter === 'psicologia' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('psicologia')}>Psicologia</Button>
-        </ButtonGroup>
+        {canUseSpecialtyFilters ? (
+          <ButtonGroup>
+            <Button variant={profFilter === 'all' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('all')}>Tutti</Button>
+            <Button variant={profFilter === 'nutrizione' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('nutrizione')}>Nutrizione</Button>
+            <Button variant={profFilter === 'coach' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('coach')}>Coach</Button>
+            <Button variant={profFilter === 'psicologia' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('psicologia')}>Psicologia</Button>
+          </ButtonGroup>
+        ) : (
+          <div />
+        )}
 
         <div className="d-flex flex-wrap gap-2" style={{ maxWidth: '520px', width: '100%' }}>
           <Form.Select

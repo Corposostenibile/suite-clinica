@@ -8,7 +8,13 @@ import clientiService from '../services/clientiService';
 import checkService from '../services/checkService';
 import taskService from '../services/taskService';
 import logoFoglia from '../images/logo_foglia.png';
-import { isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../utils/rbacScope';
+import {
+  isHealthManagerScopeUser,
+  isHealthManagerTeamLeader,
+  isProfessionistaStandard,
+  isTeamLeaderRestricted,
+  normalizeSpecialtyGroup,
+} from '../utils/rbacScope';
 
 // Tab configuration
 const TABS = [
@@ -860,6 +866,44 @@ function LegacyWelcomeDashboard() {
 
 function Welcome() {
   const { user } = useOutletContext();
+
+  if (isHealthManagerScopeUser(user)) {
+    return (
+      <div className="container-fluid p-0">
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+          <div>
+            <h4 className="mb-1" style={{ fontWeight: 700, color: '#1e293b' }}>
+              Ciao, {user?.first_name || 'Health Manager'}!
+            </h4>
+            <p className="text-muted mb-0">Panoramica operativa Health Manager</p>
+          </div>
+        </div>
+
+        <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
+          <div className="card-body p-4">
+            <h5 className="mb-2" style={{ color: '#1e293b' }}>Area HM</h5>
+            <p className="text-muted mb-3" style={{ fontSize: '13px' }}>
+              Vista limitata a pazienti e assegnazioni.
+              {isHealthManagerTeamLeader(user) ? ' Come Team Leader HM puoi anche gestire la capienza del team HM.' : ''}
+            </p>
+            <div className="d-flex gap-2 flex-wrap">
+              <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm">
+                <i className="ri-group-line me-1"></i>Pazienti
+              </Link>
+              <Link to="/assegnazioni-ai" className="btn btn-outline-primary btn-sm">
+                <i className="ri-cpu-line me-1"></i>Assegnazioni
+              </Link>
+              {isHealthManagerTeamLeader(user) && (
+                <Link to="/team-capienza" className="btn btn-outline-success btn-sm">
+                  <i className="ri-bar-chart-2-line me-1"></i>Capienze HM
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isTeamLeaderRestricted(user)) {
     return <RoleScopedWelcome user={user} mode="team_leader" />;
