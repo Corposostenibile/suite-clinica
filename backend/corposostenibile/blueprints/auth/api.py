@@ -258,6 +258,13 @@ def _user_to_dict(user: User) -> dict:
     spec = getattr(user, "specialty", None)
     specialty_value = spec.value if (spec is not None and hasattr(spec, "value")) else (str(spec) if spec is not None else None)
     full_name = getattr(user, "full_name", None) or f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+    is_hm_team_leader = False
+    if role_value == "team_leader":
+        teams_led = getattr(user, "teams_led", []) or []
+        is_hm_team_leader = any(
+            (getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None)) == "health_manager")
+            for team in teams_led
+        )
     return {
         "id": user.id,
         "email": user.email,
@@ -271,6 +278,7 @@ def _user_to_dict(user: User) -> dict:
         "is_trial": getattr(user, "is_trial", False),
         "trial_stage": getattr(user, "trial_stage", None),
         "trial_supervisor_id": getattr(user, "trial_supervisor_id", None),
+        "is_health_manager_team_leader": is_hm_team_leader,
     }
 
 

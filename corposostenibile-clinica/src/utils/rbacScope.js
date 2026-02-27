@@ -12,11 +12,16 @@ export function isHealthManagerUser(user) {
 }
 
 export function isHealthManagerTeamLeader(user) {
+  if (user?.is_health_manager_team_leader === true) return true;
   if (user?.role !== 'team_leader') return false;
   const specialty = String(user?.specialty || '').toLowerCase();
   if (specialty === 'health_manager') return true;
   const departmentName = String(user?.department?.name || '').toLowerCase();
   return departmentName.includes('health') || departmentName.includes('customer success');
+}
+
+export function isHealthManagerScopeUser(user) {
+  return Boolean(isHealthManagerUser(user) || isHealthManagerTeamLeader(user));
 }
 
 export function isTeamLeaderRestricted(user) {
@@ -37,7 +42,7 @@ export function normalizeSpecialtyGroup(specialty) {
 }
 
 export function canAccessGlobalCheckPage(user) {
-  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
 export function canAccessQualityPage(user) {
@@ -45,33 +50,33 @@ export function canAccessQualityPage(user) {
 }
 
 export function canAccessTeamLists(user) {
-  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
 export function canAccessTrialPages(user) {
-  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
 export function canAccessAiAssignments(user) {
-  return !isProfessionistaStandard(user) || isHealthManagerUser(user);
+  return !isProfessionistaStandard(user) || isHealthManagerScopeUser(user);
 }
 
 export function canAccessCapacity(user) {
-  return Boolean(isAdminOrCco(user) || isTeamLeader(user) || isHealthManagerUser(user));
+  return Boolean(isAdminOrCco(user) || isTeamLeader(user));
 }
 
 export function canViewOtherProfessionalProfile(user) {
-  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
 export function canAccessTaskPage(user) {
-  return !isHealthManagerUser(user);
+  return !isHealthManagerScopeUser(user);
 }
 
 export function canAccessTrainingPage(user) {
-  return !isHealthManagerUser(user);
+  return !isHealthManagerScopeUser(user);
 }
 
 export function canAccessSecondaryModules(user) {
-  return !isHealthManagerUser(user);
+  return !isHealthManagerScopeUser(user);
 }

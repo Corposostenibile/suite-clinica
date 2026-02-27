@@ -12,6 +12,7 @@ import {
   canAccessQualityPage,
   canAccessTeamLists,
   canAccessTrialPages,
+  isHealthManagerTeamLeader,
   isHealthManagerUser,
   isProfessionistaStandard,
 } from "../../../utils/rbacScope";
@@ -89,8 +90,10 @@ const SideBar = () => {
 
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
-          {(isHealthManagerUser(user)
+          {(isHealthManagerTeamLeader(user)
             ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            : isHealthManagerUser(user)
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.role === 'influencer'
             ? MenuList.filter(item => ['Pazienti', 'Profilo', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.is_trial

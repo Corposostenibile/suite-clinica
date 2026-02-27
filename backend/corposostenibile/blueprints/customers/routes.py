@@ -5782,6 +5782,11 @@ def _is_team_leader_health_manager_scope(user) -> bool:
     role_value = role.value if hasattr(role, "value") else str(role or "")
     if role_value != "team_leader":
         return False
+    teams_led = getattr(user, "teams_led", []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
+        if str(team_type or "").strip().lower() == "health_manager":
+            return True
     specialty = getattr(user, "specialty", None)
     specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
     specialty_value = specialty_value.strip().lower()

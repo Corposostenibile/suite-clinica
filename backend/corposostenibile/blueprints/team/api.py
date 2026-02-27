@@ -141,9 +141,14 @@ def _get_capacity_role_type(user) -> str | None:
 
 
 def _is_health_manager_team_leader(user) -> bool:
-    """True se team leader dell'area HM (specialty o dipartimento)."""
+    """True se team leader HM (team_type HM guidato, specialty o dipartimento)."""
     if _get_user_role(user) != 'team_leader':
         return False
+    teams_led = getattr(user, 'teams_led', []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+        if str(team_type or '').strip().lower() == 'health_manager':
+            return True
     specialty = (_get_user_specialty(user) or '').strip().lower()
     if specialty == 'health_manager':
         return True
