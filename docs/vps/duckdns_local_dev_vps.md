@@ -1,6 +1,6 @@
 # Sviluppo Locale su VPS (DuckDNS) + PWA tablet (stato reale)
 
-Data aggiornamento: 17 Febbraio 2026
+Data aggiornamento: 27 Febbraio 2026
 
 Questa guida descrive la configurazione attuale su VPS per `suite-clinica.duckdns.org`, usato come **ambiente locale/shared di sviluppo** (non GCP produzione), con URL web canonici in root (es. `/auth/login`, `/clienti-lista`) e PWA installabile.
 
@@ -17,9 +17,7 @@ Questa guida descrive la configurazione attuale su VPS per `suite-clinica.duckdn
 
 - Dominio: `https://suite-clinica.duckdns.org`
 - Backend live: `PM2` (`backend-manu`)
-- Frontend live: **auto-detect** tra:
-  - `systemd` (`clinica-pwa-preview`) oppure
-  - `PM2` (`frontend-manu`)
+- Frontend live (standard attuale): `PM2` (`frontend-manu`) con `vite dev --watch` (auto-reload)
 - Comandi `dev.sh` da usare qui:
   - `vps-status`
   - `vps-restart-backend`
@@ -36,7 +34,7 @@ Dominio pubblico:
 - `https://suite-clinica.duckdns.org`
 
 Servizi locali su VPS:
-- Frontend PWA (Vite preview): `http://127.0.0.1:3001`
+- Frontend PWA (Vite dev via PM2 watch): `http://127.0.0.1:3001`
 - Backend Flask: `http://127.0.0.1:5001`
 - Nginx: espone `80/443`, termina TLS e fa reverse proxy
 
@@ -88,7 +86,8 @@ bash scripts/setup_vps_https_pwa.sh \
 ## 4) Gestione servizi runtime (verificare sempre lo stack attivo)
 
 Nota importante:
-- su questo ambiente il frontend clinica può essere servito da `systemd` (`clinica-pwa-preview`) **oppure** da `PM2` (es. `frontend-manu` con `npm run dev -- --port 3001 --host`)
+- standard corrente: frontend servito da `PM2` (`frontend-manu`) con `watch` attivo
+- `systemd` (`clinica-pwa-preview`) è stato disabilitato per evitare build/restart manuali ad ogni modifica
 - prima di fare "deploy VPS" verificare quale processo sta effettivamente ascoltando su `:3001` / `:5001`
 - modificare i file del repo **non** aggiorna automaticamente il sito: serve restart del processo frontend/backend corretto
 
@@ -102,9 +101,7 @@ Per evitare errori (es. usare `./dev.sh restart manu` che fa anche check/setup c
 
 # Applica modifiche al VPS locale:
 # - backend: PM2 restart
-# - frontend: auto-detect
-#   - systemd -> build + restart clinica-pwa-preview
-#   - PM2     -> restart frontend-manu (senza build)
+# - frontend: PM2 restart (nessuna build obbligatoria in dev mode)
 ./dev.sh vps-refresh manu
 
 # Solo backend (PM2)
@@ -119,10 +116,38 @@ Per evitare errori (es. usare `./dev.sh restart manu` che fa anche check/setup c
 ```
 
 Nota:
-- se il frontend live è `systemd` (`clinica-pwa-preview`), il restart richiede `sudo`
-- `dev.sh vps-restart-frontend` prova `sudo -n`: se non hai sessione sudo attiva, farà comunque la build e poi avviserà che serve password
+- su stack `PM2 + vite dev`, le modifiche frontend sono visibili con hot-reload/auto-restart
+- in caso di blocco, usare `./dev.sh vps-restart-frontend manu`
 
-### 4.1 Frontend PWA (systemd, se attivo)
+### 4.1 Frontend PWA (PM2, standard attuale)
+
+Processo: `frontend-manu`
+
+```bash
+npx pm2 list
+npx pm2 describe frontend-manu
+npx pm2 logs frontend-manu --lines 100
+npx pm2 restart frontend-manu
+```
+
+Verifica rapida watch:
+
+```bash
+npx pm2 describe frontend-manu | rg "watch & reload"
+```
+
+Setup/ripristino standard (se il processo non esiste):
+
+```bash
+cd /home/manu/suite-clinica/corposostenibile-clinica
+npx pm2 start "npm run dev -- --host 0.0.0.0 --port 3001 --strictPort" \
+  --name frontend-manu \
+  --namespace manu \
+  --watch \
+  --ignore-watch="node_modules dist .git"
+npx pm2 save
+```
+### 4.2 Frontend PWA (systemd, fallback opzionale)
 
 Servizio: `clinica-pwa-preview`
 
@@ -132,7 +157,7 @@ sudo systemctl restart clinica-pwa-preview
 sudo journalctl -u clinica-pwa-preview -n 100 --no-pager
 ```
 
-### 4.2 Backend Flask (PM2)
+### 4.3 Backend Flask (PM2)
 
 Processo: `backend-manu`
 
@@ -148,31 +173,23 @@ Alternativa consigliata (wrapper con naming standard):
 ./dev.sh vps-restart-backend manu
 ```
 
-### 4.3 Frontend PWA (PM2, alternativa usata spesso su questo VPS)
-
-Processo tipico: `frontend-manu`
-
-```bash
-npx pm2 list
-npx pm2 describe frontend-manu
-npx pm2 logs frontend-manu --lines 100
-npx pm2 restart frontend-manu
-```
-
-Alternativa consigliata (auto-detect stack live):
-
-```bash
-./dev.sh vps-restart-frontend manu
-```
-
 ## 5) Deploy frontend (PWA)
 
 Nota:
-- se il frontend live gira via `PM2 + npm run dev`, il `build` non è necessario per vedere le modifiche (serve solo restart/hot reload)
-- se invece gira via `clinica-pwa-preview` (systemd), va fatto `npm run build` e poi restart del servizio
+- stack standard (PM2 + vite dev): `build` non necessario per sviluppo quotidiano
+- fallback systemd preview: richiede `npm run build` + restart servizio
+
+Stack standard (PM2 + vite dev):
 
 ```bash
-cd corposostenibile-clinica
+cd /home/manu/suite-clinica/corposostenibile-clinica
+npx pm2 restart frontend-manu
+```
+
+Fallback systemd preview:
+
+```bash
+cd /home/manu/suite-clinica/corposostenibile-clinica
 npm ci
 npm run build
 sudo systemctl restart clinica-pwa-preview
@@ -255,11 +272,9 @@ Atteso:
 # 1) Pull codice
 git pull
 
-# 2) Frontend
+# 2) Frontend (standard PM2 vite dev)
 cd /home/manu/suite-clinica/corposostenibile-clinica
-npm ci
-npm run build
-sudo systemctl restart clinica-pwa-preview
+npx pm2 restart frontend-manu
 
 # 3) Backend
 cd /home/manu/suite-clinica/backend
@@ -272,6 +287,8 @@ npx pm2 restart backend-manu
 curl -I https://suite-clinica.duckdns.org/auth/login
 curl -i https://suite-clinica.duckdns.org/api/auth/me | head -n 20
 ```
+
+Variante fallback (solo se frontend su systemd preview): eseguire build + `sudo systemctl restart clinica-pwa-preview`.
 
 Versione rapida (riavvio stack live già installato/configurato):
 
