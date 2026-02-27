@@ -2602,7 +2602,7 @@ def assign_professionista(cliente_id: int):
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
-    if _is_professionista_standard(current_user):
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato ad assegnare professionisti"}), 403
     data = request.get_json() or {}
 
@@ -2691,7 +2691,7 @@ def interrupt_professionista(cliente_id: int, history_id: int):
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
-    if _is_professionista_standard(current_user):
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     history = db.session.query(ClienteProfessionistaHistory).filter_by(
         id=history_id,
@@ -2762,7 +2762,7 @@ def interrupt_legacy_professionista(cliente_id: int):
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
-    if _is_professionista_standard(current_user):
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     data = request.get_json() or {}
 
@@ -5733,6 +5733,7 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
         or getattr(cliente, "coach_id", None) == user.id
         or getattr(cliente, "psicologa_id", None) == user.id
         or getattr(cliente, "consulente_alimentare_id", None) == user.id
+        or getattr(cliente, "health_manager_id", None) == user.id
         or user in cliente.nutrizionisti_multipli
         or user in cliente.coaches_multipli
         or user in cliente.psicologi_multipli
@@ -5755,6 +5756,12 @@ def _is_professionista_standard(user) -> bool:
     return (not getattr(user, "is_admin", False)) and role_value == "professionista"
 
 
+def _is_health_manager_user(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    return (not getattr(user, "is_admin", False)) and role_value == "health_manager"
+
+
 def _normalize_specialty_group_for_rbac(user) -> str | None:
     specialty = getattr(user, "specialty", None)
     specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
@@ -5770,6 +5777,21 @@ def _normalize_specialty_group_for_rbac(user) -> str | None:
     return None
 
 
+def _is_team_leader_health_manager_scope(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return False
+    specialty = getattr(user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    specialty_value = specialty_value.strip().lower()
+    if specialty_value == "health_manager":
+        return True
+    department_name = getattr(getattr(user, "department", None), "name", "")
+    department_name = str(department_name or "").strip().lower()
+    return ("health" in department_name) or ("customer success" in department_name)
+
+
 def _team_leader_visible_member_ids(user) -> set[int]:
     visible_ids = {getattr(user, "id", None)}
     for team in getattr(user, "teams_led", []) or []:
@@ -5783,7 +5805,7 @@ def _team_leader_visible_member_ids(user) -> set[int]:
 def _team_leader_can_manage_assignment_type(user, tipo_professionista: str | None) -> bool:
     tipo = (tipo_professionista or "").strip().lower()
     if tipo == "health_manager":
-        return False
+        return _is_team_leader_health_manager_scope(user)
     allowed_by_specialty = {
         "nutrizione": {"nutrizionista"},
         "coach": {"coach"},
@@ -5826,8 +5848,10 @@ def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> boo
         except Exception:
             logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
             return False
+    if role_value == "health_manager":
+        return getattr(cliente, "health_manager_id", None) == user.id
     if role_value != "professionista":
-        return True
+        return False
 
     if service_type == "nutrizione":
         return getattr(cliente, "nutrizionista_id", None) == user.id or user in (cliente.nutrizionisti_multipli or [])

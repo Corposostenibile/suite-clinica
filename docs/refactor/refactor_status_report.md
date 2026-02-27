@@ -16,6 +16,12 @@
 - `Professionista`
   - accesso limitato a operatività personale e clienti assegnati
   - no pagine/moduli globali di coordinamento
+- `Health Manager`
+  - accesso limitato a operatività sui pazienti associati
+  - visuali abilitate: `Pazienti`, `Assegnazioni`, `Capienza`
+  - esclusi moduli secondari (`Formazione`, `Task`, `Chat`, `Calendario`, `Quality`, `Check` globale, `Team/Profilo`)
+- `Team Leader HM`
+  - scope team HM (team unico) con gestione `Assegnazioni` HM e `Capienza` HM
 
 Nota coerenza ruoli:
 - È stata introdotta coerenza tra `head` di team e ruolo `team_leader` (migrazione + auto-promozione in logica Team API) per evitare UI/permessi incoerenti.
@@ -55,6 +61,9 @@ Nota coerenza ruoli:
   - sidebar ridotta alle sezioni operative personali
 - `Note`
   - controlli frontend centralizzati (`role/scope`) per ridurre logica sparsa
+- `Health Manager`
+  - sidebar ridotta alle sole sezioni operative richieste (`Pazienti`, `Assegnazioni`, `Capienza`)
+  - blocco via route guard su moduli non previsti (non solo hide menu)
 
 ### Team / Professionisti / Profilo
 
@@ -134,6 +143,12 @@ Nota coerenza ruoli:
     - `Nutrizione > Setup`: aggiunta sezione `Date call di visita`
     - `Patologie e Anamnesi`: anamnesi strutturata in 5 sezioni
     - backend allineato su visibilità clienti/check anche tramite `ClienteProfessionistaHistory`
+- `Health Manager`
+  - può aprire la scheda paziente completa solo se paziente associato a lui
+  - non può gestire assegnazioni professionisti dalla scheda (sola visione)
+  - hardening backend su scope HM:
+    - filtro ruolo HM su query clienti (`apply_role_filtering` + `CustomerRepository.list`)
+    - controlli service-specific (`_is_assigned_to_cliente_for_service`) vincolati a `cliente.health_manager_id == current_user.id`
 
 ### Check
 
@@ -217,6 +232,11 @@ Nota coerenza ruoli:
   - frontend non usa endpoint debug pubblico per i lead
 - `Professionista`
   - non accessibile
+- `Health Manager`
+  - accesso consentito per consultare/gestire pannello assegnazioni HM
+  - gestione permessi backend estesa a ruolo HM (`team.routes._require_assignment_permission`)
+- `Team Leader HM`
+  - può gestire assegnazioni HM del team (scope perimetro team)
 
 ### Capienza
 
@@ -229,6 +249,11 @@ Nota coerenza ruoli:
   - da verificare che la vista erediti lo stesso conteggio corretto
 - `Professionista`
   - non prevista come area operativa
+- `Health Manager`
+  - vista capienza abilitata: riga propria (clienti attivi assegnati a HM)
+  - `role_type=health_manager` gestito nel backend capienza
+- `Team Leader HM`
+  - può modificare capienza contrattuale HM (edit abilitato lato backend)
 
 ### UI trasversale (Topbar / Avatar / Sidebar visual)
 
@@ -257,7 +282,8 @@ Nota coerenza ruoli:
 - Python syntax check (`py_compile`) sui moduli backend modificati ✅
 - Frontend build `npm run build` (Vite) ✅ quando toccato il frontend
 - Importata suite test backend `quality` (calcoli/filtri/eleggibilità/super malus) ✅
-- Verifiche funzionali manuali ancora necessarie per i flussi ruolo-specifici (`TL` / `Professionista`)
+- Test regressione backend su guardie scope `ClientiDetail` (`customers.permissions`) ✅
+- Verifiche funzionali manuali ancora necessarie per i flussi ruolo-specifici (`TL` / `Professionista` / `Health Manager`)
 
 ## Cosa manca da fare (P0 / P1 / P2)
 
@@ -276,6 +302,9 @@ Nota coerenza ruoli:
   - QA funzionale dopo fix logica conteggio “clienti assegnati” (solo clienti attivi)
 - `Check`
   - validazione end-to-end `Creazione link check` dopo fix backend permessi (weekly/dca/minor)
+- `Health Manager`
+  - QA end-to-end su 3 visuali (`Pazienti`, `Assegnazioni`, `Capienza`) con utenti reali
+  - validazione `Team Leader HM`: gestione assegnazioni HM + update capienza HM + perimetro team corretto
 
 ### P1 (importanti, non bloccanti)
 

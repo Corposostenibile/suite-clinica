@@ -67,7 +67,10 @@ import {
   canAccessCapacity,
   canAccessGlobalCheckPage,
   canAccessQualityPage,
+  canAccessSecondaryModules,
+  canAccessTaskPage,
   canAccessTeamLists,
+  canAccessTrainingPage,
   canAccessTrialPages,
   canViewOtherProfessionalProfile,
   isAdminOrCco,
@@ -169,21 +172,21 @@ function App() {
 
             {/* Clienti Routes */}
             <Route path="/clienti-lista" element={<ClientiList />} />
-            <Route path="/clienti-nuovo" element={<ClientiAdd />} />
+            <Route path="/clienti-nuovo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><ClientiAdd /></RoleProtectedRoute>} />
             <Route path="/clienti-dettaglio/:id" element={<ClientiDetail />} />
-            <Route path="/clienti-modifica/:id" element={<ClientiAdd />} />
+            <Route path="/clienti-modifica/:id" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><ClientiAdd /></RoleProtectedRoute>} />
             <Route path="/clienti-nutrizione" element={<ClientiListaNutrizione />} />
             <Route path="/clienti-coach" element={<ClientiListaCoach />} />
             <Route path="/clienti-psicologia" element={<ClientiListaPsicologia />} />
 
             {/* Chat */}
-            <Route path="/chat" element={<Chat />} />
+            <Route path="/chat" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Chat /></RoleProtectedRoute>} />
 
             {/* Task */}
-            <Route path="/task" element={<Task />} />
+            <Route path="/task" element={<RoleProtectedRoute allowIf={canAccessTaskPage}><Task /></RoleProtectedRoute>} />
 
             {/* Formazione */}
-            <Route path="/formazione" element={<Formazione />} />
+            <Route path="/formazione" element={<RoleProtectedRoute allowIf={canAccessTrainingPage}><Formazione /></RoleProtectedRoute>} />
 
             {/* Quality */}
             <Route path="/quality" element={
@@ -198,12 +201,12 @@ function App() {
                 <CheckAzienda />
               </RoleProtectedRoute>
             } />
-            <Route path="/check-da-leggere" element={<CheckDaLeggere />} />
+            <Route path="/check-da-leggere" element={<RoleProtectedRoute allowIf={canAccessGlobalCheckPage}><CheckDaLeggere /></RoleProtectedRoute>} />
 
             {/* Calendario */}
-            <Route path="/calendario" element={<Calendario />} />
+            <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />
             <Route path="/comunicazioni" element={<div className="card p-4">Comunicazioni (coming soon)</div>} />
-            <Route path="/profilo" element={<Profilo />} />
+            <Route path="/profilo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Profilo /></RoleProtectedRoute>} />
 
             {/* Support */}
             <Route path="/supporto" element={<Support />} />

@@ -251,6 +251,8 @@ class CustomerRepository:
                         ),
                     )
                 )
+            elif user_role == UserRoleEnum.health_manager:
+                qry = qry.filter(Cliente.health_manager_id == current_user.id)
         
         # SEMPRE applica l'ordinamento prioritario per tipologia
         # Ordina prima per tipologia (C, B, A hanno priorità), poi per nome

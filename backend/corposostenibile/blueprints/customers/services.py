@@ -1346,6 +1346,10 @@ def apply_role_filtering(query):
                 )),
             )
         )
+
+    # Health Manager: solo pazienti assegnati a lui
+    elif user_role == UserRoleEnum.health_manager:
+        return query.filter(Cliente.health_manager_id == current_user.id)
         
     return query
 

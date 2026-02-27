@@ -7,6 +7,18 @@ export function isTeamLeader(user) {
   return Boolean(user?.role === 'team_leader');
 }
 
+export function isHealthManagerUser(user) {
+  return Boolean(user?.role === 'health_manager');
+}
+
+export function isHealthManagerTeamLeader(user) {
+  if (user?.role !== 'team_leader') return false;
+  const specialty = String(user?.specialty || '').toLowerCase();
+  if (specialty === 'health_manager') return true;
+  const departmentName = String(user?.department?.name || '').toLowerCase();
+  return departmentName.includes('health') || departmentName.includes('customer success');
+}
+
 export function isTeamLeaderRestricted(user) {
   return Boolean(isTeamLeader(user) && !isAdminOrCco(user));
 }
@@ -25,7 +37,7 @@ export function normalizeSpecialtyGroup(specialty) {
 }
 
 export function canAccessGlobalCheckPage(user) {
-  return !isProfessionistaStandard(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
 }
 
 export function canAccessQualityPage(user) {
@@ -33,22 +45,33 @@ export function canAccessQualityPage(user) {
 }
 
 export function canAccessTeamLists(user) {
-  return !isProfessionistaStandard(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
 }
 
 export function canAccessTrialPages(user) {
-  return !isProfessionistaStandard(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
 }
 
 export function canAccessAiAssignments(user) {
-  return !isProfessionistaStandard(user);
+  return !isProfessionistaStandard(user) || isHealthManagerUser(user);
 }
 
 export function canAccessCapacity(user) {
-  return Boolean(isAdminOrCco(user) || isTeamLeader(user));
+  return Boolean(isAdminOrCco(user) || isTeamLeader(user) || isHealthManagerUser(user));
 }
 
 export function canViewOtherProfessionalProfile(user) {
-  return !isProfessionistaStandard(user);
+  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
 }
 
+export function canAccessTaskPage(user) {
+  return !isHealthManagerUser(user);
+}
+
+export function canAccessTrainingPage(user) {
+  return !isHealthManagerUser(user);
+}
+
+export function canAccessSecondaryModules(user) {
+  return !isHealthManagerUser(user);
+}

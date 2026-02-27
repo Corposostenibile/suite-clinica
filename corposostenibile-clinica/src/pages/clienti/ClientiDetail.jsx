@@ -26,7 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
-import { isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -76,11 +76,12 @@ function ClientiDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
+  const isHealthManager = isHealthManagerUser(user);
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const canSaveGlobalClientCard = !isProfessionista;
-  const canManageTeamAssignments = !isProfessionista;
+  const canManageTeamAssignments = !isProfessionista && !isHealthManager;
   // La generazione dei check periodici è consentita anche al professionista:
   // il backend applica il vero controllo RBAC sul paziente.
   const canGenerateCheckLinks = true;

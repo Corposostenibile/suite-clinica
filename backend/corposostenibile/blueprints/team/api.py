@@ -11,7 +11,7 @@ from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import or_, func, cast, String, select, union_all, distinct
+from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct
 from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -112,12 +112,13 @@ def _can_view_professional_capacity(user) -> bool:
         return False
     if user.is_admin or _is_cco_user(user):
         return True
-    return _get_user_role(user) == 'team_leader'
+    role = _get_user_role(user)
+    return role in {'team_leader', 'health_manager'}
 
 
 def _can_edit_professional_capacity(user) -> bool:
-    """ACL modifica capienza contrattuale: solo admin o CCO."""
-    return user.is_authenticated and (user.is_admin or _is_cco_user(user))
+    """ACL modifica capienza contrattuale: admin/CCO + Team Leader HM."""
+    return user.is_authenticated and (user.is_admin or _is_cco_user(user) or _is_health_manager_team_leader(user))
 
 
 def _can_view_all_team_module_data(user) -> bool:
@@ -127,6 +128,8 @@ def _can_view_all_team_module_data(user) -> bool:
 
 def _get_capacity_role_type(user) -> str | None:
     """Normalizza role_type per tabella professionist_capacity."""
+    if _get_user_role(user) == 'health_manager':
+        return 'health_manager'
     specialty = _get_user_specialty(user)
     if specialty in ('nutrizione', 'nutrizionista'):
         return 'nutrizionista'
@@ -135,6 +138,17 @@ def _get_capacity_role_type(user) -> str | None:
     if specialty == 'coach':
         return 'coach'
     return None
+
+
+def _is_health_manager_team_leader(user) -> bool:
+    """True se team leader dell'area HM (specialty o dipartimento)."""
+    if _get_user_role(user) != 'team_leader':
+        return False
+    specialty = (_get_user_specialty(user) or '').strip().lower()
+    if specialty == 'health_manager':
+        return True
+    department_name = str(getattr(getattr(user, 'department', None), 'name', '') or '').strip().lower()
+    return ('health' in department_name) or ('customer success' in department_name)
 
 
 def _get_team_leader_member_ids(user_id: int) -> set[int]:
@@ -318,6 +332,17 @@ def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[
     ).group_by(psico_sq.c.user_id).all()
     for user_id, cnt in psico_rows:
         result[(int(user_id), 'psicologa')] = int(cnt)
+
+    # Health Manager: health_manager_id + stato_cliente attivo
+    hm_rows = db.session.query(
+        Cliente.health_manager_id.label('user_id'),
+        func.count(distinct(Cliente.cliente_id)).label('cnt'),
+    ).filter(
+        Cliente.health_manager_id.in_(user_ids),
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
+    ).group_by(Cliente.health_manager_id).all()
+    for user_id, cnt in hm_rows:
+        result[(int(user_id), 'health_manager')] = int(cnt)
 
     return result
 
@@ -2286,21 +2311,32 @@ def get_professionals_capacity():
 
     query = User.query.filter(
         User.is_active == True,
-        User.specialty.in_(clinical_specialties),
-        User.role == UserRoleEnum.professionista,
+        or_(
+            and_(
+                User.role == UserRoleEnum.professionista,
+                User.specialty.in_(clinical_specialties),
+            ),
+            User.role == UserRoleEnum.health_manager,
+        ),
     )
 
     # Team Leader: visibilità limitata ai membri dei team guidati.
     if not (current_user.is_admin or _is_cco_user(current_user)):
-        visible_member_ids = _get_team_leader_member_ids(current_user.id)
-        if not visible_member_ids:
-            return jsonify({
-                'success': True,
-                'rows': [],
-                'total': 0,
-                'can_edit': False
-            })
-        query = query.filter(User.id.in_(visible_member_ids))
+        current_role = _get_user_role(current_user)
+        if current_role == 'team_leader':
+            visible_member_ids = _get_team_leader_member_ids(current_user.id)
+            if not visible_member_ids:
+                return jsonify({
+                    'success': True,
+                    'rows': [],
+                    'total': 0,
+                    'can_edit': False
+                })
+            query = query.filter(User.id.in_(visible_member_ids))
+            if not _is_health_manager_team_leader(current_user):
+                query = query.filter(User.role == UserRoleEnum.professionista)
+        elif current_role == 'health_manager':
+            query = query.filter(User.id == current_user.id)
 
     if user_id_filter:
         query = query.filter(User.id == user_id_filter)
@@ -2393,7 +2429,7 @@ def update_professional_capacity(user_id: int):
 
     user = User.query.get_or_404(user_id)
     role_type = _get_capacity_role_type(user)
-    if not role_type or _get_user_role(user) != 'professionista':
+    if not role_type or _get_user_role(user) not in {'professionista', 'health_manager'}:
         return jsonify({
             'success': False,
             'message': 'Utente non gestibile nella tabella capienza professionisti'
