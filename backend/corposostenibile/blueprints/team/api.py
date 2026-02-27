@@ -425,7 +425,7 @@ def get_members():
         - page: Page number (default 1)
         - per_page: Items per page (default 25, max 10000)
         - q: Search query (searches name, email)
-        - role: Filter by role (admin, team_leader, professionista, team_esterno)
+        - role: Filter by role (admin, team_leader, professionista, team_esterno, health_manager)
         - specialty: Filter by specialty
         - active: Filter by active status ('1' or '0')
         - department_id: Filter by department
@@ -473,11 +473,43 @@ def get_members():
     if department_id:
         query = query.filter(User.department_id == department_id)
 
-    # Role filter - use new role field directly
+    # Role filter - include team leader as "grade" of professional domains.
     if role_filter:
+        hm_team_leader_ids_sq = db.session.query(Team.head_id).filter(
+            Team.head_id.isnot(None),
+            Team.is_active == True,
+            Team.team_type == TeamTypeEnum.health_manager,
+        ).distinct().subquery()
+
         if role_filter == 'admin':
             # Fallback for old API calls
             query = query.filter(User.is_admin == True)
+        elif role_filter == 'professionista':
+            # Include standard professionals + team leaders not in HM domain.
+            query = query.filter(
+                or_(
+                    cast(User.role, String) == 'professionista',
+                    and_(
+                        cast(User.role, String) == 'team_leader',
+                        cast(User.specialty, String) != 'health_manager',
+                        ~User.id.in_(select(hm_team_leader_ids_sq.c.head_id)),
+                    ),
+                )
+            )
+        elif role_filter == 'health_manager':
+            # Include HM users + HM team leaders.
+            query = query.filter(
+                or_(
+                    cast(User.role, String) == 'health_manager',
+                    and_(
+                        cast(User.role, String) == 'team_leader',
+                        or_(
+                            cast(User.specialty, String) == 'health_manager',
+                            User.id.in_(select(hm_team_leader_ids_sq.c.head_id)),
+                        ),
+                    ),
+                )
+            )
         else:
             # Robust text-based filter to avoid enum drift across branches/environments.
             query = query.filter(cast(User.role, String) == role_filter)

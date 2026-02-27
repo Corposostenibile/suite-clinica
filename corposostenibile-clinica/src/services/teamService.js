@@ -42,6 +42,14 @@ export const ROLE_LABELS = {
   health_manager: 'Health Manager',
 };
 
+export const getUserRoleDisplayLabel = (userLike) => {
+  const role = userLike?.role;
+  if (role !== 'team_leader') {
+    return ROLE_LABELS[role] || role || 'N/D';
+  }
+  return 'Team Leader';
+};
+
 // Specialty labels for display (unificati per categoria)
 export const SPECIALTY_LABELS = {
   amministrazione: 'Amministrazione',
@@ -52,6 +60,7 @@ export const SPECIALTY_LABELS = {
   nutrizionista: 'Nutrizione',   // Unificato con nutrizione
   psicologo: 'Psicologia',       // Unificato con psicologia
   medico: 'Medico',
+  health_manager: 'Health Manager',
 };
 
 // Opzioni filtro specializzazione (solo valori unici per i filtri)
@@ -84,6 +93,24 @@ export const SPECIALTY_COLORS = {
   nutrizionista: 'info',
   psicologo: 'warning',
   medico: 'danger',
+  health_manager: 'primary',
+};
+
+export const getUserDisplaySpecialty = (userLike) => {
+  const explicitSpecialty = String(userLike?.specialty || '').toLowerCase().trim();
+  if (explicitSpecialty) return explicitSpecialty;
+
+  if (userLike?.role !== 'team_leader' || !Array.isArray(userLike?.teams_led)) return null;
+
+  const ledTeamTypes = userLike.teams_led
+    .map((team) => String(team?.team_type || '').toLowerCase().trim())
+    .filter(Boolean);
+
+  if (ledTeamTypes.includes('health_manager')) return 'health_manager';
+  if (ledTeamTypes.includes('nutrizione')) return 'nutrizione';
+  if (ledTeamTypes.includes('coach')) return 'coach';
+  if (ledTeamTypes.includes('psicologia')) return 'psicologia';
+  return null;
 };
 
 // ==================== TEAM ENTITY CONSTANTS ====================

@@ -5,8 +5,9 @@ import teamService, {
   SPECIALTY_LABELS,
   SPECIALTY_FILTER_OPTIONS,
   ROLE_COLORS,
-
-  SPECIALTY_COLORS
+  getUserRoleDisplayLabel,
+  SPECIALTY_COLORS,
+  getUserDisplaySpecialty,
 } from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeAvatarPath } from '../../utils/mediaUrl';
@@ -214,7 +215,7 @@ function TeamList() {
               >
                 <option value="">Tutti i Ruoli</option>
                 {Object.entries(ROLE_LABELS)
-                  .filter(([value]) => value !== 'team_leader')
+                  .filter(([value]) => value !== 'team_leader' && value !== 'team_esterno')
                   .map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
@@ -283,6 +284,7 @@ function TeamList() {
             {members.map((member) => {
               const avatarSrc = normalizeAvatarPath(member.avatar_path);
               const showAvatar = avatarSrc && !brokenAvatars[member.id];
+              const displaySpecialty = getUserDisplaySpecialty(member);
 
               return (
               <div key={member.id} className="col-xxl-3 col-xl-4 col-lg-4 col-md-6 mb-4">
@@ -364,11 +366,11 @@ function TeamList() {
                     {/* Role & Specialty Badges */}
                     <div className="d-flex flex-wrap justify-content-center gap-1 mb-2">
                       <span className={`badge rounded-pill px-2 py-1 bg-${ROLE_COLORS[member.role] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                        {ROLE_LABELS[member.role] || member.role || 'N/D'}
+                        {getUserRoleDisplayLabel(member)}
                       </span>
-                      {member.specialty && (
-                        <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                          {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                      {displaySpecialty && (
+                        <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[displaySpecialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[displaySpecialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
+                          {SPECIALTY_LABELS[displaySpecialty] || displaySpecialty}
                         </span>
                       )}
                     </div>
