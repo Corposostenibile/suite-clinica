@@ -11036,9 +11036,15 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
     coordinator_notes = db.Column(db.Text, comment="Note obbligatorie del coordinatore")
     referral = db.Column(db.Text, comment="Persona da contattare (nome, telefono, email)")
 
+    # ─── Commento professionista (sulla compilazione) ──────────────────────
+    professional_comment = db.Column(db.Text, nullable=True, comment="Commento del professionista sulla compilazione")
+    professional_comment_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment="Utente che ha scritto il commento")
+    professional_comment_at = db.Column(db.DateTime, nullable=True, comment="Data/ora del commento")
+
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("WeeklyCheck", back_populates="responses")
     nutritionist_user = relationship("User", foreign_keys=[nutritionist_user_id])
+    professional_comment_by = relationship("User", foreign_keys=[professional_comment_by_id])
     psychologist_user = relationship("User", foreign_keys=[psychologist_user_id])
     coach_user = relationship("User", foreign_keys=[coach_user_id])
 
@@ -11176,8 +11182,14 @@ class MinorCheckResponse(TimestampMixin, db.Model):
     score_weight_concern = db.Column(db.Float, comment="Punteggio sottoscala Preoccupazione Peso")
     score_global = db.Column(db.Float, comment="Punteggio Globale EDE-Q")
 
+    # ─── Commento professionista (sulla compilazione) ──────────────────────
+    professional_comment = db.Column(db.Text, nullable=True, comment="Commento del professionista sulla compilazione")
+    professional_comment_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment="Utente che ha scritto il commento")
+    professional_comment_at = db.Column(db.DateTime, nullable=True, comment="Data/ora del commento")
+
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("MinorCheck", back_populates="responses")
+    professional_comment_by = relationship("User", foreign_keys=[professional_comment_by_id])
 
     def __repr__(self) -> str:
         return f"<MinorCheckResponse(id={self.id}, check={self.minor_check_id}, date={self.submit_date})>"
@@ -11434,8 +11446,14 @@ class DCACheckResponse(TimestampMixin, db.Model):
     referral = db.Column(db.Text, comment="Persona da contattare")
     extra_comments = db.Column(db.Text, comment="Commenti extra")
 
+    # ─── Commento professionista (sulla compilazione) ──────────────────────
+    professional_comment = db.Column(db.Text, nullable=True, comment="Commento del professionista sulla compilazione")
+    professional_comment_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment="Utente che ha scritto il commento")
+    professional_comment_at = db.Column(db.DateTime, nullable=True, comment="Data/ora del commento")
+
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("DCACheck", back_populates="responses")
+    professional_comment_by = relationship("User", foreign_keys=[professional_comment_by_id])
 
     def __repr__(self) -> str:
         return f"<DCACheckResponse(id={self.id}, check={self.dca_check_id}, date={self.submit_date})>"

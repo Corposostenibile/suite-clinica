@@ -3183,6 +3183,11 @@ def api_get_response_detail(response_type: str, response_id: int):
                 "photo_front": resp.photo_front,
                 "photo_side": resp.photo_side,
                 "photo_back": resp.photo_back,
+                # Commento professionista
+                "professional_comment": resp.professional_comment,
+                "professional_comment_at": resp.professional_comment_at.strftime('%d/%m/%Y %H:%M') if resp.professional_comment_at else None,
+                "professional_comment_by_id": resp.professional_comment_by_id,
+                "professional_comment_by_name": (resp.professional_comment_by.full_name or resp.professional_comment_by.email) if resp.professional_comment_by else None,
             }
 
         elif response_type == 'dca':
@@ -3245,6 +3250,11 @@ def api_get_response_detail(response_type: str, response_id: int):
                 # Extra
                 "referral": resp.referral,
                 "extra_comments": resp.extra_comments,
+                # Commento professionista
+                "professional_comment": resp.professional_comment,
+                "professional_comment_at": resp.professional_comment_at.strftime('%d/%m/%Y %H:%M') if resp.professional_comment_at else None,
+                "professional_comment_by_id": resp.professional_comment_by_id,
+                "professional_comment_by_name": (resp.professional_comment_by.full_name or resp.professional_comment_by.email) if resp.professional_comment_by else None,
             }
 
         elif response_type == 'minor':
@@ -3267,6 +3277,11 @@ def api_get_response_detail(response_type: str, response_id: int):
                 "score_shape_concern": resp.score_shape_concern,
                 "score_weight_concern": resp.score_weight_concern,
                 "score_global": resp.score_global,
+                # Commento professionista
+                "professional_comment": resp.professional_comment,
+                "professional_comment_at": resp.professional_comment_at.strftime('%d/%m/%Y %H:%M') if resp.professional_comment_at else None,
+                "professional_comment_by_id": resp.professional_comment_by_id,
+                "professional_comment_by_name": (resp.professional_comment_by.full_name or resp.professional_comment_by.email) if resp.professional_comment_by else None,
             }
         else:
             return jsonify({"success": False, "error": "Tipo non valido"}), 400
@@ -3275,6 +3290,55 @@ def api_get_response_detail(response_type: str, response_id: int):
 
     except Exception as e:
         current_app.logger.error(f"[API] Errore get response detail: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/response/<string:response_type>/<int:response_id>/comment", methods=["PATCH"])
+@login_required
+def api_update_response_comment(response_type: str, response_id: int):
+    """
+    API JSON: Aggiorna il commento del professionista sulla compilazione.
+    Body: { "comment": "testo" } (stringa; vuota o assente = rimuovi commento).
+    Stessi permessi di api_get_response_detail.
+    """
+    from corposostenibile.models import WeeklyCheckResponse, DCACheckResponse, MinorCheckResponse
+
+    if response_type not in ('weekly', 'dca', 'minor'):
+        return jsonify({"success": False, "error": "Tipo non valido"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    comment = payload.get("comment")
+    if comment is not None and not isinstance(comment, str):
+        comment = str(comment)
+    comment = (comment or "").strip() or None  # empty string -> None
+
+    try:
+        if response_type == 'weekly':
+            resp = WeeklyCheckResponse.query.get_or_404(response_id)
+        elif response_type == 'dca':
+            resp = DCACheckResponse.query.get_or_404(response_id)
+        else:
+            resp = MinorCheckResponse.query.get_or_404(response_id)
+
+        cliente = resp.assignment.cliente if resp.assignment else None
+        if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+            abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
+
+        resp.professional_comment = comment
+        resp.professional_comment_by_id = current_user.id if comment else None
+        resp.professional_comment_at = datetime.utcnow() if comment else None
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "professional_comment": resp.professional_comment,
+            "professional_comment_at": resp.professional_comment_at.strftime('%d/%m/%Y %H:%M') if resp.professional_comment_at else None,
+            "professional_comment_by_id": resp.professional_comment_by_id,
+            "professional_comment_by_name": (current_user.full_name or current_user.email) if comment else None,
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"[API] Errore update response comment: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
 

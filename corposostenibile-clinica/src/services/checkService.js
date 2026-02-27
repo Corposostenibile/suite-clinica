@@ -102,6 +102,21 @@ const checkService = {
     return response.data;
   },
 
+  /**
+   * Update professional comment on a check response.
+   * @param {string} responseType - 'weekly', 'dca', or 'minor'
+   * @param {number} responseId - Response ID
+   * @param {string} comment - Comment text (empty string to remove)
+   * @returns {Promise} - { success, professional_comment, professional_comment_at, professional_comment_by_id, professional_comment_by_name }
+   */
+  async updateResponseComment(responseType, responseId, comment) {
+    const response = await api.patch(
+      `${API_BASE}/response/${responseType}/${responseId}/comment`,
+      { comment: comment || '' }
+    );
+    return response.data;
+  },
+
   // ==================== AZIENDA STATS ====================
 
   /**

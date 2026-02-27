@@ -711,8 +711,10 @@ function ClientiDetail() {
   const [generatingLink, setGeneratingLink] = useState(null); // 'weekly' | 'dca' | 'minor' | null
   const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
-
   const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
+  const [professionalCommentDraft, setProfessionalCommentDraft] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
+  const [commentSaveError, setCommentSaveError] = useState('');
   
   // Check Sub-tabs states
   const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly');
@@ -1005,18 +1007,50 @@ function ClientiDetail() {
   };
 
   const handleViewCheckResponse = async (response) => {
+    setCommentSaveError('');
+    setProfessionalCommentDraft(response.professional_comment || '');
     setSelectedCheckResponse(response);
     setShowCheckResponseModal(true);
     setLoadingCheckDetail(true);
     try {
       const result = await checkService.getResponseDetail(response.type, response.id);
       if (result.success) {
+        setProfessionalCommentDraft(result.response.professional_comment || '');
         setSelectedCheckResponse(result.response);
       }
     } catch (err) {
       console.error('Error fetching response detail:', err);
     } finally {
       setLoadingCheckDetail(false);
+    }
+  };
+
+  const handleSaveProfessionalComment = async () => {
+    if (!selectedCheckResponse?.id || !selectedCheckResponse?.type) return;
+    setCommentSaveError('');
+    setSavingComment(true);
+    try {
+      const result = await checkService.updateResponseComment(
+        selectedCheckResponse.type,
+        selectedCheckResponse.id,
+        professionalCommentDraft
+      );
+      if (result.success) {
+        setSelectedCheckResponse((prev) => ({
+          ...prev,
+          professional_comment: result.professional_comment,
+          professional_comment_at: result.professional_comment_at,
+          professional_comment_by_id: result.professional_comment_by_id,
+          professional_comment_by_name: result.professional_comment_by_name,
+        }));
+      } else {
+        setCommentSaveError(result.error || 'Errore nel salvataggio');
+      }
+    } catch (err) {
+      console.error('Error saving comment:', err);
+      setCommentSaveError(err.response?.data?.error || err.message || 'Errore nel salvataggio');
+    } finally {
+      setSavingComment(false);
     }
   };
 
@@ -9117,6 +9151,38 @@ function ClientiDetail() {
                         </div>
                       </div>
                     )}
+
+                    {/* Commento professionista */}
+                    <div className="mb-4">
+                      <h6 className="text-muted mb-2"><i className="ri-chat-quote-line me-2"></i>Commento professionista</h6>
+                      {selectedCheckResponse.professional_comment && (
+                        <div className="p-3 rounded mb-2" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                          <p className="mb-1">{selectedCheckResponse.professional_comment}</p>
+                          <small className="text-muted">
+                            {selectedCheckResponse.professional_comment_by_name && `${selectedCheckResponse.professional_comment_by_name} · `}
+                            {selectedCheckResponse.professional_comment_at || ''}
+                          </small>
+                        </div>
+                      )}
+                      <textarea
+                        className="form-control"
+                        rows={3}
+                        placeholder="Aggiungi un commento sulla compilazione (solo uso interno)..."
+                        value={professionalCommentDraft}
+                        onChange={(e) => setProfessionalCommentDraft(e.target.value)}
+                        disabled={savingComment}
+                      />
+                      {commentSaveError && <div className="small text-danger mt-1">{commentSaveError}</div>}
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm mt-2"
+                        onClick={handleSaveProfessionalComment}
+                        disabled={savingComment}
+                      >
+                        {savingComment ? <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" /> : null}
+                        Salva commento
+                      </button>
+                    </div>
 
                     {/* Extra Comments */}
                     <div className="mb-3">
