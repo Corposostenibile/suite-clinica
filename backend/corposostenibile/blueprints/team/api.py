@@ -339,46 +339,21 @@ def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[
         result[(int(user_id), 'psicologa')] = int(cnt)
 
     # Health Manager:
-    # - clienti attivi assegnati via health_manager_id
-    # - lead GHL pending assegnati via health_manager_email
+    # - clienti effettivi attivi
+    # - lead pre-onboarding (service_status = pending_assignment)
+    # Entrambi conteggiati da Cliente.health_manager_id, valorizzato dal bridge GHL.
     hm_rows = db.session.query(
         Cliente.health_manager_id.label('user_id'),
         func.count(distinct(Cliente.cliente_id)).label('cnt'),
     ).filter(
         Cliente.health_manager_id.in_(user_ids),
-        Cliente.stato_cliente == StatoClienteEnum.attivo,
+        or_(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.service_status == 'pending_assignment',
+        ),
     ).group_by(Cliente.health_manager_id).all()
-    hm_active_counts = {int(user_id): int(cnt) for user_id, cnt in hm_rows}
-
-    hm_users = db.session.query(User.id, User.email).filter(
-        User.id.in_(user_ids),
-        cast(User.role, String) == 'health_manager',
-    ).all()
-    email_to_user_ids: dict[str, list[int]] = {}
-    for uid, email in hm_users:
-        normalized_email = str(email or '').strip().lower()
-        if not normalized_email:
-            continue
-        email_to_user_ids.setdefault(normalized_email, []).append(int(uid))
-
-    hm_lead_counts: dict[int, int] = {uid: 0 for uid in [int(u[0]) for u in hm_users]}
-    if email_to_user_ids:
-        lead_rows = db.session.query(
-            func.lower(func.trim(GHLOpportunityData.health_manager_email)).label('hm_email'),
-            func.count(distinct(GHLOpportunityData.id)).label('cnt'),
-        ).filter(
-            GHLOpportunityData.health_manager_email.isnot(None),
-            GHLOpportunityData.processed.is_(False),
-            func.lower(func.trim(GHLOpportunityData.health_manager_email)).in_(list(email_to_user_ids.keys())),
-        ).group_by(
-            func.lower(func.trim(GHLOpportunityData.health_manager_email))
-        ).all()
-        for hm_email, cnt in lead_rows:
-            for uid in email_to_user_ids.get(str(hm_email), []):
-                hm_lead_counts[uid] = int(cnt)
-
-    for uid in set(hm_active_counts.keys()) | set(hm_lead_counts.keys()):
-        result[(int(uid), 'health_manager')] = int(hm_active_counts.get(int(uid), 0)) + int(hm_lead_counts.get(int(uid), 0))
+    for user_id, cnt in hm_rows:
+        result[(int(user_id), 'health_manager')] = int(cnt)
 
     return result
 

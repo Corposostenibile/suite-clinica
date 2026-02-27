@@ -16,7 +16,7 @@ from flask import current_app
 from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente, User, CheckForm, CheckFormTypeEnum,
-    ClientCheckAssignment, GHLOpportunityData,
+    ClientCheckAssignment, GHLOpportunityData, UserRoleEnum,
 )
 
 
@@ -33,6 +33,20 @@ INITIAL_CHECKS = [
         "description": "Mockup temporaneo in attesa del secondo questionario definitivo.",
     },
 ]
+
+
+def _resolve_health_manager_id_by_email(health_manager_email: Optional[str]) -> Optional[int]:
+    normalized_email = (health_manager_email or "").strip().lower()
+    if not normalized_email:
+        return None
+
+    hm_user = User.query.filter(
+        db.func.lower(db.func.trim(User.email)) == normalized_email,
+        User.role == UserRoleEnum.health_manager,
+    ).first()
+    if hm_user:
+        return int(hm_user.id)
+    return None
 
 
 def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, Any]:
@@ -83,6 +97,14 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             ).strip()
 
     try:
+        hm_email = (opp_data.health_manager_email or "").strip().lower() or None
+        resolved_hm_id = _resolve_health_manager_id_by_email(hm_email)
+        if hm_email and not resolved_hm_id:
+            current_app.logger.warning(
+                "[opportunity_bridge] HM email %s non trovata tra gli utenti health_manager",
+                hm_email,
+            )
+
         # 1. Crea o recupera Cliente
         cliente = Cliente.query.filter_by(mail=email).first()
         if not cliente:
@@ -91,6 +113,7 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 mail=email,
                 service_status='pending_assignment',
                 show_in_clienti_lista=False,
+                health_manager_id=resolved_hm_id,
             )
             db.session.add(cliente)
             db.session.flush()
@@ -101,6 +124,8 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 cliente.nome_cognome = nome
             if lead_phone:
                 cliente.cellulare = lead_phone
+            if resolved_hm_id and cliente.health_manager_id != resolved_hm_id:
+                cliente.health_manager_id = resolved_hm_id
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
 
         if lead_phone and not getattr(cliente, "cellulare", None):
