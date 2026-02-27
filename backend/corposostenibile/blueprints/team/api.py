@@ -1781,6 +1781,7 @@ TEAM_TYPE_LEADER_SPECIALTIES = {
     'nutrizione': [UserSpecialtyEnum.nutrizione],
     'coach': [UserSpecialtyEnum.coach],
     'psicologia': [UserSpecialtyEnum.psicologia],
+    'health_manager': [],
 }
 
 # Mapping team_type -> specialties compatibili per Professionisti
@@ -1788,6 +1789,7 @@ TEAM_TYPE_PROFESSIONAL_SPECIALTIES = {
     'nutrizione': [UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista],
     'coach': [UserSpecialtyEnum.coach],
     'psicologia': [UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo],
+    'health_manager': [],
 }
 
 
@@ -2179,6 +2181,22 @@ def get_available_leaders(team_type):
             'success': False,
             'message': 'Tipo team non valido'
         }), HTTPStatus.BAD_REQUEST
+
+    if team_type == "health_manager":
+        hm_team_heads = db.session.query(Team.head_id).filter(
+            Team.team_type == TeamTypeEnum.health_manager,
+            Team.head_id.isnot(None),
+        )
+        leaders = User.query.filter(
+            User.is_active == True,
+            User.role == UserRoleEnum.team_leader,
+            User.id.in_(hm_team_heads),
+        ).order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'leaders': [_serialize_user(u) for u in leaders],
+            'total': len(leaders)
+        })
 
     # Get compatible specialties
     compatible_specialties = TEAM_TYPE_LEADER_SPECIALTIES.get(team_type, [])

@@ -268,6 +268,7 @@ class TeamTypeEnum(str, Enum):
     nutrizione = "nutrizione"
     coach = "coach"
     psicologia = "psicologia"
+    health_manager = "health_manager"
 
 
 class InfluencerFlagEnum(str, Enum):
