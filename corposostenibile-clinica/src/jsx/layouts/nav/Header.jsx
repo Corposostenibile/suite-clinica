@@ -35,6 +35,14 @@ const getRoleLabel = (user) => {
   if (user.role === 'team_leader' && user.is_health_manager_team_leader) {
     return 'Team Leader HM';
   }
+  if (user.role === 'team_leader') {
+    const specialty = String(user.specialty || '').toLowerCase();
+    if (specialty === 'nutrizione' || specialty === 'nutrizionista') return 'Team Leader Nutrizione';
+    if (specialty === 'coach') return 'Team Leader Coach';
+    if (specialty === 'psicologia' || specialty === 'psicologo' || specialty === 'psicologa') return 'Team Leader Psicologia';
+    if (specialty === 'medico') return 'Team Leader Medico';
+    return 'Team Leader';
+  }
   return ROLE_LABELS[user.role] || user.role || 'Profilo';
 };
 
