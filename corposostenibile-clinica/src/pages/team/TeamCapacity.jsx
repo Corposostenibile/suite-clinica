@@ -164,6 +164,12 @@ function TeamCapacity() {
     }
   }, [canUseSpecialtyFilters, profFilter]);
 
+  useEffect(() => {
+    if (!canUseSpecialtyFilters && teamFilter !== 'all') {
+      setTeamFilter('all');
+    }
+  }, [canUseSpecialtyFilters, teamFilter]);
+
   const handleSave = async (userId) => {
     const value = editingValues[userId];
     if (value === '' || value == null || Number.isNaN(Number(value))) return;
@@ -282,18 +288,20 @@ function TeamCapacity() {
         )}
 
         <div className="d-flex flex-wrap gap-2" style={{ maxWidth: '520px', width: '100%' }}>
-          <Form.Select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            style={{ minWidth: '200px', flex: 1 }}
-          >
-            <option value="all">Tutti i team</option>
-            {teamOptions.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.team_type ? `${team.team_type.charAt(0).toUpperCase() + team.team_type.slice(1)} - ` : ''}{team.name}
-              </option>
-            ))}
-          </Form.Select>
+          {canUseSpecialtyFilters && (
+            <Form.Select
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              style={{ minWidth: '200px', flex: 1 }}
+            >
+              <option value="all">Tutti i team</option>
+              {teamOptions.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.team_type ? `${team.team_type.charAt(0).toUpperCase() + team.team_type.slice(1)} - ` : ''}{team.name}
+                </option>
+              ))}
+            </Form.Select>
+          )}
           <Form.Control
             type="search"
             placeholder="Cerca professionista..."
