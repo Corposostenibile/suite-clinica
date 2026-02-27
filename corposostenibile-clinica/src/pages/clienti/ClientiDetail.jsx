@@ -3345,13 +3345,15 @@ function ClientiDetail() {
                                             <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                           </div>
                                         </div>
-                                        <button
-                                          className="btn btn-sm btn-link text-danger p-0"
-                                          onClick={() => handleOpenInterruptModal(assignment)}
-                                          title="Rimuovi"
-                                        >
-                                          <i className="ri-close-line"></i>
-                                        </button>
+                                        {canManageAssignmentType('nutrizionista') && (
+                                          <button
+                                            className="btn btn-sm btn-link text-danger p-0"
+                                            onClick={() => handleOpenInterruptModal(assignment)}
+                                            title="Rimuovi"
+                                          >
+                                            <i className="ri-close-line"></i>
+                                          </button>
+                                        )}
                                       </div>
                                     ))
                                   ) : (
@@ -3406,13 +3408,15 @@ function ClientiDetail() {
                                             <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                           </div>
                                         </div>
-                                        <button
-                                          className="btn btn-sm btn-link text-danger p-0"
-                                          onClick={() => handleOpenInterruptModal(assignment)}
-                                          title="Rimuovi"
-                                        >
-                                          <i className="ri-close-line"></i>
-                                        </button>
+                                        {canManageAssignmentType('coach') && (
+                                          <button
+                                            className="btn btn-sm btn-link text-danger p-0"
+                                            onClick={() => handleOpenInterruptModal(assignment)}
+                                            title="Rimuovi"
+                                          >
+                                            <i className="ri-close-line"></i>
+                                          </button>
+                                        )}
                                       </div>
                                     ))
                                   ) : (
@@ -3467,13 +3471,15 @@ function ClientiDetail() {
                                             <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                           </div>
                                         </div>
-                                        <button
-                                          className="btn btn-sm btn-link text-danger p-0"
-                                          onClick={() => handleOpenInterruptModal(assignment)}
-                                          title="Rimuovi"
-                                        >
-                                          <i className="ri-close-line"></i>
-                                        </button>
+                                        {canManageAssignmentType('psicologa') && (
+                                          <button
+                                            className="btn btn-sm btn-link text-danger p-0"
+                                            onClick={() => handleOpenInterruptModal(assignment)}
+                                            title="Rimuovi"
+                                          >
+                                            <i className="ri-close-line"></i>
+                                          </button>
+                                        )}
                                       </div>
                                     ))
                                   ) : (
@@ -3528,13 +3534,15 @@ function ClientiDetail() {
                                             <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
                                           </div>
                                         </div>
-                                        <button
-                                          className="btn btn-sm btn-link text-danger p-0"
-                                          onClick={() => handleOpenInterruptModal(assignment)}
-                                          title="Rimuovi"
-                                        >
-                                          <i className="ri-close-line"></i>
-                                        </button>
+                                        {canManageAssignmentType('medico') && (
+                                          <button
+                                            className="btn btn-sm btn-link text-danger p-0"
+                                            onClick={() => handleOpenInterruptModal(assignment)}
+                                            title="Rimuovi"
+                                          >
+                                            <i className="ri-close-line"></i>
+                                          </button>
+                                        )}
                                       </div>
                                     ))
                                   ) : (
@@ -3764,22 +3772,24 @@ function ClientiDetail() {
                                       )}
                                     </div>
                                   </div>
-                                  <button
-                                    className="btn btn-sm btn-link text-danger p-0"
-                                    onClick={() => handleOpenInterruptModal(hmAssignment || {
-                                      tipo_professionista: 'health_manager',
-                                      professionista_id: hmUser.id,
-                                      professionista_nome: hmUser.full_name,
-                                      avatar_path: hmUser.avatar_path,
-                                      data_dal: hmAssignment?.data_dal || null,
-                                      is_active: true,
-                                      has_history: !!hmAssignment?.id,
-                                      id: hmAssignment?.id,
-                                    })}
-                                    title="Rimuovi"
-                                  >
-                                    <i className="ri-close-line"></i>
-                                  </button>
+                                  {canManageAssignmentType('health_manager') && (
+                                    <button
+                                      className="btn btn-sm btn-link text-danger p-0"
+                                      onClick={() => handleOpenInterruptModal(hmAssignment || {
+                                        tipo_professionista: 'health_manager',
+                                        professionista_id: hmUser.id,
+                                        professionista_nome: hmUser.full_name,
+                                        avatar_path: hmUser.avatar_path,
+                                        data_dal: hmAssignment?.data_dal || null,
+                                        is_active: true,
+                                        has_history: !!hmAssignment?.id,
+                                        id: hmAssignment?.id,
+                                      })}
+                                      title="Rimuovi"
+                                    >
+                                      <i className="ri-close-line"></i>
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })()
@@ -6654,13 +6664,15 @@ function ClientiDetail() {
                                     <small className="text-muted">Assegnato dal {assignment.data_dal || '—'}</small>
                                   </div>
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-link text-danger p-0"
-                                  onClick={() => handleOpenInterruptModal(assignment)}
-                                  title="Rimuovi assegnazione"
-                                >
-                                  <i className="ri-close-line fs-5"></i>
-                                </button>
+                                {canManageAssignmentType('medico') && (
+                                  <button
+                                    className="btn btn-sm btn-link text-danger p-0"
+                                    onClick={() => handleOpenInterruptModal(assignment)}
+                                    title="Rimuovi assegnazione"
+                                  >
+                                    <i className="ri-close-line fs-5"></i>
+                                  </button>
+                                )}
                               </div>
                             ))}
                           </div>

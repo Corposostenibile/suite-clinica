@@ -214,13 +214,27 @@ def create_task():
     if not data.get('title'):
         abort(400, "Title is required")
 
+    requested_assignee_id = data.get('assignee_id', current_user.id)
+    user_role = getattr(current_user, 'role', None)
+    if _can_view_all_tasks(current_user):
+        pass
+    elif user_role == UserRoleEnum.team_leader:
+        visible_ids = {current_user.id}
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                visible_ids.add(member.id)
+        if int(requested_assignee_id) not in visible_ids:
+            abort(403, "Non autorizzato ad assegnare task fuori dal tuo team")
+    elif int(requested_assignee_id) != int(current_user.id):
+        abort(403, "Puoi creare task solo per te stesso")
+
     task = Task(
         title=data['title'],
         description=data.get('description', ''),
         category=data.get('category', TaskCategoryEnum.generico),
         priority=data.get('priority', TaskPriorityEnum.medium),
         status=TaskStatusEnum.todo,
-        assignee_id=data.get('assignee_id', current_user.id), # Default a se stessi se non specificato
+        assignee_id=requested_assignee_id, # Default a se stessi se non specificato
         client_id=data.get('client_id'),
         due_date=datetime.strptime(data['due_date'], '%Y-%m-%d').date() if data.get('due_date') else None,
         department_id=getattr(current_user, 'department_id', None) # Optional, contestuale

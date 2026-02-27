@@ -128,6 +128,12 @@ Nota coerenza ruoli:
     - smoke test manuale finale (cliente assegnato vs non assegnato)
 - `Note`
   - questa è la sezione prioritaria del refactor RBAC/visuale
+  - `Aggiornamento lato medico (27 Feb 2026)`:
+    - importati nel branch `feature/pre-launch-check` i commit da `feature/medico-nutrizione-list`
+    - `Nutrizione > Panoramica`: aggiunta sezione `Medico assegnato (controllo semestrale)`
+    - `Nutrizione > Setup`: aggiunta sezione `Date call di visita`
+    - `Patologie e Anamnesi`: anamnesi strutturata in 5 sezioni
+    - backend allineato su visibilità clienti/check anche tramite `ClienteProfessionistaHistory`
 
 ### Check
 
@@ -244,7 +250,7 @@ Nota coerenza ruoli:
     - `Check` (liste/pagina check)
     - `Team dettaglio` membri
     - `Dettaglio professionista`
-  - `Tab medico` da verificare/allineare sul branch corrente
+  - `Tab medico`: aggiornato/allineato nel branch `feature/pre-launch-check` (resta solo QA visuale finale)
 
 ## Verifiche tecniche eseguite
 
@@ -279,7 +285,7 @@ Nota coerenza ruoli:
   - validazione completa refactor visuale/permessi su `dashboard`, `check`, `task`, `clienti`, `team/profilo`, `formazione`
 - `UI trasversale`
   - fix topbar/avatar/sidebar visual (`margini`, `X`, highlight, immagini profilo, ruolo TL in topbar)
-  - verifica/allineamento `Tab medico`
+  - QA visuale finale `Tab medico` sul flusso completo
 - `Quality` (`Admin/CCO`)
   - test completo del flusso UI/API (oltre alla suite test backend importata)
 - `In Prova` (`Admin/CCO`)

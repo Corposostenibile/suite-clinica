@@ -1789,6 +1789,7 @@ def api_feedback_metrics(cliente_id: int) -> Any:
     Dati organizzati per grafici Chart.js.
     """
     from corposostenibile.models import TypeFormResponse
+    _require_cliente_scope_or_403(cliente_id)
     
     # Recupera tutti i feedback del cliente ordinati per data
     responses = (
@@ -1870,6 +1871,7 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
     Dati organizzati per grafici Chart.js (stesso formato di TypeForm).
     """
     from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck
+    _require_cliente_scope_or_403(cliente_id)
 
     # Recupera tutte le risposte ai weekly checks del cliente ordinate per data
     # WeeklyCheckResponse si collega a WeeklyCheck che ha cliente_id
@@ -1942,6 +1944,7 @@ def api_initial_checks(cliente_id: int) -> Any:
     fallback su ClientCheckAssignment con link pubblico da inviare.
     """
     from corposostenibile.models import CheckForm, CheckFormTypeEnum
+    _require_cliente_scope_or_403(cliente_id)
 
     cliente = customers_repo.get_one(cliente_id, eager=True)
     base_url = current_app.config.get("BASE_URL", request.url_root.rstrip("/"))
@@ -2444,6 +2447,7 @@ def get_professionisti_history(cliente_id: int):
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
 
     # Ottieni storico tracciato
@@ -2596,6 +2600,7 @@ def assign_professionista(cliente_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
     if _is_professionista_standard(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato ad assegnare professionisti"}), 403
@@ -2684,6 +2689,7 @@ def interrupt_professionista(cliente_id: int, history_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
     if _is_professionista_standard(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
@@ -2754,6 +2760,7 @@ def interrupt_legacy_professionista(cliente_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
     if _is_professionista_standard(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
@@ -3906,7 +3913,21 @@ def api_storico_stati(cliente_id: int, servizio: str):
     """
     from corposostenibile.models import StatoServizioLog
 
-    # Verifica che il cliente esista
+    # Verifica scope servizio (chat_* mappate al servizio principale)
+    servizio_scope_map = {
+        "nutrizione": "nutrizione",
+        "chat_nutrizione": "nutrizione",
+        "coach": "coaching",
+        "chat_coaching": "coaching",
+        "psicologia": "psicologia",
+        "chat_psicologia": "psicologia",
+    }
+    servizio_scope = servizio_scope_map.get(servizio)
+    if not servizio_scope:
+        return jsonify({"ok": False, "error": "Servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, servizio_scope)
+
+    # Verifica che il cliente esista (coerenza con API legacy)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
@@ -5134,7 +5155,7 @@ def api_search_clienti():
         return jsonify({"success": True, "clienti": []}), HTTPStatus.OK
 
     # Ricerca per nome, email o telefono
-    clienti = Cliente.query.filter(
+    clienti = apply_role_filtering(Cliente.query).filter(
         db.or_(
             Cliente.nome_cognome.ilike(f"%{q}%"),
             Cliente.mail.ilike(f"%{q}%"),
@@ -5698,10 +5719,24 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
     """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value == "team_leader":
+        try:
+            scoped_query = apply_role_filtering(db.session.query(Cliente.cliente_id))
+            return scoped_query.filter(Cliente.cliente_id == cliente.cliente_id).first() is not None
+        except Exception:
+            logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
+            return False
     if (
-        user in cliente.nutrizionisti_multipli
+        getattr(cliente, "nutrizionista_id", None) == user.id
+        or getattr(cliente, "coach_id", None) == user.id
+        or getattr(cliente, "psicologa_id", None) == user.id
+        or getattr(cliente, "consulente_alimentare_id", None) == user.id
+        or user in cliente.nutrizionisti_multipli
         or user in cliente.coaches_multipli
         or user in cliente.psicologi_multipli
+        or user in cliente.consulenti_multipli
     ):
         return True
     # Professionista assegnato tramite call bonus attiva
@@ -5748,7 +5783,7 @@ def _team_leader_visible_member_ids(user) -> set[int]:
 def _team_leader_can_manage_assignment_type(user, tipo_professionista: str | None) -> bool:
     tipo = (tipo_professionista or "").strip().lower()
     if tipo == "health_manager":
-        return True
+        return False
     allowed_by_specialty = {
         "nutrizione": {"nutrizionista"},
         "coach": {"coach"},
