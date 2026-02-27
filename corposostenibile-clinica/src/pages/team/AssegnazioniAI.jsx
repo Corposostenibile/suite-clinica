@@ -74,6 +74,8 @@ const getPackageRequirements = (rawPackage) => {
 function AssegnazioniAI() {
   const { user } = useAuth();
   const isTeamLeader = user?.role === 'team_leader';
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const canUseSpecialtyFilters = isAdminOrCco;
   // Stati Generali
   const [activeTab, setActiveTab] = useState('webhook-data');
   const [error, setError] = useState(null);
@@ -341,6 +343,12 @@ function AssegnazioniAI() {
       }
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!canUseSpecialtyFilters && profFilter !== 'all') {
+      setProfFilter('all');
+    }
+  }, [canUseSpecialtyFilters, profFilter]);
 
   // Auto-refresh webhook data
   useEffect(() => {
@@ -899,12 +907,16 @@ function AssegnazioniAI() {
         {/* TAB 2: Professionisti (Criteri) */}
         <Tab eventKey="professionals" title={<><i className="ri-team-line me-2"></i>Professionisti</>}>
             <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-3">
-                <ButtonGroup>
-                    <Button variant={profFilter === 'all' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('all')}>Tutti</Button>
-                    <Button variant={profFilter === 'nutrizione' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('nutrizione')}>Nutrizione</Button>
-                    <Button variant={profFilter === 'coach' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('coach')}>Coach</Button>
-                    <Button variant={profFilter === 'psicologia' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('psicologia')}>Psicologia</Button>
-                </ButtonGroup>
+                {canUseSpecialtyFilters ? (
+                    <ButtonGroup>
+                        <Button variant={profFilter === 'all' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('all')}>Tutti</Button>
+                        <Button variant={profFilter === 'nutrizione' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('nutrizione')}>Nutrizione</Button>
+                        <Button variant={profFilter === 'coach' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('coach')}>Coach</Button>
+                        <Button variant={profFilter === 'psicologia' ? 'primary' : 'outline-primary'} onClick={() => setProfFilter('psicologia')}>Psicologia</Button>
+                    </ButtonGroup>
+                ) : (
+                    <div />
+                )}
                 
                 <div className="d-flex flex-wrap gap-2" style={{ maxWidth: '520px', width: '100%' }}>
                     <Form.Select
