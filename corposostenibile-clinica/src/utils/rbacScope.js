@@ -50,6 +50,8 @@ export function canAccessQualityPage(user) {
 }
 
 export function canAccessTeamLists(user) {
+  if (isAdminOrCco(user)) return true;
+  if (isHealthManagerTeamLeader(user)) return true;
   return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
@@ -66,6 +68,8 @@ export function canAccessCapacity(user) {
 }
 
 export function canViewOtherProfessionalProfile(user) {
+  if (isAdminOrCco(user)) return true;
+  if (isTeamLeader(user)) return true;
   return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
