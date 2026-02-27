@@ -263,6 +263,10 @@ class BaseConfig:
     GHL_API_BASE_URL: str = os.getenv("GHL_API_BASE_URL", "https://rest.gohighlevel.com/v1")
     GHL_GLOBAL_STATUS_WEBHOOK_MODE: str = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_MODE", "mock")
     GHL_GLOBAL_STATUS_WEBHOOK_URL: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL")
+    GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST")
+    GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA")
+    GHL_CALL_BONUS_WEBHOOK_MODE: str = os.getenv("GHL_CALL_BONUS_WEBHOOK_MODE", "mock")
+    GHL_CALL_BONUS_WEBHOOK_URL: str | None = os.getenv("GHL_CALL_BONUS_WEBHOOK_URL")
 
     # ------------------ Respond.io Integration -----------------------
     RESPOND_IO_API_TOKEN: str | None = os.getenv("RESPOND_IO_API_TOKEN")

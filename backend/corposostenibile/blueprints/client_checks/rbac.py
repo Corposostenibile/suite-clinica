@@ -6,7 +6,18 @@ from flask_login import current_user
 from sqlalchemy import or_
 
 from corposostenibile.extensions import db
-from corposostenibile.models import Cliente, User, Team
+from corposostenibile.models import CallBonus, CallBonusStatusEnum, Cliente, User, Team
+
+
+def _call_bonus_client_ids_for_user(user_id: int):
+    """Subquery: cliente_id di CallBonus attive assegnate all'utente."""
+    return (
+        db.session.query(CallBonus.cliente_id)
+        .filter(
+            CallBonus.professionista_id == user_id,
+            CallBonus.status == CallBonusStatusEnum.accettata,
+        )
+    )
 
 
 def get_accessible_clients_query():
@@ -14,7 +25,7 @@ def get_accessible_clients_query():
     Restituisce una subquery di Cliente.cliente_id accessibili all'utente corrente.
     - Admin: None (accesso a tutti i clienti)
     - Team Leader: clienti assegnati ai membri dei team gestiti
-    - Professionista: solo i propri clienti
+    - Professionista: solo i propri clienti + clienti con call bonus attive
     """
     if not current_user.is_authenticated:
         return None
@@ -40,7 +51,8 @@ def get_accessible_clients_query():
                 )
             )
         )
-    # Professionista: solo i propri clienti
+    # Professionista: propri clienti + clienti con call bonus attive assegnate
+    cb_client_ids = _call_bonus_client_ids_for_user(current_user.id)
     return (
         db.session.query(Cliente.cliente_id)
         .filter(
@@ -53,6 +65,7 @@ def get_accessible_clients_query():
                 Cliente.coaches_multipli.any(User.id == current_user.id),
                 Cliente.psicologi_multipli.any(User.id == current_user.id),
                 Cliente.consulenti_multipli.any(User.id == current_user.id),
+                Cliente.cliente_id.in_(cb_client_ids),
             )
         )
     )

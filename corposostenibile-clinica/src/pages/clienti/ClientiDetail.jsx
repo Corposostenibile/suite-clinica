@@ -84,7 +84,7 @@ function ClientiDetail() {
   // La generazione dei check periodici è consentita anche al professionista:
   // il backend applica il vero controllo RBAC sul paziente.
   const canGenerateCheckLinks = true;
-  const canCreateCallBonus = !isProfessionista;
+  const canCreateCallBonus = true;
   const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
@@ -742,6 +742,7 @@ function ClientiDetail() {
   const [selectedCallBonusProfessional, setSelectedCallBonusProfessional] = useState(null);
   const [callBonusCalendarLink, setCallBonusCalendarLink] = useState('');
   const [callBonusResponseModal, setCallBonusResponseModal] = useState(null); // cb record for modal
+  const [callBonusInterestStep, setCallBonusInterestStep] = useState('ask'); // 'ask' | 'book_hm'
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [decliningCallBonus, setDecliningCallBonus] = useState(false);
 
@@ -778,10 +779,13 @@ function ClientiDetail() {
     durata_programma_giorni: '',
     data_rinnovo: '',
     data_inizio_nutrizione: '',
+    durata_nutrizione_giorni: '',
     data_scadenza_nutrizione: '',
     data_inizio_coach: '',
+    durata_coach_giorni: '',
     data_scadenza_coach: '',
     data_inizio_psicologia: '',
+    durata_psicologia_giorni: '',
     data_scadenza_psicologia: '',
     modalita_pagamento: '',
     rate_cliente_sales: '',
@@ -1113,10 +1117,6 @@ function ClientiDetail() {
 
   // ── Call Bonus Handlers ──
   const handleOpenCallBonusModal = () => {
-    if (!canCreateCallBonus) {
-      setError('Richiesta call bonus non consentita per il ruolo Professionista.');
-      return;
-    }
     setCallBonusStep(1);
     setCallBonusForm({ tipo_professionista: '', note_richiesta: '' });
     setCallBonusAnalysis(null);
@@ -1128,10 +1128,6 @@ function ClientiDetail() {
   };
 
   const handleCallBonusAnalyze = async () => {
-    if (!canCreateCallBonus) {
-      setError('Richiesta call bonus non consentita per il ruolo Professionista.');
-      return;
-    }
     if (!callBonusForm.tipo_professionista) return;
     setCallBonusAiLoading(true);
     try {
@@ -1184,14 +1180,31 @@ function ClientiDetail() {
     if (!callBonusResponseModal) return;
     setDecliningCallBonus(true);
     try {
-      await clientiService.declineCallBonus(callBonusResponseModal.id);
+      await clientiService.respondCallBonusInterest(callBonusResponseModal.id, false);
       setCallBonusResponseModal(null);
+      setCallBonusInterestStep('ask');
       fetchCallBonusHistory();
     } catch (err) {
       console.error('Error declining call bonus:', err);
       alert('Errore nel rifiuto. Riprova.');
     } finally {
       setDecliningCallBonus(false);
+    }
+  };
+
+  const handleConfirmCallBonusInterest = async () => {
+    if (!callBonusResponseModal) return;
+    setConfirmingBooking(true);
+    try {
+      await clientiService.respondCallBonusInterest(callBonusResponseModal.id, true);
+      setCallBonusResponseModal(null);
+      setCallBonusInterestStep('ask');
+      fetchCallBonusHistory();
+    } catch (err) {
+      console.error('Error confirming interest:', err);
+      alert('Errore nella conferma interesse. Riprova.');
+    } finally {
+      setConfirmingBooking(false);
     }
   };
 
@@ -2192,13 +2205,16 @@ function ClientiDetail() {
       programma_attuale: c.programma_attuale || c.programmaAttuale || '',
       tipologia_cliente: c.tipologia_cliente || c.tipologiaCliente || '',
       data_inizio_abbonamento: c.data_inizio_abbonamento || c.dataInizioAbbonamento || '',
-      durata_programma_giorni: c.durata_programma_giorni || c.durataProgrammaGiorni || '',
+      durata_programma_giorni: c.durata_programma_giorni ?? c.durataProgrammaGiorni ?? '',
       data_rinnovo: c.data_rinnovo || c.dataRinnovo || '',
       data_inizio_nutrizione: c.data_inizio_nutrizione || c.dataInizioNutrizione || '',
+      durata_nutrizione_giorni: c.durata_nutrizione_giorni ?? c.durataNutrizioneGiorni ?? '',
       data_scadenza_nutrizione: c.data_scadenza_nutrizione || c.dataScadenzaNutrizione || '',
       data_inizio_coach: c.data_inizio_coach || c.dataInizioCoach || '',
+      durata_coach_giorni: c.durata_coach_giorni ?? c.durataCoachGiorni ?? '',
       data_scadenza_coach: c.data_scadenza_coach || c.dataScadenzaCoach || '',
       data_inizio_psicologia: c.data_inizio_psicologia || c.dataInizioPsicologia || '',
+      durata_psicologia_giorni: c.durata_psicologia_giorni ?? c.durataPsicologiaGiorni ?? '',
       data_scadenza_psicologia: c.data_scadenza_psicologia || c.dataScadenzaPsicologia || '',
       modalita_pagamento: c.modalita_pagamento || c.modalitaPagamento || '',
       rate_cliente_sales: c.rate_cliente_sales || c.rateClienteSales || '',
@@ -3034,24 +3050,15 @@ function ClientiDetail() {
                         onChange={(e) => handleInputChange('programma_attuale', e.target.value)}
                       />
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Durata (giorni)</label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={formData.durata_programma_giorni}
-                        onChange={(e) => handleInputChange('durata_programma_giorni', e.target.value)}
-                      />
-                    </div>
                   </div>
 
-                  {/* Date abbonamento generali (legacy / riepilogo) */}
+                  {/* Date abbonamento generali */}
                   <div className="col-12" data-tour="programma-date">
                     <h6 className="text-uppercase text-muted small fw-semibold mb-3">
                       Date Abbonamento (generale)
                     </h6>
                     <div className="row g-3">
-                      <div className="col-md-6">
+                      <div className="col-md-4">
                         <label className="form-label small text-muted">Data Inizio</label>
                         <input
                           type="date"
@@ -3060,13 +3067,25 @@ function ClientiDetail() {
                           onChange={(e) => handleInputChange('data_inizio_abbonamento', e.target.value)}
                         />
                       </div>
-                      <div className="col-md-6">
+                      <div className="col-md-4">
+                        <label className="form-label small text-muted">Durata (giorni)</label>
+                        <input
+                          type="number"
+                          className="form-control"
+                          value={formData.durata_programma_giorni || ''}
+                          onChange={(e) => handleInputChange('durata_programma_giorni', e.target.value)}
+                          min="0"
+                        />
+                      </div>
+                      <div className="col-md-4">
                         <label className="form-label small text-muted">Data Scadenza</label>
                         <input
                           type="date"
-                          className="form-control"
-                          value={formData.data_rinnovo}
-                          onChange={(e) => handleInputChange('data_rinnovo', e.target.value)}
+                          className="form-control bg-light"
+                          value={formData.data_inizio_abbonamento && formData.durata_programma_giorni
+                            ? new Date(new Date(formData.data_inizio_abbonamento).getTime() + Number(formData.durata_programma_giorni) * 86400000).toISOString().split('T')[0]
+                            : formData.data_rinnovo || ''}
+                          disabled
                         />
                       </div>
                     </div>
@@ -3085,7 +3104,7 @@ function ClientiDetail() {
                             <i className="ri-heart-pulse-line me-1"></i> Nutrizione
                           </div>
                           <div className="row g-2">
-                            <div className="col-md-6">
+                            <div className="col-md-4">
                               <label className="form-label small text-muted mb-0">Data Inizio</label>
                               <input
                                 type="date"
@@ -3094,13 +3113,25 @@ function ClientiDetail() {
                                 onChange={(e) => handleInputChange('data_inizio_nutrizione', e.target.value)}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-md-4">
+                              <label className="form-label small text-muted mb-0">Durata (giorni)</label>
+                              <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                value={formData.durata_nutrizione_giorni || ''}
+                                onChange={(e) => handleInputChange('durata_nutrizione_giorni', e.target.value)}
+                                min="0"
+                              />
+                            </div>
+                            <div className="col-md-4">
                               <label className="form-label small text-muted mb-0">Data Scadenza</label>
                               <input
                                 type="date"
-                                className="form-control form-control-sm"
-                                value={formData.data_scadenza_nutrizione || ''}
-                                onChange={(e) => handleInputChange('data_scadenza_nutrizione', e.target.value)}
+                                className="form-control form-control-sm bg-light"
+                                value={formData.data_inizio_nutrizione && formData.durata_nutrizione_giorni
+                                  ? new Date(new Date(formData.data_inizio_nutrizione).getTime() + Number(formData.durata_nutrizione_giorni) * 86400000).toISOString().split('T')[0]
+                                  : formData.data_scadenza_nutrizione || ''}
+                                disabled
                               />
                             </div>
                           </div>
@@ -3113,7 +3144,7 @@ function ClientiDetail() {
                             <i className="ri-run-line me-1"></i> Coach
                           </div>
                           <div className="row g-2">
-                            <div className="col-md-6">
+                            <div className="col-md-4">
                               <label className="form-label small text-muted mb-0">Data Inizio</label>
                               <input
                                 type="date"
@@ -3122,13 +3153,25 @@ function ClientiDetail() {
                                 onChange={(e) => handleInputChange('data_inizio_coach', e.target.value)}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-md-4">
+                              <label className="form-label small text-muted mb-0">Durata (giorni)</label>
+                              <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                value={formData.durata_coach_giorni || ''}
+                                onChange={(e) => handleInputChange('durata_coach_giorni', e.target.value)}
+                                min="0"
+                              />
+                            </div>
+                            <div className="col-md-4">
                               <label className="form-label small text-muted mb-0">Data Scadenza</label>
                               <input
                                 type="date"
-                                className="form-control form-control-sm"
-                                value={formData.data_scadenza_coach || ''}
-                                onChange={(e) => handleInputChange('data_scadenza_coach', e.target.value)}
+                                className="form-control form-control-sm bg-light"
+                                value={formData.data_inizio_coach && formData.durata_coach_giorni
+                                  ? new Date(new Date(formData.data_inizio_coach).getTime() + Number(formData.durata_coach_giorni) * 86400000).toISOString().split('T')[0]
+                                  : formData.data_scadenza_coach || ''}
+                                disabled
                               />
                             </div>
                           </div>
@@ -3141,7 +3184,7 @@ function ClientiDetail() {
                             <i className="ri-mental-health-line me-1"></i> Psicologia
                           </div>
                           <div className="row g-2">
-                            <div className="col-md-6">
+                            <div className="col-md-4">
                               <label className="form-label small text-muted mb-0">Data Inizio</label>
                               <input
                                 type="date"
@@ -3150,13 +3193,25 @@ function ClientiDetail() {
                                 onChange={(e) => handleInputChange('data_inizio_psicologia', e.target.value)}
                               />
                             </div>
-                            <div className="col-md-6">
+                            <div className="col-md-4">
+                              <label className="form-label small text-muted mb-0">Durata (giorni)</label>
+                              <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                value={formData.durata_psicologia_giorni || ''}
+                                onChange={(e) => handleInputChange('durata_psicologia_giorni', e.target.value)}
+                                min="0"
+                              />
+                            </div>
+                            <div className="col-md-4">
                               <label className="form-label small text-muted mb-0">Data Scadenza</label>
                               <input
                                 type="date"
-                                className="form-control form-control-sm"
-                                value={formData.data_scadenza_psicologia || ''}
-                                onChange={(e) => handleInputChange('data_scadenza_psicologia', e.target.value)}
+                                className="form-control form-control-sm bg-light"
+                                value={formData.data_inizio_psicologia && formData.durata_psicologia_giorni
+                                  ? new Date(new Date(formData.data_inizio_psicologia).getTime() + Number(formData.durata_psicologia_giorni) * 86400000).toISOString().split('T')[0]
+                                  : formData.data_scadenza_psicologia || ''}
+                                disabled
                               />
                             </div>
                           </div>
@@ -7019,17 +7074,19 @@ function ClientiDetail() {
                           {callBonusHistory.map((cb) => {
                             const statusCfg = {
                               proposta: { label: 'Proposta', bg: '#fef3c7', color: '#92400e' },
-                              accettata: { label: 'Accettata', bg: '#dbeafe', color: '#1e40af' },
+                              accettata: { label: 'In attesa risposta', bg: '#dbeafe', color: '#1e40af' },
                               rifiutata: { label: 'Rifiutata', bg: '#fee2e2', color: '#991b1b' },
                               confermata: { label: 'Confermata', bg: '#d1fae5', color: '#065f46' },
                               non_andata_buon_fine: { label: 'Non andata a buon fine', bg: '#f3f4f6', color: '#374151' },
+                              interessato: { label: 'Interessato', bg: '#d1fae5', color: '#065f46' },
+                              non_interessato: { label: 'Non interessato', bg: '#fee2e2', color: '#991b1b' },
                             }[cb.status] || { label: cb.status, bg: '#f3f4f6', color: '#374151' };
                             const tipoCfg = {
                               nutrizionista: { label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
                               coach: { label: 'Coaching', icon: 'ri-run-line', color: '#6366f1' },
                               psicologa: { label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
                             }[cb.tipo_professionista] || { label: cb.tipo_professionista, icon: 'ri-user-line', color: '#6b7280' };
-                            const showActions = cb.is_assigned_professional && cb.status === 'accettata' && !cb.booking_confirmed;
+                            const showActions = cb.is_assigned_professional && cb.status === 'accettata' && cb.booking_confirmed;
                             return (
                               <tr key={cb.id}>
                                 <td><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
@@ -7372,8 +7429,12 @@ function ClientiDetail() {
                       </span>
                     </div>
 
-                    {callBonusCalendarLink ? (
-                      <div className="mb-4">
+                    <div className="mb-4">
+                      <p className="small fw-semibold mb-2">
+                        <i className="ri-calendar-line me-1 text-primary"></i>
+                        LINK CALL BONUS PROFESSIONISTA
+                      </p>
+                      {callBonusCalendarLink ? (
                         <a
                           href={callBonusCalendarLink}
                           target="_blank"
@@ -7384,14 +7445,14 @@ function ClientiDetail() {
                           Apri Calendario Call Bonus
                           <i className="ri-external-link-line"></i>
                         </a>
-                        <p className="text-muted small mt-2">Clicca per prenotare la call bonus nel calendario del professionista.</p>
-                      </div>
-                    ) : (
-                      <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-4" role="alert">
-                        <i className="ri-error-warning-line"></i>
-                        <span className="small">Il professionista non ha configurato un link calendario per le call bonus.</span>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-0" role="alert">
+                          <i className="ri-error-warning-line"></i>
+                          <span className="small">Il professionista non ha configurato un link calendario per le call bonus.</span>
+                        </div>
+                      )}
+                      <p className="text-muted small mt-2">Prenota la call bonus nel calendario del professionista selezionato, poi conferma.</p>
+                    </div>
                   </div>
                 )}
 
@@ -7442,9 +7503,9 @@ function ClientiDetail() {
         </div>
       )}
 
-      {/* Call Bonus Response Modal (professionista) */}
+      {/* Call Bonus Response Modal (professionista assegnato) */}
       {callBonusResponseModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setCallBonusResponseModal(null)}>
+        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => { setCallBonusResponseModal(null); setCallBonusInterestStep('ask'); }}>
           <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content">
               <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)' }}>
@@ -7452,7 +7513,7 @@ function ClientiDetail() {
                   <i className="ri-phone-line me-2 text-primary"></i>
                   Risposta Call Bonus
                 </h5>
-                <button className="btn-close" onClick={() => setCallBonusResponseModal(null)}></button>
+                <button className="btn-close" onClick={() => { setCallBonusResponseModal(null); setCallBonusInterestStep('ask'); }}></button>
               </div>
               <div className="modal-body text-center">
                 {/* Info richiesta */}
@@ -7463,55 +7524,80 @@ function ClientiDetail() {
                   )}
                 </div>
 
-                {/* Calendario HM */}
-                <div className="mb-4">
-                  <p className="small fw-semibold mb-2">
-                    <i className="ri-calendar-line me-1 text-primary"></i>
-                    Calendario Health Manager{callBonusResponseModal.hm_name ? ` — ${callBonusResponseModal.hm_name}` : ''}
-                  </p>
-                  {callBonusResponseModal.hm_calendar_link ? (
-                    <a
-                      href={callBonusResponseModal.hm_calendar_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
-                    >
-                      <i className="ri-calendar-line"></i>
-                      Apri Calendario
-                      <i className="ri-external-link-line"></i>
-                    </a>
-                  ) : (
-                    <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-0" role="alert">
-                      <i className="ri-error-warning-line"></i>
-                      <span className="small">Link calendario HM non disponibile.</span>
+                {/* Step ASK: Il paziente è interessato? */}
+                {callBonusInterestStep === 'ask' && (
+                  <div>
+                    <p className="fw-semibold mb-3">Il paziente è interessato alla call bonus?</p>
+                    <div className="d-flex justify-content-center gap-3">
+                      <button
+                        className="btn btn-success btn-lg d-flex align-items-center gap-2"
+                        onClick={() => setCallBonusInterestStep('book_hm')}
+                      >
+                        <i className="ri-thumb-up-line"></i>Sì, interessato
+                      </button>
+                      <button
+                        className="btn btn-danger btn-lg d-flex align-items-center gap-2"
+                        onClick={handleDeclineCallBonus}
+                        disabled={decliningCallBonus}
+                      >
+                        {decliningCallBonus ? (
+                          <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</>
+                        ) : (
+                          <><i className="ri-thumb-down-line"></i>No, non interessato</>
+                        )}
+                      </button>
                     </div>
-                  )}
-                  <p className="text-muted small mt-2">Prenota la call bonus nel calendario dell'Health Manager, poi conferma.</p>
-                </div>
-              </div>
-              <div className="modal-footer border-0 d-flex justify-content-between">
-                <button
-                  className="btn btn-danger"
-                  onClick={handleDeclineCallBonus}
-                  disabled={decliningCallBonus}
-                >
-                  {decliningCallBonus ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Rifiuto...</>
-                  ) : (
-                    <><i className="ri-thumb-down-line me-1"></i>Non interessato</>
-                  )}
-                </button>
-                <button
-                  className="btn btn-success"
-                  onClick={handleConfirmCallBonusBooking}
-                  disabled={confirmingBooking}
-                >
-                  {confirmingBooking ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
-                  ) : (
-                    <><i className="ri-check-line me-1"></i>Ho prenotato la call</>
-                  )}
-                </button>
+                  </div>
+                )}
+
+                {/* Step BOOK_HM: Link HM + conferma prenotazione */}
+                {callBonusInterestStep === 'book_hm' && (
+                  <div>
+                    <div className="mb-4">
+                      <p className="small fw-semibold mb-2">
+                        <i className="ri-calendar-line me-1 text-primary"></i>
+                        LINK HM ASSOCIATO{callBonusResponseModal.hm_name ? ` — ${callBonusResponseModal.hm_name}` : ''}
+                      </p>
+                      {callBonusResponseModal.hm_calendar_link ? (
+                        <a
+                          href={callBonusResponseModal.hm_calendar_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+                        >
+                          <i className="ri-calendar-line"></i>
+                          Apri Calendario HM
+                          <i className="ri-external-link-line"></i>
+                        </a>
+                      ) : (
+                        <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-0" role="alert">
+                          <i className="ri-error-warning-line"></i>
+                          <span className="small">Link calendario HM non disponibile.</span>
+                        </div>
+                      )}
+                      <p className="text-muted small mt-2">Prenota la call bonus nel calendario dell'Health Manager, poi conferma.</p>
+                    </div>
+                    <div className="d-flex justify-content-center gap-3">
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setCallBonusInterestStep('ask')}
+                      >
+                        <i className="ri-arrow-left-line me-1"></i>Indietro
+                      </button>
+                      <button
+                        className="btn btn-success"
+                        onClick={handleConfirmCallBonusInterest}
+                        disabled={confirmingBooking}
+                      >
+                        {confirmingBooking ? (
+                          <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                        ) : (
+                          <><i className="ri-check-line me-1"></i>Confermo prenotazione HM</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -1527,3 +1527,370 @@ def api_clear_opportunity_data():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ============================================================================
+# CALL BONUS SALE WEBHOOK (GHL → Suite)
+# ============================================================================
+
+@bp.route('/webhook/call-bonus-sale', methods=['POST'])
+@csrf.exempt
+def webhook_call_bonus_sale():
+    """
+    Riceve webhook da GHL quando l'HM completa la vendita call bonus.
+
+    Payload atteso:
+        Giorni (int)  - giorni acquistati
+        Nome   (str)  - nome cognome del cliente
+    """
+    from corposostenibile.models import (
+        CallBonus, CallBonusStatusEnum, TipoProfessionistaEnum,
+    )
+    from datetime import date, timedelta
+
+    # GHL può mandare JSON o form-data
+    payload = request.get_json(silent=True) or {}
+    if not payload:
+        payload = request.form.to_dict()
+    if not payload:
+        payload = request.values.to_dict()
+
+    current_app.logger.info(
+        '[GHL] call-bonus-sale RAW payload: %s (content-type: %s)',
+        payload, request.content_type,
+    )
+
+    custom = payload.get('customData') or {}
+    if isinstance(custom, str):
+        import json as _json
+        try:
+            custom = _json.loads(custom)
+        except (ValueError, TypeError):
+            custom = {}
+    giorni_raw = custom.get('Giorni') or payload.get('Giorni')
+    nome = (custom.get('Nome') or payload.get('full_name') or payload.get('Nome') or '').strip()
+
+    current_app.logger.info(
+        '[GHL] call-bonus-sale webhook received: Nome=%s Giorni=%s',
+        nome, giorni_raw,
+    )
+
+    if not nome:
+        return jsonify({'success': False, 'message': 'Campo Nome mancante'}), 400
+
+    try:
+        giorni = int(giorni_raw)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Campo Giorni non valido'}), 400
+
+    # 1. Trova il cliente per nome_cognome
+    cliente = Cliente.query.filter(
+        db.func.lower(Cliente.nome_cognome) == nome.lower()
+    ).first()
+    if not cliente:
+        current_app.logger.warning('[GHL] call-bonus-sale: cliente non trovato per Nome=%s', nome)
+        return jsonify({'success': False, 'message': f'Cliente non trovato: {nome}'}), 404
+
+    # 2. Trova la call bonus "interessato" più recente per questo cliente
+    call_bonus = (
+        CallBonus.query
+        .filter(
+            CallBonus.cliente_id == cliente.cliente_id,
+            CallBonus.status == CallBonusStatusEnum.interessato,
+        )
+        .order_by(CallBonus.data_interesse.desc())
+        .first()
+    )
+    if not call_bonus:
+        current_app.logger.warning(
+            '[GHL] call-bonus-sale: nessuna call bonus "interessato" per cliente_id=%s',
+            cliente.cliente_id,
+        )
+        return jsonify({'success': False, 'message': 'Nessuna call bonus interessato trovata'}), 404
+
+    prof = call_bonus.professionista
+    if not prof:
+        return jsonify({'success': False, 'message': 'Professionista non trovato nella call bonus'}), 404
+
+    tipo = call_bonus.tipo_professionista
+    today = date.today()
+    scadenza = today + timedelta(days=giorni)
+
+    # 3. Assegna il professionista al cliente (multipli)
+    tipo_value = tipo.value if hasattr(tipo, 'value') else str(tipo)
+    if tipo_value == 'nutrizionista':
+        if prof not in cliente.nutrizionisti_multipli:
+            cliente.nutrizionisti_multipli.append(prof)
+        cliente.data_inizio_nutrizione = today
+        cliente.durata_nutrizione_giorni = giorni
+        cliente.recalc_scadenza_servizio('nutrizione')
+    elif tipo_value == 'coach':
+        if prof not in cliente.coaches_multipli:
+            cliente.coaches_multipli.append(prof)
+        cliente.data_inizio_coach = today
+        cliente.durata_coach_giorni = giorni
+        cliente.recalc_scadenza_servizio('coach')
+    elif tipo_value == 'psicologa':
+        if prof not in cliente.psicologi_multipli:
+            cliente.psicologi_multipli.append(prof)
+        cliente.data_inizio_psicologia = today
+        cliente.durata_psicologia_giorni = giorni
+        cliente.recalc_scadenza_servizio('psicologia')
+    else:
+        return jsonify({'success': False, 'message': f'Tipo professionista non gestito: {tipo_value}'}), 400
+
+    # 4. Aggiorna status call bonus → confermata
+    call_bonus.status = CallBonusStatusEnum.confermata
+    call_bonus.confermata_hm = True
+    call_bonus.data_conferma_hm = today
+
+    db.session.commit()
+
+    current_app.logger.info(
+        '[GHL] call-bonus-sale OK: cliente=%s prof=%s tipo=%s giorni=%d scadenza=%s',
+        cliente.nome_cognome, prof.full_name, tipo_value, giorni, scadenza.isoformat(),
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Professionista {prof.full_name} assegnato a {cliente.nome_cognome}',
+        'data': {
+            'cliente_id': cliente.cliente_id,
+            'professionista': prof.full_name,
+            'tipo': tipo_value,
+            'data_inizio': today.isoformat(),
+            'data_scadenza': scadenza.isoformat(),
+            'call_bonus_id': call_bonus.id,
+        },
+    })
+
+
+# ============================================================================
+# GHOST RECOVERY WEBHOOK (GHL → Suite)
+# ============================================================================
+
+@bp.route('/webhook/ghost-recovery', methods=['POST'])
+@csrf.exempt
+def webhook_ghost_recovery():
+    """
+    Riceve webhook da GHL quando l'HM recupera un cliente ghost.
+    Rimette lo stato cliente a "attivo".
+
+    Payload atteso (in customData):
+        Nome (str) - nome cognome del cliente
+    """
+    from corposostenibile.models import StatoClienteEnum
+
+    payload = request.get_json(silent=True) or {}
+    if not payload:
+        payload = request.form.to_dict()
+    if not payload:
+        payload = request.values.to_dict()
+
+    current_app.logger.info(
+        '[GHL] ghost-recovery RAW payload: %s (content-type: %s)',
+        payload, request.content_type,
+    )
+
+    custom = payload.get('customData') or {}
+    if isinstance(custom, str):
+        try:
+            custom = json.loads(custom)
+        except (ValueError, TypeError):
+            custom = {}
+
+    nome = (custom.get('Nome') or payload.get('full_name') or payload.get('Nome') or '').strip()
+
+    if not nome:
+        return jsonify({'success': False, 'message': 'Campo Nome mancante'}), 400
+
+    cliente = Cliente.query.filter(
+        db.func.lower(Cliente.nome_cognome) == nome.lower()
+    ).first()
+    if not cliente:
+        current_app.logger.warning('[GHL] ghost-recovery: cliente non trovato per Nome=%s', nome)
+        return jsonify({'success': False, 'message': f'Cliente non trovato: {nome}'}), 404
+
+    old_status = cliente.stato_cliente.value if cliente.stato_cliente else None
+    cliente.stato_cliente = StatoClienteEnum.attivo
+
+    # Riattiva gli stati per ogni professionista assegnato (con storico)
+    reactivated = []
+    if cliente.nutrizionisti_multipli or cliente.nutrizionista_id:
+        cliente.update_stato_servizio('nutrizione', StatoClienteEnum.attivo)
+        reactivated.append('nutrizione')
+    if cliente.coaches_multipli or cliente.coach_id:
+        cliente.update_stato_servizio('coach', StatoClienteEnum.attivo)
+        reactivated.append('coach')
+    if cliente.psicologi_multipli or cliente.psicologa_id:
+        cliente.update_stato_servizio('psicologia', StatoClienteEnum.attivo)
+        reactivated.append('psicologia')
+
+    db.session.commit()
+
+    current_app.logger.info(
+        '[GHL] ghost-recovery OK: cliente=%s stato %s → attivo, professionisti: %s',
+        cliente.nome_cognome, old_status, reactivated,
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Cliente {cliente.nome_cognome} riportato ad attivo',
+        'data': {
+            'cliente_id': cliente.cliente_id,
+            'old_status': old_status,
+            'new_status': 'attivo',
+            'professionisti_riattivati': reactivated,
+        },
+    })
+
+
+# ============================================================================
+# PAUSA SERVIZIO WEBHOOK (GHL → Suite)
+# ============================================================================
+
+# Mapping nomi GHL → nomi servizio interni
+_GHL_PROF_MAP = {
+    'nutrizionista': 'nutrizione',
+    'nutrizione': 'nutrizione',
+    'coach': 'coach',
+    'coaching': 'coach',
+    'psicologo': 'psicologia',
+    'psicologa': 'psicologia',
+    'psicologia': 'psicologia',
+}
+
+
+@bp.route('/webhook/pausa-servizio', methods=['POST'])
+@csrf.exempt
+def webhook_pausa_servizio():
+    """
+    Riceve webhook da GHL quando l'HM registra una pausa per un cliente.
+
+    Payload atteso (in customData):
+        Nome                    (str)  - nome cognome del cliente
+        Professionisti in Pausa (str)  - multi-select: "Nutrizionista, Coach, Psicologo"
+        Durata Pausa In Giorni  (int)  - giorni di pausa
+        Data Inizio Pausa       (str)  - data inizio pausa (ISO o GHL format)
+    """
+    from corposostenibile.models import StatoClienteEnum
+    from datetime import date, timedelta
+    from dateutil import parser as dateparser
+
+    payload = request.get_json(silent=True) or {}
+    if not payload:
+        payload = request.form.to_dict()
+    if not payload:
+        payload = request.values.to_dict()
+
+    current_app.logger.info(
+        '[GHL] pausa-servizio RAW payload: %s', payload,
+    )
+
+    custom = payload.get('customData') or {}
+    if isinstance(custom, str):
+        try:
+            custom = json.loads(custom)
+        except (ValueError, TypeError):
+            custom = {}
+
+    nome = (custom.get('Nome') or payload.get('full_name') or payload.get('Nome') or '').strip()
+    prof_raw = custom.get('Professionisti in Pausa') or custom.get('professionisti_in_pausa') or ''
+    giorni_raw = custom.get('Durata Pausa In Giorni') or custom.get('durata_pausa_in_giorni')
+    data_inizio_raw = custom.get('Data Inizio Pausa') or custom.get('data_inizio_pausa') or ''
+
+    if not nome:
+        return jsonify({'success': False, 'message': 'Campo Nome mancante'}), 400
+
+    # Parse giorni
+    try:
+        giorni = int(giorni_raw)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': f'Durata Pausa non valida: {giorni_raw}'}), 400
+
+    # Parse data inizio pausa
+    data_inizio = None
+    if data_inizio_raw:
+        try:
+            data_inizio = dateparser.parse(str(data_inizio_raw)).date()
+        except (ValueError, TypeError):
+            data_inizio = None
+    if not data_inizio:
+        data_inizio = date.today()
+
+    # Parse professionisti selezionati
+    if isinstance(prof_raw, list):
+        prof_list = prof_raw
+    else:
+        prof_list = [p.strip() for p in str(prof_raw).split(',') if p.strip()]
+
+    servizi = []
+    for p in prof_list:
+        s = _GHL_PROF_MAP.get(p.lower())
+        if s:
+            servizi.append(s)
+
+    if not servizi:
+        return jsonify({'success': False, 'message': f'Nessun servizio riconosciuto: {prof_raw}'}), 400
+
+    # Trova cliente
+    cliente = Cliente.query.filter(
+        db.func.lower(Cliente.nome_cognome) == nome.lower()
+    ).first()
+    if not cliente:
+        current_app.logger.warning('[GHL] pausa-servizio: cliente non trovato per Nome=%s', nome)
+        return jsonify({'success': False, 'message': f'Cliente non trovato: {nome}'}), 404
+
+    # Aggiorna ogni servizio selezionato
+    paused = []
+    durata_map = {
+        'nutrizione': 'durata_nutrizione_giorni',
+        'coach': 'durata_coach_giorni',
+        'psicologia': 'durata_psicologia_giorni',
+    }
+    for servizio in servizi:
+        # Metti in pausa (con storico)
+        cliente.update_stato_servizio(servizio, StatoClienteEnum.pausa)
+
+        # Estendi la durata del servizio di N giorni → ricalcola scadenza
+        durata_attr = durata_map.get(servizio)
+        if durata_attr:
+            current_durata = getattr(cliente, durata_attr, None) or 0
+            setattr(cliente, durata_attr, current_durata + giorni)
+            cliente.recalc_scadenza_servizio(servizio)
+
+        paused.append(servizio)
+
+    # Estendi la durata globale
+    cliente.durata_programma_giorni = (cliente.durata_programma_giorni or 0) + giorni
+
+    db.session.commit()
+
+    # Schedula auto-riattivazione dopo N giorni
+    from .tasks import reactivate_after_pausa
+    eta_date = data_inizio + timedelta(days=giorni)
+    eta_datetime = datetime(eta_date.year, eta_date.month, eta_date.day, 8, 0, 0)  # alle 8:00
+    reactivate_after_pausa.apply_async(
+        kwargs={
+            'cliente_id': cliente.cliente_id,
+            'servizi': paused,
+        },
+        eta=eta_datetime,
+    )
+
+    current_app.logger.info(
+        '[GHL] pausa-servizio OK: cliente=%s servizi=%s giorni=%d data_inizio=%s riattivazione=%s',
+        cliente.nome_cognome, paused, giorni, data_inizio.isoformat(), eta_date.isoformat(),
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Pausa registrata per {cliente.nome_cognome}',
+        'data': {
+            'cliente_id': cliente.cliente_id,
+            'servizi_in_pausa': paused,
+            'giorni': giorni,
+            'data_inizio_pausa': data_inizio.isoformat(),
+            'riattivazione_prevista': eta_date.isoformat(),
+        },
+    })

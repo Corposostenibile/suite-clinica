@@ -189,6 +189,8 @@ class CallBonusStatusEnum(str, Enum):
     rifiutata = "rifiutata"
     confermata = "confermata"
     non_andata_buon_fine = "non_andata_buon_fine"
+    interessato = "interessato"
+    non_interessato = "non_interessato"
 
 
 class TrasformazioneEnum(str, Enum):
@@ -1821,11 +1823,14 @@ class Cliente(TimestampMixin, db.Model):
 
     # Date abbonamento per piano (nutrizione, coach, psicologia)
     data_inizio_nutrizione   = db.Column(db.Date, comment="Data inizio piano nutrizione")
-    data_scadenza_nutrizione = db.Column(db.Date, comment="Data scadenza piano nutrizione")
+    durata_nutrizione_giorni = db.Column(db.Integer, comment="Durata piano nutrizione in giorni")
+    data_scadenza_nutrizione = db.Column(db.Date, comment="Data scadenza piano nutrizione (calcolata: inizio + durata)")
     data_inizio_coach        = db.Column(db.Date, comment="Data inizio piano coach")
-    data_scadenza_coach      = db.Column(db.Date, comment="Data scadenza piano coach")
+    durata_coach_giorni      = db.Column(db.Integer, comment="Durata piano coach in giorni")
+    data_scadenza_coach      = db.Column(db.Date, comment="Data scadenza piano coach (calcolata: inizio + durata)")
     data_inizio_psicologia   = db.Column(db.Date, comment="Data inizio piano psicologia")
-    data_scadenza_psicologia = db.Column(db.Date, comment="Data scadenza piano psicologia")
+    durata_psicologia_giorni = db.Column(db.Integer, comment="Durata piano psicologia in giorni")
+    data_scadenza_psicologia = db.Column(db.Date, comment="Data scadenza piano psicologia (calcolata: inizio + durata)")
 
     # Team / pagamento / tipologia
     di_team                 = db.Column(_def(TeamEnum))
@@ -2239,6 +2244,34 @@ class Cliente(TimestampMixin, db.Model):
             setattr(self, scadenza_attr, nuova_scadenza)
         except (TypeError, ValueError):
             return
+
+    def recalc_scadenza_servizio(self, servizio: str):
+        """
+        Ricalcola data_scadenza_{servizio} = data_inizio_{servizio} + durata_{servizio}_giorni.
+        Aggiorna anche la scadenza globale (data_inizio_abbonamento + durata_programma_giorni).
+        """
+        from datetime import timedelta
+
+        inizio_map = {
+            "nutrizione": ("data_inizio_nutrizione", "durata_nutrizione_giorni", "data_scadenza_nutrizione"),
+            "coach": ("data_inizio_coach", "durata_coach_giorni", "data_scadenza_coach"),
+            "psicologia": ("data_inizio_psicologia", "durata_psicologia_giorni", "data_scadenza_psicologia"),
+        }
+        entry = inizio_map.get(servizio)
+        if not entry:
+            return
+        inizio_attr, durata_attr, scadenza_attr = entry
+        inizio = getattr(self, inizio_attr, None)
+        durata = getattr(self, durata_attr, None)
+        if inizio and durata:
+            setattr(self, scadenza_attr, inizio + timedelta(days=durata))
+
+    def recalc_scadenza_globale(self):
+        """Ricalcola la scadenza globale da data_inizio_abbonamento + durata_programma_giorni."""
+        from datetime import timedelta
+        # Non esiste un campo data_scadenza_globale; il frontend la calcola.
+        # Questo metodo è un hook per eventuali estensioni future.
+        pass
 
     def update_stato_servizio(self, servizio: str, nuovo_stato: StatoClienteEnum):
         """Aggiorna lo stato di un servizio e la relativa data."""
@@ -11608,6 +11641,13 @@ class CallBonus(TimestampMixin, db.Model):
     ai_matches = db.Column(db.JSON)  # Professionisti suggeriti con punteggi
     booking_confirmed = db.Column(db.Boolean, default=False)  # Conferma prenotazione
     data_booking_confirmed = db.Column(db.DateTime)  # Timestamp conferma prenotazione
+
+    # Risposta interesse professionista assegnato
+    data_interesse = db.Column(db.DateTime)  # Quando il prof assegnato ha risposto
+    hm_booking_confirmed = db.Column(db.Boolean, default=False)  # Conferma prenotazione HM
+    data_hm_booking_confirmed = db.Column(db.DateTime)  # Timestamp conferma prenotazione HM
+    webhook_sent = db.Column(db.Boolean, default=False)  # Tracking invio webhook GHL
+    webhook_sent_at = db.Column(db.DateTime)  # Timestamp invio webhook
 
     # Dettagli risposta cliente
     motivazione_rifiuto = db.Column(db.Text)  # Se rifiutata

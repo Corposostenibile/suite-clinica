@@ -600,8 +600,9 @@ def update_multiple_fields(cliente_id: int):
                         value = None
                 else:
                     value = None
-            # Gestione campi Integer (es. recensione_stelle)
-            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte']:
+            # Gestione campi Integer (es. recensione_stelle, durata_*_giorni)
+            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte',
+                           'durata_programma_giorni', 'durata_nutrizione_giorni', 'durata_coach_giorni', 'durata_psicologia_giorni']:
                 if value:
                     try:
                         value = int(value)
@@ -641,7 +642,28 @@ def update_multiple_fields(cliente_id: int):
                 logger.info(f"Data Rinnovo calcolata automaticamente: {data_inizio} + {durata} giorni = {data_rinnovo_calcolata}")
             except (ValueError, TypeError) as e:
                 logger.warning(f"Impossibile calcolare data_rinnovo: {e}")
-    
+
+    # Ricalcolo automatico scadenze per-servizio (inizio + durata)
+    _servizio_map = {
+        'nutrizione': ('data_inizio_nutrizione', 'durata_nutrizione_giorni', 'data_scadenza_nutrizione'),
+        'coach':      ('data_inizio_coach',      'durata_coach_giorni',      'data_scadenza_coach'),
+        'psicologia': ('data_inizio_psicologia',  'durata_psicologia_giorni', 'data_scadenza_psicologia'),
+    }
+    for servizio, (inizio_field, durata_field, scadenza_field) in _servizio_map.items():
+        if inizio_field in valid_fields or durata_field in valid_fields:
+            data_inizio = valid_fields.get(inizio_field) or (getattr(cliente, inizio_field, None) if inizio_field not in valid_fields else None)
+            durata = valid_fields.get(durata_field) or (getattr(cliente, durata_field, None) if durata_field not in valid_fields else None)
+            if data_inizio and durata:
+                try:
+                    from datetime import timedelta
+                    if isinstance(durata, str):
+                        durata = int(durata)
+                    scadenza_calcolata = data_inizio + timedelta(days=durata)
+                    valid_fields[scadenza_field] = scadenza_calcolata
+                    logger.info(f"Scadenza {servizio} calcolata: {data_inizio} + {durata}gg = {scadenza_calcolata}")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Impossibile calcolare scadenza {servizio}: {e}")
+
     # Se non ci sono campi validi ma ci sono professionisti multipli da aggiornare, è ok
     if not valid_fields and not multi_fields:
         return jsonify({"error": "Nessun campo valido da aggiornare"}), HTTPStatus.BAD_REQUEST
@@ -5671,14 +5693,25 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
 # --------------------------------------------------------------------------- #
 
 def _is_assigned_to_cliente(user, cliente) -> bool:
-    """Verifica se l'utente è assegnato al paziente come professionista (o admin)."""
+    """Verifica se l'utente è assegnato al paziente come professionista (o admin).
+    Include anche professionisti con call bonus attive (status=accettata).
+    """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
-    return (
+    if (
         user in cliente.nutrizionisti_multipli
         or user in cliente.coaches_multipli
         or user in cliente.psicologi_multipli
-    )
+    ):
+        return True
+    # Professionista assegnato tramite call bonus attiva
+    from corposostenibile.models import CallBonus
+    has_active_cb = db.session.query(CallBonus.id).filter(
+        CallBonus.cliente_id == cliente.cliente_id,
+        CallBonus.professionista_id == user.id,
+        CallBonus.status == CallBonusStatusEnum.accettata,
+    ).first()
+    return has_active_cb is not None
 
 
 def _is_professionista_standard(user) -> bool:
@@ -5820,15 +5853,64 @@ def api_call_bonus_history(cliente_id: int):
             "professionista_nome": prof_name,
             "professionista_id": cb.professionista_id,
             "is_assigned_professional": cb.professionista_id == current_user.id if cb.professionista_id else False,
+            "is_requester": cb.created_by_id == current_user.id,
             "status": cb.status.value if cb.status else None,
             "created_by_nome": cb.created_by.full_name if cb.created_by else None,
+            "created_by_id": cb.created_by_id,
             "note_richiesta": cb.note_richiesta,
             "booking_confirmed": cb.booking_confirmed or False,
+            "hm_booking_confirmed": cb.hm_booking_confirmed or False,
             "hm_name": hm_name,
             "hm_calendar_link": hm_calendar_link,
         })
 
     return jsonify({"data": data})
+
+
+@api_bp.route("/call-bonus-interest/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_interest(call_bonus_id: int):
+    """Professionista assegnato risponde sull'interesse del paziente."""
+    from corposostenibile.models import CallBonus
+    from .call_bonus_webhooks import dispatch_call_bonus_webhook
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    if call_bonus.professionista_id != current_user.id:
+        abort(HTTPStatus.FORBIDDEN, description="Non sei il professionista assegnato a questa call bonus.")
+
+    if call_bonus.status != CallBonusStatusEnum.accettata:
+        abort(HTTPStatus.CONFLICT, description="Questa call bonus non è in stato 'accettata'.")
+
+    payload = request.get_json() or {}
+    interested = payload.get("interested")
+    if interested is None:
+        abort(HTTPStatus.BAD_REQUEST, description="Campo 'interested' obbligatorio.")
+
+    if interested:
+        call_bonus.status = CallBonusStatusEnum.interessato
+        call_bonus.data_interesse = datetime.utcnow()
+        call_bonus.hm_booking_confirmed = True
+        call_bonus.data_hm_booking_confirmed = datetime.utcnow()
+        db.session.flush()
+        dispatch_call_bonus_webhook(call_bonus)
+    else:
+        call_bonus.status = CallBonusStatusEnum.non_interessato
+        call_bonus.data_interesse = datetime.utcnow()
+        motivazione = payload.get("motivazione", "").strip()
+        if motivazione:
+            call_bonus.motivazione_rifiuto = motivazione
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "status": call_bonus.status.value,
+        "message": "Interesse confermato." if interested else "Paziente non interessato.",
+    })
 
 
 @api_bp.route("/<int:cliente_id>/call-bonus-request", methods=["POST"])
