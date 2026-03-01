@@ -13,13 +13,27 @@ branch_labels = None
 depends_on = None
 
 
+def _add_column_if_not_exists(table, column_name, column):
+    """Add a column only if it doesn't already exist (idempotent)."""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :table AND column_name = :col"
+    ), {"table": table, "col": column_name})
+    if not result.fetchone():
+        op.add_column(table, column)
+
+
 def upgrade():
-    op.add_column('clienti', sa.Column('durata_nutrizione_giorni', sa.Integer(), nullable=True,
-                                       comment='Durata piano nutrizione in giorni'))
-    op.add_column('clienti', sa.Column('durata_coach_giorni', sa.Integer(), nullable=True,
-                                       comment='Durata piano coach in giorni'))
-    op.add_column('clienti', sa.Column('durata_psicologia_giorni', sa.Integer(), nullable=True,
-                                       comment='Durata piano psicologia in giorni'))
+    _add_column_if_not_exists('clienti', 'durata_nutrizione_giorni',
+        sa.Column('durata_nutrizione_giorni', sa.Integer(), nullable=True,
+                  comment='Durata piano nutrizione in giorni'))
+    _add_column_if_not_exists('clienti', 'durata_coach_giorni',
+        sa.Column('durata_coach_giorni', sa.Integer(), nullable=True,
+                  comment='Durata piano coach in giorni'))
+    _add_column_if_not_exists('clienti', 'durata_psicologia_giorni',
+        sa.Column('durata_psicologia_giorni', sa.Integer(), nullable=True,
+                  comment='Durata piano psicologia in giorni'))
 
     # Popola le durate dai dati esistenti (data_scadenza - data_inizio)
     op.execute("""
