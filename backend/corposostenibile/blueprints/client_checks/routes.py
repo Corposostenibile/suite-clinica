@@ -21,8 +21,10 @@ Route per il sistema di gestione check clienti:
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from http import HTTPStatus
 from typing import Dict, Any
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -36,12 +38,16 @@ from flask import (
     abort,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import desc, and_
-from sqlalchemy.orm import joinedload
+from sqlalchemy import desc, and_, exists, select
+from sqlalchemy.orm import joinedload, defer
+from werkzeug.exceptions import HTTPException
 
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
-    Cliente, User, Department,
+    Cliente,
+    ClienteProfessionistaHistory,
+    User,
+    Department,
     CheckForm,
     CheckFormField,
     ClientCheckAssignment,
@@ -49,10 +55,14 @@ from corposostenibile.models import (
     CheckFormTypeEnum,
     CheckFormFieldTypeEnum,
     WeeklyCheck,
+    WeeklyCheckResponse,
     WeeklyCheckLinkAssignment,
+    DCACheck,
+    DCACheckResponse,
     StatoClienteEnum,
     MinorCheck,
     MinorCheckResponse,
+    UserRoleEnum,
 )
 from .forms import (
     CheckFormForm,
@@ -74,13 +84,104 @@ from .helpers import (
     get_client_ip,
     get_user_agent,
 )
+from .rbac import get_accessible_clients_query
+
+def _can_access_cliente_checks(cliente_id: int) -> bool:
+    accessible_query = get_accessible_clients_query()
+    if accessible_query is None:
+        return True
+    return db.session.query(accessible_query.filter(Cliente.cliente_id == cliente_id).exists()).scalar()
+
+
+def _abort_if_no_cliente_checks_access(cliente_id: int) -> None:
+    if not _can_access_cliente_checks(cliente_id):
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato a visualizzare i check di questo paziente.")
+
+
+def _frontend_base_url() -> str:
+    """
+    Calcola il base URL del frontend pubblico per i link dei check.
+    Priorita:
+    1) Config applicativa esplicita
+    2) Header Origin della richiesta browser
+    3) Header Referer
+    4) Header forwardati dal proxy
+    5) Host della richiesta corrente
+    """
+    configured = (
+        current_app.config.get("FRONTEND_BASE_URL")
+        or current_app.config.get("FRONTEND_URL")
+        or ""
+    ).strip()
+    if configured:
+        return configured.rstrip("/")
+
+    origin = (request.headers.get("Origin") or "").strip()
+    if origin:
+        parsed = urlparse(origin)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+    referer = (request.headers.get("Referer") or "").strip()
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+    forwarded_host = (request.headers.get("X-Forwarded-Host") or "").split(",")[0].strip()
+    if forwarded_host:
+        forwarded_proto = (request.headers.get("X-Forwarded-Proto") or request.scheme).split(",")[0].strip()
+        scheme = forwarded_proto if forwarded_proto else request.scheme
+        return f"{scheme}://{forwarded_host}"
+
+    return request.host_url.rstrip("/")
+
+
+def _get_weekly_professional_snapshot(cliente: Cliente | None) -> Dict[str, int | None]:
+    """
+    Restituisce gli ID professionisti da salvare nel WeeklyCheckResponse
+    come snapshot storico al momento della compilazione.
+    """
+    if not cliente:
+        return {
+            "nutritionist_user_id": None,
+            "psychologist_user_id": None,
+            "coach_user_id": None,
+        }
+
+    nutritionist_id = cliente.nutrizionista_id
+    if not nutritionist_id and cliente.nutrizionisti_multipli:
+        nutritionist_id = cliente.nutrizionisti_multipli[0].id
+
+    psychologist_id = cliente.psicologa_id
+    if not psychologist_id and cliente.psicologi_multipli:
+        psychologist_id = cliente.psicologi_multipli[0].id
+
+    coach_id = cliente.coach_id
+    if not coach_id and cliente.coaches_multipli:
+        coach_id = cliente.coaches_multipli[0].id
+
+    return {
+        "nutritionist_user_id": nutritionist_id,
+        "psychologist_user_id": psychologist_id,
+        "coach_user_id": coach_id,
+    }
 
 # --------------------------------------------------------------------------- #
 #  Blueprint setup                                                            #
 # --------------------------------------------------------------------------- #
 
 # Importa il blueprint già definito in __init__.py
+# Importa il blueprint già definito in __init__.py
 from . import client_checks_bp
+
+# API Blueprint (Standard Pattern)
+api_bp = Blueprint(
+    'client_checks_api',
+    __name__,
+    url_prefix='/api/client-checks'
+)
+csrf.exempt(api_bp)  # Exclude API from CSRF since it uses Tokens/Session with different mechanism if needed or just standard API rules
 
 
 # --------------------------------------------------------------------------- #
@@ -128,6 +229,8 @@ def dashboard():
             recent_forms=recent_forms,
             recent_responses=recent_responses,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore dashboard client_checks: {e}")
         flash("Errore nel caricamento della dashboard", "error")
@@ -154,19 +257,77 @@ def da_leggere():
         DCACheckResponse
     )
 
-    # Ottieni i clienti del professionista corrente
-    query = db.session.query(Cliente).filter(
-        db.or_(
-            # Relazioni singole (foreign keys)
-            Cliente.nutrizionista_id == current_user.id,
-            Cliente.coach_id == current_user.id,
-            Cliente.psicologa_id == current_user.id,
-            # Relazioni multiple (many-to-many)
-            Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-            Cliente.coaches_multipli.any(User.id == current_user.id),
-            Cliente.psicologi_multipli.any(User.id == current_user.id),
+    # Ottieni i clienti visibili in base al ruolo
+    query = db.session.query(Cliente)
+    
+    # 1. Admin: vede tutto (ma qui filtriamo solo chi ha check non letti dopo)
+    if current_user.role == UserRoleEnum.admin:
+        # Recupera TUTTI i clienti che hanno check
+        # In questo contesto "da_leggere" per admin potrebbe mostrare tutto, 
+        # ma per coerenza con la logica "Inbox" manteniamo il focus.
+        # Tuttavia, se l'admin vuole vedere tutto, non applichiamo filtri qui
+        # e lasciamo che la join successiva trovi i check non letti.
+        pass
+
+    # 2. Team Leader: vede i clienti assegnati ai membri del proprio team
+    elif current_user.role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        # Includi se stesso
+        team_member_ids.add(current_user.id)
+        # Includi membri dei team guidati
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        
+        member_ids_list = list(team_member_ids)
+        
+        query = query.filter(
+            db.or_(
+                # Relazioni singole (foreign keys) - controlla se assegnato a QUALSIASI membro del team
+                Cliente.nutrizionista_id.in_(member_ids_list),
+                Cliente.coach_id.in_(member_ids_list),
+                Cliente.psicologa_id.in_(member_ids_list),
+                Cliente.consulente_alimentare_id.in_(member_ids_list),
+                # Relazioni multiple - controlla se QUALSIASI membro del team è nelle liste
+                Cliente.nutrizionisti_multipli.any(User.id.in_(member_ids_list)),
+                Cliente.coaches_multipli.any(User.id.in_(member_ids_list)),
+                Cliente.psicologi_multipli.any(User.id.in_(member_ids_list)),
+                Cliente.consulenti_multipli.any(User.id.in_(member_ids_list)),
+                # Assegnazione tramite history (es. Medico nel team)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
+            )
         )
-    )
+
+    # 3. Professionista: vede solo i propri clienti (inclusi assegnazioni da history, es. Medico)
+    else:
+        query = query.filter(
+            db.or_(
+                # Relazioni singole (foreign keys)
+                Cliente.nutrizionista_id == current_user.id,
+                Cliente.coach_id == current_user.id,
+                Cliente.psicologa_id == current_user.id,
+                Cliente.consulente_alimentare_id == current_user.id,
+                # Relazioni multiple (many-to-many)
+                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                Cliente.coaches_multipli.any(User.id == current_user.id),
+                Cliente.psicologi_multipli.any(User.id == current_user.id),
+                Cliente.consulenti_multipli.any(User.id == current_user.id),
+                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id == current_user.id,
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
+            )
+        )
 
     my_clienti = query.all()
     my_clienti_ids = [c.cliente_id for c in my_clienti]
@@ -283,9 +444,11 @@ def conferma_lettura(response_type, response_id):
             cliente.nutrizionista_id == current_user.id or
             cliente.coach_id == current_user.id or
             cliente.psicologa_id == current_user.id or
+            cliente.consulente_alimentare_id == current_user.id or
             current_user in cliente.nutrizionisti_multipli or
             current_user in cliente.coaches_multipli or
-            current_user in cliente.psicologi_multipli
+            current_user in cliente.psicologi_multipli or
+            current_user in cliente.consulenti_multipli
         )
 
         if not is_assigned and not current_user.is_admin and current_user.id != 95:
@@ -314,6 +477,8 @@ def conferma_lettura(response_type, response_id):
 
         return redirect(url_for("client_checks.da_leggere"))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Errore conferma lettura: {e}")
@@ -362,6 +527,8 @@ def forms_list():
             current_type=form_type,
             current_search=search,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore lista form: {e}")
         flash("Errore nel caricamento dei form", "error")
@@ -448,6 +615,8 @@ def preview_form(id: int):
             "client_checks/form_preview.html",
             form=form
         )
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore anteprima form {id}: {e}")
         flash("Errore nel caricamento dell'anteprima", "error")
@@ -536,6 +705,8 @@ def delete_form(id: int):
     try:
         CheckFormService.delete_form(id)
         flash("Form eliminato con successo!", "success")
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore eliminazione form: {e}")
         flash("Errore nell'eliminazione del form", "error")
@@ -550,6 +721,8 @@ def delete_form_api(id: int):
     try:
         CheckFormService.delete_form(id)
         return jsonify({"success": True, "message": "Form eliminato con successo!"})
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore eliminazione form: {e}")
         return jsonify({"success": False, "error": "Errore nell'eliminazione del form"}), 500
@@ -636,6 +809,8 @@ def assign_to_single_client(client_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=client_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"Errore assegnazione check a cliente {client_id}: {e}")
         flash("Errore nell'assegnazione del check", "error")
@@ -860,7 +1035,7 @@ def response_data(id: int):
 
     except Exception as e:
         current_app.logger.error(f"Errore nel recupero dati risposta: {e}")
-        return jsonify({'error': 'Errore nel caricamento dei dati'}), 500
+        return jsonify({'error': f'Errore nel caricamento dei dati: {e}'}), 500
 
 
 # --------------------------------------------------------------------------- #
@@ -897,6 +1072,11 @@ def public_form(token: str):
         
         if request.method == "POST" and form.validate_on_submit():
             try:
+                # Evita compilazioni multiple dello stesso check
+                if assignment.response_count > 0:
+                    flash("Questo check e' gia' stato compilato.", "info")
+                    return redirect(url_for("client_checks.public_success", token=token))
+
                 # Salva la risposta
                 response = ClientCheckService.save_response(
                     assignment_id=assignment.id,
@@ -1082,6 +1262,10 @@ def weekly_check_public(token: str):
                     ip_address=get_client_ip(),
                     user_agent=get_user_agent(),
                 )
+                snapshot = _get_weekly_professional_snapshot(weekly_check.cliente)
+                response.nutritionist_user_id = snapshot["nutritionist_user_id"]
+                response.psychologist_user_id = snapshot["psychologist_user_id"]
+                response.coach_user_id = snapshot["coach_user_id"]
 
                 # ─── UPLOAD FOTO ────────────────────────────────────────────
                 upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
@@ -1177,6 +1361,15 @@ def weekly_check_public(token: str):
                     current_app.logger.error(f"[WEEKLY_CHECK] Errore invio notifiche: {e}")
                     # Non bloccare il flusso se l'invio email fallisce
 
+                try:
+                    NotificationService.send_weekly_check_summary_to_patient(
+                        cliente=weekly_check.cliente,
+                        weekly_response=response,
+                    )
+                except Exception as e:
+                    current_app.logger.error(f"[WEEKLY_CHECK] Errore invio riepilogo paziente: {e}")
+                    # Non bloccare il flusso se l'invio email fallisce
+
                 flash("Grazie! Il tuo check settimanale è stato salvato con successo.", "success")
                 return redirect(url_for("client_checks.weekly_check_success", token=token))
 
@@ -1236,23 +1429,14 @@ def generate_weekly_check_link(cliente_id: int):
     LINK PERMANENTE: il cliente usa sempre lo stesso link per compilare più volte.
     Se esiste già un assignment attivo, ritorna quello esistente.
 
-    Permessi: Admin, Nutrizionisti (dept 2), Coach (dept 3), Psicologi (dept 4), Health Manager (dept 22)
+    Permessi: utenti con accesso al paziente (RBAC su cliente).
     """
     from corposostenibile.models import WeeklyCheck
     import secrets
 
     try:
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[WEEKLY_CHECK] Accesso negato per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                abort(403, "Non hai i permessi per generare check settimanali")
-
-        # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         # Cerca assignment ATTIVO esistente
         existing_check = (
@@ -1266,8 +1450,7 @@ def generate_weekly_check_link(cliente_id: int):
             token = existing_check.token
             # URL React frontend
             # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+            base_url = _frontend_base_url()
             check_url = f"{base_url}/check/weekly/{token}"
 
             current_app.logger.info(
@@ -1305,8 +1488,7 @@ def generate_weekly_check_link(cliente_id: int):
 
         # URL React frontend
         # Use React frontend port in development
-        host = request.host
-        base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
         check_url = f"{base_url}/check/weekly/{token}"
 
         current_app.logger.info(f"[WEEKLY_CHECK] Nuovo link PERMANENTE per {cliente.nome_cognome}: {check_url}")
@@ -1325,6 +1507,8 @@ def generate_weekly_check_link(cliente_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[WEEKLY_CHECK] Errore generazione link: {e}", exc_info=True)
@@ -1350,14 +1534,7 @@ def deactivate_weekly_check(check_id: int):
     try:
         weekly_check = WeeklyCheck.query.get_or_404(check_id)
 
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[WEEKLY_CHECK] Disattivazione negata per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                return jsonify({"success": False, "error": "Non hai i permessi per disattivare check settimanali"}), 403
+        _abort_if_no_cliente_checks_access(weekly_check.cliente_id)
 
         # Disattiva il check
         weekly_check.is_active = False
@@ -1377,6 +1554,8 @@ def deactivate_weekly_check(check_id: int):
             "response_count": weekly_check.response_count
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[WEEKLY_CHECK] Errore disattivazione: {e}", exc_info=True)
@@ -1491,23 +1670,14 @@ def generate_dca_check_link(cliente_id: int):
     LINK PERMANENTE: il cliente usa sempre lo stesso link per compilare più volte.
     Se esiste già un assignment attivo, ritorna quello esistente.
 
-    Permessi: Admin, Nutrizionisti (dept 2), Coach (dept 3), Psicologi (dept 4), Health Manager (dept 22)
+    Permessi: utenti con accesso al paziente (RBAC su cliente).
     """
     from corposostenibile.models import DCACheck
     import secrets
 
     try:
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[DCA_CHECK] Accesso negato per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                abort(403, "Non hai i permessi per generare check DCA")
-
-        # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         # Cerca assignment ATTIVO esistente
         existing_check = (
@@ -1521,8 +1691,7 @@ def generate_dca_check_link(cliente_id: int):
             token = existing_check.token
             # URL React frontend
             # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+            base_url = _frontend_base_url()
             check_url = f"{base_url}/check/dca/{token}"
 
             current_app.logger.info(
@@ -1560,8 +1729,7 @@ def generate_dca_check_link(cliente_id: int):
 
         # URL React frontend
         # Use React frontend port in development
-        host = request.host
-        base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
         check_url = f"{base_url}/check/dca/{token}"
 
         current_app.logger.info(f"[DCA_CHECK] Nuovo link PERMANENTE per {cliente.nome_cognome}: {check_url}")
@@ -1580,6 +1748,8 @@ def generate_dca_check_link(cliente_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[DCA_CHECK] Errore generazione link: {e}", exc_info=True)
@@ -1764,14 +1934,7 @@ def deactivate_dca_check(check_id: int):
     try:
         dca_check = DCACheck.query.get_or_404(check_id)
 
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[DCA_CHECK] Disattivazione negata per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                return jsonify({"success": False, "error": "Non hai i permessi per disattivare check DCA"}), 403
+        _abort_if_no_cliente_checks_access(dca_check.cliente_id)
 
         # Disattiva il check
         dca_check.is_active = False
@@ -1791,6 +1954,8 @@ def deactivate_dca_check(check_id: int):
             "response_count": dca_check.response_count
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[DCA_CHECK] Errore disattivazione: {e}", exc_info=True)
@@ -2043,22 +2208,13 @@ def generate_minor_check_link(cliente_id: int):
     LINK PERMANENTE: il cliente usa sempre lo stesso link per compilare più volte.
     Se esiste già un assignment attivo, ritorna quello esistente.
 
-    Permessi: Admin, Nutrizionisti (dept 2), Coach (dept 3), Psicologi (dept 4), Health Manager (dept 22)
+    Permessi: utenti con accesso al paziente (RBAC su cliente).
     """
     import secrets
 
     try:
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[MINOR_CHECK] Accesso negato per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                abort(403, "Non hai i permessi per generare check minori")
-
-        # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
         # Cerca assignment ATTIVO esistente
         existing_check = (
@@ -2072,8 +2228,7 @@ def generate_minor_check_link(cliente_id: int):
             token = existing_check.token
             # URL React frontend
             # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+            base_url = _frontend_base_url()
             check_url = f"{base_url}/check/minor/{token}"
 
             current_app.logger.info(
@@ -2111,8 +2266,7 @@ def generate_minor_check_link(cliente_id: int):
 
         # URL React frontend
         # Use React frontend port in development
-        host = request.host
-        base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
         check_url = f"{base_url}/check/minor/{token}"
 
         current_app.logger.info(f"[MINOR_CHECK] Nuovo link PERMANENTE per {cliente.nome_cognome}: {check_url}")
@@ -2131,6 +2285,8 @@ def generate_minor_check_link(cliente_id: int):
 
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[MINOR_CHECK] Errore generazione link: {e}", exc_info=True)
@@ -2281,14 +2437,7 @@ def deactivate_minor_check(check_id: int):
     try:
         minor_check = MinorCheck.query.get_or_404(check_id)
 
-        # Verifica permessi: admin o dipartimenti autorizzati (2, 3, 4, 22)
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                current_app.logger.warning(
-                    f"[MINOR_CHECK] Disattivazione negata per {current_user.email} "
-                    f"(dept: {current_user.department.id if current_user.department else 'None'})"
-                )
-                return jsonify({"success": False, "error": "Non hai i permessi per disattivare check minori"}), 403
+        _abort_if_no_cliente_checks_access(minor_check.cliente_id)
 
         # Disattiva il check
         minor_check.is_active = False
@@ -2308,6 +2457,8 @@ def deactivate_minor_check(check_id: int):
             "response_count": minor_check.response_count
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[MINOR_CHECK] Errore disattivazione: {e}", exc_info=True)
@@ -2537,7 +2688,7 @@ def undo_link_sent(assignment_id):
 #  API JSON per React Frontend                                                 #
 # --------------------------------------------------------------------------- #
 
-@client_checks_bp.route("/api/cliente/<int:cliente_id>/checks")
+@api_bp.route("/cliente/<int:cliente_id>/checks")
 @login_required
 def api_cliente_checks(cliente_id: int):
     """
@@ -2552,15 +2703,9 @@ def api_cliente_checks(cliente_id: int):
 
     try:
         cliente = Cliente.query.get_or_404(cliente_id)
+        _abort_if_no_cliente_checks_access(cliente_id)
 
-        # Base URL for React frontend (port 3000 in development)
-        host = request.host
-        if 'localhost' in host or '127.0.0.1' in host:
-            base_url = "http://localhost:3000"
-        else:
-            # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
 
         result = {
             "success": True,
@@ -2604,6 +2749,12 @@ def api_cliente_checks(cliente_id: int):
                     "nutritionist_rating": resp.nutritionist_rating,
                     "psychologist_rating": resp.psychologist_rating,
                     "coach_rating": resp.coach_rating,
+                    "nutritionist_user_id": resp.nutritionist_user_id,
+                    "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
+                    "psychologist_user_id": resp.psychologist_user_id,
+                    "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
+                    "coach_user_id": resp.coach_user_id,
+                    "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
                     "is_read": read_confirmation is not None,
                     "read_at": read_confirmation.read_at.strftime('%d/%m/%Y %H:%M') if read_confirmation else None
                 })
@@ -2668,7 +2819,7 @@ def api_cliente_checks(cliente_id: int):
 
 
 @csrf.exempt
-@client_checks_bp.route("/api/generate/<check_type>/<int:cliente_id>", methods=["POST"])
+@api_bp.route("/generate/<check_type>/<int:cliente_id>", methods=["POST"])
 @login_required
 def api_generate_check_link(check_type: str, cliente_id: int):
     """
@@ -2681,12 +2832,9 @@ def api_generate_check_link(check_type: str, cliente_id: int):
         return jsonify({"success": False, "error": "Tipo check non valido"}), 400
 
     try:
-        # Verifica permessi
-        if not current_user.is_admin:
-            if not current_user.department or current_user.department.id not in [2, 3, 4, 22]:
-                return jsonify({"success": False, "error": "Non autorizzato"}), 403
-
         cliente = Cliente.query.get_or_404(cliente_id)
+        if not _can_access_cliente_checks(cliente_id):
+            return jsonify({"success": False, "error": "Non autorizzato"}), 403
 
         # Select correct model
         if check_type == 'weekly':
@@ -2696,14 +2844,7 @@ def api_generate_check_link(check_type: str, cliente_id: int):
         else:  # minor
             Model = MinorCheck
 
-        # Base URL for React frontend (port 3000 in development)
-        host = request.host
-        if 'localhost' in host or '127.0.0.1' in host:
-            base_url = "http://localhost:3000"
-        else:
-            # Use React frontend port in development
-            host = request.host
-            base_url = "http://localhost:3000" if ('localhost' in host or '127.0.0.1' in host) else request.host_url.rstrip('/')
+        base_url = _frontend_base_url()
 
         # Check for existing active assignment
         existing = Model.query.filter_by(cliente_id=cliente_id, is_active=True).first()
@@ -2742,13 +2883,15 @@ def api_generate_check_link(check_type: str, cliente_id: int):
             "response_count": 0
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"[API] Errore generazione link {check_type}: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/da-leggere")
+@api_bp.route("/da-leggere")
 @login_required
 def api_da_leggere():
     """
@@ -2758,30 +2901,61 @@ def api_da_leggere():
     from corposostenibile.models import (
         ClientCheckReadConfirmation,
         WeeklyCheck, WeeklyCheckResponse,
-        DCACheck, DCACheckResponse
+        DCACheck, DCACheckResponse,
+        Team
     )
 
     try:
-        # Subquery for client IDs - more efficient than loading all clients
-        my_clienti_subq = (
-            db.session.query(Cliente.cliente_id)
-            .filter(
-                db.or_(
-                    Cliente.nutrizionista_id == current_user.id,
-                    Cliente.coach_id == current_user.id,
-                    Cliente.psicologa_id == current_user.id,
-                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                    Cliente.coaches_multipli.any(User.id == current_user.id),
-                    Cliente.psicologi_multipli.any(User.id == current_user.id),
+        # RBAC Logic for Client Access
+        my_clienti_query = None
+        
+        # 1. Admin: vede tutto (my_clienti_query resta None)
+        if current_user.is_admin or current_user.role == 'admin':
+            pass
+            
+        # 2. Team Leader
+        elif current_user.teams_led:
+            managed_team_ids = [t.id for t in current_user.teams_led]
+            team_members_query = (
+                db.session.query(User.id)
+                .join(User.teams)
+                .filter(Team.id.in_(managed_team_ids))
+            )
+            my_clienti_query = (
+                db.session.query(Cliente.cliente_id)
+                .filter(
+                    db.or_(
+                        Cliente.nutrizionista_id.in_(team_members_query),
+                        Cliente.coach_id.in_(team_members_query),
+                        Cliente.psicologa_id.in_(team_members_query),
+                        Cliente.consulente_alimentare_id.in_(team_members_query),
+                    )
                 )
             )
-            .subquery()
-        )
+            
+        # 3. Professional (default)
+        else:
+            my_clienti_query = (
+                db.session.query(Cliente.cliente_id)
+                .filter(
+                    db.or_(
+                        Cliente.nutrizionista_id == current_user.id,
+                        Cliente.coach_id == current_user.id,
+                        Cliente.psicologa_id == current_user.id,
+                        Cliente.consulente_alimentare_id == current_user.id,
+                        Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                        Cliente.coaches_multipli.any(User.id == current_user.id),
+                        Cliente.psicologi_multipli.any(User.id == current_user.id),
+                        Cliente.consulenti_multipli.any(User.id == current_user.id),
+                    )
+                )
+            )
 
         unread_checks = []
 
         # Weekly checks not read - with eager loading
-        weekly_responses = (
+        # Weekly checks query building
+        weekly_query = (
             WeeklyCheckResponse.query
             .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
             .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
@@ -2793,10 +2967,14 @@ def api_da_leggere():
                     ClientCheckReadConfirmation.user_id == current_user.id
                 )
             )
-            .filter(
-                Cliente.cliente_id.in_(db.session.query(my_clienti_subq)),
-                ClientCheckReadConfirmation.id.is_(None)
-            )
+            .filter(ClientCheckReadConfirmation.id.is_(None))
+        )
+        
+        if my_clienti_query is not None:
+             weekly_query = weekly_query.filter(Cliente.cliente_id.in_(my_clienti_query))
+             
+        weekly_responses = (
+            weekly_query
             .options(
                 joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente)
             )
@@ -2822,7 +3000,8 @@ def api_da_leggere():
             })
 
         # DCA checks not read - with eager loading
-        dca_responses = (
+        # DCA checks query building
+        dca_query = (
             DCACheckResponse.query
             .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
             .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
@@ -2834,10 +3013,14 @@ def api_da_leggere():
                     ClientCheckReadConfirmation.user_id == current_user.id
                 )
             )
-            .filter(
-                Cliente.cliente_id.in_(db.session.query(my_clienti_subq)),
-                ClientCheckReadConfirmation.id.is_(None)
-            )
+            .filter(ClientCheckReadConfirmation.id.is_(None))
+        )
+
+        if my_clienti_query is not None:
+             dca_query = dca_query.filter(Cliente.cliente_id.in_(my_clienti_query))
+
+        dca_responses = (
+            dca_query
             .options(
                 joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente)
             )
@@ -2873,7 +3056,7 @@ def api_da_leggere():
 
 
 @csrf.exempt
-@client_checks_bp.route("/api/conferma-lettura/<string:response_type>/<int:response_id>", methods=["POST"])
+@api_bp.route("/conferma-lettura/<string:response_type>/<int:response_id>", methods=["POST"])
 @login_required
 def api_conferma_lettura(response_type: str, response_id: int):
     """
@@ -2921,7 +3104,7 @@ def api_conferma_lettura(response_type: str, response_id: int):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/response/<string:response_type>/<int:response_id>")
+@api_bp.route("/response/<string:response_type>/<int:response_id>")
 @login_required
 def api_get_response_detail(response_type: str, response_id: int):
     """
@@ -2936,6 +3119,8 @@ def api_get_response_detail(response_type: str, response_id: int):
         if response_type == 'weekly':
             resp = WeeklyCheckResponse.query.get_or_404(response_id)
             cliente = resp.assignment.cliente if resp.assignment else None
+            if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
 
             # Check read status
             read_conf = ClientCheckReadConfirmation.query.filter_by(
@@ -2963,10 +3148,16 @@ def api_get_response_detail(response_type: str, response_id: int):
                 # Professional ratings
                 "nutritionist_rating": resp.nutritionist_rating,
                 "nutritionist_feedback": resp.nutritionist_feedback,
+                "nutritionist_user_id": resp.nutritionist_user_id,
+                "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
                 "psychologist_rating": resp.psychologist_rating,
                 "psychologist_feedback": resp.psychologist_feedback,
+                "psychologist_user_id": resp.psychologist_user_id,
+                "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
                 "coach_rating": resp.coach_rating,
                 "coach_feedback": resp.coach_feedback,
+                "coach_user_id": resp.coach_user_id,
+                "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
                 # Progress
                 "progress_rating": resp.progress_rating,
                 "coordinator_rating": resp.coordinator_rating,
@@ -2997,6 +3188,8 @@ def api_get_response_detail(response_type: str, response_id: int):
         elif response_type == 'dca':
             resp = DCACheckResponse.query.get_or_404(response_id)
             cliente = resp.assignment.cliente if resp.assignment else None
+            if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
 
             read_conf = ClientCheckReadConfirmation.query.filter_by(
                 response_type='dca_check',
@@ -3057,6 +3250,8 @@ def api_get_response_detail(response_type: str, response_id: int):
         elif response_type == 'minor':
             resp = MinorCheckResponse.query.get_or_404(response_id)
             cliente = resp.assignment.cliente if resp.assignment else None
+            if cliente and not _can_access_cliente_checks(cliente.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
 
             data = {
                 "id": resp.id,
@@ -3083,18 +3278,23 @@ def api_get_response_detail(response_type: str, response_id: int):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/azienda/stats")
+@api_bp.route("/azienda/stats")
 @login_required
 def api_azienda_stats():
     """
     API JSON: Statistiche aziendali sui check (per Check Azienda).
     OTTIMIZZATO: paginazione server-side, eager loading, batch queries.
+    Dati filtrati per ruolo (admin=all, TL=team clients, professionista=own).
     """
-    from corposostenibile.models import WeeklyCheckResponse, DCACheckResponse, ClientCheckReadConfirmation
-    from sqlalchemy.orm import selectinload
-    from datetime import timedelta
+    from corposostenibile.models import (
+        ClientCheckReadConfirmation,
+        WeeklyCheck, WeeklyCheckResponse,
+        DCACheck, DCACheckResponse,
+        Team
+    )
 
     try:
+        # Paginazione server-side & Filtri
         period = request.args.get('period', 'month')
         custom_start = request.args.get('start_date')
         custom_end = request.args.get('end_date')
@@ -3106,6 +3306,8 @@ def api_azienda_stats():
         # Calculate date range
         now = datetime.utcnow()
         end_date = now
+
+
 
         if period == 'custom' and custom_start and custom_end:
             start_date = datetime.strptime(custom_start, '%Y-%m-%d')
@@ -3121,7 +3323,7 @@ def api_azienda_stats():
         else:
             start_date = now - timedelta(days=30)
 
-        # Build base query with date filter
+        # Build base query
         base_query = (
             WeeklyCheckResponse.query
             .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
@@ -3131,7 +3333,14 @@ def api_azienda_stats():
         if period == 'custom':
             base_query = base_query.filter(WeeklyCheckResponse.submit_date <= end_date)
 
-        # Filter by professional at database level (subquery)
+        # --- RBAC Filtering ---
+        accessible_query = get_accessible_clients_query()
+        if accessible_query is not None:
+            # Se non è admin, filtra per i clienti accessibili
+            base_query = base_query.filter(Cliente.cliente_id.in_(accessible_query))
+        # ----------------------
+
+        # Filter by professional (UI Filter)
         if prof_type and prof_id:
             if prof_type == 'nutrizione':
                 base_query = base_query.filter(
@@ -3218,6 +3427,10 @@ def api_azienda_stats():
             elif prof_type == 'psicologia':
                 stats_query = stats_query.filter(db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any()))
 
+        # Applica stesso filtro RBAC usato per le responses, così le medie sono coerenti con la lista
+        if accessible_query is not None:
+            stats_query = stats_query.filter(Cliente.cliente_id.in_(accessible_query))
+
         stats_result = stats_query.first()
 
         # Compute averages
@@ -3233,6 +3446,9 @@ def api_azienda_stats():
         weekly_responses = (
             base_query
             .options(
+                joinedload(WeeklyCheckResponse.assignment)
+                .joinedload(WeeklyCheck.cliente)
+                .defer(Cliente.check_saltati),
                 joinedload(WeeklyCheckResponse.assignment)
                 .joinedload(WeeklyCheck.cliente)
                 .selectinload(Cliente.nutrizionisti_multipli),
@@ -3364,14 +3580,14 @@ def api_azienda_stats():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@client_checks_bp.route("/api/professionisti/<prof_type>")
+@api_bp.route("/professionisti/<prof_type>")
 @login_required
 def api_get_professionisti_by_type(prof_type: str):
     """
     API JSON: Ottiene la lista dei professionisti per tipo.
     prof_type: 'nutrizione', 'coach', 'psicologia'
     """
-    from corposostenibile.models import User
+    from corposostenibile.models import User, Team
 
     try:
         # Map prof_type to specialty values (from UserSpecialtyEnum)
@@ -3387,10 +3603,41 @@ def api_get_professionisti_by_type(prof_type: str):
         specialties = specialty_map[prof_type]
 
         # Query users with matching specialty
-        professionals = User.query.filter(
+        professionals_query = User.query.filter(
             User.specialty.in_(specialties),
             User.is_active == True
-        ).order_by(User.last_name, User.first_name).all()
+        )
+
+        # Team leader: only professionals of own led team(s) and only own specialty family
+        user_role = getattr(current_user, 'role', None)
+        current_specialty = getattr(current_user, 'specialty', None)
+        if hasattr(user_role, 'value'):
+            user_role = user_role.value
+        if hasattr(current_specialty, 'value'):
+            current_specialty = current_specialty.value
+
+        if str(user_role) == 'team_leader':
+            tl_specialty_map = {
+                'nutrizione': 'nutrizione',
+                'nutrizionista': 'nutrizione',
+                'coach': 'coach',
+                'psicologia': 'psicologia',
+                'psicologo': 'psicologia',
+            }
+            expected_prof_type = tl_specialty_map.get(str(current_specialty or '').lower())
+            if expected_prof_type and prof_type != expected_prof_type:
+                return jsonify({
+                    "success": True,
+                    "professionisti": []
+                })
+
+            led_team_ids = [t.id for t in (getattr(current_user, 'teams_led', None) or [])]
+            if led_team_ids:
+                professionals_query = professionals_query.filter(User.teams.any(Team.id.in_(led_team_ids)))
+            else:
+                professionals_query = professionals_query.filter(User.id == -1)
+
+        professionals = professionals_query.order_by(User.last_name, User.first_name).all()
 
         result = [{
             "id": p.id,
@@ -3408,11 +3655,245 @@ def api_get_professionisti_by_type(prof_type: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@api_bp.route("/initial-assignments", methods=["GET"])
+@login_required
+def api_initial_assignments():
+    """
+    API JSON: lista lead con stato Check 1 / Check 2 iniziali.
+    Filtri:
+      - client_search: nome/cognome/email
+      - status: all | completed_all | completed_any | pending
+      - page, per_page
+    """
+    try:
+        client_search = request.args.get("client_search", "").strip().lower()
+        status = request.args.get("status", "all").strip().lower()
+        page = max(request.args.get("page", 1, type=int), 1)
+        per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+        client_ids_raw = (request.args.get("client_ids") or "").strip()
+        client_ids = {
+            int(cid)
+            for cid in client_ids_raw.split(",")
+            if cid.strip().isdigit()
+        } if client_ids_raw else set()
+
+        check_1_form, check_2_form = _get_initial_check_forms()
+
+        target_form_ids = [f.id for f in [check_1_form, check_2_form] if f]
+        if not target_form_ids:
+            return jsonify({
+                "success": True,
+                "items": [],
+                "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0},
+                "meta": {"check_1_name": "Check 1", "check_2_name": "Check 2"},
+            })
+
+        query = (
+            ClientCheckAssignment.query
+            .options(
+                joinedload(ClientCheckAssignment.cliente),
+                joinedload(ClientCheckAssignment.form),
+            )
+            .filter(
+                ClientCheckAssignment.is_active.is_(True),
+                ClientCheckAssignment.form_id.in_(target_form_ids),
+            )
+            .order_by(desc(ClientCheckAssignment.created_at))
+        )
+
+        if client_ids:
+            query = query.filter(ClientCheckAssignment.cliente_id.in_(client_ids))
+
+        accessible_clients_query = get_accessible_clients_query()
+        if accessible_clients_query is not None:
+            query = query.filter(
+                ClientCheckAssignment.cliente_id.in_(accessible_clients_query)
+            )
+
+        assignments = query.all()
+
+        grouped: Dict[int, Dict[str, Any]] = {}
+        for assignment in assignments:
+            cliente = assignment.cliente
+            if not cliente:
+                continue
+
+            if client_search:
+                nome = (cliente.nome or "").lower()
+                cognome = (cliente.cognome or "").lower()
+                email = (cliente.mail or "").lower()
+                full_name = f"{nome} {cognome}".strip()
+                if (
+                    client_search not in nome
+                    and client_search not in cognome
+                    and client_search not in email
+                    and client_search not in full_name
+                ):
+                    continue
+
+            row = grouped.setdefault(
+                cliente.cliente_id,
+                {
+                    "lead_id": cliente.cliente_id,
+                    "lead_name": cliente.nome_cognome,
+                    "lead_email": cliente.mail,
+                    "latest_activity_at": assignment.created_at,
+                    "check_1": {"assigned": False, "completed": False, "response_count": 0},
+                    "check_2": {"assigned": False, "completed": False, "response_count": 0},
+                },
+            )
+
+            if assignment.created_at and assignment.created_at > row["latest_activity_at"]:
+                row["latest_activity_at"] = assignment.created_at
+
+            if check_1_form and assignment.form_id == check_1_form.id:
+                row["check_1"] = {
+                    "assigned": True,
+                    "completed": assignment.response_count > 0,
+                    "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
+                    "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
+                    "token": assignment.token,
+                }
+            elif check_2_form and assignment.form_id == check_2_form.id:
+                row["check_2"] = {
+                    "assigned": True,
+                    "completed": assignment.response_count > 0,
+                    "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
+                    "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
+                    "token": assignment.token,
+                }
+
+        items = list(grouped.values())
+
+        def _match_status(item: Dict[str, Any]) -> bool:
+            c1 = item["check_1"]["completed"]
+            c2 = item["check_2"]["completed"]
+            if status == "completed_all":
+                return c1 and c2
+            if status == "completed_any":
+                return c1 or c2
+            if status == "pending":
+                return not (c1 or c2)
+            return True
+
+        items = [item for item in items if _match_status(item)]
+        items.sort(key=lambda x: x["latest_activity_at"] or datetime.min, reverse=True)
+
+        total = len(items)
+        pages = (total + per_page - 1) // per_page if total else 0
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_items = items[start:end]
+
+        return jsonify({
+            "success": True,
+            "items": page_items,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": pages,
+            },
+            "meta": {
+                "check_1_name": check_1_form.name if check_1_form else "Check 1",
+                "check_2_name": check_2_form.name if check_2_form else "Check 2",
+            },
+        })
+    except Exception as e:
+        current_app.logger.error(f"[API] Errore initial assignments: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _get_initial_check_forms():
+    check_1_form = (
+        CheckForm.query
+        .filter(CheckForm.name.ilike("Check 1 - PRE-CHECK INIZIALE"))
+        .first()
+    )
+    check_2_form = (
+        CheckForm.query
+        .filter(CheckForm.name.ilike("Check 2 - Mockup Follow-up Iniziale"))
+        .first()
+    )
+    return check_1_form, check_2_form
+
+
+@api_bp.route("/initial-assignments/<int:lead_id>/check/<int:check_number>/response", methods=["GET"])
+@login_required
+def api_initial_assignment_check_response(lead_id: int, check_number: int):
+    """Restituisce il dettaglio della compilazione check iniziale per il modal React."""
+    try:
+        if check_number not in (1, 2):
+            return jsonify({"success": False, "error": "check_number non valido"}), 400
+
+        check_1_form, check_2_form = _get_initial_check_forms()
+        target_form = check_1_form if check_number == 1 else check_2_form
+        if not target_form:
+            return jsonify({"success": False, "error": "Form check non trovato"}), 404
+
+        query = ClientCheckAssignment.query.filter(
+            ClientCheckAssignment.cliente_id == lead_id,
+            ClientCheckAssignment.form_id == target_form.id,
+            ClientCheckAssignment.is_active.is_(True),
+        )
+        accessible_clients_query = get_accessible_clients_query()
+        if accessible_clients_query is not None:
+            query = query.filter(
+                ClientCheckAssignment.cliente_id.in_(accessible_clients_query)
+            )
+
+        assignment = (
+            query
+            .options(
+                joinedload(ClientCheckAssignment.form).joinedload(CheckForm.fields),
+                joinedload(ClientCheckAssignment.responses),
+                joinedload(ClientCheckAssignment.cliente),
+            )
+            .order_by(desc(ClientCheckAssignment.created_at))
+            .first()
+        )
+
+        if not assignment:
+            return jsonify({"success": False, "error": "Assegnazione non trovata"}), 404
+        if assignment.response_count <= 0 or not assignment.latest_response:
+            return jsonify({"success": False, "error": "Check non ancora compilato"}), 404
+
+        response = assignment.latest_response
+        payload = []
+        for field in sorted(assignment.form.fields, key=lambda f: f.position):
+            payload.append({
+                "field_id": field.id,
+                "label": field.label,
+                "field_type": field.field_type.value if hasattr(field.field_type, "value") else str(field.field_type),
+                "value": response.get_response_value(field.id),
+            })
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "lead_id": lead_id,
+                "lead_name": assignment.cliente.nome_cognome if assignment.cliente else None,
+                "check_number": check_number,
+                "form_name": assignment.form.name,
+                "response_id": response.id,
+                "submitted_at": response.created_at.isoformat() if response.created_at else None,
+                "responses": payload,
+            },
+        })
+    except Exception as e:
+        current_app.logger.error(
+            f"[API] Errore dettaglio check iniziale lead={lead_id} check={check_number}: {e}",
+            exc_info=True,
+        )
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ============================================================================
 # PUBLIC API ENDPOINTS (No authentication required - for React frontend)
 # ============================================================================
 
 @csrf.exempt
+@api_bp.route("/public/<check_type>/<token>", methods=["GET"])
 @client_checks_bp.route("/api/public/<check_type>/<token>", methods=["GET"])
 def api_public_get_check_info(check_type: str, token: str):
     """
@@ -3444,28 +3925,38 @@ def api_public_get_check_info(check_type: str, token: str):
         if not cliente:
             return jsonify({"success": False, "error": "Cliente non trovato"}), 404
 
-        # Get professionals info
+        # Get professionals info (supporta assegnazioni singole e multiple)
         professionisti = []
-        if cliente.nutrizionista:
+        seen_keys = set()
+
+        def append_prof(user, ruolo, rating_field, feedback_field):
+            if not user:
+                return
+            key = f"{ruolo}:{user.id}"
+            if key in seen_keys:
+                return
+            seen_keys.add(key)
             professionisti.append({
-                "id": cliente.nutrizionista.id,
-                "nome": cliente.nutrizionista.nome_cognome,
-                "ruolo": "Nutrizionista"
-            })
-        if cliente.coach:
-            professionisti.append({
-                "id": cliente.coach.id,
-                "nome": cliente.coach.nome_cognome,
-                "ruolo": "Coach"
-            })
-        if cliente.psicologa:
-            professionisti.append({
-                "id": cliente.psicologa.id,
-                "nome": cliente.psicologa.nome_cognome,
-                "ruolo": "Psicologo/a"
+                "id": user.id,
+                "nome": user.full_name or user.email,
+                "ruolo": ruolo,
+                "rating_field": rating_field,
+                "feedback_field": feedback_field,
             })
 
-        return jsonify({
+        append_prof(cliente.nutrizionista_user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+        for user in (cliente.nutrizionisti_multipli or []):
+            append_prof(user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+
+        append_prof(cliente.psicologa_user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+        for user in (cliente.psicologi_multipli or []):
+            append_prof(user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+
+        append_prof(cliente.coach_user, "Coach", "coach_rating", "coach_feedback")
+        for user in (cliente.coaches_multipli or []):
+            append_prof(user, "Coach", "coach_rating", "coach_feedback")
+
+        response = jsonify({
             "success": True,
             "check": {
                 "id": check.id,
@@ -3479,6 +3970,11 @@ def api_public_get_check_info(check_type: str, token: str):
             },
             "professionisti": professionisti
         })
+        # Prevent browser/proxy conditional caching (304) on this endpoint.
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
     except Exception as e:
         current_app.logger.error(f"[API_PUBLIC] Errore get check info: {e}", exc_info=True)
@@ -3486,6 +3982,7 @@ def api_public_get_check_info(check_type: str, token: str):
 
 
 @csrf.exempt
+@api_bp.route("/public/weekly/<token>", methods=["POST"])
 @client_checks_bp.route("/api/public/weekly/<token>", methods=["POST"])
 def api_public_submit_weekly(token: str):
     """
@@ -3506,11 +4003,15 @@ def api_public_submit_weekly(token: str):
             data = request.form.to_dict()
 
         # Create response with correct model field names
+        snapshot = _get_weekly_professional_snapshot(check.cliente)
         response = WeeklyCheckResponse(
             weekly_check_id=check.id,
             submit_date=datetime.utcnow(),
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string if request.user_agent else None,
+            nutritionist_user_id=snapshot["nutritionist_user_id"],
+            psychologist_user_id=snapshot["psychologist_user_id"],
+            coach_user_id=snapshot["coach_user_id"],
             # Text fields
             what_worked=data.get('what_worked'),
             what_didnt_work=data.get('what_didnt_work'),
@@ -3573,6 +4074,7 @@ def api_public_submit_weekly(token: str):
 
 
 @csrf.exempt
+@api_bp.route("/public/dca/<token>", methods=["POST"])
 @client_checks_bp.route("/api/public/dca/<token>", methods=["POST"])
 def api_public_submit_dca(token: str):
     """
@@ -3643,6 +4145,7 @@ def api_public_submit_dca(token: str):
 
 
 @csrf.exempt
+@api_bp.route("/public/minor/<token>", methods=["POST"])
 @client_checks_bp.route("/api/public/minor/<token>", methods=["POST"])
 def api_public_submit_minor(token: str):
     """
@@ -3700,16 +4203,44 @@ def api_public_submit_minor(token: str):
 #  API Admin Dashboard Stats (for React Welcome dashboard)                     #
 # --------------------------------------------------------------------------- #
 
-@client_checks_bp.route("/api/admin/dashboard-stats")
+def _apply_check_rbac_weekly(q):
+    """Join WeeklyCheckResponse -> WeeklyCheck -> Cliente and apply RBAC if needed."""
+    q = q.join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+        Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+    )
+    accessible = get_accessible_clients_query()
+    if accessible is not None:
+        q = q.filter(Cliente.cliente_id.in_(accessible))
+    return q
+
+
+def _apply_check_rbac_dca(q):
+    """Join DCACheckResponse -> DCACheck -> Cliente and apply RBAC if needed."""
+    q = q.join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id).join(
+        Cliente, DCACheck.cliente_id == Cliente.cliente_id
+    )
+    accessible = get_accessible_clients_query()
+    if accessible is not None:
+        q = q.filter(Cliente.cliente_id.in_(accessible))
+    return q
+
+
+def _apply_check_rbac_minor(q):
+    """Join MinorCheckResponse -> MinorCheck -> Cliente and apply RBAC if needed."""
+    q = q.join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id).join(
+        Cliente, MinorCheck.cliente_id == Cliente.cliente_id
+    )
+    accessible = get_accessible_clients_query()
+    if accessible is not None:
+        q = q.filter(Cliente.cliente_id.in_(accessible))
+    return q
+
+
+@api_bp.route("/admin/dashboard-stats")
 @login_required
 def api_admin_dashboard_stats():
-    """Comprehensive check dashboard stats for admin overview."""
-    from corposostenibile.models import (
-        WeeklyCheckResponse, WeeklyCheck,
-        DCACheck, DCACheckResponse,
-        MinorCheck, MinorCheckResponse,
-        ClientCheckReadConfirmation,
-    )
+    """Check dashboard stats; data filtered by role (admin=all, TL=team clients, professionista=own)."""
+    from corposostenibile.models import ClientCheckReadConfirmation
     from datetime import timedelta
     from dateutil.relativedelta import relativedelta
     from sqlalchemy import func, case, and_
@@ -3720,48 +4251,71 @@ def api_admin_dashboard_stats():
         first_day_month = today.replace(day=1)
         prev_month_start = (first_day_month - relativedelta(months=1))
         prev_month_end = first_day_month - timedelta(days=1)
+        accessible_query = get_accessible_clients_query()
 
         # ─── COUNTS BY TYPE ───────────────────────────────────────── #
-        weekly_total = db.session.query(func.count(WeeklyCheckResponse.id)).scalar() or 0
-        dca_total = db.session.query(func.count(DCACheckResponse.id)).scalar() or 0
-        minor_total = db.session.query(func.count(MinorCheckResponse.id)).scalar() or 0
+        q_weekly = db.session.query(func.count(WeeklyCheckResponse.id))
+        q_weekly = _apply_check_rbac_weekly(q_weekly)
+        weekly_total = q_weekly.scalar() or 0
+
+        q_dca = db.session.query(func.count(DCACheckResponse.id))
+        q_dca = _apply_check_rbac_dca(q_dca)
+        dca_total = q_dca.scalar() or 0
+
+        q_minor = db.session.query(func.count(MinorCheckResponse.id))
+        q_minor = _apply_check_rbac_minor(q_minor)
+        minor_total = q_minor.scalar() or 0
         total_all = weekly_total + dca_total + minor_total
 
         # This month
-        weekly_month = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-            WeeklyCheckResponse.submit_date >= first_day_month
+        weekly_month = _apply_check_rbac_weekly(
+            db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= first_day_month
+            )
         ).scalar() or 0
-        dca_month = db.session.query(func.count(DCACheckResponse.id)).filter(
-            DCACheckResponse.submit_date >= first_day_month
+        dca_month = _apply_check_rbac_dca(
+            db.session.query(func.count(DCACheckResponse.id)).filter(
+                DCACheckResponse.submit_date >= first_day_month
+            )
         ).scalar() or 0
-        minor_month = db.session.query(func.count(MinorCheckResponse.id)).filter(
-            MinorCheckResponse.submit_date >= first_day_month
+        minor_month = _apply_check_rbac_minor(
+            db.session.query(func.count(MinorCheckResponse.id)).filter(
+                MinorCheckResponse.submit_date >= first_day_month
+            )
         ).scalar() or 0
         total_month = weekly_month + dca_month + minor_month
 
         # Previous month
-        weekly_prev = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-            WeeklyCheckResponse.submit_date >= prev_month_start,
-            WeeklyCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        weekly_prev = _apply_check_rbac_weekly(
+            db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                WeeklyCheckResponse.submit_date >= prev_month_start,
+                WeeklyCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+            )
         ).scalar() or 0
-        dca_prev = db.session.query(func.count(DCACheckResponse.id)).filter(
-            DCACheckResponse.submit_date >= prev_month_start,
-            DCACheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        dca_prev = _apply_check_rbac_dca(
+            db.session.query(func.count(DCACheckResponse.id)).filter(
+                DCACheckResponse.submit_date >= prev_month_start,
+                DCACheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+            )
         ).scalar() or 0
-        minor_prev = db.session.query(func.count(MinorCheckResponse.id)).filter(
-            MinorCheckResponse.submit_date >= prev_month_start,
-            MinorCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+        minor_prev = _apply_check_rbac_minor(
+            db.session.query(func.count(MinorCheckResponse.id)).filter(
+                MinorCheckResponse.submit_date >= prev_month_start,
+                MinorCheckResponse.submit_date <= datetime.combine(prev_month_end, datetime.max.time()),
+            )
         ).scalar() or 0
         total_prev = weekly_prev + dca_prev + minor_prev
 
         # ─── AVERAGE RATINGS (from weekly checks - last 30 days) ──── #
         thirty_days_ago = now - timedelta(days=30)
-        avg_result = db.session.query(
+        avg_q = db.session.query(
             func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
             func.avg(WeeklyCheckResponse.psychologist_rating).label('avg_psicologo'),
             func.avg(WeeklyCheckResponse.coach_rating).label('avg_coach'),
             func.avg(WeeklyCheckResponse.progress_rating).label('avg_progresso'),
-        ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago).first()
+        ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago)
+        avg_q = _apply_check_rbac_weekly(avg_q)
+        avg_result = avg_q.first()
 
         avg_nutrizionista = round(float(avg_result.avg_nutrizionista), 1) if avg_result.avg_nutrizionista else None
         avg_psicologo = round(float(avg_result.avg_psicologo), 1) if avg_result.avg_psicologo else None
@@ -3779,21 +4333,29 @@ def api_admin_dashboard_stats():
         ]
         ratings_dist = {"low": 0, "medium": 0, "good": 0, "excellent": 0}
         for col in rating_cols:
-            low = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 1, col <= 4
+            low = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 1, col <= 4
+                )
             ).scalar() or 0
-            medium = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 5, col <= 6
+            medium = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 5, col <= 6
+                )
             ).scalar() or 0
-            good = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 7, col <= 8
+            good = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 7, col <= 8
+                )
             ).scalar() or 0
-            excellent = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
-                WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                col.isnot(None), col >= 9
+            excellent = _apply_check_rbac_weekly(
+                db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                    col.isnot(None), col >= 9
+                )
             ).scalar() or 0
             ratings_dist["low"] += low
             ratings_dist["medium"] += medium
@@ -3802,17 +4364,13 @@ def api_admin_dashboard_stats():
 
         # ─── MONTHLY TREND (last 6 months - weekly checks) ───────── #
         six_months_ago = (first_day_month - relativedelta(months=5)).replace(day=1)
-        monthly_rows = (
-            db.session.query(
-                func.date_trunc("month", WeeklyCheckResponse.submit_date).label("month"),
-                func.count(WeeklyCheckResponse.id).label("count"),
-                func.avg(WeeklyCheckResponse.progress_rating).label("avg_progress"),
-            )
-            .filter(WeeklyCheckResponse.submit_date >= six_months_ago)
-            .group_by("month")
-            .order_by("month")
-            .all()
-        )
+        monthly_q = db.session.query(
+            func.date_trunc("month", WeeklyCheckResponse.submit_date).label("month"),
+            func.count(WeeklyCheckResponse.id).label("count"),
+            func.avg(WeeklyCheckResponse.progress_rating).label("avg_progress"),
+        ).filter(WeeklyCheckResponse.submit_date >= six_months_ago)
+        monthly_q = _apply_check_rbac_weekly(monthly_q)
+        monthly_rows = monthly_q.group_by("month").order_by("month").all()
         monthly_trend = [
             {
                 "month": row.month.strftime("%Y-%m"),
@@ -3823,107 +4381,90 @@ def api_admin_dashboard_stats():
         ]
 
         # ─── UNREAD CHECKS COUNT ─────────────────────────────────── #
-        # Count responses without read confirmations from current user
         unread_count = 0
         try:
             read_ids = db.session.query(ClientCheckReadConfirmation.response_id).filter(
                 ClientCheckReadConfirmation.user_id == current_user.id,
                 ClientCheckReadConfirmation.response_type == 'weekly_check',
             ).subquery()
-            unread_count = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
+            unread_q = db.session.query(func.count(WeeklyCheckResponse.id)).filter(
                 WeeklyCheckResponse.submit_date >= thirty_days_ago,
                 ~WeeklyCheckResponse.id.in_(read_ids),
-            ).scalar() or 0
+            )
+            unread_count = _apply_check_rbac_weekly(unread_q).scalar() or 0
         except Exception:
             pass
 
         # ─── TOP PROFESSIONALS BY RATING ─────────────────────────── #
-        # Nutritionists
         top_nutrizionisti = []
         try:
-            nutri_rows = (
-                db.session.query(
-                    Cliente.nutrizionista_id,
-                    User.nome_cognome,
-                    func.avg(WeeklyCheckResponse.nutritionist_rating).label("avg_rating"),
-                    func.count(WeeklyCheckResponse.id).label("count"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .join(User, Cliente.nutrizionista_id == User.id)
-                .filter(
-                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                    WeeklyCheckResponse.nutritionist_rating.isnot(None),
-                    Cliente.nutrizionista_id.isnot(None),
-                )
-                .group_by(Cliente.nutrizionista_id, User.nome_cognome)
-                .having(func.count(WeeklyCheckResponse.id) >= 3)
-                .order_by(func.avg(WeeklyCheckResponse.nutritionist_rating).desc())
-                .limit(5)
-                .all()
+            nutri_base = db.session.query(
+                Cliente.nutrizionista_id,
+                User.nome_cognome,
+                func.avg(WeeklyCheckResponse.nutritionist_rating).label("avg_rating"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+            ).join(User, Cliente.nutrizionista_id == User.id).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                Cliente.nutrizionista_id.isnot(None),
             )
+            if accessible_query is not None:
+                nutri_base = nutri_base.filter(Cliente.cliente_id.in_(accessible_query))
+            nutri_rows = nutri_base.group_by(Cliente.nutrizionista_id, User.nome_cognome).having(
+                func.count(WeeklyCheckResponse.id) >= 3
+            ).order_by(func.avg(WeeklyCheckResponse.nutritionist_rating).desc()).limit(5).all()
             top_nutrizionisti = [
                 {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
                 for r in nutri_rows
             ]
         except Exception:
             pass
-
-        # Coaches
         top_coaches = []
         try:
-            coach_rows = (
-                db.session.query(
-                    Cliente.coach_id,
-                    User.nome_cognome,
-                    func.avg(WeeklyCheckResponse.coach_rating).label("avg_rating"),
-                    func.count(WeeklyCheckResponse.id).label("count"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .join(User, Cliente.coach_id == User.id)
-                .filter(
-                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                    WeeklyCheckResponse.coach_rating.isnot(None),
-                    Cliente.coach_id.isnot(None),
-                )
-                .group_by(Cliente.coach_id, User.nome_cognome)
-                .having(func.count(WeeklyCheckResponse.id) >= 3)
-                .order_by(func.avg(WeeklyCheckResponse.coach_rating).desc())
-                .limit(5)
-                .all()
+            coach_base = db.session.query(
+                Cliente.coach_id,
+                User.nome_cognome,
+                func.avg(WeeklyCheckResponse.coach_rating).label("avg_rating"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+            ).join(User, Cliente.coach_id == User.id).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                WeeklyCheckResponse.coach_rating.isnot(None),
+                Cliente.coach_id.isnot(None),
             )
+            if accessible_query is not None:
+                coach_base = coach_base.filter(Cliente.cliente_id.in_(accessible_query))
+            coach_rows = coach_base.group_by(Cliente.coach_id, User.nome_cognome).having(
+                func.count(WeeklyCheckResponse.id) >= 3
+            ).order_by(func.avg(WeeklyCheckResponse.coach_rating).desc()).limit(5).all()
             top_coaches = [
                 {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
                 for r in coach_rows
             ]
         except Exception:
             pass
-
-        # Psychologists
         top_psicologi = []
         try:
-            psico_rows = (
-                db.session.query(
-                    Cliente.psicologa_id,
-                    User.nome_cognome,
-                    func.avg(WeeklyCheckResponse.psychologist_rating).label("avg_rating"),
-                    func.count(WeeklyCheckResponse.id).label("count"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .join(User, Cliente.psicologa_id == User.id)
-                .filter(
-                    WeeklyCheckResponse.submit_date >= thirty_days_ago,
-                    WeeklyCheckResponse.psychologist_rating.isnot(None),
-                    Cliente.psicologa_id.isnot(None),
-                )
-                .group_by(Cliente.psicologa_id, User.nome_cognome)
-                .having(func.count(WeeklyCheckResponse.id) >= 3)
-                .order_by(func.avg(WeeklyCheckResponse.psychologist_rating).desc())
-                .limit(5)
-                .all()
+            psico_base = db.session.query(
+                Cliente.psicologa_id,
+                User.nome_cognome,
+                func.avg(WeeklyCheckResponse.psychologist_rating).label("avg_rating"),
+                func.count(WeeklyCheckResponse.id).label("count"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
+            ).join(User, Cliente.psicologa_id == User.id).filter(
+                WeeklyCheckResponse.submit_date >= thirty_days_ago,
+                WeeklyCheckResponse.psychologist_rating.isnot(None),
+                Cliente.psicologa_id.isnot(None),
             )
+            if accessible_query is not None:
+                psico_base = psico_base.filter(Cliente.cliente_id.in_(accessible_query))
+            psico_rows = psico_base.group_by(Cliente.psicologa_id, User.nome_cognome).having(
+                func.count(WeeklyCheckResponse.id) >= 3
+            ).order_by(func.avg(WeeklyCheckResponse.psychologist_rating).desc()).limit(5).all()
             top_psicologi = [
                 {"name": r.nome_cognome, "avg": round(float(r.avg_rating), 1), "count": r.count}
                 for r in psico_rows
@@ -3934,22 +4475,20 @@ def api_admin_dashboard_stats():
         # ─── RECENT RESPONSES (last 10) ──────────────────────────── #
         recent_responses = []
         try:
-            recent_rows = (
-                db.session.query(
-                    WeeklyCheckResponse.id,
-                    WeeklyCheckResponse.submit_date,
-                    WeeklyCheckResponse.nutritionist_rating,
-                    WeeklyCheckResponse.coach_rating,
-                    WeeklyCheckResponse.psychologist_rating,
-                    WeeklyCheckResponse.progress_rating,
-                    Cliente.nome_cognome.label("cliente_nome"),
-                )
-                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .order_by(WeeklyCheckResponse.submit_date.desc())
-                .limit(15)
-                .all()
+            recent_q = db.session.query(
+                WeeklyCheckResponse.id,
+                WeeklyCheckResponse.submit_date,
+                WeeklyCheckResponse.nutritionist_rating,
+                WeeklyCheckResponse.coach_rating,
+                WeeklyCheckResponse.psychologist_rating,
+                WeeklyCheckResponse.progress_rating,
+                Cliente.nome_cognome.label("cliente_nome"),
+            ).join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
+                Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
             )
+            if accessible_query is not None:
+                recent_q = recent_q.filter(Cliente.cliente_id.in_(accessible_query))
+            recent_rows = recent_q.order_by(WeeklyCheckResponse.submit_date.desc()).limit(15).all()
             for r in recent_rows:
                 ratings = [x for x in [r.nutritionist_rating, r.coach_rating, r.psychologist_rating, r.progress_rating] if x is not None]
                 avg = round(sum(ratings) / len(ratings), 1) if ratings else None
@@ -3970,14 +4509,16 @@ def api_admin_dashboard_stats():
         # ─── PHYSICAL METRICS AVERAGES (last 30 days) ────────────── #
         physical_avgs = {}
         try:
-            phys_result = db.session.query(
+            phys_q = db.session.query(
                 func.avg(WeeklyCheckResponse.digestion_rating).label('digestion'),
                 func.avg(WeeklyCheckResponse.energy_rating).label('energy'),
                 func.avg(WeeklyCheckResponse.strength_rating).label('strength'),
                 func.avg(WeeklyCheckResponse.sleep_rating).label('sleep'),
                 func.avg(WeeklyCheckResponse.mood_rating).label('mood'),
                 func.avg(WeeklyCheckResponse.motivation_rating).label('motivation'),
-            ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago).first()
+            ).filter(WeeklyCheckResponse.submit_date >= thirty_days_ago)
+            phys_q = _apply_check_rbac_weekly(phys_q)
+            phys_result = phys_q.first()
             if phys_result:
                 physical_avgs = {
                     "digestione": round(float(phys_result.digestion), 1) if phys_result.digestion else None,

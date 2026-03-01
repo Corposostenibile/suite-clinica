@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { normalizeMediaUrlsDeep } from '../utils/mediaUrl';
 
 // Helper to get cookie by name
 const getCookie = (name) => {
@@ -37,11 +38,16 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response?.data) {
+      normalizeMediaUrlsDeep(response.data);
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       // Redirect to login if unauthorized
-      window.location.href = '/auth/login';
+      window.location.href = `${import.meta.env.BASE_URL}auth/login`;
     }
     return Promise.reject(error);
   }

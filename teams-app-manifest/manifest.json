@@ -1,0 +1,54 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "{{TEAMS_BOT_APP_ID}}",
+  "developer": {
+    "name": "SuiteMind",
+    "websiteUrl": "https://suitemind.it",
+    "privacyUrl": "https://suitemind.it/privacy",
+    "termsOfUseUrl": "https://suitemind.it/terms"
+  },
+  "name": {
+    "short": "SuiteMind Tickets",
+    "full": "SuiteMind - Sistema Ticket Interno"
+  },
+  "description": {
+    "short": "Gestione ticket interni del team",
+    "full": "Bot per la gestione dei ticket interni del team. Crea ticket, assegna colleghi, allega file e ricevi aggiornamenti direttamente su Teams."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#4F46E5",
+  "bots": [
+    {
+      "botId": "{{TEAMS_BOT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal"],
+          "commands": [
+            {
+              "title": "ciao",
+              "description": "Mostra il menu principale e riepilogo ticket"
+            },
+            {
+              "title": "nuovo",
+              "description": "Crea un nuovo ticket"
+            },
+            {
+              "title": "help",
+              "description": "Mostra i comandi disponibili"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": []
+}

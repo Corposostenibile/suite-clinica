@@ -39,6 +39,7 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     CallBonus,
     CallBonusStatusEnum,
     Cliente,
+    ClienteProfessionistaHistory,
     PaymentTransaction,
     SalesPerson,
     SubscriptionContract,
@@ -48,7 +49,14 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     StatoClienteEnum,
     TransactionTypeEnum,
     TipoProfessionistaEnum,
+    UserRoleEnum,
+    cliente_nutrizionisti,
+    cliente_coaches,
+    cliente_psicologi,
+    cliente_consulenti
 )
+from flask_login import current_user
+from sqlalchemy import desc, func, or_, exists, select
 
 # —— layer contabile centrale (rimosso) ——————————————————————————————— #
 
@@ -79,6 +87,7 @@ __all__ = [
     "calculate_health_scores",
     "calculate_temporal_metrics",
     "calculate_segments",
+    "apply_role_filtering",
     # freeze management
     "freeze_cliente",
     "unfreeze_cliente",
@@ -250,31 +259,55 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
             return stato.value
         return str(stato)
 
+    def _has_nutrizione(c):
+        return (
+            (c.nutrizionisti_multipli and len(c.nutrizionisti_multipli) > 0)
+            or c.nutrizionista_id
+            or (getattr(c, "nutrizionista", None) and str(c.nutrizionista).strip())
+        )
+
+    def _has_coach(c):
+        return (
+            (c.coaches_multipli and len(c.coaches_multipli) > 0)
+            or c.coach_id
+            or (getattr(c, "coach", None) and str(c.coach).strip())
+        )
+
+    def _has_psicologia(c):
+        return (
+            (c.psicologi_multipli and len(c.psicologi_multipli) > 0)
+            or c.psicologa_id
+            or (getattr(c, "psicologa", None) and str(c.psicologa).strip())
+        )
+
     # Servizi da controllare (solo quelli con almeno un professionista assegnato)
     servizi_assegnati = []
 
     # Controlla nutrizione
-    if cliente.nutrizionisti_multipli and len(cliente.nutrizionisti_multipli) > 0:
+    if _has_nutrizione(cliente):
+        count = len(cliente.nutrizionisti_multipli) if cliente.nutrizionisti_multipli else 1
         servizi_assegnati.append({
             'nome': 'nutrizione',
             'stato': _get_stato_value(cliente.stato_nutrizione),
-            'professionisti_count': len(cliente.nutrizionisti_multipli)
+            'professionisti_count': count
         })
 
     # Controlla coaching
-    if cliente.coaches_multipli and len(cliente.coaches_multipli) > 0:
+    if _has_coach(cliente):
+        count = len(cliente.coaches_multipli) if cliente.coaches_multipli else 1
         servizi_assegnati.append({
             'nome': 'coaching',
             'stato': _get_stato_value(cliente.stato_coach),
-            'professionisti_count': len(cliente.coaches_multipli)
+            'professionisti_count': count
         })
 
     # Controlla psicologia
-    if cliente.psicologi_multipli and len(cliente.psicologi_multipli) > 0:
+    if _has_psicologia(cliente):
+        count = len(cliente.psicologi_multipli) if cliente.psicologi_multipli else 1
         servizi_assegnati.append({
             'nome': 'psicologia',
             'stato': _get_stato_value(cliente.stato_psicologia),
-            'professionisti_count': len(cliente.psicologi_multipli)
+            'professionisti_count': count
         })
 
     # Se non ci sono servizi assegnati, non fare nulla
@@ -314,6 +347,115 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
         current_app.logger.info(
             f"Cliente {cliente.cliente_id} - Stato cliente aggiornato automaticamente a GHOST "
             f"(tutti i servizi assegnati sono in ghost)"
+        )
+        return True
+
+    if stato_cliente_value == 'ghost' and any(
+        s['stato'] and s['stato'] != 'ghost' for s in servizi_assegnati
+    ):
+        cliente.stato_cliente = StatoClienteEnum.attivo
+        cliente.stato_cliente_data = datetime.utcnow()
+        db.session.add(
+            ActivityLog(
+                cliente_id=cliente.cliente_id,
+                field='stato_cliente',
+                before='ghost',
+                after='attivo',
+                user_id=_user_id(updated_by_user),
+            )
+        )
+        return True
+
+    return False
+
+
+def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> bool:
+    """
+    Controlla se tutti i servizi assegnati sono in pausa.
+    Se sì, aggiorna automaticamente lo stato_cliente a 'pausa'.
+    """
+    from datetime import datetime
+
+    def _get_stato_value(stato) -> str | None:
+        if stato is None:
+            return None
+        if hasattr(stato, "value"):
+            return stato.value
+        return str(stato)
+
+    def _has_nutrizione(c):
+        return (
+            (c.nutrizionisti_multipli and len(c.nutrizionisti_multipli) > 0)
+            or c.nutrizionista_id
+            or (getattr(c, "nutrizionista", None) and str(c.nutrizionista).strip())
+        )
+
+    def _has_coach(c):
+        return (
+            (c.coaches_multipli and len(c.coaches_multipli) > 0)
+            or c.coach_id
+            or (getattr(c, "coach", None) and str(c.coach).strip())
+        )
+
+    def _has_psicologia(c):
+        return (
+            (c.psicologi_multipli and len(c.psicologi_multipli) > 0)
+            or c.psicologa_id
+            or (getattr(c, "psicologa", None) and str(c.psicologa).strip())
+        )
+
+    servizi_assegnati = []
+    if _has_nutrizione(cliente):
+        count = len(cliente.nutrizionisti_multipli) if cliente.nutrizionisti_multipli else 1
+        servizi_assegnati.append(
+            {"nome": "nutrizione", "stato": _get_stato_value(cliente.stato_nutrizione), "professionisti_count": count}
+        )
+    if _has_coach(cliente):
+        count = len(cliente.coaches_multipli) if cliente.coaches_multipli else 1
+        servizi_assegnati.append(
+            {"nome": "coaching", "stato": _get_stato_value(cliente.stato_coach), "professionisti_count": count}
+        )
+    if _has_psicologia(cliente):
+        count = len(cliente.psicologi_multipli) if cliente.psicologi_multipli else 1
+        servizi_assegnati.append(
+            {"nome": "psicologia", "stato": _get_stato_value(cliente.stato_psicologia), "professionisti_count": count}
+        )
+
+    if not servizi_assegnati:
+        return False
+
+    servizi_in_pausa = [s for s in servizi_assegnati if s["stato"] and s["stato"] == "pausa"]
+    tutti_pausa = len(servizi_in_pausa) == len(servizi_assegnati)
+    stato_cliente_value = _get_stato_value(cliente.stato_cliente)
+
+    if tutti_pausa and stato_cliente_value != "pausa":
+        old_stato = cliente.stato_cliente
+        cliente.stato_cliente = StatoClienteEnum.pausa
+        cliente.stato_cliente_data = datetime.utcnow()
+        db.session.add(
+            ActivityLog(
+                cliente_id=cliente.cliente_id,
+                field="stato_cliente",
+                before=_get_stato_value(old_stato),
+                after="pausa",
+                user_id=_user_id(updated_by_user),
+            )
+        )
+        return True
+
+    if stato_cliente_value == "pausa" and any(
+        s["stato"] and s["stato"] != "pausa" for s in servizi_assegnati
+    ):
+        cliente.stato_cliente = StatoClienteEnum.attivo
+        cliente.stato_cliente_data = datetime.utcnow()
+        db.session.add(
+            ActivityLog(
+                cliente_id=cliente.cliente_id,
+                field="stato_cliente",
+                before="pausa",
+                after="attivo",
+                user_id=_user_id(updated_by_user),
+            )
         )
         return True
 
@@ -706,9 +848,22 @@ def update_cliente(
         _track_patologie_changes(cliente, data)
         _track_patologie_psico_changes(cliente, data)
 
+        # Evita race tra stato globale e stati servizi + scadenze ricalcolate
+        _servizi_stato_keys = {"stato_nutrizione", "stato_coach", "stato_psicologia"}
+        _has_service_state_change = bool(_servizi_stato_keys & data.keys())
+        _scadenza_skip_if_stato_updated = {
+            "data_scadenza_nutrizione": "stato_nutrizione",
+            "data_scadenza_coach": "stato_coach",
+            "data_scadenza_psicologia": "stato_psicologia",
+        }
+
         # Gestione campi normali
         for k, v in data.items():
             if k in readonly or not hasattr(cliente, k):
+                continue
+            if k == "stato_cliente" and _has_service_state_change:
+                continue
+            if k in _scadenza_skip_if_stato_updated and _scadenza_skip_if_stato_updated[k] in data:
                 continue
             old = getattr(cliente, k)
             if v != old:
@@ -795,8 +950,9 @@ def update_cliente(
         if stati_servizi_modificati or professionisti_modificati:
             # Flush per assicurarsi che le modifiche siano visibili
             db.session.flush()
-            # Controlla e aggiorna automaticamente stato_cliente se necessario
+            # Controlla e aggiorna automaticamente stato_cliente (ghost/pausa)
             _check_and_update_global_ghost_status(cliente, updated_by_user)
+            _check_and_update_global_pausa_status(cliente, updated_by_user)
 
         # changelog
         for field, (before, after) in changes.items():
@@ -1107,6 +1263,97 @@ def _enqueue_async(task_name: str, **kwargs):
 # ════════════════════════════════════════════════════════════════════════════
 #                          DASHBOARD 360° FUNCTIONS
 # ════════════════════════════════════════════════════════════════════════════
+def apply_role_filtering(query):
+    """
+    Applica il filtro per ruolo (Admin, Team Leader, Professionista) alla query Clienti.
+    Logica sincronizzata con CustomerRepository.list e global_search.
+    """
+    if not current_user.is_authenticated or current_user.is_trial:
+        return query
+        
+    user_role = getattr(current_user, 'role', None)
+    
+    specialty = getattr(current_user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    is_cco = str(specialty).strip().lower() == 'cco' if specialty else False
+
+    # Admin/CCO: vede tutto
+    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco:
+        return query
+    
+    # Team Leader: vede i pazienti assegnati ai membri del suo team
+    elif user_role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        
+        if team_member_ids:
+            member_ids_list = list(team_member_ids)
+            return query.filter(
+                or_(
+                    # Assegnazione tramite FK singola
+                    Cliente.nutrizionista_id.in_(member_ids_list),
+                    Cliente.coach_id.in_(member_ids_list),
+                    Cliente.psicologa_id.in_(member_ids_list),
+                    Cliente.consulente_alimentare_id.in_(member_ids_list),
+                    # Assegnazione tramite M2M
+                    exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))),
+                    exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(member_ids_list))),
+                    exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(member_ids_list))),
+                    exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(member_ids_list))),
+                    # Assegnazione tramite history (es. Medico nel team)
+                    exists(
+                        select(ClienteProfessionistaHistory.cliente_id).where(
+                            ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                            ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                            ClienteProfessionistaHistory.is_active == True,
+                        )
+                    ),
+                )
+            )
+        return query.filter(False)
+    
+    # Professionista: vede solo i propri pazienti (FK singola + M2M + history assegnazioni Medico/altro)
+    elif user_role == UserRoleEnum.professionista:
+        user_id = current_user.id
+        return query.filter(
+            or_(
+                # Assegnazione tramite FK singola (nutrizionista_id, coach_id, psicologa_id)
+                Cliente.nutrizionista_id == user_id,
+                Cliente.coach_id == user_id,
+                Cliente.psicologa_id == user_id,
+                Cliente.consulente_alimentare_id == user_id,
+                # Assegnazione tramite M2M
+                exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == user_id)),
+                exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == user_id)),
+                exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == user_id)),
+                exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == user_id)),
+                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id == user_id,
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
+                # Pazienti con call bonus accettata assegnata a questo professionista
+                exists(select(CallBonus.cliente_id).where(
+                    CallBonus.cliente_id == Cliente.cliente_id,
+                    CallBonus.professionista_id == user_id,
+                    CallBonus.status == CallBonusStatusEnum.accettata,
+                )),
+            )
+        )
+
+    # Health Manager: solo pazienti assegnati a lui
+    elif user_role == UserRoleEnum.health_manager:
+        return query.filter(Cliente.health_manager_id == current_user.id)
+        
+    return query
+
+
 def calculate_dashboard_kpis(filters: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """
     Calcola i KPI principali per la dashboard 360°.
@@ -1118,6 +1365,7 @@ def calculate_dashboard_kpis(filters: Dict[str, Any] | None = None) -> Dict[str,
     
     # Query base
     query = db.session.query(Cliente)
+    query = apply_role_filtering(query)
     
     # Applica filtri se presenti
     if filters:
@@ -1145,9 +1393,11 @@ def calculate_dashboard_kpis(filters: Dict[str, Any] | None = None) -> Dict[str,
     health_score_avg = 75  # Placeholder - calcoleremo in dettaglio nella funzione dedicata
     
     # Permanenza media in mesi
-    avg_permanenza = db.session.query(
+    avg_permanenza_query = db.session.query(
         func.avg(func.extract('epoch', datetime.now() - Cliente.data_inizio_abbonamento) / 2592000)
-    ).filter(Cliente.stato_cliente == 'attivo').scalar() or 0
+    )
+    avg_permanenza_query = apply_role_filtering(avg_permanenza_query)
+    avg_permanenza = avg_permanenza_query.filter(Cliente.stato_cliente == 'attivo').scalar() or 0
     avg_permanenza = round(float(avg_permanenza), 1)
     
     # Alert critici
@@ -1197,7 +1447,10 @@ def calculate_health_scores(filters: Dict[str, Any] | None = None) -> Dict[str, 
         subquery,
         (TypeFormResponse.cliente_id == subquery.c.cliente_id) &
         (TypeFormResponse.submit_date == subquery.c.max_date)
-    )
+    ).join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+    
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
     
     # Calcola medie wellness
     wellness_avgs = db.session.query(
@@ -1208,7 +1461,11 @@ def calculate_health_scores(filters: Dict[str, Any] | None = None) -> Dict[str, 
         func.avg(TypeFormResponse.digestion_rating).label('digestion'),
         func.avg(TypeFormResponse.strength_rating).label('strength'),
         func.avg(TypeFormResponse.hunger_rating).label('hunger')
-    ).filter(TypeFormResponse.submit_date >= datetime.now() - timedelta(days=30)).first()
+    ).join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+    
+    # Applica filtro per ruolo anche qui
+    wellness_avgs_query = apply_role_filtering(wellness_avgs)
+    wellness_avgs = wellness_avgs_query.filter(TypeFormResponse.submit_date >= datetime.now() - timedelta(days=30)).first()
     
     # Calcola health score globale (formula composita)
     health_components = []
@@ -1260,6 +1517,7 @@ def calculate_temporal_metrics(filters: Dict[str, Any] | None = None) -> Dict[st
     
     # Query base
     query = db.session.query(Cliente)
+    query = apply_role_filtering(query)
     
     # Applica filtri se presenti
     if filters:
@@ -1349,6 +1607,9 @@ def calculate_segments(filters: Dict[str, Any] | None = None) -> Dict[str, Any]:
     # Query base
     query = db.session.query(Cliente)
     
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
+    
     # Champions: Health Score >85%, Zero o uno check saltati
     champions = query.filter(
         Cliente.stato_cliente == 'attivo',
@@ -1419,7 +1680,8 @@ def freeze_cliente(cliente_id: int, user, reason: str = None) -> dict:
 
     try:
         # 1. Aggiorna stato cliente
-        cliente.stato_cliente = StatoClienteEnum.freeze
+        # "freeze" non è più uno stato ufficiale: usiamo PAUSA come stato globale.
+        cliente.stato_cliente = StatoClienteEnum.pausa
         cliente.is_frozen = True
         cliente.freeze_date = datetime.utcnow()
         cliente.freeze_reason = reason
@@ -1443,7 +1705,7 @@ def freeze_cliente(cliente_id: int, user, reason: str = None) -> dict:
                 user_id=user.id,
                 field="stato_cliente",
                 before=str(cliente.stato_cliente.value) if cliente.stato_cliente else "attivo",
-                after="freeze",
+                after="pausa",
                 ts=datetime.utcnow()
             )
             db.session.add(log)
@@ -1527,7 +1789,7 @@ def unfreeze_cliente(cliente_id: int, user, resolution: str = None) -> dict:
                 cliente_id=cliente_id,
                 user_id=user.id,
                 field="stato_cliente",
-                before="freeze",
+                before="pausa",
                 after="attivo",
                 ts=datetime.utcnow()
             )

@@ -72,14 +72,46 @@ class EnumField(fields.Field):
         super().__init__(**kwargs)
         self.enum = enum
 
+    @staticmethod
+    def _normalize_stato_cliente_value(value: Any) -> Any:
+        """Normalizza valori legacy/non ufficiali per gli stati cliente."""
+        mapping = {
+            "cliente": "attivo",
+            "ex_cliente": "stop",
+            "acconto": "stop",
+            "ghosting": "ghost",
+            "insoluto": "stop",
+            "freeze": "pausa",
+        }
+        return mapping.get(value, value)
+
+    @staticmethod
+    def _normalize_genere_value(value: Any) -> Any:
+        """Normalizza valori legacy per il genere."""
+        if value is None:
+            return value
+        v = str(value).strip().lower()
+        mapping = {
+            "m": "uomo",
+            "male": "uomo",
+            "uomo": "uomo",
+            "f": "donna",
+            "female": "donna",
+            "donna": "donna",
+        }
+        return mapping.get(v, value)
+
     # ----- dump ------------------------------------------------------------ #
     def _serialize(self, value, attr, obj, **kwargs):  # noqa: ANN001
         if value is None:
             return None
         # Handle both enum objects and string values
-        if hasattr(value, 'value'):
-            return value.value
-        return str(value)
+        raw = value.value if hasattr(value, "value") else str(value)
+        if self.enum.__name__ == "StatoClienteEnum":
+            raw = self._normalize_stato_cliente_value(raw)
+        elif self.enum.__name__ == "GenereEnum":
+            raw = self._normalize_genere_value(raw)
+        return raw
 
     # ----- load ------------------------------------------------------------ #
     def _deserialize(self, value, attr, data, **kwargs):  # noqa: ANN001
@@ -90,19 +122,15 @@ class EnumField(fields.Field):
         
         # Mappatura per vecchi valori StatoClienteEnum
         if self.enum.__name__ == 'StatoClienteEnum':
-            stato_mapping = {
-                'cliente': 'attivo',
-                'ex_cliente': 'stop',
-                'acconto': 'stop',
-                'ghosting': 'ghost'
-            }
-            value = stato_mapping.get(value, value)
+            value = self._normalize_stato_cliente_value(value)
+        elif self.enum.__name__ == "GenereEnum":
+            value = self._normalize_genere_value(value)
             
             # Log per debug
             import logging
             logger = logging.getLogger(__name__)
             if original_value != value:
-                logger.info(f"Mappato valore StatoClienteEnum: '{original_value}' -> '{value}'")
+                logger.info(f"Mappato valore {self.enum.__name__}: '{original_value}' -> '{value}'")
         
         try:
             return self.enum(value)
@@ -159,6 +187,7 @@ class UserBriefSchema(ma.Schema):
     email = fields.String(dump_only=True)
     full_name = fields.String(dump_only=True)
     avatar_path = fields.String(dump_only=True)
+    avatar_url = fields.String(dump_only=True)
 
 
 class AllegatoSchema(SQLAlchemySchema):
@@ -335,6 +364,7 @@ class ClienteSchema(SQLAlchemyAutoSchema):
 
     # ──────────────── RELAZIONI annidate (dump-only) ──────────────── #
     personal_consultant = fields.Nested(SalesPersonBriefSchema, dump_only=True)
+    health_manager_user = fields.Nested(UserBriefSchema, dump_only=True)
     subscriptions       = fields.Nested(SubscriptionContractSchema, many=True, dump_only=True)
     cartelle            = fields.Nested(CartellaClinicaSchema,   many=True, dump_only=True)
 

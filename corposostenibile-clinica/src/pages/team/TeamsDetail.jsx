@@ -4,9 +4,11 @@ import teamService, {
   TEAM_TYPE_LABELS,
   TEAM_TYPE_COLORS,
   TEAM_TYPE_ICONS,
-  ROLE_LABELS,
+  getUserRoleDisplayLabel,
+  getUserDisplaySpecialty,
   SPECIALTY_LABELS,
   ROLE_COLORS,
+  SPECIALTY_COLORS,
 } from '../../services/teamService';
 
 // Gradient colors by team type
@@ -404,7 +406,9 @@ function TeamsDetail() {
                     {totalMembers > 0 ? (
                       <>
                         <div className="list-group list-group-flush">
-                          {paginatedMembers.map(member => (
+                          {paginatedMembers.map(member => {
+                            const displaySpecialty = getUserDisplaySpecialty(member);
+                            return (
                             <div key={member.id} className="list-group-item px-0 py-3">
                               <div className="d-flex align-items-center">
                                 <div className="flex-shrink-0">
@@ -429,11 +433,11 @@ function TeamsDetail() {
                                   <small className="text-muted">{member.email}</small>
                                   <div className="mt-1">
                                     <span className={`badge bg-${ROLE_COLORS[member.role] || 'secondary'} me-1`} style={{ fontSize: '10px' }}>
-                                      {ROLE_LABELS[member.role] || member.role}
+                                      {getUserRoleDisplayLabel(member)}
                                     </span>
-                                    {member.specialty && (
-                                      <span className="badge bg-light text-dark" style={{ fontSize: '10px' }}>
-                                        {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                                    {displaySpecialty && (
+                                      <span className={`badge bg-${SPECIALTY_COLORS[displaySpecialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[displaySpecialty] || 'secondary'}`} style={{ fontSize: '10px' }}>
+                                        {SPECIALTY_LABELS[displaySpecialty] || displaySpecialty}
                                       </span>
                                     )}
                                   </div>
@@ -455,7 +459,8 @@ function TeamsDetail() {
                                 </div>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         {/* Pagination */}

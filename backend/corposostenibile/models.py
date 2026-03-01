@@ -54,6 +54,7 @@ def register_enums() -> None:
 # helper per riutilizzare il tipo Postgres esistente senza ricrearlo
 _def = lambda enum_cls: db.Enum(
     enum_cls,
+    values_callable=lambda cls: [m.value for m in cls],
     name=enum_cls.__name__.lower(),
     schema="public",             # 👈 ANCHE QUI
     create_type=False,
@@ -144,8 +145,6 @@ class StatoClienteEnum(str, Enum):
     ghost = "ghost"
     pausa = "pausa"
     stop = "stop"
-    insoluto = "insoluto"
-    freeze = "freeze"  # NUOVO: stato per blocco temporaneo gestito da Health Manager
 
 
 class CheckSaltatiEnum(str, Enum):
@@ -178,6 +177,7 @@ class TipoProfessionistaEnum(str, Enum):
     nutrizionista = "nutrizionista"
     coach = "coach"
     psicologa = "psicologa"
+    medico = "medico"
     health_manager = "health_manager"
     consulente = "consulente"
 
@@ -189,6 +189,8 @@ class CallBonusStatusEnum(str, Enum):
     rifiutata = "rifiutata"
     confermata = "confermata"
     non_andata_buon_fine = "non_andata_buon_fine"
+    interessato = "interessato"
+    non_interessato = "non_interessato"
 
 
 class TrasformazioneEnum(str, Enum):
@@ -242,6 +244,8 @@ class UserRoleEnum(str, Enum):
     team_leader = "team_leader"
     professionista = "professionista"
     team_esterno = "team_esterno"
+    influencer = "influencer"
+    health_manager = "health_manager"
 
 
 class UserSpecialtyEnum(str, Enum):
@@ -256,6 +260,7 @@ class UserSpecialtyEnum(str, Enum):
     # Professionista specific
     nutrizionista = "nutrizionista"
     psicologo = "psicologo"
+    medico = "medico"
 
 
 class TeamTypeEnum(str, Enum):
@@ -263,6 +268,7 @@ class TeamTypeEnum(str, Enum):
     nutrizione = "nutrizione"
     coach = "coach"
     psicologia = "psicologia"
+    health_manager = "health_manager"
 
 
 class InfluencerFlagEnum(str, Enum):
@@ -356,6 +362,15 @@ class TaskPriorityEnum(str, Enum):
     urgent  = "urgent"
 
 
+class TaskCategoryEnum(str, Enum):
+    onboarding  = "onboarding"
+    check       = "check"
+    reminder    = "reminder"
+    formazione  = "formazione"
+    sollecito   = "sollecito"
+    generico    = "generico"
+
+
 
 
 class OKRStatusEnum(str, Enum):
@@ -444,6 +459,25 @@ class TicketCategoryEnum(str, Enum):
     problema = "problema"
     upgrade = "upgrade"
     review = "review"
+
+
+# ─────────────────────────── ENUM TEAM TICKET ─────────────────────────── #
+class TeamTicketStatusEnum(str, Enum):
+    aperto = "aperto"
+    in_lavorazione = "in_lavorazione"
+    risolto = "risolto"
+    chiuso = "chiuso"
+
+
+class TeamTicketPriorityEnum(str, Enum):
+    alta = "alta"
+    media = "media"
+    bassa = "bassa"
+
+
+class TeamTicketSourceEnum(str, Enum):
+    admin = "admin"
+    teams = "teams"
 
 
 # ─────────────────────────── ENUM FERIE/PERMESSI ─────────────────────────── #
@@ -1059,6 +1093,32 @@ class GoogleAuth(TimestampMixin, db.Model):
     def __repr__(self) -> str:  # pragma: no cover
         return f"<GoogleAuth user_id={self.user_id} expires_at={self.expires_at} has_refresh={self.has_refresh_token()}>"
 
+# ---------------------------------------------------------------------------- #
+#  Origine  (per Influencer/Campaigns)
+# ---------------------------------------------------------------------------- #
+class Origine(TimestampMixin, db.Model):
+    """
+    Origine dei clienti (es. campagne marketing, influencer, etc).
+    Utilizzata per filtrare i clienti visibili agli Influencer.
+    """
+    __tablename__ = "origins"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+
+    influencer_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True)
+    influencer = db.relationship("User", back_populates="influencer_origin")
+
+    def __repr__(self) -> str:
+        return f"<Origine {self.name!r}>"
+
+
+# ---------------------------------------------------------------------------- #
+#  Tabella ponte User (Influencer) ⇄ Origine (M2M)
+# ---------------------------------------------------------------------------- #
+# user_origins table removed provided 1:1 implementation
+
 # --------------------------------------------------------------------------- #
 #  User  (profili interni) – DEFINITIVO
 # --------------------------------------------------------------------------- #
@@ -1080,6 +1140,7 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     # ────────────────────────── AI Notes ───────────────────────────────────
     assignment_ai_notes = db.Column(db.JSON, default=dict, comment="Note strutturate per assegnazione automatica AI")
+    assignment_criteria = db.Column(db.JSON, default=dict, comment="Criteri booleani per matching programmatico")
 
     # ────────────────────────── Sicurezza ──────────────────────────────────
     last_password_change_at = db.Column(db.DateTime)
@@ -1094,7 +1155,7 @@ class User(UserMixin, TimestampMixin, db.Model):
     role = db.Column(
         _def(UserRoleEnum),
         default=UserRoleEnum.professionista,
-        nullable=False,
+        nullable=True,
         index=True,
         comment="Ruolo utente: admin, team_leader, professionista, team_esterno"
     )
@@ -1155,6 +1216,12 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     tasks_assigned   = relationship("Task", back_populates="assignee",
                                     lazy="selectin")
+    push_subscriptions = relationship(
+        "PushSubscription",
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
     objectives       = relationship(
         "Objective",
@@ -1243,6 +1310,12 @@ class User(UserMixin, TimestampMixin, db.Model):
     bonus_band_current = db.Column(db.String(10))  # Banda bonus attuale ('100%', '60%', '30%', '0%')
     quality_last_updated = db.Column(db.DateTime)  # Ultimo aggiornamento Quality Score
 
+    # ────────────────────────── Microsoft Teams Integration ──────────────────
+    teams_aad_object_id = db.Column(db.String(100), unique=True, nullable=True, index=True,
+                                     comment="Azure AD Object ID per mappatura Teams<->User")
+    teams_conversation_ref = db.Column(JSONB, nullable=True,
+                                        comment="Riferimento conversazione Teams per messaggi proattivi")
+
     __table_args__ = (
         Index("ix_users_search_vector", "search_vector", postgresql_using="gin"),
     )
@@ -1267,12 +1340,15 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     @property
     def avatar_url(self) -> str:
-        from flask import url_for
-        return (
-            url_for("team.serve_avatar", user_id=self.id)
-            if self.avatar_path
-            else "/static/assets/immagini/logo_user.png"
-        )
+        if not self.avatar_path:
+            return "/static/assets/immagini/logo_user.png"
+        if self.avatar_path.startswith("/uploads/"):
+            return self.avatar_path
+        if self.avatar_path.startswith("uploads/"):
+            return f"/{self.avatar_path}"
+        if self.avatar_path.startswith("avatars/"):
+            return f"/uploads/{self.avatar_path}"
+        return f"/uploads/avatars/{self.avatar_path.lstrip('/')}"
 
     @property
     def has_sales_access(self) -> bool:
@@ -1307,6 +1383,8 @@ class User(UserMixin, TimestampMixin, db.Model):
             'professionista': 'Professionista',
             'team_esterno': 'Team Esterno',
         }
+        if not self.role:
+            return ""
         role_value = self.role.value if hasattr(self.role, 'value') else str(self.role)
         return role_labels.get(role_value, role_value)
 
@@ -1323,6 +1401,7 @@ class User(UserMixin, TimestampMixin, db.Model):
             'coach': 'Coach',
             'nutrizionista': 'Nutrizionista',
             'psicologo': 'Psicologo',
+            'medico': 'Medico',
         }
         spec_value = self.specialty.value if hasattr(self.specialty, 'value') else str(self.specialty)
         return specialty_labels.get(spec_value, spec_value)
@@ -1381,11 +1460,47 @@ class User(UserMixin, TimestampMixin, db.Model):
             self.trial_stage += 1
             if self.trial_stage == 3:
                 # Diventa user ufficiale
+                self._migrate_trial_assignments()
                 self.is_trial = False
                 self.trial_promoted_at = datetime.utcnow()
             db.session.commit()
             return True
         return False
+
+    def _migrate_trial_assignments(self):
+        """Migra le assegnazioni trial alle tabelle normali in base alla specialty."""
+        from corposostenibile.models import (
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi,
+            TipoProfessionistaEnum
+        )
+        
+        # Mappa robusta delle specializzazioni agli attributi ORM (backrefs da Cliente)
+        target_attr = None
+        # Converti specialty in stringa per confonto sicuro
+        spec = str(self.specialty.value if hasattr(self.specialty, 'value') else self.specialty).lower()
+        
+        if spec in ['nutrizionista', 'nutrizione']:
+            target_attr = 'clienti_nutrizionista_multi'
+        elif spec == 'coach':
+            target_attr = 'clienti_coach_multi'
+        elif spec in ['psicologa', 'psicologo', 'psicologia']:
+            target_attr = 'clienti_psicologa_multi'
+        
+        if target_attr is None:
+            return
+            
+        # trial_assigned_clients è una lista (InstrumentedList) di oggetti Cliente
+        trial_clients = self.trial_assigned_clients
+        if not trial_clients:
+            return
+        
+        # Ottieni la lista ORM di destinazione (es. self.clienti_nutrizionista_multi)
+        target_list = getattr(self, target_attr)
+        
+        # Migra ogni cliente usando l'ORM
+        for cliente in trial_clients:
+            if cliente not in target_list:
+                target_list.append(cliente)
 
     # ────────────────────────── Flask-Login ────────────────────────────────
     def get_id(self) -> str:             # type: ignore[override]
@@ -1393,6 +1508,15 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     def get_roles(self) -> List[str]:
         return ["admin"] if self.is_admin else []
+
+    # ────────────────────────── Influencer Origins ────────────────────────────
+    # ────────────────────────── Influencer Origins ────────────────────────────
+    influencer_origin = relationship(
+        "Origine",
+        back_populates="influencer",
+        uselist=False,
+        lazy="selectin"
+    )
 
     # ────────────────────────── Repr ───────────────────────────────────────
     def __repr__(self) -> str:           # pragma: no cover
@@ -1614,7 +1738,11 @@ class Cliente(TimestampMixin, db.Model):
     professione_note        = db.Column(db.Text)  # Note aggiuntive sulla professione
 
     # Dati aggiuntivi finance (tutti facoltativi)
-    origine                 = db.Column(db.String(255))  # Origine del cliente
+    origine                 = db.Column(db.String(255))  # Origine del cliente (Legacy/Display)
+    origine_id              = db.Column(db.Integer, db.ForeignKey("origins.id"), nullable=True, index=True)
+    
+    origine_obj             = relationship("Origine", backref="clienti", lazy="joined")
+
     deposito_iniziale       = db.Column(db.Numeric(10, 2))  # Deposito iniziale
     paese                   = db.Column(db.String(100))  # Paese di residenza
     genere                  = db.Column(db.String(20))   # M/F/Altro
@@ -1679,6 +1807,10 @@ class Cliente(TimestampMixin, db.Model):
     patologia_psico_immagine_corporea          = db.Column(db.Boolean, default=False)
     patologia_psico_psicosomatiche             = db.Column(db.Boolean, default=False)
     patologia_psico_relazionali_altro          = db.Column(db.Boolean, default=False)
+    
+    # Campi testuali per "Altro"
+    patologia_altro                     = db.Column(db.Text)  # Campo testuale per "Altro" nutrizione
+    patologia_psico_altro               = db.Column(db.Text)  # Campo testuale per "Altro" psicologia
 
     # Bonus & Alert
     bonus                   = db.Column(db.Boolean)
@@ -1689,6 +1821,17 @@ class Cliente(TimestampMixin, db.Model):
     data_rinnovo            = db.Column(db.Date)
     # giorni_rimanenti rimosso - ora usiamo giorni_rimanenti_calcolati (property)
     in_scadenza             = db.Column(db.String(20))  # Boolean o "Interno"
+
+    # Date abbonamento per piano (nutrizione, coach, psicologia)
+    data_inizio_nutrizione   = db.Column(db.Date, comment="Data inizio piano nutrizione")
+    durata_nutrizione_giorni = db.Column(db.Integer, comment="Durata piano nutrizione in giorni")
+    data_scadenza_nutrizione = db.Column(db.Date, comment="Data scadenza piano nutrizione (calcolata: inizio + durata)")
+    data_inizio_coach        = db.Column(db.Date, comment="Data inizio piano coach")
+    durata_coach_giorni      = db.Column(db.Integer, comment="Durata piano coach in giorni")
+    data_scadenza_coach      = db.Column(db.Date, comment="Data scadenza piano coach (calcolata: inizio + durata)")
+    data_inizio_psicologia   = db.Column(db.Date, comment="Data inizio piano psicologia")
+    durata_psicologia_giorni = db.Column(db.Integer, comment="Durata piano psicologia in giorni")
+    data_scadenza_psicologia = db.Column(db.Date, comment="Data scadenza piano psicologia (calcolata: inizio + durata)")
 
     # Team / pagamento / tipologia
     di_team                 = db.Column(_def(TeamEnum))
@@ -2056,27 +2199,109 @@ class Cliente(TimestampMixin, db.Model):
             self.stato_psicologia_data = datetime.utcnow()
     
     # ───────────────────────── METODI STATO ──────────────────────── #
+    def _extend_scadenza_after_pausa(self, servizio: str, pausa_start):
+        """
+        Dopo la riattivazione da pausa, estende la data di scadenza del piano
+        aggiungendo i giorni trascorsi in pausa.
+        """
+        from datetime import datetime, timedelta
+
+        if pausa_start is None:
+            return
+
+        now = datetime.utcnow()
+        if hasattr(pausa_start, "date"):
+            pausa_start = pausa_start.date() if getattr(pausa_start, "date", None) else pausa_start
+
+        now_date = now.date() if hasattr(now, "date") else now
+        if hasattr(pausa_start, "days"):
+            return
+
+        try:
+            pause_days = (now_date - pausa_start).days
+        except (TypeError, AttributeError):
+            return
+
+        if pause_days <= 0:
+            return
+
+        scadenza_map = {
+            "nutrizione": "data_scadenza_nutrizione",
+            "coach": "data_scadenza_coach",
+            "psicologia": "data_scadenza_psicologia",
+        }
+        scadenza_attr = scadenza_map.get(servizio)
+        if not scadenza_attr:
+            return
+
+        current = getattr(self, scadenza_attr, None)
+        if not current:
+            return
+        if hasattr(current, "date"):
+            current = current.date()
+
+        try:
+            nuova_scadenza = current + timedelta(days=pause_days)
+            setattr(self, scadenza_attr, nuova_scadenza)
+        except (TypeError, ValueError):
+            return
+
+    def recalc_scadenza_servizio(self, servizio: str):
+        """
+        Ricalcola data_scadenza_{servizio} = data_inizio_{servizio} + durata_{servizio}_giorni.
+        Aggiorna anche la scadenza globale (data_inizio_abbonamento + durata_programma_giorni).
+        """
+        from datetime import timedelta
+
+        inizio_map = {
+            "nutrizione": ("data_inizio_nutrizione", "durata_nutrizione_giorni", "data_scadenza_nutrizione"),
+            "coach": ("data_inizio_coach", "durata_coach_giorni", "data_scadenza_coach"),
+            "psicologia": ("data_inizio_psicologia", "durata_psicologia_giorni", "data_scadenza_psicologia"),
+        }
+        entry = inizio_map.get(servizio)
+        if not entry:
+            return
+        inizio_attr, durata_attr, scadenza_attr = entry
+        inizio = getattr(self, inizio_attr, None)
+        durata = getattr(self, durata_attr, None)
+        if inizio and durata:
+            setattr(self, scadenza_attr, inizio + timedelta(days=durata))
+
+    def recalc_scadenza_globale(self):
+        """Ricalcola la scadenza globale da data_inizio_abbonamento + durata_programma_giorni."""
+        from datetime import timedelta
+        # Non esiste un campo data_scadenza_globale; il frontend la calcola.
+        # Questo metodo è un hook per eventuali estensioni future.
+        pass
+
     def update_stato_servizio(self, servizio: str, nuovo_stato: StatoClienteEnum):
         """Aggiorna lo stato di un servizio e la relativa data."""
         from datetime import datetime
 
         vecchio_stato = None
         stato_cambiato = False
+        pausa_start = None
 
         if servizio == 'nutrizione':
             vecchio_stato = self.stato_nutrizione
+            if vecchio_stato == StatoClienteEnum.pausa and nuovo_stato != StatoClienteEnum.pausa:
+                pausa_start = self.stato_nutrizione_data
             if self.stato_nutrizione != nuovo_stato:
                 self.stato_nutrizione = nuovo_stato
                 self.stato_nutrizione_data = datetime.utcnow()
                 stato_cambiato = True
         elif servizio == 'coach':
             vecchio_stato = self.stato_coach
+            if vecchio_stato == StatoClienteEnum.pausa and nuovo_stato != StatoClienteEnum.pausa:
+                pausa_start = self.stato_coach_data
             if self.stato_coach != nuovo_stato:
                 self.stato_coach = nuovo_stato
                 self.stato_coach_data = datetime.utcnow()
                 stato_cambiato = True
         elif servizio == 'psicologia':
             vecchio_stato = self.stato_psicologia
+            if vecchio_stato == StatoClienteEnum.pausa and nuovo_stato != StatoClienteEnum.pausa:
+                pausa_start = self.stato_psicologia_data
             if self.stato_psicologia != nuovo_stato:
                 self.stato_psicologia = nuovo_stato
                 self.stato_psicologia_data = datetime.utcnow()
@@ -2085,6 +2310,8 @@ class Cliente(TimestampMixin, db.Model):
         # Registra il cambio di stato nello storico
         if stato_cambiato:
             self._registra_cambio_stato_storico(servizio, nuovo_stato)
+            if pausa_start is not None:
+                self._extend_scadenza_after_pausa(servizio, pausa_start)
 
         # Se lo stato è cambiato in ghost, notifica gli altri professionisti
         if vecchio_stato != nuovo_stato and nuovo_stato == StatoClienteEnum.ghost:
@@ -2193,6 +2420,41 @@ class Cliente(TimestampMixin, db.Model):
             if any(stato != StatoClienteEnum.ghost for stato in stati_attivi):
                 self.stato_cliente = StatoClienteEnum.attivo
                 self.stato_cliente_data = datetime.utcnow()
+
+        self.check_stato_globale_pausa()
+
+    def check_stato_globale_pausa(self):
+        """
+        Verifica se il cliente deve andare in pausa globale.
+        Il cliente va in pausa se tutti i servizi assegnati sono in pausa.
+        """
+        from datetime import datetime
+
+        stati_attivi = []
+
+        if self.nutrizionisti_multipli or self.nutrizionista_id or self.nutrizionista:
+            if self.stato_nutrizione:
+                stati_attivi.append(self.stato_nutrizione)
+
+        if self.coaches_multipli or self.coach_id or self.coach:
+            if self.stato_coach:
+                stati_attivi.append(self.stato_coach)
+
+        if self.psicologi_multipli or self.psicologa_id or self.psicologa:
+            if self.stato_psicologia:
+                stati_attivi.append(self.stato_psicologia)
+
+        if not stati_attivi:
+            return
+
+        tutti_pausa = all(stato == StatoClienteEnum.pausa for stato in stati_attivi)
+        if tutti_pausa and self.stato_cliente != StatoClienteEnum.pausa:
+            self.stato_cliente = StatoClienteEnum.pausa
+            self.stato_cliente_data = datetime.utcnow()
+        elif self.stato_cliente == StatoClienteEnum.pausa:
+            if any(stato != StatoClienteEnum.pausa for stato in stati_attivi):
+                self.stato_cliente = StatoClienteEnum.attivo
+                self.stato_cliente_data = datetime.utcnow()
     
     def notify_service_ghost_status(self, servizio: str):
         """Invia email di notifica quando un singolo servizio va in ghost."""
@@ -2247,6 +2509,7 @@ class Cliente(TimestampMixin, db.Model):
     service_status = db.Column(db.String(50), default='unassigned', index=True)
     # Valori: 'unassigned', 'assigning', 'partially_assigned', 'fully_assigned', 'active', 'paused', 'completed'
     service_activated_at = db.Column(db.DateTime)
+    show_in_clienti_lista = db.Column(db.Boolean, default=True, nullable=False, index=True)
 
     # Tracking acquisizione
     acquisition_source = db.Column(db.String(100))  # 'ghl_webhook', 'manual_entry', 'excel_import', 'website_form'
@@ -2806,12 +3069,18 @@ class Task(TimestampMixin, db.Model):
     priority     = db.Column(_def(TaskPriorityEnum),
                              default=TaskPriorityEnum.medium,
                              nullable=False)
+    category     = db.Column(_def(TaskCategoryEnum),
+                             default=TaskCategoryEnum.generico,
+                             nullable=False)
+    payload      = db.Column(db.JSON, default=dict)  # Dati contestuali (es. cliente_id, check_id)
+    
     due_date     = db.Column(db.Date)
 
     # FK principali
+    # department_id reso Nullable per task di sistema (es. solleciti automatici)
     department_id = db.Column(db.Integer,
                               db.ForeignKey("departments.id"),
-                              nullable=False,
+                              nullable=True,
                               index=True)
     assignee_id   = db.Column(db.Integer,
                               db.ForeignKey("users.id"),
@@ -2828,6 +3097,80 @@ class Task(TimestampMixin, db.Model):
     # ----------------------------------------------------- #
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Task {self.id} – {self.title!r}>"
+
+
+class PushSubscription(TimestampMixin, db.Model):
+    __tablename__ = "push_subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.String(512), nullable=False)
+    auth = db.Column(db.String(255), nullable=False)
+    expiration_time = db.Column(db.BigInteger)
+    user_agent = db.Column(db.String(512))
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="push_subscriptions")
+
+    def to_webpush_info(self) -> dict:
+        return {
+            "endpoint": self.endpoint,
+            "keys": {
+                "p256dh": self.p256dh,
+                "auth": self.auth,
+            },
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<PushSubscription {self.id} user={self.user_id}>"
+
+
+class AppNotification(TimestampMixin, db.Model):
+    __tablename__ = "app_notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind = db.Column(db.String(50), nullable=False, default="generic", index=True)
+    title = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    url = db.Column(db.String(1024), nullable=False, default="/")
+    payload = db.Column(db.JSON, default=dict)
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    user = relationship("User", backref=db.backref("app_notifications", lazy="dynamic", cascade="all, delete-orphan"))
+
+    def mark_as_read(self) -> None:
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "title": self.title,
+            "body": self.body,
+            "url": self.url,
+            "payload": self.payload or {},
+            "is_read": bool(self.is_read),
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<AppNotification {self.id} user={self.user_id} kind={self.kind}>"
 
 
 
@@ -9818,6 +10161,39 @@ class GHLConfig(TimestampMixin, db.Model):
         return f'<GHLConfig location={self.location_id} active={self.is_active}>'
 
 
+
+
+class GHLOpportunityData(TimestampMixin, db.Model):
+    """
+    Dati opportunity ricevuti da webhook GHL (formato semplificato).
+    Usato per la pagina Assegnazioni AI.
+    """
+    __tablename__ = 'ghl_opportunity_data'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255))
+    lead_phone = db.Column(db.String(64))
+    health_manager_email = db.Column(db.String(255))
+    health_manager_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    storia = db.Column(db.Text)
+    pacchetto = db.Column(db.String(255))
+    durata = db.Column(db.String(50))
+    received_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_address = db.Column(db.String(50))
+    raw_payload = db.Column(db.JSON)
+    processed = db.Column(db.Boolean, default=False)
+
+    # AI Analysis Cache
+    ai_analysis = db.Column(JSONB)
+    ai_analyzed_at = db.Column(db.DateTime)
+
+    # Relationships
+    health_manager = db.relationship('User', foreign_keys=[health_manager_id])
+
+    def __repr__(self):
+        return f'<GHLOpportunityData {self.id} - {self.nome}>'
+
 class GHLOpportunity(TimestampMixin, db.Model):
     """
     Tracking completo delle opportunità ricevute da GoHighLevel.
@@ -9951,6 +10327,7 @@ class ServiceClienteAssignment(TimestampMixin, db.Model):
     psicologa_first_call_date = db.Column(db.DateTime)
 
     # AI Assignment metadata
+    ai_analysis = db.Column(JSONB)
     ai_suggestions = db.Column(JSONB)
     ai_suggested_at = db.Column(db.DateTime)
     ai_model_version = db.Column(db.String(50))
@@ -9985,12 +10362,31 @@ class ServiceClienteAssignment(TimestampMixin, db.Model):
 
     def update_status(self):
         """Aggiorna automaticamente lo status basato sulle assegnazioni"""
-        if self.nutrizionista_assigned_id and self.coach_assigned_id and self.psicologa_assigned_id:
+        from corposostenibile.package_requirements import get_package_requirements
+
+        package_name = None
+        if self.ghl_opportunity:
+            package_name = self.ghl_opportunity.pacchetto_comprato
+        elif self.cliente:
+            package_name = self.cliente.programma_attuale
+
+        requirements = get_package_requirements(package_name)
+        required_total = sum(1 for needed in requirements.values() if needed)
+        assigned_required = 0
+
+        if requirements.get('nutrizionista') and self.nutrizionista_assigned_id:
+            assigned_required += 1
+        if requirements.get('coach') and self.coach_assigned_id:
+            assigned_required += 1
+        if requirements.get('psicologa') and self.psicologa_assigned_id:
+            assigned_required += 1
+
+        if required_total > 0 and assigned_required == required_total:
             if self.checkup_iniziale_fatto:
                 self.status = 'active'
             else:
                 self.status = 'fully_assigned'
-        elif self.nutrizionista_assigned_id or self.coach_assigned_id or self.psicologa_assigned_id:
+        elif assigned_required > 0:
             self.status = 'partially_assigned'
         elif self.finance_approved:
             self.status = 'assigning'
@@ -10627,6 +11023,10 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
     weight = db.Column(db.Float, comment="Peso in Kg")
 
     # ─── Valutazioni Professionisti (con feedback) ──────────────────────────
+    # Snapshot professionisti al momento della compilazione (storico immutabile)
+    nutritionist_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    psychologist_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    coach_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     nutritionist_rating = db.Column(db.Integer, comment="Valutazione nutrizionista (1-10)")
     nutritionist_feedback = db.Column(db.Text, comment="Feedback nutrizionista")
     psychologist_rating = db.Column(db.Integer, comment="Valutazione psicologo (1-10)")
@@ -10642,6 +11042,9 @@ class WeeklyCheckResponse(TimestampMixin, db.Model):
 
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("WeeklyCheck", back_populates="responses")
+    nutritionist_user = relationship("User", foreign_keys=[nutritionist_user_id])
+    psychologist_user = relationship("User", foreign_keys=[psychologist_user_id])
+    coach_user = relationship("User", foreign_keys=[coach_user_id])
 
     def __repr__(self) -> str:
         return f"<WeeklyCheckResponse(id={self.id}, check={self.weekly_check_id}, date={self.submit_date})>"
@@ -11216,7 +11619,8 @@ class CallBonus(TimestampMixin, db.Model):
     cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=False, index=True)
 
     # Professionista con cui è stata proposta la call bonus
-    professionista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    # nullable=True: nel nuovo flusso AI viene impostato solo dopo lo step 2
+    professionista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     tipo_professionista = db.Column(
         _def(TipoProfessionistaEnum),
         nullable=False,
@@ -11235,6 +11639,20 @@ class CallBonus(TimestampMixin, db.Model):
     data_richiesta = db.Column(db.Date, nullable=False, default=date.today, index=True)
     data_risposta = db.Column(db.Date)  # Quando il cliente ha accettato/rifiutato
     data_conferma_hm = db.Column(db.Date)  # Quando l'HM ha confermato/segnalato non andata a buon fine
+
+    # Richiesta AI-driven
+    note_richiesta = db.Column(db.Text)  # Motivazione e obiettivo della richiesta
+    ai_analysis = db.Column(db.JSON)  # Risultato analisi Gemini
+    ai_matches = db.Column(db.JSON)  # Professionisti suggeriti con punteggi
+    booking_confirmed = db.Column(db.Boolean, default=False)  # Conferma prenotazione
+    data_booking_confirmed = db.Column(db.DateTime)  # Timestamp conferma prenotazione
+
+    # Risposta interesse professionista assegnato
+    data_interesse = db.Column(db.DateTime)  # Quando il prof assegnato ha risposto
+    hm_booking_confirmed = db.Column(db.Boolean, default=False)  # Conferma prenotazione HM
+    data_hm_booking_confirmed = db.Column(db.DateTime)  # Timestamp conferma prenotazione HM
+    webhook_sent = db.Column(db.Boolean, default=False)  # Tracking invio webhook GHL
+    webhook_sent_at = db.Column(db.DateTime)  # Timestamp invio webhook
 
     # Dettagli risposta cliente
     motivazione_rifiuto = db.Column(db.Text)  # Se rifiutata
@@ -12113,6 +12531,18 @@ class BlueprintIntervention(TimestampMixin, db.Model):
     blueprint = relationship("BlueprintRegistry", back_populates="interventions")
     assigned_to = relationship("User", backref="blueprint_interventions")
     project = relationship("DevelopmentProject", backref="blueprint_interventions")
+    sprints = relationship(
+        "DevSprint",
+        secondary="dev_sprint_interventions",
+        back_populates="interventions",
+        overlaps="sprint_assignments,sprint_interventions"
+    )
+    sprint_assignments = relationship(
+        "DevSprintIntervention",
+        back_populates="intervention",
+        overlaps="sprints,interventions",
+        cascade="all, delete-orphan"
+    )
 
 
 class BlueprintMetricsSnapshot(TimestampMixin, db.Model):
@@ -12305,7 +12735,14 @@ class DevSprint(TimestampMixin, db.Model):
     interventions = relationship(
         "BlueprintIntervention",
         secondary="dev_sprint_interventions",
-        backref="sprints"
+        back_populates="sprints",
+        overlaps="sprint_interventions,sprint_assignments"
+    )
+    sprint_interventions = relationship(
+        "DevSprintIntervention",
+        back_populates="sprint",
+        overlaps="interventions,sprints",
+        cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -12350,8 +12787,16 @@ class DevSprintIntervention(db.Model):
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relazioni
-    sprint = relationship("DevSprint", backref="sprint_interventions")
-    intervention = relationship("BlueprintIntervention", backref="sprint_assignments")
+    sprint = relationship(
+        "DevSprint",
+        back_populates="sprint_interventions",
+        overlaps="interventions,sprints"
+    )
+    intervention = relationship(
+        "BlueprintIntervention",
+        back_populates="sprint_assignments",
+        overlaps="interventions,sprints"
+    )
 
     def __repr__(self):
         return f"<SprintIntervention S{self.sprint_id} - I{self.intervention_id} ({self.story_points}pt)>"
@@ -12519,6 +12964,21 @@ class QualityWeeklyScore(TimestampMixin, db.Model):
 
     # ─── Bonus Band ───
     bonus_band = db.Column(db.String(10))  # Banda bonus ('100%', '60%', '30%', '0%')
+
+    # ─── KPI Composito (trimestrale) ───
+    rinnovo_adj_percentage = db.Column(db.Float)      # % rinnovo adj (clienti rinnovati / scaduti)
+    rinnovo_adj_bonus_band = db.Column(db.String(10)) # '100%', '60%', '30%', '0%'
+    quality_bonus_band = db.Column(db.String(10))     # '100%', '60%', '30%', '0%'
+    final_bonus_percentage = db.Column(db.Float)      # Bonus finale dopo pesi (60% rinnovo + 40% quality)
+
+    # ─── Super Malus (trimestrale) ───
+    has_negative_review = db.Column(db.Boolean, default=False)  # Ha review negativa (stelle <= 2)
+    has_refund = db.Column(db.Boolean, default=False)           # Ha rimborso nel trimestre
+    is_primary_for_malus = db.Column(db.Boolean)                # È primario per almeno un cliente con malus
+    super_malus_percentage = db.Column(db.Float, default=0.0)   # 0, 25, 50, 100
+    super_malus_applied = db.Column(db.Boolean, default=False)  # Super Malus applicato
+    super_malus_reason = db.Column(db.Text)                     # Motivo malus (JSON con dettagli clienti)
+    final_bonus_after_malus = db.Column(db.Float)               # Bonus finale DOPO Super Malus
 
     # ─── Metadata Calcolo ───
     calculation_status = db.Column(db.Enum('pending', 'calculating', 'completed', 'error', name='calc_status_enum'), default='pending')
@@ -13749,6 +14209,284 @@ class AppointmentSettingFunnel(TimestampMixin, db.Model):
             'non_in_target': self.non_in_target,
             'prenotato_non_in_target': self.prenotato_non_in_target,
             'under': self.under,
+        }
+
+
+# ───────────────────── SOP CHATBOT ──────────────────────── #
+
+class SOPDocumentStatus(enum.Enum):
+    processing = 'processing'
+    ready = 'ready'
+    error = 'error'
+
+_sop_document_status_enum = _pg_enum(SOPDocumentStatus)
+
+
+class SOPDocument(TimestampMixin, db.Model):
+    __tablename__ = "sop_documents"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    filename      = db.Column(db.String(255), nullable=False)
+    file_path     = db.Column(db.String(500), nullable=False, unique=True)
+    file_size     = db.Column(db.Integer)
+    mime_type     = db.Column(db.String(100))
+    status        = db.Column(_sop_document_status_enum, default='processing')
+    chunks_count  = db.Column(db.Integer, default=0)
+    error_message = db.Column(db.Text, nullable=True)
+    uploaded_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    uploader = relationship('User')
+
+    def to_dict(self):
+        status = self.status
+        if hasattr(status, 'value'):
+            status = status.value
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'status': status or 'processing',
+            'chunks_count': self.chunks_count,
+            'error_message': self.error_message,
+            'uploaded_by': self.uploaded_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ──────────────────────── TEAM TICKET SYSTEM ─────────────────────── #
+
+# Tabella ponte M2M per utenti assegnati ai team ticket
+team_ticket_assigned_users = db.Table(
+    "team_ticket_assigned_users",
+    db.Column("ticket_id", db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("assigned_at", db.DateTime, default=datetime.utcnow, nullable=False),
+    db.Column("assigned_by_id", db.Integer, db.ForeignKey("users.id")),
+)
+
+
+class TeamTicket(TimestampMixin, db.Model):
+    """
+    Sistema ticket interno per il team.
+    I manager gestiscono dalla Suite Amministrativa,
+    i membri del team interagiscono tramite Microsoft Teams bot.
+    """
+    __tablename__ = "team_tickets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
+
+    title = db.Column(db.String(200), nullable=True)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(
+        _def(TeamTicketStatusEnum),
+        default=TeamTicketStatusEnum.aperto,
+        nullable=False,
+        index=True,
+    )
+    priority = db.Column(
+        _def(TeamTicketPriorityEnum),
+        default=TeamTicketPriorityEnum.media,
+        nullable=False,
+    )
+    source = db.Column(
+        _def(TeamTicketSourceEnum),
+        default=TeamTicketSourceEnum.admin,
+        nullable=False,
+    )
+
+    # Paziente collegato (opzionale)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=True, index=True)
+
+    # Creatore
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    # Teams integration
+    teams_conversation_id = db.Column(db.String(500), nullable=True)
+    teams_activity_id = db.Column(db.String(500), nullable=True)
+
+    # Timestamps di risoluzione/chiusura
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    closed_at = db.Column(db.DateTime, nullable=True)
+
+    # ─── Relazioni ───
+    cliente = relationship("Cliente", backref=db.backref("team_tickets", lazy="dynamic"))
+    created_by = relationship("User", foreign_keys=[created_by_id], backref="team_tickets_created")
+    assigned_users = relationship(
+        "User",
+        secondary=team_ticket_assigned_users,
+        primaryjoin="TeamTicket.id == team_ticket_assigned_users.c.ticket_id",
+        secondaryjoin="User.id == team_ticket_assigned_users.c.user_id",
+        backref=db.backref("team_tickets_assigned", lazy="dynamic"),
+        lazy="selectin",
+    )
+    messages = relationship("TeamTicketMessage", back_populates="ticket", cascade="all, delete-orphan",
+                            order_by="TeamTicketMessage.created_at.asc()")
+    attachments = relationship("TeamTicketAttachment", back_populates="ticket", cascade="all, delete-orphan")
+    status_changes = relationship("TeamTicketStatusChange", back_populates="ticket", cascade="all, delete-orphan",
+                                   order_by="TeamTicketStatusChange.created_at.asc()")
+
+    @staticmethod
+    def generate_ticket_number():
+        """Genera numero ticket formato TT-YYYYMMDD-XXXX."""
+        today = date.today().strftime("%Y%m%d")
+        prefix = f"TT-{today}-"
+        last = (
+            TeamTicket.query
+            .filter(TeamTicket.ticket_number.like(f"{prefix}%"))
+            .order_by(TeamTicket.ticket_number.desc())
+            .first()
+        )
+        if last:
+            seq = int(last.ticket_number.split("-")[-1]) + 1
+        else:
+            seq = 1
+        return f"{prefix}{seq:04d}"
+
+    def to_dict(self, include_messages=False, include_attachments=False):
+        d = {
+            "id": self.id,
+            "ticket_number": self.ticket_number,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status.value if self.status else None,
+            "priority": self.priority.value if self.priority else None,
+            "source": self.source.value if self.source else None,
+            "cliente_id": self.cliente_id,
+            "cliente_nome": self.cliente.nome_cognome if self.cliente else None,
+            "created_by_id": self.created_by_id,
+            "created_by_name": self.created_by.full_name if self.created_by else None,
+            "assigned_users": [
+                {"id": u.id, "name": u.full_name, "avatar": u.avatar_path}
+                for u in self.assigned_users
+            ],
+            "teams_conversation_id": self.teams_conversation_id,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+            "closed_at": self.closed_at.isoformat() if self.closed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "messages_count": len(self.messages) if self.messages else 0,
+            "attachments_count": len(self.attachments) if self.attachments else 0,
+        }
+        if include_messages:
+            d["messages"] = [m.to_dict() for m in self.messages]
+            d["status_changes"] = [sc.to_dict() for sc in self.status_changes]
+        if include_attachments:
+            d["attachments"] = [a.to_dict() for a in self.attachments]
+        return d
+
+
+class TeamTicketMessage(TimestampMixin, db.Model):
+    """Messaggi nei team ticket (da admin o da Teams)."""
+    __tablename__ = "team_ticket_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    content = db.Column(db.Text, nullable=False)
+    source = db.Column(_def(TeamTicketSourceEnum), nullable=False)
+
+    # Campi per messaggi da Teams (utente non ancora mappato)
+    teams_sender_name = db.Column(db.String(255), nullable=True)
+    teams_sender_aad_id = db.Column(db.String(100), nullable=True)
+
+    # Lettura
+    read_by = db.Column(JSONB, default=list, comment="Lista user_id che hanno letto il messaggio")
+
+    # ─── Relazioni ───
+    ticket = relationship("TeamTicket", back_populates="messages")
+    sender = relationship("User", backref="team_ticket_messages_sent")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "sender_id": self.sender_id,
+            "sender_name": self.sender.full_name if self.sender else self.teams_sender_name,
+            "content": self.content,
+            "source": self.source.value if self.source else None,
+            "teams_sender_name": self.teams_sender_name,
+            "read_by": self.read_by or [],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    def mark_as_read(self, user_id: int):
+        if not self.read_by:
+            self.read_by = []
+        if user_id not in self.read_by:
+            self.read_by = self.read_by + [user_id]
+
+
+class TeamTicketAttachment(TimestampMixin, db.Model):
+    """Allegati dei team ticket."""
+    __tablename__ = "team_ticket_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(512), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)
+    mime_type = db.Column(db.String(100), nullable=True)
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    source = db.Column(_def(TeamTicketSourceEnum), nullable=False, default=TeamTicketSourceEnum.admin)
+
+    # ─── Relazioni ───
+    ticket = relationship("TeamTicket", back_populates="attachments")
+    uploaded_by = relationship("User")
+
+    @property
+    def extension(self) -> str:
+        return self.filename.rsplit(".", 1)[-1].lower() if "." in self.filename else ""
+
+    @property
+    def is_image(self) -> bool:
+        return self.extension in ("jpg", "jpeg", "png", "gif", "webp")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "is_image": self.is_image,
+            "uploaded_by_id": self.uploaded_by_id,
+            "uploaded_by_name": self.uploaded_by.full_name if self.uploaded_by else None,
+            "source": self.source.value if self.source else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class TeamTicketStatusChange(TimestampMixin, db.Model):
+    """Log dei cambi di status dei team ticket."""
+    __tablename__ = "team_ticket_status_changes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("team_tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    from_status = db.Column(_def(TeamTicketStatusEnum), nullable=True)
+    to_status = db.Column(_def(TeamTicketStatusEnum), nullable=False)
+    changed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    source = db.Column(_def(TeamTicketSourceEnum), nullable=False, default=TeamTicketSourceEnum.admin)
+
+    # ─── Relazioni ───
+    ticket = relationship("TeamTicket", back_populates="status_changes")
+    changed_by = relationship("User")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "from_status": self.from_status.value if self.from_status else None,
+            "to_status": self.to_status.value if self.to_status else None,
+            "changed_by_id": self.changed_by_id,
+            "changed_by_name": self.changed_by.full_name if self.changed_by else None,
+            "message": self.message,
+            "source": self.source.value if self.source else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

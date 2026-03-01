@@ -34,7 +34,7 @@ from .api import auth_api_bp  # API endpoints for React frontend
 # --------------------------------------------------------------------------- #
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
-login_manager.session_protection = "strong"
+login_manager.session_protection = "basic"
 
 
 @login_manager.user_loader

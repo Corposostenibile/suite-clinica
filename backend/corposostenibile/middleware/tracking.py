@@ -2,10 +2,12 @@
 Middleware per tracking automatico attività blueprint
 """
 import time
+from datetime import datetime
 from flask import g, request
 from flask_login import current_user
 from corposostenibile.extensions import db
 from corposostenibile.models import GlobalActivityLog
+from sqlalchemy import insert
 
 
 def setup_tracking_middleware(app):
@@ -38,21 +40,24 @@ def setup_tracking_middleware(app):
 
         # Salva log (in modo asincrono per non rallentare la response)
         try:
-            log = GlobalActivityLog(
-                user_id=user_id,
-                blueprint=request.blueprint,
-                action_type=request.endpoint,
-                http_method=request.method,
-                http_status=response.status_code,
-                response_time_ms=response_time_ms,
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent', '')[:255]
-            )
-            db.session.add(log)
-            db.session.commit()
+            # Usa una transazione separata dalla sessione della request:
+            # se la request è in stato aborted, il tracking resta funzionante.
+            payload = {
+                "user_id": user_id,
+                "blueprint": request.blueprint,
+                "action_type": request.endpoint,
+                "http_method": request.method,
+                "http_status": response.status_code,
+                "response_time_ms": response_time_ms,
+                "ip_address": request.remote_addr,
+                "user_agent": request.headers.get('User-Agent', '')[:255],
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+            with db.engine.begin() as conn:
+                conn.execute(insert(GlobalActivityLog.__table__).values(**payload))
         except Exception as e:
             # Non interrompere la request se il logging fallisce
             app.logger.warning(f"Failed to log activity: {e}")
-            db.session.rollback()
 
         return response

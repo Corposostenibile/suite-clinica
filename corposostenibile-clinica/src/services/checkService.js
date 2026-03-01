@@ -7,15 +7,10 @@
  * - minor: Check Minori (EDE-Q6 per screening)
  */
 
-import axios from 'axios';
+import api from './api';
+// import axios from 'axios'; // Removed custom axios usage
 
-const api = axios.create({
-  baseURL: '/client-checks',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
+// const api = axios.create({...}); // Removed custom instance definition
 
 // Check types configuration
 export const CHECK_TYPES = {
@@ -45,6 +40,9 @@ export const CHECK_TYPES = {
   }
 };
 
+// API Base path for client checks (relative to /api)
+const API_BASE = '/client-checks';
+
 const checkService = {
   // ==================== CLIENTE CHECKS ====================
 
@@ -54,7 +52,7 @@ const checkService = {
    * @returns {Promise} - { success, checks: { weekly, dca, minor }, responses: [] }
    */
   async getClienteChecks(clienteId) {
-    const response = await api.get(`/api/cliente/${clienteId}/checks`);
+    const response = await api.get(`${API_BASE}/cliente/${clienteId}/checks`);
     return response.data;
   },
 
@@ -65,7 +63,7 @@ const checkService = {
    * @returns {Promise} - { success, is_new, check_id, token, url, response_count }
    */
   async generateCheckLink(checkType, clienteId) {
-    const response = await api.post(`/api/generate/${checkType}/${clienteId}`);
+    const response = await api.post(`${API_BASE}/generate/${checkType}/${clienteId}`);
     return response.data;
   },
 
@@ -76,7 +74,7 @@ const checkService = {
    * @returns {Promise} - { success, unread_checks: [], total: number }
    */
   async getUnreadChecks() {
-    const response = await api.get('/api/da-leggere');
+    const response = await api.get(`${API_BASE}/da-leggere`);
     return response.data;
   },
 
@@ -87,7 +85,7 @@ const checkService = {
    * @returns {Promise} - { success, message, read_at }
    */
   async confirmRead(responseType, responseId) {
-    const response = await api.post(`/api/conferma-lettura/${responseType}/${responseId}`);
+    const response = await api.post(`${API_BASE}/conferma-lettura/${responseType}/${responseId}`);
     return response.data;
   },
 
@@ -100,7 +98,7 @@ const checkService = {
    * @returns {Promise} - { success, response: {...} }
    */
   async getResponseDetail(responseType, responseId) {
-    const response = await api.get(`/api/response/${responseType}/${responseId}`);
+    const response = await api.get(`${API_BASE}/response/${responseType}/${responseId}`);
     return response.data;
   },
 
@@ -118,7 +116,7 @@ const checkService = {
    * @returns {Promise} - { success, period, stats: {...}, responses: [], pagination: {...} }
    */
   async getAziendaStats(period = 'month', startDate = null, endDate = null, profType = null, profId = null, page = 1, perPage = 25) {
-    let url = `/api/azienda/stats?period=${period}&page=${page}&per_page=${perPage}`;
+    let url = `${API_BASE}/azienda/stats?period=${period}&page=${page}&per_page=${perPage}`;
     if (period === 'custom' && startDate && endDate) {
       url += `&start_date=${startDate}&end_date=${endDate}`;
     }
@@ -137,7 +135,7 @@ const checkService = {
    * @returns {Promise} - Full stats with KPIs, ratings, trends, professionals
    */
   async getAdminDashboardStats() {
-    const response = await api.get('/api/admin/dashboard-stats');
+    const response = await api.get(`${API_BASE}/admin/dashboard-stats`);
     return response.data;
   },
 
@@ -147,9 +145,46 @@ const checkService = {
    * @returns {Promise} - { success, professionisti: [{id, nome, avatar_url}] }
    */
   async getProfessionistiByType(profType) {
-    const response = await api.get(`/api/professionisti/${profType}`);
+    const response = await api.get(`${API_BASE}/professionisti/${profType}`);
     return response.data;
   },
+
+  /**
+   * Get initial checks assignments aggregated by lead.
+   * @param {Object} params
+   * @param {string} params.clientSearch - Search by lead name/email
+   * @param {string} params.status - all | completed_all | completed_any | pending
+   * @param {number} params.page
+   * @param {number} params.perPage
+   * @returns {Promise} - { success, items: [], pagination: {}, meta: {} }
+   */
+  async getInitialAssignments({ clientSearch = '', status = 'all', page = 1, perPage = 20, clientIds = [] } = {}) {
+    const response = await api.get(`${API_BASE}/initial-assignments`, {
+      params: {
+        client_search: clientSearch,
+        status,
+        page,
+        per_page: perPage,
+        client_ids: Array.isArray(clientIds) && clientIds.length > 0 ? clientIds.join(',') : undefined
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get compiled initial check response detail for a lead/check.
+   * @param {number} leadId
+   * @param {number} checkNumber - 1 | 2
+   * @returns {Promise} - { success, data }
+   */
+  async getInitialCheckResponseDetail(leadId, checkNumber) {
+    const response = await api.get(
+      `${API_BASE}/initial-assignments/${leadId}/check/${checkNumber}/response`
+    );
+    return response.data;
+  },
+
+
 
   // ==================== UTILITIES ====================
 

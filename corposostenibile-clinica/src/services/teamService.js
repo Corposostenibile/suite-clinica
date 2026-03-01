@@ -6,6 +6,8 @@ export const USER_ROLES = {
   TEAM_LEADER: 'team_leader',
   PROFESSIONISTA: 'professionista',
   TEAM_ESTERNO: 'team_esterno',
+  INFLUENCER: 'influencer',
+  HEALTH_MANAGER: 'health_manager',
 };
 
 // User specialties by role
@@ -23,8 +25,11 @@ export const USER_SPECIALTIES = {
     { value: 'nutrizionista', label: 'Nutrizione' },
     { value: 'psicologo', label: 'Psicologia' },
     { value: 'coach', label: 'Coach' },
+    { value: 'medico', label: 'Medico' },
   ],
   team_esterno: [],
+  influencer: [],
+  health_manager: [],
 };
 
 // Role labels for display
@@ -33,6 +38,16 @@ export const ROLE_LABELS = {
   team_leader: 'Team Leader',
   professionista: 'Professionista',
   team_esterno: 'Team Esterno',
+  influencer: 'Influencer',
+  health_manager: 'Health Manager',
+};
+
+export const getUserRoleDisplayLabel = (userLike) => {
+  const role = userLike?.role;
+  if (role !== 'team_leader') {
+    return ROLE_LABELS[role] || role || 'N/D';
+  }
+  return 'Team Leader';
 };
 
 // Specialty labels for display (unificati per categoria)
@@ -44,6 +59,8 @@ export const SPECIALTY_LABELS = {
   coach: 'Coach',
   nutrizionista: 'Nutrizione',   // Unificato con nutrizione
   psicologo: 'Psicologia',       // Unificato con psicologia
+  medico: 'Medico',
+  health_manager: 'Health Manager',
 };
 
 // Opzioni filtro specializzazione (solo valori unici per i filtri)
@@ -51,6 +68,7 @@ export const SPECIALTY_FILTER_OPTIONS = [
   { value: 'nutrizione,nutrizionista', label: 'Nutrizione' },
   { value: 'psicologia,psicologo', label: 'Psicologia' },
   { value: 'coach', label: 'Coach' },
+  { value: 'medico', label: 'Medico' },
   { value: 'amministrazione', label: 'Amministrazione' },
   { value: 'cco', label: 'CCO' },
 ];
@@ -61,6 +79,8 @@ export const ROLE_COLORS = {
   team_leader: 'primary',
   professionista: 'success',
   team_esterno: 'secondary',
+  influencer: 'info',
+  health_manager: 'primary',
 };
 
 // Badge colors by specialty
@@ -72,6 +92,25 @@ export const SPECIALTY_COLORS = {
   coach: 'success',
   nutrizionista: 'info',
   psicologo: 'warning',
+  medico: 'danger',
+  health_manager: 'primary',
+};
+
+export const getUserDisplaySpecialty = (userLike) => {
+  const explicitSpecialty = String(userLike?.specialty || '').toLowerCase().trim();
+  if (explicitSpecialty) return explicitSpecialty;
+
+  if (userLike?.role !== 'team_leader' || !Array.isArray(userLike?.teams_led)) return null;
+
+  const ledTeamTypes = userLike.teams_led
+    .map((team) => String(team?.team_type || '').toLowerCase().trim())
+    .filter(Boolean);
+
+  if (ledTeamTypes.includes('health_manager')) return 'health_manager';
+  if (ledTeamTypes.includes('nutrizione')) return 'nutrizione';
+  if (ledTeamTypes.includes('coach')) return 'coach';
+  if (ledTeamTypes.includes('psicologia')) return 'psicologia';
+  return null;
 };
 
 // ==================== TEAM ENTITY CONSTANTS ====================
@@ -81,6 +120,7 @@ export const TEAM_TYPES = {
   NUTRIZIONE: 'nutrizione',
   COACH: 'coach',
   PSICOLOGIA: 'psicologia',
+  HEALTH_MANAGER: 'health_manager',
 };
 
 // Team type labels for display
@@ -88,6 +128,7 @@ export const TEAM_TYPE_LABELS = {
   nutrizione: 'Nutrizione',
   coach: 'Coach',
   psicologia: 'Psicologia',
+  health_manager: 'Health Manager',
 };
 
 // Team type colors (for badges and gradients)
@@ -95,6 +136,7 @@ export const TEAM_TYPE_COLORS = {
   nutrizione: 'info',
   coach: 'success',
   psicologia: 'warning',
+  health_manager: 'primary',
 };
 
 // Team type gradients (for card headers)
@@ -102,6 +144,7 @@ export const TEAM_TYPE_GRADIENTS = {
   nutrizione: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
   coach: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
   psicologia: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  health_manager: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
 };
 
 // Team type icons
@@ -109,6 +152,7 @@ export const TEAM_TYPE_ICONS = {
   nutrizione: 'ri-heart-pulse-line',
   coach: 'ri-run-line',
   psicologia: 'ri-mental-health-line',
+  health_manager: 'ri-user-star-line',
 };
 
 const teamService = {
@@ -291,6 +335,27 @@ const teamService = {
    */
   async getMemberChecks(memberId, params = {}) {
     const response = await api.get(`/team/members/${memberId}/checks`, { params });
+    return response.data;
+  },
+
+  /**
+   * Get professional capacity rows.
+   * ACL handled by backend:
+   * - admin/cco: all
+   * - team_leader: own members
+   */
+  async getProfessionalCapacity(params = {}) {
+    const response = await api.get('/team/capacity', { params });
+    return response.data;
+  },
+
+  /**
+   * Update contractual capacity for a professional (admin/cco only).
+   */
+  async updateProfessionalCapacity(userId, capienzaContrattuale) {
+    const response = await api.put(`/team/capacity/${userId}`, {
+      capienza_contrattuale: capienzaContrattuale,
+    });
     return response.data;
   },
 

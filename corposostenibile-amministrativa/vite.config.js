@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3001, // Different port from clinica (3000)
+    allowedHosts: true,
     proxy: {
       // Proxy API requests to Flask backend (same as clinica)
       '/api': {
@@ -33,6 +34,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    allowedHosts: true,
   },
   build: {
     outDir: 'dist',

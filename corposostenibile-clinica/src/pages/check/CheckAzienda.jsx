@@ -1,6 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import checkService from '../../services/checkService';
+import GuidedTour from '../../components/GuidedTour';
+import SupportWidget from '../../components/SupportWidget';
+import { 
+    FaChartLine, 
+    FaCalendarAlt, 
+    FaUsers, 
+    FaFilter, 
+    FaTable,
+    FaInfoCircle,
+    FaLightbulb
+} from 'react-icons/fa';
+import { isProfessionistaStandard } from '../../utils/rbacScope';
 
 // Stili per la tabella (stesso stile di ClientiList)
 const tableStyles = {
@@ -150,13 +162,34 @@ const getInitials = (name) => {
 };
 
 // Component to render professional with read status
-const ProfessionalCell = ({ professionals, rating, bgColor, textColor }) => {
+const ProfessionalCell = ({ professionals, rating, progressRating, bgColor, textColor }) => {
+  // Calculate MPS if both ratings exist
+  const mps = (rating && progressRating) ? ((rating + progressRating) / 2).toFixed(1) : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
       {/* Rating Badge */}
       <span style={getRatingStyle(rating)}>
         {rating ?? '-'}
       </span>
+
+      {/* MPS Badge (New) */}
+      {mps && (
+        <span
+            title={`Media: (Voto Professionista [${rating}] + Voto Progresso [${progressRating}]) / 2 = ${mps}`}
+            style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            color: '#64748b',
+            background: '#f1f5f9',
+            padding: '2px 6px',
+            borderRadius: '6px',
+            cursor: 'help'
+            }}
+        >
+            MPS: {mps}
+        </span>
+      )}
 
       {/* Professionals */}
       {professionals && professionals.length > 0 ? (
@@ -189,6 +222,7 @@ const ProfessionalCell = ({ professionals, rating, bgColor, textColor }) => {
 };
 
 function CheckAzienda() {
+  const { user } = useOutletContext();
   const navigate = useNavigate();
   const [period, setPeriod] = useState('month');
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -196,6 +230,126 @@ function CheckAzienda() {
   const [responses, setResponses] = useState([]);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Tour
+  const [mostraTour, setMostraTour] = useState(false);
+  const [searchParams] = useSearchParams();
+  const isProfessionista = isProfessionistaStandard(user);
+
+  // Effetto per avvio automatico tour da Hub Supporto
+  useEffect(() => {
+    if (isProfessionista) {
+      navigate('/profilo?tab=check', { replace: true });
+      return;
+    }
+    if (searchParams.get('startTour') === 'true') {
+      setMostraTour(true);
+    }
+  }, [searchParams, isProfessionista, navigate]);
+  
+  const tourSteps = [
+    {
+      target: '[data-tour="header"]',
+      title: 'Torre di Controllo',
+      content: 'Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti. Qui puoi monitorare i progressi e intervenire dove necessario.',
+      placement: 'bottom',
+      icon: <FaChartLine size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+    },
+    {
+      target: '[data-tour="kpi-dashboard"]',
+      title: 'I Numeri Chiave (KPI)',
+      content: 'In alto trovi i "termometri" della qualità aziendale. 🟢 Verde (>= 8): Ottimo! 🟡 Giallo (7-7.9): Margine di miglioramento. 🔴 Rosso (< 7): Attenzione, indaga subito.',
+      placement: 'bottom',
+      icon: <FaInfoCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)'
+    },
+    {
+      target: '[data-tour="period-filters"]',
+      title: 'Periodo Temporale',
+      content: 'Scegli l\'orizzonte temporale dei dati: Settimana per il monitoraggio immediato, Mese o Trimestre per analisi di lungo periodo o date Custom.',
+      placement: 'bottom',
+      icon: <FaCalendarAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)'
+    },
+    {
+      target: '[data-tour="prof-filters"]',
+      title: 'Filtri Professionisti',
+      content: 'Vuoi vedere solo l\'area Nutrizione o un singolo Coach? Usa questi filtri per "tagliare" i dati come preferisci e analizzare le performance del team.',
+      placement: 'bottom',
+      icon: <FaUsers size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)'
+    },
+    {
+      target: '[data-tour="status-filters"]',
+      title: 'Filtri Rapidi (Stato)',
+      content: 'Individua subito le criticità con "Voto Negativo" o assicuratevi che tutti i check vengano gestiti filtrando per "Non Letto" (icona ⏳ sulle risposte).',
+      placement: 'bottom',
+      icon: <FaFilter size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)'
+    },
+    {
+      target: '[data-tour="responses-table"]',
+      title: 'Tabella Risposte',
+      content: 'Ogni riga è un check. La spunta verde (✓) indica che il professionista ha letto, la clessidra (⏳) indica che il check è ancora in attesa di feedback.',
+      placement: 'top',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #64748b, #475569)'
+    },
+    {
+      target: '[data-tour="check-record"]',
+      title: 'Vedi Dettagli',
+      content: 'Cliccando su una riga si apre il dettaglio completo. Ora te lo mostro!',
+      placement: 'top',
+      icon: <FaChartLine size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)',
+      action: 'close_modal'
+    },
+    {
+      target: '[data-tour="check-detail-modal"]',
+      title: 'Scheda Completa',
+      content: 'Qui puoi vedere il check nella sua interezza: data, peso e tutti i dettagli inviati dal paziente.',
+      placement: 'left',
+      icon: <FaInfoCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+      action: 'open_modal'
+    },
+    {
+      target: '[data-tour="check-photos"]',
+      title: 'Foto Progressi',
+      content: 'Se presenti, qui vedi le foto caricate (frontale, laterale, posteriore). Cliccandoci sopra puoi ingrandirle.',
+      placement: 'left',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)'
+    },
+    {
+      target: '[data-tour="check-ratings"]',
+      title: 'Valutazioni e Feedback',
+      content: 'Qui vedi i voti dati ai professionisti e i feedback testuali che hanno lasciato in risposta.',
+      placement: 'top',
+      icon: <FaChartLine size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)'
+    },
+    {
+      target: '[data-tour="check-reflections"]',
+      title: 'Riflessioni',
+      content: 'Le note del paziente su cosa ha funzionato, cosa no e gli obiettivi per la prossima settimana.',
+      placement: 'top',
+      icon: <FaLightbulb size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10b981, #059669)'
+    }
+  ];
+
+  const handleTourStepChange = (index, step) => {
+    if (step.action === 'open_modal') {
+      // Simulate opening the first available response
+      if (responses.length > 0) {
+          handleViewCheckResponse(responses[0]);
+      }
+    } else if (step.action === 'close_modal') {
+      setShowCheckResponseModal(false);
+    }
+  };
 
   // Custom date range
   const [showCustomDates, setShowCustomDates] = useState(false);
@@ -222,6 +376,54 @@ function CheckAzienda() {
   const [ratingFilter, setRatingFilter] = useState(null); // 'da_migliorare', 'negativo', null
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const teamLeaderProfType = useMemo(() => {
+    const specialty = String(user?.specialty || '').toLowerCase();
+    if (specialty === 'nutrizione' || specialty === 'nutrizionista') return 'nutrizione';
+    if (specialty === 'coach') return 'coach';
+    if (specialty === 'psicologia' || specialty === 'psicologo') return 'psicologia';
+    return null;
+  }, [user?.specialty]);
+  const isOwnRoleFilterLocked = Boolean(isTeamLeaderRestricted && teamLeaderProfType);
+
+  const visibleRatingColumns = useMemo(() => {
+    if (!isOwnRoleFilterLocked) {
+      return {
+        nutrizione: true,
+        psicologia: true,
+        coach: true,
+        progresso: true,
+      };
+    }
+    return {
+      nutrizione: teamLeaderProfType === 'nutrizione',
+      psicologia: teamLeaderProfType === 'psicologia',
+      coach: teamLeaderProfType === 'coach',
+      progresso: true,
+    };
+  }, [isOwnRoleFilterLocked, teamLeaderProfType]);
+
+  const visibleKpiConfigs = useMemo(() => {
+    const all = [
+      { key: 'nutrizione', icon: 'ri-restaurant-line text-success', label: 'Nutrizionista', value: stats?.avg_nutrizionista },
+      { key: 'psicologia', icon: 'ri-mental-health-line text-info', label: 'Psicologo', value: stats?.avg_psicologo },
+      { key: 'coach', icon: 'ri-run-line text-primary', label: 'Coach', value: stats?.avg_coach },
+    ];
+    return all.filter((kpi) => !isOwnRoleFilterLocked || visibleRatingColumns[kpi.key]);
+  }, [stats, isOwnRoleFilterLocked, visibleRatingColumns]);
+
+  const showProgressKpi = !isOwnRoleFilterLocked;
+  const showQualityKpi = !isOwnRoleFilterLocked;
+
+  useEffect(() => {
+    if (isOwnRoleFilterLocked && profType !== teamLeaderProfType) {
+      setProfType(teamLeaderProfType);
+      setProfId(null);
+      setCurrentPage(1);
+    }
+  }, [isOwnRoleFilterLocked, teamLeaderProfType, profType]);
+
   // Fetch data when filters or page change (except for custom period)
   useEffect(() => {
     if (period !== 'custom') {
@@ -244,16 +446,18 @@ function CheckAzienda() {
     setError(null);
     try {
       const result = await checkService.getAziendaStats(periodParam, customStart, customEnd, profTypeParam, profIdParam, page, ITEMS_PER_PAGE);
+      console.log('[CheckAzienda] API Result:', result);
       if (result.success) {
         setResponses(result.responses || []);
         setStats(result.stats || {});
         setPagination(result.pagination || { page: 1, per_page: ITEMS_PER_PAGE, total: 0, pages: 1 });
       } else {
-        setError('Errore nel caricamento dei dati');
+        console.error('[CheckAzienda] API returned success:false', result);
+        setError(result.error || 'Errore nel caricamento dei dati');
       }
     } catch (err) {
-      console.error('Error fetching check stats:', err);
-      setError('Errore nel caricamento dei dati');
+      console.error('[CheckAzienda] Exception:', err.response?.data || err.message || err);
+      setError(err.response?.data?.error || 'Errore nel caricamento dei dati');
     } finally {
       setLoading(false);
     }
@@ -299,6 +503,7 @@ function CheckAzienda() {
   };
 
   const handleProfTypeChange = (type) => {
+    if (isOwnRoleFilterLocked) return;
     if (profType === type) {
       // Deselect
       setProfType(null);
@@ -316,7 +521,7 @@ function CheckAzienda() {
   };
 
   const handleResetFilters = () => {
-    setProfType(null);
+    setProfType(isOwnRoleFilterLocked ? teamLeaderProfType : null);
     setProfId(null);
     setProfessionals([]);
     setRatingFilter(null);
@@ -331,13 +536,23 @@ function CheckAzienda() {
     if (ratingFilter === 'da_migliorare') {
       // Any rating below 8
       filtered = filtered.filter(r => {
-        const ratings = [r.nutritionist_rating, r.psychologist_rating, r.coach_rating, r.progress_rating].filter(v => v !== null && v !== undefined);
+        const ratings = [
+          visibleRatingColumns.nutrizione ? r.nutritionist_rating : null,
+          visibleRatingColumns.psicologia ? r.psychologist_rating : null,
+          visibleRatingColumns.coach ? r.coach_rating : null,
+          visibleRatingColumns.progresso ? r.progress_rating : null
+        ].filter(v => v !== null && v !== undefined);
         return ratings.some(rating => rating < 8);
       });
     } else if (ratingFilter === 'negativo') {
       // Any rating below 7
       filtered = filtered.filter(r => {
-        const ratings = [r.nutritionist_rating, r.psychologist_rating, r.coach_rating, r.progress_rating].filter(v => v !== null && v !== undefined);
+        const ratings = [
+          visibleRatingColumns.nutrizione ? r.nutritionist_rating : null,
+          visibleRatingColumns.psicologia ? r.psychologist_rating : null,
+          visibleRatingColumns.coach ? r.coach_rating : null,
+          visibleRatingColumns.progresso ? r.progress_rating : null
+        ].filter(v => v !== null && v !== undefined);
         return ratings.some(rating => rating < 7);
       });
     }
@@ -406,9 +621,11 @@ function CheckAzienda() {
   return (
     <div className="container-fluid p-0">
       {/* Header - stesso stile di ClientiList */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header">
         <div>
-          <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Check Azienda</h4>
+          <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>
+            {isTeamLeaderRestricted ? 'Check Team' : 'Check Azienda'}
+          </h4>
           <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
             {(ratingFilter || showUnreadOnly) ? (
               <>
@@ -433,7 +650,7 @@ function CheckAzienda() {
         <div className="card-body py-3 px-4">
           <div className="row g-3 align-items-center">
             {/* Period Filters */}
-            <div className="col-lg-6">
+            <div className="col-lg-6" data-tour="period-filters">
               <div className="d-flex gap-2 flex-nowrap">
                 {[
                   { key: 'week', label: 'Settimana' },
@@ -469,59 +686,48 @@ function CheckAzienda() {
             </div>
 
             {/* KPI Averages */}
-            <div className="col-lg-6">
+            <div className="col-lg-6" data-tour="kpi-dashboard">
               <div className="d-flex flex-wrap gap-3 justify-content-lg-end align-items-center">
-                {/* Nutrizionista */}
-                <div className="d-flex align-items-center gap-2">
-                  <i className="ri-restaurant-line text-success" style={{ fontSize: '18px' }}></i>
-                  <span className="text-muted small d-none d-xl-inline">Nutrizionista</span>
-                  <span style={getKpiBadgeStyle(stats?.avg_nutrizionista)}>
-                    {stats?.avg_nutrizionista ?? '-'}
-                  </span>
-                </div>
+                {visibleKpiConfigs.map((kpi) => (
+                  <div key={kpi.key} className="d-flex align-items-center gap-2">
+                    <i className={kpi.icon} style={{ fontSize: '18px' }}></i>
+                    <span className="text-muted small d-none d-xl-inline">{kpi.label}</span>
+                    <span style={getKpiBadgeStyle(kpi.value)}>
+                      {kpi.value ?? '-'}
+                    </span>
+                  </div>
+                ))}
 
-                {/* Psicologo */}
-                <div className="d-flex align-items-center gap-2">
-                  <i className="ri-mental-health-line text-info" style={{ fontSize: '18px' }}></i>
-                  <span className="text-muted small d-none d-xl-inline">Psicologo</span>
-                  <span style={getKpiBadgeStyle(stats?.avg_psicologo)}>
-                    {stats?.avg_psicologo ?? '-'}
-                  </span>
-                </div>
-
-                {/* Coach */}
-                <div className="d-flex align-items-center gap-2">
-                  <i className="ri-run-line text-primary" style={{ fontSize: '18px' }}></i>
-                  <span className="text-muted small d-none d-xl-inline">Coach</span>
-                  <span style={getKpiBadgeStyle(stats?.avg_coach)}>
-                    {stats?.avg_coach ?? '-'}
-                  </span>
-                </div>
-
-                <div className="border-start ps-3 d-flex align-items-center gap-3">
+                {(showProgressKpi || showQualityKpi) && (
+                  <div className="border-start ps-3 d-flex align-items-center gap-3">
                   {/* Progresso */}
-                  <div className="d-flex align-items-center gap-2">
-                    <img
-                      src="/corposostenibile.jpg"
-                      alt="Progresso"
-                      className="rounded-circle"
-                      style={{ width: '18px', height: '18px', objectFit: 'cover' }}
-                    />
-                    <span className="text-muted small d-none d-xl-inline">Progresso</span>
-                    <span style={getKpiBadgeStyle(stats?.avg_progresso)}>
-                      {stats?.avg_progresso ?? '-'}
-                    </span>
-                  </div>
+                    {showProgressKpi && (
+                      <div className="d-flex align-items-center gap-2">
+                        <img
+                          src="/corposostenibile.jpg"
+                          alt="Progresso"
+                          className="rounded-circle"
+                          style={{ width: '18px', height: '18px', objectFit: 'cover' }}
+                        />
+                        <span className="text-muted small d-none d-xl-inline">Progresso</span>
+                        <span style={getKpiBadgeStyle(stats?.avg_progresso)}>
+                          {stats?.avg_progresso ?? '-'}
+                        </span>
+                      </div>
+                    )}
 
-                  {/* Quality */}
-                  <div className="d-flex align-items-center gap-2">
-                    <i className="ri-star-fill text-warning" style={{ fontSize: '18px' }}></i>
-                    <span className="text-muted small d-none d-xl-inline">Quality</span>
-                    <span style={getKpiBadgeStyle(stats?.avg_quality)}>
-                      {stats?.avg_quality ?? '-'}
-                    </span>
+                  {/* MPS */}
+                    {showQualityKpi && (
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="ri-star-fill text-warning" style={{ fontSize: '18px' }}></i>
+                        <span className="text-muted small d-none d-xl-inline">MPS</span>
+                        <span style={getKpiBadgeStyle(stats?.avg_quality)}>
+                          {stats?.avg_quality ?? '-'}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -600,35 +806,52 @@ function CheckAzienda() {
         <div className="card-body py-3 px-4">
           <div className="row g-3 align-items-center">
             {/* Professional Type Filter */}
-            <div className="col-lg-6">
-              <div className="d-flex align-items-center gap-3">
+            <div className="col-lg-6" data-tour="prof-filters">
+              <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span className="text-muted small fw-semibold">Filtra per:</span>
-                <div className="d-flex gap-2">
-                  {Object.entries(PROF_TYPES).map(([key, config]) => (
-                    <button
-                      key={key}
-                      className="btn"
-                      onClick={() => handleProfTypeChange(key)}
-                      disabled={loading}
-                      style={{
-                        height: '42px',
-                        borderRadius: '10px',
-                        border: profType === key ? 'none' : '1px solid #e2e8f0',
-                        background: profType === key
-                          ? `linear-gradient(135deg, ${config.color} 0%, ${config.color}dd 100%)`
-                          : '#f8fafc',
-                        color: profType === key ? 'white' : '#64748b',
-                        fontSize: '13px',
-                        fontWeight: profType === key ? 600 : 500,
-                        padding: '0 16px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <i className={`${config.icon} me-2`}></i>
-                      {config.label}
-                    </button>
-                  ))}
-                </div>
+                {isOwnRoleFilterLocked ? (
+                  <span
+                    className="badge"
+                    style={{
+                      background: `${PROF_TYPES[teamLeaderProfType]?.color || '#64748b'}15`,
+                      color: PROF_TYPES[teamLeaderProfType]?.color || '#64748b',
+                      border: `1px solid ${(PROF_TYPES[teamLeaderProfType]?.color || '#64748b')}33`,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <i className={`${PROF_TYPES[teamLeaderProfType]?.icon || 'ri-filter-line'} me-2`}></i>
+                    Solo {PROF_TYPES[teamLeaderProfType]?.label || 'ruolo del team'}
+                  </span>
+                ) : (
+                  <div className="d-flex gap-2">
+                    {Object.entries(PROF_TYPES).map(([key, config]) => (
+                      <button
+                        key={key}
+                        className="btn"
+                        onClick={() => handleProfTypeChange(key)}
+                        disabled={loading}
+                        style={{
+                          height: '42px',
+                          borderRadius: '10px',
+                          border: profType === key ? 'none' : '1px solid #e2e8f0',
+                          background: profType === key
+                            ? `linear-gradient(135deg, ${config.color} 0%, ${config.color}dd 100%)`
+                            : '#f8fafc',
+                          color: profType === key ? 'white' : '#64748b',
+                          fontSize: '13px',
+                          fontWeight: profType === key ? 600 : 500,
+                          padding: '0 16px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <i className={`${config.icon} me-2`}></i>
+                        {config.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -668,7 +891,7 @@ function CheckAzienda() {
                     </button>
                   </>
                 )}
-                {!profType && (
+                {!profType && !isOwnRoleFilterLocked && (
                   <span className="text-muted small fst-italic">
                     Seleziona un tipo di professionista per filtrare
                   </span>
@@ -678,7 +901,7 @@ function CheckAzienda() {
           </div>
 
           {/* Rating & Read Filters Row */}
-          <div className="row g-3 align-items-center mt-2 pt-3 border-top">
+          <div className="row g-3 align-items-center mt-2 pt-3 border-top" data-tour="status-filters">
             <div className="col-12">
               <div className="d-flex align-items-center gap-3 flex-wrap">
                 <span className="text-muted small fw-semibold">Stato:</span>
@@ -828,17 +1051,17 @@ function CheckAzienda() {
             return (
               <>
                 {/* Tabella Risposte */}
-                <div className="card border-0" style={tableStyles.card}>
+                <div className="card border-0" style={tableStyles.card} data-tour="responses-table">
                   <div className="table-responsive">
                     <table className="table mb-0">
                       <thead style={tableStyles.tableHeader}>
                         <tr>
                           <th style={{ ...tableStyles.th, minWidth: '200px' }}>Cliente</th>
                           <th style={{ ...tableStyles.th, minWidth: '120px' }}>Data</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>
-                          <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>
-                          <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>
+                          {visibleRatingColumns.nutrizione && <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Nutrizionista</th>}
+                          {visibleRatingColumns.psicologia && <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Psicologo/a</th>}
+                          {visibleRatingColumns.coach && <th style={{ ...tableStyles.th, minWidth: '120px', textAlign: 'center' }}>Coach</th>}
+                          {visibleRatingColumns.progresso && <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Progresso</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -848,6 +1071,7 @@ function CheckAzienda() {
                     return (
                       <tr
                         key={`${response.type}-${response.id}`}
+                        data-tour={index === 0 ? "check-record" : undefined}
                         style={{
                           ...tableStyles.row,
                           background: isHovered ? '#f8fafc' : 'transparent',
@@ -900,56 +1124,35 @@ function CheckAzienda() {
                           </span>
                         </td>
 
-                        {/* Nutrizionista */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.nutrizionisti}
-                            rating={response.nutritionist_rating}
-                            bgColor="#dcfce7"
-                            textColor="#166534"
-                          />
-                        </td>
-
-                        {/* Psicologo */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.psicologi}
-                            rating={response.psychologist_rating}
-                            bgColor="#e0f2fe"
-                            textColor="#0369a1"
-                          />
-                        </td>
-
-                        {/* Coach */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <ProfessionalCell
-                            professionals={response.coaches}
-                            rating={response.coach_rating}
-                            bgColor="#dbeafe"
-                            textColor="#1d4ed8"
-                          />
-                        </td>
-
-                        {/* Progresso */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                            <span style={getRatingStyle(response.progress_rating)}>
-                              {response.progress_rating ?? '-'}
-                            </span>
-                            <img
-                              src="/static/assets/immagini/logo_user.png"
-                              alt="Progresso"
-                              style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                objectFit: 'cover',
-                                border: '2px solid #fff',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                              }}
-                            />
-                          </div>
-                        </td>
+                        {visibleRatingColumns.nutrizione && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <ProfessionalCell professionals={response.nutrizionisti} rating={response.nutritionist_rating} progressRating={response.progress_rating} bgColor="#dcfce7" textColor="#166534" />
+                          </td>
+                        )}
+                        {visibleRatingColumns.psicologia && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <ProfessionalCell professionals={response.psicologi} rating={response.psychologist_rating} progressRating={response.progress_rating} bgColor="#e0f2fe" textColor="#0369a1" />
+                          </td>
+                        )}
+                        {visibleRatingColumns.coach && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <ProfessionalCell professionals={response.coaches} rating={response.coach_rating} progressRating={response.progress_rating} bgColor="#dbeafe" textColor="#1d4ed8" />
+                          </td>
+                        )}
+                        {visibleRatingColumns.progresso && (
+                          <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                              <span style={getRatingStyle(response.progress_rating)}>
+                                {response.progress_rating ?? '-'}
+                              </span>
+                              <img
+                                src="/static/assets/immagini/logo_user.png"
+                                alt="Progresso"
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}
+                              />
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1027,7 +1230,7 @@ function CheckAzienda() {
       {/* Check Response Detail Modal */}
       {showCheckResponseModal && selectedCheckResponse && (
         <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowCheckResponseModal(false)}>
-          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" onClick={(e) => e.stopPropagation()} data-tour="check-detail-modal">
             <div className="modal-content" style={{ borderRadius: '16px', overflow: 'hidden' }}>
               <div className="modal-header" style={{
                 background: selectedCheckResponse.type === 'weekly' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
@@ -1069,7 +1272,7 @@ function CheckAzienda() {
 
                     {/* Photos (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
+                      <div className="mb-4" data-tour="check-photos">
                         <h6 className="text-muted mb-3"><i className="ri-camera-line me-2"></i>Foto Progressi</h6>
                         <div className="row g-3">
                           <div className="col-4">
@@ -1131,12 +1334,14 @@ function CheckAzienda() {
                     )}
 
                     {/* Ratings */}
-                    {(selectedCheckResponse.nutritionist_rating || selectedCheckResponse.psychologist_rating ||
-                      selectedCheckResponse.coach_rating || selectedCheckResponse.progress_rating) && (
-                      <div className="mb-4">
+                    {((visibleRatingColumns.nutrizione && selectedCheckResponse.nutritionist_rating) ||
+                      (visibleRatingColumns.psicologia && selectedCheckResponse.psychologist_rating) ||
+                      (visibleRatingColumns.coach && selectedCheckResponse.coach_rating) ||
+                      (visibleRatingColumns.progresso && selectedCheckResponse.progress_rating)) && (
+                      <div className="mb-4" data-tour="check-ratings">
                         <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
                         <div className="row g-3">
-                          {selectedCheckResponse.nutritionist_rating && (() => {
+                          {visibleRatingColumns.nutrizione && selectedCheckResponse.nutritionist_rating && (() => {
                             const nutri = selectedCheckResponse.nutrizionisti?.[0];
                             return (
                               <div className="col-6 col-md-3">
@@ -1158,7 +1363,7 @@ function CheckAzienda() {
                               </div>
                             );
                           })()}
-                          {selectedCheckResponse.psychologist_rating && (() => {
+                          {visibleRatingColumns.psicologia && selectedCheckResponse.psychologist_rating && (() => {
                             const psico = selectedCheckResponse.psicologi?.[0];
                             return (
                               <div className="col-6 col-md-3">
@@ -1180,7 +1385,7 @@ function CheckAzienda() {
                               </div>
                             );
                           })()}
-                          {selectedCheckResponse.coach_rating && (() => {
+                          {visibleRatingColumns.coach && selectedCheckResponse.coach_rating && (() => {
                             const coach = selectedCheckResponse.coaches?.[0];
                             return (
                               <div className="col-6 col-md-3">
@@ -1202,7 +1407,7 @@ function CheckAzienda() {
                               </div>
                             );
                           })()}
-                          {selectedCheckResponse.progress_rating && (
+                          {visibleRatingColumns.progresso && selectedCheckResponse.progress_rating && (
                             <div className="col-6 col-md-3">
                               <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
                                 <div className="mb-2 d-flex justify-content-center">
@@ -1251,7 +1456,7 @@ function CheckAzienda() {
                     )}
 
                     {/* Professional Feedback (for weekly check) */}
-                    {selectedCheckResponse.type === 'weekly' && (
+                    {selectedCheckResponse.type === 'weekly' && !isOwnRoleFilterLocked && (
                       <div className="mb-4">
                         <h6 className="text-muted mb-3"><i className="ri-feedback-line me-2"></i>Feedback Professionisti</h6>
                         <div className="row g-2">
@@ -1278,6 +1483,38 @@ function CheckAzienda() {
                     )}
 
                     {/* Programs Section (for weekly check) */}
+                    {selectedCheckResponse.type === 'weekly' && isOwnRoleFilterLocked && (
+                      <div className="mb-4">
+                        <h6 className="text-muted mb-3"><i className="ri-feedback-line me-2"></i>Feedback Professionista</h6>
+                        <div className="row g-2">
+                          {teamLeaderProfType === 'nutrizione' && (
+                            <div className="col-12">
+                              <div className="p-3 rounded" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                                <small className="text-muted d-block mb-1">Feedback Nutrizionista</small>
+                                <p className="mb-0 small">{selectedCheckResponse.nutritionist_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                              </div>
+                            </div>
+                          )}
+                          {teamLeaderProfType === 'psicologia' && (
+                            <div className="col-12">
+                              <div className="p-3 rounded" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+                                <small className="text-muted d-block mb-1">Feedback Psicologo</small>
+                                <p className="mb-0 small">{selectedCheckResponse.psychologist_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                              </div>
+                            </div>
+                          )}
+                          {teamLeaderProfType === 'coach' && (
+                            <div className="col-12">
+                              <div className="p-3 rounded" style={{ background: '#dbeafe', border: '1px solid #bfdbfe' }}>
+                                <small className="text-muted d-block mb-1">Feedback Coach</small>
+                                <p className="mb-0 small">{selectedCheckResponse.coach_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {selectedCheckResponse.type === 'weekly' && (
                       <div className="mb-4">
                         <h6 className="text-muted mb-3"><i className="ri-calendar-check-line me-2"></i>Programmi</h6>
@@ -1329,7 +1566,7 @@ function CheckAzienda() {
                     )}
 
                     {/* Text Fields - Reflections */}
-                    <div className="mb-4">
+                    <div className="mb-4" data-tour="check-reflections">
                       <h6 className="text-muted mb-3"><i className="ri-lightbulb-line me-2"></i>Riflessioni</h6>
                       <div className="mb-3">
                         <div className="p-3 rounded" style={{ background: '#f0fdf4' }}>
@@ -1402,6 +1639,32 @@ function CheckAzienda() {
           </div>
         </div>
       )}
+      <SupportWidget
+        pageTitle="Check Azienda"
+        pageDescription="Monitora la qualità del servizio, analizza i KPI dei professionisti e gestisci le criticità in tempo reale."
+        pageIcon={FaChartLine}
+        docsSection="check-azienda"
+        onStartTour={() => setMostraTour(true)}
+        brandName="Suite Clinica"
+        logoSrc="/suitemind.png"
+        accentColor="#22c55e"
+      />
+
+      <GuidedTour
+        steps={tourSteps}
+        isOpen={mostraTour}
+        onClose={() => {
+            setMostraTour(false);
+            // Close modal if open when tour closes
+            setShowCheckResponseModal(false);
+        }}
+        onStepChange={handleTourStepChange}
+        onComplete={() => {
+          setMostraTour(false);
+          setShowCheckResponseModal(false);
+          console.log('Tour Check Azienda completato');
+        }}
+      />
     </div>
   );
 }

@@ -26,6 +26,7 @@ const SideBar = () => {
   } = useContext(ThemeContext);
 
   const { user } = useAuth();
+  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
 
   const [state, setState] = useReducer(reducer, initialState);
   const handleMenuActive = status => {
@@ -80,6 +81,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {MenuList.map((data, index) => {
+            if (data.adminOnly && !isAdmin) {
+              return null;
+            }
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
               return (
@@ -160,18 +164,6 @@ const SideBar = () => {
             }
           })}
 
-          {/* Admin Settings - solo per admin */}
-          {user?.is_admin && (
-            <>
-              <li className="nav-label menu-title">Impostazioni</li>
-              <li className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
-                <Link to="/admin/ghl-settings" className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
-                  <i className="ri-settings-3-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
-                  <span className="nav-text">GHL Settings</span>
-                </Link>
-              </li>
-            </>
-          )}
         </ul>
 
 

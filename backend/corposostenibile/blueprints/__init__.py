@@ -13,12 +13,18 @@ from . import (
     recruiting,
     respond_io,
     review,
+    push_notifications,
     sales_form,
     team,
+    team_tickets,
     ticket,
     welcome,
     client_checks,
     manual,
+    tasks,
+    search,
+    sop_chatbot,
+
 )
 
 __all__ = [
@@ -34,10 +40,15 @@ __all__ = [
     'recruiting',
     'respond_io',
     'review',
+    'push_notifications',
     'sales_form',
     'team',
+    'team_tickets',
     'ticket',
     'welcome',
     'client_checks',
     'manual',
+    'tasks',
+    'search',
+    'sop_chatbot',
 ]

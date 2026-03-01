@@ -5,6 +5,17 @@ import { Link } from "react-router-dom";
 import { MenuList } from './Menu';
 import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
+import {
+  canAccessAiAssignments,
+  canAccessCapacity,
+  canAccessGlobalCheckPage,
+  canAccessQualityPage,
+  canAccessTeamLists,
+  canAccessTrialPages,
+  isHealthManagerTeamLeader,
+  isHealthManagerUser,
+  isProfessionistaStandard,
+} from "../../../utils/rbacScope";
 
 const reducer = (previousState, updatedState) => ({
   ...previousState,
@@ -79,9 +90,50 @@ const SideBar = () => {
 
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
-          {MenuList.map((data, index) => {
+          {(isHealthManagerTeamLeader(user)
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            : isHealthManagerUser(user)
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
+            : user?.role === 'influencer'
+            ? MenuList.filter(item => ['Pazienti', 'Profilo', 'CLIENTI', 'TEAM'].includes(item.title))
+            : user?.is_trial
+              ? MenuList.filter(item => {
+                // Trial users - filtra per stage
+                if (user.trial_stage === 1) {
+                  // Stage 1: Solo Dashboard e Formazione
+                  return ['Dashboard', 'Formazione', 'MAIN MENU'].includes(item.title);
+                } else if (user.trial_stage === 2) {
+                  // Stage 2: Dashboard, Formazione + Pazienti
+                  return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
+                } else {
+                  // Stage 3+ (già promosso): menu completo
+                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
+                    return false;
+                  }
+                  return true;
+                }
+              })
+              : MenuList.filter(item => {
+                if (item.title === 'Quality' && !canAccessQualityPage(user)) {
+                  return false;
+                }
+                if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
+                  return false;
+                }
+                if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
+                if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
+                if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
+                if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
+                  return false;
+                }
+                return true;
+              })
+          ).map((data, index) => {
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
+              if (menuClass !== "menu-title" && user && isProfessionistaStandard(user) && data.title === 'TEAM') {
+                return null;
+              }
               return (
                 <li className={`nav-label  ${menuClass} ${data.extraclass}`} key={index}>{data.title}</li>
               )
@@ -161,13 +213,19 @@ const SideBar = () => {
           })}
 
           {/* Admin Settings - solo per admin */}
-          {user?.is_admin && (
+          {(user?.is_admin || user?.role === 'admin') && (
             <>
               <li className="nav-label menu-title">Impostazioni</li>
               <li className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
                 <Link to="/admin/ghl-settings" className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
                   <i className="ri-settings-3-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
                   <span className="nav-text">GHL Settings</span>
+                </Link>
+              </li>
+              <li className={path === 'admin/origins' ? 'mm-active' : ''}>
+                <Link to="/admin/origins" className={path === 'admin/origins' ? 'mm-active' : ''}>
+                  <i className="ri-global-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                  <span className="nav-text">Gestione Origini</span>
                 </Link>
               </li>
             </>

@@ -5,6 +5,7 @@ import teamService, {
   USER_SPECIALTIES,
   ROLE_LABELS,
 } from '../../services/teamService';
+import originsService from '../../services/originsService';
 
 function TeamAdd() {
   const navigate = useNavigate();
@@ -27,7 +28,27 @@ function TeamAdd() {
     role: '',
     specialty: '',
     avatar_path: '',
+    max_clients: '',
   });
+
+  const [allOrigins, setAllOrigins] = useState([]);
+  const [selectedOrigin, setSelectedOrigin] = useState('');
+
+  // Fetch origins on component mount
+  useEffect(() => {
+    fetchOrigins();
+  }, []);
+
+  const fetchOrigins = async () => {
+    try {
+      const result = await originsService.getOrigins();
+      if (result.success) {
+        setAllOrigins(result.origins);
+      }
+    } catch (err) {
+      console.error('Error fetching origins:', err);
+    }
+  };
 
   // Fetch member data in edit mode
   useEffect(() => {
@@ -48,8 +69,11 @@ function TeamAdd() {
         last_name: data.last_name || '',
         role: data.role || '',
         specialty: data.specialty || '',
-        avatar_path: data.avatar_path || '',
+        max_clients: data.max_clients || '',
       });
+      if (data.role === 'influencer' && data.influencer_origin) {
+        setSelectedOrigin(data.influencer_origin.id);
+      }
       if (data.avatar_path) {
         setAvatarPreview(data.avatar_path);
       }
@@ -68,6 +92,11 @@ function TeamAdd() {
     if (name === 'role') {
       setFormData(prev => ({ ...prev, specialty: '' }));
     }
+  };
+
+
+  const handleOriginChange = (e) => {
+    setSelectedOrigin(e.target.value);
   };
 
   const handleAvatarClick = () => {
@@ -153,7 +182,10 @@ function TeamAdd() {
         first_name: formData.first_name,
         last_name: formData.last_name,
         role: formData.role,
+
         specialty: formData.specialty || null,
+        max_clients: formData.max_clients !== '' ? parseInt(formData.max_clients) : null,
+        origin_id: formData.role === 'influencer' ? (selectedOrigin || null) : null,
       };
 
       // Only include password if provided
@@ -192,7 +224,8 @@ function TeamAdd() {
   };
 
   const getSpecialtiesForRole = () => {
-    return USER_SPECIALTIES[formData.role] || [];
+    const roleKey = (formData.role || '').toLowerCase();
+    return USER_SPECIALTIES[roleKey] || [];
   };
 
   if (loadingData) {
@@ -413,8 +446,10 @@ function TeamAdd() {
                     <small className="text-muted">
                       {formData.role === 'admin' && 'Accesso completo a tutte le funzionalita'}
                       {formData.role === 'team_leader' && 'Gestisce un team di professionisti'}
-                      {formData.role === 'professionista' && 'Nutrizionista, Psicologo o Coach'}
+                      {formData.role === 'professionista' && 'Nutrizionista, Psicologo, Coach o Medico'}
                       {formData.role === 'team_esterno' && 'Collaboratore esterno'}
+                      {formData.role === 'influencer' && 'Gestione origine e visibilità clienti'}
+                      {formData.role === 'health_manager' && 'Health Manager – gestione pazienti e onboarding'}
                     </small>
                   </div>
                   <div className="col-md-6">
@@ -434,7 +469,57 @@ function TeamAdd() {
                       ))}
                     </select>
                   </div>
+                  {/* Max Clients for Professionals */}
+                  {(formData.role === 'professionista' || formData.role === 'team_leader' || formData.role === 'health_manager') && (
+                    <div className="col-md-6 animate__animated animate__fadeIn">
+                      <label className="form-label">Numero Massimo Clienti</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="max_clients"
+                        value={formData.max_clients}
+                        onChange={handleChange}
+                        min="0"
+                        placeholder="Lascia vuoto per nessun limite"
+                      />
+                      <small className="text-muted">
+                        Limite clienti assegnabili manualmente o via AI.
+                      </small>
+                    </div>
+                  )}
                 </div>
+
+                {/* Origins Selection for Influencers */}
+                {formData.role === 'influencer' && (
+                  <div className="mt-4 animate__animated animate__fadeIn">
+                    <h6 className="mb-3">Assegna Origine</h6>
+                    <div className="card bg-light border-0">
+                      <div className="card-body">
+                        {allOrigins.length === 0 ? (
+                          <p className="text-muted mb-0">Nessuna origine disponibile.</p>
+                        ) : (
+                          <select
+                            className="form-select"
+                            value={selectedOrigin}
+                            onChange={handleOriginChange}
+                          >
+                            <option value="">Seleziona un'origine...</option>
+                            {allOrigins
+                              .filter(o => o.active)
+                              .map(origin => (
+                                <option key={origin.id} value={origin.id}>
+                                  {origin.name}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+                        <small className="text-muted d-block mt-2">
+                          Seleziona l'origine dei clienti visibili a questo influencer.
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Card Footer */}

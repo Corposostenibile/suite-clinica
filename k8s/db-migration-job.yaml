@@ -1,0 +1,566 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: suite-clinica-db-migration
+  labels:
+    app: suite-clinica
+spec:
+  # Elimina automaticamente il Job poco dopo il completamento
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: Never
+
+      # K8s 1.29+ Native Sidecar: Il proxy viene definito qui ma gira come sidecar
+      initContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
+        restartPolicy: Always  # <--- Questo lo rende un Sidecar che muore col main container
+        args:
+          - "--port=5432"
+          - "--credentials-file=/secrets/cloudsql/credentials.json"
+          - "suite-clinica:europe-west8:suite-clinica-db-prod"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: sql-proxy-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+
+      containers:
+      - name: migrator
+        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:migration-debug-6
+        imagePullPolicy: Always
+        env:
+        - name: NEW_SUITE_BACKUP
+          value: /data/backups/new_suite_backups/schema_latest.sql
+        - name: OLD_SUITE_BACKUP
+          value: /data/backups/old_suite_backups/db_backup_20260205_121004.dump
+        - name: OUTPUT_FILE
+          value: /data/backups/migration_output/migrated_db.sql
+        - name: TMPDIR
+          value: /data/backups/migration_output/tmp
+        - name: MIGRATION_TMP_DIR
+          value: /data/backups/migration_output/tmp
+        - name: MIGRATION_PROGRESS_FILE
+          value: /data/backups/migration_output/migration_progress.tsv
+        - name: MIGRATION_SPLIT_DIR
+          value: /data/backups/migration_output/tables
+        - name: MIGRATION_ORDER_FILE
+          value: /data/backups/migration_output/tables/order.tsv
+        - name: MIGRATION_SKIP_COMBINED_DUMP
+          value: "1"
+        - name: MIGRATION_STRICT_COUNTS
+          value: "1"
+        - name: MIGRATION_RESUME_FROM_STEP
+          value: "1"
+        - name: MIGRATION_VALIDATE_FIRST
+          value: "0"
+        - name: MIGRATION_REFRESH_NEW_SCHEMA
+          value: "1"
+        - name: MIGRATION_SCHEMA_REFRESH_STRICT
+          value: "1"
+        - name: PGHOST
+          value: "127.0.0.1"
+        - name: PGPORT
+          value: "5432"
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        - name: PGDATABASE
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: database
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -euo pipefail
+          echo "[migration] preflight checks..."
+          if [ ! -f "$NEW_SUITE_BACKUP" ]; then
+            echo "[migration][error] NEW_SUITE_BACKUP not found: $NEW_SUITE_BACKUP"
+            ls -lah /data/backups/new_suite_backups || true
+            exit 1
+          fi
+          if [ ! -f "$OLD_SUITE_BACKUP" ]; then
+            echo "[migration][error] OLD_SUITE_BACKUP not found: $OLD_SUITE_BACKUP"
+            ls -lah /data/backups/old_suite_backups || true
+            exit 1
+          fi
+          echo "[migration] waiting for Cloud SQL Proxy..."
+          until pg_isready -h "${PGHOST}" -p "${PGPORT}"; do
+            sleep 2
+          done
+
+          mkdir -p /data/backups/migration_output/tmp
+          mkdir -p /data/backups/migration_output
+          mkdir -p /data/backups/migration_output/tables
+          rm -rf /data/backups/migration_output/tmp/migration_tables_* || true
+          rm -f /data/backups/migration_output/tmp/tmp.* || true
+          rm -f /data/backups/migration_output/tables/*.sql || true
+          rm -f /data/backups/migration_output/tables/order.tsv || true
+          rm -f /data/backups/migration_output/migration_progress.tsv || true
+          rm -f /data/backups/migration_output/migrated_dump.sql || true
+
+          echo "[migration] generating transformed SQL dump..."
+          python /app/scripts/migration_scripts/schema_comparator.py
+          test -f "${OUTPUT_FILE}"
+
+          print_key_score() {
+            PASS="$1"
+            for TBL in users clienti weekly_checks weekly_check_responses weekly_check_link_assignments dca_checks dca_check_responses minor_checks minor_check_responses; do
+              SRC=$(awk -F '\t' -v t="${TBL}" '$1==t{print $2; exit}' "${MIGRATION_PROGRESS_FILE}")
+              if [ -z "${SRC}" ]; then SRC=0; fi
+              TGT=$(psql -At -q -v ON_ERROR_STOP=0 -c "SELECT count(*) FROM public.\"${TBL}\";" 2>/dev/null | tr -d '[:space:]')
+              if [ -z "${TGT}" ]; then TGT=0; fi
+              PCT=$(awk -v s="${SRC}" -v t="${TGT}" 'BEGIN{ if (s==0) printf "100.00"; else printf "%.2f", (t/s)*100 }')
+              echo "[migration][score][key] pass=${PASS} table=${TBL} source=${SRC} target=${TGT} pct=${PCT}"
+            done
+          }
+
+          if [ ! -f "${MIGRATION_ORDER_FILE}" ]; then
+            echo "[migration][error] missing order file: ${MIGRATION_ORDER_FILE}"
+            exit 1
+          fi
+
+          TOTAL_TABLES=$(awk -F '\t' 'NR>1{n++} END{print n+0}' "${MIGRATION_ORDER_FILE}")
+          TOTAL_SOURCE=$(awk -F '\t' 'NR>1{s+=$3} END{print s+0}' "${MIGRATION_ORDER_FILE}")
+          RESUME_FROM_STEP="${MIGRATION_RESUME_FROM_STEP:-1}"
+          if ! [[ "${RESUME_FROM_STEP}" =~ ^[0-9]+$ ]] || [ "${RESUME_FROM_STEP}" -lt 1 ]; then
+            RESUME_FROM_STEP=1
+          fi
+          if [ "${RESUME_FROM_STEP}" -gt "${TOTAL_TABLES}" ]; then
+            RESUME_FROM_STEP="${TOTAL_TABLES}"
+          fi
+          DISPLAY_TOTAL=$((TOTAL_TABLES - RESUME_FROM_STEP + 1))
+          if [ "${DISPLAY_TOTAL}" -lt 1 ]; then
+            DISPLAY_TOTAL=1
+          fi
+          if [ "${TOTAL_TABLES}" -eq 0 ]; then
+            echo "[migration][error] no tables to replay"
+            exit 1
+          fi
+
+          if [ "${RESUME_FROM_STEP}" -eq 1 ]; then
+            TRUNCATE_LIST=$(awk -F '\t' 'NR>1{printf "%spublic.\"%s\"", sep, $2; sep=", "}' "${MIGRATION_ORDER_FILE}")
+            echo "[migration] truncating ${TOTAL_TABLES} tables before replay..."
+            psql -q -v ON_ERROR_STOP=1 -c "TRUNCATE TABLE ${TRUNCATE_LIST} CASCADE;"
+          else
+            echo "[migration] resume mode enabled: starting from step ${RESUME_FROM_STEP}/${TOTAL_TABLES} (display 1/${DISPLAY_TOTAL}, truncate skipped)"
+          fi
+
+          CUR_TABLE=0
+          CUR_SOURCE=0
+          CUR_TARGET=0
+          if [ "${RESUME_FROM_STEP}" -gt 1 ]; then
+            CUR_SOURCE=$(awk -F '\t' -v rs="${RESUME_FROM_STEP}" 'NR>1{r++; if (r<rs) s+=$3} END{print s+0}' "${MIGRATION_ORDER_FILE}")
+            PRE_ROW=0
+            while IFS=$'\t' read -r P_IDX P_TBL P_SRC P_FILE; do
+              if [ "${P_IDX}" = "idx" ] || [ -z "${P_IDX}" ]; then
+                continue
+              fi
+              PRE_ROW=$((PRE_ROW + 1))
+              if [ "${PRE_ROW}" -ge "${RESUME_FROM_STEP}" ]; then
+                continue
+              fi
+              P_TGT=$(psql -At -q -v ON_ERROR_STOP=0 -c "SELECT count(*) FROM public.\"${P_TBL}\";" 2>/dev/null | tr -d '[:space:]')
+              if [ -z "${P_TGT}" ]; then P_TGT=0; fi
+              CUR_TARGET=$((CUR_TARGET + P_TGT))
+            done < "${MIGRATION_ORDER_FILE}"
+          fi
+
+          VALIDATE_FIRST="${MIGRATION_VALIDATE_FIRST:-1}"
+          if [ "${VALIDATE_FIRST}" = "1" ] || [ "${VALIDATE_FIRST}" = "true" ] || [ "${VALIDATE_FIRST}" = "yes" ]; then
+            echo "[migration] validate-first enabled: dry-run checks from step ${RESUME_FROM_STEP}/${TOTAL_TABLES} (display 1/${DISPLAY_TOTAL})"
+            # Validate the whole remaining segment in a single transaction so FK
+            # dependencies between resumed tables are checked correctly.
+            VAL_SCRIPT=$(mktemp)
+            {
+              echo "BEGIN;"
+              VAL_STEP=0
+              ROW_NO=0
+              while IFS=$'\t' read -r V_IDX V_TBL V_SRC V_FILE; do
+                if [ "${V_IDX}" = "idx" ] || [ -z "${V_IDX}" ]; then
+                  continue
+                fi
+                ROW_NO=$((ROW_NO + 1))
+                if [ "${ROW_NO}" -lt "${RESUME_FROM_STEP}" ]; then
+                  continue
+                fi
+                VAL_STEP=$((VAL_STEP + 1))
+                echo "\\echo [migration][validate][progress] step=${VAL_STEP}/${DISPLAY_TOTAL} table=${V_TBL} status=queued"
+                printf "\\i %s\n" "${V_FILE}"
+              done < "${MIGRATION_ORDER_FILE}"
+              echo "ROLLBACK;"
+            } > "${VAL_SCRIPT}"
+
+            V_ERR_FILE=$(mktemp)
+            if ! psql -v ON_ERROR_STOP=1 -f "${VAL_SCRIPT}" 2>"${V_ERR_FILE}" | sed -n 's/^\\[migration\\]\\[validate\\]\\[progress\\]/&/p'; then
+              ERR_SRC_FILE=$(sed -n 's#.*\(/data/backups/migration_output/tables/[0-9][0-9][0-9][0-9]_[^:]*\.sql\):.*#\1#p' "${V_ERR_FILE}" | head -n1)
+              if [ -n "${ERR_SRC_FILE}" ]; then
+                ERR_BASE=$(basename "${ERR_SRC_FILE}")
+                ERR_TABLE="${ERR_BASE#*_}"
+                ERR_TABLE="${ERR_TABLE%.sql}"
+                echo "[migration][validate][error] table=${ERR_TABLE} mode=cumulative"
+              else
+                echo "[migration][validate][error] table=unknown mode=cumulative"
+              fi
+              sed -n '1,20p' "${V_ERR_FILE}" | sed 's/^/[migration][validate][detail] /' || true
+              rm -f "${V_ERR_FILE}" "${VAL_SCRIPT}"
+              echo "[migration][validate][summary] errors=1 action=fix_and_rerun"
+              exit 1
+            fi
+            rm -f "${V_ERR_FILE}" "${VAL_SCRIPT}"
+            echo "[migration][validate][summary] errors=0 action=replay"
+          fi
+
+          INCOMPLETE_TABLES=0
+          ROW_NO=0
+          while IFS=$'\t' read -r IDX TBL SRC FILE; do
+            if [ "${IDX}" = "idx" ] || [ -z "${IDX}" ]; then
+              continue
+            fi
+            ROW_NO=$((ROW_NO + 1))
+            if [ "${ROW_NO}" -lt "${RESUME_FROM_STEP}" ]; then
+              continue
+            fi
+            CUR_TABLE=$((CUR_TABLE + 1))
+            DISPLAY_STEP="${CUR_TABLE}"
+            CUR_SOURCE=$((CUR_SOURCE + SRC))
+            ERR_FILE=$(mktemp)
+            if ! psql -q -v ON_ERROR_STOP=1 -f "${FILE}" >/dev/null 2>"${ERR_FILE}"; then
+              echo "[migration][error][table] name=${TBL} step=${DISPLAY_STEP}/${DISPLAY_TOTAL} failed=true"
+              sed -n '1,20p' "${ERR_FILE}" || true
+              rm -f "${ERR_FILE}"
+              exit 1
+            fi
+            rm -f "${ERR_FILE}"
+            TGT=$(psql -At -q -v ON_ERROR_STOP=0 -c "SELECT count(*) FROM public.\"${TBL}\";" 2>/dev/null | tr -d '[:space:]')
+            if [ -z "${TGT}" ]; then TGT=0; fi
+            CUR_TARGET=$((CUR_TARGET + TGT))
+            TOTAL_PCT=$(awk -v s="${TOTAL_SOURCE}" -v t="${CUR_TARGET}" 'BEGIN{ if (s==0) printf "100.00"; else printf "%.2f", (t/s)*100 }')
+            TABLE_PCT=$(awk -v s="${SRC}" -v t="${TGT}" 'BEGIN{ if (s==0) printf "100.00"; else printf "%.2f", (t/s)*100 }')
+            echo "[migration][progress] table=${TBL} step=${DISPLAY_STEP}/${DISPLAY_TOTAL} source=${SRC} target=${TGT} table_pct=${TABLE_PCT} total_target=${CUR_TARGET} total_source=${TOTAL_SOURCE} total_pct=${TOTAL_PCT}"
+            if [ "${TGT}" -ne "${SRC}" ]; then
+              MISSING=$((SRC - TGT))
+              if [ "${MISSING}" -lt 0 ]; then MISSING=0; fi
+              echo "[migration][warn][table] name=${TBL} source=${SRC} target=${TGT} missing=${MISSING}"
+              INCOMPLETE_TABLES=$((INCOMPLETE_TABLES + 1))
+            fi
+            if [ $((DISPLAY_STEP % 20)) -eq 0 ] || [ "${TBL}" = "users" ] || [ "${TBL}" = "clienti" ] || [ "${TBL}" = "weekly_checks" ] || [ "${TBL}" = "weekly_check_responses" ] || [ "${TBL}" = "weekly_check_link_assignments" ]; then
+              print_key_score "stream"
+            fi
+          done < "${MIGRATION_ORDER_FILE}"
+          print_key_score "final"
+
+          echo "[migration] post-alignment: backfill users.specialty..."
+          psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER TYPE public.teamtypeenum ADD VALUE IF NOT EXISTS 'health_manager';
+
+          WITH hm_users AS (
+            SELECT DISTINCT health_manager_id AS user_id
+            FROM clienti
+            WHERE health_manager_id IS NOT NULL
+          )
+          UPDATE users u
+          SET role = 'health_manager'::public.userroleenum
+          FROM hm_users h
+          WHERE u.id = h.user_id
+            AND u.is_admin = false
+            AND (
+              u.role IS NULL
+              OR u.role = 'professionista'::public.userroleenum
+            );
+
+          UPDATE users
+          SET role = 'team_leader'::public.userroleenum,
+              is_active = true,
+              updated_at = NOW()
+          WHERE lower(trim(first_name)) = 'daniela'
+            AND lower(trim(last_name)) = 'mastropasqua'
+            AND is_admin = false;
+
+          INSERT INTO teams (
+            name,
+            description,
+            team_type,
+            department_id,
+            head_id,
+            is_active,
+            created_at,
+            updated_at
+          )
+          SELECT
+            'Health Manager - Team Unico',
+            'Team unico Health Manager',
+            'health_manager'::public.teamtypeenum,
+            13,
+            u.id,
+            true,
+            NOW(),
+            NOW()
+          FROM users u
+          WHERE lower(trim(u.first_name)) = 'daniela'
+            AND lower(trim(u.last_name)) = 'mastropasqua'
+          ON CONFLICT (team_type, name) DO UPDATE
+          SET head_id = EXCLUDED.head_id,
+              department_id = EXCLUDED.department_id,
+              is_active = true,
+              updated_at = NOW();
+
+          WITH hm_team AS (
+            SELECT id
+            FROM teams
+            WHERE team_type = 'health_manager'::public.teamtypeenum
+              AND name = 'Health Manager - Team Unico'
+            LIMIT 1
+          ),
+          hm_members AS (
+            SELECT DISTINCT health_manager_id AS user_id
+            FROM clienti
+            WHERE health_manager_id IS NOT NULL
+            UNION
+            SELECT u.id
+            FROM users u
+            WHERE lower(trim(u.first_name)) = 'daniela'
+              AND lower(trim(u.last_name)) = 'mastropasqua'
+          )
+          INSERT INTO team_members (team_id, user_id, joined_at)
+          SELECT t.id, m.user_id, NOW()
+          FROM hm_team t
+          JOIN hm_members m ON true
+          JOIN users u ON u.id = m.user_id
+          WHERE u.is_active = true
+          ON CONFLICT DO NOTHING;
+
+          WITH src AS (
+            SELECT nutrizionista_id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM clienti
+            WHERE nutrizionista_id IS NOT NULL
+            GROUP BY nutrizionista_id
+            UNION ALL
+            SELECT coach_id AS user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM clienti
+            WHERE coach_id IS NOT NULL
+            GROUP BY coach_id
+            UNION ALL
+            SELECT psicologa_id AS user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM clienti
+            WHERE psicologa_id IS NOT NULL
+            GROUP BY psicologa_id
+            UNION ALL
+            SELECT user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM cliente_nutrizionisti
+            GROUP BY user_id
+            UNION ALL
+            SELECT user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM cliente_coaches
+            GROUP BY user_id
+            UNION ALL
+            SELECT user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM cliente_psicologi
+            GROUP BY user_id
+            UNION ALL
+            SELECT u.id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM users u
+            JOIN clienti c ON lower(trim(c.nutrizionista)) = lower(trim(concat_ws(' ', u.first_name, u.last_name)))
+            GROUP BY u.id
+            UNION ALL
+            SELECT u.id AS user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM users u
+            JOIN clienti c ON lower(trim(c.coach)) = lower(trim(concat_ws(' ', u.first_name, u.last_name)))
+            GROUP BY u.id
+            UNION ALL
+            SELECT u.id AS user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM users u
+            JOIN clienti c ON lower(trim(c.psicologa)) = lower(trim(concat_ws(' ', u.first_name, u.last_name)))
+            GROUP BY u.id
+            UNION ALL
+            SELECT nutritionist_user_id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM typeform_responses WHERE nutritionist_user_id IS NOT NULL
+            GROUP BY nutritionist_user_id
+            UNION ALL
+            SELECT coach_user_id AS user_id, 'coach'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM typeform_responses WHERE coach_user_id IS NOT NULL
+            GROUP BY coach_user_id
+            UNION ALL
+            SELECT psychologist_user_id AS user_id, 'psicologo'::public.userspecialtyenum AS spec, count(*)::int AS cnt
+            FROM typeform_responses WHERE psychologist_user_id IS NOT NULL
+            GROUP BY psychologist_user_id
+            UNION ALL
+            SELECT user_id,
+                   CASE
+                     WHEN lower(tipo_professionista) = 'nutrizionista' THEN 'nutrizionista'::public.userspecialtyenum
+                     WHEN lower(tipo_professionista) = 'coach' THEN 'coach'::public.userspecialtyenum
+                     WHEN lower(tipo_professionista) IN ('psicologa', 'psicologo') THEN 'psicologo'::public.userspecialtyenum
+                     WHEN lower(tipo_professionista) = 'consulente' THEN 'nutrizionista'::public.userspecialtyenum
+                     ELSE NULL
+                   END AS spec,
+                   count(*)::int AS cnt
+            FROM cliente_professionista_history
+            WHERE user_id IS NOT NULL
+            GROUP BY user_id,
+                     CASE
+                       WHEN lower(tipo_professionista) = 'nutrizionista' THEN 'nutrizionista'::public.userspecialtyenum
+                       WHEN lower(tipo_professionista) = 'coach' THEN 'coach'::public.userspecialtyenum
+                       WHEN lower(tipo_professionista) IN ('psicologa', 'psicologo') THEN 'psicologo'::public.userspecialtyenum
+                       WHEN lower(tipo_professionista) = 'consulente' THEN 'nutrizionista'::public.userspecialtyenum
+                       ELSE NULL
+                     END
+          ),
+          ranked AS (
+            SELECT user_id, spec, cnt,
+                   row_number() OVER (
+                     PARTITION BY user_id
+                     ORDER BY cnt DESC,
+                       CASE spec
+                         WHEN 'nutrizionista'::public.userspecialtyenum THEN 1
+                         WHEN 'coach'::public.userspecialtyenum THEN 2
+                         WHEN 'psicologo'::public.userspecialtyenum THEN 3
+                         ELSE 9
+                       END
+                   ) AS rn
+            FROM src
+            WHERE spec IS NOT NULL
+          ),
+          best AS (
+            SELECT user_id, spec
+            FROM ranked
+            WHERE rn = 1
+          )
+          UPDATE users u
+          SET specialty = b.spec
+          FROM best b
+          WHERE u.id = b.user_id
+            AND u.role = 'professionista'
+            AND u.specialty IS NULL;
+
+          UPDATE users
+          SET specialty = 'psicologo'::public.userspecialtyenum
+          WHERE role = 'professionista'
+            AND specialty IS NULL
+            AND (email ILIKE '%psi%' OR email ILIKE '%psic%');
+
+          UPDATE users
+          SET specialty = 'coach'::public.userspecialtyenum
+          WHERE role = 'professionista'
+            AND specialty IS NULL
+            AND email ILIKE '%coach%';
+
+          UPDATE users
+          SET specialty = 'nutrizionista'::public.userspecialtyenum
+          WHERE role = 'professionista'
+            AND specialty IS NULL
+            AND (email ILIKE '%nutri%' OR email ILIKE '%diet%');
+
+          SQL
+
+          echo "[migration] ensure required columns introduced by recent releases..."
+          psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER TABLE public.call_bonus
+            ADD COLUMN IF NOT EXISTS note_richiesta text,
+            ADD COLUMN IF NOT EXISTS ai_analysis jsonb,
+            ADD COLUMN IF NOT EXISTS ai_matches jsonb,
+            ADD COLUMN IF NOT EXISTS booking_confirmed boolean DEFAULT false,
+            ADD COLUMN IF NOT EXISTS data_booking_confirmed timestamp;
+
+          ALTER TABLE public.clienti_version
+            ADD COLUMN IF NOT EXISTS data_inizio_nutrizione date,
+            ADD COLUMN IF NOT EXISTS data_scadenza_nutrizione date,
+            ADD COLUMN IF NOT EXISTS data_inizio_coach date,
+            ADD COLUMN IF NOT EXISTS data_scadenza_coach date,
+            ADD COLUMN IF NOT EXISTS data_inizio_psicologia date,
+            ADD COLUMN IF NOT EXISTS data_scadenza_psicologia date,
+            ADD COLUMN IF NOT EXISTS show_in_clienti_lista boolean;
+          SQL
+
+          echo "[migration] running schema parity check..."
+          PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
+
+          psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO public.users (
+            email, password_hash, first_name, last_name,
+            is_admin, is_active, role, is_external, is_trial,
+            created_at, updated_at
+          ) VALUES (
+            'dev@corposostenibile.it',
+            'scrypt:32768:8:1$LMH8SAMYpZQWvxow$f044cdba43c067d884837625b9057d6330fcbb5e5c3b5a1a0635de6f60f08c6f149f635d6973430c3f377138d2e2052c865b03ffa353669fd1f075d84b0b9128',
+            'Dev',
+            'Admin',
+            true,
+            true,
+            'admin',
+            false,
+            false,
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT (email) DO UPDATE SET
+            password_hash = EXCLUDED.password_hash,
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            is_admin = true,
+            is_active = true,
+            role = 'admin',
+            is_external = false,
+            is_trial = false,
+            updated_at = NOW();
+          SQL
+
+          echo "[migration] final row counts snapshot..."
+          psql -v ON_ERROR_STOP=0 -c "select count(*) as users_count from public.users;" || true
+          psql -v ON_ERROR_STOP=0 -c "select count(*) as clienti_count from public.clienti;" || true
+          psql -v ON_ERROR_STOP=0 -c "select count(*) as weekly_checks_count from public.weekly_checks;" || true
+          psql -v ON_ERROR_STOP=0 -c "select count(*) as weekly_check_responses_count from public.weekly_check_responses;" || true
+          psql -v ON_ERROR_STOP=0 -c "select count(*) as weekly_check_link_assignments_count from public.weekly_check_link_assignments;" || true
+
+          if [ "${MIGRATION_STRICT_COUNTS:-1}" = "1" ] && [ "${INCOMPLETE_TABLES}" -gt 0 ]; then
+            echo "[migration][error] incomplete_tables=${INCOMPLETE_TABLES} strict_counts=1"
+            exit 1
+          fi
+
+          echo "[migration] done"
+        volumeMounts:
+        - name: db-backups
+          mountPath: /data/backups
+        - name: migration-script
+          mountPath: /app/scripts/migration_scripts/schema_comparator.py
+          subPath: schema_comparator.py
+        - name: migration-script
+          mountPath: /app/scripts/migration_scripts/verify_schema_parity.py
+          subPath: verify_schema_parity.py
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+            ephemeral-storage: "1Gi"
+          limits:
+            cpu: "1000m"
+            memory: "3Gi"
+            ephemeral-storage: "8Gi"
+            
+      volumes:
+      - name: db-backups
+        persistentVolumeClaim:
+          claimName: db-backups-pvc-c
+      - name: sql-proxy-key
+        secret:
+          secretName: sql-proxy-key
+      - name: migration-script
+        configMap:
+          name: migration-script-config

@@ -13,7 +13,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User
+from corposostenibile.models import User, Team, TeamTypeEnum
 from .routes import _generate_reset_token, _verify_reset_token, _send_reset_email, _send_password_changed_email
 
 # --------------------------------------------------------------------------- #
@@ -50,42 +50,51 @@ def api_login():
         Success: {"success": true, "user": {...}}
         Error: {"success": false, "error": "message"}
     """
-    if current_user.is_authenticated:
+    try:
+        # Ripristina la sessione DB se una richiesta precedente ha lasciato la transazione in errore
+        db.session.rollback()
+        if current_user.is_authenticated:
+            return jsonify({
+                "success": True,
+                "user": _user_to_dict(current_user),
+                "redirect": "/welcome"
+            })
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Dati non validi"}), 400
+
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password") or ""
+        remember_me = bool(data.get("remember_me", False))
+
+        if not email or not password:
+            return jsonify({"success": False, "error": "Email e password sono richiesti"}), 400
+
+        # Rollback prima della query login: il caricamento di current_user può aver lasciato la transazione in errore
+        db.session.rollback()
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            return jsonify({"success": False, "error": "Email non trovata. Verifica l'indirizzo inserito."}), 401
+
+        if not user.is_active:
+            return jsonify({"success": False, "error": "Account disattivato. Contatta il team IT."}), 401
+
+        if not user.password_hash or not check_password_hash(user.password_hash, password):
+            return jsonify({"success": False, "error": "Password errata, riprova."}), 401
+
+        login_user(user, remember=remember_me)
+
         return jsonify({
             "success": True,
-            "user": _user_to_dict(current_user),
+            "user": _user_to_dict(user),
             "redirect": "/welcome"
         })
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "Dati non validi"}), 400
-
-    email = data.get("email", "").lower().strip()
-    password = data.get("password", "")
-    remember_me = data.get("remember_me", False)
-
-    if not email or not password:
-        return jsonify({"success": False, "error": "Email e password sono richiesti"}), 400
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user:
-        return jsonify({"success": False, "error": "Email non trovata. Verifica l'indirizzo inserito."}), 401
-
-    if not user.is_active:
-        return jsonify({"success": False, "error": "Account disattivato. Contatta il team IT."}), 401
-
-    if not check_password_hash(user.password_hash, password):
-        return jsonify({"success": False, "error": "Password errata, riprova."}), 401
-
-    login_user(user, remember=remember_me)
-
-    return jsonify({
-        "success": True,
-        "user": _user_to_dict(user),
-        "redirect": "/welcome"
-    })
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.exception("Login API error: %s", e)
+        return jsonify({"success": False, "error": "Errore durante il login. Riprova più tardi."}), 500
 
 
 @auth_api_bp.route("/logout", methods=["POST"])
@@ -244,14 +253,33 @@ def api_reset_password(token: str):
 
 def _user_to_dict(user: User) -> dict:
     """Convert User model to JSON-safe dict."""
+    role_val = getattr(user, "role", None)
+    role_value = role_val.value if (role_val is not None and hasattr(role_val, "value")) else (str(role_val) if role_val is not None else None)
+    spec = getattr(user, "specialty", None)
+    specialty_value = spec.value if (spec is not None and hasattr(spec, "value")) else (str(spec) if spec is not None else None)
+    full_name = getattr(user, "full_name", None) or f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+    is_hm_team_leader = False
+    if role_value == "team_leader":
+        # Query esplicita per evitare edge-case di lazy-loading sulla relazione teams_led.
+        is_hm_team_leader = db.session.query(Team.id).filter(
+            Team.head_id == user.id,
+            Team.is_active == True,
+            Team.team_type == TeamTypeEnum.health_manager,
+        ).first() is not None
     return {
         "id": user.id,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "full_name": user.full_name if hasattr(user, 'full_name') else f"{user.first_name} {user.last_name}",
-        "is_admin": user.is_admin,
-        "avatar_path": user.avatar_path,
+        "full_name": full_name,
+        "is_admin": getattr(user, "is_admin", False),
+        "role": role_value,
+        "specialty": specialty_value,
+        "avatar_path": getattr(user, "avatar_path", None),
+        "is_trial": getattr(user, "is_trial", False),
+        "trial_stage": getattr(user, "trial_stage", None),
+        "trial_supervisor_id": getattr(user, "trial_supervisor_id", None),
+        "is_health_manager_team_leader": is_hm_team_leader,
     }
 
 

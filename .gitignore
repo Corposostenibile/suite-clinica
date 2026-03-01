@@ -1,43 +1,81 @@
 # Dependencies
 node_modules/
-__pycache__/
-*.pyc
-*.pyo
+frontend/node_modules/
 
-# Environment
+# Environment files
 .env
 .env.local
+.env.*.local
+*.env
 .env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sw?
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
 
 # Build
 dist/
 dist-ssr/
+build/
+*.egg-info/
 *.local
+
+# Database
+*.db
+*.sqlite3
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
 
 # Uploads & Data
 uploads/
-backups/
-logs/
-*.log
 
 # OS
-.DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-*.sw?
-
-# Python
-*.egg-info/
-.eggs/
-
-# Large files
+# Misc
+.cache/
+*.bak
 *.mov
 *.mp4
 *.zip
 *.tar.gz
-
-# Misc
 .running_pids
+backend/vapid_private.pem
+backend/corposostenibile/blueprints/documentation/static/
+# DB old suite backups
+backend/backups
+
+# AGENTS.md
+AGENTS.md
+
+# .agent/rules/clinica.md
+./agent/rules/*
+
+# root screenshots folder for agent screenshots
+screenshots/

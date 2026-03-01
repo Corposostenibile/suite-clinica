@@ -53,6 +53,13 @@ _DEFAULT_EAGER_LOAD = (
     selectinload(Cliente.health_manager_user),
 )
 
+
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, "specialty", None)
+    if hasattr(specialty, "value"):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == "cco" if specialty else False
+
 # --------------------------------------------------------------------------- #
 #  Repository                                                                 #
 # --------------------------------------------------------------------------- #
@@ -95,11 +102,17 @@ class CustomerRepository:
         eager: bool = False,
     ):
         """Ritorna una `Pagination` pronta per template/API."""
-        from sqlalchemy import case
-        from corposostenibile.models import TipologiaClienteEnum
+        from sqlalchemy import case, or_, exists, select
+        from corposostenibile.models import (
+            TipologiaClienteEnum, UserRoleEnum,
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
+            CallBonus, CallBonusStatusEnum,
+            ClienteProfessionistaHistory,
+        )
         from flask_login import current_user
 
         qry: Query = self._base_query(eager=eager)
+        qry = qry.filter(Cliente.show_in_clienti_lista.is_(True))
         if filters:
             qry = apply_customer_filters(qry, filters)  # type: ignore[arg-type]
 
@@ -115,6 +128,131 @@ class CustomerRepository:
                     qry = qry.filter(Cliente.cliente_id.in_(assigned_ids))
                 else:
                     qry = qry.filter(False)  # Nessun cliente assegnato
+        
+        # -------------------------------------------------------------------
+        # FILTRO PER RUOLO (Admin, Team Leader, Professionista)
+        # -------------------------------------------------------------------
+        if current_user.is_authenticated and not current_user.is_trial:
+            user_role = getattr(current_user, 'role', None)
+            
+            # Admin/CCO: vede tutto (nessun filtro)
+            if user_role == UserRoleEnum.admin or current_user.is_admin or _is_cco_user(current_user):
+                pass  # Nessun filtro aggiuntivo
+            
+            # Influencer: già gestito in routes.py
+            elif user_role == UserRoleEnum.influencer:
+                pass  # Già filtrato dalle routes
+            
+            # Team Leader: vede i pazienti assegnati ai membri del suo team
+            elif user_role == UserRoleEnum.team_leader:
+                # Raccoglie tutti i member_ids dei team guidati
+                team_member_ids = set()
+                for team in (current_user.teams_led or []):
+                    for member in (team.members or []):
+                        team_member_ids.add(member.id)
+                
+                if team_member_ids:
+                    # Filtra i pazienti che hanno almeno un professionista del team assegnato (FK singola o M2M)
+                    member_ids_list = list(team_member_ids)
+                    qry = qry.filter(
+                        or_(
+                            # Assegnazione tramite FK singola
+                            Cliente.nutrizionista_id.in_(member_ids_list),
+                            Cliente.coach_id.in_(member_ids_list),
+                            Cliente.psicologa_id.in_(member_ids_list),
+                            Cliente.consulente_alimentare_id.in_(member_ids_list),
+                            # Assegnato a nutrizionista del team (M2M)
+                            exists(
+                                select(cliente_nutrizionisti.c.cliente_id)
+                                .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnato a coach del team (M2M)
+                            exists(
+                                select(cliente_coaches.c.cliente_id)
+                                .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_coaches.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnato a psicologo del team (M2M)
+                            exists(
+                                select(cliente_psicologi.c.cliente_id)
+                                .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_psicologi.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnato a consulente del team (M2M)
+                            exists(
+                                select(cliente_consulenti.c.cliente_id)
+                                .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+                                .where(cliente_consulenti.c.user_id.in_(member_ids_list))
+                            ),
+                            # Assegnazione tramite history (es. Medico nel team)
+                            exists(
+                                select(ClienteProfessionistaHistory.cliente_id).where(
+                                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                                    ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                                    ClienteProfessionistaHistory.is_active.is_(True),
+                                )
+                            ),
+                        )
+                    )
+                else:
+                    # Team Leader senza membri: nessun paziente visibile
+                    qry = qry.filter(False)
+            
+            # Professionista o altro: vede solo i propri pazienti (FK singola o M2M)
+            elif user_role == UserRoleEnum.professionista:
+                user_id = current_user.id
+                qry = qry.filter(
+                    or_(
+                        # Assegnazione tramite FK singola
+                        Cliente.nutrizionista_id == user_id,
+                        Cliente.coach_id == user_id,
+                        Cliente.psicologa_id == user_id,
+                        Cliente.consulente_alimentare_id == user_id,
+                        # Pazienti assegnati come nutrizionista (M2M)
+                        exists(
+                            select(cliente_nutrizionisti.c.cliente_id)
+                            .where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_nutrizionisti.c.user_id == user_id)
+                        ),
+                        # Pazienti assegnati come coach (M2M)
+                        exists(
+                            select(cliente_coaches.c.cliente_id)
+                            .where(cliente_coaches.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_coaches.c.user_id == user_id)
+                        ),
+                        # Pazienti assegnati come psicologo (M2M)
+                        exists(
+                            select(cliente_psicologi.c.cliente_id)
+                            .where(cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_psicologi.c.user_id == user_id)
+                        ),
+                        # Pazienti assegnati come consulente (M2M)
+                        exists(
+                            select(cliente_consulenti.c.cliente_id)
+                            .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+                            .where(cliente_consulenti.c.user_id == user_id)
+                        ),
+                        # Pazienti con call bonus accettata assegnata a questo professionista
+                        exists(
+                            select(CallBonus.cliente_id).where(
+                                CallBonus.cliente_id == Cliente.cliente_id,
+                                CallBonus.professionista_id == user_id,
+                                CallBonus.status == CallBonusStatusEnum.accettata,
+                            )
+                        ),
+                        # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                        exists(
+                            select(ClienteProfessionistaHistory.cliente_id).where(
+                                ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                                ClienteProfessionistaHistory.user_id == user_id,
+                                ClienteProfessionistaHistory.is_active.is_(True),
+                            )
+                        ),
+                    )
+                )
+            elif user_role == UserRoleEnum.health_manager:
+                qry = qry.filter(Cliente.health_manager_id == current_user.id)
         
         # SEMPRE applica l'ordinamento prioritario per tipologia
         # Ordina prima per tipologia (C, B, A hanno priorità), poi per nome

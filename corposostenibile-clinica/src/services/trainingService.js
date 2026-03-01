@@ -48,7 +48,7 @@ reviewApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      window.location.href = '/auth/login';
+      window.location.href = `${import.meta.env.BASE_URL}auth/login`;
     }
     return Promise.reject(error);
   }
@@ -59,8 +59,8 @@ const trainingService = {
    * Ottiene i training ricevuti dall'utente corrente
    * @returns {Promise<Object>} - { trainings, stats }
    */
-  getMyTrainings: async () => {
-    const response = await reviewApi.get('/my-trainings');
+  getMyTrainings: async (params = {}) => {
+    const response = await reviewApi.get('/my-trainings', { params });
     return response.data;
   },
 
@@ -117,6 +117,16 @@ const trainingService = {
    */
   cancelRequest: async (requestId) => {
     const response = await reviewApi.post(`/request/${requestId}/cancel`);
+    return response.data;
+  },
+
+  /**
+   * Risponde a una richiesta di training ricevuta (accetta/rifiuta)
+   * @param {number} requestId
+   * @param {{action: 'accept'|'reject', response_notes?: string}} data
+   */
+  respondToRequest: async (requestId, data) => {
+    const response = await reviewApi.post(`/request/${requestId}/respond`, data);
     return response.data;
   },
 

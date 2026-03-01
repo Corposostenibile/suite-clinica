@@ -178,7 +178,8 @@ def init_app(app):  # noqa: D401
     limiter.init_app(app)
     # Configura storage Redis per rate limiting se specificato
     if app.config.get("PERISKOPE_RATE_LIMIT"):
-        limiter._storage_uri = "redis://localhost:6379/5"
+        import os
+        limiter._storage_uri = os.getenv("RATELIMIT_STORAGE_URI", "redis://localhost:6379/5")
 
     # ── Redis Client ────────────────────────────────────────────────────
     # Inizializza Redis client per WebSocket messaging
@@ -187,8 +188,8 @@ def init_app(app):  # noqa: D401
         redis_client = redis.from_url(
             redis_url,
             decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
+            socket_connect_timeout=2,
+            socket_timeout=2,
             retry_on_timeout=True,
             health_check_interval=30
         )
@@ -300,8 +301,9 @@ def _init_scheduler(app) -> Optional[BackgroundScheduler]:
     # Configurazione jobstores
     jobstores = {}
     
-    # Se Redis è disponibile, usa RedisJobStore per persistenza
-    if redis_client and app.config.get("SCHEDULER_USE_REDIS", True):
+    # Se Redis è disponibile e configurato esplicitamente (non localhost default in prod), usa RedisJobStore
+    redis_host = app.config.get("REDIS_HOST")
+    if redis_client and app.config.get("SCHEDULER_USE_REDIS", True) and redis_host:
         try:
             jobstores['default'] = RedisJobStore(
                 db=app.config.get("SCHEDULER_REDIS_DB", 4),

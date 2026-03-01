@@ -7,16 +7,23 @@ All endpoints are prefixed with /api/team.
 
 import os
 import uuid
+from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import or_, func
+from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct
 from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, team_members
+from corposostenibile.models import (
+    User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum,
+    team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory,
+    ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
+    ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
+    cliente_psicologi, cliente_consulenti
+)
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -53,6 +60,29 @@ def _require_admin():
     return None
 
 
+def _get_visible_user_ids_for_dashboard():
+    """
+    For dashboard stats: which user IDs the current user can see.
+    - Admin: None (all users)
+    - Team Leader: members of teams they lead, plus themselves
+    - Professionista: only current_user.id
+    Returns None = no filter (see all), or a list of user ids.
+    """
+    if not current_user.is_authenticated:
+        return []
+    if current_user.is_admin:
+        return None
+    if getattr(current_user, 'role', None) == UserRoleEnum.team_leader and current_user.teams_led:
+        visible = {current_user.id}
+        for team in current_user.teams_led:
+            if team.members:
+                for m in team.members:
+                    visible.add(m.id)
+        return list(visible)
+    # Professionista or other: only self
+    return [current_user.id]
+
+
 def _get_user_role(user):
     """Get user role from model field."""
     if hasattr(user, 'role') and user.role:
@@ -65,6 +95,302 @@ def _get_user_specialty(user):
     if hasattr(user, 'specialty') and user.specialty:
         return user.specialty.value if hasattr(user.specialty, 'value') else str(user.specialty)
     return None
+
+
+def _is_cco_user(user) -> bool:
+    """True se utente CCO (specialty CCO o dipartimento CCO)."""
+    specialty = _get_user_specialty(user)
+    if specialty == 'cco':
+        return True
+    department_name = getattr(getattr(user, 'department', None), 'name', None)
+    return str(department_name).strip().lower() == 'cco' if department_name else False
+
+
+def _can_view_professional_capacity(user) -> bool:
+    """ACL visualizzazione capienza: admin/CCO tutto, team leader solo membri."""
+    if not user.is_authenticated:
+        return False
+    if user.is_admin or _is_cco_user(user):
+        return True
+    role = _get_user_role(user)
+    return role in {'team_leader', 'health_manager'}
+
+
+def _can_edit_professional_capacity(user) -> bool:
+    """ACL modifica capienza contrattuale: admin/CCO + Team Leader HM."""
+    return user.is_authenticated and (user.is_admin or _is_cco_user(user) or _is_health_manager_team_leader(user))
+
+
+def _can_view_all_team_module_data(user) -> bool:
+    """Admin/CCO can view all data in Team module."""
+    return bool(user.is_authenticated and (user.is_admin or _is_cco_user(user)))
+
+
+def _get_capacity_role_type(user) -> str | None:
+    """Normalizza role_type per tabella professionist_capacity."""
+    if _get_user_role(user) == 'health_manager':
+        return 'health_manager'
+    specialty = _get_user_specialty(user)
+    if specialty in ('nutrizione', 'nutrizionista'):
+        return 'nutrizionista'
+    if specialty in ('psicologia', 'psicologo'):
+        return 'psicologa'
+    if specialty == 'coach':
+        return 'coach'
+    return None
+
+
+def _is_health_manager_team_leader(user) -> bool:
+    """True se team leader HM (team_type HM guidato, specialty o dipartimento)."""
+    if _get_user_role(user) != 'team_leader':
+        return False
+    teams_led = getattr(user, 'teams_led', []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+        if str(team_type or '').strip().lower() == 'health_manager':
+            return True
+    specialty = (_get_user_specialty(user) or '').strip().lower()
+    if specialty == 'health_manager':
+        return True
+    department_name = str(getattr(getattr(user, 'department', None), 'name', '') or '').strip().lower()
+    return ('health' in department_name) or ('customer success' in department_name)
+
+
+def _get_team_leader_member_ids(user_id: int) -> set[int]:
+    """Ritorna ID membri dei team guidati dal team leader."""
+    team_ids = db.session.query(Team.id).filter(
+        Team.head_id == user_id,
+        Team.is_active == True
+    )
+    rows = db.session.query(team_members.c.user_id).filter(
+        team_members.c.team_id.in_(team_ids)
+    ).distinct().all()
+    return {row[0] for row in rows}
+
+
+def _can_access_member_scoped_data(requesting_user, target_user_id: int) -> bool:
+    """
+    ACL per endpoint /members/<id>/* usati in profilo/team.
+    - admin/CCO: tutto
+    - team leader: sé stesso + membri dei propri team
+    - altri: solo sé stessi
+    """
+    if not getattr(requesting_user, 'is_authenticated', False):
+        return False
+    if _can_view_all_team_module_data(requesting_user):
+        return True
+
+    requester_id = getattr(requesting_user, 'id', None)
+    if requester_id is None:
+        return False
+
+    if _get_user_role(requesting_user) == 'team_leader':
+        allowed_ids = _get_team_leader_member_ids(requester_id) | {requester_id}
+        return int(target_user_id) in allowed_ids
+
+    return int(target_user_id) == int(requester_id)
+
+
+def _promote_team_head_to_team_leader(user_id: int | None) -> None:
+    """
+    Mantiene coerente users.role con teams.head_id.
+    Promozione solo in salita (non effettua downgrade automatici).
+    """
+    if not user_id:
+        return
+    user = User.query.get(user_id)
+    if not user or getattr(user, 'is_admin', False):
+        return
+
+    current_role = _get_user_role(user)
+    if current_role in ('admin', 'team_leader'):
+        return
+
+    user.role = UserRoleEnum.team_leader
+
+
+def _get_assigned_clients_count_map(user_ids: list[int]) -> dict[int, int]:
+    """
+    Conteggio clienti assegnati per utente (FK + many-to-many), con count distinct per cliente.
+    """
+    if not user_ids:
+        return {}
+
+    sources = [
+        select(Cliente.nutrizionista_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.nutrizionista_id.in_(user_ids)
+        ),
+        select(Cliente.coach_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.coach_id.in_(user_ids)
+        ),
+        select(Cliente.psicologa_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.psicologa_id.in_(user_ids)
+        ),
+        select(Cliente.consulente_alimentare_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.consulente_alimentare_id.in_(user_ids)
+        ),
+        select(Cliente.health_manager_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.health_manager_id.in_(user_ids)
+        ),
+        select(cliente_nutrizionisti.c.user_id.label('user_id'), cliente_nutrizionisti.c.cliente_id.label('cliente_id')).where(
+            cliente_nutrizionisti.c.user_id.in_(user_ids)
+        ),
+        select(cliente_coaches.c.user_id.label('user_id'), cliente_coaches.c.cliente_id.label('cliente_id')).where(
+            cliente_coaches.c.user_id.in_(user_ids)
+        ),
+        select(cliente_psicologi.c.user_id.label('user_id'), cliente_psicologi.c.cliente_id.label('cliente_id')).where(
+            cliente_psicologi.c.user_id.in_(user_ids)
+        ),
+        select(cliente_consulenti.c.user_id.label('user_id'), cliente_consulenti.c.cliente_id.label('cliente_id')).where(
+            cliente_consulenti.c.user_id.in_(user_ids)
+        ),
+    ]
+
+    assignments_sq = union_all(*sources).subquery()
+    rows = db.session.query(
+        assignments_sq.c.user_id,
+        func.count(distinct(assignments_sq.c.cliente_id)).label('assigned_clients')
+    ).group_by(assignments_sq.c.user_id).all()
+    return {int(user_id): int(count) for user_id, count in rows}
+
+
+def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[tuple[int, str], int]:
+    """
+    Conteggio clienti assegnati per (user_id, role_type) considerando solo
+    lo stato servizio 'attivo' (stato_nutrizione, stato_coach, stato_psicologia).
+    Usato per la tabella capienza professionisti.
+    """
+    if not user_ids:
+        return {}
+
+    result: dict[tuple[int, str], int] = {}
+
+    # Nutrizionista: nutrizionista_id, consulente_alimentare_id, m2m nutrizionisti/consulenti + stato_nutrizione = attivo
+    nut_sources = [
+        select(Cliente.nutrizionista_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.nutrizionista_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(Cliente.consulente_alimentare_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.consulente_alimentare_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(cliente_nutrizionisti.c.user_id.label('user_id'), cliente_nutrizionisti.c.cliente_id.label('cliente_id')).select_from(
+            cliente_nutrizionisti.join(Cliente, cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_nutrizionisti.c.user_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(cliente_consulenti.c.user_id.label('user_id'), cliente_consulenti.c.cliente_id.label('cliente_id')).select_from(
+            cliente_consulenti.join(Cliente, cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_consulenti.c.user_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+    ]
+    nut_sq = union_all(*nut_sources).subquery()
+    nut_rows = db.session.query(
+        nut_sq.c.user_id,
+        func.count(distinct(nut_sq.c.cliente_id)).label('cnt'),
+    ).group_by(nut_sq.c.user_id).all()
+    for user_id, cnt in nut_rows:
+        result[(int(user_id), 'nutrizionista')] = int(cnt)
+
+    # Coach: coach_id, cliente_coaches + stato_coach = attivo
+    coach_sources = [
+        select(Cliente.coach_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.coach_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+        select(cliente_coaches.c.user_id.label('user_id'), cliente_coaches.c.cliente_id.label('cliente_id')).select_from(
+            cliente_coaches.join(Cliente, cliente_coaches.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_coaches.c.user_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+    ]
+    coach_sq = union_all(*coach_sources).subquery()
+    coach_rows = db.session.query(
+        coach_sq.c.user_id,
+        func.count(distinct(coach_sq.c.cliente_id)).label('cnt'),
+    ).group_by(coach_sq.c.user_id).all()
+    for user_id, cnt in coach_rows:
+        result[(int(user_id), 'coach')] = int(cnt)
+
+    # Psicologa: psicologa_id, cliente_psicologi + stato_psicologia = attivo
+    psico_sources = [
+        select(Cliente.psicologa_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+            Cliente.psicologa_id.in_(user_ids),
+            Cliente.stato_psicologia == StatoClienteEnum.attivo,
+        ),
+        select(cliente_psicologi.c.user_id.label('user_id'), cliente_psicologi.c.cliente_id.label('cliente_id')).select_from(
+            cliente_psicologi.join(Cliente, cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_psicologi.c.user_id.in_(user_ids),
+            Cliente.stato_psicologia == StatoClienteEnum.attivo,
+        ),
+    ]
+    psico_sq = union_all(*psico_sources).subquery()
+    psico_rows = db.session.query(
+        psico_sq.c.user_id,
+        func.count(distinct(psico_sq.c.cliente_id)).label('cnt'),
+    ).group_by(psico_sq.c.user_id).all()
+    for user_id, cnt in psico_rows:
+        result[(int(user_id), 'psicologa')] = int(cnt)
+
+    # Health Manager:
+    # - clienti effettivi attivi
+    # - lead pre-onboarding (service_status = pending_assignment)
+    # Entrambi conteggiati da Cliente.health_manager_id, valorizzato dal bridge GHL.
+    hm_rows = db.session.query(
+        Cliente.health_manager_id.label('user_id'),
+        func.count(distinct(Cliente.cliente_id)).label('cnt'),
+    ).filter(
+        Cliente.health_manager_id.in_(user_ids),
+        or_(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.service_status == 'pending_assignment',
+        ),
+    ).group_by(Cliente.health_manager_id).all()
+    for user_id, cnt in hm_rows:
+        result[(int(user_id), 'health_manager')] = int(cnt)
+
+    return result
+
+
+def _get_hm_split_counts(user_ids: list[int]) -> dict[int, dict]:
+    """Return per-HM split: clienti_convertiti (attivo) vs lead_in_attesa (pending_assignment)."""
+    if not user_ids:
+        return {}
+
+    rows = db.session.query(
+        Cliente.health_manager_id.label('user_id'),
+        Cliente.stato_cliente,
+        Cliente.service_status,
+        func.count(distinct(Cliente.cliente_id)).label('cnt'),
+    ).filter(
+        Cliente.health_manager_id.in_(user_ids),
+        or_(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.service_status == 'pending_assignment',
+        ),
+    ).group_by(
+        Cliente.health_manager_id,
+        Cliente.stato_cliente,
+        Cliente.service_status,
+    ).all()
+
+    result: dict[int, dict] = {}
+    for uid, stato, svc_status, cnt in rows:
+        uid = int(uid)
+        if uid not in result:
+            result[uid] = {'clienti_convertiti': 0, 'lead_in_attesa': 0}
+        if stato and stato.value == 'attivo':
+            result[uid]['clienti_convertiti'] += int(cnt)
+        elif svc_status == 'pending_assignment':
+            result[uid]['lead_in_attesa'] += int(cnt)
+
+    return result
 
 
 def _serialize_user(user, include_details=False, include_teams_led=True):
@@ -86,11 +412,20 @@ def _serialize_user(user, include_details=False, include_teams_led=True):
     # Only load teams_led when explicitly requested (causes N+1 queries)
     if include_teams_led and hasattr(user, 'teams_led'):
         data['teams_led'] = [
-            {'id': t.id, 'name': t.name}
+            {'id': t.id, 'name': t.name, 'team_type': t.team_type.value if t.team_type else None}
             for t in (user.teams_led or [])
         ]
     else:
         data['teams_led'] = []
+
+    # Include teams where user is a member
+    if include_details and hasattr(user, 'teams'):
+        data['teams'] = [
+            {'id': t.id, 'name': t.name, 'team_type': t.team_type.value if t.team_type else None}
+            for t in (user.teams or [])
+        ]
+    else:
+        data['teams'] = []
 
     if include_details:
         data.update({
@@ -102,6 +437,13 @@ def _serialize_user(user, include_details=False, include_teams_led=True):
         })
 
     return data
+
+def _serialize_origin(user):
+    """Serialize user origin (for influencers) - now 1:1 relationship."""
+    if hasattr(user, 'influencer_origin') and user.influencer_origin:
+        o = user.influencer_origin
+        return {'id': o.id, 'name': o.name}
+    return None
 
 
 # =============================================================================
@@ -118,7 +460,7 @@ def get_members():
         - page: Page number (default 1)
         - per_page: Items per page (default 25, max 10000)
         - q: Search query (searches name, email)
-        - role: Filter by role (admin, team_leader, professionista, team_esterno)
+        - role: Filter by role (admin, team_leader, professionista, team_esterno, health_manager)
         - specialty: Filter by specialty
         - active: Filter by active status ('1' or '0')
         - department_id: Filter by department
@@ -126,13 +468,23 @@ def get_members():
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 25, type=int), 10000)
     search_query = request.args.get('q', '').strip()
-    role_filter = request.args.get('role', '').strip()
+    role_filter = request.args.get('role', '').strip().lower()
     specialty_filter = request.args.get('specialty', '').strip()
     active_filter = request.args.get('active', '').strip()
     department_id = request.args.get('department_id', type=int)
 
-    # Base query
-    query = User.query
+    # Base query: escludi utenti legacy/senza ruolo dal modulo Team
+    query = User.query.filter(User.role.isnot(None))
+
+    # RBAC base scope
+    if _can_view_all_team_module_data(current_user):
+        pass
+    elif _get_user_role(current_user) == 'team_leader':
+        visible_ids = _get_team_leader_member_ids(current_user.id)
+        visible_ids.add(current_user.id)
+        query = query.filter(User.id.in_(list(visible_ids)))
+    else:
+        query = query.filter(User.id == current_user.id)
 
     # Search filter
     if search_query:
@@ -156,13 +508,46 @@ def get_members():
     if department_id:
         query = query.filter(User.department_id == department_id)
 
-    # Role filter - use new role field directly
+    # Role filter - include team leader as "grade" of professional domains.
     if role_filter:
-        if role_filter in [e.value for e in UserRoleEnum]:
-            query = query.filter(User.role == UserRoleEnum(role_filter))
-        elif role_filter == 'admin':
+        hm_team_leader_ids_sq = db.session.query(Team.head_id).filter(
+            Team.head_id.isnot(None),
+            Team.is_active == True,
+            Team.team_type == TeamTypeEnum.health_manager,
+        ).distinct().subquery()
+
+        if role_filter == 'admin':
             # Fallback for old API calls
             query = query.filter(User.is_admin == True)
+        elif role_filter == 'professionista':
+            # Include standard professionals + team leaders not in HM domain.
+            query = query.filter(
+                or_(
+                    cast(User.role, String) == 'professionista',
+                    and_(
+                        cast(User.role, String) == 'team_leader',
+                        cast(User.specialty, String) != 'health_manager',
+                        ~User.id.in_(select(hm_team_leader_ids_sq.c.head_id)),
+                    ),
+                )
+            )
+        elif role_filter == 'health_manager':
+            # Include HM users + HM team leaders.
+            query = query.filter(
+                or_(
+                    cast(User.role, String) == 'health_manager',
+                    and_(
+                        cast(User.role, String) == 'team_leader',
+                        or_(
+                            cast(User.specialty, String) == 'health_manager',
+                            User.id.in_(select(hm_team_leader_ids_sq.c.head_id)),
+                        ),
+                    ),
+                )
+            )
+        else:
+            # Robust text-based filter to avoid enum drift across branches/environments.
+            query = query.filter(cast(User.role, String) == role_filter)
 
     # Specialty filter - use new specialty field directly
     # Supports comma-separated values (e.g., "nutrizione,nutrizionista")
@@ -202,9 +587,19 @@ def get_member(user_id):
     """Get single team member details."""
     user = User.query.get_or_404(user_id)
 
+    if not _can_view_all_team_module_data(current_user):
+        if _get_user_role(current_user) == 'team_leader':
+            visible_ids = _get_team_leader_member_ids(current_user.id)
+            visible_ids.add(current_user.id)
+            if user_id not in visible_ids:
+                return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
+        elif user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
+
     return jsonify({
         'success': True,
-        **_serialize_user(user, include_details=True)
+        **_serialize_user(user, include_details=True),
+        'influencer_origin': _serialize_origin(user)
     })
 
 
@@ -272,6 +667,22 @@ def create_member():
         # Set password
         user.set_password(data['password'])
 
+        # Handle Origin assignment for Influencers (now 1:1)
+        if role_enum == UserRoleEnum.influencer and 'origin_id' in data:
+            origin_id = data['origin_id']
+            if origin_id:
+                # Find the origin and assign it
+                origin = Origine.query.get(origin_id)
+                if origin:
+                    # Check if origin is already assigned to another influencer
+                    if origin.influencer_id and origin.influencer_id != user.id:
+                        db.session.rollback()
+                        return jsonify({
+                            'success': False,
+                            'message': f'Origine "{origin.name}" è già assegnata ad un altro influencer'
+                        }), HTTPStatus.BAD_REQUEST
+                    origin.influencer_id = user.id
+
         db.session.add(user)
         db.session.commit()
 
@@ -279,7 +690,8 @@ def create_member():
             'success': True,
             'message': 'Membro creato con successo',
             'id': user.id,
-            **_serialize_user(user)
+            **_serialize_user(user),
+            'influencer_origin': _serialize_origin(user)
         }), HTTPStatus.CREATED
 
     except Exception as e:
@@ -349,10 +761,43 @@ def update_member(user_id):
 
         db.session.commit()
 
+
+        # Update Origin assignment for Influencers (now 1:1)
+        if 'origin_id' in data:
+            # Check if user is influencer (either currently or being updated to)
+            current_role = user.role
+            new_role_str = data.get('role')
+            new_role = UserRoleEnum(new_role_str) if new_role_str in [e.value for e in UserRoleEnum] else current_role
+            
+            if new_role == UserRoleEnum.influencer:
+                origin_id = data['origin_id']
+                
+                # Clear current origin if exists
+                if user.influencer_origin:
+                    old_origin = Origine.query.get(user.influencer_origin.id)
+                    if old_origin:
+                        old_origin.influencer_id = None
+                
+                # Assign new origin
+                if origin_id:
+                    new_origin = Origine.query.get(origin_id)
+                    if new_origin:
+                        # Check if origin is already assigned to another influencer
+                        if new_origin.influencer_id and new_origin.influencer_id != user.id:
+                            db.session.rollback()
+                            return jsonify({
+                                'success': False,
+                                'message': f'Origine "{new_origin.name}" è già assegnata ad un altro influencer'
+                            }), HTTPStatus.BAD_REQUEST
+                        new_origin.influencer_id = user.id
+
+        db.session.commit()
+
         return jsonify({
             'success': True,
             'message': 'Membro aggiornato con successo',
-            **_serialize_user(user, include_details=True)
+            **_serialize_user(user, include_details=True),
+            'influencer_origin': _serialize_origin(user)
         })
 
     except Exception as e:
@@ -535,22 +980,29 @@ def get_departments():
 @login_required
 def get_team_stats():
     """Get team statistics."""
-    # Total counts
-    total_members = User.query.count()  # All members
-    total_active = User.query.filter_by(is_active=True).count()  # Active only
-    total_admins = User.query.filter_by(is_admin=True, is_active=True).count()
-    total_trial = User.query.filter_by(is_trial=True, is_active=True).count()
+    visible_users = User.query.filter(User.role.isnot(None))
 
-    # Count by role
-    total_team_leaders = User.query.filter(
+    # Total counts
+    total_members = visible_users.count()
+    total_active = visible_users.filter(User.is_active == True).count()
+    total_admins = visible_users.filter(User.is_admin == True, User.is_active == True).count()
+    total_trial = visible_users.filter(User.is_trial == True, User.is_active == True).count()
+
+    # Count team leaders by active teams' head_id (source of truth), not only by user.role
+    total_team_leaders = db.session.query(func.count(distinct(Team.head_id))).join(
+        User, User.id == Team.head_id
+    ).filter(
+        Team.is_active == True,
+        Team.head_id.isnot(None),
         User.is_active == True,
-        User.role == UserRoleEnum.team_leader
-    ).count()
-    total_professionisti = User.query.filter(
+        User.role.isnot(None),
+    ).scalar() or 0
+
+    total_professionisti = visible_users.filter(
         User.is_active == True,
         User.role == UserRoleEnum.professionista
     ).count()
-    total_external = User.query.filter(
+    total_external = visible_users.filter(
         User.is_active == True,
         User.is_external == True
     ).count()
@@ -567,52 +1019,542 @@ def get_team_stats():
     })
 
 
+
+@team_api_bp.route("/professionals/criteria", methods=["GET"])
+@login_required
+def api_get_professionals_criteria():
+    """Restituisce lista professionisti con i loro criteri di assegnazione."""
+    current_app.logger.info(f"Fetching professionals criteria for user {current_user.id}")
+    
+    # Target specialties using Enum instances for robustness
+    target_specialties = [
+        UserSpecialtyEnum.nutrizionista, UserSpecialtyEnum.nutrizione,
+        UserSpecialtyEnum.coach,
+        UserSpecialtyEnum.psicologo, UserSpecialtyEnum.psicologia
+    ]
+    
+    prof_query = User.query.options(
+        selectinload(User.teams)
+    ).filter(
+        User.specialty.in_(target_specialties),
+        User.is_active == True
+    )
+
+    if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+        led_team_ids = [t.id for t in (current_user.teams_led or []) if getattr(t, 'is_active', True)]
+        if not led_team_ids:
+            return jsonify({'success': True, 'professionals': []})
+        prof_query = prof_query.filter(User.teams.any(Team.id.in_(led_team_ids)))
+
+    professionals = prof_query.order_by(User.first_name, User.last_name).all()
+
+    current_app.logger.info(f"Found {len(professionals)} professionals with target specialties")
+
+    results = []
+    import json
+    
+    for p in professionals:
+        # Determina "department_id" e nome basato su specialty
+        dept_id = 0
+        dept_name = 'N/A'
+        
+        # Get value safely
+        spec_val = p.specialty.value if hasattr(p.specialty, 'value') else str(p.specialty)
+        if spec_val.startswith('UserSpecialtyEnum.'):
+            spec_val = spec_val.split('.')[-1]
+        
+        if spec_val in ['nutrizionista', 'nutrizione']:
+            dept_id = 2 # Nutrizione
+            dept_name = 'Nutrizione'
+        elif spec_val == 'coach':
+            dept_id = 3 # Coach
+            dept_name = 'Coach'
+        elif spec_val in ['psicologo', 'psicologia']:
+            dept_id = 4 # Psicologia
+            dept_name = 'Psicologia'
+            
+        criteria = p.assignment_criteria or {}
+        ai_notes = p.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = json.loads(ai_notes)
+            except:
+                ai_notes = {}
+                
+        results.append({
+            'id': p.id,
+            'name': f"{p.first_name} {p.last_name}",
+            'department_id': dept_id,
+            'department_name': dept_name,
+            'avatar_path': p.avatar_path,
+            'criteria': criteria,
+            'ai_notes_summary': ai_notes.get('specializzazione', '') + ' ' + ai_notes.get('target_ideale', ''),
+            'is_available': ai_notes.get('disponibile_assegnazioni', True),
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None
+                }
+                for t in (p.teams or [])
+            ],
+        })
+
+    return jsonify({
+        'success': True,
+        'professionals': results
+    })
+
+
+@team_api_bp.route("/professionals/<int:user_id>/criteria", methods=["PUT"])
+@login_required
+# @csrf.exempt # Already exempt at blueprint level
+def api_update_professional_criteria(user_id: int):
+    """Aggiorna i criteri di assegnazione per un professionista."""
+    # Check permissions
+    if not current_user.is_admin and not (current_user.role.value in ['team_leader']):
+         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+    
+    user = User.query.get_or_404(user_id)
+
+    if not current_user.is_admin and _get_user_role(current_user) == 'team_leader':
+        allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+        if user.id not in allowed_ids:
+            return jsonify({'success': False, 'message': 'Puoi modificare solo membri dei tuoi team'}), 403
+    data = request.get_json()
+    
+    if not data or 'criteria' not in data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+        
+    criteria = data['criteria']
+    
+    # Validazione tramite Service
+    from .criteria_service import CriteriaService
+    
+    spec_val = user.specialty.value if hasattr(user.specialty, 'value') else str(user.specialty)
+    role_key = None
+    
+    if spec_val in ['nutrizionista', 'nutrizione']:
+        role_key = 'nutrizione'
+    elif spec_val == 'coach':
+        role_key = 'coach'
+    elif spec_val in ['psicologo', 'psicologia']:
+        role_key = 'psicologia'
+    
+    if role_key:
+        valid_criteria = CriteriaService.validate_criteria(role_key, criteria)
+        user.assignment_criteria = valid_criteria
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Criteri aggiornati'})
+    else:
+        return jsonify({'success': False, 'message': 'Ruolo non supportato per assegnazione AI'}), 400
+
+@team_api_bp.route("/criteria/schema", methods=["GET"])
+@login_required
+def api_get_criteria_schema():
+    """Restituisce lo schema dei criteri disponibili."""
+    from .criteria_service import CriteriaService
+    return jsonify({
+        'success': True,
+        'schema': CriteriaService.get_schema()
+    })
+
+# =============================================================================
+# AI Assignment Endpoints
+# =============================================================================
+
+@team_api_bp.route("/assignments/analyze-lead", methods=["POST"])
+@login_required
+def api_analyze_lead_story():
+    """
+    Analizza la storia del lead con l'AI per estrarre i criteri.
+    Supporta la persistenza se viene passato opportunity_id o assignment_id.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+        
+    story = data.get('story')
+    opportunity_id = data.get('opportunity_id')
+    assignment_id = data.get('assignment_id')
+    role = data.get('role') # 'nutrition', 'coach', 'psychology', or None (legacy)
+    force_refresh = data.get('force_refresh', False)
+
+    # 1. Tenta di recuperare dai dati già salvati (se non forzato)
+    existing_analysis = None
+    existing_obj = None # Store the object to update later
+    
+    if assignment_id:
+        existing_obj = ServiceClienteAssignment.query.get(assignment_id)
+        if existing_obj:
+            existing_analysis = existing_obj.ai_analysis
+    elif opportunity_id:
+        existing_obj = GHLOpportunityData.query.get(opportunity_id)
+        if existing_obj:
+            existing_analysis = existing_obj.ai_analysis
+
+    if not force_refresh and existing_analysis:
+        # Se è un formato nuovo (dizionario con chiavi ruolo)
+        if role and isinstance(existing_analysis, dict) and role in existing_analysis:
+             return jsonify({
+                'success': True,
+                'analysis': existing_analysis[role], # Restituisci solo la parte richiesta
+                'full_analysis': existing_analysis,
+                'cached': True
+            })
+        # Se non è specificato ruolo e abbiamo dati (comportamento legacy o full)
+        elif not role:
+             return jsonify({
+                'success': True,
+                'analysis': existing_analysis,
+                'cached': True
+            })
+
+    # 2. Se non abbiamo cache per il ruolo richiesto, procediamo con l'analisi AI
+    if not story:
+        return jsonify({'success': False, 'message': 'Storia mancante'}), 400
+        
+    from .ai_matching_service import AIMatchingService
+    try:
+        # Passiamo il role al service
+        result = AIMatchingService.extract_lead_criteria(story, target_role=role)
+        
+        # Formattazione risultato standardizzata dal service
+        analysis_part = result
+            
+        # 3. Salva nel database per persistenza (Merge con esistente)
+        if existing_obj:
+            current_data = dict(existing_obj.ai_analysis) if existing_obj.ai_analysis else {}
+            
+            if role:
+                # Aggiorna solo la chiave del ruolo
+                current_data[role] = analysis_part
+            else:
+                # Legacy/Full overwrite se non c'è ruolo
+                current_data = analysis_part
+
+            existing_obj.ai_analysis = current_data
+            
+            if assignment_id:
+                existing_obj.ai_suggested_at = datetime.utcnow()
+            elif opportunity_id:
+                existing_obj.ai_analyzed_at = datetime.utcnow()
+                
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'analysis': analysis_part
+            })
+            
+        return jsonify({
+            'success': True,
+            'analysis': analysis_part,
+            'warning': 'Not saved (no ID provided)'
+        })
+            
+        return jsonify({
+            'success': True,
+            'analysis': analysis,
+            'cached': False
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error analyzing lead: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@team_api_bp.route("/assignments/match", methods=["POST"])
+@login_required
+def api_match_professionals():
+    """
+    Trova i professionisti migliori in base ai criteri estratti.
+    Input: { "criteria": ["TAG1", "TAG2"] }
+    Output: { "success": true, "matches": { "nutrizione": [...], ... } }
+    """
+    data = request.get_json()
+    criteria = data.get('criteria', [])
+    
+    from .ai_matching_service import AIMatchingService
+    try:
+        matches = AIMatchingService.match_professionals(criteria)
+
+        if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            filtered_matches = {}
+            for role_key, candidates in (matches or {}).items():
+                if isinstance(candidates, list):
+                    filtered_matches[role_key] = [
+                        c for c in candidates
+                        if isinstance(c, dict) and c.get('id') in allowed_ids
+                    ]
+                else:
+                    filtered_matches[role_key] = candidates
+            matches = filtered_matches
+
+        return jsonify({
+            'success': True,
+            'matches': matches
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error matching professionals: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@team_api_bp.route("/assignments/confirm", methods=["POST"])
+@login_required
+def api_confirm_assignment():
+    """
+    Conferma l'assegnazione dei professionisti per un cliente.
+    Input: {
+        "assignment_id": 123,
+        "nutritionist_id": 456,
+        "coach_id": 789,
+        "psychologist_id": 101,
+        "notes": "Note opzionali"
+    }
+    Output: { "success": true, "message": "Assegnazione confermata" }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+        
+    assignment_id = data.get('assignment_id')
+    opportunity_data_id = data.get('opportunity_data_id')
+
+    if not assignment_id and not opportunity_data_id:
+        return jsonify({'success': False, 'message': 'ID assegnazione o ID Lead mancante'}), 400
+        
+    try:
+        assignment = None
+        
+        # Se abbiamo assignment_id, usiamolo direttamente
+        if assignment_id:
+            assignment = ServiceClienteAssignment.query.get(assignment_id)
+            
+        # Altrimenti, creiamo l'assegnazione da GHLOpportunityData
+        elif opportunity_data_id:
+            opp_data = GHLOpportunityData.query.get(opportunity_data_id)
+            if not opp_data:
+                return jsonify({'success': False, 'message': 'Lead non trovato'}), 404
+            
+            # Estrai email dal payload se possibile
+            payload = opp_data.raw_payload or {}
+            email = payload.get('email') or payload.get('contact', {}).get('email')
+            
+            if not email:
+                # Fallback email se non trovata nel payload
+                email = f"lead-{opp_data.id}@ghl-lead.com"
+                
+            # Verifica se esiste già un cliente con questa email
+            cliente = Cliente.query.filter_by(mail=email).first()
+            if not cliente:
+                cliente = Cliente(
+                    nome_cognome=opp_data.nome,
+                    mail=email,
+                    storia_cliente=opp_data.storia,
+                    programma_attuale=opp_data.pacchetto,
+                    acquisition_source='ghl_manual_ai',
+                    service_status='pending_assignment',
+                    show_in_clienti_lista=False,
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(cliente)
+                db.session.flush()
+                
+            # Crea o trova assignment
+            assignment = ServiceClienteAssignment.query.filter_by(cliente_id=cliente.cliente_id).first()
+            if not assignment:
+                assignment = ServiceClienteAssignment(
+                    cliente_id=cliente.cliente_id,
+                    status='pending_assignment',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(assignment)
+                db.session.flush()
+            
+            # Segna lead come processato
+            opp_data.processed = True
+            db.session.add(opp_data)
+
+        if not assignment:
+            return jsonify({'success': False, 'message': 'Impossibile trovare o creare l\'assegnazione'}), 404
+            
+        cliente = assignment.cliente
+        if not cliente:
+            return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
+            
+        if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            requested_prof_ids = {
+                pid for pid in [
+                    data.get('nutritionist_id'),
+                    data.get('coach_id'),
+                    data.get('psychologist_id'),
+                ]
+                if pid
+            }
+            if any(int(pid) not in allowed_ids for pid in requested_prof_ids):
+                return jsonify({'success': False, 'message': 'Puoi assegnare solo professionisti dei tuoi team'}), 403
+
+        # Update assignment
+        if data.get('ai_analysis'):
+            assignment.ai_analysis = data.get('ai_analysis')
+            assignment.ai_suggested_at = datetime.utcnow()
+            
+        if data.get('nutritionist_id'):
+            assignment.nutrizionista_assigned_id = data.get('nutritionist_id')
+            assignment.nutrizionista_assigned_at = datetime.utcnow()
+            assignment.nutrizionista_assigned_by = current_user.id
+            
+        if data.get('coach_id'):
+            assignment.coach_assigned_id = data.get('coach_id')
+            assignment.coach_assigned_at = datetime.utcnow()
+            assignment.coach_assigned_by = current_user.id
+            
+        if data.get('psychologist_id'):
+            assignment.psicologa_assigned_id = data.get('psychologist_id')
+            assignment.psicologa_assigned_at = datetime.utcnow()
+            assignment.psicologa_assigned_by = current_user.id
+        
+        # Update status
+        assignment.update_status()
+        
+        # Add notes
+        if data.get('notes'):
+            note = ServiceClienteNote(
+                assignment_id=assignment.id,
+                cliente_id=cliente.cliente_id,
+                note_text=data['notes'],
+                note_type='assignment',
+                created_by=current_user.id
+            )
+            db.session.add(note)
+            
+        # Create history entries
+        motivazione = "Assegnazione manuale da pannello AI"
+        data_inizio = datetime.utcnow().date()
+        
+        if data.get('nutritionist_id'):
+            h_nutri = ClienteProfessionistaHistory(
+                cliente_id=cliente.cliente_id,
+                user_id=data.get('nutritionist_id'),
+                tipo_professionista='nutrizionista',
+                data_dal=data_inizio,
+                motivazione_aggiunta=motivazione,
+                assegnato_da_id=current_user.id,
+                is_active=True
+            )
+            db.session.add(h_nutri)
+            
+            # Add to many-to-many
+            nutri = User.query.get(data.get('nutritionist_id'))
+            if nutri and nutri not in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.append(nutri)
+            
+        if data.get('coach_id'):
+            h_coach = ClienteProfessionistaHistory(
+                cliente_id=cliente.cliente_id,
+                user_id=data.get('coach_id'),
+                tipo_professionista='coach',
+                data_dal=data_inizio,
+                motivazione_aggiunta=motivazione,
+                assegnato_da_id=current_user.id,
+                is_active=True
+            )
+            db.session.add(h_coach)
+            
+            # Add to many-to-many
+            coach = User.query.get(data.get('coach_id'))
+            if coach and coach not in cliente.coaches_multipli:
+                cliente.coaches_multipli.append(coach)
+            
+        if data.get('psychologist_id'):
+            h_psico = ClienteProfessionistaHistory(
+                cliente_id=cliente.cliente_id,
+                user_id=data.get('psychologist_id'),
+                tipo_professionista='psicologa',
+                data_dal=data_inizio,
+                motivazione_aggiunta=motivazione,
+                assegnato_da_id=current_user.id,
+                is_active=True
+            )
+            db.session.add(h_psico)
+            
+            # Add to many-to-many
+            psico = User.query.get(data.get('psychologist_id'))
+            if psico and psico not in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.append(psico)
+
+        # Update Cliente status
+        cliente.service_status = 'assigned'
+        if assignment.status in ('fully_assigned', 'active'):
+            cliente.show_in_clienti_lista = True
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Assegnazione completata con successo',
+            'status': assignment.status
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error validating assignment: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error matching professionals: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @team_api_bp.route("/admin-dashboard-stats", methods=["GET"])
 @login_required
 def get_admin_dashboard_stats():
     """
-    Get comprehensive admin dashboard statistics for professionals.
-    Returns KPIs, specialty distribution, quality scores, trial users, top performers.
+    Dashboard statistics for professionals; data filtered by role
+    (admin=all, TL=team members, professionista=own).
     """
     from corposostenibile.models import QualityWeeklyScore, Cliente, StatoClienteEnum
     from corposostenibile.models import cliente_nutrizionisti, cliente_coaches, cliente_psicologi
     from datetime import datetime, timedelta
     from sqlalchemy import select, case, literal_column
 
-    # Check admin permission
-    perm_error = _require_admin()
-    if perm_error:
-        return perm_error
-
     try:
         today = datetime.now().date()
+        visible_ids = _get_visible_user_ids_for_dashboard()
+
+        def _user_query(base=None):
+            q = base if base is not None else User.query
+            if visible_ids is not None:
+                q = q.filter(User.id.in_(visible_ids))
+            return q
 
         # ─── KPI: Counts ───
-        total_all = User.query.count()
-        total_active = User.query.filter_by(is_active=True).count()
+        total_all = _user_query().count()
+        total_active = _user_query(User.query.filter_by(is_active=True)).count()
         total_inactive = total_all - total_active
-        total_admins = User.query.filter_by(is_admin=True, is_active=True).count()
-        total_trial = User.query.filter_by(is_trial=True, is_active=True).count()
-        total_team_leaders = User.query.filter(
+        total_admins = _user_query(User.query.filter_by(is_admin=True, is_active=True)).count()
+        total_trial = _user_query(User.query.filter_by(is_trial=True, is_active=True)).count()
+        total_team_leaders = _user_query(User.query.filter(
             User.is_active == True,
             User.role == UserRoleEnum.team_leader
-        ).count()
-        total_professionisti = User.query.filter(
+        )).count()
+        total_professionisti = _user_query(User.query.filter(
             User.is_active == True,
             User.role == UserRoleEnum.professionista
-        ).count()
-        total_external = User.query.filter(
+        )).count()
+        total_external = _user_query(User.query.filter(
             User.is_active == True,
             User.is_external == True
-        ).count()
+        )).count()
 
         # ─── Specialty Distribution ───
-        specialty_counts = db.session.query(
-            User.specialty, func.count(User.id)
-        ).filter(
+        specialty_q = db.session.query(User.specialty, func.count(User.id)).filter(
             User.is_active == True,
             User.specialty.isnot(None)
-        ).group_by(User.specialty).all()
+        )
+        if visible_ids is not None:
+            specialty_q = specialty_q.filter(User.id.in_(visible_ids))
+        specialty_counts = specialty_q.group_by(User.specialty).all()
 
         specialty_distribution = {}
         specialty_labels = {
@@ -632,12 +1574,13 @@ def get_admin_dashboard_stats():
             }
 
         # ─── Role Distribution ───
-        role_counts = db.session.query(
-            User.role, func.count(User.id)
-        ).filter(
+        role_q = db.session.query(User.role, func.count(User.id)).filter(
             User.is_active == True,
             User.role.isnot(None)
-        ).group_by(User.role).all()
+        )
+        if visible_ids is not None:
+            role_q = role_q.filter(User.id.in_(visible_ids))
+        role_counts = role_q.group_by(User.role).all()
 
         role_distribution = {}
         role_labels = {
@@ -669,10 +1612,13 @@ def get_admin_dashboard_stats():
         }
 
         if latest_week:
-            latest_scores = QualityWeeklyScore.query.filter_by(
+            latest_scores_q = QualityWeeklyScore.query.filter_by(
                 week_start_date=latest_week,
                 calculation_status='completed'
-            ).all()
+            )
+            if visible_ids is not None:
+                latest_scores_q = latest_scores_q.filter(QualityWeeklyScore.professionista_id.in_(visible_ids))
+            latest_scores = latest_scores_q.all()
 
             if latest_scores:
                 finals = [s.quality_final for s in latest_scores if s.quality_final is not None]
@@ -699,12 +1645,13 @@ def get_admin_dashboard_stats():
         # ─── Top Performers (by quality_final, latest week) ───
         top_performers = []
         if latest_week:
-            top_scores = QualityWeeklyScore.query.filter_by(
+            top_scores_q = QualityWeeklyScore.query.filter_by(
                 week_start_date=latest_week,
                 calculation_status='completed'
-            ).filter(
-                QualityWeeklyScore.quality_final.isnot(None)
-            ).order_by(
+            ).filter(QualityWeeklyScore.quality_final.isnot(None))
+            if visible_ids is not None:
+                top_scores_q = top_scores_q.filter(QualityWeeklyScore.professionista_id.in_(visible_ids))
+            top_scores = top_scores_q.order_by(
                 QualityWeeklyScore.quality_final.desc()
             ).limit(10).all()
 
@@ -723,9 +1670,10 @@ def get_admin_dashboard_stats():
                     })
 
         # ─── Trial Users ───
-        trial_users = User.query.filter_by(
-            is_trial=True, is_active=True
-        ).order_by(User.created_at.desc()).limit(10).all()
+        trial_q = User.query.filter_by(is_trial=True, is_active=True)
+        if visible_ids is not None:
+            trial_q = trial_q.filter(User.id.in_(visible_ids))
+        trial_users = trial_q.order_by(User.created_at.desc()).limit(10).all()
 
         trial_list = []
         for u in trial_users:
@@ -742,7 +1690,7 @@ def get_admin_dashboard_stats():
         quality_trend = []
         if latest_week:
             eight_weeks_ago = latest_week - timedelta(weeks=8)
-            weekly_avgs = db.session.query(
+            trend_q = db.session.query(
                 QualityWeeklyScore.week_start_date,
                 func.avg(QualityWeeklyScore.quality_final),
                 func.count(QualityWeeklyScore.id)
@@ -750,7 +1698,10 @@ def get_admin_dashboard_stats():
                 QualityWeeklyScore.week_start_date >= eight_weeks_ago,
                 QualityWeeklyScore.calculation_status == 'completed',
                 QualityWeeklyScore.quality_final.isnot(None)
-            ).group_by(
+            )
+            if visible_ids is not None:
+                trend_q = trend_q.filter(QualityWeeklyScore.professionista_id.in_(visible_ids))
+            weekly_avgs = trend_q.group_by(
                 QualityWeeklyScore.week_start_date
             ).order_by(
                 QualityWeeklyScore.week_start_date
@@ -764,7 +1715,16 @@ def get_admin_dashboard_stats():
                 })
 
         # ─── Teams Summary ───
-        teams = Team.query.filter_by(is_active=True).all()
+        if visible_ids is None:
+            teams = Team.query.filter_by(is_active=True).all()
+        elif getattr(current_user, 'role', None) == UserRoleEnum.team_leader and current_user.teams_led:
+            team_ids = [t.id for t in current_user.teams_led]
+            teams = Team.query.filter(Team.id.in_(team_ids), Team.is_active == True).all()
+        else:
+            # Professionista: teams of which they are a member
+            teams = Team.query.filter_by(is_active=True).filter(
+                Team.members.any(User.id == current_user.id)
+            ).all()
         teams_summary = []
         for team in teams:
             member_count = len(team.members) if team.members else 0
@@ -777,50 +1737,68 @@ def get_admin_dashboard_stats():
             })
 
         # ─── Client Load per Specialty ───
-        # Count active clients per specialty group
-        nutri_clients = db.session.query(func.count(Cliente.cliente_id)).filter(
+        # Count active clients per specialty (only for visible professionals when filtered)
+        nutri_clients_q = db.session.query(func.count(Cliente.cliente_id)).filter(
             Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa]),
             or_(
                 Cliente.nutrizionista_id.isnot(None),
-                Cliente.cliente_id.in_(
-                    select(cliente_nutrizionisti.c.cliente_id)
+                Cliente.cliente_id.in_(select(cliente_nutrizionisti.c.cliente_id))
+            )
+        )
+        if visible_ids is not None:
+            nutri_clients_q = nutri_clients_q.filter(
+                or_(
+                    Cliente.nutrizionista_id.in_(visible_ids),
+                    Cliente.nutrizionisti_multipli.any(User.id.in_(visible_ids))
                 )
             )
-        ).scalar() or 0
+        nutri_clients = nutri_clients_q.scalar() or 0
 
-        coach_clients = db.session.query(func.count(Cliente.cliente_id)).filter(
+        coach_clients_q = db.session.query(func.count(Cliente.cliente_id)).filter(
             Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa]),
             or_(
                 Cliente.coach_id.isnot(None),
-                Cliente.cliente_id.in_(
-                    select(cliente_coaches.c.cliente_id)
+                Cliente.cliente_id.in_(select(cliente_coaches.c.cliente_id))
+            )
+        )
+        if visible_ids is not None:
+            coach_clients_q = coach_clients_q.filter(
+                or_(
+                    Cliente.coach_id.in_(visible_ids),
+                    Cliente.coaches_multipli.any(User.id.in_(visible_ids))
                 )
             )
-        ).scalar() or 0
+        coach_clients = coach_clients_q.scalar() or 0
 
-        psico_clients = db.session.query(func.count(Cliente.cliente_id)).filter(
+        psico_clients_q = db.session.query(func.count(Cliente.cliente_id)).filter(
             Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa]),
             or_(
                 Cliente.psicologa_id.isnot(None),
-                Cliente.cliente_id.in_(
-                    select(cliente_psicologi.c.cliente_id)
+                Cliente.cliente_id.in_(select(cliente_psicologi.c.cliente_id))
+            )
+        )
+        if visible_ids is not None:
+            psico_clients_q = psico_clients_q.filter(
+                or_(
+                    Cliente.psicologa_id.in_(visible_ids),
+                    Cliente.psicologi_multipli.any(User.id.in_(visible_ids))
                 )
             )
-        ).scalar() or 0
+        psico_clients = psico_clients_q.scalar() or 0
 
-        # Professionals count per clinical specialty
-        nutri_profs = User.query.filter(
+        # Professionals count per clinical specialty (visible only when filtered)
+        nutri_profs = _user_query(User.query.filter(
             User.is_active == True,
             User.specialty.in_([UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista])
-        ).count()
-        coach_profs = User.query.filter(
+        )).count()
+        coach_profs = _user_query(User.query.filter(
             User.is_active == True,
             User.specialty == UserSpecialtyEnum.coach
-        ).count()
-        psico_profs = User.query.filter(
+        )).count()
+        psico_profs = _user_query(User.query.filter(
             User.is_active == True,
             User.specialty.in_([UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo])
-        ).count()
+        )).count()
 
         client_load = {
             'nutrizione': {
@@ -881,6 +1859,7 @@ TEAM_TYPE_LEADER_SPECIALTIES = {
     'nutrizione': [UserSpecialtyEnum.nutrizione],
     'coach': [UserSpecialtyEnum.coach],
     'psicologia': [UserSpecialtyEnum.psicologia],
+    'health_manager': [],
 }
 
 # Mapping team_type -> specialties compatibili per Professionisti
@@ -888,6 +1867,7 @@ TEAM_TYPE_PROFESSIONAL_SPECIALTIES = {
     'nutrizione': [UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista],
     'coach': [UserSpecialtyEnum.coach],
     'psicologia': [UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo],
+    'health_manager': [],
 }
 
 
@@ -932,12 +1912,21 @@ def get_teams():
     team_type_filter = request.args.get('team_type', '').strip()
     active_filter = request.args.get('active', '').strip()
     search_query = request.args.get('q', '').strip()
-    include_members = request.args.get('include_members', '').strip() == '1'
+    include_members_raw = request.args.get('include_members', '').strip().lower()
+    include_members = include_members_raw in {'1', 'true', 'yes', 'on'}
 
     # Base query with eager loading for head only (fast)
     query = Team.query.options(
         joinedload(Team.head)  # Eager load team head only
     )
+
+    # RBAC base scope
+    if _can_view_all_team_module_data(current_user):
+        pass
+    elif _get_user_role(current_user) == 'team_leader':
+        query = query.filter(Team.head_id == current_user.id)
+    else:
+        query = query.filter(Team.members.any(User.id == current_user.id))
 
     # Filter by team_type
     if team_type_filter and team_type_filter in [e.value for e in TeamTypeEnum]:
@@ -975,6 +1964,13 @@ def get_teams():
 def get_team(team_id):
     """Get single team details with members."""
     team = Team.query.get_or_404(team_id)
+
+    if not _can_view_all_team_module_data(current_user):
+        if _get_user_role(current_user) == 'team_leader':
+            if team.head_id != current_user.id:
+                return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
+        elif not any(m.id == current_user.id for m in (team.members or [])):
+            return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
 
     return jsonify({
         'success': True,
@@ -1044,6 +2040,8 @@ def create_team():
             members = User.query.filter(User.id.in_(member_ids)).all()
             team.members = members
 
+        _promote_team_head_to_team_leader(team.head_id)
+
         db.session.add(team)
         db.session.commit()
 
@@ -1103,6 +2101,7 @@ def update_team(team_id):
         # Update head_id
         if 'head_id' in data:
             team.head_id = data['head_id'] if data['head_id'] else None
+            _promote_team_head_to_team_leader(team.head_id)
 
         # Update is_active
         if 'is_active' in data:
@@ -1254,11 +2253,28 @@ def get_available_leaders(team_type):
     - role = team_leader
     - specialty compatible with team_type
     """
+    team_type = (team_type or "").strip().lower()
     if team_type not in [e.value for e in TeamTypeEnum]:
         return jsonify({
             'success': False,
             'message': 'Tipo team non valido'
         }), HTTPStatus.BAD_REQUEST
+
+    if team_type == "health_manager":
+        hm_team_heads = db.session.query(Team.head_id).filter(
+            Team.team_type == TeamTypeEnum.health_manager,
+            Team.head_id.isnot(None),
+        )
+        leaders = User.query.filter(
+            User.is_active == True,
+            User.role == UserRoleEnum.team_leader,
+            User.id.in_(hm_team_heads),
+        ).order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'leaders': [_serialize_user(u) for u in leaders],
+            'total': len(leaders)
+        })
 
     # Get compatible specialties
     compatible_specialties = TEAM_TYPE_LEADER_SPECIALTIES.get(team_type, [])
@@ -1285,10 +2301,51 @@ def get_available_professionals(team_type):
     """
     Get available professionals for a specific team type.
 
-    Professionals must have:
-    - role = professionista
-    - specialty compatible with team_type
+    For nutrizione/coach/psicologia: role = professionista and compatible specialty.
+    For medico: role = professionista and specialty = medico.
+    For health_manager: role = health_manager (or department_id = 13 if present).
     """
+    team_type = (team_type or "").strip().lower()
+    team_type_aliases = {
+        "health-manager": "health_manager",
+        "healthmanager": "health_manager",
+    }
+    team_type = team_type_aliases.get(team_type, team_type)
+    requesting_role = _get_user_role(current_user)
+    tl_visible_member_ids = None
+    if requesting_role == "team_leader" and not _can_view_all_team_module_data(current_user):
+        tl_visible_member_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+
+    # Health Manager: return users with role health_manager
+    if team_type == "health_manager":
+        query = User.query.filter(
+            User.is_active == True,
+            cast(User.role, String) == "health_manager",
+        )
+        if tl_visible_member_ids is not None:
+            query = query.filter(User.id.in_(tl_visible_member_ids))
+        professionals = query.order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'professionals': [_serialize_user(u) for u in professionals],
+            'total': len(professionals)
+        })
+
+    if team_type == "medico":
+        query = User.query.filter(
+            User.is_active == True,
+            User.role == UserRoleEnum.professionista,
+            cast(User.specialty, String) == "medico",
+        )
+        if tl_visible_member_ids is not None:
+            query = query.filter(User.id.in_(tl_visible_member_ids))
+        professionals = query.order_by(User.first_name, User.last_name).all()
+        return jsonify({
+            'success': True,
+            'professionals': [_serialize_user(u) for u in professionals],
+            'total': len(professionals)
+        })
+
     if team_type not in [e.value for e in TeamTypeEnum]:
         return jsonify({
             'success': False,
@@ -1304,6 +2361,8 @@ def get_available_professionals(team_type):
         User.role == UserRoleEnum.professionista,
         User.specialty.in_(compatible_specialties)
     ).order_by(User.first_name, User.last_name)
+    if tl_visible_member_ids is not None:
+        query = query.filter(User.id.in_(tl_visible_member_ids))
 
     professionals = query.all()
 
@@ -1314,6 +2373,247 @@ def get_available_professionals(team_type):
     })
 
 
+# =============================================================================
+# Professional Capacity Endpoints
+# =============================================================================
+
+@team_api_bp.route("/capacity", methods=["GET"])
+@login_required
+def get_professionals_capacity():
+    """
+    Tabella capienza professionisti.
+
+    ACL visualizzazione:
+    - admin/CCO: tutti i professionisti
+    - team_leader: solo i propri membri
+    - altri ruoli: nessun accesso
+    """
+    if not _can_view_professional_capacity(current_user):
+        return jsonify({
+            'success': False,
+            'message': 'Non autorizzato a visualizzare la capienza professionisti'
+        }), HTTPStatus.FORBIDDEN
+
+    user_id_filter = request.args.get('user_id', type=int)
+
+    clinical_specialties = [
+        UserSpecialtyEnum.nutrizione,
+        UserSpecialtyEnum.nutrizionista,
+        UserSpecialtyEnum.coach,
+        UserSpecialtyEnum.psicologia,
+        UserSpecialtyEnum.psicologo,
+        UserSpecialtyEnum.medico,
+    ]
+
+    query = User.query.filter(
+        User.is_active == True,
+        or_(
+            and_(
+                User.role == UserRoleEnum.professionista,
+                User.specialty.in_(clinical_specialties),
+            ),
+            User.role == UserRoleEnum.health_manager,
+        ),
+    )
+
+    # Team Leader: visibilità limitata ai membri dei team guidati.
+    if not (current_user.is_admin or _is_cco_user(current_user)):
+        current_role = _get_user_role(current_user)
+        if current_role == 'team_leader':
+            visible_member_ids = _get_team_leader_member_ids(current_user.id)
+            if not visible_member_ids:
+                return jsonify({
+                    'success': True,
+                    'rows': [],
+                    'total': 0,
+                    'can_edit': False
+                })
+            query = query.filter(User.id.in_(visible_member_ids))
+            if not _is_health_manager_team_leader(current_user):
+                query = query.filter(User.role == UserRoleEnum.professionista)
+        elif current_role == 'health_manager':
+            query = query.filter(User.id == current_user.id)
+
+    if user_id_filter:
+        query = query.filter(User.id == user_id_filter)
+
+    professionals = query.order_by(User.first_name, User.last_name).all()
+    if not professionals:
+        return jsonify({
+            'success': True,
+            'rows': [],
+            'total': 0,
+            'can_edit': _can_edit_professional_capacity(current_user)
+        })
+
+    user_ids = [u.id for u in professionals]
+    assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
+    hm_ids = [u.id for u in professionals if _get_capacity_role_type(u) == 'health_manager']
+    hm_split = _get_hm_split_counts(hm_ids) if hm_ids else {}
+
+    capacities = ProfessionistCapacity.query.filter(
+        ProfessionistCapacity.user_id.in_(user_ids)
+    ).all()
+    capacity_by_pair = {(c.user_id, c.role_type): c for c in capacities}
+
+    rows = []
+    changed = False
+
+    for prof in professionals:
+        role_type = _get_capacity_role_type(prof)
+        if not role_type:
+            continue
+
+        capacity = capacity_by_pair.get((prof.id, role_type))
+        if not capacity:
+            capacity = ProfessionistCapacity(
+                user_id=prof.id,
+                role_type=role_type,
+                max_clients=30,
+                current_clients=0,
+                is_available=True,
+            )
+            db.session.add(capacity)
+            capacity_by_pair[(prof.id, role_type)] = capacity
+            changed = True
+
+        assigned_clients = assigned_map.get((prof.id, role_type), 0)
+        if capacity.current_clients != assigned_clients:
+            capacity.current_clients = assigned_clients
+            changed = True
+
+        contractual_capacity = capacity.max_clients or 0
+        capacity_percentage = 0 if contractual_capacity <= 0 else round((assigned_clients / contractual_capacity) * 100, 2)
+
+        row_data = {
+            'user_id': prof.id,
+            'full_name': prof.full_name,
+            'first_name': prof.first_name,
+            'last_name': prof.last_name,
+            'avatar_path': prof.avatar_path,
+            'specialty': _get_user_specialty(prof),
+            'role_type': role_type,
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None,
+                }
+                for t in (prof.teams or [])
+            ],
+            'capienza_contrattuale': contractual_capacity,
+            'clienti_assegnati': assigned_clients,
+            'percentuale_capienza': capacity_percentage,
+            'is_over_capacity': contractual_capacity > 0 and assigned_clients > contractual_capacity,
+        }
+
+        if role_type == 'health_manager':
+            split = hm_split.get(prof.id, {})
+            row_data['clienti_convertiti'] = split.get('clienti_convertiti', 0)
+            row_data['lead_in_attesa'] = split.get('lead_in_attesa', 0)
+
+        rows.append(row_data)
+
+    if changed:
+        db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'rows': rows,
+        'total': len(rows),
+        'can_edit': _can_edit_professional_capacity(current_user)
+    })
+
+
+@team_api_bp.route("/capacity/<int:user_id>", methods=["PUT"])
+@login_required
+def update_professional_capacity(user_id: int):
+    """Aggiorna capienza contrattuale (solo admin/CCO)."""
+    if not _can_edit_professional_capacity(current_user):
+        return jsonify({
+            'success': False,
+            'message': 'Solo admin o CCO possono modificare la capienza contrattuale'
+        }), HTTPStatus.FORBIDDEN
+
+    user = User.query.get_or_404(user_id)
+    role_type = _get_capacity_role_type(user)
+    if not role_type or _get_user_role(user) not in {'professionista', 'health_manager'}:
+        return jsonify({
+            'success': False,
+            'message': 'Utente non gestibile nella tabella capienza professionisti'
+        }), HTTPStatus.BAD_REQUEST
+
+    data = request.get_json() or {}
+    max_clients = data.get('capienza_contrattuale', data.get('max_clients'))
+    if max_clients is None:
+        return jsonify({
+            'success': False,
+            'message': 'Campo capienza_contrattuale obbligatorio'
+        }), HTTPStatus.BAD_REQUEST
+
+    try:
+        max_clients = int(max_clients)
+    except (TypeError, ValueError):
+        return jsonify({
+            'success': False,
+            'message': 'capienza_contrattuale deve essere un numero intero'
+        }), HTTPStatus.BAD_REQUEST
+
+    if max_clients < 0:
+        return jsonify({
+            'success': False,
+            'message': 'capienza_contrattuale non può essere negativa'
+        }), HTTPStatus.BAD_REQUEST
+
+    capacity = ProfessionistCapacity.query.filter_by(
+        user_id=user.id,
+        role_type=role_type
+    ).first()
+
+    if not capacity:
+        capacity = ProfessionistCapacity(
+            user_id=user.id,
+            role_type=role_type,
+            max_clients=max_clients,
+            current_clients=0,
+            is_available=True,
+        )
+        db.session.add(capacity)
+    else:
+        capacity.max_clients = max_clients
+
+    assigned_map = _get_assigned_clients_count_map_active_by_role([user.id])
+    assigned_clients = assigned_map.get((user.id, role_type), 0)
+    capacity.current_clients = assigned_clients
+
+    db.session.commit()
+
+    capacity_percentage = 0 if max_clients <= 0 else round((assigned_clients / max_clients) * 100, 2)
+    return jsonify({
+        'success': True,
+        'message': 'Capienza contrattuale aggiornata',
+        'row': {
+            'user_id': user.id,
+            'full_name': user.full_name,
+            'specialty': _get_user_specialty(user),
+            'role_type': role_type,
+            'teams': [
+                {
+                    'id': t.id,
+                    'name': t.name,
+                    'team_type': t.team_type.value if t.team_type else None,
+                }
+                for t in (user.teams or [])
+            ],
+            'capienza_contrattuale': max_clients,
+            'clienti_assegnati': assigned_clients,
+            'percentuale_capienza': capacity_percentage,
+            'is_over_capacity': max_clients > 0 and assigned_clients > max_clients,
+        }
+    })
+
+
+# =============================================================================
 # =============================================================================
 # Professional's Clients Endpoint
 # =============================================================================
@@ -1334,8 +2634,14 @@ def get_member_clients(user_id):
     - Single FK (nutrizionista_id, coach_id, psicologa_id)
     - Many-to-many relationships (nutrizionisti_multipli, coaches_multipli, psicologi_multipli)
     """
-    from corposostenibile.models import Cliente, cliente_nutrizionisti, cliente_coaches, cliente_psicologi
+    from corposostenibile.models import Cliente, cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
     from sqlalchemy import select, exists
+
+    if not _can_access_member_scoped_data(current_user, user_id):
+        return jsonify({
+            'success': False,
+            'message': 'Non autorizzato a visualizzare i clienti di questo professionista'
+        }), HTTPStatus.FORBIDDEN
 
     user = User.query.get_or_404(user_id)
 
@@ -1366,6 +2672,13 @@ def get_member_clients(user_id):
         )
     )
 
+    consulente_exists = exists(
+        select(cliente_consulenti.c.cliente_id).where(
+            cliente_consulenti.c.cliente_id == Cliente.cliente_id,
+            cliente_consulenti.c.user_id == user_id
+        )
+    )
+
     # Base query: find clients where this user is assigned
     # Relationships already have lazy="selectin" in the model, so no need for explicit loading
     query = Cliente.query.filter(
@@ -1380,6 +2693,7 @@ def get_member_clients(user_id):
             nutri_exists,
             coach_exists,
             psico_exists,
+            consulente_exists,
         )
     )
 
@@ -1391,6 +2705,9 @@ def get_member_clients(user_id):
     # Stato filter
     if stato_filter:
         query = query.filter(Cliente.stato_cliente == stato_filter)
+
+    # Eager load HM for HM column in team profile clients table
+    query = query.options(selectinload(Cliente.health_manager_user))
 
     # Order by nome_cognome
     query = query.order_by(Cliente.nome_cognome)
@@ -1479,6 +2796,8 @@ def get_member_client_checks(user_id):
         - period: 'week', 'month', 'trimester', 'year', or 'custom' (default 'month')
         - start_date: Start date for custom period (YYYY-MM-DD)
         - end_date: End date for custom period (YYYY-MM-DD)
+        - check_type: 'all', 'weekly', 'dca' (default 'all')
+        - q: Search query on client name
         - page: Page number (default 1)
         - per_page: Items per page (default 25, max 50)
 
@@ -1486,11 +2805,17 @@ def get_member_client_checks(user_id):
     """
     from corposostenibile.models import (
         Cliente, WeeklyCheck, WeeklyCheckResponse, DCACheck, DCACheckResponse,
-        cliente_nutrizionisti, cliente_coaches, cliente_psicologi,
+        cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
         ClientCheckReadConfirmation
     )
     from sqlalchemy import select, exists
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, time
+
+    if not _can_access_member_scoped_data(current_user, user_id):
+        return jsonify({
+            'success': False,
+            'message': 'Non autorizzato a visualizzare i check di questo professionista'
+        }), HTTPStatus.FORBIDDEN
 
     user = User.query.get_or_404(user_id)
 
@@ -1498,6 +2823,8 @@ def get_member_client_checks(user_id):
     period = request.args.get('period', 'month').strip()
     start_date_str = request.args.get('start_date', '').strip()
     end_date_str = request.args.get('end_date', '').strip()
+    check_type = request.args.get('check_type', 'all').strip().lower()
+    search_query = request.args.get('q', '').strip().lower()
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 25, type=int), 50)
 
@@ -1526,6 +2853,10 @@ def get_member_client_checks(user_id):
         start_date = today - timedelta(days=30)
         end_date = today
 
+    # submit_date in DB is DateTime: compare with datetime bounds to avoid adapter issues
+    start_dt = datetime.combine(start_date, time.min)
+    end_dt = datetime.combine(end_date, time.max)
+
     # Build exists clauses for many-to-many relationships
     nutri_exists = exists(
         select(cliente_nutrizionisti.c.cliente_id).where(
@@ -1548,6 +2879,13 @@ def get_member_client_checks(user_id):
         )
     )
 
+    consulente_exists = exists(
+        select(cliente_consulenti.c.cliente_id).where(
+            cliente_consulenti.c.cliente_id == Cliente.cliente_id,
+            cliente_consulenti.c.user_id == user_id
+        )
+    )
+
     # Get all client IDs for this professional
     client_ids_query = Cliente.query.filter(
         or_(
@@ -1559,6 +2897,7 @@ def get_member_client_checks(user_id):
             nutri_exists,
             coach_exists,
             psico_exists,
+            consulente_exists,
         )
     ).with_entities(Cliente.cliente_id)
 
@@ -1586,8 +2925,8 @@ def get_member_client_checks(user_id):
         WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id
     ).filter(
         WeeklyCheck.cliente_id.in_(client_ids),
-        WeeklyCheckResponse.submit_date >= start_date,
-        WeeklyCheckResponse.submit_date <= end_date
+        WeeklyCheckResponse.submit_date >= start_dt,
+        WeeklyCheckResponse.submit_date <= end_dt
     ).all()
 
     # Get DCA check responses - join through DCACheck to filter by cliente_id
@@ -1595,8 +2934,8 @@ def get_member_client_checks(user_id):
         DCACheck, DCACheckResponse.dca_check_id == DCACheck.id
     ).filter(
         DCACheck.cliente_id.in_(client_ids),
-        DCACheckResponse.submit_date >= start_date,
-        DCACheckResponse.submit_date <= end_date
+        DCACheckResponse.submit_date >= start_dt,
+        DCACheckResponse.submit_date <= end_dt
     ).all()
 
     # Helper to get read status for a response
@@ -1633,8 +2972,8 @@ def get_member_client_checks(user_id):
 
             professionals['nutrizionisti'].append({
                 'id': u.id,
-                'nome': u.full_name,
-                'avatar_path': u.avatar_path,
+                'nome': getattr(u, 'full_name', None) or (f'{getattr(u, "first_name", "")} {getattr(u, "last_name", "")}'.strip()) or str(u.id),
+                'avatar_path': getattr(u, 'avatar_path', None),
                 'has_read': read_status is not None,
             })
 
@@ -1654,8 +2993,8 @@ def get_member_client_checks(user_id):
 
             professionals['psicologi'].append({
                 'id': u.id,
-                'nome': u.full_name,
-                'avatar_path': u.avatar_path,
+                'nome': getattr(u, 'full_name', None) or (f'{getattr(u, "first_name", "")} {getattr(u, "last_name", "")}'.strip()) or str(u.id),
+                'avatar_path': getattr(u, 'avatar_path', None),
                 'has_read': read_status is not None,
             })
 
@@ -1675,8 +3014,8 @@ def get_member_client_checks(user_id):
 
             professionals['coaches'].append({
                 'id': u.id,
-                'nome': u.full_name,
-                'avatar_path': u.avatar_path,
+                'nome': getattr(u, 'full_name', None) or (f'{getattr(u, "first_name", "")} {getattr(u, "last_name", "")}'.strip()) or str(u.id),
+                'avatar_path': getattr(u, 'avatar_path', None),
                 'has_read': read_status is not None,
             })
 
@@ -1695,6 +3034,7 @@ def get_member_client_checks(user_id):
             'cliente_id': cliente.cliente_id if cliente else None,
             'cliente_nome': cliente.nome_cognome if cliente else 'N/D',
             'submit_date': r.submit_date.strftime('%d/%m/%Y') if r.submit_date else None,
+            'submit_date_iso': r.submit_date.isoformat() if r.submit_date else None,
             'nutritionist_rating': r.nutritionist_rating,
             'psychologist_rating': r.psychologist_rating,
             'coach_rating': r.coach_rating,
@@ -1714,6 +3054,7 @@ def get_member_client_checks(user_id):
             'cliente_id': cliente.cliente_id if cliente else None,
             'cliente_nome': cliente.nome_cognome if cliente else 'N/D',
             'submit_date': r.submit_date.strftime('%d/%m/%Y') if r.submit_date else None,
+            'submit_date_iso': r.submit_date.isoformat() if r.submit_date else None,
             'nutritionist_rating': r.nutritionist_rating,
             'psychologist_rating': r.psychologist_rating,
             'coach_rating': r.coach_rating,
@@ -1723,8 +3064,19 @@ def get_member_client_checks(user_id):
             'coaches': profs['coaches'],
         })
 
-    # Sort by submit_date descending
-    all_responses.sort(key=lambda x: x['submit_date'] or '', reverse=True)
+    # Filter by type
+    if check_type in {'weekly', 'dca'}:
+        all_responses = [r for r in all_responses if r.get('type') == check_type]
+
+    # Search by client name
+    if search_query:
+        all_responses = [
+            r for r in all_responses
+            if search_query in (r.get('cliente_nome') or '').lower()
+        ]
+
+    # Sort by submit date descending using ISO date for correctness
+    all_responses.sort(key=lambda x: x.get('submit_date_iso') or '', reverse=True)
 
     # Calculate stats
     nutri_ratings = [r['nutritionist_rating'] for r in all_responses if r['nutritionist_rating'] is not None]
@@ -1749,6 +3101,10 @@ def get_member_client_checks(user_id):
     end_idx = start_idx + per_page
     paginated_responses = all_responses[start_idx:end_idx]
 
+    # Clean internal sort field before returning
+    for response in paginated_responses:
+        response.pop('submit_date_iso', None)
+
     return jsonify({
         'success': True,
         'responses': paginated_responses,
@@ -1757,4 +3113,6 @@ def get_member_client_checks(user_id):
         'page': page,
         'per_page': per_page,
         'total_pages': total_pages,
+        'has_next': page < total_pages,
+        'has_prev': page > 1,
     })

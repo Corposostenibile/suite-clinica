@@ -9,17 +9,13 @@ export const STATO_CLIENTE = {
   GHOST: 'ghost',
   PAUSA: 'pausa',
   STOP: 'stop',
-  INSOLUTO: 'insoluto',
-  FREEZE: 'freeze',
 };
 
 export const STATO_LABELS = {
   attivo: 'Attivo',
   ghost: 'Ghost',
   pausa: 'Pausa',
-  stop: 'Stop',
-  insoluto: 'Insoluto',
-  freeze: 'Freeze',
+  stop: 'Ex-Cliente',
 };
 
 export const STATO_COLORS = {
@@ -27,8 +23,6 @@ export const STATO_COLORS = {
   ghost: 'warning',
   pausa: 'info',
   stop: 'danger',
-  insoluto: 'danger',
-  freeze: 'secondary',
 };
 
 // Tipologia cliente
@@ -45,7 +39,7 @@ export const TIPOLOGIA_LABELS = {
   a: 'Tipo A',
   b: 'Tipo B',
   c: 'Tipo C',
-  stop: 'Stop',
+  stop: 'Ex-Cliente',
   recupero: 'Recupero',
   pausa_gt_30: 'Pausa > 30gg',
 };
@@ -130,7 +124,7 @@ export const STATI_PROFESSIONISTA_LABELS = {
   attivo: 'Attivo',
   ghost: 'Ghost',
   pausa: 'Pausa',
-  stop: 'Stop',
+  stop: 'Ex-Cliente',
 };
 
 export const STATI_PROFESSIONISTA_COLORS = {
@@ -156,6 +150,7 @@ export const TIPO_PROFESSIONISTA = {
   NUTRIZIONISTA: 'nutrizionista',
   COACH: 'coach',
   PSICOLOGA: 'psicologa',
+  MEDICO: 'medico',
   HEALTH_MANAGER: 'health_manager',
   CONSULENTE: 'consulente',
 };
@@ -164,6 +159,7 @@ export const TIPO_PROFESSIONISTA_LABELS = {
   nutrizionista: 'Nutrizionista',
   coach: 'Coach',
   psicologa: 'Psicologo/a',
+  medico: 'Medico',
   health_manager: 'Health Manager',
   consulente: 'Consulente',
 };
@@ -172,6 +168,7 @@ export const TIPO_PROFESSIONISTA_ICONS = {
   nutrizionista: 'ri-heart-pulse-line',
   coach: 'ri-run-line',
   psicologa: 'ri-mental-health-line',
+  medico: 'ri-stethoscope-line',
   health_manager: 'ri-user-star-line',
   consulente: 'ri-money-dollar-circle-line',
 };
@@ -180,6 +177,7 @@ export const TIPO_PROFESSIONISTA_COLORS = {
   nutrizionista: { bg: 'success', icon: 'text-success', bgSubtle: 'bg-success-subtle' },
   coach: { bg: 'warning', icon: 'text-warning', bgSubtle: 'bg-warning-subtle' },
   psicologa: { bg: 'info', icon: 'text-info', bgSubtle: 'bg-info-subtle' },
+  medico: { bg: 'danger', icon: 'text-danger', bgSubtle: 'bg-danger-subtle' },
   health_manager: { bg: 'primary', icon: 'text-primary', bgSubtle: 'bg-primary-subtle' },
   consulente: { bg: 'purple', icon: 'text-purple', bgSubtle: 'bg-purple-subtle' },
 };
@@ -414,6 +412,16 @@ const clientiService = {
   },
 
   /**
+   * Get initial checks (Check 1, 2) from original lead/assignment
+   * @param {number} id - Client ID
+   * @returns {Promise} - { has_data, checks: { check_1, check_2 } }
+   */
+  async getInitialChecks(id) {
+    const response = await api.get(`${API_BASE}/${id}/initial-checks`);
+    return response.data;
+  },
+
+  /**
    * Get weekly checks metrics for a client
    * @param {number} id - Client ID
    * @returns {Promise} - Weekly checks metrics data
@@ -523,7 +531,10 @@ const clientiService = {
    */
   async searchClienti(query) {
     // This endpoint is on the HTML blueprint, not the API
-    const response = await api.get('/customers/api/search', { params: { q: query } });
+    const response = await axios.get('/customers/api/search', {
+      params: { q: query },
+      withCredentials: true,
+    });
     return response.data;
   },
 
@@ -772,6 +783,18 @@ const clientiService = {
     return response.data;
   },
 
+  /**
+   * Get diary entry history
+   * @param {number} clienteId
+   * @param {string} serviceType
+   * @param {number} entryId
+   * @returns {Promise} - { success, history: [] }
+   */
+  async getDiaryHistory(clienteId, serviceType, entryId) {
+    const response = await api.get(`${API_BASE}/${clienteId}/diary/${serviceType}/${entryId}/history`);
+    return response.data;
+  },
+
   // ==================== TRAINING PLANS ====================
 
   /**
@@ -781,6 +804,20 @@ const clientiService = {
    */
   async getTrainingPlans(clienteId) {
     const response = await axios.get(`/customers/${clienteId}/training/history`, { withCredentials: true });
+    return response.data;
+  },
+
+  /**
+   * Add a new training plan
+   * @param {number} clienteId - Client ID
+   * @param {FormData} formData - Form data with name, start_date, end_date, notes, piano_allenamento_file
+   * @returns {Promise} - { ok, plan_id, message }
+   */
+  async addTrainingPlan(clienteId, formData) {
+    const response = await axios.post(`/customers/${clienteId}/training/add`, formData, {
+      withCredentials: true,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
@@ -851,6 +888,77 @@ const clientiService = {
    */
   async updateTrainingLocation(clienteId, locationId, data) {
     const response = await axios.post(`/customers/${clienteId}/location/change/${locationId}`, data, { withCredentials: true });
+    return response.data;
+  },
+
+  // ==================== CALL BONUS ====================
+
+  /**
+   * Get call bonus history for a client
+   * @param {number} clienteId - Client ID
+   * @returns {Promise} - { data: [...] }
+   */
+  async getCallBonusHistory(clienteId) {
+    const response = await api.get(`${API_BASE}/${clienteId}/call-bonus-history`);
+    return response.data;
+  },
+
+  /**
+   * Create a call bonus request with AI analysis
+   * @param {number} clienteId - Client ID
+   * @param {Object} data - { tipo_professionista, note_richiesta }
+   * @returns {Promise} - { success, call_bonus_id, analysis, matches }
+   */
+  async createCallBonusRequest(clienteId, data) {
+    const response = await api.post(`${API_BASE}/${clienteId}/call-bonus-request`, data);
+    return response.data;
+  },
+
+  /**
+   * Select a professional for a call bonus
+   * @param {number} callBonusId - Call Bonus ID
+   * @param {number} professionalId - Professional ID
+   * @returns {Promise} - { success, call_bonus_id, professional_name, link_call_bonus }
+   */
+  async selectCallBonusProfessional(callBonusId, professionalId) {
+    const response = await api.post(`${API_BASE}/call-bonus-select/${callBonusId}`, {
+      professional_id: professionalId,
+    });
+    return response.data;
+  },
+
+  /**
+   * Confirm booking for a call bonus
+   * @param {number} callBonusId - Call Bonus ID
+   * @returns {Promise} - { success, call_bonus_id, message }
+   */
+  async confirmCallBonusBooking(callBonusId) {
+    const response = await api.post(`${API_BASE}/call-bonus-confirm/${callBonusId}`);
+    return response.data;
+  },
+
+  /**
+   * Decline a call bonus (professionista rifiuta)
+   * @param {number} callBonusId - Call Bonus ID
+   * @returns {Promise} - { success, call_bonus_id, message }
+   */
+  async declineCallBonus(callBonusId) {
+    const response = await api.post(`${API_BASE}/call-bonus-decline/${callBonusId}`);
+    return response.data;
+  },
+
+  /**
+   * Respond to call bonus interest (professionista assegnato conferma/rifiuta interesse paziente)
+   * @param {number} callBonusId - Call Bonus ID
+   * @param {boolean} interested - true if patient is interested, false otherwise
+   * @param {string} motivazione - Optional motivation (for non-interested)
+   * @returns {Promise} - { success, call_bonus_id, status, message }
+   */
+  async respondCallBonusInterest(callBonusId, interested, motivazione = '') {
+    const response = await api.post(`${API_BASE}/call-bonus-interest/${callBonusId}`, {
+      interested,
+      motivazione,
+    });
     return response.data;
   },
 };

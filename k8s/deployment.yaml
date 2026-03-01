@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suite-clinica-backend
+  labels:
+    app: suite-clinica
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: suite-clinica
+  template:
+    metadata:
+      labels:
+        app: suite-clinica
+    spec:
+      containers:
+      - name: backend
+        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
+        imagePullPolicy: Always
+        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "3", "--threads", "2", "--timeout", "600", "wsgi:app"]
+        ports:
+        - containerPort: 8080
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          periodSeconds: 15
+          timeoutSeconds: 20
+          failureThreshold: 40
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          timeoutSeconds: 30
+          failureThreshold: 6
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        env:
+        - name: FLASK_APP
+          value: "corposostenibile"
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          value: "postgresql://suite_clinica:i1%5Bi%2FY%25y%5DD%25Ihg%2Bh@127.0.0.1:5432/suite_clinica_prod"
+        - name: CELERY_BROKER_URL
+          value: "redis://10.130.63.139:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://10.130.63.139:6379/1"
+        - name: NUTRITION_CACHE_BACKEND
+          value: "redis://10.130.63.139:6379/2"
+        - name: WEBSOCKET_QUEUE
+          value: "redis://10.130.63.139:6379/3"
+        - name: RATELIMIT_STORAGE_URI
+          value: "redis://10.130.63.139:6379/5"
+        - name: SECRET_KEY
+          value: "temp-secret-key-prod-change-me"
+        - name: SESSION_COOKIE_SECURE
+          value: "true"
+        - name: SESSION_COOKIE_HTTPONLY
+          value: "true"
+        - name: SESSION_COOKIE_SAMESITE
+          value: "Lax"
+        - name: PREFERRED_URL_SCHEME
+          value: "https"
+        - name: SPA_HANDLE_AUTH_ROUTES
+          value: "1"
+        - name: VAPID_PUBLIC_KEY
+          value: "CHANGE_ME_VAPID_PUBLIC_KEY"
+        - name: VAPID_PRIVATE_KEY
+          value: "CHANGE_ME_VAPID_PRIVATE_KEY"
+        - name: VAPID_CLAIMS_SUB
+          value: "mailto:it@corposostenibile.com"
+        - name: RESPOND_IO_API_TOKEN
+          value: "CHANGE_ME_RESPOND_IO_API_TOKEN"
+        - name: RESPOND_IO_API_BASE_URL
+          value: "https://api.respond.io/v2"
+        - name: RESPOND_IO_DEFAULT_CHANNEL_ID
+          value: ""
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_MODE
+          value: "mock"
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_URL
+          value: ""
+        - name: UPLOAD_FOLDER
+          value: "/var/corposostenibile/uploads"
+        volumeMounts:
+        - name: uploads-storage
+          mountPath: /var/corposostenibile/uploads
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
+        args:
+          - "--port=5432"
+          - "--credentials-file=/secrets/cloudsql/credentials.json"
+          - "suite-clinica:europe-west8:suite-clinica-db-prod"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: sql-proxy-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+      volumes:
+      - name: sql-proxy-key
+        secret:
+          secretName: sql-proxy-key
+      - name: uploads-storage
+        persistentVolumeClaim:
+          claimName: uploads-pvc

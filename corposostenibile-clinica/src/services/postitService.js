@@ -24,6 +24,21 @@ const postitApi = axios.create({
     withCredentials: true,
 });
 
+const isHtmlLikePayload = (payload) => {
+    if (typeof payload !== 'string') return false;
+    const trimmed = payload.trim().toLowerCase();
+    return trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html');
+};
+
+const isHtmlContentType = (headers = {}) => {
+    const contentType = headers['content-type'] || headers['Content-Type'] || '';
+    return typeof contentType === 'string' && contentType.toLowerCase().includes('text/html');
+};
+
+const isWrongEntrypointResponse = (response) => (
+    isHtmlContentType(response?.headers || {}) || isHtmlLikePayload(response?.data)
+);
+
 // Request interceptor to add CSRF token
 postitApi.interceptors.request.use((config) => {
     let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -42,10 +57,21 @@ postitApi.interceptors.request.use((config) => {
 
 // Response interceptor for error handling
 postitApi.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (isWrongEntrypointResponse(response)) {
+            const err = new Error('POSTIT_WRONG_ENTRYPOINT');
+            err.code = 'POSTIT_WRONG_ENTRYPOINT';
+            err.response = response;
+            throw err;
+        }
+        return response;
+    },
     (error) => {
+        if (isWrongEntrypointResponse(error?.response)) {
+            error.code = 'POSTIT_WRONG_ENTRYPOINT';
+        }
         if (error.response?.status === 401) {
-            window.location.href = '/auth/login';
+            window.location.href = `${import.meta.env.BASE_URL}auth/login`;
         }
         return Promise.reject(error);
     }
@@ -57,7 +83,15 @@ const postitService = {
      * @returns {Promise<Object>} - { success, postits: [...], count }
      */
     getAll: async () => {
-        const response = await postitApi.get('/list');
+        const response = await postitApi.get('/list', {
+            headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
+            params: {
+                _t: Date.now(),
+            },
+        });
         return response.data;
     },
 
@@ -114,6 +148,11 @@ const postitService = {
 };
 
 export default postitService;
+
+export const isPostitWrongEntrypointError = (error) => (
+    error?.code === 'POSTIT_WRONG_ENTRYPOINT' ||
+    isWrongEntrypointResponse(error?.response)
+);
 
 // Colori disponibili per i post-it
 export const POSTIT_COLORS = {

@@ -17,6 +17,7 @@ import clientiService, {
   TEAM_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
+import originsService from '../../services/originsService';
 
 function ClientiAdd() {
   const { id } = useParams();
@@ -27,6 +28,7 @@ function ClientiAdd() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [professionisti, setProfessionisti] = useState([]);
+  const [origins, setOrigins] = useState([]);
   const [activeTab, setActiveTab] = useState('anagrafica');
 
   // Form data
@@ -71,6 +73,8 @@ function ClientiAdd() {
     // Psicologia
     sedute_psicologia_comprate: '',
     sedute_psicologia_svolte: '',
+    // Origine
+    origine_id: '',
   });
 
   // Fetch professionisti
@@ -84,6 +88,21 @@ function ClientiAdd() {
       }
     };
     fetchProfessionisti();
+  }, []);
+
+  // Fetch origins
+  useEffect(() => {
+    const fetchOrigins = async () => {
+      try {
+        const result = await originsService.getOrigins();
+        if (result.success) {
+          setOrigins(result.origins || []);
+        }
+      } catch (err) {
+        console.error('Error fetching origins:', err);
+      }
+    };
+    fetchOrigins();
   }, []);
 
   // Fetch client data if editing
@@ -129,6 +148,7 @@ function ClientiAdd() {
             luogo_di_allenamento: cliente.luogo_di_allenamento || cliente.luogoDiAllenamento || '',
             sedute_psicologia_comprate: cliente.sedute_psicologia_comprate || cliente.sedutePsicologiaComprate || '',
             sedute_psicologia_svolte: cliente.sedute_psicologia_svolte || cliente.sedutePsicologiaSvolte || '',
+            origine_id: cliente.origine_id || cliente.origineId || '',
           });
         } catch (err) {
           console.error('Error fetching cliente:', err);
@@ -346,6 +366,28 @@ function ClientiAdd() {
                         onChange={handleChange}
                         rows="2"
                       ></textarea>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">
+                        <i className="ri-global-line me-2 text-primary"></i>
+                        Origine
+                      </label>
+                      <select
+                        className="form-select"
+                        name="origine_id"
+                        value={formData.origine_id}
+                        onChange={handleChange}
+                      >
+                        <option value="">Nessuna origine</option>
+                        {origins
+                          .filter(o => o.active)
+                          .map(origin => (
+                            <option key={origin.id} value={origin.id}>
+                              {origin.name}
+                            </option>
+                          ))}
+                      </select>
+                      <small className="text-muted d-block mt-1">Seleziona l'origine/campagna del cliente</small>
                     </div>
                   </div>
                 )}

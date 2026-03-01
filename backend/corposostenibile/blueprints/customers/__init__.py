@@ -43,7 +43,6 @@ __all__ = [
 customers_bp: Blueprint = Blueprint(
     "customers",
     __name__,
-    template_folder="templates",
     static_folder="static",
     url_prefix="/customers",  # ⇨ tutte le route /customers/*
     cli_group="customers",    # abilita  `flask customers …`
@@ -91,6 +90,10 @@ def init_app(app: Flask) -> None:  # noqa: D401
     # ── Blueprint & routes (HTML + API) ──────────────────────────────────
     from . import routes as _routes             # side-effect: definisce blueprint
     _routes.register_routes(app)
+
+    # ── Listener webhook stato globale cliente (pausa/ghost) ──────────────
+    from .global_status_webhooks import register_global_status_webhook_listeners
+    register_global_status_webhook_listeners(app)
 
     # ── Jinja filters ----------------------------------------------------
     # basename: "/foo/bar/file.pdf" → "file.pdf"

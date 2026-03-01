@@ -1,0 +1,294 @@
+/* Support Page — Suite Clinica Design System
+   Coerente con Task, Welcome, Formazione */
+
+:root {
+    --sup-primary: #25B36A;
+    --sup-primary-light: rgba(37, 179, 106, 0.08);
+    --sup-primary-border: rgba(37, 179, 106, 0.2);
+    --sup-text-main: #1e293b;
+    --sup-text-secondary: #334155;
+    --sup-text-muted: #64748b;
+    --sup-text-light: #94a3b8;
+    --sup-border: #e2e8f0;
+    --sup-border-light: #f1f5f9;
+    --sup-bg-subtle: #f8fafc;
+}
+
+/* ── Page ── */
+.sup-page {
+    animation: supFadeIn 0.3s ease-out;
+}
+
+/* ── Header ── */
+.sup-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.sup-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.sup-header-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sup-header h4 {
+    font-weight: 700;
+    color: var(--sup-text-main);
+    margin-bottom: 4px;
+}
+
+.sup-header p {
+    color: var(--sup-text-muted);
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+/* ── Search bar ── */
+.sup-search-row {
+    margin-bottom: 24px;
+    animation: supFadeIn 0.3s ease-out backwards;
+    animation-delay: 0.05s;
+}
+
+.sup-search-wrap {
+    position: relative;
+}
+
+.sup-search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--sup-text-light);
+    font-size: 18px;
+    pointer-events: none;
+    transition: color 0.2s ease;
+}
+
+.sup-search-input {
+    width: 100%;
+    padding: 12px 16px 12px 44px;
+    border: 1px solid var(--sup-border);
+    border-radius: 14px;
+    font-size: 14px;
+    color: var(--sup-text-main);
+    background: white;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+.sup-search-input::placeholder {
+    color: var(--sup-text-light);
+}
+
+.sup-search-input:focus {
+    border-color: var(--sup-primary);
+    box-shadow: 0 0 0 3px var(--sup-primary-light);
+}
+
+.sup-search-input:focus ~ .sup-search-icon {
+    color: var(--sup-primary);
+}
+
+/* ── Cards grid ── */
+.sup-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+/* ── Feature card ── */
+.sup-card {
+    background: white;
+    border: 1px solid var(--sup-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: supFadeIn 0.3s ease-out backwards;
+    display: flex;
+    flex-direction: column;
+}
+
+.sup-card:hover {
+    border-color: var(--sup-primary-border);
+    box-shadow: 0 8px 24px rgba(37, 179, 106, 0.1);
+    transform: translateY(-3px);
+}
+
+/* stagger */
+.sup-card:nth-child(1)  { animation-delay: 0.02s; }
+.sup-card:nth-child(2)  { animation-delay: 0.04s; }
+.sup-card:nth-child(3)  { animation-delay: 0.06s; }
+.sup-card:nth-child(4)  { animation-delay: 0.08s; }
+.sup-card:nth-child(5)  { animation-delay: 0.10s; }
+.sup-card:nth-child(6)  { animation-delay: 0.12s; }
+.sup-card:nth-child(7)  { animation-delay: 0.14s; }
+.sup-card:nth-child(8)  { animation-delay: 0.16s; }
+.sup-card:nth-child(9)  { animation-delay: 0.18s; }
+.sup-card:nth-child(10) { animation-delay: 0.20s; }
+.sup-card:nth-child(11) { animation-delay: 0.22s; }
+.sup-card:nth-child(12) { animation-delay: 0.24s; }
+
+.sup-card-icon-area {
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: flex-start;
+}
+
+.sup-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sup-card-icon i {
+    font-size: 22px;
+    color: white;
+}
+
+.sup-card-body {
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.sup-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sup-text-main);
+    margin-bottom: 6px;
+}
+
+.sup-card-desc {
+    font-size: 13px;
+    color: var(--sup-text-muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+    flex: 1;
+}
+
+/* ── Go button ── */
+.sup-btn-go {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--sup-border);
+    background: white;
+    color: var(--sup-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sup-btn-go i {
+    font-size: 15px;
+    transition: transform 0.2s ease;
+}
+
+.sup-btn-go:hover {
+    border-color: var(--sup-primary);
+    color: var(--sup-primary);
+    background: var(--sup-primary-light);
+}
+
+.sup-btn-go:hover i {
+    transform: translateX(3px);
+}
+
+.sup-btn-go.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: var(--sup-border);
+    color: var(--sup-text-light);
+    background: var(--sup-bg-subtle);
+}
+
+.sup-btn-go.disabled:hover {
+    border-color: var(--sup-border);
+    color: var(--sup-text-light);
+    background: var(--sup-bg-subtle);
+}
+
+/* ── Empty state ── */
+.sup-empty {
+    text-align: center;
+    padding: 48px 20px;
+    animation: supFadeIn 0.3s ease-out;
+}
+
+.sup-empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #dcfce7, #d1fae5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.sup-empty-icon i {
+    font-size: 24px;
+    color: var(--sup-primary);
+}
+
+.sup-empty h5 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--sup-text-main);
+    margin-bottom: 6px;
+}
+
+.sup-empty p {
+    font-size: 13px;
+    color: var(--sup-text-muted);
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+/* ── Animations ── */
+@keyframes supFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .sup-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sup-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .sup-header-logo {
+        width: 36px;
+        height: 36px;
+    }
+}

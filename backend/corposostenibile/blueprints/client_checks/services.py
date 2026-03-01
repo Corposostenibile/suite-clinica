@@ -10,13 +10,17 @@ Logica di business per il sistema Client Checks:
 """
 from __future__ import annotations
 
+import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 from typing import Dict, List, Any, Optional
 
 from flask import current_app
 from sqlalchemy import and_, or_, desc, func
 from sqlalchemy.orm import joinedload
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
+from decimal import Decimal
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -28,6 +32,24 @@ from corposostenibile.models import (
     CheckFormTypeEnum,
     CheckFormFieldTypeEnum,
 )
+
+
+# --------------------------------------------------------------------------- #
+#  URL Helpers                                                                 #
+# --------------------------------------------------------------------------- #
+def _public_checks_base_url() -> str:
+    """
+    Base URL pubblico per i link check condivisi all'esterno.
+    Usa un URL dedicato ai check pubblici (non forzato sul frontend React).
+    """
+    def _configured_base_url() -> str:
+        return (
+            current_app.config.get("PUBLIC_CHECKS_BASE_URL")
+            or current_app.config.get("BASE_URL")
+            or "http://localhost:5001"
+        ).strip().rstrip("/")
+
+    return _configured_base_url()
 
 
 # --------------------------------------------------------------------------- #
@@ -230,6 +252,24 @@ class CheckFormService:
 
 class ClientCheckService:
     """Servizio per la gestione delle assegnazioni e risposte."""
+
+    @staticmethod
+    def _to_json_safe(value: Any) -> Any:
+        """Converte valori WTForms/Python in tipi serializzabili JSONB."""
+        if value is None:
+            return None
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, (datetime, date, time)):
+            return value.isoformat()
+        if isinstance(value, (list, tuple, set)):
+            return [ClientCheckService._to_json_safe(v) for v in value]
+        if isinstance(value, dict):
+            return {str(k): ClientCheckService._to_json_safe(v) for k, v in value.items()}
+        # Fallback conservativo
+        return str(value)
     
     @staticmethod
     def assign_form_to_clients(
@@ -320,20 +360,70 @@ class ClientCheckService:
             for field in assignment.form.fields:
                 field_key = f"field_{field.id}"
                 if field_key in form_data:
-                    response_data[str(field.id)] = form_data[field_key]
+                    value = form_data[field_key]
+                    if isinstance(value, FileStorage):
+                        if value and value.filename:
+                            # Salva il file e serializza metadata JSON-safe
+                            upload_root = os.path.join(
+                                current_app.root_path,
+                                "static",
+                                "uploads",
+                                "client_checks",
+                                str(assignment.cliente_id),
+                            )
+                            os.makedirs(upload_root, exist_ok=True)
+
+                            original_name = secure_filename(value.filename)
+                            ext = os.path.splitext(original_name)[1] or ""
+                            final_name = secure_filename(
+                                f"a{assignment.id}_f{field.id}_{secrets.token_hex(8)}{ext}"
+                            )
+                            abs_path = os.path.join(upload_root, final_name)
+                            value.save(abs_path)
+
+                            response_data[str(field.id)] = {
+                                "type": "file",
+                                "filename": original_name,
+                                "path": f"/static/uploads/client_checks/{assignment.cliente_id}/{final_name}",
+                                "uploaded_at": datetime.utcnow().isoformat(),
+                            }
+                        else:
+                            response_data[str(field.id)] = None
+                    else:
+                        response_data[str(field.id)] = ClientCheckService._to_json_safe(value)
             
-            # Crea la risposta
+            # Una sola compilazione per assignment: evita duplicati
+            existing_response = (
+                ClientCheckResponse.query
+                .filter_by(assignment_id=assignment_id)
+                .order_by(desc(ClientCheckResponse.created_at))
+                .first()
+            )
+
+            if existing_response:
+                current_app.logger.info(
+                    "Check gia' compilato per assignment %s: skip nuova risposta",
+                    assignment_id,
+                )
+                # Mantiene allineate statistiche legacy eventualmente fuori sync
+                assignment.response_count = 1
+                if not assignment.last_response_at:
+                    assignment.last_response_at = existing_response.created_at
+                db.session.commit()
+                return existing_response
+
+            # Prima compilazione: crea una nuova risposta
             response = ClientCheckResponse(
                 assignment_id=assignment_id,
                 responses=response_data,
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-            
+
             db.session.add(response)
-            
-            # Aggiorna le statistiche dell'assegnazione
-            assignment.response_count += 1
+
+            # Aggiorna statistiche assegnazione (binary completed/not completed)
+            assignment.response_count = 1
             assignment.last_response_at = datetime.utcnow()
             
             db.session.commit()
@@ -436,6 +526,135 @@ class ClientCheckService:
 
 class NotificationService:
     """Servizio per l'invio di notifiche."""
+
+    @staticmethod
+    def send_weekly_check_summary_to_patient(cliente, weekly_response) -> None:
+        """Invia al paziente una copia email con il riepilogo del Weekly Check."""
+        from flask import render_template
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+
+        recipient = getattr(cliente, "mail", None) or getattr(cliente, "email", None)
+        if not recipient or not str(recipient).strip():
+            current_app.logger.info(
+                f"[WEEKLY_CHECK] Skip email riepilogo paziente: cliente {getattr(cliente, 'cliente_id', '?')} senza email"
+            )
+            return
+
+        def _fmt(value):
+            if value is None:
+                return None
+            if isinstance(value, Decimal):
+                value = str(value)
+            text = str(value).strip()
+            return text or None
+
+        sections_raw = [
+            (
+                "Riflessioni della settimana",
+                [
+                    ("Cosa ha funzionato", getattr(weekly_response, "what_worked", None)),
+                    ("Cosa non ha funzionato", getattr(weekly_response, "what_didnt_work", None)),
+                    ("Cosa hai imparato", getattr(weekly_response, "what_learned", None)),
+                    ("Focus prossima settimana", getattr(weekly_response, "what_focus_next", None)),
+                    ("Note/infortuni", getattr(weekly_response, "injuries_notes", None)),
+                ],
+            ),
+            (
+                "Benessere (0-10)",
+                [
+                    ("Digestione", getattr(weekly_response, "digestion_rating", None)),
+                    ("Energia", getattr(weekly_response, "energy_rating", None)),
+                    ("Forza", getattr(weekly_response, "strength_rating", None)),
+                    ("Fame", getattr(weekly_response, "hunger_rating", None)),
+                    ("Sonno", getattr(weekly_response, "sleep_rating", None)),
+                    ("Umore", getattr(weekly_response, "mood_rating", None)),
+                    ("Motivazione", getattr(weekly_response, "motivation_rating", None)),
+                ],
+            ),
+            (
+                "Percorso e aderenza",
+                [
+                    ("Peso", getattr(weekly_response, "weight", None)),
+                    ("Aderenza nutrizione", getattr(weekly_response, "nutrition_program_adherence", None)),
+                    ("Aderenza allenamento", getattr(weekly_response, "training_program_adherence", None)),
+                    ("Modifiche esercizi", getattr(weekly_response, "exercise_modifications", None)),
+                    ("Passi giornalieri", getattr(weekly_response, "daily_steps", None)),
+                    ("Settimane allenamento completate", getattr(weekly_response, "completed_training_weeks", None)),
+                    ("Giorni allenamento pianificati", getattr(weekly_response, "planned_training_days", None)),
+                    ("Temi live session", getattr(weekly_response, "live_session_topics", None)),
+                ],
+            ),
+            (
+                "Valutazioni professionisti",
+                [
+                    ("Valutazione nutrizionista", getattr(weekly_response, "nutritionist_rating", None)),
+                    ("Feedback nutrizionista", getattr(weekly_response, "nutritionist_feedback", None)),
+                    ("Valutazione psicologo", getattr(weekly_response, "psychologist_rating", None)),
+                    ("Feedback psicologo", getattr(weekly_response, "psychologist_feedback", None)),
+                    ("Valutazione coach", getattr(weekly_response, "coach_rating", None)),
+                    ("Feedback coach", getattr(weekly_response, "coach_feedback", None)),
+                ],
+            ),
+            (
+                "Valutazione percorso",
+                [
+                    ("Valutazione progresso", getattr(weekly_response, "progress_rating", None)),
+                    ("Referral", getattr(weekly_response, "referral", None)),
+                    ("Commenti extra", getattr(weekly_response, "extra_comments", None)),
+                ],
+            ),
+        ]
+
+        sections: list[dict[str, object]] = []
+        for title, items in sections_raw:
+            normalized_items = []
+            for label, raw_value in items:
+                value = _fmt(raw_value)
+                if value is not None:
+                    normalized_items.append({"label": label, "value": value})
+            if normalized_items:
+                sections.append({"title": title, "items": normalized_items})
+
+        submit_dt = getattr(weekly_response, "submit_date", None)
+        submit_label = submit_dt.strftime("%d/%m/%Y %H:%M") if submit_dt else None
+        subject = f"Copia del tuo Weekly Check - {submit_label or 'Compilazione ricevuta'}"
+
+        text_lines = [
+            f"Ciao {getattr(cliente, 'nome_cognome', 'Cliente')},",
+            "",
+            "Abbiamo ricevuto il tuo Weekly Check. Ti inviamo una copia riepilogativa delle risposte.",
+        ]
+        if submit_label:
+            text_lines.extend(["", f"Data invio: {submit_label}"])
+        for section in sections:
+            text_lines.extend(["", str(section["title"])])
+            for item in section["items"]:
+                text_lines.append(f"- {item['label']}: {item['value']}")
+        text_lines.extend([
+            "",
+            "Questa email è automatica. Non rispondere a questo messaggio.",
+            "— Corpo Sostenibile Suite",
+        ])
+        text_body = "\n".join(text_lines)
+
+        html_body = render_template(
+            "client_checks/emails/weekly_summary.html",
+            cliente=cliente,
+            response=weekly_response,
+            submit_label=submit_label,
+            sections=sections,
+        )
+
+        send_mail_html(
+            subject=subject,
+            recipients=[recipient],
+            text_body=text_body,
+            html_body=html_body,
+        )
+
+        current_app.logger.info(
+            f"[WEEKLY_CHECK] Email riepilogo paziente inviata a {recipient} (response_id={getattr(weekly_response, 'id', '?')})"
+        )
     
     @staticmethod
     def send_assignment_notifications(assignments: List[ClientCheckAssignment]) -> None:
@@ -475,38 +694,53 @@ class NotificationService:
     @staticmethod
     def _send_assignment_email(assignment: ClientCheckAssignment) -> None:
         """Invia email di assegnazione a un cliente."""
+        from flask import render_template
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+
         try:
-            if not assignment.cliente.email:
+            recipient = getattr(assignment.cliente, "mail", None) or getattr(
+                assignment.cliente, "email", None
+            )
+            if not recipient or not str(recipient).strip():
                 current_app.logger.warning(
                     f"Cliente {assignment.cliente_id} senza email"
                 )
                 return
-            
+
             # Genera URL pubblico
-            public_url = assignment.get_public_url(
-                base_url=current_app.config.get("BASE_URL", "")
-            )
-            
-            # Prepara i dati per l'email
-            email_data = {
-                "to": assignment.cliente.email,
-                "subject": f"Nuovo questionario: {assignment.form.name}",
-                "template": "client_checks/emails/assignment.html",
-                "context": {
-                    "cliente": assignment.cliente,
-                    "form": assignment.form,
-                    "assignment": assignment,
-                    "public_url": public_url,
-                },
+            base_url = _public_checks_base_url()
+            public_url = assignment.get_public_url(base_url=base_url)
+
+            context = {
+                "cliente": assignment.cliente,
+                "form": assignment.form,
+                "assignment": assignment,
+                "public_url": public_url,
             }
-            
-            # Invia email (implementazione dipende dal sistema email)
-            # send_email(**email_data)
-            
-            current_app.logger.info(
-                f"Email assegnazione inviata a {assignment.cliente.email}"
+
+            subject = f"Nuovo questionario: {assignment.form.name}"
+            html_body = render_template(
+                "client_checks/emails/assignment.html",
+                **context
             )
-            
+            text_body = (
+                f"Ciao {assignment.cliente.nome_cognome},\n\n"
+                f"Ti è stato assegnato il questionario: {assignment.form.name}\n\n"
+                f"COMPILA QUI: {public_url}\n\n"
+                "— Corpo Sostenibile Suite"
+            )
+
+            send_mail_html(
+                subject=subject,
+                recipients=[recipient],
+                text_body=text_body,
+                html_body=html_body,
+            )
+
+            current_app.logger.info(
+                f"Email assegnazione inviata a {recipient}"
+            )
+
         except Exception as e:
             current_app.logger.error(f"Errore invio email assegnazione: {e}")
     
@@ -667,6 +901,64 @@ Corpo Sostenibile Suite
                 f"Errore invio notifiche check al team professionale: {e}",
                 exc_info=True
             )
+
+
+def send_initial_checks_single_email(
+    cliente: Cliente,
+    assignments: List[ClientCheckAssignment],
+) -> None:
+    """
+    Invia una sola email al cliente con i link ai questionari iniziali.
+
+    Usato dal bridge opportunity-data quando GHL invia lead vinta.
+    """
+    from flask import render_template
+    from corposostenibile.blueprints.auth.email_utils import send_mail_html
+
+    recipient = getattr(cliente, "mail", None) or getattr(cliente, "email", None)
+    if not recipient or not str(recipient).strip():
+        current_app.logger.warning(f"Cliente {cliente.cliente_id} senza email, skip invio")
+        return
+
+    base_url = _public_checks_base_url()
+    items = [
+        {"form": a.form, "public_url": a.get_public_url(base_url=base_url)}
+        for a in assignments
+    ]
+
+    checks_count = len(assignments)
+    context = {
+        "cliente": cliente,
+        "assignments": items,
+        "checks_count": checks_count,
+    }
+    subject = "I tuoi questionari iniziali"
+    html_body = render_template(
+        "client_checks/emails/assignment_initial_checks.html",
+        **context,
+    )
+    text_lines = [
+        f"Ciao {cliente.nome_cognome},",
+        "",
+        f"Benvenuto! Per avviare il tuo percorso ti chiediamo di compilare {checks_count} questionari iniziali:",
+        "",
+    ]
+    for a in assignments:
+        url = a.get_public_url(base_url=base_url)
+        text_lines.append(f"- {a.form.name}: {url}")
+    text_lines.extend(["", "— Corpo Sostenibile Suite"])
+    text_body = "\n".join(text_lines)
+
+    send_mail_html(
+        subject=subject,
+        recipients=[recipient],
+        text_body=text_body,
+        html_body=html_body,
+    )
+
+    current_app.logger.info(
+        f"Email questionari iniziali inviata a {recipient} ({len(assignments)} link)"
+    )
 
 
 # --------------------------------------------------------------------------- #

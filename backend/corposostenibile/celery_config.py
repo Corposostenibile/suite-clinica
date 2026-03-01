@@ -117,6 +117,24 @@ CELERYBEAT_SCHEDULE = {
         }
     },
 
+    # TASK MANAGEMENT
+    'generate-solicitations': {
+        'task': 'corposostenibile.blueprints.tasks.tasks.generate_solicitations_task',
+        'schedule': crontab(hour=10, minute=0),  # Ogni giorno alle 10:00
+        'options': {
+            'expires': 3600,
+            'priority': 5,
+        }
+    },
+    'generate-reminders': {
+        'task': 'corposostenibile.blueprints.tasks.tasks.generate_reminders_task',
+        'schedule': crontab(hour=8, minute=0),  # Ogni giorno alle 08:00
+        'options': {
+            'expires': 3600,
+            'priority': 5,
+        }
+    },
+
 }
 
 # Timezone per Celery Beat (importante per crontab)

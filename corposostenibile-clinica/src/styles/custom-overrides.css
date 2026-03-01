@@ -41,6 +41,9 @@
 [data-sidebarbg="color_3"] .deznav .metismenu > li:focus > a,
 [data-sidebarbg="color_3"] .deznav .metismenu > li.mm-active > a {
   color: #fff !important;
+  background: rgba(13, 59, 18, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 6px;
 }
 
 [data-sidebarbg="color_3"] .deznav .metismenu > li:hover > a svg,
@@ -102,6 +105,35 @@
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
+/* ===================================================================
+   SIDEBAR REMIX ICON OVERRIDES
+   =================================================================== */
+
+/* Base icon styling */
+.sidebar-ri-icon {
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+  color: inherit;
+  transition: color 0.2s ease;
+}
+
+/* Color inheritance from sidebar theme */
+[data-sidebarbg="color_3"] .deznav .metismenu > li > a .sidebar-ri-icon {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-sidebarbg="color_3"] .deznav .metismenu > li:hover > a .sidebar-ri-icon,
+[data-sidebarbg="color_3"] .deznav .metismenu > li:focus > a .sidebar-ri-icon,
+[data-sidebarbg="color_3"] .deznav .metismenu > li.mm-active > a .sidebar-ri-icon {
+  color: #fff !important;
+}
+
 /* Scrollbar for sidebar */
 [data-sidebarbg="color_3"] .deznav .deznav-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2) !important;
@@ -112,54 +144,117 @@
 }
 
 /* ===================================================================
+   SIDEBAR COLLAPSED - Active/Hover Override (no blue)
+   =================================================================== */
+
+[data-sidebar-style="full"][data-layout="vertical"] .menu-toggle .deznav .metismenu > li.mm-active > a,
+[data-sidebar-style="full"][data-layout="vertical"] .menu-toggle .deznav .metismenu > li:hover > a,
+[data-sidebar-style="mini"][data-layout="vertical"] .deznav .metismenu > li.mm-active > a,
+[data-sidebar-style="mini"][data-layout="vertical"] .deznav .metismenu > li:hover > a {
+  background: rgba(13, 59, 18, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 6px;
+}
+
+/* ===================================================================
    HAMBURGER TOGGLE - Visibility
    =================================================================== */
 
 /* Ensure nav-control is always visible and properly styled */
 .nav-header .nav-control {
-  display: block !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   position: absolute;
-  right: -4.0625rem;
+  right: -3.25rem;
   top: 50%;
   transform: translateY(-50%);
   z-index: 9999;
-  padding: 10px;
-  background: rgba(76, 175, 80, 0.1);
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: #f1f5f9;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.25s ease;
+}
+
+.nav-header .nav-control:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.nav-header .nav-control:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+/* Pop animation on click */
+.nav-header .nav-control--pop {
+  animation: navControlPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes navControlPop {
+  0%   { transform: translateY(-50%) scale(1); }
+  25%  { transform: translateY(-50%) scale(0.85) rotate(-8deg); }
+  50%  { transform: translateY(-50%) scale(1.12) rotate(4deg); }
+  75%  { transform: translateY(-50%) scale(0.97) rotate(-1deg); }
+  100% { transform: translateY(-50%) scale(1) rotate(0deg); }
 }
 
 .nav-header .nav-control .hamburger {
-  display: block !important;
-  width: 26px;
-  height: 20px;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 16px;
+  position: relative;
 }
 
 .nav-header .nav-control .hamburger .line {
   display: block !important;
+  position: absolute;
   width: 100%;
-  height: 3px;
-  background: #4CAF50 !important;
-  margin: 4px 0;
+  height: 2px;
+  background: #64748b !important;
   border-radius: 2px;
-  transition: all 0.3s ease;
-  transform: none;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+  margin: 0;
 }
 
-.nav-header .nav-control .hamburger.is-active .line:nth-child(1) {
+.nav-header .nav-control .hamburger .line:nth-child(1) {
+  top: 0;
   width: 100% !important;
-  transform: translateY(7px) rotate(45deg);
 }
 
-.nav-header .nav-control .hamburger.is-active .line:nth-child(2) {
-  opacity: 0;
-  width: 100% !important;
-  transform: none;
+.nav-header .nav-control .hamburger .line:nth-child(2) {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 70% !important;
 }
 
-.nav-header .nav-control .hamburger.is-active .line:nth-child(3) {
+.nav-header .nav-control .hamburger .line:nth-child(3) {
+  bottom: 0;
+  top: auto;
+  width: 85% !important;
+}
+
+.nav-header .nav-control:hover .hamburger .line {
+  background: #1e293b !important;
   width: 100% !important;
-  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Chevron icon when sidebar is closed */
+.nav-header .nav-control svg {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-header .nav-control:hover svg {
+  transform: translateX(2px);
 }
 
 /* ===================================================================
@@ -297,4 +392,124 @@
 
 .p-40 {
   padding: 2.5rem !important;
+}
+
+/* ===================================================================
+   TASK SIDEBAR STYLES
+   =================================================================== */
+
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.08)!important;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.leading-tight {
+  line-height: 1.25;
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Custom Scrollbar for Tasks */
+#DZ_W_Contacts_Body2::-webkit-scrollbar {
+  width: 4px;
+}
+#DZ_W_Contacts_Body2::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+#DZ_W_Contacts_Body2::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===================================================================
+   FOOTER - Opzione B (link rapidi + copyright)
+   =================================================================== */
+
+/* ── Sticky footer: always at the bottom ── */
+#main-wrapper.show {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content-body {
+  flex: 1 0 auto;
+  padding-bottom: 40px;
+}
+
+.footer {
+  flex-shrink: 0;
+  background: white !important;
+  border-top: 1px solid #e2e8f0;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 15px 0;
+}
+
+.footer-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.footer-link:hover {
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.08);
+}
+
+.footer-link i {
+  font-size: 16px;
+}
+
+.footer-divider {
+  width: 1px;
+  height: 16px;
+  background: #e2e8f0;
+}
+
+.footer .copyright {
+  padding: 14px 15px 10px !important;
+}
+
+.footer .copyright p {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+@media (max-width: 576px) {
+  .footer-links {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .footer-divider {
+    display: none;
+  }
 }

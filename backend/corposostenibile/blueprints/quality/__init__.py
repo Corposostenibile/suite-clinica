@@ -7,7 +7,7 @@ from flask import Blueprint
 bp = Blueprint(
     'quality',
     __name__,
-    url_prefix='/quality',
+    url_prefix='/quality/api',
     template_folder='templates'
 )
 

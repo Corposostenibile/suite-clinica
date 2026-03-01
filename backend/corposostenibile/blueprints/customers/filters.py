@@ -67,6 +67,17 @@ def _parse_multi_value(raw: str | Iterable[str] | None, cast_func) -> List:
         itm = itm.strip()
         if itm:
             try:
+                if cast_func == StatoClienteEnum:
+                    stato_mapping = {
+                        "cliente": "attivo",
+                        "ex_cliente": "stop",
+                        "acconto": "stop",
+                        "ghosting": "ghost",
+                        "insoluto": "stop",
+                        "freeze": "pausa",
+                    }
+                    itm = stato_mapping.get(itm.lower(), itm)
+
                 # Prova prima come valore enum diretto
                 if hasattr(cast_func, '__members__'):  # È un Enum
                     # Prova a trovare l'enum per nome o valore
@@ -157,6 +168,7 @@ class CustomerFilterParams:
     origine: Optional[str] = None
     professione: Optional[str] = None
     paese: Optional[str] = None
+    origine_ids: List[int] = field(default_factory=list)  # Added for Influencer filtering
     
     # Missing anagrafica
     missing_email: bool = False
@@ -360,7 +372,9 @@ class CustomerFilterParams:
                 'cliente': 'attivo',
                 'ex_cliente': 'stop',
                 'acconto': 'stop',
-                'ghosting': 'ghost'
+                'ghosting': 'ghost',
+                'insoluto': 'stop',
+                'freeze': 'pausa',
             }
             stato_str = stato_mapping.get(stato_str, stato_str)
             try:
@@ -639,20 +653,26 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # -------- full-text --------
     if p.q:
         term = p.q.strip()
-        if db.engine.dialect.name == "postgresql":
-            qry = qry.filter(Cliente.search_vector.match(term))
-        else:
-            like = f"%{term.lower()}%"
+        if term:
+            # Usiamo ILIKE per tutti i database per semplicità e consistenza
+            # Questo permette ricerche parziali come "francesc" -> "francesca"
+            like = f"%{term}%"
             qry = qry.filter(
                 or_(
-                    func.lower(Cliente.nome_cognome).like(like),
-                    func.lower(Cliente.consulente_alimentare).like(like),
+                    Cliente.nome_cognome.ilike(like),
+                    Cliente.mail.ilike(like),
+                    Cliente.numero_telefono.ilike(like),
+                    Cliente.consulente_alimentare.ilike(like),
                 )
             )
 
     # -------- tipologia filter ------
     if p.tipologia:
         qry = qry.filter(Cliente.tipologia_cliente.in_(p.tipologia))
+
+    # -------- origine filter (Influencer) ------
+    if p.origine_ids:
+        qry = qry.filter(Cliente.origine_id.in_(p.origine_ids))
     
     # -------- professional filters ------
     # Usa le tabelle many-to-many per i filtri professionisti

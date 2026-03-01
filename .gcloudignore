@@ -1,0 +1,35 @@
+# Cloud Build source upload optimization
+# Keep only what serve per build/deploy backend+frontend web app.
+
+.git
+.gitignore
+.gcloudignore
+.codex
+
+# Local runtime / caches / logs
+logs
+screenshots
+*.log
+*.tmp
+*.swp
+
+# Large local artifacts not used by Dockerfile
+corposostenibile-amministrativa
+template
+
+# Frontend local artifacts
+corposostenibile-clinica/node_modules
+corposostenibile-clinica/dist
+corposostenibile-clinica/.vite
+
+# Backend local artifacts / sensitive files / backups
+backend/backups
+backend/uploads
+backend/venv
+backend/.venv
+backend/__pycache__
+backend/.pytest_cache
+backend/.mypy_cache
+backend/htmlcov
+backend/.env
+

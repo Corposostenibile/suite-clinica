@@ -13,6 +13,7 @@ Funzionalità:
 import logging
 from datetime import datetime, timedelta
 from typing import Dict
+from flask import current_app
 
 from corposostenibile.extensions import db
 from corposostenibile.models import GoogleAuth
@@ -34,6 +35,12 @@ def refresh_google_tokens_task() -> Dict[str, int]:
     logger.info("🔄 Avvio task refresh token Google OAuth")
 
     try:
+        # Se le credenziali Google OAuth non sono configurate, disabilita il refresh automatico.
+        # Evita spam di warning ogni 5 minuti in ambienti dove la feature non è attiva.
+        if not (current_app.config.get("GOOGLE_CLIENT_ID") and current_app.config.get("GOOGLE_CLIENT_SECRET")):
+            logger.info("⏭️ Refresh token Google disabilitato: GOOGLE_CLIENT_ID/SECRET non configurati")
+            return {'refreshed': 0, 'failed': 0, 'skipped': 0}
+
         # Refresha tutti i token che scadono entro 10 minuti
         stats = GoogleTokenRefreshService.refresh_all_expiring_tokens(threshold_minutes=10)
 
@@ -99,6 +106,17 @@ def monitor_token_health() -> Dict:
     logger.info("📊 Avvio monitoring salute token")
 
     try:
+        if not (current_app.config.get("GOOGLE_CLIENT_ID") and current_app.config.get("GOOGLE_CLIENT_SECRET")):
+            logger.info("⏭️ Monitoring token Google disabilitato: GOOGLE_CLIENT_ID/SECRET non configurati")
+            return {
+                'total_tokens': 0,
+                'healthy': 0,
+                'expiring_soon': 0,
+                'expired': 0,
+                'timestamp': datetime.utcnow().isoformat(),
+                'disabled': True,
+            }
+
         status_list = GoogleTokenRefreshService.get_token_expiry_status()
 
         total = len(status_list)

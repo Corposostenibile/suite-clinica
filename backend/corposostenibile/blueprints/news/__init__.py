@@ -12,5 +12,6 @@ news_bp = Blueprint(
 )
 
 from . import routes
+from .api_routes import news_api_bp
 
-__all__ = ['news_bp']
+__all__ = ['news_bp', 'news_api_bp']

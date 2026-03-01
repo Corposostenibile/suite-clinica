@@ -24,6 +24,7 @@ logger = get_task_logger(__name__)
     default_retry_delay=300  # 5 minuti
 )
 def process_acconto_open_webhook(self, payload: Dict[str, Any]):
+    print("DEBUG: Executing process_acconto_open_webhook task!")
     """
     Task Celery per processare webhook acconto_open in background
 
@@ -139,7 +140,7 @@ def send_finance_notification(cliente_id: int, assignment_id: int):
         app = create_app()
         with app.app_context():
             from corposostenibile.models import Cliente, ServiceClienteAssignment, User
-            from corposostenibile.utils.email import send_email
+            from corposostenibile.blueprints.auth.email_utils import send_mail
 
             # Carica i dati
             cliente = Cliente.query.get(cliente_id)
@@ -176,7 +177,7 @@ def send_finance_notification(cliente_id: int, assignment_id: int):
             # Invia email a tutti gli utenti finance
             for user in finance_users:
                 try:
-                    send_email(user.email, subject, body)
+                    send_mail(subject=subject, recipients=[user.email], body=body)
                     logger.info(f"[GHL Task] Finance notification sent to {user.email}")
                 except Exception as e:
                     logger.error(f"[GHL Task] Failed to send email to {user.email}: {e}")
@@ -198,7 +199,7 @@ def send_assignment_notification(cliente_id: int, assignment_id: int):
         app = create_app()
         with app.app_context():
             from corposostenibile.models import Cliente, ServiceClienteAssignment, User
-            from corposostenibile.utils.email import send_email
+            from corposostenibile.blueprints.auth.email_utils import send_mail
 
             # Carica i dati
             cliente = Cliente.query.get(cliente_id)
@@ -237,7 +238,7 @@ def send_assignment_notification(cliente_id: int, assignment_id: int):
             # Invia notifica (per ora a tutti, poi sarà più selettiva)
             for user in service_users[:3]:  # Limita a 3 per non spammare
                 try:
-                    send_email(user.email, subject, body)
+                    send_mail(subject=subject, recipients=[user.email], body=body)
                     logger.info(f"[GHL Task] Assignment notification sent to {user.email}")
                 except Exception as e:
                     logger.error(f"[GHL Task] Failed to send email to {user.email}: {e}")
@@ -293,3 +294,50 @@ def retry_failed_webhook(self, webhook_id: int):
     except Exception as exc:
         logger.error(f"[GHL Task] Error retrying webhook {webhook_id}: {exc}")
         raise self.retry(exc=exc, countdown=600)  # Retry dopo 10 minuti
+
+
+@celery_app.task(
+    bind=True,
+    name='ghl.reactivate_after_pausa',
+    max_retries=3,
+    default_retry_delay=300,
+)
+def reactivate_after_pausa(self, cliente_id: int, servizi: list[str]):
+    """
+    Auto-riattiva i servizi di un cliente dopo la fine della pausa.
+    Viene schedulato con ETA dal webhook pausa-servizio.
+    """
+    try:
+        app = create_app()
+        with app.app_context():
+            from corposostenibile.models import Cliente, StatoClienteEnum
+
+            cliente = db.session.get(Cliente, cliente_id)
+            if not cliente:
+                logger.warning(f"[GHL Task] reactivate_after_pausa: cliente {cliente_id} non trovato")
+                return
+
+            reactivated = []
+            for servizio in servizi:
+                stato_attr = f'stato_{servizio}'
+                current_stato = getattr(cliente, stato_attr, None)
+                # Riattiva solo se ancora in pausa (l'HM potrebbe averlo già fatto)
+                if current_stato == StatoClienteEnum.pausa:
+                    cliente.update_stato_servizio(servizio, StatoClienteEnum.attivo)
+                    reactivated.append(servizio)
+
+            if reactivated:
+                db.session.commit()
+                logger.info(
+                    f"[GHL Task] reactivate_after_pausa OK: cliente={cliente.nome_cognome} "
+                    f"servizi riattivati={reactivated}"
+                )
+            else:
+                logger.info(
+                    f"[GHL Task] reactivate_after_pausa: nessun servizio da riattivare "
+                    f"per cliente={cliente.nome_cognome} (già attivi o cambiati)"
+                )
+
+    except Exception as exc:
+        logger.error(f"[GHL Task] reactivate_after_pausa error: {exc}")
+        raise self.retry(exc=exc, countdown=600)

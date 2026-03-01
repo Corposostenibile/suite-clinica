@@ -4,7 +4,7 @@ Handles all business logic for lead management.
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 import secrets
 import string
 from decimal import Decimal
@@ -2023,435 +2023,216 @@ class AnalyticsService:
 # ════════════════════════════════════════════════════════════════════════
 
 class AIMatchingService:
-    """Service per suggerimento AI professionista migliore per una lead"""
+    """Service per suggerimento AI professionista migliore per una lead basato su criteri"""
 
     @staticmethod
     def suggest_professional(lead_id: int, department_id: int, session_id: str = None) -> Dict[str, Any]:
         """
-        Suggerisce il professionista migliore per una lead usando SuiteMind AI
-
-        Args:
-            lead_id: ID della lead
-            department_id: ID dipartimento (2=Nutrizione, 3=Coach, 4=Psicologia)
-            session_id: Session ID per memoria conversazionale
-
-        Returns:
-            Dict con professional_id, professional_name, score, reasoning
+        Suggerisce il professionista migliore per una lead analizzando i criteri.
+        
+        1. Estrae criteri (tag) dalla storia della lead usando AI
+        2. Confornta i tag con i criteri dei professionisti nel DB
+        3. Restituisce i migliori match calcolati matematicamente
         """
-        from flask import current_app, url_for
-        import requests
-        import json
-
-        # 1. Recupera lead completa
+        from flask import current_app
+        from corposostenibile.blueprints.team.criteria_service import CriteriaService
+        from corposostenibile.models import SalesLead, User, Calendar
+        from typing import Dict, List, Tuple, Any, Optional
+        from datetime import datetime, timedelta
+        
+        # 1. Recupera lead
         lead = SalesLead.query.get(lead_id)
         if not lead:
             raise ValueError(f"Lead {lead_id} non trovata")
 
-        # 2. Recupera professionisti del dipartimento con assignment_ai_notes
+        # 2. Determina il ruolo per lo schema criteri
+        role_map = {2: 'nutrizione', 3: 'coach', 4: 'psicologia', 24: 'nutrizione'}
+        role_key = role_map.get(department_id, 'nutrizione')
+        
+        # 3. Estrai criteri dalla lead usando Gemini
+        try:
+            lead_criteria = AIMatchingService._extract_criteria_with_ai(lead, role_key)
+            current_app.logger.info(f"[AI-MATCH] Criteri estratti per lead {lead_id}: {lead_criteria}")
+        except Exception as e:
+            current_app.logger.error(f"[AI-MATCH] Errore estrazione criteri: {e}")
+            # Fallback: criteri vuoti
+            lead_criteria = {}
+
+        # 4. Recupera professionisti e filtra
         professionals = User.query.filter(
             User.department_id == department_id,
-            User.is_active == True,
-            User.assignment_ai_notes.isnot(None)
-        ).order_by(User.first_name, User.last_name).all()
-
-        # Filtra in Python quelli con note AI non vuote (PostgreSQL non supporta != per JSON)
-        professionals = [p for p in professionals if p.assignment_ai_notes and p.assignment_ai_notes != {}]
-
-        # Filtra solo professionisti DISPONIBILI ad assegnazioni
-        # Se disponibile_assegnazioni non è definito, si assume disponibile (default True)
-        professionals = [
-            p for p in professionals
-            if p.assignment_ai_notes.get('disponibile_assegnazioni', True) is True
-        ]
-
-        if not professionals:
-            raise ValueError(f"Nessun professionista disponibile nel dipartimento {department_id} con note AI configurate")
-
-        # Calcola assegnazioni giornaliere per ogni professionista e filtra chi ha già 3
-        MAX_DAILY_ASSIGNMENTS = 3
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
-
-        # Conta assegnazioni di oggi per tutti i professionisti del dipartimento
-        daily_assignments = {}
+            User.is_active == True
+        ).all()
+        
+        candidates = []
         for p in professionals:
-            # Conta quante volte questo professionista è stato assegnato oggi
-            # Dipende dal dipartimento: nutrizionista, coach o psicologo
-            if department_id in [2, 24]:  # Nutrizione
-                count = SalesLead.query.filter(
-                    SalesLead.assigned_nutritionist_id == p.id,
-                    SalesLead.assigned_at >= today_start,
-                    SalesLead.assigned_at < today_end
-                ).count()
-            elif department_id == 3:  # Coach
-                count = SalesLead.query.filter(
-                    SalesLead.assigned_coach_id == p.id,
-                    SalesLead.assigned_at >= today_start,
-                    SalesLead.assigned_at < today_end
-                ).count()
-            elif department_id == 4:  # Psicologia
-                count = SalesLead.query.filter(
-                    SalesLead.assigned_psychologist_id == p.id,
-                    SalesLead.assigned_at >= today_start,
-                    SalesLead.assigned_at < today_end
-                ).count()
-            else:
-                count = 0
-
-            daily_assignments[p.id] = count
-
-        # Filtra professionisti che hanno già raggiunto il limite giornaliero
-        professionals_available = [
-            p for p in professionals
-            if daily_assignments.get(p.id, 0) < MAX_DAILY_ASSIGNMENTS
-        ]
-
-        if not professionals_available:
-            raise ValueError(f"Tutti i professionisti del dipartimento {department_id} hanno già raggiunto il limite di {MAX_DAILY_ASSIGNMENTS} assegnazioni per oggi")
-
-        current_app.logger.info(f"[AI-SUGGEST] Trovati {len(professionals_available)} professionisti disponibili per dept {department_id} (filtrati per limite giornaliero)")
-
-        # 3. Costruisci prompt completo per SuiteMind (usa solo professionisti disponibili)
-        prompt = AIMatchingService._build_matching_prompt(lead, professionals_available, department_id)
-
-        current_app.logger.debug(f"[AI-SUGGEST] Prompt length: {len(prompt)} chars")
-
-        # 4. Chiama Google Gemini direttamente (invece di postgres-chat che è per query SQL)
-        try:
-            import os
-            from langchain_google_genai import ChatGoogleGenerativeAI
-
-            # Usa Gemini per matching AI (non è una query SQL, quindi non usiamo postgres-chat)
-            google_api_key = os.getenv("GOOGLE_API_KEY")
-            if not google_api_key:
-                raise ValueError("GOOGLE_API_KEY non configurata nell'ambiente")
-
-            current_app.logger.info(f"[AI-SUGGEST] Chiamata diretta a Google Gemini per AI matching")
-
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash",
-                google_api_key=google_api_key,
-                temperature=0.3  # Un po' di creatività ma mantieni coerenza
-            )
-
-            # Invoca il modello
-            ai_response = llm.invoke(prompt).content
-
-            current_app.logger.info(f"[AI-SUGGEST] Risposta Gemini ricevuta: {len(ai_response)} chars")
-
-        except Exception as e:
-            current_app.logger.error(f"[AI-SUGGEST] Errore chiamata Gemini: {str(e)}")
-            raise Exception(f"Errore chiamata AI: {str(e)}")
-
-        # 5. Parsa risposta AI per estrarre suggerimento
-        suggestion = AIMatchingService._parse_ai_response(ai_response, professionals_available, daily_assignments)
-
-        return suggestion
-
-    @staticmethod
-    def _build_matching_prompt(lead: SalesLead, professionals: List[User], department_id: int) -> str:
-        """Costruisce prompt dettagliato per SuiteMind"""
-        import json
-
-        # Mapping department names
-        dept_names = {
-            2: 'Nutrizionista',
-            3: 'Coach',
-            4: 'Psicologo/Psicologa',
-            24: 'Nutrizionista'
-        }
-        dept_name = dept_names.get(department_id, 'Professionista')
-
-        # Costruisci sezione lead
-        lead_info = f"""
-=== INFORMAZIONI LEAD ===
-Nome: {lead.first_name} {lead.last_name}
-Email: {lead.email}
-Telefono: {lead.phone or 'N/A'}
-Genere: {lead.gender or 'N/A'}
-Età: {lead.birth_date.strftime('%d/%m/%Y') if lead.birth_date else 'N/A'}
-
-STORIA CLIENTE:
-{lead.client_story or 'Non disponibile'}
-
-FORM RESPONSES (Check 1):
-{json.dumps(lead.form_responses or {}, indent=2, ensure_ascii=False)}
-
-CHECK 2 RESPONSES:
-{json.dumps(lead.check2_responses or {}, indent=2, ensure_ascii=False) if lead.check2_responses else 'Non completato'}
-
-CHECK 3 RESPONSES:
-{json.dumps(lead.check3_responses or {}, indent=2, ensure_ascii=False) if lead.check3_responses else 'Non completato'}
-{f"Check 3 Score: {lead.check3_score}, Type: {lead.check3_type}" if lead.check3_score else ''}
-
-PACCHETTO SCELTO:
-{lead.package.name if lead.package else lead.custom_package_name or 'Non specificato'}
-
-NOTE VENDITA:
-{lead.sales_notes or 'Nessuna nota'}
-"""
-
-        # Costruisci sezione professionisti
-        professionals_info = "\n=== PROFESSIONISTI DISPONIBILI ===\n"
-
-        for i, prof in enumerate(professionals, 1):
-            ai_notes = prof.assignment_ai_notes or {}
-
-            # Gestisci sia dict che string (backward compatibility)
+            # Check disponibilità nelle note vecchie (o migrare questo flag?)
+            ai_notes = p.assignment_ai_notes or {}
             if isinstance(ai_notes, str):
                 try:
+                    import json
                     ai_notes = json.loads(ai_notes)
                 except:
-                    ai_notes = {'specializzazione': ai_notes}
+                    ai_notes = {}
+            
+            if not ai_notes.get('disponibile_assegnazioni', True):
+                continue
+                
+            candidates.append(p)
 
-            # Backward compatibility: consolida vecchi campi multipli in nuovi campi singoli
-            if 'target_fascia_eta' in ai_notes or 'target_tipologia' in ai_notes or 'target_note' in ai_notes:
-                # Consolida in target_ideale se non esiste già
-                if not ai_notes.get('target_ideale'):
-                    parts = []
-                    if ai_notes.get('target_fascia_eta'):
-                        parts.append(f"Fascia età: {ai_notes['target_fascia_eta']}")
-                    if ai_notes.get('target_tipologia'):
-                        parts.append(f"Tipologia: {ai_notes['target_tipologia']}")
-                    if ai_notes.get('target_note'):
-                        parts.append(ai_notes['target_note'])
-                    ai_notes['target_ideale'] = '. '.join(parts) if parts else 'N/A'
+        if not candidates:
+             raise ValueError(f"Nessun professionista disponibile nel dipartimento {department_id}")
 
-            if 'target_escluso_eta' in ai_notes or 'target_escluso_problematiche' in ai_notes:
-                # Consolida in target_non_ideale se non esiste già
-                if not ai_notes.get('target_non_ideale'):
-                    parts = []
-                    if ai_notes.get('target_escluso_eta'):
-                        parts.append(f"Età/condizioni escluse: {ai_notes['target_escluso_eta']}")
-                    if ai_notes.get('target_escluso_problematiche'):
-                        parts.append(f"Problematiche non gestite: {ai_notes['target_escluso_problematiche']}")
-                    ai_notes['target_non_ideale'] = '. '.join(parts) if parts else 'N/A'
+        # 5. Calcola score per ogni candidato
+        scored_candidates = []
+        for prof in candidates:
+            score, matched_tags = AIMatchingService._calculate_match_score(lead_criteria, prof.assignment_criteria, role_key)
+            
+            # Penalizza se ha già troppe assegnazioni oggi
+            daily_count = AIMatchingService._get_daily_assignments_count(prof.id, department_id)
+            if daily_count >= 3:
+                score -= 1000 
+                
+            scored_candidates.append({
+                'prof': prof,
+                'score': score,
+                'matched_tags': matched_tags,
+                'daily_count': daily_count
+            })
 
-            professionals_info += f"""
---- PROFESSIONISTA {i}: {prof.first_name} {prof.last_name} (ID: {prof.id}) ---
+        # 6. Ordina per score decrescente
+        scored_candidates.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Prepara risultato (compatibile con frontend esistente)
+        best_match = scored_candidates[0]
+        prof = best_match['prof']
+        
+        reasoning = "Match basato sui criteri: " + ", ".join(best_match['matched_tags']) if best_match['matched_tags'] else "Assegnazione standard (nessun criterio specifico rilevato)"
+        if best_match['daily_count'] > 0:
+            reasoning += f" (Oggi già {best_match['daily_count']} assegnazioni)"
 
-Specializzazione o aree di competenza:
-{ai_notes.get('specializzazione', 'N/A')}
+        # Alternative
+        alternatives = []
+        for alt in scored_candidates[1:3]: # Prendi i prossimi 2
+            a_prof = alt['prof']
+            avatar = "/static/assets/immagini/logo_user.png"
+            if a_prof.avatar_path:
+                 path = a_prof.avatar_path.replace('avatars/', '', 1) if a_prof.avatar_path.startswith('avatars/') else a_prof.avatar_path
+                 avatar = f"/uploads/avatars/{path}"
+            
+            alt_reasoning = "Match criteri: " + ", ".join(alt['matched_tags']) if alt['matched_tags'] else "Disponibile"
+            
+            alternatives.append({
+                'id': a_prof.id,
+                'name': f"{a_prof.first_name} {a_prof.last_name}",
+                'avatar': avatar,
+                'daily_assignments_count': alt['daily_count'],
+                'reasoning': alt_reasoning
+            })
 
-Target ideale di paziente:
-{ai_notes.get('target_ideale', 'N/A')}
-
-Motivazioni o problematiche gestite con maggiore efficacia:
-{ai_notes.get('problematiche_efficaci', 'N/A')}
-
-Target NON IDEALE di paziente (ESCLUSIONI):
-{ai_notes.get('target_non_ideale', 'N/A')}
-
-Link calendario:
-{ai_notes.get('link_calendario', 'N/A')}
-
-"""
-
-        # Costruisci richiesta finale
-        request = f"""
-=== RICHIESTA ===
-
-Sei la mia assistente e devi aiutarmi ad assegnare a questo paziente il/la {dept_name} ideale in base alla sua storia e al suo profilo.
-
-ISTRUZIONI IMPORTANTI:
-- Scegli SEMPRE e SOLO tra i nomi presenti nell'elenco sopra
-- NON inventare mai altri professionisti o nomi diversi
-- Analizza attentamente la storia del cliente e confrontala con:
-  • Specializzazione o aree di competenza del professionista
-  • Target ideale di paziente
-  • Motivazioni o problematiche gestite con maggiore efficacia
-  • Target NON IDEALE di paziente (esclusioni importanti!)
-
-FORMATO RISPOSTA RICHIESTO (ESATTAMENTE QUESTO):
-
-**Scelta principale:** [Nome e Cognome] (ID: [numero])
-**Motivazione principale:** [Spiega perché questo professionista è il più adatto per questo paziente specifico]
-
-**Alternativa 1:** [Nome e Cognome] (ID: [numero])
-**Motivazione alternativa 1:** [Spiega perché questa è una buona alternativa]
-
-**Alternativa 2:** [Nome e Cognome] (ID: [numero])
-**Motivazione alternativa 2:** [Spiega perché questa è una buona alternativa]
-
-IMPORTANTE:
-- Usa SOLO i nomi e gli ID dall'elenco professionisti
-- Fornisci sempre 1 scelta principale e 2 alternative se disponibili
-- Ogni motivazione deve essere specifica per quel professionista e questo paziente
-"""
-
-        full_prompt = lead_info + professionals_info + request
-
-        return full_prompt
-
-    @staticmethod
-    def _parse_ai_response(ai_response: str, professionals: List[User], daily_assignments: Dict[int, int] = None) -> Dict[str, Any]:
-        """Parsa risposta AI per estrarre suggerimento strutturato con alternative e motivazioni separate"""
-        import re
-        from flask import current_app
-
-        if daily_assignments is None:
-            daily_assignments = {}
-
-        current_app.logger.debug(f"[AI-SUGGEST] Parsing response: {ai_response[:500]}...")
-
-        # Estrai campi dalla risposta
-        suggestion = {
-            'professional_id': None,
-            'professional_name': None,
-            'daily_assignments_count': 0,
-            'alternatives': [],
-            'reasoning': '',  # Motivazione principale
-            'raw_response': ai_response
+        return {
+            'professional_id': prof.id,
+            'professional_name': f"{prof.first_name} {prof.last_name}",
+            'score': best_match['score'],
+            'reasoning': reasoning,
+            'alternatives': alternatives,
+            'extracted_criteria': lead_criteria
         }
 
+    @staticmethod
+    def _extract_criteria_with_ai(lead: SalesLead, role_key: str) -> Dict[str, bool]:
+        """Usa Gemini per analizzare la lead ed estrarre i criteri booleani"""
+        import os
+        import json
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from corposostenibile.blueprints.team.criteria_service import CriteriaService
+        
+        valid_criteria = CriteriaService.get_criteria_for_role(role_key)
+        
+        prompt = f"""
+        Analizza i dati di questo paziente e determina quali dei seguenti criteri sono VERI.
+        Rispondi ESCLUSIVAMENTE con un oggetto JSON valido {{ "CRITERIO": true, ... }}.
+        Includi solo i criteri che sono esplicitamente veri o molto probabili basandoti sulla storia.
+        
+        LISTA CRITERI POSSIBILI:
+        {json.dumps(valid_criteria, indent=2)}
+        
+        DATI PAZIENTE:
+        Nome: {lead.first_name} {lead.last_name}
+        Anno nascita: {lead.birth_date.year if lead.birth_date else 'N/A'} (Calcola l'età e usa i criteri ETA' o MINORENNI se appropriato)
+        Sesso: {lead.gender} (Usa criteri UOMINI/DONNE)
+        
+        STORIA:
+        {lead.client_story or ''}
+        
+        RISPOSTE FORM:
+        {json.dumps(lead.form_responses or {}, indent=2, ensure_ascii=False)}
+        {json.dumps(lead.check2_responses or {}, indent=2, ensure_ascii=False)}
+        {json.dumps(lead.check3_responses or {}, indent=2, ensure_ascii=False)}
+        
+        NOTE VENDITA:
+        {lead.sales_notes or ''}
+        """
+        
+        google_api_key = os.getenv("GOOGLE_API_KEY")
+        if not google_api_key:
+            return {}
+            
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=google_api_key,
+            temperature=0.1,
+            response_format={"type": "json_object"}
+        )
+        
         try:
-            # Nuovo formato con motivazioni separate
+            response = llm.invoke(prompt).content
+            extracted = json.loads(response)
+            return {k: v for k, v in extracted.items() if k in valid_criteria and v is True}
+        except:
+             return {}
 
-            # Cerca SCELTA PRINCIPALE
-            main_match = re.search(
-                r'\*\*Scelta principale:\*\*\s*([^(]+)\s*\(ID:\s*(\d+)\)',
-                ai_response,
-                re.IGNORECASE
-            )
+    @staticmethod
+    def _calculate_match_score(lead_criteria: Dict[str, bool], prof_criteria: Dict, role_key: str) -> Tuple[int, List[str]]:
+        """Confronta criteri lead con quelli del professionista."""
+        if not prof_criteria:
+            prof_criteria = {}
+            
+        score = 0
+        matched_tags = []
+        
+        prof_capabilities = {k for k, v in prof_criteria.items() if v is True}
+        
+        for criterion, value in lead_criteria.items():
+            if value is True:
+                if criterion in prof_capabilities:
+                    score += 10
+                    matched_tags.append(criterion)
+                else:
+                    # Il paziente ha una patologia che il prof non dichiara di trattare
+                    score -= 5
+                    
+        import random
+        score += random.random()
+        
+        return score, matched_tags
 
-            if main_match:
-                suggestion['professional_name'] = main_match.group(1).strip()
-                suggestion['professional_id'] = int(main_match.group(2))
-                current_app.logger.info(f"[AI-SUGGEST] Scelta principale: {suggestion['professional_name']} (ID: {suggestion['professional_id']})")
-
-            # Cerca MOTIVAZIONE PRINCIPALE
-            main_motivation_match = re.search(
-                r'\*\*Motivazione principale:\*\*\s*(.+?)(?=\*\*Alternativa|\Z)',
-                ai_response,
-                re.IGNORECASE | re.DOTALL
-            )
-            if main_motivation_match:
-                suggestion['reasoning'] = main_motivation_match.group(1).strip()
-
-            # Cerca ALTERNATIVE con le loro motivazioni
-            for i in [1, 2]:
-                alt_match = re.search(
-                    rf'\*\*Alternativa {i}:\*\*\s*([^(]+)\s*\(ID:\s*(\d+)\)',
-                    ai_response,
-                    re.IGNORECASE
-                )
-
-                if alt_match:
-                    alt_name = alt_match.group(1).strip()
-                    alt_id = int(alt_match.group(2))
-
-                    # Cerca la motivazione per questa alternativa
-                    alt_motivation_match = re.search(
-                        rf'\*\*Motivazione alternativa {i}:\*\*\s*(.+?)(?=\*\*Alternativa|\Z)',
-                        ai_response,
-                        re.IGNORECASE | re.DOTALL
-                    )
-                    alt_reasoning = alt_motivation_match.group(1).strip() if alt_motivation_match else ''
-
-                    # Trova il professionista per ottenere l'avatar
-                    alt_prof = next((p for p in professionals if p.id == alt_id), None)
-                    if alt_prof and alt_prof.avatar_path:
-                        avatar_path = alt_prof.avatar_path.replace('avatars/', '', 1) if alt_prof.avatar_path.startswith('avatars/') else alt_prof.avatar_path
-                        alt_avatar = f"/uploads/avatars/{avatar_path}"
-                    else:
-                        alt_avatar = "/static/assets/immagini/logo_user.png"
-
-                    suggestion['alternatives'].append({
-                        'name': alt_name,
-                        'id': alt_id,
-                        'avatar': alt_avatar,
-                        'daily_assignments_count': daily_assignments.get(alt_id, 0),
-                        'reasoning': alt_reasoning  # Nuova: motivazione specifica per alternativa
-                    })
-                    current_app.logger.info(f"[AI-SUGGEST] Alternativa {i}: {alt_name} (ID: {alt_id})")
-
-            # FALLBACK: vecchio formato con Alternative in riga unica
-            if not suggestion['alternatives']:
-                alt_match = re.search(
-                    r'\*\*Alternative:\*\*\s*(.+?)(?:\n\*\*|\n|$)',
-                    ai_response,
-                    re.IGNORECASE
-                )
-                if alt_match:
-                    alt_text = alt_match.group(1).strip()
-                    alt_pattern = r'([^(,]+)\s*\(ID:\s*(\d+)\)'
-                    for alt in re.finditer(alt_pattern, alt_text):
-                        alt_name = alt.group(1).strip()
-                        alt_id = int(alt.group(2))
-                        alt_prof = next((p for p in professionals if p.id == alt_id), None)
-                        if alt_prof and alt_prof.avatar_path:
-                            avatar_path = alt_prof.avatar_path.replace('avatars/', '', 1) if alt_prof.avatar_path.startswith('avatars/') else alt_prof.avatar_path
-                            alt_avatar = f"/uploads/avatars/{avatar_path}"
-                        else:
-                            alt_avatar = "/static/assets/immagini/logo_user.png"
-                        suggestion['alternatives'].append({
-                            'name': alt_name,
-                            'id': alt_id,
-                            'avatar': alt_avatar,
-                            'daily_assignments_count': daily_assignments.get(alt_id, 0),
-                            'reasoning': ''  # Vecchio formato non ha motivazione separata
-                        })
-
-            # FALLBACK: vecchio formato motivazione unica
-            if not suggestion['reasoning']:
-                motivation_match = re.search(
-                    r'\*\*Motivazione:\*\*\s*(.+)',
-                    ai_response,
-                    re.IGNORECASE | re.DOTALL
-                )
-                if motivation_match:
-                    suggestion['reasoning'] = motivation_match.group(1).strip()
-
-            # FALLBACK: se non trova il formato nuovo, prova il formato vecchio
-            if not suggestion['professional_id']:
-                current_app.logger.warning("[AI-SUGGEST] Formato nuovo non trovato, provo formato vecchio...")
-
-                # Cerca ID con pattern semplice
-                id_match = re.search(r'ID:\s*(\d+)', ai_response, re.IGNORECASE)
-                if id_match:
-                    suggestion['professional_id'] = int(id_match.group(1))
-
-                # Cerca nome
-                name_patterns = [
-                    r'SUGGERIMENTO:\s*(.+?)(?:\n|ID:)',
-                    r'Scelta.*?:\s*(.+?)(?:\(|—|\n)',
-                ]
-                for pattern in name_patterns:
-                    name_match = re.search(pattern, ai_response, re.IGNORECASE)
-                    if name_match:
-                        suggestion['professional_name'] = name_match.group(1).strip()
-                        break
-
-            # Validazione: se non ho ID, prova a cercare il professionista dal nome
-            if not suggestion['professional_id'] and suggestion['professional_name']:
-                for prof in professionals:
-                    full_name = f"{prof.first_name} {prof.last_name}"
-                    if full_name.lower() in suggestion['professional_name'].lower():
-                        suggestion['professional_id'] = prof.id
-                        current_app.logger.info(f"[AI-SUGGEST] ID trovato dal nome: {prof.id}")
-                        break
-
-            # Se ancora non ho ID, prendo il primo (fallback estremo)
-            if not suggestion['professional_id'] and professionals:
-                suggestion['professional_id'] = professionals[0].id
-                suggestion['professional_name'] = f"{professionals[0].first_name} {professionals[0].last_name}"
-                current_app.logger.warning(f"[AI-SUGGEST] Fallback al primo professionista: {suggestion['professional_id']}")
-
-        except Exception as e:
-            current_app.logger.error(f"[AI-SUGGEST] Errore parsing: {e}", exc_info=True)
-
-        # Aggiungi avatar e conteggio assegnazioni del professionista principale
-        if suggestion['professional_id']:
-            main_prof = next((p for p in professionals if p.id == suggestion['professional_id']), None)
-            if main_prof and main_prof.avatar_path:
-                # Rimuovi prefisso "avatars/" se già presente
-                avatar_path = main_prof.avatar_path.replace('avatars/', '', 1) if main_prof.avatar_path.startswith('avatars/') else main_prof.avatar_path
-                suggestion['avatar'] = f"/uploads/avatars/{avatar_path}"
-            else:
-                suggestion['avatar'] = "/static/assets/immagini/logo_user.png"
-            # Aggiungi conteggio assegnazioni di oggi
-            suggestion['daily_assignments_count'] = daily_assignments.get(suggestion['professional_id'], 0)
-        else:
-            suggestion['avatar'] = "/static/assets/immagini/logo_user.png"
-
-        return suggestion
+    @staticmethod
+    def _get_daily_assignments_count(user_id: int, department_id: int) -> int:
+        from datetime import datetime
+        from corposostenibile.models import SalesLead
+        
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        query = SalesLead.query.filter(
+            SalesLead.assigned_at >= today_start
+        )
+        
+        if department_id in [2, 24]:
+             query = query.filter(SalesLead.assigned_nutritionist_id == user_id)
+        elif department_id == 3:
+             query = query.filter(SalesLead.assigned_coach_id == user_id)
+        elif department_id == 4:
+             query = query.filter(SalesLead.assigned_psychologist_id == user_id)
+             
+        return query.count()

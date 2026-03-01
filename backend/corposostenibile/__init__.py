@@ -83,7 +83,9 @@ from types import MappingProxyType
 from typing import Dict, List, Set, Union
 
 from dateutil import parser
-from flask import Flask, jsonify, redirect, url_for
+from flask import Flask, jsonify, redirect, url_for, request
+
+
 from jinja2 import TemplateSyntaxError
 from werkzeug.exceptions import HTTPException
 
@@ -371,13 +373,22 @@ def create_app(config_name: str | None = None) -> Flask:
         feedback_global,  # AGGIUNTO: Sistema feedback democratico globale
         manual,  # AGGIUNTO: Import del blueprint manual (documentazione suite)
         kpi,  # AGGIUNTO: Sistema KPI e ARR
+
         appointment_setting,  # Appointment Setting - messaggi Respond.io
+        tasks,  # AGGIUNTO: Import del blueprint tasks
+        documentation,  # AGGIUNTO: Import del blueprint documentation
+        search,  # AGGIUNTO: Import del blueprint search
+        sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
+        team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
+        push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
     )
+
+
     from .blueprints.blueprint_registry import bp as blueprint_registry_bp  # Blueprint Registry
     from .blueprints.database_registry import bp as database_registry_bp  # Database Models Registry
     from .blueprints.dev_tracker import bp as dev_tracker_bp  # Dev Tracker - Development Team Management
     from .blueprints.it_projects import bp as it_projects_bp  # IT Projects - Gestione Progetti IT
-    from .blueprints.news import news_bp  # AGGIUNTO: Import del blueprint news
+    from .blueprints.news import news_bp, news_api_bp  # AGGIUNTO: Import del blueprint news
 
     from .blueprints.pwa import pwa_bp
     
@@ -402,7 +413,13 @@ def create_app(config_name: str | None = None) -> Flask:
     feedback_global.init_app(app)  # AGGIUNTO: Sistema feedback democratico globale (FASE 1+2)
     manual.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint manual (documentazione suite)
     kpi.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint KPI e ARR
+
     appointment_setting.init_app(app)  # Appointment Setting
+    tasks.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint tasks
+    sop_chatbot.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SOP Chatbot RAG
+    team_tickets.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Team Tickets
+    push_notifications.init_app(app)  # AGGIUNTO: Inizializzazione push notifications
+
 
     # Sales Form Blueprint
     from .blueprints.sales_form import sales_form_bp
@@ -419,12 +436,16 @@ def create_app(config_name: str | None = None) -> Flask:
 
     # News Blueprint
     app.register_blueprint(news_bp)  # AGGIUNTO: Registrazione del blueprint news
+    app.register_blueprint(news_api_bp)  # API JSON per news (React)
 
     # Blueprint Registry
     app.register_blueprint(blueprint_registry_bp)  # AGGIUNTO: Registrazione Blueprint Registry
     app.register_blueprint(database_registry_bp)  # AGGIUNTO: Registrazione Database Models Registry
     app.register_blueprint(dev_tracker_bp)  # AGGIUNTO: Registrazione Dev Tracker
     app.register_blueprint(it_projects_bp)  # AGGIUNTO: Registrazione IT Projects
+    
+    # Documentation Blueprint
+    app.register_blueprint(documentation.documentation_bp, url_prefix='/documentation')
 
     # Quality Score
     from corposostenibile.blueprints.quality import bp as quality_bp
@@ -439,6 +460,9 @@ def create_app(config_name: str | None = None) -> Flask:
     # Health check endpoint
     from .health import health_bp
     app.register_blueprint(health_bp)
+
+    # Search Blueprint
+    app.register_blueprint(search.bp, url_prefix='/api/search')
     
     # Celery tasks specifici
     from corposostenibile.blueprints.customers import init_celery as customers_celery
@@ -450,10 +474,15 @@ def create_app(config_name: str | None = None) -> Flask:
     # ---- Serve React Frontend Assets ---- #
     # React app is served via Vite dev server in development (port 3000)
     # In production, these routes serve the built React assets
+    # Check standard structure (backend/frontend)
     react_dist = Path(__file__).parent.parent / "frontend" / "dist"
+    
+    # Check Suite Clinica structure (suite-clinica/corposostenibile-clinica) if standard not found
+    if not react_dist.exists():
+        react_dist = Path(__file__).parent.parent.parent / "corposostenibile-clinica" / "dist"
 
     if react_dist.exists():
-        from flask import send_from_directory, request as flask_request, make_response
+        from flask import send_from_directory, request as flask_request, make_response, abort
 
         # Override login_manager to redirect to React SPA login (not Jinja)
         app.login_manager.login_view = None
@@ -463,15 +492,56 @@ def create_app(config_name: str | None = None) -> Flask:
             """Redirect to React login for pages, 401 for API calls."""
             if flask_request.path.startswith('/api/'):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
-            return redirect('/login')
+            return redirect('/auth/login')
+
+        @app.get("/static/clinica/<path:filename>")
+        def serve_react_static_assets(filename):
+            """
+            Serve bundled React assets from dist under a dedicated static prefix.
+            This avoids collisions with other services exposing /assets.
+            """
+            target = react_dist / filename
+            if not target.exists() or not target.is_file():
+                abort(404)
+            return send_from_directory(str(react_dist), filename)
 
         # Paths that should NOT be intercepted (handled by Flask)
-        _flask_prefixes = ('/api/', '/uploads/', '/oauth/', '/static/')
+        _flask_prefixes = [
+            '/api/',
+            '/client-checks/',
+            '/customers/',
+            '/uploads/',
+            '/oauth/',
+            '/static/',
+            '/postit/',
+            '/quality/api/',
+            '/documentation/',
+            '/ghl/',
+            '/review/api/',
+            '/health',
+        ]
+
+        # In SPA mode we want /auth/* pages to be handled by React routes.
+        # Keep legacy Flask auth pages reachable only when explicitly requested.
+        spa_handle_auth_routes = str(os.getenv("SPA_HANDLE_AUTH_ROUTES", "1")).lower() in {"1", "true", "yes"}
+        if not spa_handle_auth_routes:
+            _flask_prefixes.append('/auth/')
+        _flask_prefixes = tuple(_flask_prefixes)
 
         @app.before_request
         def serve_spa_for_pages():
             """Intercept page requests and serve React SPA instead of Jinja templates."""
             path = flask_request.path
+
+            # SPA fallback must never intercept API/form submissions.
+            if flask_request.method not in ("GET", "HEAD"):
+                return None
+
+            # Only serve SPA for real browser page navigations.
+            accepts = flask_request.accept_mimetypes
+            wants_html = accepts.accept_html and accepts["text/html"] >= accepts["application/json"]
+            if not wants_html:
+                return None
 
             # Let Flask handle API, uploads, OAuth, and static routes
             if any(path.startswith(p) for p in _flask_prefixes):
@@ -491,11 +561,39 @@ def create_app(config_name: str | None = None) -> Flask:
 
             # All other page routes: serve React SPA index.html
             return send_from_directory(str(react_dist), "index.html")
+
+        # Fallback catch-all route for SPA (handles 404s on unknown routes)
+        @app.route("/<path:path>")
+        def catch_all(path):
+            if any(path.startswith(p) for p in _flask_prefixes):
+                abort(404)
+            return send_from_directory(str(react_dist), "index.html")
     else:
         # Development: redirect to login (Vite handles React separately)
         @app.get("/")
         def index():
             return redirect(url_for("auth.login"))
+
+    # Ensure CSRF cookie is set for SPA
+    @app.after_request
+    def set_csrf_cookie(response):
+        if not request.path.startswith('/static') and not request.path.startswith('/assets'):
+            from flask_wtf.csrf import generate_csrf
+            try:
+                csrf_token = generate_csrf()
+                # Set cookie accessible by JS (httpOnly=False) so Axios can read it if needed, 
+                # OR api.js reads it. api.js code: getCookie('csrf_token') 
+                # So we must NOT use httpOnly=True.
+                # secure=True matches SESSION_COOKIE_SECURE usually.
+                response.set_cookie(
+                    'csrf_token', 
+                    csrf_token, 
+                    secure=app.config.get('SESSION_COOKIE_SECURE', False),
+                    samesite='Lax'
+                )
+            except Exception:
+                pass
+        return response
     
     # Error-handling JSON-first
     @app.errorhandler(Exception)

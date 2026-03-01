@@ -301,9 +301,9 @@ function ClientiListaNutrizione() {
     const newParams = new URLSearchParams(searchParams);
     const paramKey = key === 'search' ? 'q' :
       key === 'nutrizionista' ? 'nutrizionista_id' :
-      key === 'statoNutrizione' ? 'stato_nutrizione' :
-      key === 'checkDay' ? 'check_day' :
-      key === 'reachOut' ? 'reach_out_nutrizione' : key;
+        key === 'statoNutrizione' ? 'stato_nutrizione' :
+          key === 'checkDay' ? 'check_day' :
+            key === 'reachOut' ? 'reach_out_nutrizione' : key;
     if (value) {
       newParams.set(paramKey, value);
     } else {
@@ -448,18 +448,18 @@ function ClientiListaNutrizione() {
           <h4 className="mb-1">Visuale Nutrizione</h4>
           <p className="text-muted mb-0">{pagination.total} pazienti in visuale nutrizione</p>
         </div>
-        <div className="d-flex flex-wrap gap-2">
-          <Link to="/clienti-lista" className="btn btn-primary px-3">
-            <i className="ri-list-check me-2"></i>
-            Lista Generale
+        <div className="d-flex gap-2">
+          <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
+            <i className="ri-list-check me-1"></i> Lista Generale
           </Link>
-          <Link to="/clienti-coach" className="btn btn-warning px-3">
-            <i className="ri-run-line me-2"></i>
-            Visuale Coach
+          <Link to="/clienti-nutrizione" className="btn btn-warning btn-sm text-white">
+            <i className="ri-restaurant-line me-1"></i> Visuale Nutrizione
           </Link>
-          <Link to="/clienti-psicologia" className="btn px-3" style={{ backgroundColor: '#8b5cf6', color: 'white' }}>
-            <i className="ri-mental-health-line me-2"></i>
-            Visuale Psicologia
+          <Link to="/clienti-coach" className="btn btn-info btn-sm text-white">
+            <i className="ri-run-line me-1"></i> Visuale Coach
+          </Link>
+          <Link to="/clienti-psicologia" className="btn btn-danger btn-sm text-white">
+            <i className="ri-mental-health-line me-1"></i> Visuale Psicologia
           </Link>
         </div>
       </div>
@@ -644,16 +644,25 @@ function ClientiListaNutrizione() {
                           </Link>
                         </td>
                         <td style={tableStyles.td}>
-                          <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
-                            {renderTeamAvatar(cliente.health_manager_user, 'hm', 'Health Manager')}
-                            {cliente.nutrizionisti_multipli?.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
-                            {cliente.coaches_multipli?.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
-                            {cliente.psicologi_multipli?.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
-                            {cliente.consulenti_multipli?.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
-                            {!cliente.health_manager_user && !cliente.nutrizionisti_multipli?.length &&
-                              !cliente.coaches_multipli?.length && !cliente.psicologi_multipli?.length &&
-                              !cliente.consulenti_multipli?.length && <span style={tableStyles.emptyCell}>—</span>}
-                          </div>
+                          {(() => {
+                            const healthManager = cliente.health_manager_user || cliente.healthManagerUser;
+                            const nutrizionistiList = cliente.nutrizionisti_multipli || cliente.nutrizionistiMultipli || [];
+                            const coachesList = cliente.coaches_multipli || cliente.coachesMultipli || [];
+                            const psicologiList = cliente.psicologi_multipli || cliente.psicologiMultipli || [];
+                            const consulentiList = cliente.consulenti_multipli || cliente.consulentiMultipli || [];
+                            const hasTeam = healthManager || nutrizionistiList.length || coachesList.length || psicologiList.length || consulentiList.length;
+
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
+                                {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
+                                {nutrizionistiList.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
+                                {coachesList.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
+                                {psicologiList.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
+                                {consulentiList.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
+                                {!hasTeam && <span style={tableStyles.emptyCell}>—</span>}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td style={tableStyles.td}>
                           <div className="d-flex align-items-center gap-1">

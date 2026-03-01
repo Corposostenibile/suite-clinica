@@ -1,8 +1,9 @@
 """
-Quality Score Routes
-Routes per gestione Quality Score (ADMIN ONLY).
+Quality Score API Routes
+API routes for Quality Score management (ADMIN ONLY).
+All routes return JSON for React frontend consumption.
 """
-from flask import render_template, request, jsonify, flash, redirect, url_for
+from flask import request, jsonify
 from flask_login import login_required, current_user
 from datetime import date, datetime, timedelta
 from sqlalchemy import desc, func
@@ -10,12 +11,18 @@ from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     User,
     Cliente,
+    Team,
     QualityWeeklyScore,
     QualityClientScore,
     TrustpilotReview,
     EleggibilitaSettimanale,
+    WeeklyCheck,
+    WeeklyCheckResponse,
+    TypeFormResponse,
+    DCACheckResponse,
+    UserSpecialtyEnum,
 )
-from corposostenibile.services.quality import (
+from .services import (
     EligibilityService,
     ReviewService,
     QualityScoreCalculator,
@@ -23,338 +30,246 @@ from corposostenibile.services.quality import (
 from . import bp
 
 
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == 'cco' if specialty else False
+
+
+def _is_team_leader_user(user) -> bool:
+    role = getattr(user, 'role', None)
+    if hasattr(role, 'value'):
+        role = role.value
+    return str(role).strip().lower() == 'team_leader'
+
+
+def _normalize_quality_specialty(value) -> str | None:
+    if hasattr(value, 'value'):
+        value = value.value
+    value = str(value or '').strip().lower()
+    if value in {'nutrizione', 'nutrizionista'}:
+        return 'nutrizione'
+    if value == 'coach':
+        return 'coach'
+    if value in {'psicologia', 'psicologo'}:
+        return 'psicologia'
+    return None
+
+
+def _get_team_leader_team_ids(user) -> list[int]:
+    return [int(t.id) for t in (getattr(user, 'teams_led', []) or []) if getattr(t, 'is_active', True)]
+
+
 def admin_required(f):
-    """Decorator per verificare accesso admin."""
+    """Decorator per verificare accesso admin o CCO."""
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            flash('Accesso negato. Solo amministratori.', 'error')
-            return redirect(url_for('main.index'))
+        if not current_user.is_authenticated or (not current_user.is_admin and not _is_cco_user(current_user)):
+            print(f"Access denied for user {current_user}")  # Log access denied
+            return jsonify({'success': False, 'error': 'Accesso negato. Solo amministratori o CCO.'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
 
+
+
+
+
+# Specialty configuration
+DEPT_CONFIG = {
+    'nutrizione': {'id': 2, 'name': 'Nutrizione'},
+    'coach': {'id': 3, 'name': 'Coach'},
+    'psicologia': {'id': 4, 'name': 'Psicologia'},
+}
+
+# Specialty to DB enum mapping
+SPECIALTY_FILTER_MAP = {
+    'nutrizione': ['nutrizione', 'nutrizionista'],
+    'nutrizionista': ['nutrizione', 'nutrizionista'],
+    'coach': ['coach'],
+    'psicologia': ['psicologia', 'psicologo'],
+    'psicologo': ['psicologia', 'psicologo'],
+}
+
+
 # ============================================================================
-# DASHBOARD PRINCIPALE
+# API CORE - WEEKLY SCORES
 # ============================================================================
 
-@bp.route('/')
+@bp.route('/weekly-scores')
 @login_required
-@admin_required
-def dashboard():
-    """Dashboard principale Quality Score."""
-    # Settimana da parametro query string o corrente
-    week_param = request.args.get('week')
-    if week_param:
-        try:
-            target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
-        except:
-            target_date = date.today()
-    else:
-        target_date = date.today()
+def api_weekly_scores():
+    """
+    API: Restituisce Quality Score settimanali per tutti i professionisti di una specialità.
 
-    week_start, week_end = EligibilityService.get_week_bounds(target_date)
+    Query params:
+        - specialty: 'nutrizione', 'coach', 'psicologia' (required)
+        - week: YYYY-MM-DD (optional, default: current week)
+        - team_id: filter by team (optional)
 
-    # Statistiche generali settimana corrente
-    weekly_scores = db.session.query(QualityWeeklyScore).filter_by(
-        week_start_date=week_start
-    ).all()
-
-    # Top professionisti settimana
-    top_week = db.session.query(QualityWeeklyScore).filter(
-        QualityWeeklyScore.week_start_date == week_start,
-        QualityWeeklyScore.quality_final.isnot(None)
-    ).order_by(desc(QualityWeeklyScore.quality_final)).limit(10).all()
-
-    # Top professionisti trimestre
-    top_quarter = db.session.query(QualityWeeklyScore).filter(
-        QualityWeeklyScore.week_start_date == week_start,
-        QualityWeeklyScore.quality_trim.isnot(None)
-    ).order_by(desc(QualityWeeklyScore.quality_trim)).limit(10).all()
-
-    # Statistiche aggregate
-    stats = {
-        'total_professionisti': len(weekly_scores),
-        'avg_quality_week': round(sum(s.quality_final for s in weekly_scores if s.quality_final) / len(weekly_scores), 2) if weekly_scores else 0,
-        'total_clients_eligible': sum(s.n_clients_eligible for s in weekly_scores),
-        'total_checks_done': sum(s.n_checks_done for s in weekly_scores),
-        'avg_miss_rate': round(sum(s.miss_rate for s in weekly_scores) / len(weekly_scores), 4) if weekly_scores else 0,
-    }
-
-    return render_template(
-        'quality/dashboard.html',
-        week_start=week_start,
-        week_end=week_end,
-        stats=stats,
-        top_week=top_week,
-        top_quarter=top_quarter,
-        timedelta=timedelta,
-    )
-
-
-# ============================================================================
-# DETTAGLIO PROFESSIONISTA
-# ============================================================================
-
-@bp.route('/professionista/<int:user_id>')
-@login_required
-@admin_required
-def professionista_detail(user_id):
-    """Dettaglio Quality Score di un professionista."""
-    professionista = db.session.get(User, user_id)
-    if not professionista:
-        flash('Professionista non trovato', 'error')
-        return redirect(url_for('quality.dashboard'))
-
-    # Ultime 12 settimane
-    scores = db.session.query(QualityWeeklyScore).filter_by(
-        professionista_id=user_id
-    ).order_by(desc(QualityWeeklyScore.week_start_date)).limit(12).all()
-
-    # Settimana da parametro query string o corrente
-    week_param = request.args.get('week')
-    if week_param:
-        try:
-            target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
-        except:
-            target_date = date.today()
-    else:
-        target_date = date.today()
-
-    week_start, week_end = EligibilityService.get_week_bounds(target_date)
-    current_week_score = db.session.query(QualityWeeklyScore).filter_by(
-        professionista_id=user_id,
-        week_start_date=week_start
-    ).first()
-
-    # Clienti eleggibili settimana corrente
-    eligible_clients = db.session.query(EleggibilitaSettimanale).filter_by(
-        professionista_id=user_id,
-        week_start_date=week_start,
-        eleggibile=True
-    ).all()
-
-    # Score clienti settimana corrente
-    client_scores = db.session.query(QualityClientScore).filter_by(
-        professionista_id=user_id,
-        week_start_date=week_start
-    ).all()
-
-    # Recensioni trimestre corrente
-    quarter_string = ReviewService.get_quarter_string()
-    reviews = ReviewService.get_reviews_for_quarter(quarter_string, user_id)
-
-    return render_template(
-        'quality/professionista_detail.html',
-        professionista=professionista,
-        scores=scores,
-        current_week_score=current_week_score,
-        eligible_clients=eligible_clients,
-        client_scores=client_scores,
-        reviews=reviews,
-        week_start=week_start,
-        week_end=week_end,
-        timedelta=timedelta,
-    )
-
-
-# ============================================================================
-# CALCOLO MANUALE
-# ============================================================================
-
-@bp.route('/calcola', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def calcola():
-    """Form per calcolo manuale Quality Score - OTTIMIZZATO."""
-    if request.method == 'POST':
-        # Leggi parametri
-        week_start_str = request.form.get('week_start')
-        professionista_id = request.form.get('professionista_id')
-
-        # Parse data
-        try:
-            week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
-        except:
-            flash('Data non valida', 'error')
-            return redirect(url_for('quality.calcola'))
-
-        # Converti professionista_id
-        prof_id = int(professionista_id) if professionista_id and professionista_id != 'all' else None
-
-        # OTTIMIZZAZIONE: Calcolo con timeout esteso (300s = 5 min)
-        # Su produzione con 2361 clienti e 70 prof, il calcolo ottimizzato dovrebbe
-        # completarsi in 30-60 secondi grazie a bulk operations
-        import time
-        start_time = time.time()
-
-        try:
-            # Esegui calcolo (ora ottimizzato)
-            result = QualityScoreCalculator.calculate_full_week(
-                week_start=week_start,
-                professionista_id=prof_id,
-                calculated_by_user_id=current_user.id
-            )
-
-            elapsed = time.time() - start_time
-
-            flash(
-                f"✅ Calcolo completato in {elapsed:.1f}s! "
-                f"Processati {result['eligibility']['total_processed']} clienti, "
-                f"{len(result['weekly_scores'])} professionisti.",
-                'success'
-            )
-
-            return redirect(url_for('quality.dashboard', week=week_start.strftime('%Y-%m-%d')))
-
-        except Exception as e:
-            elapsed = time.time() - start_time
-            import traceback
-            error_detail = traceback.format_exc()
-
-            flash(
-                f'❌ Errore dopo {elapsed:.1f}s: {str(e)}',
-                'error'
-            )
-
-            # Log dettagliato per debug
-            print(f"[QUALITY CALC ERROR] {error_detail}")
-
-            return redirect(url_for('quality.calcola'))
-
-    # GET - mostra form
-    # OTTIMIZZAZIONE: Query solo campi necessari
-    professionisti = db.session.query(
-        User.id, User.first_name, User.last_name, User.department_id
-    ).filter(
-        User.is_active == True,
-        User.department_id.in_([1, 2, 3])  # Nutrizionisti, Coach, Psicologi
-    ).order_by(User.last_name).all()
-
-    # Settimana corrente di default
-    week_start, _ = EligibilityService.get_week_bounds()
-
-    return render_template(
-        'quality/calcola.html',
-        professionisti=professionisti,
-        week_start=week_start
-    )
-
-
-# ============================================================================
-# ELEGGIBILITÀ
-# ============================================================================
-
-@bp.route('/eleggibilita/<week_start>')
-@login_required
-@admin_required
-def eleggibilita_week(week_start):
-    """Visualizza eleggibilità clienti per una settimana."""
+    Returns JSON con lista di score per professionista.
+    """
     try:
-        week_date = datetime.strptime(week_start, '%Y-%m-%d').date()
-    except:
-        flash('Data non valida', 'error')
-        return redirect(url_for('quality.dashboard'))
+        is_admin_or_cco = bool(current_user.is_admin or _is_cco_user(current_user))
+        is_team_leader = _is_team_leader_user(current_user)
+        if not (is_admin_or_cco or is_team_leader):
+            return jsonify({'success': False, 'error': 'Accesso negato'}), 403
 
-    week_start, week_end = EligibilityService.get_week_bounds(week_date)
+        specialty = request.args.get('specialty', 'nutrizione')
+        week_param = request.args.get('week')
+        team_id = request.args.get('team_id', type=int)
 
-    # Tutti i record eleggibilità
-    eleggibilita = db.session.query(EleggibilitaSettimanale).filter_by(
-        week_start_date=week_start
-    ).order_by(
-        EleggibilitaSettimanale.professionista_id,
-        EleggibilitaSettimanale.eleggibile.desc()
-    ).all()
+        allowed_team_ids = None
+        if is_team_leader and not is_admin_or_cco:
+            tl_specialty = _normalize_quality_specialty(getattr(current_user, 'specialty', None))
+            if tl_specialty:
+                specialty = tl_specialty
+            allowed_team_ids = _get_team_leader_team_ids(current_user)
+            if not allowed_team_ids:
+                return jsonify({
+                    'success': True,
+                    'week_start': date.today().strftime('%Y-%m-%d'),
+                    'week_end': date.today().strftime('%Y-%m-%d'),
+                    'specialty': specialty,
+                    'professionals': [],
+                    'stats': {
+                        'total_professionisti': 0,
+                        'with_score': 0,
+                        'total_eligible': 0,
+                        'total_checks': 0,
+                        'avg_quality': None,
+                        'avg_miss_rate': None,
+                    },
+                })
+            if team_id and team_id not in allowed_team_ids:
+                return jsonify({'success': False, 'error': 'Team non autorizzato'}), 403
 
-    # Group by professionista
-    by_prof = {}
-    for e in eleggibilita:
-        if e.professionista_id not in by_prof:
-            by_prof[e.professionista_id] = {
-                'professionista': db.session.get(User, e.professionista_id),
-                'eligible': [],
-                'not_eligible': []
-            }
+        specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
+        if not specialty_values:
+            return jsonify({'error': 'Invalid specialty'}), 400
 
-        if e.eleggibile:
-            by_prof[e.professionista_id]['eligible'].append(e)
+        # Parse week date
+        if week_param:
+            try:
+                target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
+            except:
+                target_date = date.today()
         else:
-            by_prof[e.professionista_id]['not_eligible'].append(e)
+            target_date = date.today()
 
-    return render_template(
-        'quality/eleggibilita.html',
-        week_start=week_start,
-        week_end=week_end,
-        by_prof=by_prof,
-        timedelta=timedelta
-    )
+        week_start, week_end = EligibilityService.get_week_bounds(target_date)
 
+        # Get professionals by specialty
+        specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
 
-# ============================================================================
-# RECENSIONI
-# ============================================================================
-
-@bp.route('/recensioni')
-@login_required
-@admin_required
-def recensioni():
-    """Lista recensioni Trustpilot."""
-    quarter = request.args.get('quarter', ReviewService.get_quarter_string())
-
-    reviews = db.session.query(TrustpilotReview).filter_by(
-        applied_to_quarter=quarter
-    ).order_by(desc(TrustpilotReview.data_pubblicazione)).all()
-
-    return render_template(
-        'quality/recensioni.html',
-        reviews=reviews,
-        quarter=quarter
-    )
-
-
-@bp.route('/recensioni/conferma/<int:review_id>', methods=['POST'])
-@login_required
-@admin_required
-def conferma_recensione(review_id):
-    """Conferma pubblicazione recensione."""
-    review = db.session.get(TrustpilotReview, review_id)
-    if not review:
-        return jsonify({'error': 'Recensione non trovata'}), 404
-
-    # Leggi dati
-    stelle = int(request.form.get('stelle'))
-    testo = request.form.get('testo')
-    data_pubblicazione_str = request.form.get('data_pubblicazione')
-    week_start_str = request.form.get('week_start')
-
-    try:
-        data_pub = datetime.strptime(data_pubblicazione_str, '%Y-%m-%d')
-        week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
-
-        # Conferma
-        ReviewService.confirm_review_published(
-            review_id=review_id,
-            stelle=stelle,
-            testo_recensione=testo,
-            data_pubblicazione=data_pub,
-            applied_to_week_start=week_start,
-            confermata_da_hm_id=current_user.id
+        prof_query = db.session.query(User).filter(
+            User.is_active == True,
+            User.specialty.in_(specialty_enums)
         )
 
-        flash('Recensione confermata con successo!', 'success')
-        return redirect(url_for('quality.recensioni'))
+        if team_id:
+            prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
+        elif allowed_team_ids is not None:
+            prof_query = prof_query.filter(User.teams.any(Team.id.in_(allowed_team_ids)))
 
+        professionisti = prof_query.order_by(User.last_name).all()
+
+        # Get weekly scores for these professionals
+        prof_ids = [p.id for p in professionisti]
+        scores = {}
+        if prof_ids:
+            score_records = db.session.query(QualityWeeklyScore).filter(
+                QualityWeeklyScore.professionista_id.in_(prof_ids),
+                QualityWeeklyScore.week_start_date == week_start
+            ).all()
+            scores = {s.professionista_id: s for s in score_records}
+
+        # Build response with professionals and their scores
+        result = []
+        total_eligible = 0
+        total_checks = 0
+        total_quality = 0
+        quality_count = 0
+        total_miss_rate = 0
+        miss_rate_count = 0
+
+        for prof in professionisti:
+            score = scores.get(prof.id)
+            prof_data = {
+                'id': prof.id,
+                'first_name': prof.first_name,
+                'last_name': prof.last_name,
+                'email': prof.email,
+                'specialty': prof.specialty.value if prof.specialty else None,
+                'team_id': prof.teams[0].id if prof.teams else None,
+                'avatar_url': prof.avatar_url if hasattr(prof, 'avatar_url') else None,
+                'quality': None
+            }
+
+            if score:
+                prof_data['quality'] = {
+                    'n_clients_eligible': score.n_clients_eligible,
+                    'n_checks_done': score.n_checks_done,
+                    'miss_rate': score.miss_rate,
+                    'quality_raw': score.quality_raw,
+                    'quality_final': score.quality_final,
+                    'quality_month': score.quality_month,
+                    'quality_trim': score.quality_trim,
+                    'bonus_band': score.bonus_band,
+                    'trend_indicator': score.trend_indicator,
+                    'delta_vs_last_week': score.delta_vs_last_week,
+                    # New KPI fields
+                    'rinnovo_adj_percentage': score.rinnovo_adj_percentage,
+                    'rinnovo_adj_bonus_band': score.rinnovo_adj_bonus_band,
+                    'quality_bonus_band': score.quality_bonus_band,
+                    'final_bonus_percentage': score.final_bonus_percentage,
+                    'super_malus_applied': score.super_malus_applied,
+                    'super_malus_percentage': score.super_malus_percentage,
+                    'final_bonus_after_malus': score.final_bonus_after_malus,
+                }
+                # Aggregate stats
+                total_eligible += score.n_clients_eligible or 0
+                total_checks += score.n_checks_done or 0
+                if score.quality_final is not None:
+                    total_quality += score.quality_final
+                    quality_count += 1
+                if score.miss_rate is not None:
+                    total_miss_rate += score.miss_rate
+                    miss_rate_count += 1
+
+            result.append(prof_data)
+
+        # Calculate aggregated stats
+        stats = {
+            'total_professionisti': len(professionisti),
+            'with_score': quality_count,
+            'total_eligible': total_eligible,
+            'total_checks': total_checks,
+            'avg_quality': round(total_quality / quality_count, 2) if quality_count > 0 else None,
+            'avg_miss_rate': round(total_miss_rate / miss_rate_count, 4) if miss_rate_count > 0 else None,
+        }
+
+        return jsonify({
+            'success': True,
+            'week_start': week_start.strftime('%Y-%m-%d'),
+            'week_end': week_end.strftime('%Y-%m-%d'),
+            'specialty': specialty,
+            'professionals': result,
+            'stats': stats,
+        })
     except Exception as e:
-        flash(f'Errore: {str(e)}', 'error')
-        return redirect(url_for('quality.recensioni'))
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 
-# ============================================================================
-# API JSON (per grafici/datatables)
-# ============================================================================
-
-@bp.route('/api/professionista/<int:user_id>/trend')
+@bp.route('/professionista/<int:user_id>/trend')
 @login_required
 @admin_required
 def api_professionista_trend(user_id):
@@ -368,13 +283,13 @@ def api_professionista_trend(user_id):
         'quality_final': [s.quality_final for s in scores],
         'quality_month': [s.quality_month for s in scores],
         'quality_trim': [s.quality_trim for s in scores],
-        'miss_rate': [s.miss_rate * 100 for s in scores],  # Percentuale
+        'miss_rate': [s.miss_rate * 100 for s in scores if s.miss_rate],
     }
 
     return jsonify(data)
 
 
-@bp.route('/api/dashboard/stats')
+@bp.route('/dashboard/stats')
 @login_required
 @admin_required
 def api_dashboard_stats():
@@ -394,8 +309,8 @@ def api_dashboard_stats():
     }
 
     for s in weekly_scores:
-        if s.bonus_band:
-            bands_count[s.bonus_band.value] += 1
+        if s.bonus_band and s.bonus_band in bands_count:
+            bands_count[s.bonus_band] += 1
 
     data = {
         'total_professionisti': len(weekly_scores),
@@ -407,196 +322,134 @@ def api_dashboard_stats():
 
 
 # ============================================================================
-# DASHBOARD DIPARTIMENTALI
+# API CALCOLO
 # ============================================================================
 
-DEPT_CONFIG = {
-    'nutrizione': {'id': 2, 'name': 'Nutrizione', 'icon': 'fa-apple-alt'},
-    'coach': {'id': 3, 'name': 'Coach', 'icon': 'fa-dumbbell'},
-    'psicologia': {'id': 4, 'name': 'Psicologia', 'icon': 'fa-brain'},
-}
-
-
-def get_week_navigation(week_start):
-    """Calcola settimane precedente e successiva."""
-    prev_week = week_start - timedelta(days=7)
-    next_week = week_start + timedelta(days=7)
-    # Non permettere navigazione nel futuro oltre la settimana corrente
-    current_week_start, _ = EligibilityService.get_week_bounds()
-    if next_week > current_week_start:
-        next_week = None
-    return prev_week, next_week
-
-
-def get_month_weeks(year, month):
-    """Restituisce tutte le settimane (lunedì) di un mese."""
-    from calendar import monthrange
-    first_day = date(year, month, 1)
-    last_day = date(year, month, monthrange(year, month)[1])
-
-    weeks = []
-    # Trova il primo lunedì
-    current = first_day
-    while current.weekday() != 0:  # 0 = Monday
-        current += timedelta(days=1)
-
-    while current <= last_day:
-        weeks.append(current)
-        current += timedelta(days=7)
-
-    return weeks
-
-
-def get_quarter_weeks(year, quarter):
-    """Restituisce tutte le settimane di un trimestre."""
-    start_month = (quarter - 1) * 3 + 1
-    end_month = start_month + 2
-
-    weeks = []
-    for month in range(start_month, end_month + 1):
-        weeks.extend(get_month_weeks(year, month))
-
-    return weeks
-
-
-@bp.route('/nutrizione')
+@bp.route('/calculate', methods=['POST'])
+@csrf.exempt
 @login_required
 @admin_required
-def dashboard_nutrizione():
-    """Dashboard Quality Score - Dipartimento Nutrizione."""
-    return _render_department_dashboard('nutrizione')
+def api_calculate_quality():
+    """
+    API: Calcola Quality Score per una specialità e settimana.
 
+    JSON body:
+        - specialty: 'nutrizione', 'coach', 'psicologia' (required)
+        - week: YYYY-MM-DD (required)
+        - team_id: filter by team (optional)
 
-@bp.route('/coach')
-@login_required
-@admin_required
-def dashboard_coach():
-    """Dashboard Quality Score - Dipartimento Coach."""
-    return _render_department_dashboard('coach')
+    Returns JSON con risultati del calcolo.
+    """
+    data = request.get_json() or {}
+    specialty = data.get('specialty', 'nutrizione')
+    week_str = data.get('week')
+    team_id = data.get('team_id')
 
+    if not week_str:
+        return jsonify({'success': False, 'error': 'week is required'}), 400
 
-@bp.route('/psicologia')
-@login_required
-@admin_required
-def dashboard_psicologia():
-    """Dashboard Quality Score - Dipartimento Psicologia."""
-    return _render_department_dashboard('psicologia')
+    try:
+        week_start = datetime.strptime(week_str, '%Y-%m-%d').date()
+    except:
+        return jsonify({'success': False, 'error': 'Invalid week format'}), 400
 
+    week_start, week_end = EligibilityService.get_week_bounds(week_start)
 
-def _render_department_dashboard(dept_key):
-    """Render dashboard per un dipartimento specifico."""
-    config = DEPT_CONFIG[dept_key]
-    dept_id = config['id']
+    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
+    if not specialty_values:
+        return jsonify({'success': False, 'error': 'Invalid specialty'}), 400
 
-    # Parametri da query string
-    week_param = request.args.get('week')
-    view_mode = request.args.get('view', 'week')  # week, month, quarter
-    year_param = request.args.get('year', str(date.today().year))
-    month_param = request.args.get('month')
-    quarter_param = request.args.get('quarter')
+    specialty_enums = [
+        UserSpecialtyEnum(v)
+        for v in specialty_values
+        if v in [e.value for e in UserSpecialtyEnum]
+    ]
 
-    # Determina settimana target
-    if week_param:
-        try:
-            target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
-        except:
-            target_date = date.today()
-    else:
-        target_date = date.today()
-
-    week_start, week_end = EligibilityService.get_week_bounds(target_date)
-    prev_week, next_week = get_week_navigation(week_start)
-
-    # Anno corrente per selettori
-    current_year = int(year_param)
-
-    # Professionisti del dipartimento
-    professionisti = db.session.query(User).filter(
+    # Find professionals by specialty (department_id is no longer authoritative)
+    prof_query = db.session.query(User).filter(
         User.is_active == True,
-        User.department_id == dept_id
-    ).order_by(User.last_name).all()
+        User.specialty.in_(specialty_enums)
+    )
+    if team_id:
+        prof_query = prof_query.filter(User.teams.any(Team.id == team_id))
 
-    # Score settimanali per la settimana selezionata
-    weekly_scores = {}
-    for prof in professionisti:
-        score = db.session.query(QualityWeeklyScore).filter_by(
-            professionista_id=prof.id,
-            week_start_date=week_start
-        ).first()
-        weekly_scores[prof.id] = score
+    professionisti = prof_query.all()
 
-    # Calcola aggregati per mese/trimestre se richiesto
-    period_data = None
-    if view_mode == 'month' and month_param:
-        month = int(month_param)
-        weeks = get_month_weeks(current_year, month)
-        period_data = _aggregate_period_scores(professionisti, weeks)
-    elif view_mode == 'quarter' and quarter_param:
-        quarter = int(quarter_param)
-        weeks = get_quarter_weeks(current_year, quarter)
-        period_data = _aggregate_period_scores(professionisti, weeks)
+    import time
+    start_time = time.time()
 
-    # Statistiche aggregate settimana
-    valid_scores = [s for s in weekly_scores.values() if s and s.quality_final]
-    stats = {
+    results = {
         'total_professionisti': len(professionisti),
-        'with_score': len(valid_scores),
-        'avg_quality': round(sum(s.quality_final for s in valid_scores) / len(valid_scores), 2) if valid_scores else None,
-        'total_eligible': sum(s.n_clients_eligible for s in valid_scores) if valid_scores else 0,
-        'total_checks': sum(s.n_checks_done for s in valid_scores) if valid_scores else 0,
-        'avg_miss_rate': round(sum(s.miss_rate for s in valid_scores) / len(valid_scores) * 100, 1) if valid_scores else None,
+        'processed': 0,
+        'eligible_total': 0,
+        'checks_total': 0,
+        'scores': []
     }
 
-    return render_template(
-        f'quality/dashboard_{dept_key}.html',
-        dept_key=dept_key,
-        dept_config=config,
-        professionisti=professionisti,
-        weekly_scores=weekly_scores,
-        week_start=week_start,
-        week_end=week_end,
-        prev_week=prev_week,
-        next_week=next_week,
-        stats=stats,
-        view_mode=view_mode,
-        current_year=current_year,
-        current_month=int(month_param) if month_param else date.today().month,
-        current_quarter=int(quarter_param) if quarter_param else (date.today().month - 1) // 3 + 1,
-        period_data=period_data,
-        timedelta=timedelta,
-    )
+    try:
+        prof_ids = [p.id for p in professionisti]
+        if not prof_ids:
+            results['success'] = True
+            results['elapsed_seconds'] = round(time.time() - start_time, 1)
+            results['check_processing'] = {'processed': 0, 'created': 0, 'updated': 0, 'skipped': 0}
+            return jsonify(results)
+
+        # 1. Calculate eligibility in batch (single transaction, filtered to requested professionals)
+        EligibilityService.calculate_eligibility_for_week(
+            week_start=week_start,
+            professionista_ids=prof_ids,
+            auto_commit=False,
+        )
+
+        # 2. Process check responses only for requested professionals
+        check_stats = QualityScoreCalculator.process_check_responses_for_week(
+            week_start=week_start,
+            professionista_ids=prof_ids,
+        )
+        db.session.commit()
+
+        # 3. Calculate weekly scores
+        for prof in professionisti:
+            weekly_score = QualityScoreCalculator.calculate_weekly_score(
+                professionista_id=prof.id,
+                week_start=week_start,
+                calculated_by_user_id=current_user.id
+            )
+
+            results['processed'] += 1
+            if weekly_score:
+                results['eligible_total'] += weekly_score.n_clients_eligible or 0
+                results['checks_total'] += weekly_score.n_checks_done or 0
+                results['scores'].append({
+                    'professionista_id': prof.id,
+                    'professionista_name': f"{prof.first_name} {prof.last_name}",
+                    'quality_final': weekly_score.quality_final,
+                    'n_clients': weekly_score.n_clients_eligible,
+                    'n_checks': weekly_score.n_checks_done,
+                    'miss_rate': round(weekly_score.miss_rate * 100, 1) if weekly_score.miss_rate else None,
+                })
+
+        db.session.commit()
+
+        elapsed = time.time() - start_time
+        results['elapsed_seconds'] = round(elapsed, 1)
+        results['success'] = True
+        results['check_processing'] = check_stats
+
+        return jsonify(results)
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 
-def _aggregate_period_scores(professionisti, weeks):
-    """Aggrega score per un periodo (mese/trimestre)."""
-    period_data = {}
-
-    for prof in professionisti:
-        scores = db.session.query(QualityWeeklyScore).filter(
-            QualityWeeklyScore.professionista_id == prof.id,
-            QualityWeeklyScore.week_start_date.in_(weeks)
-        ).all()
-
-        if scores:
-            valid = [s for s in scores if s.quality_final]
-            period_data[prof.id] = {
-                'weeks_count': len(valid),
-                'avg_quality': round(sum(s.quality_final for s in valid) / len(valid), 2) if valid else None,
-                'total_eligible': sum(s.n_clients_eligible for s in valid),
-                'total_checks': sum(s.n_checks_done for s in valid),
-                'avg_miss_rate': round(sum(s.miss_rate for s in valid) / len(valid) * 100, 1) if valid else None,
-            }
-        else:
-            period_data[prof.id] = None
-
-    return period_data
-
-
-# ============================================================================
-# API CALCOLO DIPARTIMENTALE
-# ============================================================================
-
-@bp.route('/api/calcola/<dept_key>', methods=['POST'])
+@bp.route('/calcola/<dept_key>', methods=['POST'])
 @csrf.exempt
 @login_required
 @admin_required
@@ -605,11 +458,16 @@ def api_calcola_dipartimento(dept_key):
     if dept_key not in DEPT_CONFIG:
         return jsonify({'success': False, 'error': 'Dipartimento non valido'}), 400
 
-    config = DEPT_CONFIG[dept_key]
-    dept_id = config['id']
+    specialty_values = SPECIALTY_FILTER_MAP.get(dept_key.lower())
+    specialty_enums = [
+        UserSpecialtyEnum(v)
+        for v in (specialty_values or [])
+        if v in [e.value for e in UserSpecialtyEnum]
+    ]
 
     # Parametri
-    week_start_str = request.form.get('week_start') or request.json.get('week_start')
+    json_payload = request.get_json(silent=True) or {}
+    week_start_str = request.form.get('week_start') or json_payload.get('week_start')
 
     try:
         week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
@@ -621,7 +479,7 @@ def api_calcola_dipartimento(dept_key):
     # Trova professionisti del dipartimento
     professionisti = db.session.query(User).filter(
         User.is_active == True,
-        User.department_id == dept_id
+        User.specialty.in_(specialty_enums)
     ).all()
 
     import time
@@ -636,20 +494,25 @@ def api_calcola_dipartimento(dept_key):
     }
 
     try:
-        # 1. Calcola eleggibilità per ogni professionista
-        # (calculate_eligibility_for_week fa già commit interno)
-        for prof in professionisti:
-            EligibilityService.calculate_eligibility_for_week(
-                week_start=week_start,
-                professionista_id=prof.id
-            )
+        prof_ids = [p.id for p in professionisti]
+        if not prof_ids:
+            results['elapsed_seconds'] = round(time.time() - start_time, 1)
+            results['success'] = True
+            results['check_processing'] = {'processed': 0, 'created': 0, 'updated': 0, 'skipped': 0}
+            return jsonify(results)
 
-        # 2. Processa check responses per collegare i voti ai clienti eleggibili
-        # IMPORTANTE: questo deve avvenire DOPO l'eleggibilità e PRIMA del calcolo score
-        check_stats = QualityScoreCalculator.process_check_responses_for_week(
-            week_start=week_start
+        # 1. Calcola eleggibilità in batch
+        EligibilityService.calculate_eligibility_for_week(
+            week_start=week_start,
+            professionista_ids=prof_ids,
+            auto_commit=False,
         )
-        # Commit per persistere i check_effettuato prima di calculate_weekly_score
+
+        # 2. Processa check responses
+        check_stats = QualityScoreCalculator.process_check_responses_for_week(
+            week_start=week_start,
+            professionista_ids=prof_ids,
+        )
         db.session.commit()
 
         # 3. Calcola weekly scores
@@ -673,7 +536,6 @@ def api_calcola_dipartimento(dept_key):
                     'miss_rate': round(weekly_score.miss_rate * 100, 1) if weekly_score.miss_rate else None,
                 })
 
-        # Commit finale per i weekly scores
         db.session.commit()
 
         elapsed = time.time() - start_time
@@ -686,6 +548,7 @@ def api_calcola_dipartimento(dept_key):
     except Exception as e:
         db.session.rollback()
         import traceback
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e),
@@ -693,7 +556,11 @@ def api_calcola_dipartimento(dept_key):
         }), 500
 
 
-@bp.route('/api/clienti-eleggibili/<int:prof_id>')
+# ============================================================================
+# API CLIENTI ED ELEGGIBILITÀ
+# ============================================================================
+
+@bp.route('/clienti-eleggibili/<int:prof_id>')
 @login_required
 @admin_required
 def api_clienti_eleggibili(prof_id):
@@ -743,298 +610,11 @@ def api_clienti_eleggibili(prof_id):
     })
 
 
-# ============================================================================
-# API PER FRONTEND REACT
-# ============================================================================
-
-@bp.route('/api/weekly-scores')
-@login_required
-def api_weekly_scores():
-    """
-    API: Restituisce Quality Score settimanali per tutti i professionisti di una specialità.
-
-    Query params:
-        - specialty: 'nutrizione', 'coach', 'psicologia' (required)
-        - week: YYYY-MM-DD (optional, default: current week)
-        - team_id: filter by team (optional)
-
-    Returns JSON con lista di score per professionista.
-    """
-    specialty = request.args.get('specialty', 'nutrizione')
-    week_param = request.args.get('week')
-    team_id = request.args.get('team_id', type=int)
-
-    # Mappa specialty param -> UserSpecialtyEnum values to filter
-    # User.specialty uses UserSpecialtyEnum (nutrizione, nutrizionista, coach, psicologia, psicologo)
-    SPECIALTY_FILTER_MAP = {
-        'nutrizione': ['nutrizione', 'nutrizionista'],
-        'nutrizionista': ['nutrizione', 'nutrizionista'],
-        'coach': ['coach'],
-        'psicologia': ['psicologia', 'psicologo'],
-        'psicologo': ['psicologia', 'psicologo'],
-    }
-
-    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
-    if not specialty_values:
-        return jsonify({'error': 'Invalid specialty'}), 400
-
-    # Parse week date
-    if week_param:
-        try:
-            target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
-        except:
-            target_date = date.today()
-    else:
-        target_date = date.today()
-
-    week_start, week_end = EligibilityService.get_week_bounds(target_date)
-
-    # Get professionals by specialty
-    # User.specialty is an enum, need to filter by the string values
-    from corposostenibile.models import UserSpecialtyEnum
-    specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
-
-    prof_query = db.session.query(User).filter(
-        User.is_active == True,
-        User.specialty.in_(specialty_enums)
-    )
-
-    # Filter by team if specified
-    if team_id:
-        from corposostenibile.models import Team, team_members
-        prof_query = prof_query.join(
-            team_members, User.id == team_members.c.user_id
-        ).filter(team_members.c.team_id == team_id)
-
-    professionisti = prof_query.order_by(User.last_name).all()
-    prof_ids = [p.id for p in professionisti]
-
-    # Get weekly scores for all professionals
-    scores = {}
-    if prof_ids:
-        weekly_scores = db.session.query(QualityWeeklyScore).filter(
-            QualityWeeklyScore.professionista_id.in_(prof_ids),
-            QualityWeeklyScore.week_start_date == week_start
-        ).all()
-        scores = {s.professionista_id: s for s in weekly_scores}
-
-    # Build response
-    data = []
-    for prof in professionisti:
-        score = scores.get(prof.id)
-
-        # Get teams for this professional
-        teams = []
-        if hasattr(prof, 'teams'):
-            teams = [{'id': t.id, 'name': t.name} for t in prof.teams]
-
-        prof_data = {
-            'id': prof.id,
-            'first_name': prof.first_name,
-            'last_name': prof.last_name,
-            'full_name': f"{prof.first_name} {prof.last_name}",
-            'email': prof.email,
-            'avatar_url': prof.avatar_path if prof.avatar_path else None,
-            'teams': teams,
-            'quality': None
-        }
-
-        if score:
-            # Convert bonus_band enum to string if needed
-            bonus_band_value = score.bonus_band
-            if hasattr(bonus_band_value, 'value'):
-                bonus_band_value = bonus_band_value.value
-
-            prof_data['quality'] = {
-                'n_clients_eligible': score.n_clients_eligible or 0,
-                'n_checks_done': score.n_checks_done or 0,
-                'miss_rate': score.miss_rate or 0,
-                'quality_raw': score.quality_raw,
-                'quality_final': score.quality_final,
-                'quality_month': score.quality_month,
-                'quality_trim': score.quality_trim,
-                'bonus_band': bonus_band_value or '0%',
-                'penalty_week': abs(score.penalty_week) if score.penalty_week else 0,
-                'avg_brec_week': score.avg_brec_week or 0,
-                'delta_vs_last_week': score.delta_vs_last_week,
-                'trend_indicator': score.trend_indicator,
-            }
-
-        data.append(prof_data)
-
-    # Calculate aggregate stats
-    valid_scores = [d['quality'] for d in data if d['quality'] and d['quality']['quality_final'] is not None]
-    stats = {
-        'total_professionisti': len(data),
-        'with_score': len(valid_scores),
-        'avg_quality': round(sum(s['quality_final'] for s in valid_scores) / len(valid_scores), 2) if valid_scores else None,
-        'total_eligible': sum(s['n_clients_eligible'] for s in valid_scores) if valid_scores else 0,
-        'total_checks': sum(s['n_checks_done'] for s in valid_scores) if valid_scores else 0,
-        'avg_miss_rate': round(sum(s['miss_rate'] for s in valid_scores) / len(valid_scores), 4) if valid_scores else None,
-        'bands_distribution': {
-            '100%': len([s for s in valid_scores if s['bonus_band'] == '100%']),
-            '60%': len([s for s in valid_scores if s['bonus_band'] == '60%']),
-            '30%': len([s for s in valid_scores if s['bonus_band'] == '30%']),
-            '0%': len([s for s in valid_scores if s['bonus_band'] == '0%']),
-        }
-    }
-
-    return jsonify({
-        'success': True,
-        'week_start': week_start.strftime('%Y-%m-%d'),
-        'week_end': week_end.strftime('%Y-%m-%d'),
-        'specialty': specialty,
-        'stats': stats,
-        'professionals': data
-    })
-
-
-@bp.route('/api/calculate', methods=['POST'])
-@csrf.exempt
-@login_required
-def api_calculate_quality():
-    """
-    API: Calcola Quality Score per una specialità e settimana.
-
-    JSON body:
-        - specialty: 'nutrizione', 'coach', 'psicologia' (required)
-        - week: YYYY-MM-DD (required)
-        - team_id: filter by team (optional)
-
-    Returns JSON con risultati del calcolo.
-    """
-    import time
-
-    data = request.get_json() or {}
-    specialty = data.get('specialty', 'nutrizione')
-    week_param = data.get('week')
-    team_id = data.get('team_id')
-
-    # Mappa specialty -> filter values
-    SPECIALTY_FILTER_MAP = {
-        'nutrizione': ['nutrizione', 'nutrizionista'],
-        'coach': ['coach'],
-        'psicologia': ['psicologia', 'psicologo'],
-    }
-
-    specialty_values = SPECIALTY_FILTER_MAP.get(specialty.lower())
-    if not specialty_values:
-        return jsonify({'success': False, 'error': 'Specialità non valida'}), 400
-
-    if not week_param:
-        return jsonify({'success': False, 'error': 'Settimana non specificata'}), 400
-
-    try:
-        target_date = datetime.strptime(week_param, '%Y-%m-%d').date()
-    except:
-        return jsonify({'success': False, 'error': 'Formato data non valido (YYYY-MM-DD)'}), 400
-
-    week_start, week_end = EligibilityService.get_week_bounds(target_date)
-
-    # Get professionals by specialty
-    from corposostenibile.models import UserSpecialtyEnum, team_members as tm
-    specialty_enums = [UserSpecialtyEnum(v) for v in specialty_values if v in [e.value for e in UserSpecialtyEnum]]
-
-    prof_query = db.session.query(User).filter(
-        User.is_active == True,
-        User.specialty.in_(specialty_enums)
-    )
-
-    # Filter by team if specified
-    if team_id:
-        prof_query = prof_query.join(
-            tm, User.id == tm.c.user_id
-        ).filter(tm.c.team_id == int(team_id))
-
-    professionisti = prof_query.order_by(User.last_name).all()
-
-    start_time = time.time()
-
-    results = {
-        'specialty': specialty,
-        'week_start': week_start.strftime('%Y-%m-%d'),
-        'week_end': week_end.strftime('%Y-%m-%d'),
-        'total_professionisti': len(professionisti),
-        'processed': 0,
-        'eligible_total': 0,
-        'checks_total': 0,
-        'scores': [],
-        'errors': []
-    }
-
-    try:
-        # 1. Calcola eleggibilità per ogni professionista
-        for prof in professionisti:
-            try:
-                EligibilityService.calculate_eligibility_for_week(
-                    week_start=week_start,
-                    professionista_id=prof.id
-                )
-            except Exception as e:
-                results['errors'].append(f"Eligibility error for {prof.full_name}: {str(e)}")
-
-        # 2. Processa check responses per collegare i voti ai clienti eleggibili
-        try:
-            QualityScoreCalculator.process_check_responses_for_week(week_start=week_start)
-            db.session.commit()
-        except Exception as e:
-            results['errors'].append(f"Check responses error: {str(e)}")
-
-        # 3. Calcola weekly scores
-        for prof in professionisti:
-            try:
-                weekly_score = QualityScoreCalculator.calculate_weekly_score(
-                    professionista_id=prof.id,
-                    week_start=week_start,
-                    calculated_by_user_id=current_user.id
-                )
-
-                results['processed'] += 1
-                if weekly_score:
-                    results['eligible_total'] += weekly_score.n_clients_eligible or 0
-                    results['checks_total'] += weekly_score.n_checks_done or 0
-
-                    bonus_band_value = weekly_score.bonus_band
-                    if hasattr(bonus_band_value, 'value'):
-                        bonus_band_value = bonus_band_value.value
-
-                    results['scores'].append({
-                        'professionista_id': prof.id,
-                        'professionista_name': prof.full_name,
-                        'quality_final': weekly_score.quality_final,
-                        'quality_trim': weekly_score.quality_trim,
-                        'n_clients': weekly_score.n_clients_eligible,
-                        'n_checks': weekly_score.n_checks_done,
-                        'miss_rate': round(weekly_score.miss_rate * 100, 1) if weekly_score.miss_rate else None,
-                        'bonus_band': bonus_band_value or '0%',
-                    })
-            except Exception as e:
-                results['errors'].append(f"Score error for {prof.full_name}: {str(e)}")
-
-        db.session.commit()
-
-        elapsed = time.time() - start_time
-        results['elapsed_seconds'] = round(elapsed, 2)
-        results['success'] = True
-
-        return jsonify(results)
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'results': results
-        }), 500
-
-
-@bp.route('/api/check-responses/<int:prof_id>')
+@bp.route('/check-responses/<int:prof_id>')
 @login_required
 @admin_required
 def api_check_responses(prof_id):
     """API: Recupera le risposte ai check settimanali per un professionista in una settimana."""
-    from corposostenibile.models import WeeklyCheck, WeeklyCheckResponse, DCACheck, DCACheckResponse
-
     week_start_str = request.args.get('week')
     dept = request.args.get('dept', 'nutrizione')
 
@@ -1044,109 +624,48 @@ def api_check_responses(prof_id):
         week_start, _ = EligibilityService.get_week_bounds()
 
     week_start, week_end = EligibilityService.get_week_bounds(week_start)
-    week_end_dt = datetime.combine(week_end, datetime.max.time())
     week_start_dt = datetime.combine(week_start, datetime.min.time())
+    week_end_dt = datetime.combine(week_end, datetime.max.time())
 
-    # Recupera eleggibilità con check effettuato
+    # Trova clienti eleggibili
     eligibilities = db.session.query(EleggibilitaSettimanale).filter_by(
         professionista_id=prof_id,
         week_start_date=week_start,
-        eleggibile=True,
-        check_effettuato=True
+        eleggibile=True
     ).all()
 
-    # Costruisci lista risposte
-    responses_list = []
-    for elig in eligibilities:
-        cliente = elig.cliente
-        if not cliente:
-            continue
+    cliente_ids = [e.cliente_id for e in eligibilities]
+    clienti = db.session.query(Cliente).filter(Cliente.cliente_id.in_(cliente_ids)).all() if cliente_ids else []
 
+    responses_list = []
+
+    for cliente in clienti:
         # Cerca WeeklyCheckResponse nella settimana
-        for wc in cliente.weekly_checks.all():
-            for resp in wc.responses.filter(
+        weekly_checks = db.session.query(WeeklyCheck).filter_by(
+            cliente_id=cliente.cliente_id,
+            is_active=True
+        ).all()
+
+        for wc in weekly_checks:
+            responses = db.session.query(WeeklyCheckResponse).filter(
+                WeeklyCheckResponse.weekly_check_id == wc.id,
                 WeeklyCheckResponse.submit_date >= week_start_dt,
                 WeeklyCheckResponse.submit_date <= week_end_dt
-            ).all():
+            ).all()
+
+            for resp in responses:
                 responses_list.append({
-                    'type': 'weekly',
+                    'type': 'weekly_check',
                     'id': resp.id,
                     'cliente_id': cliente.cliente_id,
                     'cliente_nome': cliente.nome_cognome,
                     'submit_date': resp.submit_date.strftime('%d/%m/%Y %H:%M') if resp.submit_date else None,
-                    'weight': resp.weight,
-                    'digestion': resp.digestion_rating,
-                    'energy': resp.energy_rating,
-                    'strength': resp.strength_rating,
-                    'hunger': resp.hunger_rating,
-                    'sleep': resp.sleep_rating,
-                    'mood': resp.mood_rating,
-                    'motivation': resp.motivation_rating,
-                    'what_worked': resp.what_worked,
-                    'what_didnt_work': resp.what_didnt_work,
-                    'what_learned': resp.what_learned,
-                    'what_focus_next': resp.what_focus_next,
-                    'nutrition_adherence': resp.nutrition_program_adherence,
-                    'training_adherence': resp.training_program_adherence,
-                    'exercise_modifications': resp.exercise_modifications,
-                    'daily_steps': resp.daily_steps,
-                    'injuries_notes': resp.injuries_notes,
-                    'extra_comments': resp.extra_comments,
                     'nutritionist_rating': resp.nutritionist_rating,
-                    'psychologist_rating': resp.psychologist_rating,
                     'coach_rating': resp.coach_rating,
+                    'psychologist_rating': resp.psychologist_rating,
+                    'coordinator_rating': resp.coordinator_rating,
                     'progress_rating': resp.progress_rating,
-                    'photo_front': resp.photo_front,
-                    'photo_side': resp.photo_side,
-                    'photo_back': resp.photo_back,
                 })
-
-        # Cerca DCACheckResponse nella settimana
-        if hasattr(cliente, 'dca_checks'):
-            for dca in cliente.dca_checks.all():
-                for resp in dca.responses.filter(
-                    DCACheckResponse.submit_date >= week_start_dt,
-                    DCACheckResponse.submit_date <= week_end_dt
-                ).all():
-                    responses_list.append({
-                        'type': 'dca',
-                        'id': resp.id,
-                        'cliente_id': cliente.cliente_id,
-                        'cliente_nome': cliente.nome_cognome,
-                        'submit_date': resp.submit_date.strftime('%d/%m/%Y %H:%M') if resp.submit_date else None,
-                        'mood_balance': resp.mood_balance_rating,
-                        'food_plan_serenity': resp.food_plan_serenity,
-                        'food_weight_worry': resp.food_weight_worry,
-                        'emotional_eating': resp.emotional_eating,
-                        'body_comfort': resp.body_comfort,
-                        'body_respect': resp.body_respect,
-                        'exercise_wellness': resp.exercise_wellness,
-                        'exercise_guilt': resp.exercise_guilt,
-                        'sleep_satisfaction': resp.sleep_satisfaction,
-                        'relationship_time': resp.relationship_time,
-                        'personal_time': resp.personal_time,
-                        'life_interference': resp.life_interference,
-                        'unexpected_management': resp.unexpected_management,
-                        'self_compassion': resp.self_compassion,
-                        'inner_dialogue': resp.inner_dialogue,
-                        'long_term_sustainability': resp.long_term_sustainability,
-                        'values_alignment': resp.values_alignment,
-                        'motivation_level': resp.motivation_level,
-                        'meal_organization': resp.meal_organization,
-                        'meal_stress': resp.meal_stress,
-                        'shopping_awareness': resp.shopping_awareness,
-                        'shopping_impact': resp.shopping_impact,
-                        'meal_clarity': resp.meal_clarity,
-                        'digestion': resp.digestion,
-                        'energy': resp.energy,
-                        'strength': resp.strength,
-                        'hunger': resp.hunger,
-                        'sleep': resp.sleep,
-                        'mood': resp.mood,
-                        'motivation': resp.motivation,
-                        'referral': resp.referral,
-                        'extra_comments': resp.extra_comments,
-                    })
 
     # Ordina per data discendente
     responses_list.sort(key=lambda x: x['submit_date'] or '', reverse=True)
@@ -1157,4 +676,195 @@ def api_check_responses(prof_id):
         'week_end': week_end.strftime('%d/%m/%Y'),
         'total': len(responses_list),
         'responses': responses_list
+    })
+
+
+# ============================================================================
+# API CALCOLO TRIMESTRALE CON SUPER MALUS
+# ============================================================================
+
+@bp.route('/calcola-trimestrale', methods=['POST'])
+@csrf.exempt
+@login_required
+@admin_required
+def api_calcola_trimestrale():
+    """
+    API: Calcola KPI composito trimestrale con Super Malus per tutti i professionisti.
+
+    POST body:
+        - quarter: trimestre (es. "2025-Q4", opzionale, default: trimestre corrente)
+
+    Returns:
+        JSON con statistiche calcolo e risultati per professionista
+    """
+    from .services import SuperMalusService
+
+    data = request.get_json() or {}
+    quarter = data.get('quarter') or ReviewService.get_quarter_string()
+
+    import time
+    start_time = time.time()
+
+    try:
+        result = QualityScoreCalculator.calculate_quarterly_scores(
+            quarter=quarter,
+            calculated_by_user_id=current_user.id
+        )
+
+        elapsed = time.time() - start_time
+        result['elapsed_seconds'] = round(elapsed, 1)
+        result['success'] = True
+
+        return jsonify(result)
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bp.route('/quarterly-summary')
+@login_required
+@admin_required
+def api_quarterly_summary():
+    """
+    API: Riassunto trimestrale con KPI compositi e Super Malus.
+
+    Query params:
+        - quarter: trimestre (es. "2025-Q4", opzionale)
+
+    Returns:
+        JSON con statistiche aggregate e lista professionisti con Super Malus
+    """
+    quarter = request.args.get('quarter') or ReviewService.get_quarter_string()
+
+    # Trova tutti gli score del trimestre (ultima settimana per professionista)
+    subquery = db.session.query(
+        QualityWeeklyScore.professionista_id,
+        func.max(QualityWeeklyScore.week_start_date).label('max_week')
+    ).filter(
+        QualityWeeklyScore.quarter == quarter
+    ).group_by(QualityWeeklyScore.professionista_id).subquery()
+
+    scores = db.session.query(QualityWeeklyScore).join(
+        subquery,
+        (QualityWeeklyScore.professionista_id == subquery.c.professionista_id) &
+        (QualityWeeklyScore.week_start_date == subquery.c.max_week)
+    ).all()
+
+    # Statistiche aggregate
+    total_profs = len(scores)
+    with_malus = [s for s in scores if s.super_malus_applied]
+    total_bonus_before = sum(s.final_bonus_percentage or 0 for s in scores)
+    total_bonus_after = sum(s.final_bonus_after_malus or 0 for s in scores)
+
+    # Lista professionisti con Super Malus
+    malus_details = []
+    for s in with_malus:
+        prof = db.session.get(User, s.professionista_id)
+        malus_details.append({
+            'professionista_id': s.professionista_id,
+            'professionista_name': f"{prof.first_name} {prof.last_name}" if prof else 'N/A',
+            'specialty': prof.specialty.value if prof and prof.specialty else 'N/A',
+            'quality_trim': s.quality_trim,
+            'rinnovo_adj_percentage': s.rinnovo_adj_percentage,
+            'final_bonus_percentage': s.final_bonus_percentage,
+            'super_malus_percentage': s.super_malus_percentage,
+            'final_bonus_after_malus': s.final_bonus_after_malus,
+            'is_primary_for_malus': s.is_primary_for_malus,
+            'has_negative_review': s.has_negative_review,
+            'has_refund': s.has_refund,
+            'super_malus_reason': s.super_malus_reason,
+        })
+
+    return jsonify({
+        'success': True,
+        'quarter': quarter,
+        'total_professionisti': total_profs,
+        'professionisti_con_malus': len(with_malus),
+        'total_bonus_before_malus': round(total_bonus_before, 2),
+        'total_bonus_after_malus': round(total_bonus_after, 2),
+        'bonus_reduction_total': round(total_bonus_before - total_bonus_after, 2),
+        'malus_details': malus_details
+    })
+
+
+@bp.route('/professionista/<int:user_id>/kpi-breakdown')
+@login_required
+@admin_required
+def api_professionista_kpi_breakdown(user_id):
+    """
+    API: Dettaglio KPI composito per professionista nel trimestre.
+
+    Path params:
+        - user_id: ID professionista
+
+    Query params:
+        - quarter: trimestre (es. "2025-Q4", opzionale)
+
+    Returns:
+        JSON con breakdown KPI1, KPI2, bonus pesato e Super Malus
+    """
+    quarter = request.args.get('quarter') or ReviewService.get_quarter_string()
+
+    professionista = db.session.get(User, user_id)
+    if not professionista:
+        return jsonify({'success': False, 'error': 'Professionista non trovato'}), 404
+
+    # Trova ultimo score del trimestre
+    score = db.session.query(QualityWeeklyScore).filter(
+        QualityWeeklyScore.professionista_id == user_id,
+        QualityWeeklyScore.quarter == quarter
+    ).order_by(desc(QualityWeeklyScore.week_start_date)).first()
+
+    if not score:
+        return jsonify({
+            'success': True,
+            'professionista_id': user_id,
+            'professionista_name': f"{professionista.first_name} {professionista.last_name}",
+            'quarter': quarter,
+            'message': 'Nessun dato disponibile per questo trimestre'
+        })
+
+    return jsonify({
+        'success': True,
+        'professionista_id': user_id,
+        'professionista_name': f"{professionista.first_name} {professionista.last_name}",
+        'quarter': quarter,
+        'week_start_date': score.week_start_date.strftime('%Y-%m-%d'),
+
+        # KPI Quality (40%)
+        'kpi_quality': {
+            'value': score.quality_trim,
+            'bonus_band': score.quality_bonus_band or score.bonus_band,
+            'weight': 40
+        },
+
+        # KPI Rinnovo Adj (60%)
+        'kpi_rinnovo_adj': {
+            'value': score.rinnovo_adj_percentage,
+            'bonus_band': score.rinnovo_adj_bonus_band,
+            'weight': 60
+        },
+
+        # Bonus composito
+        'final_bonus_percentage': score.final_bonus_percentage,
+
+        # Super Malus
+        'super_malus': {
+            'applied': score.super_malus_applied,
+            'percentage': score.super_malus_percentage,
+            'is_primary': score.is_primary_for_malus,
+            'has_negative_review': score.has_negative_review,
+            'has_refund': score.has_refund,
+            'reason': score.super_malus_reason,
+        },
+
+        # Bonus finale (dopo malus)
+        'final_bonus_after_malus': score.final_bonus_after_malus
     })

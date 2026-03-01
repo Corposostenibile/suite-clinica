@@ -1,81 +1,12 @@
 /**
  * DCACheckForm - Form pubblico per il Check DCA (Benessere)
- * Form a pagina singola con sezioni per valutazione benessere psicologico
+ * Form a pagina singola con sezioni collapsabili e progress tracking
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import publicCheckService from '../../../services/publicCheckService';
-
-// Styles
-const styles = {
-  card: {
-    borderRadius: '20px',
-    border: 'none',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-    overflow: 'hidden',
-  },
-  header: {
-    background: 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)',
-    color: 'white',
-    padding: '32px 24px',
-    textAlign: 'center',
-  },
-  section: {
-    background: '#f8fafc',
-    borderRadius: '16px',
-    padding: '24px',
-    marginBottom: '24px',
-  },
-  sectionTitle: {
-    fontSize: '1rem',
-    fontWeight: 600,
-    color: '#1e293b',
-    marginBottom: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  sectionIcon: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-  },
-  ratingBtn: (isSelected, color = '#a855f7') => ({
-    flex: 1,
-    padding: '12px 8px',
-    borderRadius: '10px',
-    border: isSelected ? 'none' : '2px solid #e2e8f0',
-    background: isSelected ? color : 'white',
-    color: isSelected ? 'white' : '#64748b',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    textAlign: 'center',
-  }),
-  questionRow: {
-    background: 'white',
-    borderRadius: '12px',
-    padding: '16px',
-    marginBottom: '12px',
-  },
-  btn: {
-    padding: '14px 40px',
-    borderRadius: '12px',
-    fontWeight: 600,
-    fontSize: '16px',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    background: 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)',
-    color: 'white',
-  },
-};
+import './PublicChecks.css';
 
 const SECTIONS = [
   {
@@ -161,6 +92,11 @@ const PHYSICAL_PARAMS = [
   { field: 'motivation_rating', label: 'Motivazione', icon: 'ri-fire-line' },
 ];
 
+const RATING_LABELS_0_10 = [
+  'Pessima', 'Molto scarsa', 'Scarsa', 'Mediocre', 'Sotto la media',
+  'Nella media', 'Discreta', 'Buona', 'Molto buona', 'Ottima', 'Eccellente',
+];
+
 function DCACheckForm() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -169,6 +105,8 @@ function DCACheckForm() {
   const [error, setError] = useState(null);
   const [checkInfo, setCheckInfo] = useState(null);
   const [formData, setFormData] = useState({});
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const sectionRefs = useRef({});
 
   useEffect(() => {
     loadCheckInfo();
@@ -198,7 +136,6 @@ function DCACheckForm() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-
     try {
       const result = await publicCheckService.submitDCACheck(token, formData);
       if (result.success) {
@@ -214,14 +151,35 @@ function DCACheckForm() {
     }
   };
 
-  // Rating selector for 1-5 scale
+  const toggleSection = (sectionId) => {
+    setCollapsedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
+
+  // Count answered questions
+  const allSectionFields = SECTIONS.flatMap(s => s.questions.map(q => q.field));
+  const physicalFields = PHYSICAL_PARAMS.map(p => p.field);
+  const totalQuestions = allSectionFields.length + physicalFields.length;
+  const answeredCount = [...allSectionFields, ...physicalFields].filter(f => formData[f] != null).length;
+  const overallProgress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
+
+  const getSectionCompletion = useCallback((section) => {
+    const answered = section.questions.filter(q => formData[q.field] != null).length;
+    return { answered, total: section.questions.length };
+  }, [formData]);
+
+  const getPhysicalCompletion = useCallback(() => {
+    const answered = PHYSICAL_PARAMS.filter(p => formData[p.field] != null).length;
+    return { answered, total: PHYSICAL_PARAMS.length };
+  }, [formData]);
+
+  // Subcomponents
   const RatingSelector5 = ({ value, onChange, labels, inverted }) => (
-    <div className="d-flex gap-2 mt-2">
+    <div className="check-rating-5">
       {labels.map((label, idx) => (
         <button
           key={idx}
           type="button"
-          style={styles.ratingBtn(value === idx + 1, inverted ? '#ef4444' : '#a855f7')}
+          className={`check-rating-5-btn${value === idx + 1 ? ` selected ${inverted ? 'negative' : 'positive'}` : ''}`}
           onClick={() => onChange(idx + 1)}
         >
           {label}
@@ -230,181 +188,235 @@ function DCACheckForm() {
     </div>
   );
 
-  // Rating selector for 0-10 scale
-  const RatingSelector10 = ({ value, onChange }) => (
-    <div className="d-flex flex-wrap gap-2 justify-content-center mt-2">
-      {Array.from({ length: 11 }, (_, i) => i).map(num => (
-        <button
-          key={num}
-          type="button"
-          style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            border: value === num ? 'none' : '2px solid #e2e8f0',
-            background: value === num ? '#a855f7' : 'white',
-            color: value === num ? 'white' : '#64748b',
-            fontSize: '14px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onClick={() => onChange(num)}
-        >
-          {num}
-        </button>
-      ))}
-    </div>
-  );
+  const RatingGrid10 = ({ value, onChange }) => {
+    const selectedLabel = value !== null && value !== undefined ? RATING_LABELS_0_10[value] : '';
+    return (
+      <div>
+        <div className="check-rating-grid">
+          {Array.from({ length: 11 }, (_, i) => i).map(num => (
+            <button
+              key={num}
+              type="button"
+              className={`check-rating-btn${value === num ? ' selected' : ''}`}
+              onClick={() => onChange(num)}
+            >
+              {num}
+            </button>
+          ))}
+        </div>
+        <div className="check-rating-selected-label">{selectedLabel}</div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
-      <div className="text-center py-5">
-        <div className="spinner-border" style={{ color: '#a855f7' }} role="status"></div>
-        <p className="text-muted mt-3">Caricamento check...</p>
+      <div className="check-card check-theme-dca">
+        <div className="check-loading">
+          <div className="check-loading-spinner"></div>
+          <p className="check-loading-text">Caricamento check...</p>
+        </div>
       </div>
     );
   }
 
   if (error && !checkInfo) {
     return (
-      <div className="card" style={styles.card}>
-        <div className="card-body text-center py-5">
-          <i className="ri-error-warning-line text-danger" style={{ fontSize: '48px' }}></i>
-          <h5 className="mt-3 text-danger">Errore</h5>
-          <p className="text-muted">{error}</p>
+      <div className="check-card check-theme-dca">
+        <div className="check-error">
+          <i className="ri-error-warning-line check-error-icon"></i>
+          <h5 className="check-error-title">Errore</h5>
+          <p className="check-error-text">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="card" style={styles.card}>
+    <div className="check-card check-theme-dca">
       {/* Header */}
-      <div style={styles.header}>
-        <h4 className="mb-2 fw-bold">Check Benessere</h4>
+      <div className="check-header">
+        <h4 className="check-header-title">Check Benessere</h4>
         {checkInfo?.cliente && (
-          <p className="mb-0 opacity-75">
+          <p className="check-header-subtitle">
             Ciao {checkInfo.cliente.nome}!
           </p>
         )}
-        <p className="mb-0 mt-2 small opacity-75">
+        <p className="check-header-hint">
           Prenditi qualche minuto per riflettere sul tuo benessere
         </p>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="card-body p-4">
-        {/* Sections with 1-5 ratings */}
-        {SECTIONS.map(section => (
-          <div key={section.id} style={styles.section}>
-            <div style={styles.sectionTitle}>
-              <div style={{ ...styles.sectionIcon, background: `${section.color}20`, color: section.color }}>
-                <i className={section.icon}></i>
-              </div>
-              {section.title}
+      <form onSubmit={handleSubmit}>
+        <div className="check-body">
+          {/* Sticky Progress */}
+          <div className="check-sticky-progress">
+            <div className="check-sticky-progress-bar">
+              <div className="check-sticky-progress-fill" style={{ width: `${overallProgress}%` }}></div>
             </div>
-
-            {section.questions.map(q => (
-              <div key={q.field} style={styles.questionRow}>
-                <label className="form-label fw-medium mb-2">{q.label}</label>
-                <RatingSelector5
-                  value={formData[q.field]}
-                  onChange={(val) => handleRatingChange(q.field, val)}
-                  labels={q.labels}
-                  inverted={q.inverted}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
-
-        {/* Physical Parameters (0-10) */}
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <div style={{ ...styles.sectionIcon, background: '#3b82f620', color: '#3b82f6' }}>
-              <i className="ri-pulse-line"></i>
+            <div className="check-sticky-progress-text">
+              <span>{answeredCount}/{totalQuestions} risposte</span>
+              <span>{overallProgress}%</span>
             </div>
-            Parametri Fisici (0-10)
           </div>
 
-          <div className="row">
-            {PHYSICAL_PARAMS.map(param => (
-              <div key={param.field} className="col-md-6 mb-3">
-                <div style={styles.questionRow}>
-                  <label className="form-label fw-medium mb-2 d-flex align-items-center gap-2">
-                    <i className={`${param.icon} text-primary`}></i>
-                    {param.label}
-                  </label>
-                  <RatingSelector10
-                    value={formData[param.field]}
-                    onChange={(val) => handleRatingChange(param.field, val)}
-                  />
+          {/* Sections with 1-5 ratings */}
+          {SECTIONS.map(section => {
+            const { answered, total } = getSectionCompletion(section);
+            const isCollapsed = collapsedSections[section.id];
+            const badgeClass = answered === 0 ? 'pending' : answered === total ? 'complete' : 'partial';
+
+            return (
+              <div
+                key={section.id}
+                ref={el => sectionRefs.current[section.id] = el}
+                className={`check-section${isCollapsed ? ' collapsed' : ''}`}
+              >
+                <div className="check-section-header" onClick={() => toggleSection(section.id)}>
+                  <div
+                    className="check-section-icon"
+                    style={{ background: `${section.color}15`, color: section.color }}
+                  >
+                    <i className={section.icon}></i>
+                  </div>
+                  <span className="check-section-title">{section.title}</span>
+                  <span className={`check-section-badge ${badgeClass}`}>
+                    {answered === total && total > 0 ? (
+                      <><i className="ri-check-line" style={{ marginRight: 2 }}></i> Fatto</>
+                    ) : (
+                      `${answered}/${total}`
+                    )}
+                  </span>
+                  <i className="ri-arrow-down-s-line check-section-chevron"></i>
+                </div>
+
+                <div className="check-section-body">
+                  {section.questions.map(q => (
+                    <div key={q.field} className={`check-question${formData[q.field] != null ? ' answered' : ''}`}>
+                      <div className="check-question-label">{q.label}</div>
+                      <RatingSelector5
+                        value={formData[q.field]}
+                        onChange={(val) => handleRatingChange(q.field, val)}
+                        labels={q.labels}
+                        inverted={q.inverted}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            );
+          })}
 
-        {/* Notes Section */}
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <div style={{ ...styles.sectionIcon, background: '#64748b20', color: '#64748b' }}>
-              <i className="ri-edit-line"></i>
+          {/* Physical Parameters (0-10) */}
+          {(() => {
+            const { answered, total } = getPhysicalCompletion();
+            const isCollapsed = collapsedSections['physical'];
+            const badgeClass = answered === 0 ? 'pending' : answered === total ? 'complete' : 'partial';
+
+            return (
+              <div className={`check-section${isCollapsed ? ' collapsed' : ''}`}>
+                <div className="check-section-header" onClick={() => toggleSection('physical')}>
+                  <div
+                    className="check-section-icon"
+                    style={{ background: '#3b82f615', color: '#3b82f6' }}
+                  >
+                    <i className="ri-pulse-line"></i>
+                  </div>
+                  <span className="check-section-title">Parametri Fisici (0-10)</span>
+                  <span className={`check-section-badge ${badgeClass}`}>
+                    {answered === total && total > 0 ? (
+                      <><i className="ri-check-line" style={{ marginRight: 2 }}></i> Fatto</>
+                    ) : (
+                      `${answered}/${total}`
+                    )}
+                  </span>
+                  <i className="ri-arrow-down-s-line check-section-chevron"></i>
+                </div>
+
+                <div className="check-section-body">
+                  {PHYSICAL_PARAMS.map(param => (
+                    <div key={param.field} className={`check-question${formData[param.field] != null ? ' answered' : ''}`}>
+                      <div className="check-question-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <i className={param.icon} style={{ color: 'var(--check-primary)', fontSize: 18 }}></i>
+                        {param.label}
+                      </div>
+                      <RatingGrid10
+                        value={formData[param.field]}
+                        onChange={(val) => handleRatingChange(param.field, val)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Notes Section */}
+          <div className="check-section">
+            <div className="check-section-header" style={{ cursor: 'default' }}>
+              <div
+                className="check-section-icon"
+                style={{ background: '#64748b15', color: '#64748b' }}
+              >
+                <i className="ri-edit-line"></i>
+              </div>
+              <span className="check-section-title">Note Aggiuntive</span>
             </div>
-            Note Aggiuntive
+
+            <div className="check-section-body">
+              <div className="check-textarea-wrap">
+                <label className="check-textarea-label">
+                  Vuoi segnalarci qualcuno? (opzionale)
+                </label>
+                <textarea
+                  className="check-textarea"
+                  rows="3"
+                  value={formData.referral || ''}
+                  onChange={(e) => handleRatingChange('referral', e.target.value)}
+                  placeholder="Nome e contatto di qualcuno che potrebbe beneficiare del programma..."
+                />
+              </div>
+
+              <div className="check-textarea-wrap">
+                <label className="check-textarea-label">
+                  Commenti extra (opzionale)
+                </label>
+                <textarea
+                  className="check-textarea"
+                  rows="3"
+                  value={formData.extra_comments || ''}
+                  onChange={(e) => handleRatingChange('extra_comments', e.target.value)}
+                  placeholder="Qualsiasi altra cosa vorresti comunicarci..."
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="mb-4">
-            <label className="form-label fw-medium">
-              Vuoi segnalarci qualcuno? (opzionale)
-            </label>
-            <textarea
-              className="form-control"
-              rows="3"
-              value={formData.referral || ''}
-              onChange={(e) => handleRatingChange('referral', e.target.value)}
-              placeholder="Nome e contatto di qualcuno che potrebbe beneficiare del programma..."
-            />
-          </div>
+          {/* Error */}
+          {error && (
+            <div className="check-alert-danger">
+              <i className="ri-error-warning-line"></i>
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label className="form-label fw-medium">
-              Commenti extra (opzionale)
-            </label>
-            <textarea
-              className="form-control"
-              rows="3"
-              value={formData.extra_comments || ''}
-              onChange={(e) => handleRatingChange('extra_comments', e.target.value)}
-              placeholder="Qualsiasi altra cosa vorresti comunicarci..."
-            />
+          {/* Submit */}
+          <div style={{ textAlign: 'center', paddingTop: 8 }}>
+            <button type="submit" className="check-submit-btn" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <span className="check-loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, margin: 0 }}></span>
+                  Invio in corso...
+                </>
+              ) : (
+                <>
+                  <i className="ri-send-plane-line"></i>
+                  Invia Check
+                </>
+              )}
+            </button>
           </div>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="alert alert-danger mb-4">
-            <i className="ri-error-warning-line me-2"></i>
-            {error}
-          </div>
-        )}
-
-        {/* Submit */}
-        <div className="text-center">
-          <button type="submit" style={styles.btn} disabled={submitting}>
-            {submitting ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2"></span>
-                Invio in corso...
-              </>
-            ) : (
-              <>
-                <i className="ri-send-plane-line me-2"></i>
-                Invia Check
-              </>
-            )}
-          </button>
         </div>
       </form>
     </div>

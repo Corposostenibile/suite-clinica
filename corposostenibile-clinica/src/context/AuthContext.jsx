@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import pushNotificationService from '../services/pushNotificationService';
 
 const AuthContext = createContext(null);
 
@@ -18,6 +19,7 @@ export function AuthProvider({ children }) {
       const response = await authService.getCurrentUser();
       if (response.authenticated && response.user) {
         setUser(response.user);
+        pushNotificationService.initPushNotifications();
       } else {
         navigate('/auth/login');
       }

@@ -1,0 +1,29 @@
+site_name: Corposostenibile Documentation
+site_dir: static
+
+theme:
+  name: material
+  language: it
+  custom_dir: overrides
+  palette:
+    primary: green
+    accent: green
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+nav:
+  - Benvenuto: index.md
+  - Gestione Pazienti:
+    - Lista Pazienti: pazienti/lista.md
+    - Scheda Dettaglio: pazienti/dettaglio.md
+  - Gestione Professionisti:
+    - Task: professionisti/task.md
+    - Formazione: professionisti/formazione.md
+  - Gestione Azienda:
+    - Check Azienda: azienda/check_azienda.md

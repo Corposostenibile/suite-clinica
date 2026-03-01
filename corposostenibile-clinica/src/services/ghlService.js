@@ -42,7 +42,7 @@ ghlApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      window.location.href = '/auth/login';
+      window.location.href = `${import.meta.env.BASE_URL}auth/login`;
     }
     return Promise.reject(error);
   }
@@ -167,6 +167,46 @@ const ghlService = {
    */
   async getConnectionStatus() {
     const response = await ghlApi.get('/calendar/connection-status');
+    return response.data;
+  },
+
+  // =========================================================================
+  // WEBHOOK URLS (dinamici per sviluppatore)
+  // =========================================================================
+
+  /**
+   * Ottiene gli URL webhook per questo backend (porta corretta per ogni dev)
+   */
+  async getWebhookUrls() {
+    const response = await ghlApi.get('/webhook-urls');
+    return response.data;
+  },
+
+  // =========================================================================
+  // OPPORTUNITY DATA (Webhook)
+  // =========================================================================
+
+  /**
+   * Get all opportunity data received from webhooks
+   */
+  async getOpportunityData() {
+    const response = await ghlApi.get('/opportunity-data');
+    return response.data;
+  },
+
+  /**
+   * Get single opportunity data by ID
+   */
+  async getOpportunityDataById(id) {
+    const response = await ghlApi.get(`/opportunity-data/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Clear all opportunity data (admin only)
+   */
+  async clearOpportunityData() {
+    const response = await ghlApi.post('/opportunity-data/clear');
     return response.data;
   }
 };

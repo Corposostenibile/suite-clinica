@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: suite-clinica-service
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  type: ClusterIP
+  selector:
+    app: suite-clinica
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080

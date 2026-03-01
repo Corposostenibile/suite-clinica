@@ -49,7 +49,7 @@ def api_get_unread_users(communication_id):
             'full_name': user.full_name,
             'email': user.email,
             'department': user.department.name if user.department else 'N/A',
-            'avatar_url': url_for('team.serve_avatar', user_id=user.id) if user.avatar_path else None
+            'avatar_url': user.avatar_url if user.avatar_path else None
         })
     
     return jsonify({

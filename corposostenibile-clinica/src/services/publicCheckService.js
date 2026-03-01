@@ -4,13 +4,24 @@
  */
 
 import axios from 'axios';
+import { normalizeMediaUrlsDeep } from '../utils/mediaUrl';
 
 const api = axios.create({
-  baseURL: '/client-checks',
+  baseURL: '/api/client-checks',
   headers: {
     'Content-Type': 'application/json',
   }
 });
+
+api.interceptors.response.use(
+  (response) => {
+    if (response?.data) {
+      normalizeMediaUrlsDeep(response.data);
+    }
+    return response;
+  },
+  (error) => Promise.reject(error)
+);
 
 const publicCheckService = {
   /**
@@ -20,7 +31,28 @@ const publicCheckService = {
    * @returns {Promise} - { success, check, cliente, professionisti }
    */
   async getCheckInfo(checkType, token) {
-    const response = await api.get(`/api/public/${checkType}/${token}`);
+    const endpoint = `/public/${checkType}/${token}`;
+    const requestConfig = {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
+    };
+
+    const response = await api.get(endpoint, {
+      ...requestConfig,
+      params: { _ts: Date.now() },
+    });
+
+    if (response.status === 304 || !response.data) {
+      const retryResponse = await api.get(endpoint, {
+        ...requestConfig,
+        params: { _ts: Date.now(), _retry: 1 },
+      });
+      return retryResponse.data;
+    }
+
     return response.data;
   },
 
@@ -31,7 +63,7 @@ const publicCheckService = {
    * @returns {Promise} - { success, message }
    */
   async submitWeeklyCheck(token, formData) {
-    const response = await api.post(`/api/public/weekly/${token}`, formData, {
+    const response = await api.post(`/public/weekly/${token}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       }
@@ -46,7 +78,7 @@ const publicCheckService = {
    * @returns {Promise} - { success, message }
    */
   async submitDCACheck(token, data) {
-    const response = await api.post(`/api/public/dca/${token}`, data);
+    const response = await api.post(`/public/dca/${token}`, data);
     return response.data;
   },
 
@@ -57,7 +89,7 @@ const publicCheckService = {
    * @returns {Promise} - { success, message }
    */
   async submitMinorCheck(token, data) {
-    const response = await api.post(`/api/public/minor/${token}`, data);
+    const response = await api.post(`/public/minor/${token}`, data);
     return response.data;
   },
 };

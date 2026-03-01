@@ -1,0 +1,362 @@
+/* Novità Page - Suite Clinica
+   Design coerente con GlobalSearchPage */
+
+:root {
+    --novita-primary: #25B36A;
+    --novita-primary-light: rgba(37, 179, 106, 0.08);
+    --novita-primary-border: rgba(37, 179, 106, 0.2);
+    --novita-text-main: #1e293b;
+    --novita-text-muted: #64748b;
+    --novita-border: #e2e8f0;
+}
+
+/* ===================================================================
+   PAGE LAYOUT
+   =================================================================== */
+
+.novita-page {
+    min-height: 100vh;
+    background: transparent;
+    color: var(--novita-text-main);
+}
+
+/* ===================================================================
+   HEADER SECTION
+   =================================================================== */
+
+.novita-header-container {
+    background: white;
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--novita-border);
+    margin-bottom: 32px;
+}
+
+.novita-header-title {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.novita-header-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    margin-bottom: 16px;
+}
+
+.novita-header-title h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--novita-text-main);
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+}
+
+.novita-header-title p {
+    font-size: 15px;
+    color: var(--novita-text-muted);
+    margin: 0;
+}
+
+/* ===================================================================
+   NEWS CARDS
+   =================================================================== */
+
+.novita-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.novita-card {
+    background: white;
+    border-radius: 14px;
+    border: 1px solid var(--novita-border);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    animation: novitaFadeIn 0.3s ease-out backwards;
+}
+
+.novita-card:nth-child(1) { animation-delay: 0.03s; }
+.novita-card:nth-child(2) { animation-delay: 0.06s; }
+.novita-card:nth-child(3) { animation-delay: 0.09s; }
+.novita-card:nth-child(4) { animation-delay: 0.12s; }
+.novita-card:nth-child(5) { animation-delay: 0.15s; }
+
+.novita-card:hover {
+    border-color: var(--novita-primary-border);
+    box-shadow: 0 8px 24px rgba(37, 179, 106, 0.1);
+    transform: translateY(-2px);
+}
+
+.novita-card:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(37, 179, 106, 0.06);
+}
+
+.novita-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 24px 12px;
+    cursor: pointer;
+}
+
+.novita-card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    color: white;
+    background: linear-gradient(135deg, #25B36A, #1a8a50);
+}
+
+.novita-card.is-pinned .novita-card-icon {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.novita-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.novita-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.novita-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--novita-text-main);
+    margin: 0;
+}
+
+.novita-card-summary {
+    font-size: 14px;
+    color: var(--novita-text-muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.novita-card-chevron {
+    font-size: 22px;
+    color: #cbd5e1;
+    flex-shrink: 0;
+    transition: all 0.25s ease;
+    align-self: center;
+}
+
+.novita-card:hover .novita-card-chevron {
+    color: var(--novita-primary);
+    transform: translateX(2px);
+}
+
+.novita-card-chevron.expanded {
+    transform: rotate(90deg);
+    color: var(--novita-primary);
+}
+
+/* Badges */
+.novita-badge-new {
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #dbeafe;
+}
+
+.novita-badge-pinned {
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fef3c7;
+}
+
+/* Meta */
+.novita-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 24px 16px 90px;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.novita-card-meta i {
+    font-size: 13px;
+}
+
+/* Expanded content */
+.novita-card-content {
+    padding: 20px 24px 24px 90px;
+    border-top: 1px solid #f1f5f9;
+    animation: novitaSlideDown 0.25s ease-out;
+}
+
+.novita-card-content p {
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.8;
+    margin-bottom: 12px;
+}
+
+.novita-card-content p:last-child {
+    margin-bottom: 0;
+}
+
+.novita-card-content strong {
+    color: var(--novita-text-main);
+    font-weight: 700;
+}
+
+/* ===================================================================
+   LOADING STATE
+   =================================================================== */
+
+.novita-loading {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.novita-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e2e8f0;
+    border-top-color: var(--novita-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 16px;
+}
+
+.novita-loading p {
+    color: var(--novita-text-muted);
+    font-size: 14px;
+}
+
+/* ===================================================================
+   EMPTY STATE
+   =================================================================== */
+
+.novita-empty {
+    text-align: center;
+    padding: 80px 20px;
+    max-width: 420px;
+    margin: 0 auto;
+    animation: novitaFadeIn 0.4s ease-out;
+}
+
+.novita-empty-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 24px;
+    color: #94a3b8;
+}
+
+.novita-empty h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--novita-text-main);
+    margin-bottom: 8px;
+}
+
+.novita-empty p {
+    font-size: 14px;
+    color: var(--novita-text-muted);
+    line-height: 1.6;
+}
+
+/* ===================================================================
+   ANIMATIONS
+   =================================================================== */
+
+@keyframes novitaFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes novitaSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+
+@media (max-width: 768px) {
+    .novita-header-container {
+        padding: 32px 0 24px;
+    }
+
+    .novita-header-title h1 {
+        font-size: 22px;
+    }
+
+    .novita-card-header {
+        padding: 16px 18px 10px;
+        gap: 12px;
+    }
+
+    .novita-card-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        font-size: 18px;
+    }
+
+    .novita-card-meta {
+        padding-left: 72px;
+    }
+
+    .novita-card-content {
+        padding: 16px 18px 20px 72px;
+    }
+}
+
+@media (max-width: 576px) {
+    .novita-card-meta,
+    .novita-card-content {
+        padding-left: 18px;
+    }
+}

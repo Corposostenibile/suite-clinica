@@ -38,6 +38,10 @@ client_checks_bp = Blueprint(
 def init_app(app):
     """Inizializza il blueprint client_checks con l'app Flask."""
     app.register_blueprint(client_checks_bp)
+    
+    # Register API blueprint (defined in routes)
+    from .routes import api_bp
+    app.register_blueprint(api_bp)
 
 
 # Import delle route alla fine per evitare circular imports

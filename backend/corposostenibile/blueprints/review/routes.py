@@ -17,9 +17,39 @@ from corposostenibile.blueprints.review.email_service import (
     send_review_request_notification, send_review_request_response_notification
 )
 from corposostenibile.models import (
-    User, Department, Review, ReviewAcknowledgment, ReviewMessage, ReviewRequest
+    User, Department, Review, ReviewAcknowledgment, ReviewMessage, ReviewRequest,
+    UserRoleEnum,
 )
 from corposostenibile.extensions import db
+
+
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, 'specialty', None)
+    if hasattr(specialty, 'value'):
+        specialty = specialty.value
+    return str(specialty).strip().lower() == 'cco' if specialty else False
+
+
+def _is_admin_hr_or_cco(user) -> bool:
+    return bool(
+        user.is_admin
+        or (hasattr(user, 'department_id') and user.department_id == 17)
+        or _is_cco_user(user)
+    )
+
+
+def _get_led_team_member_ids(user):
+    """Restituisce gli ID membri dei team guidati dall'utente (many-to-many), includendo sé stesso."""
+    visible_ids = set()
+    if not getattr(user, 'is_authenticated', False):
+        return visible_ids
+
+    visible_ids.add(user.id)
+    for team in (getattr(user, 'teams_led', None) or []):
+        for member in (getattr(team, 'members', None) or []):
+            if getattr(member, 'id', None):
+                visible_ids.add(member.id)
+    return visible_ids
 
 
 def can_view_member_reviews(user, member):
@@ -53,8 +83,13 @@ def can_view_member_reviews(user, member):
         if dept_cco and dept_cco.head_id == user.id:
             return True
 
-    # Team Leader Nutrizione può vedere membri del proprio team
-    if member.department_id == 2 and member.team_id:
+    # Team Leader: può vedere membri dei propri team (many-to-many)
+    led_member_ids = _get_led_team_member_ids(user)
+    if member.id in led_member_ids:
+        return True
+
+    # Fallback legacy (team_id diretto)
+    if member.department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -96,8 +131,13 @@ def can_write_review(user, member):
         if dept_cco and dept_cco.head_id == user.id:
             return True
 
-    # Team Leader Nutrizione può scrivere a membri del proprio team
-    if member.department_id == 2 and member.team_id:
+    # Team Leader: può scrivere ai membri dei propri team (many-to-many)
+    led_member_ids = _get_led_team_member_ids(user)
+    if member.id in led_member_ids and member.id != user.id:
+        return True
+
+    # Fallback legacy (team_id diretto)
+    if member.department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -1560,9 +1600,9 @@ def api_request_recipients():
                         if not any(r.get('id') == user_team.head.id for r in possible_recipients):
                             possible_recipients.append({
                                 'id': user_team.head.id,
-                                'firstName': user_team.head.first_name,
-                                'lastName': user_team.head.last_name,
-                                'label': f"{user_team.head.first_name} {user_team.head.last_name} (Team Leader {user_team.name})"
+                                'name': f"{user_team.head.first_name} {user_team.head.last_name}",
+                                'role': f"Team Leader {user_team.name}",
+                                'department': user_team.head.specialty_display if hasattr(user_team.head, 'specialty_display') else None,
                             })
 
             # Aggiungi gli head dei dipartimenti principali come opzione
@@ -1573,9 +1613,9 @@ def api_request_recipients():
                     if not any(r.get('id') == dept.head.id for r in possible_recipients):
                         possible_recipients.append({
                             'id': dept.head.id,
-                            'firstName': dept.head.first_name,
-                            'lastName': dept.head.last_name,
-                            'label': f"{dept.head.first_name} {dept.head.last_name} (Head {dept.name})"
+                            'name': f"{dept.head.first_name} {dept.head.last_name}",
+                            'role': f"Head {dept.name}",
+                            'department': dept.head.specialty_display if hasattr(dept.head, 'specialty_display') else None,
                         })
 
         return jsonify({
@@ -1663,6 +1703,54 @@ def api_cancel_request(request_id):
     db.session.commit()
 
     return jsonify({'success': True, 'message': 'Richiesta cancellata'})
+
+
+@bp.route('/api/request/<int:request_id>/respond', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_respond_request(request_id):
+    """
+    API JSON: Risponde a una richiesta di training ricevuta (accetta/rifiuta).
+    """
+    training_request = ReviewRequest.query.get_or_404(request_id)
+
+    is_cco = bool(getattr(current_user, 'department_id', None) == 17)
+    if training_request.requested_to_id != current_user.id and not (current_user.is_admin or is_cco):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
+    if training_request.status != 'pending':
+        return jsonify({'success': False, 'message': 'Questa richiesta è già stata gestita'}), 400
+
+    data = request.get_json() or {}
+    action = (data.get('action') or '').strip().lower()
+    response_notes = (data.get('response_notes') or '').strip()
+
+    if action not in {'accept', 'reject'}:
+        return jsonify({'success': False, 'message': 'Azione non valida'}), 400
+
+    training_request.response_notes = response_notes
+    training_request.responded_at = datetime.utcnow()
+    training_request.status = 'accepted' if action == 'accept' else 'rejected'
+
+    db.session.commit()
+
+    if action == 'reject':
+        try:
+            send_review_request_response_notification(training_request)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send request response notification: {e}")
+
+    return jsonify({
+        'success': True,
+        'message': 'Richiesta accettata' if action == 'accept' else 'Richiesta rifiutata',
+        'request': {
+            'id': training_request.id,
+            'status': training_request.status,
+            'respondedAt': training_request.responded_at.isoformat() if training_request.responded_at else None,
+            'responseNotes': training_request.response_notes,
+            'reviewId': training_request.review_id,
+        }
+    })
 
 
 @bp.route('/api/<int:review_id>/acknowledge', methods=['POST'])
@@ -1799,12 +1887,21 @@ def api_admin_professionals():
     """
     API JSON: Lista tutti i professionisti attivi (solo per admin/HR).
     """
-    # Verifica permessi admin o HR
-    if not (current_user.is_admin or current_user.department_id == 17):
+    # Verifica permessi admin/HR/CCO o Team Leader (scope team)
+    is_team_leader = getattr(current_user, 'role', None) == UserRoleEnum.team_leader
+    if not (_is_admin_hr_or_cco(current_user) or is_team_leader):
         return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
     # Query per utenti attivi
-    users = User.query.filter_by(is_active=True).order_by(
+    query = User.query.filter_by(is_active=True)
+    if not _is_admin_hr_or_cco(current_user):
+        visible_ids = _get_led_team_member_ids(current_user)
+        visible_ids.discard(current_user.id)
+        if not visible_ids:
+            return jsonify({'success': True, 'professionals': []})
+        query = query.filter(User.id.in_(list(visible_ids)))
+
+    users = query.order_by(
         User.last_name, User.first_name
     ).all()
 
@@ -1852,12 +1949,12 @@ def api_admin_user_trainings(user_id):
     """
     API JSON: Ottiene i training di un utente specifico (solo per admin/HR).
     """
-    # Verifica permessi admin o HR
-    if not (current_user.is_admin or current_user.department_id == 17):
-        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
-
     # Verifica che l'utente esista
     target_user = User.query.get_or_404(user_id)
+
+    # Verifica permessi (admin/HR/CCO oppure Team Leader nel proprio scope)
+    if not (_is_admin_hr_or_cco(current_user) or can_view_member_reviews(current_user, target_user)):
+        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
     # Query per i training dell'utente target
     reviews = Review.query.filter_by(
@@ -2029,28 +2126,54 @@ def api_admin_create_training(user_id):
     })
 
 
+def _review_dashboard_visible_user_ids():
+    """
+    User IDs that count for training dashboard (reviewer or reviewee).
+    - Admin / dept 17: None (all)
+    - Team Leader: members of teams they lead + self
+    - Professionista: only self
+    """
+    if not current_user.is_authenticated:
+        return []
+    if current_user.is_admin or (hasattr(current_user, 'department_id') and current_user.department_id == 17):
+        return None
+    if getattr(current_user, 'role', None) == UserRoleEnum.team_leader and getattr(current_user, 'teams_led', None):
+        visible = {current_user.id}
+        for team in current_user.teams_led:
+            if getattr(team, 'members', None):
+                for m in team.members:
+                    visible.add(m.id)
+        return list(visible)
+    return [current_user.id]
+
+
 @bp.route('/api/admin/dashboard-stats')
 @login_required
 def api_admin_dashboard_stats():
     """
-    API JSON: Statistiche globali training per la dashboard admin.
-    Restituisce KPI, trend mensili, top formatori/destinatari, breakdown per tipo.
+    API JSON: Statistiche training per la dashboard.
+    Dati filtrati per ruolo (admin/dept17=all, TL=team, professionista=own).
     """
-    if not (current_user.is_admin or (hasattr(current_user, 'department_id') and current_user.department_id == 17)):
-        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
-
     from sqlalchemy import func, extract
     from calendar import monthrange
 
     now = datetime.utcnow()
+    visible_ids = _review_dashboard_visible_user_ids()
 
-    # --- KPI base ---
+    # Base filter: non-draft, not deleted; then restrict by role
     base_filter = Review.query.filter_by(deleted_at=None, is_draft=False)
+    if visible_ids is not None:
+        base_filter = base_filter.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
 
     total_trainings = base_filter.count()
-    total_acknowledged = base_filter.filter(Review.is_acknowledged == True).count()
+    total_acknowledged = base_filter.join(Review.acknowledgment).count()
     total_pending = total_trainings - total_acknowledged
-    total_drafts = Review.query.filter_by(deleted_at=None, is_draft=True).count()
+    drafts_q = Review.query.filter_by(deleted_at=None, is_draft=True)
+    if visible_ids is not None:
+        drafts_q = drafts_q.filter(Review.reviewer_id.in_(visible_ids))
+    total_drafts = drafts_q.count()
 
     # Questo mese
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -2072,13 +2195,15 @@ def api_admin_dashboard_stats():
     pending_requests = ReviewRequest.query.filter_by(status='pending').count()
 
     # --- Breakdown per tipo ---
-    by_type_raw = db.session.query(
-        Review.review_type,
-        func.count(Review.id)
-    ).filter(
+    by_type_q = db.session.query(Review.review_type, func.count(Review.id)).filter(
         Review.deleted_at == None,
         Review.is_draft == False
-    ).group_by(Review.review_type).all()
+    )
+    if visible_ids is not None:
+        by_type_q = by_type_q.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
+    by_type_raw = by_type_q.group_by(Review.review_type).all()
 
     type_labels = {
         'settimanale': 'Settimanale',
@@ -2104,10 +2229,9 @@ def api_admin_dashboard_stats():
             Review.created_at <= m_end
         ).count()
 
-        ack_count = base_filter.filter(
+        ack_count = base_filter.join(Review.acknowledgment).filter(
             Review.created_at >= m_start,
-            Review.created_at <= m_end,
-            Review.is_acknowledged == True
+            Review.created_at <= m_end
         ).count()
 
         month_names = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
@@ -2120,7 +2244,7 @@ def api_admin_dashboard_stats():
         })
 
     # --- Top 10 formatori (chi ha erogato più training) ---
-    top_reviewers_raw = db.session.query(
+    top_reviewers_q = db.session.query(
         User.id,
         User.first_name,
         User.last_name,
@@ -2129,8 +2253,12 @@ def api_admin_dashboard_stats():
     ).join(Review, Review.reviewer_id == User.id).filter(
         Review.deleted_at == None,
         Review.is_draft == False
-    ).group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
-
+    )
+    if visible_ids is not None:
+        top_reviewers_q = top_reviewers_q.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
+    top_reviewers_raw = top_reviewers_q.group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
     top_reviewers = [{
         'id': r.id,
         'name': f"{r.first_name} {r.last_name}",
@@ -2139,7 +2267,7 @@ def api_admin_dashboard_stats():
     } for r in top_reviewers_raw]
 
     # --- Top 10 destinatari (chi ha ricevuto più training) ---
-    top_reviewees_raw = db.session.query(
+    top_reviewees_q = db.session.query(
         User.id,
         User.first_name,
         User.last_name,
@@ -2148,7 +2276,12 @@ def api_admin_dashboard_stats():
     ).join(Review, Review.reviewee_id == User.id).filter(
         Review.deleted_at == None,
         Review.is_draft == False
-    ).group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
+    )
+    if visible_ids is not None:
+        top_reviewees_q = top_reviewees_q.filter(
+            or_(Review.reviewer_id.in_(visible_ids), Review.reviewee_id.in_(visible_ids))
+        )
+    top_reviewees_raw = top_reviewees_q.group_by(User.id, User.first_name, User.last_name, User.email).order_by(desc('count')).limit(10).all()
 
     top_reviewees = [{
         'id': r.id,

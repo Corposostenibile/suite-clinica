@@ -7,7 +7,6 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from http import HTTPStatus
-import json
 import logging
 from typing import Any, Dict
 
@@ -16,17 +15,14 @@ from dateutil.relativedelta import relativedelta
 from flask import (
     Blueprint,
     current_app,
-    flash,
     g,
     jsonify,
-    redirect,
-    render_template,
     request,
     url_for,
     abort,
 )
 from flask_login import current_user                    # type: ignore
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from werkzeug.exceptions import BadRequest, Forbidden, NotFound
@@ -36,29 +32,28 @@ from corposostenibile.models import (
     CartellaClinica,
     Cliente,
     ClientCheckAssignment,
-    ClientCheckResponse,
     MealPlan,
     TrainingPlan,
     TrainingLocation,
     StatoClienteEnum,
     LuogoAllenEnum,
-    Task,
     TipoProfessionistaEnum,
+    UserRoleEnum,
     User,
+    Origine,
     PagamentoInterno,
     PagamentoInternoApprovazione,
     PagamentoInternoStatusEnum,
-    TipoPagamentoInternoEnum,
     PagamentoEnum,
     AttribuibileAEnum,
     Package,
     PlanExtraFile,
     PlanTypeEnum,
+    CallBonusStatusEnum,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import parse_filter_args
-from .forms import ClienteForm, ClienteCreateForm, CustomerFilterForm
-from .permissions import CustomerPerm, has_permission, permission_required
+from .permissions import CustomerPerm, permission_required
 from .repository import customers_repo
 from .schemas import ClienteSchema
 from .services import (
@@ -67,13 +62,12 @@ from .services import (
     restore_cliente_version,
     update_cliente,
     calculate_dashboard_kpis,
-    calculate_health_scores,
-    calculate_temporal_metrics,
-    calculate_segments,
+    apply_role_filtering,
 )
 
 logger = logging.getLogger(__name__)
 
+# Backend template rendering is disabled: frontend app owns UI pages.
 # --------------------------------------------------------------------------- #
 #  Helper – metriche dashboard                                               #
 # --------------------------------------------------------------------------- #
@@ -95,28 +89,34 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     threshold_scadenza = today + timedelta(days=30)
 
     # ▸ KPI -------------------------------------------------------------- #
-    total_clients = db.session.query(func.count(Cliente.cliente_id)).scalar() or 0
+    # ▸ KPI -------------------------------------------------------------- #
+    query_base = db.session.query(Cliente)
+    query_base = apply_role_filtering(query_base)
+
+    total_clients = query_base.with_entities(func.count(Cliente.cliente_id)).scalar() or 0
 
     total_active = (
-        db.session.query(func.count(Cliente.cliente_id))
-        .filter(Cliente.stato_cliente == "attivo")
+        query_base.filter(Cliente.stato_cliente == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     new_month = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.created_at >= first_day_month)
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     in_scadenza = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo <= threshold_scadenza,
         )
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
@@ -125,33 +125,41 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
 
     # ▸ KPI per Specialty (Nutrizione, Coach, Psicologia) --------------- #
     nutrizione_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_nutrizione == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     coach_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_coach == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     psicologia_attivo = (
-        db.session.query(func.count(Cliente.cliente_id))
+        query_base
         .filter(Cliente.stato_psicologia == "attivo")
+        .with_entities(func.count(Cliente.cliente_id))
         .scalar()
         or 0
     )
 
     # ▸ Nuovi clienti per mese (ultimi 12) ------------------------------- #
     start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
+    
+    # Query aggregata con filtro applicato
+    monthly_query = db.session.query(
+        func.date_trunc("month", Cliente.created_at).label("month"),
+        func.count(Cliente.cliente_id).label("count"),
+    )
+    monthly_query = apply_role_filtering(monthly_query)
+        
     monthly_rows = (
-        db.session.query(
-            func.date_trunc("month", Cliente.created_at).label("month"),
-            func.count(Cliente.cliente_id).label("count"),
-        )
+        monthly_query
         .filter(Cliente.created_at >= start_period)
         .group_by("month")
         .order_by("month")
@@ -163,8 +171,11 @@ def _compute_dashboard_metrics() -> Dict[str, Any]:
     ]
 
     # ▸ Distribuzione stato cliente -------------------------------------- #
+    status_query = db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+    status_query = apply_role_filtering(status_query)
+    
     status_rows = (
-        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        status_query
         .group_by(Cliente.stato_cliente)
         .all()
     )
@@ -209,84 +220,10 @@ def _load_cliente(_endpoint, values):  # noqa: D401
 # --------------------------------------------------------------------------- #
 #  Context processor                                                          #
 # --------------------------------------------------------------------------- #
-@customers_bp.context_processor
-def inject_permissions():
-    """Rende disponibile has_permission nei template."""
-    return {"has_permission": has_permission}
 
 # --------------------------------------------------------------------------- #
 #  DASHBOARD                                                                  #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/dashboard", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def dashboard_view() -> str:
-    """Dashboard con KPI e grafici del modulo Customers."""
-    data = _compute_dashboard_metrics()
-    return render_template(
-        "customers/dashboard.html",
-        kpi=data["kpi"],
-        chart_new_customers=json.dumps(data["charts"]["new_customers_monthly"]),
-        chart_status=json.dumps(data["charts"]["status_distribution"]),
-    )
-
-@customers_bp.route("/dashboard-360", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def dashboard_360_view() -> str:
-    """Dashboard 360° avanzata con KPI dinamici e filtri."""
-    from corposostenibile.models import TypeFormResponse, User
-    
-    # Calcola KPI principali
-    kpi = calculate_dashboard_kpis()
-    
-    # Calcola Health Scores
-    health_data = calculate_health_scores()
-    
-    # Calcola metriche temporali
-    temporal_data = calculate_temporal_metrics()
-    
-    # Calcola segmenti
-    segments_data = calculate_segments()
-    
-    # Ottieni lista professionisti per filtri
-    nutrizionisti = db.session.query(
-        func.concat(User.first_name, ' ', User.last_name).label('full_name')
-    ).join(
-        Cliente, Cliente.nutrizionista_id == User.id
-    ).distinct().all()
-    coaches = db.session.query(
-        func.concat(User.first_name, ' ', User.last_name).label('full_name')
-    ).join(
-        Cliente, Cliente.coach_id == User.id
-    ).distinct().all()
-    psicologi = db.session.query(
-        func.concat(User.first_name, ' ', User.last_name).label('full_name')
-    ).join(
-        Cliente, Cliente.psicologa_id == User.id
-    ).distinct().all()
-    
-    professionisti = list(set([n[0] for n in nutrizionisti if n[0]] + 
-                             [c[0] for c in coaches if c[0]] + 
-                             [p[0] for p in psicologi if p[0]]))
-    
-    # Prepara dati per i grafici iniziali
-    chart_data = {
-        'stati_cliente': _get_stati_distribution(),
-        'tipologia': _get_tipologia_distribution(),
-        'team': _get_team_distribution(),
-        'pagamento': _get_pagamento_distribution(),
-        'check_saltati': _get_check_saltati_distribution()
-    }
-    
-    return render_template(
-        "customers/dashboard_360.html",
-        kpi=kpi,
-        health=health_data,
-        wellness=health_data.get('wellness', {}),
-        temporal=temporal_data,
-        segments=segments_data,
-        chart_data=chart_data,
-        professionisti=professionisti
-    )
 
 @customers_bp.route("/dashboard/data", methods=["POST"])
 @permission_required(CustomerPerm.VIEW)
@@ -312,694 +249,29 @@ def dashboard_data():
 # --------------------------------------------------------------------------- #
 #  LISTA / FILTRI                                                             #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def list_view() -> str:
-    """Lista clienti con filtri e paginazione."""
-    from corposostenibile.models import User, Department
-
-    form = CustomerFilterForm(request.args, meta={"csrf": False})
-
-    # Popola i dropdown dei professionisti con UNA SOLA QUERY
-    dept_names = ['Nutrizione', 'Nutrizione 2', 'Coach', 'Psicologia',
-                  'Consulenti Sales 1', 'Consulenti Sales 2']
-
-    users_with_dept = (
-        db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'), Department.id.label('dept_id'))
-        .join(Department, User.department_id == Department.id)
-        .filter(Department.name.in_(dept_names) | (Department.id == 13))
-        .order_by(User.first_name, User.last_name)
-        .all()
-    )
-
-    # Raggruppa per dipartimento
-    nutrizionisti = []
-    coaches = []
-    psicologi = []
-    consulenti = []
-    health_managers = []
-
-    for u_id, first_name, last_name, email, dept_name, dept_id in users_with_dept:
-        full_name = f"{first_name} {last_name}".strip()
-        choice = (str(u_id), full_name or email)
-        if dept_name in ['Nutrizione', 'Nutrizione 2']:
-            nutrizionisti.append(choice)
-        elif dept_name == 'Coach':
-            coaches.append(choice)
-        elif dept_name == 'Psicologia':
-            psicologi.append(choice)
-        elif dept_name in ['Consulenti Sales 1', 'Consulenti Sales 2']:
-            consulenti.append(choice)
-        if dept_id == 13:  # Health Managers
-            health_managers.append(choice)
-
-    form.nutrizionista_id.choices = [("", "Tutti i nutrizionisti")] + nutrizionisti
-    form.coach_id.choices = [("", "Tutti i coach")] + coaches
-    form.psicologa_id.choices = [("", "Tutti gli psicologi")] + psicologi
-    form.consulente_alimentare_id.choices = [("", "Tutti i consulenti")] + consulenti
-    form.health_manager_id.choices = [("", "Tutti gli health manager")] + health_managers
-
-    params = parse_filter_args(request.args)
-
-    pagination = customers_repo.list(
-        filters=params,
-        order_by=request.args.get("order_by", "nome_cognome"),
-        page=request.args.get("page", 1, type=int),
-        per_page=100,
-        eager=True,
-    )
-
-    # Calcola statistiche per professionista se filtrato
-    professional_stats = None
-    if params.nutrizionista_id or params.coach_id or params.psicologa_id or params.consulente_alimentare_id or params.health_manager_id:
-        from corposostenibile.models import TipologiaClienteEnum
-        from sqlalchemy import text
-        
-        # Determina quale professionista è filtrato
-        prof_type = None
-        prof_id = None
-        prof_name = None
-        prof_avatar = None
-        query = None
-        
-        if params.nutrizionista_id:
-            prof_type = 'nutrizionista'
-            prof_id = params.nutrizionista_id
-            # Trova il nome e avatar del nutrizionista
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Nutrizionista"
-            prof_avatar = user.avatar_url if user else None
-            
-            # Query per contare clienti per tipologia
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_nutrizionisti cn ON c.cliente_id = cn.cliente_id
-                WHERE cn.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-            
-        elif params.coach_id:
-            prof_type = 'coach'
-            prof_id = params.coach_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Coach"
-            prof_avatar = user.avatar_url if user else None
-            
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_coaches cc ON c.cliente_id = cc.cliente_id
-                WHERE cc.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-            
-        elif params.psicologa_id:
-            prof_type = 'psicologa'
-            prof_id = params.psicologa_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Psicologa"
-            prof_avatar = user.avatar_url if user else None
-            
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_psicologi cp ON c.cliente_id = cp.cliente_id
-                WHERE cp.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-            
-        elif params.consulente_alimentare_id:
-            prof_type = 'consulente'
-            prof_id = params.consulente_alimentare_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Consulente"
-            prof_avatar = user.avatar_url if user else None
-
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                JOIN cliente_consulenti_alimentari cca ON c.cliente_id = cca.cliente_id
-                WHERE cca.user_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-
-        elif params.health_manager_id:
-            prof_type = 'health_manager'
-            prof_id = params.health_manager_id
-            user = db.session.query(User).filter_by(id=prof_id).first()
-            prof_name = user.full_name if user else "Health Manager"
-            prof_avatar = user.avatar_url if user else None
-
-            query = text("""
-                SELECT c.tipologia_cliente, COUNT(*) as count
-                FROM clienti c
-                WHERE c.health_manager_id = :user_id
-                GROUP BY c.tipologia_cliente
-            """).bindparams(user_id=prof_id)
-
-        if query is not None:
-            results = db.session.execute(query).fetchall()
-            
-            # Prepara le statistiche raggruppando per tipologia
-            from collections import defaultdict
-            stats_by_type = defaultdict(int)
-            total = 0
-            
-            for row in results:
-                # La tipologia è salvata come stringa minuscola nel DB
-                tipo = row[0]
-                count = row[1]
-                
-                if tipo:
-                    # Normalizza: minuscolo -> maiuscolo per A, B, C
-                    tipo_lower = str(tipo).lower()
-                    if tipo_lower in ['a', 'b', 'c']:
-                        tipo_str = tipo_lower.upper()
-                    elif tipo_lower == 'pausa_gt_30':
-                        tipo_str = 'Pausa >30gg'
-                    elif tipo_lower == 'recupero':
-                        tipo_str = 'Recupero'
-                    elif tipo_lower == 'stop':
-                        tipo_str = 'Stop'
-                    else:
-                        tipo_str = tipo_lower.title()  # Capitalizza altri valori
-                else:
-                    tipo_str = 'Non specificato'
-                
-                stats_by_type[tipo_str] += count
-                total += count
-            
-            professional_stats = {
-                'type': prof_type,
-                'name': prof_name,
-                'avatar': prof_avatar,
-                'total': total,
-                'by_tipologia': dict(stats_by_type)  # Converti defaultdict in dict normale
-            }
-    
-    return render_template(
-        "customers/list.html",
-        pagination=pagination,
-        form=form,
-        filters_applied=bool(params),
-        professional_stats=professional_stats,
-    )
 
 
 # --------------------------------------------------------------------------- #
 #  VISUALE NUTRIZIONISTA                                                      #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/visuale-nutrizionista", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def list_nutrizionista() -> str:
-    """Lista clienti ottimizzata per nutrizionisti.
-
-    Visibile solo a: admin, CCO, nutrizionisti (dipartimento Nutrizione/Nutrizione 2)
-
-    Logica permessi:
-    - Admin/CCO: vedono tutti i clienti, possono filtrare per tutti i nutrizionisti
-    - Head dipartimento Nutrizione: vedono tutti i clienti, possono filtrare per tutti i nutrizionisti
-    - Team leader: vedono solo clienti dei membri del proprio team, filtrano per membri del team
-    - Nutrizionista normale: vede solo i propri clienti
-    """
-    from corposostenibile.models import User, Department, Team
-
-    # Verifica accesso: admin, CCO o nutrizionista
-    is_admin = current_user.is_admin
-
-    # Controlla dipartimento
-    is_cco = False
-    is_nutrizionista = False
-    is_department_head = False
-    is_team_leader = False
-    team_member_ids = []
-
-    if current_user.department:
-        is_cco = current_user.department.name == 'CCO'
-        is_nutrizionista = current_user.department.name in ['Nutrizione', 'Nutrizione 2']
-
-        # Verifica se è head del dipartimento Nutrizione
-        if is_nutrizionista and current_user.department.head_id == current_user.id:
-            is_department_head = True
-
-        # Verifica se è team leader (head di un team nel dipartimento Nutrizione)
-        if is_nutrizionista and not is_department_head:
-            # Cerca se l'utente è head di un team
-            user_team = Team.query.filter_by(head_id=current_user.id).first()
-            if user_team:
-                is_team_leader = True
-                # Recupera tutti gli ID dei membri del team (incluso il team leader stesso)
-                team_member_ids = [m.id for m in user_team.members]
-                if current_user.id not in team_member_ids:
-                    team_member_ids.append(current_user.id)
-
-    if not (is_admin or is_cco or is_nutrizionista):
-        flash("Non hai i permessi per accedere a questa vista.", "danger")
-        return redirect(url_for("customers.list_view"))
-
-    # Form filtri (riutilizziamo lo stesso)
-    form = CustomerFilterForm(request.args, meta={"csrf": False})
-
-    # Popola dropdown nutrizionisti in base ai permessi
-    dept_names = ['Nutrizione', 'Nutrizione 2']
-
-    if is_team_leader and not is_admin and not is_cco and not is_department_head:
-        # Team leader: mostra solo membri del proprio team
-        users_with_dept = (
-            db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'))
-            .join(Department, User.department_id == Department.id)
-            .filter(User.id.in_(team_member_ids))
-            .order_by(User.first_name, User.last_name)
-            .all()
-        )
-    else:
-        # Admin, CCO, head dipartimento: mostra tutti i nutrizionisti
-        users_with_dept = (
-            db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'))
-            .join(Department, User.department_id == Department.id)
-            .filter(Department.name.in_(dept_names))
-            .order_by(User.first_name, User.last_name)
-            .all()
-        )
-
-    nutrizionisti = []
-    for u_id, first_name, last_name, email, dept_name in users_with_dept:
-        full_name = f"{first_name} {last_name}".strip()
-        nutrizionisti.append((str(u_id), full_name or email))
-
-    form.nutrizionista_id.choices = [("", "Tutti i nutrizionisti")] + nutrizionisti
-
-    params = parse_filter_args(request.args)
-
-    # Filtra solo clienti con nutrizionista assegnato
-    params = replace(params, has_nutrizionista=True)
-
-    # Applica filtri in base al ruolo
-    if is_nutrizionista and not is_admin and not is_cco and not is_department_head:
-        if is_team_leader:
-            # Team leader: filtra per i membri del team
-            params = replace(params, nutrizionista_ids=team_member_ids)
-        else:
-            # Nutrizionista normale: filtra solo i propri clienti
-            params = replace(params, nutrizionista_id=current_user.id)
-
-    pagination = customers_repo.list(
-        filters=params,
-        order_by=request.args.get("order_by", "nome_cognome"),
-        page=request.args.get("page", 1, type=int),
-        per_page=100,
-        eager=True,
-    )
-
-    # Calcola KPI per la visuale nutrizionista
-    from corposostenibile.blueprints.customers.filters import apply_customer_filters
-    from corposostenibile.models import StatoClienteEnum
-
-    base_query = apply_customer_filters(db.session.query(Cliente), params)
-
-    kpi = {
-        'stato_attivo': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.attivo).count(),
-        'stato_ghost': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.ghost).count(),
-        'stato_pausa': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.pausa).count(),
-        'stato_stop': base_query.filter(Cliente.stato_nutrizione == StatoClienteEnum.stop).count(),
-        'chat_attivo': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.attivo).count(),
-        'chat_ghost': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.ghost).count(),
-        'chat_pausa': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.pausa).count(),
-        'chat_stop': base_query.filter(Cliente.stato_cliente_chat_nutrizione == StatoClienteEnum.stop).count(),
-    }
-
-    return render_template(
-        "customers/list_nutrizionista.html",
-        pagination=pagination,
-        form=form,
-        filters_applied=bool(params),
-        is_admin=is_admin,
-        is_cco=is_cco,
-        is_department_head=is_department_head,
-        is_team_leader=is_team_leader,
-        kpi=kpi,
-    )
 
 
 # --------------------------------------------------------------------------- #
 #  VISUALE COACH                                                               #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/visuale-coach", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def list_coach() -> str:
-    """Lista clienti ottimizzata per coach.
-
-    Visibile solo a: admin, CCO, coach (dipartimento Coach)
-    Head del dipartimento Coach può filtrare per tutti i coach.
-    """
-    from corposostenibile.models import User, Department
-
-    # Verifica accesso: admin, CCO o coach
-    is_admin = current_user.is_admin
-
-    # Controlla dipartimento
-    is_cco = False
-    is_coach = False
-    is_department_head = False
-    if current_user.department:
-        is_cco = current_user.department.name == 'CCO'
-        is_coach = current_user.department.name == 'Coach'
-        # Verifica se è head del dipartimento Coach
-        if is_coach and current_user.department.head_id == current_user.id:
-            is_department_head = True
-
-    if not (is_admin or is_cco or is_coach):
-        flash("Non hai i permessi per accedere a questa vista.", "danger")
-        return redirect(url_for("customers.list_view"))
-
-    # Form filtri (riutilizziamo lo stesso)
-    form = CustomerFilterForm(request.args, meta={"csrf": False})
-
-    # Popola dropdown coach
-    dept_names = ['Coach']
-    users_with_dept = (
-        db.session.query(User.id, User.first_name, User.last_name, User.email, Department.name.label('dept_name'))
-        .join(Department, User.department_id == Department.id)
-        .filter(Department.name.in_(dept_names))
-        .order_by(User.first_name, User.last_name)
-        .all()
-    )
-
-    coaches = []
-    for u_id, first_name, last_name, email, dept_name in users_with_dept:
-        full_name = f"{first_name} {last_name}".strip()
-        coaches.append((str(u_id), full_name or email))
-
-    form.coach_id.choices = [("", "Tutti i coach")] + coaches
-
-    params = parse_filter_args(request.args)
-
-    # Filtra solo clienti con coach assegnato
-    params = replace(params, has_coach=True)
-
-    # Se coach non admin/CCO/head dipartimento, filtra solo i suoi clienti
-    if is_coach and not is_admin and not is_cco and not is_department_head:
-        params = replace(params, coach_id=current_user.id)
-
-    pagination = customers_repo.list(
-        filters=params,
-        order_by=request.args.get("order_by", "nome_cognome"),
-        page=request.args.get("page", 1, type=int),
-        per_page=100,
-        eager=True,
-    )
-
-    # Calcola KPI per la visuale coach
-    from corposostenibile.blueprints.customers.filters import apply_customer_filters
-    from corposostenibile.models import StatoClienteEnum
-
-    base_query = apply_customer_filters(db.session.query(Cliente), params)
-
-    kpi = {
-        'stato_attivo': base_query.filter(Cliente.stato_coach == StatoClienteEnum.attivo).count(),
-        'stato_ghost': base_query.filter(Cliente.stato_coach == StatoClienteEnum.ghost).count(),
-        'stato_pausa': base_query.filter(Cliente.stato_coach == StatoClienteEnum.pausa).count(),
-        'stato_stop': base_query.filter(Cliente.stato_coach == StatoClienteEnum.stop).count(),
-        'chat_attivo': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.attivo).count(),
-        'chat_ghost': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.ghost).count(),
-        'chat_pausa': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.pausa).count(),
-        'chat_stop': base_query.filter(Cliente.stato_cliente_chat_coaching == StatoClienteEnum.stop).count(),
-    }
-
-    return render_template(
-        "customers/list_coach.html",
-        pagination=pagination,
-        form=form,
-        filters_applied=bool(params),
-        is_admin=is_admin,
-        is_cco=is_cco,
-        is_department_head=is_department_head,
-        kpi=kpi,
-    )
-
-
 # --------------------------------------------------------------------------- #
 #  VISUALE PSICOLOGIA                                                         #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/visuale-psicologia", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def list_psicologo() -> str:
-    """Lista clienti ottimizzata per psicologi.
-
-    Visibile solo a: admin, CCO, psicologi (dipartimento Psicologia)
-    Head del dipartimento Psicologia può filtrare per tutti gli psicologi.
-    """
-    from corposostenibile.models import User, Department
-
-    is_admin = current_user.is_admin
-
-    is_cco = False
-    is_psicologo = False
-    is_department_head = False
-    if current_user.department:
-        is_cco = current_user.department.name == 'CCO'
-        is_psicologo = current_user.department.name == 'Psicologia'
-        # Verifica se è head del dipartimento Psicologia
-        if is_psicologo and current_user.department.head_id == current_user.id:
-            is_department_head = True
-
-    if not (is_admin or is_cco or is_psicologo):
-        flash("Non hai i permessi per accedere a questa vista.", "danger")
-        return redirect(url_for("customers.list_view"))
-
-    form = CustomerFilterForm(request.args, meta={"csrf": False})
-
-    dept_names = ['Psicologia']
-    users_with_dept = (
-        db.session.query(User.id, User.first_name, User.last_name, User.email)
-        .join(Department, User.department_id == Department.id)
-        .filter(Department.name.in_(dept_names))
-        .order_by(User.first_name, User.last_name)
-        .all()
-    )
-
-    psicologi = []
-    for u_id, first_name, last_name, email in users_with_dept:
-        full_name = f"{first_name} {last_name}".strip()
-        psicologi.append((str(u_id), full_name or email))
-
-    form.psicologa_id.choices = [("", "Tutti gli psicologi")] + psicologi
-
-    params = parse_filter_args(request.args)
-
-    # Filtra solo clienti con psicologo assegnato
-    params = replace(params, has_psicologo=True)
-
-    # Se psicologo non admin/CCO/head dipartimento, filtra solo i suoi clienti
-    if is_psicologo and not is_admin and not is_cco and not is_department_head:
-        params = replace(params, psicologa_id=current_user.id)
-
-    pagination = customers_repo.list(
-        filters=params,
-        order_by=request.args.get("order_by", "nome_cognome"),
-        page=request.args.get("page", 1, type=int),
-        per_page=100,
-        eager=True,
-    )
-
-    # Calcola KPI per la visuale psicologia
-    from corposostenibile.blueprints.customers.filters import apply_customer_filters
-    from corposostenibile.models import StatoClienteEnum
-
-    base_query = apply_customer_filters(db.session.query(Cliente), params)
-
-    kpi = {
-        'stato_attivo': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.attivo).count(),
-        'stato_ghost': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.ghost).count(),
-        'stato_pausa': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.pausa).count(),
-        'stato_stop': base_query.filter(Cliente.stato_psicologia == StatoClienteEnum.stop).count(),
-        'chat_attivo': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.attivo).count(),
-        'chat_ghost': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.ghost).count(),
-        'chat_pausa': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.pausa).count(),
-        'chat_stop': base_query.filter(Cliente.stato_cliente_chat_psicologia == StatoClienteEnum.stop).count(),
-    }
-
-    return render_template(
-        "customers/list_psicologo.html",
-        pagination=pagination,
-        form=form,
-        filters_applied=bool(params),
-        is_admin=is_admin,
-        is_cco=is_cco,
-        is_department_head=is_department_head,
-        kpi=kpi,
-    )
 
 
 # --------------------------------------------------------------------------- #
 #  VISUALE FINANCE                                                            #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/visuale-finance", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def list_finance() -> str:
-    """Lista pagamenti clienti per il team Finance.
-
-    Mostra tutti i clienti con i loro pagamenti in ordine alfabetico.
-    Clienti con più pagamenti mostrano i pagamenti successivi come sub-righe.
-    Paginazione: 100 clienti per pagina.
-    """
-    from corposostenibile.models import PagamentoInterno, Cliente
-    from sqlalchemy import func
-    import math
-
-    # Paginazione
-    page = request.args.get('page', 1, type=int)
-    per_page = 100
-
-    # Filtri
-    q = request.args.get('q', '').strip()
-    tipologia = request.args.get('tipologia', '')
-    metodo = request.args.get('metodo_pagamento', '')
-    data_inizio = request.args.get('data_inizio', '')
-    data_fine = request.args.get('data_fine', '')
-
-    # Query base: tutti i pagamenti con join cliente
-    query = db.session.query(PagamentoInterno, Cliente).join(
-        Cliente, PagamentoInterno.cliente_id == Cliente.cliente_id
-    ).order_by(
-        Cliente.nome_cognome.asc(),
-        PagamentoInterno.data_pagamento.desc()
-    )
-
-    # Applica filtri
-    if q:
-        query = query.filter(Cliente.nome_cognome.ilike(f'%{q}%'))
-    if tipologia:
-        query = query.filter(PagamentoInterno.servizio_acquistato.ilike(f'{tipologia}%'))
-    if metodo:
-        query = query.filter(PagamentoInterno.metodo_pagamento == metodo)
-    if data_inizio:
-        try:
-            from datetime import datetime
-            dt_inizio = datetime.strptime(data_inizio, '%Y-%m-%d').date()
-            query = query.filter(PagamentoInterno.data_pagamento >= dt_inizio)
-        except ValueError:
-            pass
-    if data_fine:
-        try:
-            from datetime import datetime
-            dt_fine = datetime.strptime(data_fine, '%Y-%m-%d').date()
-            query = query.filter(PagamentoInterno.data_pagamento <= dt_fine)
-        except ValueError:
-            pass
-
-    # Esegui query
-    risultati = query.all()
-
-    # Raggruppa per cliente
-    clienti_pagamenti = {}
-    for pagamento, cliente in risultati:
-        cliente_id = cliente.cliente_id
-        if cliente_id not in clienti_pagamenti:
-            clienti_pagamenti[cliente_id] = {
-                'cliente': cliente,
-                'pagamenti': []
-            }
-        clienti_pagamenti[cliente_id]['pagamenti'].append(pagamento)
-
-    # Ordina per nome cliente
-    clienti_list_all = sorted(
-        clienti_pagamenti.values(),
-        key=lambda x: x['cliente'].nome_cognome.lower() if x['cliente'].nome_cognome else ''
-    )
-
-    # KPI (calcolati su tutti i risultati, non paginati)
-    totale_pagamenti = len(risultati)
-    totale_clienti = len(clienti_pagamenti)
-    totale_importo = sum(p.importo or 0 for p, c in risultati)
-
-    # Conta per tipologia
-    kpi_tipologie = {
-        'deposito_iniziale': 0,
-        'saldo_acconto': 0,
-        'rinnovo': 0,
-        'live_trainings': 0,
-        'altro': 0,
-    }
-    for p, c in risultati:
-        servizio = (p.servizio_acquistato or '').lower()
-        if servizio.startswith('deposito iniziale'):
-            kpi_tipologie['deposito_iniziale'] += 1
-        elif servizio.startswith('saldo acconto'):
-            kpi_tipologie['saldo_acconto'] += 1
-        elif servizio.startswith('rinnovo'):
-            kpi_tipologie['rinnovo'] += 1
-        elif servizio.startswith('live training'):
-            kpi_tipologie['live_trainings'] += 1
-        else:
-            kpi_tipologie['altro'] += 1
-
-    # Paginazione manuale sui clienti
-    total_pages = math.ceil(len(clienti_list_all) / per_page) if clienti_list_all else 1
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    clienti_list = clienti_list_all[start_idx:end_idx]
-
-    # Oggetto paginazione
-    pagination = {
-        'page': page,
-        'per_page': per_page,
-        'total': totale_clienti,
-        'pages': total_pages,
-        'has_prev': page > 1,
-        'has_next': page < total_pages,
-        'prev_num': page - 1 if page > 1 else None,
-        'next_num': page + 1 if page < total_pages else None,
-    }
-
-    # Carica packages per il modal di aggiunta pagamento
-    packages = Package.query.order_by(Package.name).all()
-
-    return render_template(
-        "customers/list_finance.html",
-        clienti_list=clienti_list,
-        totale_pagamenti=totale_pagamenti,
-        totale_clienti=totale_clienti,
-        totale_importo=totale_importo,
-        kpi_tipologie=kpi_tipologie,
-        pagination=pagination,
-        packages=packages,
-        today=date.today(),
-        filters={
-            'q': q,
-            'tipologia': tipologia,
-            'metodo_pagamento': metodo,
-            'data_inizio': data_inizio,
-            'data_fine': data_fine,
-        }
-    )
 
 
 # --------------------------------------------------------------------------- #
 #  CREATE                                                                     #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/new", methods=["GET", "POST"])
-@permission_required(CustomerPerm.CREATE)
-def create_view() -> str:
-    """Crea un nuovo cliente - solo con nome_cognome."""
-    form = ClienteCreateForm()
-    if form.validate_on_submit():
-        try:
-            # Crea il cliente con solo il nome_cognome
-            cliente_data = {
-                'nome_cognome': form.nome_cognome.data.strip()
-            }
-            cliente = create_cliente(cliente_data, current_user)
-            db.session.commit()
-        except SQLAlchemyError:  # pragma: no cover
-            db.session.rollback()
-            logger.exception("Errore creazione cliente")
-            flash("Errore durante il salvataggio. Riprova.", "danger")
-        else:
-            flash("Cliente creato con successo! Ora puoi completare i suoi dati.", "success")
-            return redirect(url_for("customers.detail_view", cliente_id=cliente.cliente_id))
-    return render_template("customers/create_simple.html", form=form)
 
 # --------------------------------------------------------------------------- #
 #  DETAIL                                                                     #
@@ -1007,500 +279,10 @@ def create_view() -> str:
 # --------------------------------------------------------------------------- #
 #  DETAIL                                                                     #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/<int:cliente_id>", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def detail_view(cliente_id: int) -> str:
-    """Pagina di dettaglio completo del cliente."""
-
-    # Verifica accesso per trial users
-    if current_user.is_authenticated and current_user.is_trial:
-        if current_user.trial_stage < 2:
-            # Stage 1: nessun accesso ai clienti
-            abort(403)
-        elif current_user.trial_stage == 2:
-            # Stage 2: verifica che il cliente sia assegnato
-            assigned_ids = [c.cliente_id for c in current_user.trial_assigned_clients]
-            if cliente_id not in assigned_ids:
-                flash('Non hai accesso a questo cliente', 'warning')
-                return redirect(url_for('customers.list_view'))
-
-    cliente: Cliente = (
-        db.session.query(Cliente)
-        .filter_by(cliente_id=cliente_id)
-        .options(
-            # Relazioni User per professionisti (usate nel template header)
-            selectinload(Cliente.health_manager_user),
-            selectinload(Cliente.nutrizionista_user),
-            selectinload(Cliente.coach_user),
-            selectinload(Cliente.psicologa_user),
-            selectinload(Cliente.frozen_by_user),
-            # Relazioni many-to-many professionisti (già selectin nel model, ma esplicitiamo)
-            selectinload(Cliente.nutrizionisti_multipli),
-            selectinload(Cliente.coaches_multipli),
-            selectinload(Cliente.psicologi_multipli),
-        )
-        .one_or_404()
-    )
-    g.cliente = cliente
-    # NOTA: tasks, tickets, cartelle, versions non sono usati nel template - non caricarli
-    # NOTA: weekly_checks, dca_checks, typeform_responses, call_bonus_history sono lazy=dynamic
-    #       e vengono caricati solo se usati - OK per ora
-
-    # Determina le visibilità per il tab Check
-    from corposostenibile.blueprints.feedback.helpers import is_in_department, is_department_head
-    
-    can_see_check_tab = True  # Visibile a tutti gli utenti
-    can_see_nutrition_ratings = False
-    can_see_psychology_ratings = False
-    can_see_coach_ratings = False
-    
-    if current_user.is_admin:
-        # can_see_check_tab già True per tutti
-        can_see_nutrition_ratings = True
-        can_see_psychology_ratings = True
-        can_see_coach_ratings = True
-    else:
-        # Check if user is in relevant departments
-        is_nutrition = is_in_department(['nutrizion'])
-        is_psychology = is_in_department(['psicolog'])
-        is_coach = is_in_department(['coach', 'sport'])
-        
-        is_nutrition_head = is_department_head(['nutrizion'])
-        is_psychology_head = is_department_head(['psicolog'])
-        is_coach_head = is_department_head(['coach', 'sport'])
-        
-        # Check if user is assigned to this specific client
-        is_assigned_to_client = False
-        
-        if is_nutrition and cliente.nutrizionisti_multipli:
-            if any(n.id == current_user.id for n in cliente.nutrizionisti_multipli):
-                is_assigned_to_client = True
-                can_see_nutrition_ratings = True
-        
-        if is_psychology and cliente.psicologi_multipli:
-            if any(p.id == current_user.id for p in cliente.psicologi_multipli):
-                is_assigned_to_client = True
-                can_see_psychology_ratings = True
-        
-        if is_coach and cliente.coaches_multipli:
-            if any(c.id == current_user.id for c in cliente.coaches_multipli):
-                is_assigned_to_client = True
-                can_see_coach_ratings = True
-        
-        # Tab is visible only if:
-        # 1. User is department head (sees all clients in their department)
-        # 2. User is assigned to this specific client
-        if is_nutrition_head or is_psychology_head or is_coach_head:
-            # can_see_check_tab già True per tutti
-            # Department heads see all ratings for their department
-            if is_nutrition_head:
-                can_see_nutrition_ratings = True
-            if is_psychology_head:
-                can_see_psychology_ratings = True
-            if is_coach_head:
-                can_see_coach_ratings = True
-        elif is_assigned_to_client:
-            # Regular members see tab only if assigned to client
-            # can_see_check_tab già True per tutti
-            # Visibility for ratings is already set above based on assignment
-            pass
-
-    # Ottieni gli user per dipartimento per i dropdown con UNA SOLA QUERY
-    from corposostenibile.models import User, Department, TypeFormResponse, Allegato
-
-    # Importa modelli per client checks
-    from corposostenibile.models import (
-        ClientCheckAssignment,
-        ClientCheckResponse,
-        CheckForm,
-        CheckFormTypeEnum
-    )
-
-    # Query unica per tutti i professionisti
-    dept_names = ['Nutrizione', 'Nutrizione 2', 'Coach', 'Psicologia',
-                  'Consulenti Sales 1', 'Consulenti Sales 2']
-
-    users_with_dept = (
-        db.session.query(User, Department.name.label('dept_name'), Department.id.label('dept_id'))
-        .join(Department, User.department_id == Department.id)
-        .filter(Department.name.in_(dept_names) | (Department.id == 13))
-        .order_by(User.first_name, User.last_name)
-        .all()
-    )
-
-    # Raggruppa per dipartimento
-    nutrizionisti = []
-    coaches = []
-    psicologi = []
-    consulenti = []
-    health_managers = []
-
-    for user, dept_name, dept_id in users_with_dept:
-        if dept_name in ['Nutrizione', 'Nutrizione 2']:
-            nutrizionisti.append(user)
-        elif dept_name == 'Coach':
-            coaches.append(user)
-        elif dept_name == 'Psicologia':
-            psicologi.append(user)
-        elif dept_name in ['Consulenti Sales 1', 'Consulenti Sales 2']:
-            consulenti.append(user)
-        if dept_id == 13:  # Health Managers
-            health_managers.append(user)
-
-    # Serializza utenti per JavaScript (per dropdown professionisti)
-    nutrizionisti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in nutrizionisti]
-    coaches_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in coaches]
-    psicologi_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in psicologi]
-    consulenti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in consulenti]
-    health_managers_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in health_managers]
-
-    # Gestione immagine profilo: cerca nell'ultimo feedback TypeForm
-    profile_image = None
-    latest_response = db.session.query(TypeFormResponse.photo_front).filter_by(
-        cliente_id=cliente_id
-    ).filter(TypeFormResponse.photo_front.isnot(None)).order_by(
-        TypeFormResponse.submit_date.desc()
-    ).first()
-
-    if latest_response:
-        profile_image = latest_response[0]
-
-    # Form disponibili per nuovi check (UNA query invece di 2)
-    from corposostenibile.models import CheckForm, ClienteSubscription
-    all_check_forms = db.session.query(CheckForm).filter_by(is_active=True).order_by(CheckForm.name).all()
-    available_initial_forms = [f for f in all_check_forms if f.form_type == CheckFormTypeEnum.iniziale]
-    available_weekly_forms = [f for f in all_check_forms if f.form_type == CheckFormTypeEnum.settimanale]
-
-    # Pacchetti disponibili per tab Pagamenti
-    packages = db.session.query(Package).order_by(Package.name).all()
-
-    # Pacchetto attuale del cliente (da ultima subscription attiva)
-    pacchetto_attuale = None
-    subscription_attuale = db.session.query(ClienteSubscription).filter(
-        ClienteSubscription.cliente_id == cliente_id,
-        ClienteSubscription.status == 'active'
-    ).order_by(ClienteSubscription.created_at.desc()).first()
-
-    if subscription_attuale and subscription_attuale.package:
-        pacchetto_attuale = subscription_attuale.package
-
-    # =========================================================================
-    # CHECK INIZIALI (1, 2, 3) dalla Lead originale (se cliente convertito)
-    # =========================================================================
-    original_lead = cliente.original_lead  # backref da SalesLead.converted_to_client
-    lead_check_fields_ordered = {}
-
-    lead_check_links = {}
-    lead_check_urls = {}
-
-    if original_lead:
-        # Recupera configurazioni form per mostrare le domande in ordine
-        from corposostenibile.models import SalesFormConfig, SalesFormLink
-
-        # Recupera i link dei check per ottenere i config_id
-        check_links = {
-            'check1': SalesFormLink.query.filter_by(lead_id=original_lead.id, check_number=1).first(),
-            'check2': SalesFormLink.query.filter_by(lead_id=original_lead.id, check_number=2).first(),
-            'check3': SalesFormLink.query.filter_by(lead_id=original_lead.id, check_number=3).first()
-        }
-
-        for check_key, link in check_links.items():
-            if link and link.config_id:
-                config = SalesFormConfig.query.get(link.config_id)
-                if config and config.fields:
-                    lead_check_fields_ordered[check_key] = sorted(config.fields, key=lambda f: f.position)
-                else:
-                    lead_check_fields_ordered[check_key] = []
-            else:
-                # Fallback: prova a caricare config con ID = check_number
-                check_num = int(check_key[-1])
-                config = SalesFormConfig.query.get(check_num)
-                if config and config.fields:
-                    lead_check_fields_ordered[check_key] = sorted(config.fields, key=lambda f: f.position)
-                else:
-                    lead_check_fields_ordered[check_key] = []
-
-        # Salva i link e genera gli URL completi
-        lead_check_links = check_links
-        for check_key, link in check_links.items():
-            if link:
-                lead_check_urls[check_key] = url_for('welcome_form', unique_code=link.unique_code, _external=True)
-            else:
-                lead_check_urls[check_key] = None
-
-    return render_template(
-        "customers/detail_editable.html",
-        cliente=cliente,
-        nutrizionisti=nutrizionisti,
-        coaches=coaches,
-        psicologi=psicologi,
-        consulenti=consulenti,
-        health_managers=health_managers,
-        nutrizionisti_json=nutrizionisti_json,
-        coaches_json=coaches_json,
-        psicologi_json=psicologi_json,
-        consulenti_json=consulenti_json,
-        health_managers_json=health_managers_json,
-        profile_image=profile_image,
-        can_see_check_tab=can_see_check_tab,
-        can_see_nutrition_ratings=can_see_nutrition_ratings,
-        can_see_psychology_ratings=can_see_psychology_ratings,
-        can_see_coach_ratings=can_see_coach_ratings,
-        available_initial_forms=available_initial_forms,
-        available_weekly_forms=available_weekly_forms,
-        today=date.today(),
-        packages=packages,
-        pacchetto_attuale=pacchetto_attuale,
-        subscription_attuale=subscription_attuale,
-        # Check iniziali dalla lead originale
-        original_lead=original_lead,
-        lead_check_fields_ordered=lead_check_fields_ordered,
-        lead_check_links=lead_check_links,
-        lead_check_urls=lead_check_urls,
-    )
-
-# --------------------------------------------------------------------------- #
-#  DETAIL TEST (Per testare modifiche senza impatto su produzione)           #
-# --------------------------------------------------------------------------- #
-@customers_bp.route("/<int:cliente_id>/detail_test", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def detail_test_view(cliente_id: int) -> str:
-    """Pagina di test per il dettaglio cliente - per sviluppo e test."""
-    
-    cliente: Cliente = (
-        db.session.query(Cliente)
-        .filter_by(cliente_id=cliente_id)
-        .options(
-            selectinload(Cliente.cartelle).selectinload(CartellaClinica.allegati),
-            selectinload(Cliente.tickets),
-        )
-        .one_or_404()
-    )
-    g.cliente = cliente
-
-    cartelle = list(cliente.cartelle)
-    tasks = cliente.tasks if hasattr(cliente, "tasks") else []
-    tickets = cliente.tickets if hasattr(cliente, "tickets") else []
-    versions = cliente.versions if hasattr(cliente, "versions") else []
-    
-    # Determina le visibilità per il tab Check
-    from corposostenibile.blueprints.feedback.helpers import is_in_department, is_department_head
-    
-    can_see_check_tab = True  # Visibile a tutti gli utenti
-    can_see_nutrition_ratings = False
-    can_see_psychology_ratings = False
-    can_see_coach_ratings = False
-    
-    if current_user.is_admin:
-        # can_see_check_tab già True per tutti
-        can_see_nutrition_ratings = True
-        can_see_psychology_ratings = True
-        can_see_coach_ratings = True
-    else:
-        # Check if user is in relevant departments
-        is_nutrition = is_in_department(['nutrizion'])
-        is_psychology = is_in_department(['psicolog'])
-        is_coach = is_in_department(['coach', 'sport'])
-        
-        is_nutrition_head = is_department_head(['nutrizion'])
-        is_psychology_head = is_department_head(['psicolog'])
-        is_coach_head = is_department_head(['coach', 'sport'])
-        
-        # Check if user is assigned to this specific client
-        is_assigned_to_client = False
-        
-        if is_nutrition and cliente.nutrizionisti_multipli:
-            if any(n.id == current_user.id for n in cliente.nutrizionisti_multipli):
-                is_assigned_to_client = True
-                can_see_nutrition_ratings = True
-        
-        if is_psychology and cliente.psicologi_multipli:
-            if any(p.id == current_user.id for p in cliente.psicologi_multipli):
-                is_assigned_to_client = True
-                can_see_psychology_ratings = True
-        
-        if is_coach and cliente.coaches_multipli:
-            if any(c.id == current_user.id for c in cliente.coaches_multipli):
-                is_assigned_to_client = True
-                can_see_coach_ratings = True
-        
-        # Tab is visible only if:
-        # 1. User is department head (sees all clients in their department)
-        # 2. User is assigned to this specific client
-        if is_nutrition_head or is_psychology_head or is_coach_head:
-            # can_see_check_tab già True per tutti
-            # Department heads see all ratings for their department
-            if is_nutrition_head:
-                can_see_nutrition_ratings = True
-            if is_psychology_head:
-                can_see_psychology_ratings = True
-            if is_coach_head:
-                can_see_coach_ratings = True
-        elif is_assigned_to_client:
-            # Regular members see tab only if assigned to client
-            # can_see_check_tab già True per tutti
-            # Visibility for ratings is already set above based on assignment
-            pass
-
-    # Ottieni gli user per dipartimento per i dropdown
-    from corposostenibile.models import User, Department, TypeFormResponse, Allegato
-
-    # Nutrizione (1 e 2)
-    nutrizionisti = []
-    for dept_name in ['Nutrizione', 'Nutrizione 2']:
-        dept = db.session.query(Department).filter_by(name=dept_name).first()
-        if dept:
-            nutrizionisti.extend(db.session.query(User).filter_by(department_id=dept.id).all())
-    nutrizionisti.sort(key=lambda u: u.full_name or '')
-
-    # Coach
-    dept_coach = db.session.query(Department).filter_by(name='Coach').first()
-    coaches = db.session.query(User).filter_by(department_id=dept_coach.id).all() if dept_coach else []
-    coaches.sort(key=lambda u: u.full_name or '')
-    
-    # Psicologia
-    dept_psico = db.session.query(Department).filter_by(name='Psicologia').first()
-    psicologi = db.session.query(User).filter_by(department_id=dept_psico.id).all() if dept_psico else []
-    psicologi.sort(key=lambda u: u.full_name or '')
-    
-    # Consulenti Sales (1 e 2)
-    consulenti = []
-    for dept_name in ['Consulenti Sales 1', 'Consulenti Sales 2']:
-        dept = db.session.query(Department).filter_by(name=dept_name).first()
-        if dept:
-            consulenti.extend(db.session.query(User).filter_by(department_id=dept.id).all())
-    consulenti.sort(key=lambda u: u.full_name or '')
-
-    # Health Managers (dipartimento ID 13)
-    health_managers = []
-    health_dept = db.session.query(Department).filter_by(id=13).first()
-    if health_dept:
-        health_managers = db.session.query(User).filter_by(department_id=13).all()
-        health_managers.sort(key=lambda u: u.full_name or '')
-
-    # Serializza utenti per JavaScript (per dropdown professionisti)
-    nutrizionisti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in nutrizionisti]
-    coaches_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in coaches]
-    psicologi_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in psicologi]
-    consulenti_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in consulenti]
-    health_managers_json = [{'id': u.id, 'full_name': u.full_name or u.email, 'avatar_url': u.avatar_url} for u in health_managers]
-
-    # Gestione immagine profilo: priorità a TypeForm response, poi allegati
-    profile_image = None
-    
-    # 1. Prima cerca nell'ultimo feedback TypeForm
-    latest_response = db.session.query(TypeFormResponse).filter_by(
-        cliente_id=cliente_id
-    ).order_by(TypeFormResponse.submit_date.desc()).first()
-    
-    if latest_response and latest_response.photo_front:
-        profile_image = latest_response.photo_front
-    
-    # 2. Se non c'è feedback, cerca l'ultima immagine frontale negli allegati
-    if not profile_image:
-        # Cerca negli allegati delle cartelle cliniche con nome che contiene "front" o "frontale"
-        for cartella in cartelle:
-            for allegato in cartella.allegati:
-                if allegato.file_path and any(keyword in allegato.file_path.lower() 
-                                             for keyword in ['front', 'frontale', 'fronte', 'davanti']):
-                    # Assume che file_path sia un percorso relativo o URL
-                    profile_image = allegato.file_path
-                    break
-            if profile_image:
-                break
-    
-    # 3. Se ancora non trova nulla, prendi la prima immagine disponibile
-    if not profile_image:
-        for cartella in cartelle:
-            for allegato in cartella.allegati:
-                if allegato.file_type and 'image' in allegato.file_type.lower():
-                    profile_image = allegato.file_path
-                    break
-            if profile_image:
-                break
-
-    # ─────────────────────────── DATI CLIENT CHECKS ─────────────────────────── #
-    
-    # Ottieni tutte le assegnazioni di check per questo cliente
-    check_assignments = db.session.query(ClientCheckAssignment).filter_by(
-        cliente_id=cliente_id,
-        is_active=True
-    ).options(
-        selectinload(ClientCheckAssignment.form),
-        selectinload(ClientCheckAssignment.responses)
-    ).all()
-    
-    # Statistiche check
-    total_assignments = len(check_assignments)
-    completed_assignments = len([a for a in check_assignments if a.response_count > 0])
-    pending_assignments = total_assignments - completed_assignments
-    
-    # Check recenti (ultimi 5)
-    recent_responses = db.session.query(ClientCheckResponse).join(
-        ClientCheckAssignment
-    ).filter(
-        ClientCheckAssignment.cliente_id == cliente_id
-    ).order_by(
-        ClientCheckResponse.created_at.desc()
-    ).limit(5).all()
-    
-    # Form disponibili per nuove assegnazioni (separati per tipo)
-    from corposostenibile.models import CheckFormTypeEnum
-    available_initial_forms = db.session.query(CheckForm).filter_by(
-        is_active=True,
-        form_type=CheckFormTypeEnum.iniziale
-    ).order_by(CheckForm.name).all()
-
-    available_weekly_forms = db.session.query(CheckForm).filter_by(
-        is_active=True,
-        form_type=CheckFormTypeEnum.settimanale
-    ).order_by(CheckForm.name).all()
-
-    # USA IL TEMPLATE PRINCIPALE CON I TAB CHECK INTEGRATI
-    return render_template(
-        "customers/detail.html",
-        cliente=cliente,
-        cartelle=cartelle,
-        tasks=tasks,
-        tickets=tickets,
-        versions=versions,
-        nutrizionisti=nutrizionisti,
-        coaches=coaches,
-        psicologi=psicologi,
-        consulenti=consulenti,
-        profile_image=profile_image,
-        latest_response=latest_response,
-        can_see_check_tab=can_see_check_tab,
-        can_see_nutrition_ratings=can_see_nutrition_ratings,
-        can_see_psychology_ratings=can_see_psychology_ratings,
-        can_see_coach_ratings=can_see_coach_ratings,
-        # Check forms disponibili
-        check_assignments=check_assignments,
-        total_assignments=total_assignments,
-        completed_assignments=completed_assignments,
-        pending_assignments=pending_assignments,
-        recent_responses=recent_responses,
-        available_initial_forms=available_initial_forms,
-        available_weekly_forms=available_weekly_forms,
-        health_managers=health_managers,  # Aggiunto per completezza
-    )
 
 # --------------------------------------------------------------------------- #
 #  HISTORY                                                                    #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/<int:cliente_id>/history", methods=["GET"])
-@permission_required(CustomerPerm.VIEW_HISTORY)
-def history_view(cliente_id: int) -> str:
-    """Storico versioni (SQLAlchemy-Continuum)."""
-    limit = request.args.get("limit", 50, type=int)
-    versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
-
-    return render_template(
-        "customers/history.html",
-        cliente=g.cliente,   # type: ignore[arg-type]
-        versions=versions,
-        limit=limit,
-    )
 
 @customers_bp.route("/<int:cliente_id>/history/json", methods=["GET"])
 @permission_required(CustomerPerm.VIEW_HISTORY)
@@ -1664,28 +446,6 @@ def history_restore_view(cliente_id: int, tx_id: int):
 # --------------------------------------------------------------------------- #
 #  EDIT / DELETE                                                              #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/<int:cliente_id>/edit", methods=["GET", "POST"])
-@permission_required(CustomerPerm.EDIT)
-def edit_view(cliente_id: int) -> str:
-    """Modifica anagrafica cliente."""
-    # Trial users non possono modificare clienti
-    if current_user.is_authenticated and current_user.is_trial:
-        abort(403)
-
-    cliente: Cliente = g.cliente  # type: ignore[assignment]
-    form = ClienteForm(obj=cliente)
-    if form.validate_on_submit():
-        try:
-            update_cliente(cliente, form.data, current_user)
-            db.session.commit()
-        except SQLAlchemyError:  # pragma: no cover
-            db.session.rollback()
-            logger.exception("Errore aggiornamento cliente")
-            flash("Errore durante il salvataggio.", "danger")
-        else:
-            flash("Cliente aggiornato!", "success")
-            return redirect(url_for("customers.detail_view", cliente_id=cliente.cliente_id))
-    return render_template("customers/form.html", form=form, mode="edit", cliente=cliente)
 
 @customers_bp.route("/<int:cliente_id>/delete", methods=["POST"])
 @permission_required(CustomerPerm.DELETE)
@@ -1697,8 +457,7 @@ def delete_view(cliente_id: int):
     
     # Elimina definitivamente il cliente (hard delete)
     delete_cliente(g.cliente, current_user, soft=False)  # type: ignore[arg-type]
-    flash("Cliente eliminato definitivamente.", "warning")
-    return redirect(url_for("customers.list_view"))
+    return jsonify({"success": True, "message": "Cliente eliminato definitivamente."}), HTTPStatus.OK
 
 # --------------------------------------------------------------------------- #
 #  IN-PLACE FIELD UPDATE (AJAX)                                               #
@@ -1841,8 +600,9 @@ def update_multiple_fields(cliente_id: int):
                         value = None
                 else:
                     value = None
-            # Gestione campi Integer (es. recensione_stelle)
-            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte']:
+            # Gestione campi Integer (es. recensione_stelle, durata_*_giorni)
+            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte',
+                           'durata_programma_giorni', 'durata_nutrizione_giorni', 'durata_coach_giorni', 'durata_psicologia_giorni']:
                 if value:
                     try:
                         value = int(value)
@@ -1882,7 +642,28 @@ def update_multiple_fields(cliente_id: int):
                 logger.info(f"Data Rinnovo calcolata automaticamente: {data_inizio} + {durata} giorni = {data_rinnovo_calcolata}")
             except (ValueError, TypeError) as e:
                 logger.warning(f"Impossibile calcolare data_rinnovo: {e}")
-    
+
+    # Ricalcolo automatico scadenze per-servizio (inizio + durata)
+    _servizio_map = {
+        'nutrizione': ('data_inizio_nutrizione', 'durata_nutrizione_giorni', 'data_scadenza_nutrizione'),
+        'coach':      ('data_inizio_coach',      'durata_coach_giorni',      'data_scadenza_coach'),
+        'psicologia': ('data_inizio_psicologia',  'durata_psicologia_giorni', 'data_scadenza_psicologia'),
+    }
+    for servizio, (inizio_field, durata_field, scadenza_field) in _servizio_map.items():
+        if inizio_field in valid_fields or durata_field in valid_fields:
+            data_inizio = valid_fields.get(inizio_field) or (getattr(cliente, inizio_field, None) if inizio_field not in valid_fields else None)
+            durata = valid_fields.get(durata_field) or (getattr(cliente, durata_field, None) if durata_field not in valid_fields else None)
+            if data_inizio and durata:
+                try:
+                    from datetime import timedelta
+                    if isinstance(durata, str):
+                        durata = int(durata)
+                    scadenza_calcolata = data_inizio + timedelta(days=durata)
+                    valid_fields[scadenza_field] = scadenza_calcolata
+                    logger.info(f"Scadenza {servizio} calcolata: {data_inizio} + {durata}gg = {scadenza_calcolata}")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Impossibile calcolare scadenza {servizio}: {e}")
+
     # Se non ci sono campi validi ma ci sono professionisti multipli da aggiornare, è ok
     if not valid_fields and not multi_fields:
         return jsonify({"error": "Nessun campo valido da aggiornare"}), HTTPStatus.BAD_REQUEST
@@ -1924,7 +705,9 @@ def update_multiple_fields(cliente_id: int):
         'acconto': 'stop',
         'ghosting': 'ghost',
         'inattivo': 'stop',
-        'sospeso': 'pausa'
+        'sospeso': 'pausa',
+        'insoluto': 'stop',
+        'freeze': 'pausa',
     }
     
     try:
@@ -2602,11 +1385,79 @@ def _json_error(err):  # type: ignore[override]
         getattr(err, "code", HTTPStatus.BAD_REQUEST),
     )
 
+# – ORIGINS API ------------------------------------------------------------- #
+@api_bp.route("/origins", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_origins_list():
+    origins = Origine.query.all()
+    # Manual serialization since no schema yet
+    return jsonify([{"id": o.id, "name": o.name, "active": o.active} for o in origins])
+
+@api_bp.route("/origins", methods=["POST"])
+@permission_required(CustomerPerm.MANAGE)
+def api_origins_create():
+    data = request.json
+    if not data or not data.get("name"):
+        return jsonify({"error": "Name required"}), 400
+    
+    # Check if exists
+    existing = Origine.query.filter_by(name=data["name"]).first()
+    if existing:
+        return jsonify({"error": "Origin already exists"}), 400
+
+    origin = Origine(name=data["name"], active=data.get("active", True))
+    db.session.add(origin)
+    db.session.commit()
+    return jsonify({"id": origin.id, "name": origin.name, "active": origin.active}), 201
+
+@api_bp.route("/origins/<int:origin_id>", methods=["PUT"])
+@permission_required(CustomerPerm.MANAGE)
+def api_origins_update(origin_id):
+    origin = Origine.query.get_or_404(origin_id)
+    data = request.json
+    if "name" in data:
+        origin.name = data["name"]
+    if "active" in data:
+        origin.active = data["active"]
+    db.session.commit()
+    return jsonify({"id": origin.id, "name": origin.name, "active": origin.active})
+
+@api_bp.route("/origins/<int:origin_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.MANAGE)
+def api_origins_delete(origin_id):
+    origin = Origine.query.get_or_404(origin_id)
+    db.session.delete(origin)
+    db.session.commit()
+    return jsonify({"success": True})
+
 # – CRUD -------------------------------------------------------------------- #
 @api_bp.route("/", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_list() -> Any:
+    """Get list of customers with trial user access control."""
+    # Trial user access check
+    if current_user.is_authenticated and current_user.is_trial:
+        if current_user.trial_stage < 2:
+            # Stage 1: No access to customers list
+            return jsonify({
+                "data": [],
+                "pagination": {"page": 1, "pages": 0, "total": 0},
+                "message": "Accesso clienti non disponibile in Stage 1"
+            })
+    
     params = parse_filter_args(request.args)
+
+    # Filtro per Influencer: vincola all'origine assegnata
+    if current_user.role == UserRoleEnum.influencer:
+        if current_user.influencer_origin:
+            origine_ids = [current_user.influencer_origin.id]
+        else:
+            origine_ids = []
+        params = replace(params, origine_ids=origine_ids)
+
+    # Apply trial user filter to query
+    from corposostenibile.blueprints.customers.trial_integration import apply_trial_user_filter
+    
     pagination = customers_repo.list(
         filters=params,
         order_by=request.args.get("order_by"),
@@ -2614,6 +1465,15 @@ def api_list() -> Any:
         per_page=request.args.get("per_page", 50, type=int),
         eager=True,
     )
+    
+    # Filter results for trial users (additional safety layer)
+    if current_user.is_authenticated and current_user.is_trial and current_user.trial_stage == 2:
+        # Stage 2: Only show assigned clients
+        assigned_ids = {c.cliente_id for c in current_user.trial_assigned_clients}
+        filtered_items = [item for item in pagination.items if item.cliente_id in assigned_ids]
+        pagination.items = filtered_items
+        pagination.total = len(filtered_items)
+    
     return jsonify(
         {
             "data": clienti_schema.dump(pagination.items),
@@ -2625,9 +1485,37 @@ def api_list() -> Any:
         }
     )
 
+
+def _require_cliente_scope_or_403(cliente_id: int) -> None:
+    """
+    Verifica che il cliente sia nel perimetro RBAC dell'utente corrente
+    (admin=globale, TL=team, professionista=propri clienti).
+    """
+    scoped_query = apply_role_filtering(db.session.query(Cliente.cliente_id))
+    if scoped_query.filter(Cliente.cliente_id == cliente_id).first() is None:
+        abort(HTTPStatus.FORBIDDEN, description="Cliente fuori dal perimetro autorizzato.")
+
 @api_bp.route("/<int:cliente_id>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_detail(cliente_id: int) -> Any:
+    """Get customer detail with trial user access control."""
+    # Trial user access check
+    if current_user.is_authenticated and current_user.is_trial:
+        if current_user.trial_stage < 2:
+            # Stage 1: No access to any customer
+            return jsonify({
+                "error": "Accesso non autorizzato",
+                "message": "Non hai accesso ai clienti in Stage 1"
+            }), HTTPStatus.FORBIDDEN
+        elif current_user.trial_stage == 2:
+            # Stage 2: Only assigned clients
+            if not current_user.can_view_client(cliente_id):
+                return jsonify({
+                    "error": "Accesso non autorizzato",
+                    "message": "Puoi visualizzare solo i clienti assegnati a te"
+                }), HTTPStatus.FORBIDDEN
+    
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id, eager=True)
     return jsonify({"data": cliente_schema.dump(cliente)})
 
@@ -2635,7 +1523,11 @@ def api_detail(cliente_id: int) -> Any:
 @permission_required(CustomerPerm.CREATE)
 def api_create() -> Any:
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
-    errors = cliente_schema.validate(data)
+    
+    # Use schema with session for validation (required for unique checks)
+    with db.session.no_autoflush:
+        errors = cliente_schema.validate(data, session=db.session)
+        
     if errors:
         raise BadRequest(errors)
     cliente = create_cliente(data, current_user)
@@ -2644,6 +1536,7 @@ def api_create() -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["PATCH"])
 @permission_required(CustomerPerm.EDIT)
 def api_update(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
     # Use schema with session for validation
@@ -2657,6 +1550,7 @@ def api_update(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.DELETE)
 def api_delete(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     delete_cliente(cliente, current_user)
     return "", HTTPStatus.NO_CONTENT
@@ -2665,6 +1559,7 @@ def api_delete(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW_HISTORY)
 def api_history(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     limit = request.args.get("limit", 100, type=int)
     versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
 
@@ -2691,58 +1586,62 @@ def api_stats() -> Any:
     return jsonify(_compute_dashboard_metrics())
 
 # – ADMIN DASHBOARD STATS -------------------------------------------------- #
+def _admin_dashboard_base_query():
+    """Query base clienti con filtro per ruolo (Admin / TL / Professionista)."""
+    return apply_role_filtering(db.session.query(Cliente))
+
+
 @api_bp.route("/admin-dashboard-stats", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_admin_dashboard_stats() -> Any:
-    """Comprehensive patient dashboard stats for admin overview."""
+    """Comprehensive patient dashboard stats; data filtered by role (admin=all, TL=team, member=own)."""
     today = date.today()
     first_day_month = today.replace(day=1)
     threshold_scadenza = today + timedelta(days=30)
 
+    # Base query con filtro ruolo
+    def q():
+        return _admin_dashboard_base_query()
+
     # ─── KPI ─────────────────────────────────────────────────────────── #
-    total = db.session.query(func.count(Cliente.cliente_id)).scalar() or 0
-    active = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "attivo").scalar() or 0
-    ghost = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "ghost").scalar() or 0
-    pausa = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "pausa").scalar() or 0
-    stop = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "stop").scalar() or 0
-    insoluto = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "insoluto").scalar() or 0
-    freeze = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.stato_cliente == "freeze").scalar() or 0
-    new_month = db.session.query(func.count(Cliente.cliente_id)).filter(
-        Cliente.created_at >= first_day_month).scalar() or 0
-    in_scadenza = db.session.query(func.count(Cliente.cliente_id)).filter(
+    total = q().with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    active = q().filter(Cliente.stato_cliente == "attivo").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    ghost = q().filter(Cliente.stato_cliente == "ghost").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    pausa = q().filter(Cliente.stato_cliente == "pausa").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    stop = q().filter(Cliente.stato_cliente == "stop").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    new_month = q().filter(Cliente.created_at >= first_day_month).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    in_scadenza = q().filter(
         Cliente.data_rinnovo.isnot(None),
         Cliente.data_rinnovo <= threshold_scadenza,
         Cliente.stato_cliente == "attivo",
-    ).scalar() or 0
+    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
 
     # Previous month new clients for comparison
     prev_month_start = (first_day_month - relativedelta(months=1))
     prev_month_end = first_day_month - timedelta(days=1)
-    new_prev_month = db.session.query(func.count(Cliente.cliente_id)).filter(
+    new_prev_month = q().filter(
         Cliente.created_at >= prev_month_start,
         Cliente.created_at <= prev_month_end,
-    ).scalar() or 0
+    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
 
     # ─── STATUS DISTRIBUTION ─────────────────────────────────────────── #
     status_rows = (
-        db.session.query(Cliente.stato_cliente, func.count(Cliente.cliente_id))
+        q()
+        .with_entities(Cliente.stato_cliente, func.count(Cliente.cliente_id))
         .group_by(Cliente.stato_cliente)
         .all()
     )
-    status_distribution = [
-        {"status": (s.value if hasattr(s, 'value') else str(s)) if s else "non_definito", "count": c}
-        for s, c in status_rows
-    ]
+    status_distribution_acc = {}
+    for s, c in status_rows:
+        raw_status = (s.value if hasattr(s, "value") else str(s)) if s else "non_definito"
+        normalized_status = {"insoluto": "stop", "freeze": "pausa"}.get(raw_status, raw_status)
+        status_distribution_acc[normalized_status] = status_distribution_acc.get(normalized_status, 0) + c
+    status_distribution = [{"status": k, "count": v} for k, v in status_distribution_acc.items()]
 
     # ─── TIPOLOGIA DISTRIBUTION ──────────────────────────────────────── #
     tipologia_rows = (
-        db.session.query(Cliente.tipologia_cliente, func.count(Cliente.cliente_id))
+        q()
+        .with_entities(Cliente.tipologia_cliente, func.count(Cliente.cliente_id))
         .group_by(Cliente.tipologia_cliente)
         .all()
     )
@@ -2754,11 +1653,17 @@ def api_admin_dashboard_stats() -> Any:
     # ─── SPECIALTY SERVICES ──────────────────────────────────────────── #
     def get_service_stats(col):
         rows = (
-            db.session.query(col, func.count(Cliente.cliente_id))
+            q()
+            .with_entities(col, func.count(Cliente.cliente_id))
             .group_by(col)
             .all()
         )
-        return {((s.value if hasattr(s, 'value') else str(s)) if s else "non_definito"): c for s, c in rows}
+        out = {}
+        for s, c in rows:
+            raw_status = ((s.value if hasattr(s, "value") else str(s)) if s else "non_definito")
+            normalized_status = {"insoluto": "stop", "freeze": "pausa"}.get(raw_status, raw_status)
+            out[normalized_status] = out.get(normalized_status, 0) + c
+        return out
 
     nutrizione_stats = get_service_stats(Cliente.stato_nutrizione)
     coach_stats = get_service_stats(Cliente.stato_coach)
@@ -2767,11 +1672,12 @@ def api_admin_dashboard_stats() -> Any:
     # ─── MONTHLY TREND (last 12 months) ──────────────────────────────── #
     start_period = (first_day_month - relativedelta(months=11)).replace(day=1)
     monthly_rows = (
-        db.session.query(
+        q()
+        .filter(Cliente.created_at >= start_period)
+        .with_entities(
             func.date_trunc("month", Cliente.created_at).label("month"),
             func.count(Cliente.cliente_id).label("count"),
         )
-        .filter(Cliente.created_at >= start_period)
         .group_by("month")
         .order_by("month")
         .all()
@@ -2803,14 +1709,15 @@ def api_admin_dashboard_stats() -> Any:
     ]
     patologie = []
     for name, col in patologie_fields:
-        count = db.session.query(func.count(Cliente.cliente_id)).filter(col == True).scalar() or 0
+        count = q().filter(col == True).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
         if count > 0:
             patologie.append({"name": name, "count": count})
     patologie.sort(key=lambda x: x["count"], reverse=True)
 
     # ─── GENDER DISTRIBUTION ─────────────────────────────────────────── #
     gender_rows = (
-        db.session.query(Cliente.genere, func.count(Cliente.cliente_id))
+        q()
+        .with_entities(Cliente.genere, func.count(Cliente.cliente_id))
         .group_by(Cliente.genere)
         .all()
     )
@@ -2821,8 +1728,9 @@ def api_admin_dashboard_stats() -> Any:
 
     # ─── PROGRAMMA DISTRIBUTION ──────────────────────────────────────── #
     programma_rows = (
-        db.session.query(Cliente.programma_attuale, func.count(Cliente.cliente_id))
+        q()
         .filter(Cliente.programma_attuale.isnot(None), Cliente.stato_cliente == "attivo")
+        .with_entities(Cliente.programma_attuale, func.count(Cliente.cliente_id))
         .group_by(Cliente.programma_attuale)
         .order_by(func.count(Cliente.cliente_id).desc())
         .limit(10)
@@ -2835,8 +1743,9 @@ def api_admin_dashboard_stats() -> Any:
 
     # ─── PAYMENT METHOD DISTRIBUTION ─────────────────────────────────── #
     payment_rows = (
-        db.session.query(Cliente.modalita_pagamento, func.count(Cliente.cliente_id))
+        q()
         .filter(Cliente.stato_cliente == "attivo")
+        .with_entities(Cliente.modalita_pagamento, func.count(Cliente.cliente_id))
         .group_by(Cliente.modalita_pagamento)
         .all()
     )
@@ -2852,8 +1761,6 @@ def api_admin_dashboard_stats() -> Any:
             "ghost": ghost,
             "pausa": pausa,
             "stop": stop,
-            "insoluto": insoluto,
-            "freeze": freeze,
             "newMonth": new_month,
             "newPrevMonth": new_prev_month,
             "inScadenza": in_scadenza,
@@ -2882,6 +1789,7 @@ def api_feedback_metrics(cliente_id: int) -> Any:
     Dati organizzati per grafici Chart.js.
     """
     from corposostenibile.models import TypeFormResponse
+    _require_cliente_scope_or_403(cliente_id)
     
     # Recupera tutti i feedback del cliente ordinati per data
     responses = (
@@ -2963,6 +1871,7 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
     Dati organizzati per grafici Chart.js (stesso formato di TypeForm).
     """
     from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck
+    _require_cliente_scope_or_403(cliente_id)
 
     # Recupera tutte le risposte ai weekly checks del cliente ordinate per data
     # WeeklyCheckResponse si collega a WeeklyCheck che ha cliente_id
@@ -3023,6 +1932,119 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
             })
 
     return jsonify(metrics_data)
+
+
+# – INITIAL CHECKS (FROM LEAD o ClientCheckAssignment) -------------------- #
+@api_bp.route("/<int:cliente_id>/initial-checks", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_initial_checks(cliente_id: int) -> Any:
+    """
+    Restituisce i dati dei Check 1 e 2 (Iniziali).
+    Priorità: dati compilati dal Lead originale (se presenti), altrimenti
+    fallback su ClientCheckAssignment con link pubblico da inviare.
+    """
+    from corposostenibile.models import CheckForm, CheckFormTypeEnum
+    _require_cliente_scope_or_403(cliente_id)
+
+    cliente = customers_repo.get_one(cliente_id, eager=True)
+    base_url = current_app.config.get("BASE_URL", request.url_root.rstrip("/"))
+    checks_payload = {
+        "check_1": {
+            "completed_at": None,
+            "responses": {},
+            "url": None,
+            "response_count": 0,
+        },
+        "check_2": {
+            "completed_at": None,
+            "responses": {},
+            "url": None,
+            "response_count": 0,
+        },
+    }
+
+    has_any_data = False
+    source = "none"
+
+    # 1) Dati già compilati sul lead convertito (se presenti)
+    if cliente.original_lead:
+        lead = cliente.original_lead
+        source = "lead"
+        for idx in (1, 2):
+            key = f"check_{idx}"
+            completed_at = getattr(lead, f"check{idx}_completed_at", None)
+            responses = getattr(lead, f"check{idx}_responses", None) or {}
+            if completed_at or responses:
+                has_any_data = True
+                checks_payload[key]["completed_at"] = completed_at.isoformat() if completed_at else None
+                checks_payload[key]["responses"] = responses
+                checks_payload[key]["response_count"] = 1
+
+    # 2) Fallback/merge da ClientCheckAssignment (es. clienti creati da GHL)
+    assignments = (
+        db.session.query(ClientCheckAssignment)
+        .join(CheckForm)
+        .filter(
+            ClientCheckAssignment.cliente_id == cliente_id,
+            ClientCheckAssignment.is_active == True,
+            CheckForm.form_type == CheckFormTypeEnum.iniziale
+        )
+        .options(
+            selectinload(ClientCheckAssignment.form),
+            selectinload(ClientCheckAssignment.responses)
+        )
+        .order_by(CheckForm.name)
+        .all()
+    )
+
+    # Mappa solo Check 1 e Check 2 per nome form
+    def _check_key_from_form_name(name):
+        if not name:
+            return None
+        n = name.lower()
+        if "check 1" in n or "anagrafica" in n:
+            return "check_1"
+        if "check 2" in n or "fisico" in n:
+            return "check_2"
+        return None
+
+    for ass in assignments:
+        key = _check_key_from_form_name(ass.form.name if ass.form else None)
+        if key not in ("check_1", "check_2"):
+            continue
+
+        latest_response = ass.responses[0] if ass.responses else None
+        completed_at = None
+        responses_dict = {}
+        if latest_response:
+            completed_at = latest_response.created_at.isoformat() if latest_response.created_at else None
+            responses_dict = latest_response.get_formatted_responses()
+            has_any_data = True
+
+        public_url = f"{base_url}/client-checks/public/{ass.token}"
+
+        # Mantieni priorità al compilato da lead; altrimenti usa assignment
+        if not checks_payload[key]["completed_at"] and completed_at:
+            checks_payload[key]["completed_at"] = completed_at
+            checks_payload[key]["responses"] = responses_dict
+            checks_payload[key]["response_count"] = 1
+
+        # Il link pubblico va sempre valorizzato se assignment esiste (utile se non compilato)
+        checks_payload[key]["url"] = public_url
+        if source == "none":
+            source = "client_check"
+
+    if not has_any_data and not assignments:
+        return jsonify({
+            "has_data": False,
+            "message": "Nessun check iniziale assegnato a questo cliente."
+        })
+
+    return jsonify({
+        "has_data": True if has_any_data or assignments else False,
+        "source": source,
+        "checks": checks_payload
+    })
 
 
 # --------------------------------------------------------------------------- #
@@ -3425,6 +2447,7 @@ def get_professionisti_history(cliente_id: int):
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
 
     # Ottieni storico tracciato
@@ -3538,6 +2561,29 @@ def get_professionisti_history(cliente_id: int):
                 "has_history": False,
             })
 
+    # Health Manager (singolo)
+    if cliente.health_manager_user:
+        hm_user = cliente.health_manager_user
+        if not any(
+            h["professionista_id"] == hm_user.id and h["tipo_professionista"] == "health_manager" and h["is_active"]
+            for h in history_list
+        ):
+            legacy_assignments.append({
+                "id": None,
+                "tipo_professionista": "health_manager",
+                "professionista_nome": hm_user.full_name or hm_user.email,
+                "professionista_id": hm_user.id,
+                "avatar_path": hm_user.avatar_path,
+                "data_dal": None,
+                "data_al": None,
+                "motivazione_aggiunta": None,
+                "motivazione_interruzione": None,
+                "assegnato_da": None,
+                "interrotto_da": None,
+                "is_active": True,
+                "has_history": False,
+            })
+
     # Combina e ordina per data (legacy senza data vanno in fondo)
     all_history = history_list + legacy_assignments
 
@@ -3554,7 +2600,10 @@ def assign_professionista(cliente_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato ad assegnare professionisti"}), 403
     data = request.get_json() or {}
 
     # Validazione campi obbligatori
@@ -3570,7 +2619,7 @@ def assign_professionista(cliente_id: int):
         }), 400
 
     # Valida tipo professionista
-    valid_types = ["nutrizionista", "coach", "psicologa", "health_manager", "consulente"]
+    valid_types = ["nutrizionista", "coach", "psicologa", "medico", "health_manager", "consulente"]
     if tipo_professionista not in valid_types:
         return jsonify({
             "ok": False,
@@ -3581,6 +2630,7 @@ def assign_professionista(cliente_id: int):
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+    _require_team_leader_assignment_scope_or_403(current_user, tipo_professionista, int(user_id))
 
     # Parse data
     try:
@@ -3639,12 +2689,16 @@ def interrupt_professionista(cliente_id: int, history_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     history = db.session.query(ClienteProfessionistaHistory).filter_by(
         id=history_id,
         cliente_id=cliente_id,
         is_active=True
     ).first_or_404()
+    _require_team_leader_assignment_scope_or_403(current_user, history.tipo_professionista, int(history.user_id))
 
     data = request.get_json() or {}
     motivazione = data.get("motivazione_interruzione")
@@ -3706,7 +2760,10 @@ def interrupt_legacy_professionista(cliente_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     data = request.get_json() or {}
 
     user_id = data.get("user_id")
@@ -3722,6 +2779,7 @@ def interrupt_legacy_professionista(cliente_id: int):
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+    _require_team_leader_assignment_scope_or_403(current_user, tipo_professionista, int(user_id))
 
     try:
         today = date.today()
@@ -3773,347 +2831,15 @@ def interrupt_legacy_professionista(cliente_id: int):
 # --------------------------------------------------------------------------- #
 #  LISTA CLIENTI IN SCADENZA (< 30 gg)                                        #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/expiring", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def expiring_list_view() -> str:
-    """Lista clienti il cui rinnovo scade entro 30 giorni."""
-    form = CustomerFilterForm(request.args, meta={"csrf": False})
-    q      = form.q.data
-    today  = date.today()
-    limit  = today + timedelta(days=30)
-
-    # query base: solo clienti con data_rinnovo entro 30 gg
-    query = (
-        db.session.query(Cliente)
-        .filter(Cliente.data_rinnovo.isnot(None),
-                Cliente.data_rinnovo <= limit)
-    )
-
-    # ricerca su nome / consulente
-    if q:
-        like = f"%{q.strip()}%"
-        query = query.filter(
-            or_(Cliente.nome_cognome.ilike(like),
-                Cliente.consulente_alimentare.ilike(like))
-        )
-
-    # paginazione
-    page      = request.args.get("page", 1, type=int)
-    per_page  = current_app.config.get("CUSTOMERS_PAGE_SIZE", 25)
-    pagination = query.order_by(Cliente.data_rinnovo.asc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
-
-    return render_template(
-        "customers/list_expiring.html",
-        pagination=pagination,
-        form=form,
-        filters_applied=bool(q),
-    )
 
 # --------------------------------------------------------------------------- #
 #  RECUPERO GHOST - Clienti in stato ghost da recuperare                     #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/recupero-ghost", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def recupero_ghost_view() -> str:
-    """
-    Pagina dedicata ai clienti in stato GHOST per il recupero.
-    Mostra SOLO i clienti andati in ghost con la nuova metodologia automatica:
-    - stato_cliente = 'ghost'
-    - TUTTI i servizi assegnati (con almeno un professionista) sono in ghost
-    """
-    from corposostenibile.models import User
-
-    # Query base: clienti in ghost CON DATA (nuova metodologia)
-    # Mostra solo quelli andati in ghost DA OGGI (o con data recente)
-    today = date.today()
-
-    query = db.session.query(Cliente).filter(
-        Cliente.stato_cliente == StatoClienteEnum.ghost,
-        Cliente.stato_cliente_data.isnot(None),  # DEVE avere una data
-        Cliente.stato_cliente_data >= today  # Solo da oggi in poi
-    )
-
-    # Eager load delle relazioni professionisti per il filtro
-    query = query.options(
-        selectinload(Cliente.nutrizionisti_multipli),
-        selectinload(Cliente.coaches_multipli),
-        selectinload(Cliente.psicologi_multipli)
-    )
-
-    # ── FILTRO HEALTH MANAGER ──
-    health_manager_filter = request.args.get('health_manager', '').strip()
-    if health_manager_filter == 'none':
-        # Mostra solo clienti SENZA health manager
-        query = query.filter(Cliente.health_manager_id.is_(None))
-    elif health_manager_filter and health_manager_filter.isdigit():
-        # Mostra solo clienti con health manager specifico
-        query = query.filter(Cliente.health_manager_id == int(health_manager_filter))
-
-    # Filtro ricerca opzionale
-    search = request.args.get('search', '').strip()
-    if search:
-        query = query.filter(
-            or_(
-                Cliente.nome_cognome.ilike(f'%{search}%'),
-                Cliente.mail.ilike(f'%{search}%'),
-                Cliente.cellulare.ilike(f'%{search}%')
-            )
-        )
-
-    # Ordinamento per data ghost (più recenti prima)
-    query = query.order_by(Cliente.stato_cliente_data.desc().nulls_last())
-
-    # Paginazione
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    # Prepara dati arricchiti per il template
-    # FILTRO: Mostra solo clienti con metodologia automatica
-    clienti_ghost = []
-    for cliente in pagination.items:
-        # Helper per ottenere valore stato (gestisce Enum e str)
-        def get_stato_value(stato):
-            if stato is None:
-                return None
-            return stato.value if hasattr(stato, 'value') else str(stato)
-
-        # Conta servizi assegnati (con almeno un professionista)
-        servizi_assegnati = []
-        servizi_ghost = []
-
-        # Nutrizione
-        if cliente.nutrizionisti_multipli and len(cliente.nutrizionisti_multipli) > 0:
-            servizi_assegnati.append('nutrizione')
-            stato_nutri = get_stato_value(cliente.stato_nutrizione)
-            if stato_nutri == 'ghost':
-                servizi_ghost.append({
-                    'nome': 'Nutrizione',
-                    'data': cliente.stato_nutrizione_data,
-                    'professionisti': [u.full_name or u.email for u in cliente.nutrizionisti_multipli]
-                })
-
-        # Coaching
-        if cliente.coaches_multipli and len(cliente.coaches_multipli) > 0:
-            servizi_assegnati.append('coaching')
-            stato_coach = get_stato_value(cliente.stato_coach)
-            if stato_coach == 'ghost':
-                servizi_ghost.append({
-                    'nome': 'Coaching',
-                    'data': cliente.stato_coach_data,
-                    'professionisti': [u.full_name or u.email for u in cliente.coaches_multipli]
-                })
-
-        # Psicologia
-        if cliente.psicologi_multipli and len(cliente.psicologi_multipli) > 0:
-            servizi_assegnati.append('psicologia')
-            stato_psico = get_stato_value(cliente.stato_psicologia)
-            if stato_psico == 'ghost':
-                servizi_ghost.append({
-                    'nome': 'Psicologia',
-                    'data': cliente.stato_psicologia_data,
-                    'professionisti': [u.full_name or u.email for u in cliente.psicologi_multipli]
-                })
-
-        # ⚡ FILTRO METODOLOGIA AUTOMATICA ⚡
-        # Mostra solo se:
-        # 1. Ha almeno un servizio assegnato
-        # 2. TUTTI i servizi assegnati sono in ghost
-        if not servizi_assegnati:
-            # Skip: nessun servizio assegnato
-            continue
-
-        if len(servizi_ghost) != len(servizi_assegnati):
-            # Skip: non tutti i servizi assegnati sono in ghost
-            continue
-
-        # ✅ Cliente valido: tutti i servizi assegnati sono in ghost
-
-        # Calcola giorni in ghost
-        giorni_ghost = None
-        if cliente.stato_cliente_data:
-            giorni_ghost = (date.today() - cliente.stato_cliente_data.date()).days
-
-        clienti_ghost.append({
-            'cliente': cliente,
-            'servizi_ghost': servizi_ghost,
-            'giorni_ghost': giorni_ghost
-        })
-
-    # Statistiche (conta solo clienti con metodologia automatica nella lista corrente)
-    # Per statistiche precise, dovremmo rifare il controllo su tutti i clienti ghost,
-    # ma per performance usiamo il conteggio della lista filtrata corrente
-    total_displayed = len(clienti_ghost)
-
-    # Conta per periodo
-    ghost_7_giorni = sum(1 for c in clienti_ghost
-                         if c['cliente'].stato_cliente_data
-                         and c['cliente'].stato_cliente_data.date() >= date.today() - timedelta(days=7))
-    ghost_30_giorni = sum(1 for c in clienti_ghost
-                          if c['cliente'].stato_cliente_data
-                          and c['cliente'].stato_cliente_data.date() >= date.today() - timedelta(days=30))
-
-    stats = {
-        'totale_ghost': total_displayed,
-        'ghost_ultimi_7_giorni': ghost_7_giorni,
-        'ghost_ultimi_30_giorni': ghost_30_giorni,
-    }
-
-    # Carica lista Health Managers per il filtro (dipartimento 13)
-    health_managers = db.session.query(User).filter(
-        User.department_id == 13,
-        User.is_active == True
-    ).order_by(User.first_name, User.last_name).all()
-
-    return render_template(
-        "customers/recupero_ghost.html",
-        clienti_ghost=clienti_ghost,
-        pagination=pagination,
-        stats=stats,
-        search=search,
-        health_managers=health_managers,
-        current_health_manager=health_manager_filter
-    )
 
 
 # --------------------------------------------------------------------------- #
 #  IN SCADENZA - Clienti con rinnovo entro 30 giorni                         #
 # --------------------------------------------------------------------------- #
-@customers_bp.route("/in-scadenza", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def in_scadenza_view() -> str:
-    """
-    Pagina dedicata ai clienti in scadenza (data_rinnovo entro 30 giorni).
-    Filtrabile per Health Manager.
-    """
-    from corposostenibile.models import User
-
-    # Data limite: oggi + 30 giorni
-    today = date.today()
-    limite_scadenza = today + timedelta(days=30)
-
-    # Query base: clienti con data_rinnovo entro 30 giorni
-    query = db.session.query(Cliente).filter(
-        Cliente.data_rinnovo.isnot(None),
-        Cliente.data_rinnovo <= limite_scadenza,
-        Cliente.data_rinnovo >= today  # Non mostrare quelli già scaduti
-    )
-
-    # Eager load delle relazioni professionisti
-    query = query.options(
-        selectinload(Cliente.nutrizionisti_multipli),
-        selectinload(Cliente.coaches_multipli),
-        selectinload(Cliente.psicologi_multipli)
-    )
-
-    # ── FILTRO HEALTH MANAGER ──
-    health_manager_filter = request.args.get('health_manager', '').strip()
-    if health_manager_filter == 'none':
-        query = query.filter(Cliente.health_manager_id.is_(None))
-    elif health_manager_filter and health_manager_filter.isdigit():
-        query = query.filter(Cliente.health_manager_id == int(health_manager_filter))
-
-    # Filtro ricerca opzionale
-    search = request.args.get('search', '').strip()
-    if search:
-        query = query.filter(
-            or_(
-                Cliente.nome_cognome.ilike(f'%{search}%'),
-                Cliente.mail.ilike(f'%{search}%'),
-                Cliente.cellulare.ilike(f'%{search}%')
-            )
-        )
-
-    # Ordinamento per data rinnovo (più urgenti prima)
-    query = query.order_by(Cliente.data_rinnovo.asc())
-
-    # Paginazione
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-
-    # Statistiche sul TOTALE (non sulla paginazione)
-    # Query base per statistiche (senza paginazione)
-    stats_query_base = db.session.query(Cliente).filter(
-        Cliente.data_rinnovo.isnot(None),
-        Cliente.data_rinnovo <= limite_scadenza,
-        Cliente.data_rinnovo >= today
-    )
-
-    # Applica gli stessi filtri delle statistiche
-    if health_manager_filter == 'none':
-        stats_query_base = stats_query_base.filter(Cliente.health_manager_id.is_(None))
-    elif health_manager_filter and health_manager_filter.isdigit():
-        stats_query_base = stats_query_base.filter(Cliente.health_manager_id == int(health_manager_filter))
-
-    if search:
-        stats_query_base = stats_query_base.filter(
-            or_(
-                Cliente.nome_cognome.ilike(f'%{search}%'),
-                Cliente.mail.ilike(f'%{search}%'),
-                Cliente.cellulare.ilike(f'%{search}%')
-            )
-        )
-
-    # Calcola statistiche sul totale
-    totale_scadenza = stats_query_base.count()
-
-    # Critici (entro 7 giorni)
-    limite_7_giorni = today + timedelta(days=7)
-    scadenza_7_giorni = stats_query_base.filter(
-        Cliente.data_rinnovo <= limite_7_giorni
-    ).count()
-
-    # Urgenti (entro 15 giorni)
-    limite_15_giorni = today + timedelta(days=15)
-    scadenza_15_giorni = stats_query_base.filter(
-        Cliente.data_rinnovo <= limite_15_giorni
-    ).count()
-
-    stats = {
-        'totale_scadenza': totale_scadenza,
-        'scadenza_7_giorni': scadenza_7_giorni,
-        'scadenza_15_giorni': scadenza_15_giorni,
-        'scadenza_30_giorni': totale_scadenza,  # È lo stesso del totale
-    }
-
-    # Prepara dati arricchiti per il template (solo pagina corrente)
-    clienti_scadenza = []
-    for cliente in pagination.items:
-        # Calcola giorni rimanenti
-        giorni_rimanenti = (cliente.data_rinnovo - today).days
-
-        # Determina urgenza
-        if giorni_rimanenti <= 7:
-            urgenza = 'critica'  # Rosso
-        elif giorni_rimanenti <= 15:
-            urgenza = 'alta'  # Arancione
-        else:
-            urgenza = 'media'  # Giallo
-
-        clienti_scadenza.append({
-            'cliente': cliente,
-            'giorni_rimanenti': giorni_rimanenti,
-            'urgenza': urgenza
-        })
-
-    # Carica lista Health Managers per il filtro (dipartimento 13)
-    health_managers = db.session.query(User).filter(
-        User.department_id == 13,
-        User.is_active == True
-    ).order_by(User.first_name, User.last_name).all()
-
-    return render_template(
-        "customers/in_scadenza.html",
-        clienti_scadenza=clienti_scadenza,
-        pagination=pagination,
-        stats=stats,
-        search=search,
-        health_managers=health_managers,
-        current_health_manager=health_manager_filter
-    )
 
 # --------------------------------------------------------------------------- #
 #  Helper functions per dashboard 360°                                        #
@@ -4199,7 +2925,10 @@ def _get_wellness_trend(filters=None):
         func.avg(TypeFormResponse.mood_rating).label('mood'),
         func.avg(TypeFormResponse.sleep_rating).label('sleep'),
         func.avg(TypeFormResponse.motivation_rating).label('motivation')
-    )
+    ).join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+    
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
     
     if filters and filters.get('dateRange'):
         # Applica filtro date
@@ -4217,6 +2946,9 @@ def _get_wellness_trend(filters=None):
 
 def _apply_dashboard_filters(query, filters):
     """Applica filtri alla query."""
+    # Applica filtro per ruolo
+    query = apply_role_filtering(query)
+    
     if filters.get('statoCliente'):
         query = query.filter(Cliente.stato_cliente.in_(filters['statoCliente']))
     
@@ -4242,16 +2974,14 @@ def create_call_bonus_route(cliente_id: int):
 
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
-        flash("Cliente non trovato.", "danger")
-        return redirect(url_for("customers.list_view"))
+        return jsonify({"success": False, "error": "Cliente non trovato."}), HTTPStatus.NOT_FOUND
 
     # Estrai tipo e ID dal campo professionista_data (formato: "tipo_id")
     professionista_data = request.form.get('professionista_data', '')
     data_richiesta_str = request.form.get('data_richiesta', '')
 
     if not professionista_data:
-        flash("Seleziona un professionista.", "danger")
-        return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
+        return jsonify({"success": False, "error": "Seleziona un professionista."}), HTTPStatus.BAD_REQUEST
 
     try:
         # Splitta il valore per ottenere tipo e ID
@@ -4271,13 +3001,15 @@ def create_call_bonus_route(cliente_id: int):
             created_by_user=current_user,
             data_richiesta=data_richiesta
         )
-        flash(f"Call bonus creata con successo!", "success")
+        return jsonify({
+            "success": True,
+            "message": "Call bonus creata con successo.",
+            "call_bonus_id": call_bonus.id,
+        }), HTTPStatus.CREATED
     except ValueError as e:
-        flash(f"Errore nei dati del form: {str(e)}", "danger")
+        return jsonify({"success": False, "error": f"Errore nei dati del form: {str(e)}"}), HTTPStatus.BAD_REQUEST
     except Exception as e:
-        flash(f"Errore nella creazione della call bonus: {str(e)}", "danger")
-
-    return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
+        return jsonify({"success": False, "error": f"Errore nella creazione della call bonus: {str(e)}"}), HTTPStatus.BAD_REQUEST
 
 
 @customers_bp.route("/call-bonus/<int:call_bonus_id>/response", methods=["POST"])
@@ -4297,17 +3029,16 @@ def update_call_bonus_response_route(call_bonus_id: int):
                 motivazione_rifiuto=form.motivazione_rifiuto.data if form.status.data == 'rifiutata' else None,
                 data_risposta=form.data_risposta.data
             )
-            flash(f"Risposta cliente salvata: {form.status.data.upper()}", "success")
-            return redirect(url_for("customers.detail_view", cliente_id=call_bonus.cliente_id))
+            return jsonify({
+                "success": True,
+                "message": f"Risposta cliente salvata: {form.status.data.upper()}",
+                "call_bonus_id": call_bonus.id,
+                "cliente_id": call_bonus.cliente_id,
+            }), HTTPStatus.OK
         except Exception as e:
-            flash(f"Errore nell'aggiornamento della risposta: {str(e)}", "danger")
+            return jsonify({"success": False, "error": f"Errore nell'aggiornamento della risposta: {str(e)}"}), HTTPStatus.BAD_REQUEST
     else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                flash(f"{field}: {error}", "danger")
-
-    # Fallback redirect
-    return redirect(url_for("customers.list_view"))
+        return jsonify({"success": False, "errors": form.errors}), HTTPStatus.BAD_REQUEST
 
 
 @customers_bp.route("/call-bonus/<int:call_bonus_id>/hm-confirm", methods=["POST"])
@@ -4330,45 +3061,17 @@ def update_call_bonus_hm_confirm_route(call_bonus_id: int):
                 data_conferma_hm=form.data_conferma_hm.data
             )
             esito = "CONFERMATA" if form.confermata_hm.data else "NON ANDATA A BUON FINE"
-            flash(f"Call bonus {esito} dall'Health Manager", "success")
-            return redirect(url_for("customers.call_bonus_accettate_view"))
+            return jsonify({
+                "success": True,
+                "message": f"Call bonus {esito} dall'Health Manager",
+                "call_bonus_id": call_bonus.id,
+            }), HTTPStatus.OK
         except Exception as e:
-            flash(f"Errore nella conferma HM: {str(e)}", "danger")
+            return jsonify({"success": False, "error": f"Errore nella conferma HM: {str(e)}"}), HTTPStatus.BAD_REQUEST
     else:
-        for field, errors in form.errors.items():
-            for error in errors:
-                flash(f"{field}: {error}", "danger")
-
-    # Fallback redirect
-    return redirect(url_for("customers.call_bonus_accettate_view"))
+        return jsonify({"success": False, "errors": form.errors}), HTTPStatus.BAD_REQUEST
 
 
-@customers_bp.route("/call-bonus-accettate", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def call_bonus_accettate_view():
-    """Visualizza tutte le call bonus accettate (filtrabili per health manager)."""
-    from datetime import date
-    from .services import get_call_bonus_accettate
-    from corposostenibile.models import User
-
-    # Filtro per health manager (opzionale)
-    health_manager_id = request.args.get('health_manager_id', type=int)
-
-    # Ottieni call bonus accettate
-    call_bonus_list = get_call_bonus_accettate(health_manager_id=health_manager_id)
-
-    # Ottieni lista health managers per il filtro
-    health_managers = db.session.query(User).filter(
-        User.department_id == 13  # Department ID 13 = Health Manager
-    ).order_by(User.first_name).all()
-
-    return render_template(
-        "customers/call_bonus_accettate.html",
-        call_bonus_list=call_bonus_list,
-        health_managers=health_managers,
-        selected_hm_id=health_manager_id,
-        today=date.today()
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -4644,6 +3347,7 @@ def api_training_add(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -4748,6 +3452,7 @@ def api_training_change(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -4853,6 +3558,7 @@ def api_training_change(cliente_id: int):
 def api_training_history(cliente_id: int):
     """Restituisce lo storico completo dei piani allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     plans = db.session.query(TrainingPlan).filter_by(cliente_id=cliente_id).order_by(TrainingPlan.start_date.desc()).all()
 
     def _serialize(plan: TrainingPlan):
@@ -4906,6 +3612,7 @@ def api_training_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_training_versions(cliente_id: int, plan_id: int):
     """Restituisce lo storico delle versioni di un piano allenamento specifico."""
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -4994,6 +3701,7 @@ def api_training_download(cliente_id: int, plan_id: int):
     import os
     from flask import current_app, send_from_directory
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il cliente e il piano esistano e siano collegati
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -5034,6 +3742,7 @@ def api_training_extra_file_add(cliente_id: int, plan_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
         cliente_id=cliente_id
@@ -5120,6 +3829,7 @@ def api_training_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
     import os
     from flask import current_app
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -5158,6 +3868,7 @@ def api_training_extra_file_download(cliente_id: int, plan_id: int, file_id: int
     from flask import send_file, current_app
     import os
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -5202,7 +3913,21 @@ def api_storico_stati(cliente_id: int, servizio: str):
     """
     from corposostenibile.models import StatoServizioLog
 
-    # Verifica che il cliente esista
+    # Verifica scope servizio (chat_* mappate al servizio principale)
+    servizio_scope_map = {
+        "nutrizione": "nutrizione",
+        "chat_nutrizione": "nutrizione",
+        "coach": "coaching",
+        "chat_coaching": "coaching",
+        "psicologia": "psicologia",
+        "chat_psicologia": "psicologia",
+    }
+    servizio_scope = servizio_scope_map.get(servizio)
+    if not servizio_scope:
+        return jsonify({"ok": False, "error": "Servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, servizio_scope)
+
+    # Verifica che il cliente esista (coerenza con API legacy)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
@@ -5241,6 +3966,7 @@ def api_storico_patologie(cliente_id: int):
 
     # Verifica che il cliente esista
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
     storico = PatologiaLog.query.filter_by(
@@ -5279,6 +4005,7 @@ def api_storico_patologie_psico(cliente_id: int):
 
     # Verifica che il cliente esista
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "psicologia")
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
     storico = PatologiaPsicoLog.query.filter_by(
@@ -5316,6 +4043,7 @@ def api_storico_patologie_psico(cliente_id: int):
 def api_location_add(cliente_id: int):
     """Aggiunge un nuovo storico luogo allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -5389,6 +4117,7 @@ def api_location_add(cliente_id: int):
 def api_location_change(cliente_id: int, loc_id: int):
     """Cambia storico luogo allenamento esistente."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -5446,6 +4175,7 @@ def api_location_change(cliente_id: int, loc_id: int):
 def api_location_history(cliente_id: int):
     """Restituisce lo storico completo dei luoghi allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     locations = db.session.query(TrainingLocation).filter_by(cliente_id=cliente_id).order_by(TrainingLocation.start_date.desc()).all()
 
     def _serialize(loc: TrainingLocation):
@@ -5486,6 +4216,7 @@ def api_location_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_location_versions(cliente_id: int, location_id: int):
     """Restituisce lo storico delle versioni di un luogo allenamento specifico."""
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il luogo appartenga al cliente
     location = db.session.query(TrainingLocation).filter_by(
         id=location_id,
@@ -5576,6 +4307,7 @@ def api_nutrition_add(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     if not _can_manage_meal_plans(cliente):
         abort(403)
 
@@ -5680,6 +4412,7 @@ def api_nutrition_change(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     if not _can_manage_meal_plans(cliente):
         abort(403)
 
@@ -5785,6 +4518,7 @@ def api_nutrition_change(cliente_id: int):
 def api_nutrition_history(cliente_id: int):
     """Restituisce lo storico completo dei piani alimentari."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     plans = db.session.query(MealPlan).filter_by(cliente_id=cliente_id).order_by(MealPlan.start_date.desc()).all()
 
     def _serialize(plan: MealPlan):
@@ -5838,6 +4572,7 @@ def api_nutrition_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_versions(cliente_id: int, plan_id: int):
     """Restituisce lo storico delle versioni di un piano alimentare specifico."""
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -5924,6 +4659,7 @@ def api_nutrition_download(cliente_id: int, plan_id: int):
     from flask import send_file, current_app
     import os
 
+    cliente = _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -5962,6 +4698,7 @@ def api_nutrition_extra_file_add(cliente_id: int, plan_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
         cliente_id=cliente_id
@@ -6049,6 +4786,7 @@ def api_nutrition_extra_file_delete(cliente_id: int, plan_id: int, file_id: int)
     import os
     from flask import current_app
 
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -6087,6 +4825,7 @@ def api_nutrition_extra_file_download(cliente_id: int, plan_id: int, file_id: in
     from flask import send_file, current_app
     import os
 
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -6294,88 +5033,6 @@ def create_pagamento_interno():
 #  PAGAMENTI INTERNI - APPROVAZIONE                                           #
 # --------------------------------------------------------------------------- #
 
-@customers_bp.route("/pagamenti-interni-approvazione", methods=["GET"])
-@permission_required(CustomerPerm.VIEW)
-def pagamenti_interni_approvazione():
-    """Pagina di gestione approvazione pagamenti interni."""
-    query = db.session.query(PagamentoInterno, PagamentoInternoApprovazione).outerjoin(
-        PagamentoInternoApprovazione,
-        PagamentoInterno.id == PagamentoInternoApprovazione.pagamento_interno_id
-    ).order_by(PagamentoInterno.data_pagamento.desc())
-
-    pagamenti_data = []
-    for pagamento, approvazione in query.all():
-        costo_nutrizionista = 0
-        costo_coach = 0
-        costo_psicologo = 0
-        abbonamento_precedente = None
-
-        if pagamento.pacchetto_id:
-            try:
-                package = db.session.get(Package, int(pagamento.pacchetto_id))
-                if package:
-                    costo_nutrizionista = float(package.nutritionist_cost_monthly or 0)
-                    costo_coach = float(package.coach_cost_monthly or 0)
-                    costo_psicologo = float(package.psychologist_cost_monthly or 0)
-            except (ValueError, TypeError):
-                pass
-
-        # Recupera l'abbonamento precedente del cliente
-        if pagamento.cliente_id:
-            # Cerca l'ultimo pagamento interno del cliente PRIMA di questo
-            pagamento_precedente = (
-                PagamentoInterno.query
-                .filter(
-                    PagamentoInterno.cliente_id == pagamento.cliente_id,
-                    PagamentoInterno.id < pagamento.id,
-                    PagamentoInterno.pacchetto_id.isnot(None)
-                )
-                .order_by(PagamentoInterno.data_pagamento.desc())
-                .first()
-            )
-
-            if pagamento_precedente and pagamento_precedente.pacchetto_id:
-                try:
-                    pkg_prec = db.session.get(Package, int(pagamento_precedente.pacchetto_id))
-                    if pkg_prec:
-                        abbonamento_precedente = {
-                            "nome": pkg_prec.name,
-                            "prezzo": float(pkg_prec.price or 0),
-                            "durata_mesi": pkg_prec.duration_months,
-                            "data": pagamento_precedente.data_pagamento,
-                        }
-                except (ValueError, TypeError):
-                    pass
-
-            # Se non c'è pagamento precedente, cerca nella subscription attiva
-            if not abbonamento_precedente and pagamento.cliente:
-                subscriptions = getattr(pagamento.cliente, 'subscriptions', [])
-                if subscriptions:
-                    # Prendi la subscription più recente
-                    for sub in sorted(subscriptions, key=lambda s: s.start_date or date.min, reverse=True):
-                        if sub.package and sub.package_id != pagamento.pacchetto_id:
-                            abbonamento_precedente = {
-                                "nome": sub.package.name,
-                                "prezzo": float(sub.package.price or 0),
-                                "durata_mesi": sub.package.duration_months,
-                                "data": sub.start_date,
-                            }
-                            break
-
-        pagamenti_data.append({
-            "pagamento": pagamento,
-            "approvazione": approvazione,
-            "costo_nutrizionista": costo_nutrizionista,
-            "costo_coach": costo_coach,
-            "costo_psicologo": costo_psicologo,
-            "abbonamento_precedente": abbonamento_precedente,
-        })
-
-    return render_template(
-        "customers/pagamenti_interni_approvazione.html",
-        pagamenti=pagamenti_data,
-        TipoPagamentoInternoEnum=TipoPagamentoInternoEnum,
-    )
 
 
 @customers_bp.route("/api/pagamenti-interni/<int:pagamento_id>/approva", methods=["POST"])
@@ -6498,7 +5155,7 @@ def api_search_clienti():
         return jsonify({"success": True, "clienti": []}), HTTPStatus.OK
 
     # Ricerca per nome, email o telefono
-    clienti = Cliente.query.filter(
+    clienti = apply_role_filtering(Cliente.query).filter(
         db.or_(
             Cliente.nome_cognome.ilike(f"%{q}%"),
             Cliente.mail.ilike(f"%{q}%"),
@@ -6766,6 +5423,7 @@ def get_anamnesi(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     anamnesi = ServiceAnamnesi.query.filter_by(
         cliente_id=cliente_id,
@@ -6796,6 +5454,7 @@ def save_anamnesi(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -6847,6 +5506,7 @@ def get_diary_entries(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     entries = ServiceDiaryEntry.query.filter_by(
         cliente_id=cliente_id,
@@ -6875,6 +5535,7 @@ def create_diary_entry(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -6927,6 +5588,7 @@ def update_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     entry = ServiceDiaryEntry.query.filter_by(
         id=entry_id,
@@ -6978,6 +5640,10 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
+
+    if not current_user.is_admin:
+        return jsonify({"success": False, "error": "Solo gli amministratori possono eliminare le note del diario"}), HTTPStatus.FORBIDDEN
 
     entry = ServiceDiaryEntry.query.filter_by(
         id=entry_id,
@@ -7001,6 +5667,533 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
         db.session.rollback()
         logger.error(f"Errore eliminazione diary entry: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@csrf.exempt
+@api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>/history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
+    """Recupera lo storico delle modifiche per una voce del diario."""
+    from corposostenibile.models import ServiceDiaryEntry, User
+    from sqlalchemy_continuum import version_class
+    
+    if service_type not in ['nutrizione', 'coaching', 'psicologia']:
+        return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
+
+    ServiceDiaryEntryVersion = version_class(ServiceDiaryEntry)
+    
+    versions = ServiceDiaryEntryVersion.query.filter(
+        ServiceDiaryEntryVersion.id == entry_id
+    ).order_by(ServiceDiaryEntryVersion.transaction_id.desc()).all()
+
+    history = []
+    for version in versions:
+        author_name = "Sistema"
+        # Continuum transaction.user_id non disponibile (user_cls=None)
+        # Usiamo author_user_id salvato nella versione
+        if version.author_user_id:
+             user = User.query.get(version.author_user_id)
+             if user:
+                 author_name = user.full_name
+
+        history.append({
+            "content": version.content,
+            # transaction.issued_at è disponibile anche senza user_cls
+            "modified_at": version.transaction.issued_at.strftime('%d/%m/%Y %H:%M') if version.transaction else "N/D",
+            "author": author_name
+        })
+
+    return jsonify({
+        "success": True,
+        "history": history
+    })
+
+# --------------------------------------------------------------------------- #
+#  CALL BONUS API (AI-driven flow)                                            #
+# --------------------------------------------------------------------------- #
+
+def _is_assigned_to_cliente(user, cliente) -> bool:
+    """Verifica se l'utente è assegnato al paziente come professionista (o admin).
+    Include anche professionisti con call bonus attive (status=accettata).
+    """
+    if user.is_admin or user.role == UserRoleEnum.admin:
+        return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value == "team_leader":
+        try:
+            scoped_query = apply_role_filtering(db.session.query(Cliente.cliente_id))
+            return scoped_query.filter(Cliente.cliente_id == cliente.cliente_id).first() is not None
+        except Exception:
+            logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
+            return False
+    if (
+        getattr(cliente, "nutrizionista_id", None) == user.id
+        or getattr(cliente, "coach_id", None) == user.id
+        or getattr(cliente, "psicologa_id", None) == user.id
+        or getattr(cliente, "consulente_alimentare_id", None) == user.id
+        or getattr(cliente, "health_manager_id", None) == user.id
+        or user in cliente.nutrizionisti_multipli
+        or user in cliente.coaches_multipli
+        or user in cliente.psicologi_multipli
+        or user in cliente.consulenti_multipli
+    ):
+        return True
+    # Professionista assegnato tramite call bonus attiva
+    from corposostenibile.models import CallBonus
+    has_active_cb = db.session.query(CallBonus.id).filter(
+        CallBonus.cliente_id == cliente.cliente_id,
+        CallBonus.professionista_id == user.id,
+        CallBonus.status == CallBonusStatusEnum.accettata,
+    ).first()
+    return has_active_cb is not None
+
+
+def _is_professionista_standard(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    return (not getattr(user, "is_admin", False)) and role_value == "professionista"
+
+
+def _is_health_manager_user(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    return (not getattr(user, "is_admin", False)) and role_value == "health_manager"
+
+
+def _normalize_specialty_group_for_rbac(user) -> str | None:
+    specialty = getattr(user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    specialty_value = specialty_value.strip().lower()
+    if specialty_value in ("nutrizionista", "nutrizione"):
+        return "nutrizione"
+    if specialty_value in ("psicologo", "psicologia", "psicologa"):
+        return "psicologia"
+    if specialty_value == "coach":
+        return "coach"
+    if specialty_value == "medico":
+        return "medico"
+    return None
+
+
+def _is_team_leader_health_manager_scope(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return False
+    teams_led = getattr(user, "teams_led", []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
+        if str(team_type or "").strip().lower() == "health_manager":
+            return True
+    specialty = getattr(user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    specialty_value = specialty_value.strip().lower()
+    if specialty_value == "health_manager":
+        return True
+    department_name = getattr(getattr(user, "department", None), "name", "")
+    department_name = str(department_name or "").strip().lower()
+    return ("health" in department_name) or ("customer success" in department_name)
+
+
+def _team_leader_visible_member_ids(user) -> set[int]:
+    visible_ids = {getattr(user, "id", None)}
+    for team in getattr(user, "teams_led", []) or []:
+        if not getattr(team, "is_active", True):
+            continue
+        for member in getattr(team, "members", []) or []:
+            visible_ids.add(member.id)
+    return {uid for uid in visible_ids if uid is not None}
+
+
+def _team_leader_can_manage_assignment_type(user, tipo_professionista: str | None) -> bool:
+    tipo = (tipo_professionista or "").strip().lower()
+    if tipo == "health_manager":
+        return _is_team_leader_health_manager_scope(user)
+    allowed_by_specialty = {
+        "nutrizione": {"nutrizionista"},
+        "coach": {"coach"},
+        "psicologia": {"psicologa"},
+        "medico": {"medico"},
+    }
+    specialty_group = _normalize_specialty_group_for_rbac(user)
+    if not specialty_group:
+        return False
+    return tipo in allowed_by_specialty.get(specialty_group, set())
+
+
+def _require_team_leader_assignment_scope_or_403(user, tipo_professionista: str, target_user_id: int) -> None:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return
+    if not _team_leader_can_manage_assignment_type(user, tipo_professionista):
+        abort(HTTPStatus.FORBIDDEN, description="Tipo professionista non gestibile per la tua specialità.")
+    if int(target_user_id) not in _team_leader_visible_member_ids(user):
+        abort(HTTPStatus.FORBIDDEN, description="Professionista fuori dal perimetro del tuo team.")
+
+
+def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> bool:
+    """Scope granulare per i professionisti sulle sezioni servizio-specifiche."""
+    if getattr(user, "is_admin", False):
+        return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value == "admin":
+        return True
+    if role_value == "team_leader":
+        # TL: almeno cliente nel perimetro dei team gestiti (specialità gestita lato UI / altri filtri)
+        try:
+            from corposostenibile.blueprints.client_checks.rbac import get_accessible_clients_query
+            accessible_query = get_accessible_clients_query()
+            if accessible_query is None:
+                return True
+            return accessible_query.filter(Cliente.cliente_id == cliente.cliente_id).first() is not None
+        except Exception:
+            logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
+            return False
+    if role_value == "health_manager":
+        return getattr(cliente, "health_manager_id", None) == user.id
+    if role_value != "professionista":
+        return False
+
+    if service_type == "nutrizione":
+        return getattr(cliente, "nutrizionista_id", None) == user.id or user in (cliente.nutrizionisti_multipli or [])
+    if service_type == "coaching":
+        return getattr(cliente, "coach_id", None) == user.id or user in (cliente.coaches_multipli or [])
+    if service_type == "psicologia":
+        return getattr(cliente, "psicologa_id", None) == user.id or user in (cliente.psicologi_multipli or [])
+    return False
+
+
+def _require_service_scope_or_403(cliente_id: int, service_type: str) -> "Cliente":
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente_for_service(current_user, cliente, service_type):
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato per questo servizio del paziente.")
+    return cliente
+
+
+@api_bp.route("/<int:cliente_id>/call-bonus-history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_history(cliente_id: int):
+    """Storico call bonus del paziente."""
+    from .services import get_cliente_call_bonus_history
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    import json as _json
+
+    records = get_cliente_call_bonus_history(cliente_id)
+
+    # Get HM calendar link once for this client
+    hm_name = None
+    hm_calendar_link = ""
+    if cliente.health_manager_user:
+        hm_name = cliente.health_manager_user.full_name
+        ai_notes = cliente.health_manager_user.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = _json.loads(ai_notes)
+            except (ValueError, TypeError):
+                ai_notes = {}
+        hm_calendar_link = ai_notes.get("link_calendario", "")
+
+    data = []
+    for cb in records:
+        prof_name = None
+        if cb.professionista:
+            prof_name = cb.professionista.full_name
+        data.append({
+            "id": cb.id,
+            "data_richiesta": cb.data_richiesta.isoformat() if cb.data_richiesta else None,
+            "tipo_professionista": cb.tipo_professionista.value if cb.tipo_professionista else None,
+            "professionista_nome": prof_name,
+            "professionista_id": cb.professionista_id,
+            "is_assigned_professional": cb.professionista_id == current_user.id if cb.professionista_id else False,
+            "is_requester": cb.created_by_id == current_user.id,
+            "status": cb.status.value if cb.status else None,
+            "created_by_nome": cb.created_by.full_name if cb.created_by else None,
+            "created_by_id": cb.created_by_id,
+            "note_richiesta": cb.note_richiesta,
+            "booking_confirmed": cb.booking_confirmed or False,
+            "hm_booking_confirmed": cb.hm_booking_confirmed or False,
+            "hm_name": hm_name,
+            "hm_calendar_link": hm_calendar_link,
+        })
+
+    return jsonify({"data": data})
+
+
+@api_bp.route("/call-bonus-interest/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_interest(call_bonus_id: int):
+    """Professionista assegnato risponde sull'interesse del paziente."""
+    from corposostenibile.models import CallBonus
+    from .call_bonus_webhooks import dispatch_call_bonus_webhook
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    if call_bonus.professionista_id != current_user.id:
+        abort(HTTPStatus.FORBIDDEN, description="Non sei il professionista assegnato a questa call bonus.")
+
+    if call_bonus.status != CallBonusStatusEnum.accettata:
+        abort(HTTPStatus.CONFLICT, description="Questa call bonus non è in stato 'accettata'.")
+
+    payload = request.get_json() or {}
+    interested = payload.get("interested")
+    if interested is None:
+        abort(HTTPStatus.BAD_REQUEST, description="Campo 'interested' obbligatorio.")
+
+    if interested:
+        call_bonus.status = CallBonusStatusEnum.interessato
+        call_bonus.data_interesse = datetime.utcnow()
+        call_bonus.hm_booking_confirmed = True
+        call_bonus.data_hm_booking_confirmed = datetime.utcnow()
+        db.session.flush()
+        dispatch_call_bonus_webhook(call_bonus)
+    else:
+        call_bonus.status = CallBonusStatusEnum.non_interessato
+        call_bonus.data_interesse = datetime.utcnow()
+        motivazione = payload.get("motivazione", "").strip()
+        if motivazione:
+            call_bonus.motivazione_rifiuto = motivazione
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "status": call_bonus.status.value,
+        "message": "Interesse confermato." if interested else "Paziente non interessato.",
+    })
+
+
+@api_bp.route("/<int:cliente_id>/call-bonus-request", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_bonus_request(cliente_id: int):
+    """Crea richiesta call bonus + analisi AI + matching professionisti."""
+    from corposostenibile.blueprints.team.ai_matching_service import AIMatchingService
+    from corposostenibile.models import CallBonus, CallBonusStatusEnum
+    import json as _json
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    payload = request.get_json() or {}
+    tipo_str = payload.get("tipo_professionista", "").strip()
+    note_richiesta = payload.get("note_richiesta", "").strip()
+
+    if not tipo_str:
+        abort(HTTPStatus.BAD_REQUEST, description="Seleziona un tipo di professionista.")
+
+    try:
+        tipo = TipoProfessionistaEnum(tipo_str)
+    except ValueError:
+        abort(HTTPStatus.BAD_REQUEST, description=f"Tipo professionista non valido: {tipo_str}")
+
+    # Map tipo to AI role
+    role_map = {
+        TipoProfessionistaEnum.nutrizionista: "nutrition",
+        TipoProfessionistaEnum.coach: "coach",
+        TipoProfessionistaEnum.psicologa: "psychology",
+    }
+    target_role = role_map.get(tipo, "nutrition")
+
+    # 1. Create CallBonus with professionista_id=NULL
+    call_bonus = CallBonus(
+        cliente_id=cliente_id,
+        professionista_id=None,
+        tipo_professionista=tipo,
+        status=CallBonusStatusEnum.proposta,
+        data_richiesta=date.today(),
+        created_by_id=current_user.id,
+        note_richiesta=note_richiesta,
+    )
+    db.session.add(call_bonus)
+    db.session.flush()
+
+    # 2. Compose story from note_richiesta + storia_cliente
+    story_parts = []
+    if note_richiesta:
+        story_parts.append(f"Richiesta call bonus: {note_richiesta}")
+    if cliente.storia_cliente:
+        story_parts.append(f"Storia cliente: {cliente.storia_cliente}")
+    story = "\n".join(story_parts) if story_parts else "Nessuna informazione disponibile."
+
+    # 3. AI analysis + matching
+    try:
+        analysis = AIMatchingService.extract_lead_criteria(story, target_role=target_role)
+        criteria = analysis.get("criteria", [])
+        all_matches = AIMatchingService.match_professionals(criteria)
+
+        # Filter only for the requested type
+        category_map = {
+            TipoProfessionistaEnum.nutrizionista: "nutrizione",
+            TipoProfessionistaEnum.coach: "coach",
+            TipoProfessionistaEnum.psicologa: "psicologia",
+        }
+        category = category_map.get(tipo, "nutrizione")
+        matches = all_matches.get(category, [])
+
+        # Add link_call_bonus from assignment_ai_notes for each match
+        for match in matches:
+            prof = db.session.get(User, match["id"])
+            if prof:
+                ai_notes = prof.assignment_ai_notes or {}
+                if isinstance(ai_notes, str):
+                    try:
+                        ai_notes = _json.loads(ai_notes)
+                    except (ValueError, TypeError):
+                        ai_notes = {}
+                match["link_call_bonus"] = ai_notes.get("link_call_bonus", "")
+
+        # 4. Save analysis and matches on the record
+        call_bonus.ai_analysis = analysis
+        call_bonus.ai_matches = matches
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "call_bonus_id": call_bonus.id,
+            "analysis": analysis,
+            "matches": matches,
+        }), HTTPStatus.CREATED
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Errore AI call bonus: {e}")
+        # Still save the call_bonus without AI data
+        db.session.add(call_bonus)
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "call_bonus_id": call_bonus.id,
+            "analysis": {"summary": "Analisi AI non disponibile", "criteria": [], "suggested_focus": []},
+            "matches": [],
+            "ai_error": str(e),
+        }), HTTPStatus.CREATED
+
+
+@api_bp.route("/call-bonus-select/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_bonus_select_professional(call_bonus_id: int):
+    """Seleziona professionista per la call bonus → ritorna link_call_bonus."""
+    from corposostenibile.models import CallBonus
+    import json as _json
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+    cliente = db.session.get(Cliente, call_bonus.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    payload = request.get_json() or {}
+    professional_id = payload.get("professional_id")
+    if not professional_id:
+        abort(HTTPStatus.BAD_REQUEST, description="Seleziona un professionista.")
+
+    prof = db.session.get(User, professional_id)
+    if not prof:
+        abort(HTTPStatus.NOT_FOUND, description="Professionista non trovato.")
+
+    # Update call bonus with selected professional
+    call_bonus.professionista_id = professional_id
+    call_bonus.status = CallBonusStatusEnum.accettata
+    call_bonus.data_risposta = date.today()
+
+    db.session.commit()
+
+    # Get link_call_bonus from professional's ai_notes
+    ai_notes = prof.assignment_ai_notes or {}
+    if isinstance(ai_notes, str):
+        try:
+            ai_notes = _json.loads(ai_notes)
+        except (ValueError, TypeError):
+            ai_notes = {}
+    link_call_bonus = ai_notes.get("link_call_bonus", "")
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "professional_name": prof.full_name,
+        "link_call_bonus": link_call_bonus,
+    })
+
+
+@api_bp.route("/call-bonus-confirm/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_bonus_confirm_booking(call_bonus_id: int):
+    """Conferma prenotazione call bonus."""
+    from corposostenibile.models import CallBonus
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+    cliente = db.session.get(Cliente, call_bonus.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    is_internal_owner = (
+        getattr(current_user, "is_admin", False)
+        or call_bonus.created_by_id == current_user.id
+        or call_bonus.professionista_id == current_user.id
+    )
+    if not is_internal_owner:
+        role = getattr(current_user, "role", None)
+        role_value = role.value if hasattr(role, "value") else str(role or "")
+        if role_value == "professionista" or not _is_assigned_to_cliente(current_user, cliente):
+            abort(HTTPStatus.FORBIDDEN, description="Non autorizzato a confermare questa call bonus.")
+
+    call_bonus.booking_confirmed = True
+    call_bonus.data_booking_confirmed = datetime.utcnow()
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "message": "Prenotazione confermata.",
+    })
+
+
+@api_bp.route("/call-bonus-decline/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_decline(call_bonus_id: int):
+    """Professionista rifiuta la call bonus assegnata."""
+    from corposostenibile.models import CallBonus
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    if call_bonus.professionista_id != current_user.id:
+        abort(HTTPStatus.FORBIDDEN, description="Non sei il professionista assegnato.")
+
+    call_bonus.status = CallBonusStatusEnum.rifiutata
+    call_bonus.data_risposta = date.today()
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "message": "Call bonus rifiutata.",
+    })
 
 
 # --------------------------------------------------------------------------- #
