@@ -1,9 +1,9 @@
 /* ============================================
-   Calendario — Not Connected State
+   Calendario — Coming Soon (v1.1)
    Design system: Suite Clinica (#25B36A, Poppins)
    ============================================ */
 
-.cal-not-connected {
+.cal-coming-soon {
   animation: calFadeIn 0.4s ease;
 }
 
@@ -12,7 +12,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.cal-nc-hero {
+.cal-hero {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -25,7 +25,8 @@
   min-height: 520px;
 }
 
-.cal-nc-icon {
+/* ── Icon ── */
+.cal-hero-icon {
   width: 100px;
   height: 100px;
   border-radius: 50%;
@@ -42,19 +43,20 @@
   50%      { transform: translateY(-6px); }
 }
 
-.cal-nc-icon i {
+.cal-hero-icon i {
   font-size: 44px;
   color: #25B36A;
 }
 
-.cal-nc-title {
+/* ── Text ── */
+.cal-hero-title {
   font-size: 24px;
   font-weight: 700;
   color: #1e293b;
   margin: 0 0 10px;
 }
 
-.cal-nc-desc {
+.cal-hero-desc {
   font-size: 14px;
   color: #64748b;
   max-width: 420px;
@@ -62,11 +64,12 @@
   margin: 0 0 32px;
 }
 
-.cal-nc-desc strong {
+.cal-hero-desc strong {
   color: #475569;
 }
 
-.cal-nc-badge {
+/* ── Badge ── */
+.cal-soon-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -80,26 +83,27 @@
   box-shadow: 0 4px 14px rgba(37, 179, 106, 0.3);
 }
 
-.cal-nc-badge i {
+.cal-soon-badge i {
   font-size: 16px;
 }
 
+/* ── Responsive ── */
 @media (max-width: 576px) {
-  .cal-nc-hero {
+  .cal-hero {
     padding: 48px 20px;
     min-height: 400px;
   }
 
-  .cal-nc-title {
+  .cal-hero-title {
     font-size: 20px;
   }
 
-  .cal-nc-icon {
+  .cal-hero-icon {
     width: 80px;
     height: 80px;
   }
 
-  .cal-nc-icon i {
+  .cal-hero-icon i {
     font-size: 36px;
   }
 }

@@ -55,6 +55,30 @@ const authService = {
     const response = await api.get('/auth/me');
     return response.data;
   },
+
+  /**
+   * Get list of users available for impersonation (admin only)
+   */
+  async getImpersonateUsers() {
+    const response = await api.get('/auth/impersonate/users');
+    return response.data;
+  },
+
+  /**
+   * Start impersonation as another user (admin only)
+   */
+  async impersonateUser(userId) {
+    const response = await api.post(`/auth/impersonate/${userId}`);
+    return response.data;
+  },
+
+  /**
+   * Stop impersonation and return to admin account
+   */
+  async stopImpersonation() {
+    const response = await api.post('/auth/stop-impersonation');
+    return response.data;
+  },
 };
 
 export default authService;

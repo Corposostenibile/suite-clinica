@@ -1,0 +1,204 @@
+/* ============================================
+   ImpersonateUser — Suite Clinica Design System
+   Accent: #25B36A
+   ============================================ */
+
+/* ── Header ── */
+.imp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 12px;
+}
+
+.imp-header h4 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.imp-header h4 i { color: #25B36A; }
+
+.imp-header-sub {
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* ── Search ── */
+.imp-search {
+  position: relative;
+  margin-bottom: 20px;
+  max-width: 420px;
+}
+
+.imp-search i {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 16px;
+}
+
+.imp-search input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.imp-search input:focus {
+  outline: none;
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.1);
+}
+
+/* ── User list ── */
+.imp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.imp-user-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.imp-user-card:hover {
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.imp-user-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.imp-user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.imp-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.imp-user-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.imp-role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(37, 179, 106, 0.1);
+  color: #25B36A;
+  margin-right: 6px;
+}
+
+.imp-btn {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #25B36A;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.imp-btn:hover {
+  background: #1e9a5a;
+}
+
+.imp-btn:active {
+  transform: scale(0.97);
+}
+
+.imp-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── States ── */
+.imp-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 48px 20px;
+  font-size: 14px;
+}
+
+.imp-empty i {
+  display: block;
+  font-size: 40px;
+  margin-bottom: 12px;
+  color: #cbd5e1;
+}
+
+.imp-loading {
+  text-align: center;
+  color: #64748b;
+  padding: 48px 20px;
+  font-size: 14px;
+}
+
+.imp-error {
+  text-align: center;
+  color: #ef4444;
+  padding: 24px 20px;
+  font-size: 14px;
+  background: #fef2f2;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.imp-unauthorized {
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.imp-unauthorized i {
+  display: block;
+  font-size: 48px;
+  margin-bottom: 12px;
+  color: #cbd5e1;
+}
+
+.imp-count {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}

@@ -8,12 +8,12 @@ All endpoints return JSON responses.
 from __future__ import annotations
 
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User, Team, TeamTypeEnum
+from corposostenibile.models import User, Team, TeamTypeEnum, ImpersonationLog
 from .routes import _generate_reset_token, _verify_reset_token, _send_reset_email, _send_password_changed_email
 
 # --------------------------------------------------------------------------- #
@@ -123,9 +123,12 @@ def api_me():
         Not authenticated: {"authenticated": false}
     """
     if current_user.is_authenticated:
+        user_data = _user_to_dict(current_user)
+        user_data["impersonating"] = bool(session.get("impersonating"))
+        user_data["original_admin_name"] = session.get("original_admin_name")
         return jsonify({
             "authenticated": True,
-            "user": _user_to_dict(current_user)
+            "user": user_data
         })
     return jsonify({"authenticated": False})
 
@@ -245,6 +248,137 @@ def api_reset_password(token: str):
         "success": True,
         "message": "Password aggiornata con successo!"
     })
+
+
+# --------------------------------------------------------------------------- #
+#  Impersonation (Admin Only)                                                 #
+# --------------------------------------------------------------------------- #
+
+@auth_api_bp.route("/impersonate/users", methods=["GET"])
+@login_required
+def api_impersonate_users():
+    """Lista utenti attivi per impersonation (solo admin)."""
+    if not current_user.is_admin:
+        return jsonify({"success": False, "error": "Accesso non autorizzato."}), 403
+
+    if session.get("impersonating"):
+        return jsonify({"success": False, "error": "Sei già in modalità impersonazione."}), 400
+
+    try:
+        db.session.rollback()
+        users = User.query.filter(
+            User.is_active == True,
+            User.id != current_user.id
+        ).order_by(User.first_name, User.last_name).all()
+
+        result = []
+        for u in users:
+            role_val = getattr(u, "role", None)
+            role_value = role_val.value if (role_val is not None and hasattr(role_val, "value")) else (str(role_val) if role_val is not None else None)
+            spec = getattr(u, "specialty", None)
+            specialty_value = spec.value if (spec is not None and hasattr(spec, "value")) else (str(spec) if spec is not None else None)
+            full_name = getattr(u, "full_name", None) or f"{u.first_name or ''} {u.last_name or ''}".strip()
+            result.append({
+                "id": u.id,
+                "full_name": full_name,
+                "email": u.email,
+                "role": role_value,
+                "specialty": specialty_value,
+                "avatar_path": getattr(u, "avatar_path", None),
+            })
+
+        return jsonify({"success": True, "users": result})
+    except Exception as e:
+        from flask import current_app
+        current_app.logger.exception("Impersonate users API error: %s", e)
+        return jsonify({"success": False, "error": "Errore nel caricamento utenti."}), 500
+
+
+@auth_api_bp.route("/impersonate/<int:user_id>", methods=["POST"])
+@login_required
+def api_impersonate_user(user_id: int):
+    """Accede come un altro utente (solo admin)."""
+    if not current_user.is_admin:
+        return jsonify({"success": False, "error": "Accesso non autorizzato."}), 403
+
+    if session.get("impersonating"):
+        return jsonify({"success": False, "error": "Sei già in modalità impersonazione. Torna al tuo account prima."}), 400
+
+    target_user = User.query.get(user_id)
+    if not target_user:
+        return jsonify({"success": False, "error": "Utente non trovato."}), 404
+
+    if target_user.id == current_user.id:
+        return jsonify({"success": False, "error": "Non puoi impersonare te stesso."}), 400
+
+    # Salva l'ID dell'admin originale nella sessione
+    session["impersonating"] = True
+    session["original_admin_id"] = current_user.id
+    session["original_admin_name"] = current_user.full_name
+
+    # Crea log dell'impersonazione
+    log = ImpersonationLog(
+        admin_id=current_user.id,
+        impersonated_user_id=target_user.id,
+        ip_address=request.remote_addr or request.environ.get("HTTP_X_FORWARDED_FOR"),
+        user_agent=request.user_agent.string[:500] if request.user_agent else None,
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    session["impersonation_log_id"] = log.id
+
+    # Effettua il login come l'utente target
+    logout_user()
+    login_user(target_user)
+
+    return jsonify({"success": True, "message": f"Stai ora navigando come {target_user.full_name}"})
+
+
+@auth_api_bp.route("/stop-impersonation", methods=["POST"])
+@login_required
+def api_stop_impersonation():
+    """Torna all'account admin originale."""
+    if not session.get("impersonating"):
+        return jsonify({"success": False, "error": "Non sei in modalità impersonazione."}), 400
+
+    original_admin_id = session.get("original_admin_id")
+    impersonation_log_id = session.get("impersonation_log_id")
+
+    if not original_admin_id:
+        session.pop("impersonating", None)
+        session.pop("original_admin_id", None)
+        session.pop("original_admin_name", None)
+        session.pop("impersonation_log_id", None)
+        return jsonify({"success": False, "error": "Impossibile recuperare l'account originale."}), 400
+
+    # Aggiorna il log con timestamp di fine
+    if impersonation_log_id:
+        log = ImpersonationLog.query.get(impersonation_log_id)
+        if log:
+            log.ended_at = datetime.utcnow()
+            db.session.commit()
+
+    # Recupera l'admin originale
+    admin = User.query.get(original_admin_id)
+    if not admin:
+        session.pop("impersonating", None)
+        session.pop("original_admin_id", None)
+        session.pop("original_admin_name", None)
+        session.pop("impersonation_log_id", None)
+        return jsonify({"success": False, "error": "Account admin non trovato."}), 400
+
+    # Pulisci la sessione di impersonation
+    session.pop("impersonating", None)
+    session.pop("original_admin_id", None)
+    session.pop("original_admin_name", None)
+    session.pop("impersonation_log_id", None)
+
+    # Effettua il login come admin
+    logout_user()
+    login_user(admin)
+
+    return jsonify({"success": True, "message": f"Sei tornato al tuo account ({admin.full_name})"})
 
 
 # --------------------------------------------------------------------------- #
