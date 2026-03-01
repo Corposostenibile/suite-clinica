@@ -336,8 +336,14 @@ def upgrade():
                existing_nullable=False)
 
     with op.batch_alter_table('ghl_opportunity_data', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('health_manager_id', sa.Integer(), nullable=True))
-        batch_op.create_foreign_key(None, 'users', ['health_manager_id'], ['id'])
+        conn = op.get_bind()
+        _hm_exists = conn.execute(sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'ghl_opportunity_data' AND column_name = 'health_manager_id'"
+        )).fetchone()
+        if not _hm_exists:
+            batch_op.add_column(sa.Column('health_manager_id', sa.Integer(), nullable=True))
+            batch_op.create_foreign_key(None, 'users', ['health_manager_id'], ['id'])
 
     with op.batch_alter_table('job_applications', schema=None) as batch_op:
         batch_op.alter_column('source',
