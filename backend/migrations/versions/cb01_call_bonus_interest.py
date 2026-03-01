@@ -14,6 +14,17 @@ branch_labels = None
 depends_on = None
 
 
+def _add_column_if_not_exists(table, column_name, column):
+    """Add a column only if it doesn't already exist (idempotent)."""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = :table AND column_name = :col"
+    ), {"table": table, "col": column_name})
+    if not result.fetchone():
+        op.add_column(table, column)
+
+
 def upgrade():
     # ALTER TYPE ... ADD VALUE cannot run inside a transaction block in Postgres.
     # We must commit first so the new values are visible to subsequent DDL.
@@ -21,11 +32,11 @@ def upgrade():
     op.execute("ALTER TYPE callbonusstatusenum ADD VALUE IF NOT EXISTS 'interessato'")
     op.execute("ALTER TYPE callbonusstatusenum ADD VALUE IF NOT EXISTS 'non_interessato'")
 
-    op.add_column('call_bonus', sa.Column('data_interesse', sa.DateTime(), nullable=True))
-    op.add_column('call_bonus', sa.Column('hm_booking_confirmed', sa.Boolean(), server_default='false', nullable=True))
-    op.add_column('call_bonus', sa.Column('data_hm_booking_confirmed', sa.DateTime(), nullable=True))
-    op.add_column('call_bonus', sa.Column('webhook_sent', sa.Boolean(), server_default='false', nullable=True))
-    op.add_column('call_bonus', sa.Column('webhook_sent_at', sa.DateTime(), nullable=True))
+    _add_column_if_not_exists('call_bonus', 'data_interesse', sa.Column('data_interesse', sa.DateTime(), nullable=True))
+    _add_column_if_not_exists('call_bonus', 'hm_booking_confirmed', sa.Column('hm_booking_confirmed', sa.Boolean(), server_default='false', nullable=True))
+    _add_column_if_not_exists('call_bonus', 'data_hm_booking_confirmed', sa.Column('data_hm_booking_confirmed', sa.DateTime(), nullable=True))
+    _add_column_if_not_exists('call_bonus', 'webhook_sent', sa.Column('webhook_sent', sa.Boolean(), server_default='false', nullable=True))
+    _add_column_if_not_exists('call_bonus', 'webhook_sent_at', sa.Column('webhook_sent_at', sa.DateTime(), nullable=True))
 
 
 def downgrade():
