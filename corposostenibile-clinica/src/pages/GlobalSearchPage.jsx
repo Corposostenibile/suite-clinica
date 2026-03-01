@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Modal, Button } from 'react-bootstrap';
 import searchService from '../services/searchService';
 import './GlobalSearchPage.css';
 
@@ -17,6 +18,7 @@ const GlobalSearchPage = () => {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ total: 0, pages: 0 });
     const [resultCounts, setResultCounts] = useState({ all: 0, paziente: 0, check: 0, professional: 0, training: 0 });
+    const [selectedResult, setSelectedResult] = useState(null);
     
     // Effect: Perform search when URL query changes
     useEffect(() => {
@@ -90,6 +92,21 @@ const GlobalSearchPage = () => {
         training: results.filter(r => r.category === 'training')
     };
 
+    const ROLE_LABELS = {
+        admin: 'Admin',
+        amministratore: 'Admin',
+        cco: 'CCO',
+        coordinatore: 'Coordinatore',
+        team_leader: 'Team Leader',
+        health_manager: 'Health Manager',
+        professionista: 'Professionista',
+        team_esterno: 'Team Esterno',
+        consulente: 'Consulente',
+        nutrizionista: 'Nutrizionista',
+        coach: 'Coach',
+        psicologo: 'Psicologo',
+    };
+
     // Render Helpers
     const renderCard = (result) => {
         let iconClass = 'mdi mdi-magnify';
@@ -102,7 +119,7 @@ const GlobalSearchPage = () => {
                 iconClass = 'mdi mdi-account';
                 avatarClass = 'avatar-paziente';
                 badgeClass = 'badge-paziente';
-                label = 'Pazienti';
+                label = 'Paziente';
                 break;
             case 'check':
                 iconClass = 'mdi mdi-file-document-check';
@@ -110,12 +127,14 @@ const GlobalSearchPage = () => {
                 badgeClass = 'badge-check';
                 label = 'Check';
                 break;
-            case 'professional':
+            case 'professional': {
                 iconClass = 'mdi mdi-doctor';
                 avatarClass = 'avatar-professional';
                 badgeClass = 'badge-professional';
-                label = 'Professionisti';
+                const role = result.metadata?.role;
+                label = ROLE_LABELS[role] || 'Professionista';
                 break;
+            }
             case 'training':
                 iconClass = 'mdi mdi-school';
                 avatarClass = 'avatar-training';
@@ -127,14 +146,14 @@ const GlobalSearchPage = () => {
         }
 
         return (
-            <div 
-                key={`${result.type}-${result.id}`} 
+            <div
+                key={`${result.type}-${result.id}`}
                 className="result-card-clean"
-                onClick={() => navigate(result.link)}
+                onClick={() => setSelectedResult(result)}
             >
                 {result.avatar ? (
-                    <div 
-                        className="result-avatar" 
+                    <div
+                        className="result-avatar"
                         style={{ backgroundImage: `url(${result.avatar})` }}
                     />
                 ) : (
@@ -142,22 +161,161 @@ const GlobalSearchPage = () => {
                         <i className={iconClass}></i>
                     </div>
                 )}
-                
+
                 <div className="result-info">
                     <div className="result-info-header">
                         <h4 className="result-name">{result.title}</h4>
-                        <span className={`result-role-badge ${badgeClass}`}>{label}</span>
                     </div>
-                    
                     <div className="result-meta">
-                         <div className="result-meta-item">
-                            <i className="mdi mdi-information-outline"></i>
-                            <span>{result.subtitle}</span>
-                        </div>
+                        <span>{result.subtitle}</span>
                     </div>
+                </div>
+
+                <div className="result-card-right">
+                    <span className={`result-role-badge ${badgeClass}`}>{label}</span>
+                    <i className="mdi mdi-chevron-right result-arrow"></i>
                 </div>
             </div>
         );
+    };
+
+    const STATO_COLORS = {
+        attivo: '#059669',
+        ghost: '#94a3b8',
+        pausa: '#f59e0b',
+        stop: '#ef4444',
+    };
+
+    const renderPreviewBody = (result) => {
+        if (!result) return null;
+        const meta = result.metadata || {};
+
+        switch (result.type) {
+            case 'paziente':
+                return (
+                    <div className="preview-info-grid">
+                        {meta.stato && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Stato</span>
+                                <span
+                                    className="preview-stato-badge"
+                                    style={{
+                                        background: `${STATO_COLORS[meta.stato] || '#94a3b8'}18`,
+                                        color: STATO_COLORS[meta.stato] || '#94a3b8',
+                                        borderColor: `${STATO_COLORS[meta.stato] || '#94a3b8'}30`,
+                                    }}
+                                >
+                                    {meta.stato.charAt(0).toUpperCase() + meta.stato.slice(1)}
+                                </span>
+                            </div>
+                        )}
+                        {meta.tipologia && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Tipologia</span>
+                                <span className="preview-info-value">{meta.tipologia}</span>
+                            </div>
+                        )}
+                        {result.subtitle && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Contatto</span>
+                                <span className="preview-info-value">{result.subtitle}</span>
+                            </div>
+                        )}
+                    </div>
+                );
+            case 'professional':
+                return (
+                    <div className="preview-info-grid">
+                        {meta.role && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Ruolo</span>
+                                <span className="preview-info-value">{ROLE_LABELS[meta.role] || meta.role}</span>
+                            </div>
+                        )}
+                        {meta.specialty && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Specialità</span>
+                                <span className="preview-info-value">{meta.specialty}</span>
+                            </div>
+                        )}
+                        {meta.email && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Email</span>
+                                <span className="preview-info-value">{meta.email}</span>
+                            </div>
+                        )}
+                    </div>
+                );
+            case 'check':
+                return (
+                    <div className="preview-info-grid">
+                        {meta.patient_name && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Paziente</span>
+                                <span className="preview-info-value">{meta.patient_name}</span>
+                            </div>
+                        )}
+                        {meta.date && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Data</span>
+                                <span className="preview-info-value">{meta.date}</span>
+                            </div>
+                        )}
+                        {meta.avg_rating != null && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Voto medio</span>
+                                <span className="preview-info-value preview-rating">
+                                    <i className="mdi mdi-star"></i> {Number(meta.avg_rating).toFixed(1)}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                );
+            case 'training':
+                return (
+                    <div className="preview-info-grid">
+                        {result.subtitle && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Dettaglio</span>
+                                <span className="preview-info-value">{result.subtitle}</span>
+                            </div>
+                        )}
+                        {meta.review_type && (
+                            <div className="preview-info-row">
+                                <span className="preview-info-label">Tipo review</span>
+                                <span className="preview-info-value">{meta.review_type}</span>
+                            </div>
+                        )}
+                    </div>
+                );
+            default:
+                return result.subtitle ? (
+                    <div className="preview-info-grid">
+                        <div className="preview-info-row">
+                            <span className="preview-info-label">Info</span>
+                            <span className="preview-info-value">{result.subtitle}</span>
+                        </div>
+                    </div>
+                ) : null;
+        }
+    };
+
+    const getModalTypeInfo = (result) => {
+        if (!result) return { iconClass: '', avatarClass: '', badgeClass: '', label: '' };
+        switch (result.type) {
+            case 'paziente':
+                return { iconClass: 'mdi mdi-account', avatarClass: 'avatar-paziente', badgeClass: 'badge-paziente', label: 'Paziente' };
+            case 'check':
+                return { iconClass: 'mdi mdi-file-document-check', avatarClass: 'avatar-check', badgeClass: 'badge-check', label: 'Check' };
+            case 'professional': {
+                const role = result.metadata?.role;
+                return { iconClass: 'mdi mdi-doctor', avatarClass: 'avatar-professional', badgeClass: 'badge-professional', label: ROLE_LABELS[role] || 'Professionista' };
+            }
+            case 'training':
+                return { iconClass: 'mdi mdi-school', avatarClass: 'avatar-training', badgeClass: 'badge-training', label: 'Training' };
+            default:
+                return { iconClass: 'mdi mdi-magnify', avatarClass: '', badgeClass: '', label: '' };
+        }
     };
 
     const renderSection = (title, items, icon, categoryKey) => {
@@ -192,6 +350,7 @@ const GlobalSearchPage = () => {
                     <div className="row justify-content-center">
                         <div className="col-lg-8">
                             <div className="search-header-title text-center">
+                                <img src="/suitemind.png" alt="SUMI" className="search-header-logo" />
                                 <h1>Ricerca Globale</h1>
                                 <p>Cerca pazienti, check aziendali, professionisti e formazione in un unico posto</p>
                             </div>
@@ -280,79 +439,113 @@ const GlobalSearchPage = () => {
                                     
                                     {/* Paginazione */}
                                     {pagination.pages > 1 && (
-                                        <div className="d-flex flex-wrap justify-content-between align-items-center mt-5 pt-3 gap-3 border-top">
-                                            <span className="text-muted small">
-                                                Pagina <strong>{page}</strong> di <strong>{pagination.pages}</strong>
-                                                <span className="mx-2">•</span>
-                                                {pagination.total} risultati
+                                        <div className="search-pagination">
+                                            <span className="search-pagination-info">
+                                                Pagina <strong>{page}</strong> di <strong>{pagination.pages}</strong> — {pagination.total} risultati
                                             </span>
-                                            <nav>
-                                                <ul className="pagination mb-0" style={{ gap: '4px' }}>
-                                                    <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
-                                                        <button 
-                                                            className="page-link border-0 shadow-sm rounded-3" 
-                                                            onClick={() => handlePageChange(page - 1)}
-                                                            disabled={page === 1}
-                                                        >
-                                                            <i className="mdi mdi-chevron-left"></i>
-                                                        </button>
-                                                    </li>
-                                                    
-                                                    {[...Array(Math.min(pagination.pages, 5))].map((_, i) => {
-                                                        let pageNum;
-                                                        if (pagination.pages <= 5) pageNum = i + 1;
-                                                        else if (page <= 3) pageNum = i + 1;
-                                                        else if (page >= pagination.pages - 2) pageNum = pagination.pages - 4 + i;
-                                                        else pageNum = page - 2 + i;
-                                                        
-                                                        const isActive = page === pageNum;
-                                                        return (
-                                                            <li key={pageNum} className="page-item">
-                                                                <button 
-                                                                    className={`page-link border-0 shadow-sm rounded-3 ${isActive ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                                                                    onClick={() => handlePageChange(pageNum)}
-                                                                >
-                                                                    {pageNum}
-                                                                </button>
-                                                            </li>
-                                                        );
-                                                    })}
+                                            <div className="search-pagination-buttons">
+                                                <button
+                                                    className="search-page-btn"
+                                                    onClick={() => handlePageChange(page - 1)}
+                                                    disabled={page === 1}
+                                                >
+                                                    <i className="mdi mdi-chevron-left"></i>
+                                                </button>
 
-                                                    <li className={`page-item ${page === pagination.pages ? 'disabled' : ''}`}>
-                                                        <button 
-                                                            className="page-link border-0 shadow-sm rounded-3" 
-                                                            onClick={() => handlePageChange(page + 1)}
-                                                            disabled={page === pagination.pages}
+                                                {[...Array(Math.min(pagination.pages, 5))].map((_, i) => {
+                                                    let pageNum;
+                                                    if (pagination.pages <= 5) pageNum = i + 1;
+                                                    else if (page <= 3) pageNum = i + 1;
+                                                    else if (page >= pagination.pages - 2) pageNum = pagination.pages - 4 + i;
+                                                    else pageNum = page - 2 + i;
+
+                                                    return (
+                                                        <button
+                                                            key={pageNum}
+                                                            className={`search-page-btn ${page === pageNum ? 'active' : ''}`}
+                                                            onClick={() => handlePageChange(pageNum)}
                                                         >
-                                                            <i className="mdi mdi-chevron-right"></i>
+                                                            {pageNum}
                                                         </button>
-                                                    </li>
-                                                </ul>
-                                            </nav>
+                                                    );
+                                                })}
+
+                                                <button
+                                                    className="search-page-btn"
+                                                    onClick={() => handlePageChange(page + 1)}
+                                                    disabled={page === pagination.pages}
+                                                >
+                                                    <i className="mdi mdi-chevron-right"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </>
                             )
                         ) : query.length >= 2 ? (
                             <div className="search-empty-clean">
-                                <div className="empty-icon-clean">
-                                    <i className="mdi mdi-magnify-remove-outline"></i>
+                                <div className="empty-logo-wrapper">
+                                    <img src="/suitemind.png" alt="SUMI" />
                                 </div>
                                 <h3>Nessun risultato trovato</h3>
                                 <p>Non abbiamo trovato nulla che corrisponda a "{query}". Prova con un'altra parola chiave.</p>
                             </div>
-                        ) : (
-                             <div className="search-empty-clean">
-                                <div className="empty-icon-clean">
-                                    <i className="mdi mdi-magnify"></i>
-                                </div>
-                                <h3>Inizia la ricerca</h3>
-                                <p>Digita il nome di un paziente, un check, un professionista o una formazione per iniziare.</p>
-                            </div>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </div>
+
+            {/* Preview Modal */}
+            <Modal
+                show={!!selectedResult}
+                onHide={() => setSelectedResult(null)}
+                centered
+                className="preview-modal"
+            >
+                {selectedResult && (() => {
+                    const typeInfo = getModalTypeInfo(selectedResult);
+                    return (
+                        <>
+                            <Modal.Header closeButton className="preview-modal-header">
+                                <div className="preview-modal-title-row">
+                                    {selectedResult.avatar ? (
+                                        <div
+                                            className="preview-avatar"
+                                            style={{ backgroundImage: `url(${selectedResult.avatar})` }}
+                                        />
+                                    ) : (
+                                        <div className={`preview-avatar ${typeInfo.avatarClass}`}>
+                                            <i className={typeInfo.iconClass}></i>
+                                        </div>
+                                    )}
+                                    <div className="preview-title-info">
+                                        <h5 className="preview-title">{selectedResult.title}</h5>
+                                        <span className={`result-role-badge ${typeInfo.badgeClass}`}>{typeInfo.label}</span>
+                                    </div>
+                                </div>
+                            </Modal.Header>
+                            <Modal.Body className="preview-modal-body">
+                                {renderPreviewBody(selectedResult)}
+                            </Modal.Body>
+                            <Modal.Footer className="preview-modal-footer">
+                                <Button variant="light" onClick={() => setSelectedResult(null)}>
+                                    Chiudi
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    className="preview-go-btn"
+                                    onClick={() => {
+                                        setSelectedResult(null);
+                                        navigate(selectedResult.link);
+                                    }}
+                                >
+                                    Vai ai dettagli <i className="mdi mdi-arrow-right"></i>
+                                </Button>
+                            </Modal.Footer>
+                        </>
+                    );
+                })()}
+            </Modal>
         </div>
     );
 };

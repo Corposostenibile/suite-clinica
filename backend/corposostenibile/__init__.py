@@ -388,7 +388,7 @@ def create_app(config_name: str | None = None) -> Flask:
     from .blueprints.database_registry import bp as database_registry_bp  # Database Models Registry
     from .blueprints.dev_tracker import bp as dev_tracker_bp  # Dev Tracker - Development Team Management
     from .blueprints.it_projects import bp as it_projects_bp  # IT Projects - Gestione Progetti IT
-    from .blueprints.news import news_bp  # AGGIUNTO: Import del blueprint news
+    from .blueprints.news import news_bp, news_api_bp  # AGGIUNTO: Import del blueprint news
 
     from .blueprints.pwa import pwa_bp
     
@@ -436,6 +436,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     # News Blueprint
     app.register_blueprint(news_bp)  # AGGIUNTO: Registrazione del blueprint news
+    app.register_blueprint(news_api_bp)  # API JSON per news (React)
 
     # Blueprint Registry
     app.register_blueprint(blueprint_registry_bp)  # AGGIUNTO: Registrazione Blueprint Registry

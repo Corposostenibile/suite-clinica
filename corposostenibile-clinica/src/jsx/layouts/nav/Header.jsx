@@ -397,6 +397,12 @@ const Header = ({ onNote }) => {
                     </div>
                     <span className="fw-semibold" style={{ fontSize: '14px' }}>Mio Profilo</span>
                   </Link>
+                  <Link to="/novita" className="dropdown-item ai-icon d-flex align-items-center p-2 rounded-3 mt-1">
+                    <div className="d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 179, 106, 0.1)' }}>
+                      <i className="mdi mdi-rocket text-success" style={{ fontSize: '16px' }}></i>
+                    </div>
+                    <span className="fw-semibold" style={{ fontSize: '14px' }}>Novità</span>
+                  </Link>
                   <button onClick={logout} className="dropdown-item ai-icon d-flex align-items-center p-2 rounded-3 mt-1">
                     <div className="icon-wrapper-logout bg-danger-light d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)' }}>
                       <i className="ri-logout-box-r-line text-danger" style={{ fontSize: '16px' }}></i>
@@ -405,7 +411,7 @@ const Header = ({ onNote }) => {
                   </button>
                 </Dropdown.Menu>
               </Dropdown>
-              <li className="nav-item right-sidebar ms-2">
+              <li className="nav-item right-sidebar ms-2" style={{ marginRight: '1rem' }}>
                 <Link
                   to="#"
                   className="nav-link bell i-false c-pointer ai-icon p-2"

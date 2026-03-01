@@ -1,0 +1,656 @@
+/* ============================================
+   Assegnazioni AI — Pagina Principale
+   Design system: Suite Clinica (Poppins, #25B36A)
+   ============================================ */
+
+/* ── Layout & Animation ── */
+.assegnazioni-page {
+  animation: assegnazioniFadeIn 0.35s ease;
+}
+
+@keyframes assegnazioniFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Custom Tabs (pill chips) ── */
+.assegnazioni-page .nav-tabs {
+  border: none;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.assegnazioni-page .nav-tabs .nav-item {
+  margin: 0;
+}
+
+.assegnazioni-page .nav-tabs .nav-link {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.assegnazioni-page .nav-tabs .nav-link:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.04);
+}
+
+.assegnazioni-page .nav-tabs .nav-link.active {
+  background: #25B36A;
+  border-color: #25B36A;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 179, 106, 0.25);
+}
+
+.assegnazioni-page .nav-tabs .nav-link .badge {
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.assegnazioni-page .nav-tabs .nav-link.active .badge {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #fff;
+}
+
+/* ── Toolbar ── */
+.ai-toolbar {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-toolbar .btn-group .btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+}
+
+.ai-toolbar .btn-group .btn + .btn {
+  margin-left: -1px;
+}
+
+.ai-toolbar .form-select,
+.ai-toolbar .form-control {
+  font-size: 13px;
+  border-radius: 8px;
+  border-color: #e2e8f0;
+  background-color: #f8fafc;
+  height: 34px;
+}
+
+.ai-toolbar .form-select:focus,
+.ai-toolbar .form-control:focus {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.1);
+  background: #fff;
+}
+
+.ai-toolbar .ai-refresh-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.ai-toolbar .ai-refresh-btn:hover {
+  border-color: rgba(37, 179, 106, 0.3);
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.06);
+}
+
+/* ── Lead Filter Chips ── */
+.lead-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.lead-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lead-filter-chip i {
+  font-size: 14px;
+}
+
+.lead-filter-chip:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.04);
+}
+
+.lead-filter-chip.active {
+  background: #25B36A;
+  border-color: #25B36A;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 179, 106, 0.25);
+}
+
+/* ── Patient Cards ── */
+.patient-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: assegnazioniFadeIn 0.3s ease backwards;
+}
+
+.patient-card:hover {
+  border-color: rgba(37, 179, 106, 0.25);
+  box-shadow: 0 4px 16px rgba(37, 179, 106, 0.08);
+}
+
+.patient-card + .patient-card {
+  margin-top: 8px;
+}
+
+.patient-card .patient-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.btn-storia {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #25B36A;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-storia:hover {
+  color: #1e9a5a;
+  text-decoration: underline;
+}
+
+.patient-card .patient-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.patient-card .patient-meta a {
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.patient-card .patient-meta a:hover {
+  color: #25B36A;
+}
+
+.patient-card .patient-meta i {
+  font-size: 13px;
+  margin-right: 3px;
+  opacity: 0.7;
+}
+
+/* ── HM Chip ── */
+.hm-chip-lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.hm-chip-lg img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.hm-chip-lg.hm-chip-warn {
+  color: #f59e0b;
+  font-size: 11px;
+}
+
+/* ── Package Badge ── */
+.pkg-badge {
+  display: inline-block;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid #dbeafe;
+  letter-spacing: 0.3px;
+}
+
+/* ── Role Indicators (N/C/P) ── */
+.role-indicators {
+  display: flex;
+  gap: 4px;
+}
+
+.role-dot {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.role-dot.inactive {
+  background: #f1f5f9;
+  color: #cbd5e1;
+}
+
+.role-dot.pending {
+  border: 1.5px solid currentColor;
+  animation: rolePulse 2s ease-in-out infinite;
+}
+
+.role-dot.pending.role-n { background: #dcfce7; }
+.role-dot.pending.role-c { background: #dbeafe; }
+.role-dot.pending.role-p { background: #fef3c7; }
+
+@keyframes rolePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.role-dot.assigned {
+  color: #fff;
+}
+
+.role-dot.role-n { color: #22c55e; }
+.role-dot.role-c { color: #3b82f6; }
+.role-dot.role-p { color: #f59e0b; }
+
+.role-dot.assigned.role-n { background: #22c55e; }
+.role-dot.assigned.role-c { background: #3b82f6; }
+.role-dot.assigned.role-p { background: #f59e0b; }
+
+/* ── Check Status ── */
+.check-group {
+  display: flex;
+  gap: 8px;
+}
+
+.check-item {
+  text-align: center;
+}
+
+.check-item .check-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+/* ── Action Buttons ── */
+.patient-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.patient-actions .btn-action {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.patient-actions .btn-action:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.06);
+}
+
+.patient-actions .btn-ai {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.patient-actions .btn-ai:hover {
+  border-color: #8b5cf6;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-ai-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* ── Right panel dividers ── */
+.patient-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.patient-right .divider {
+  width: 1px;
+  height: 36px;
+  background: #e2e8f0;
+}
+
+/* ── Progress bar ── */
+.assignment-progress {
+  text-align: center;
+}
+
+.assignment-progress .progress-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* ── Empty State ── */
+.ai-empty-state {
+  text-align: center;
+  padding: 48px 20px;
+}
+
+.ai-empty-state .empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.ai-empty-state .empty-icon i {
+  font-size: 24px;
+  color: #94a3b8;
+}
+
+.ai-empty-state p {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ── Stagger animations for cards ── */
+.patient-card:nth-child(1)  { animation-delay: 0.03s; }
+.patient-card:nth-child(2)  { animation-delay: 0.06s; }
+.patient-card:nth-child(3)  { animation-delay: 0.09s; }
+.patient-card:nth-child(4)  { animation-delay: 0.12s; }
+.patient-card:nth-child(5)  { animation-delay: 0.15s; }
+.patient-card:nth-child(6)  { animation-delay: 0.18s; }
+.patient-card:nth-child(7)  { animation-delay: 0.21s; }
+.patient-card:nth-child(8)  { animation-delay: 0.24s; }
+.patient-card:nth-child(9)  { animation-delay: 0.27s; }
+.patient-card:nth-child(10) { animation-delay: 0.30s; }
+
+/* ── Spin animation (refresh) ── */
+@keyframes aiSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.ai-spin {
+  animation: aiSpin 0.8s linear infinite;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .patient-card {
+    padding: 12px 14px;
+  }
+
+  .patient-right {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .patient-right .divider {
+    display: none;
+  }
+
+}
+
+/* ── Storia Cliente Modal (task-modal style) ── */
+.storia-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: assegnazioniFadeIn 0.2s ease-out;
+}
+
+.storia-modal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: storiaModalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes storiaModalSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.storia-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.storia-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.storia-modal-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(37, 179, 106, 0.1);
+  color: #25B36A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.storia-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.storia-modal-close {
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.storia-modal-close:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.storia-modal-body {
+  padding: 24px;
+}
+
+.storia-modal-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.storia-modal-text {
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* ── Toast "Link copiato" ── */
+.ai-toast-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: aiToastFadeIn 0.25s ease-out;
+}
+
+.ai-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  font-size: 14px;
+  font-weight: 600;
+  animation: aiToastSlideDown 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-toast-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #25B36A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-toast-icon i {
+  font-size: 16px;
+  color: #fff;
+}
+
+.ai-toast-message {
+  white-space: nowrap;
+}
+
+@keyframes aiToastFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes aiToastSlideDown {
+  from { opacity: 0; transform: translateY(-16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}

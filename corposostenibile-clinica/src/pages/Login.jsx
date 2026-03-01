@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Modal } from 'react-bootstrap';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import authService from '../services/authService';
 import '../styles/auth.css';
@@ -20,6 +21,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [shake, setShake] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -154,22 +156,7 @@ function Login() {
                 </div>
               </div>
 
-              <div className="form-row d-flex justify-content-between mt-4 mb-2">
-                <div className="mb-4">
-                  <div className="form-check custom-checkbox mb-3">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      id="rememberMe"
-                      name="rememberMe"
-                      checked={formData.rememberMe}
-                      onChange={handleChange}
-                    />
-                    <label className="form-check-label" htmlFor="rememberMe">
-                      Ricordami
-                    </label>
-                  </div>
-                </div>
+              <div className="form-row d-flex justify-content-end mt-4 mb-2">
                 <Link to="/auth/forgot-password" className="btn-link text-primary">
                   Password dimenticata?
                 </Link>
@@ -190,14 +177,34 @@ function Login() {
 
               <p className="text-center">
                 Non hai un account?{' '}
-                <a href="mailto:support@corposostenibile.com" className="text-primary fw-500 contact-it-link">
+                <button type="button" className="btn btn-link text-primary fw-500 contact-it-link p-0" onClick={() => setShowSupportModal(true)}>
                   Contatta il team IT
-                </a>
+                </button>
               </p>
             </form>
           </div>
         </div>
       </div>
+
+      <Modal show={showSupportModal} onHide={() => setShowSupportModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Supporto Suite Clinica</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Per supporto ed assistenza sulla suite clinica si chiede cortesemente di aprire un ticket a <strong>Emanuele Mastronardi</strong>.
+          </p>
+          <p className="mb-0">
+            Se non hai accesso al sistema di ticketing, invia un email a{' '}
+            <a href="mailto:e.mastronardi@corposostenibile.it"><strong>e.mastronardi@corposostenibile.it</strong></a>.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-primary" onClick={() => setShowSupportModal(false)}>
+            Ho capito
+          </button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

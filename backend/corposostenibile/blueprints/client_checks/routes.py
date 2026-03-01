@@ -3752,6 +3752,7 @@ def api_initial_assignments():
                     "completed": assignment.response_count > 0,
                     "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
                     "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
+                    "token": assignment.token,
                 }
             elif check_2_form and assignment.form_id == check_2_form.id:
                 row["check_2"] = {
@@ -3759,6 +3760,7 @@ def api_initial_assignments():
                     "completed": assignment.response_count > 0,
                     "response_count": 1 if (assignment.response_count or 0) > 0 else 0,
                     "latest_response_id": assignment.latest_response.id if assignment.latest_response else None,
+                    "token": assignment.token,
                 }
 
         items = list(grouped.values())

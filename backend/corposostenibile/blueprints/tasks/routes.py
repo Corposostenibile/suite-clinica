@@ -128,8 +128,12 @@ def list_tasks():
     
     user_role = getattr(current_user, 'role', None)
     
-    # Filtro base per ruolo
-    if _can_view_all_tasks(current_user):
+    # Parametro mine=true → forza solo task dell'utente corrente (usato dalla sidebar)
+    mine_only = request.args.get('mine', '').lower() == 'true'
+
+    if mine_only:
+        query = query.filter(Task.assignee_id == current_user.id)
+    elif _can_view_all_tasks(current_user):
         # Admin / CCO: vede tutto
         pass
     elif user_role == UserRoleEnum.team_leader:
@@ -139,7 +143,7 @@ def list_tasks():
             for member in (team.members or []):
                 team_member_ids.add(member.id)
         team_member_ids.add(current_user.id)
-        
+
         if team_member_ids:
             query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
         else:
@@ -341,6 +345,8 @@ def _serialize_task(task):
         'created_at': task.created_at.isoformat() if task.created_at else None,
         'assignee_id': task.assignee_id,
         'assignee_name': task.assignee.full_name if task.assignee else None,
+        'avatar_path': task.assignee.avatar_path if task.assignee else None,
+        'avatar_url': task.assignee.avatar_url if task.assignee else None,
         'assignee_role': (task.assignee.role.value if hasattr(task.assignee.role, 'value') else task.assignee.role) if task.assignee else None,
         'assignee_specialty': (task.assignee.specialty.value if getattr(task.assignee, 'specialty', None) and hasattr(task.assignee.specialty, 'value') else str(task.assignee.specialty) if getattr(task.assignee, 'specialty', None) else None),
         'client_name': task.client.nome_cognome if task.client else None,

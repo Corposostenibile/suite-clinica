@@ -14,7 +14,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Welcome from './pages/Welcome';
 
 // Team pages
-import { TeamList, TeamAdd, TeamCapacity, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI } from './pages/team';
+import { TeamList, TeamAdd, TeamCapacity, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI, SuiteMindAssignment, CriteriProfessionisti } from './pages/team';
 
 // Trial (In Prova) pages
 import { TrialUsersList, TrialUserDetail, TrialUserForm, AssignClients } from './pages/trial';
@@ -48,13 +48,16 @@ import { CheckAzienda, CheckDaLeggere } from './pages/check';
 import { Calendario } from './pages/calendario';
 
 // Support pages
-import { Support } from './pages/support';
+import { Support, SupportDetail } from './pages/support';
 
 // Search pages
 import GlobalSearchPage from './pages/GlobalSearchPage';
 
 // Documentation
 import Documentation from './pages/documentation/Documentation';
+
+// Novità
+import Novita from './pages/Novita';
 
 // Admin pages
 import { GHLSettings, OriginSettings } from './pages/admin';
@@ -162,6 +165,16 @@ function App() {
                 <AssegnazioniAI />
               </RoleProtectedRoute>
             } />
+            <Route path="/suitemind/:opportunityId" element={
+              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
+                <SuiteMindAssignment />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/criteri-professionisti" element={
+              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
+                <CriteriProfessionisti />
+              </RoleProtectedRoute>
+            } />
 
             {/* In Prova (Trial Users) */}
             <Route path="/in-prova" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><TrialUsersList /></RoleProtectedRoute>} />
@@ -210,9 +223,13 @@ function App() {
 
             {/* Support */}
             <Route path="/supporto" element={<Support />} />
+            <Route path="/supporto/:section" element={<SupportDetail />} />
 
             {/* Global Search */}
             <Route path="/ricerca-globale" element={<GlobalSearchPage />} />
+
+            {/* Novità */}
+            <Route path="/novita" element={<Novita />} />
 
             {/* Documentazione */}
             <Route path="/documentazione" element={<Documentation />} />

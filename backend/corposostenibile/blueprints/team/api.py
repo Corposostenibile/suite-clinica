@@ -18,8 +18,8 @@ from werkzeug.utils import secure_filename
 
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
-    User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum, 
-    team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory, 
+    User, Department, Team, UserRoleEnum, UserSpecialtyEnum, TeamTypeEnum,
+    team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory,
     ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
     ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
     cliente_psicologi, cliente_consulenti
@@ -354,6 +354,41 @@ def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[
     ).group_by(Cliente.health_manager_id).all()
     for user_id, cnt in hm_rows:
         result[(int(user_id), 'health_manager')] = int(cnt)
+
+    return result
+
+
+def _get_hm_split_counts(user_ids: list[int]) -> dict[int, dict]:
+    """Return per-HM split: clienti_convertiti (attivo) vs lead_in_attesa (pending_assignment)."""
+    if not user_ids:
+        return {}
+
+    rows = db.session.query(
+        Cliente.health_manager_id.label('user_id'),
+        Cliente.stato_cliente,
+        Cliente.service_status,
+        func.count(distinct(Cliente.cliente_id)).label('cnt'),
+    ).filter(
+        Cliente.health_manager_id.in_(user_ids),
+        or_(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.service_status == 'pending_assignment',
+        ),
+    ).group_by(
+        Cliente.health_manager_id,
+        Cliente.stato_cliente,
+        Cliente.service_status,
+    ).all()
+
+    result: dict[int, dict] = {}
+    for uid, stato, svc_status, cnt in rows:
+        uid = int(uid)
+        if uid not in result:
+            result[uid] = {'clienti_convertiti': 0, 'lead_in_attesa': 0}
+        if stato and stato.value == 'attivo':
+            result[uid]['clienti_convertiti'] += int(cnt)
+        elif svc_status == 'pending_assignment':
+            result[uid]['lead_in_attesa'] += int(cnt)
 
     return result
 
@@ -1051,7 +1086,7 @@ def api_get_professionals_criteria():
             'name': f"{p.first_name} {p.last_name}",
             'department_id': dept_id,
             'department_name': dept_name,
-            'avatar_url': p.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if p.avatar_path and p.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
+            'avatar_path': p.avatar_path,
             'criteria': criteria,
             'ai_notes_summary': ai_notes.get('specializzazione', '') + ' ' + ai_notes.get('target_ideale', ''),
             'is_available': ai_notes.get('disponibile_assegnazioni', True),
@@ -2413,6 +2448,8 @@ def get_professionals_capacity():
 
     user_ids = [u.id for u in professionals]
     assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
+    hm_ids = [u.id for u in professionals if _get_capacity_role_type(u) == 'health_manager']
+    hm_split = _get_hm_split_counts(hm_ids) if hm_ids else {}
 
     capacities = ProfessionistCapacity.query.filter(
         ProfessionistCapacity.user_id.in_(user_ids)
@@ -2448,9 +2485,12 @@ def get_professionals_capacity():
         contractual_capacity = capacity.max_clients or 0
         capacity_percentage = 0 if contractual_capacity <= 0 else round((assigned_clients / contractual_capacity) * 100, 2)
 
-        rows.append({
+        row_data = {
             'user_id': prof.id,
             'full_name': prof.full_name,
+            'first_name': prof.first_name,
+            'last_name': prof.last_name,
+            'avatar_path': prof.avatar_path,
             'specialty': _get_user_specialty(prof),
             'role_type': role_type,
             'teams': [
@@ -2465,7 +2505,14 @@ def get_professionals_capacity():
             'clienti_assegnati': assigned_clients,
             'percentuale_capienza': capacity_percentage,
             'is_over_capacity': contractual_capacity > 0 and assigned_clients > contractual_capacity,
-        })
+        }
+
+        if role_type == 'health_manager':
+            split = hm_split.get(prof.id, {})
+            row_data['clienti_convertiti'] = split.get('clienti_convertiti', 0)
+            row_data['lead_in_attesa'] = split.get('lead_in_attesa', 0)
+
+        rows.append(row_data)
 
     if changed:
         db.session.commit()
@@ -2566,6 +2613,7 @@ def update_professional_capacity(user_id: int):
     })
 
 
+# =============================================================================
 # =============================================================================
 # Professional's Clients Endpoint
 # =============================================================================

@@ -10175,6 +10175,7 @@ class GHLOpportunityData(TimestampMixin, db.Model):
     email = db.Column(db.String(255))
     lead_phone = db.Column(db.String(64))
     health_manager_email = db.Column(db.String(255))
+    health_manager_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     storia = db.Column(db.Text)
     pacchetto = db.Column(db.String(255))
     durata = db.Column(db.String(50))
@@ -10182,10 +10183,13 @@ class GHLOpportunityData(TimestampMixin, db.Model):
     ip_address = db.Column(db.String(50))
     raw_payload = db.Column(db.JSON)
     processed = db.Column(db.Boolean, default=False)
-    
+
     # AI Analysis Cache
     ai_analysis = db.Column(JSONB)
     ai_analyzed_at = db.Column(db.DateTime)
+
+    # Relationships
+    health_manager = db.relationship('User', foreign_keys=[health_manager_id])
 
     def __repr__(self):
         return f'<GHLOpportunityData {self.id} - {self.nome}>'

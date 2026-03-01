@@ -1,4 +1,5 @@
 const AVATAR_KEYS = new Set(['avatar_path', 'avatar_url']);
+const isAvatarKey = (key) => AVATAR_KEYS.has(key) || key.endsWith('_avatar_path') || key.endsWith('_avatar_url');
 
 export const normalizeAvatarPath = (avatarPath) => {
   if (!avatarPath) return null;
@@ -46,7 +47,7 @@ export const normalizeMediaUrlsDeep = (value, seen = new WeakSet()) => {
   }
 
   for (const [key, nestedValue] of Object.entries(value)) {
-    if (AVATAR_KEYS.has(key)) {
+    if (isAvatarKey(key)) {
       value[key] = normalizeAvatarPath(nestedValue);
       continue;
     }

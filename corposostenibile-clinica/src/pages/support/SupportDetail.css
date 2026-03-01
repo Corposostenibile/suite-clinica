@@ -1,0 +1,197 @@
+/* SupportDetail — Suite Clinica Design System */
+
+:root {
+    --sd-primary: #25B36A;
+    --sd-primary-light: rgba(37, 179, 106, 0.08);
+    --sd-primary-border: rgba(37, 179, 106, 0.2);
+    --sd-text-main: #1e293b;
+    --sd-text-secondary: #334155;
+    --sd-text-muted: #64748b;
+    --sd-text-light: #94a3b8;
+    --sd-border: #e2e8f0;
+    --sd-border-light: #f1f5f9;
+    --sd-bg-subtle: #f8fafc;
+}
+
+/* ── Page ── */
+.sd-page {
+    animation: sdFadeIn 0.3s ease-out;
+}
+
+/* ── Header ── */
+.sd-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.sd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.sd-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid var(--sd-border);
+    border-radius: 10px;
+    color: var(--sd-text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.sd-back-btn:hover {
+    border-color: var(--sd-primary-border);
+    color: var(--sd-primary);
+    background: var(--sd-primary-light);
+}
+
+.sd-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sd-header-icon i {
+    font-size: 20px;
+    color: white;
+}
+
+.sd-header h4 {
+    font-weight: 700;
+    color: var(--sd-text-main);
+    margin-bottom: 4px;
+}
+
+.sd-header p {
+    color: var(--sd-text-muted);
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+/* ── Content card ── */
+.sd-content-card {
+    background: white;
+    border: 1px solid var(--sd-border);
+    border-radius: 14px;
+    padding: 32px;
+    animation: sdFadeIn 0.3s ease-out backwards;
+    animation-delay: 0.05s;
+}
+
+.sd-content-card h5 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sd-text-main);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sd-content-card h5 i {
+    color: var(--sd-primary);
+}
+
+.sd-content-card p {
+    font-size: 14px;
+    color: var(--sd-text-secondary);
+    line-height: 1.7;
+    margin-bottom: 16px;
+}
+
+.sd-content-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+}
+
+.sd-content-card ul li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--sd-border-light);
+    font-size: 14px;
+    color: var(--sd-text-secondary);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.sd-content-card ul li:last-child {
+    border-bottom: none;
+}
+
+.sd-content-card ul li i {
+    color: var(--sd-primary);
+    font-size: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+/* ── Placeholder (coming soon) ── */
+.sd-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.sd-placeholder-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #dcfce7, #d1fae5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+}
+
+.sd-placeholder-icon i {
+    font-size: 28px;
+    color: var(--sd-primary);
+}
+
+.sd-placeholder h5 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--sd-text-main);
+    margin-bottom: 8px;
+}
+
+.sd-placeholder p {
+    font-size: 13px;
+    color: var(--sd-text-muted);
+    max-width: 360px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+/* ── Animations ── */
+@keyframes sdFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .sd-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sd-content-card {
+        padding: 20px;
+    }
+}

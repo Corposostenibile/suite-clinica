@@ -1,0 +1,105 @@
+/* ============================================
+   Calendario — Not Connected State
+   Design system: Suite Clinica (#25B36A, Poppins)
+   ============================================ */
+
+.cal-not-connected {
+  animation: calFadeIn 0.4s ease;
+}
+
+@keyframes calFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cal-nc-hero {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 72px 40px;
+  min-height: 520px;
+}
+
+.cal-nc-icon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(37, 179, 106, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  animation: calIconFloat 3s ease-in-out infinite;
+}
+
+@keyframes calIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.cal-nc-icon i {
+  font-size: 44px;
+  color: #25B36A;
+}
+
+.cal-nc-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 10px;
+}
+
+.cal-nc-desc {
+  font-size: 14px;
+  color: #64748b;
+  max-width: 420px;
+  line-height: 1.7;
+  margin: 0 0 32px;
+}
+
+.cal-nc-desc strong {
+  color: #475569;
+}
+
+.cal-nc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 24px;
+  background: #25B36A;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(37, 179, 106, 0.3);
+}
+
+.cal-nc-badge i {
+  font-size: 16px;
+}
+
+@media (max-width: 576px) {
+  .cal-nc-hero {
+    padding: 48px 20px;
+    min-height: 400px;
+  }
+
+  .cal-nc-title {
+    font-size: 20px;
+  }
+
+  .cal-nc-icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .cal-nc-icon i {
+    font-size: 36px;
+  }
+}

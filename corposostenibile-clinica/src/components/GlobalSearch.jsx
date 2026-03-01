@@ -21,15 +21,15 @@ const GlobalSearch = () => {
 
     return (
         <form onSubmit={handleSearch} className="header-search-bar">
-            <i className="mdi mdi-magnify header-search-icon"></i>
-            <input 
-                type="text" 
-                className="header-search-input" 
-                placeholder="Ricerca globale..."
+            <input
+                type="text"
+                className="header-search-input"
+                placeholder="Cerca all'interno della suite.."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
             />
+            <i className="mdi mdi-magnify header-search-icon"></i>
         </form>
     );
 };

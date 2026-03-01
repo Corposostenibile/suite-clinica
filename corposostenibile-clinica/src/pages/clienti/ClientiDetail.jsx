@@ -27,6 +27,7 @@ import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import './ClientiDetail.css';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -2456,10 +2457,9 @@ function ClientiDetail() {
   // Loading state
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center py-5">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Caricamento...</span>
-        </div>
+      <div className="cd-loading">
+        <div className="cd-spinner"></div>
+        <p className="cd-loading-text">Caricamento...</p>
       </div>
     );
   }
@@ -2467,10 +2467,10 @@ function ClientiDetail() {
   // Error state
   if (error && !cliente) {
     return (
-      <div className="alert alert-danger d-flex align-items-center">
-        <i className="ri-error-warning-line me-2 fs-4"></i>
-        <div className="flex-grow-1">{error}</div>
-        <Link to="/clienti-lista" className="btn btn-sm btn-outline-danger">
+      <div className="cd-alert cd-alert-danger">
+        <i className="ri-error-warning-line"></i>
+        <span>{error}</span>
+        <Link to="/clienti-lista" className="cd-btn-back">
           Torna alla Lista
         </Link>
       </div>
@@ -2527,31 +2527,31 @@ function ClientiDetail() {
         accentColor="#85FF00"
       />
       {/* Page Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4" data-tour="header-dettaglio">
+      <div className="cd-page-header" data-tour="header-dettaglio">
         <div>
-          <h4 className="mb-1">Dettaglio Paziente</h4>
+          <h4>Dettaglio Paziente</h4>
           <nav aria-label="breadcrumb">
-            <ol className="breadcrumb mb-0">
-              <li className="breadcrumb-item">
+            <ul className="cd-breadcrumb">
+              <li>
                 <Link to="/clienti-lista">Pazienti</Link>
               </li>
-              <li className="breadcrumb-item active">{c.nome}</li>
-            </ol>
+              <li className="cd-breadcrumb-sep">{c.nome}</li>
+            </ul>
           </nav>
         </div>
-        <div className="d-flex gap-2">
-          <Link to="/clienti-lista" className="btn btn-outline-secondary">
-            <i className="ri-arrow-left-line me-1"></i>
+        <div className="cd-header-actions">
+          <Link to="/clienti-lista" className="cd-btn-back">
+            <i className="ri-arrow-left-line"></i>
             Torna alla Lista
           </Link>
           {canSaveGlobalClientCard && (
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
+            <button className="cd-btn-save" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
               {saving ? (
-                <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                <><span className="spinner-border spinner-border-sm"></span>Salvataggio...</>
               ) : saveSuccess ? (
-                <><i className="ri-check-line me-1"></i>Salvato!</>
+                <><i className="ri-check-line"></i>Salvato!</>
               ) : (
-                <><i className="ri-save-line me-1"></i>Salva Modifiche</>
+                <><i className="ri-save-line"></i>Salva Modifiche</>
               )}
             </button>
           )}
@@ -2560,48 +2560,45 @@ function ClientiDetail() {
 
       {/* Success/Error alerts */}
       {saveSuccess && (
-        <div className="alert alert-success alert-dismissible fade show mb-4">
-          <i className="ri-check-double-line me-2"></i>
+        <div className="cd-alert cd-alert-success">
+          <i className="ri-check-double-line"></i>
           Modifiche salvate con successo!
         </div>
       )}
       {error && (
-        <div className="alert alert-danger alert-dismissible fade show mb-4">
-          <i className="ri-error-warning-line me-2"></i>
+        <div className="cd-alert cd-alert-danger">
+          <i className="ri-error-warning-line"></i>
           {error}
           <button type="button" className="btn-close" onClick={() => setError(null)}></button>
         </div>
       )}
 
-      <div className="row g-4">
+      <div className="cd-layout">
         {/* Profile Card - Left Column */}
-        <div className="col-lg-4" data-tour="profilo-paziente">
-          <div className="card shadow-sm border-0 overflow-hidden">
+        <div data-tour="profilo-paziente">
+          <div className="cd-profile-card">
             {/* Gradient Header */}
             <div
-              className="position-relative"
-              style={{ background: statusGradient, height: '120px' }}
+              className="cd-profile-banner"
+              style={{ background: statusGradient }}
             >
               {/* Status badges */}
-              <div className="position-absolute top-0 start-0 p-3 d-flex gap-2">
-                <span className={`badge bg-${statusColor}`}>
-                  <i className={`ri-${c.statoCliente === 'attivo' ? 'checkbox-circle' : 'close-circle'}-line me-1`}></i>
+              <div className="cd-profile-badges">
+                <span className={`cd-profile-badge ${c.statoCliente}`}>
+                  <i className={`ri-${c.statoCliente === 'attivo' ? 'checkbox-circle' : 'close-circle'}-line`}></i>
                   {STATO_LABELS[c.statoCliente] || c.statoCliente}
                 </span>
                 {c.alert && (
-                  <span className="badge bg-danger">
-                    <i className="ri-alarm-warning-line me-1"></i>Alert
+                  <span className="cd-profile-badge danger">
+                    <i className="ri-alarm-warning-line"></i>Alert
                   </span>
                 )}
               </div>
 
               {/* Avatar */}
-              <div className="position-absolute start-50 translate-middle-x" style={{ bottom: '-50px' }}>
-                <div
-                  className="rounded-circle border border-4 border-white shadow d-flex align-items-center justify-content-center"
-                  style={{ width: '100px', height: '100px', background: '#fff' }}
-                >
-                  <span className="fw-bold text-primary" style={{ fontSize: '2rem' }}>
+              <div className="cd-profile-avatar-wrap">
+                <div className="cd-profile-avatar">
+                  <span className="cd-profile-avatar-text">
                     {getInitials(c.nome)}
                   </span>
                 </div>
@@ -2609,59 +2606,51 @@ function ClientiDetail() {
             </div>
 
             {/* Card Body */}
-            <div className="card-body text-center pt-5 mt-3">
-              <h4 className="mb-1">{c.nome}</h4>
-              <p className="text-muted mb-3">
+            <div className="cd-profile-body">
+              <h4 className="cd-profile-name">{c.nome}</h4>
+              <p className="cd-profile-email">
                 {formData.mail || 'Nessuna email'}
               </p>
 
               {/* Badges */}
-              <div className="d-flex justify-content-center gap-2 flex-wrap mb-4">
+              <div className="cd-profile-tags">
                 {c.tipologia && (
-                  <span className="badge bg-info-subtle text-info">
+                  <span className="cd-tag cd-tag-info">
                     {TIPOLOGIA_LABELS[c.tipologia] || c.tipologia}
                   </span>
                 )}
                 {c.programma && (
-                  <span className="badge bg-primary-subtle text-primary">
+                  <span className="cd-tag cd-tag-primary">
                     {c.programma}
                   </span>
                 )}
               </div>
 
               {/* Quick Stats */}
-              <div className="row g-3 mb-4">
-                <div className="col-6">
-                  <div className="bg-light rounded-3 p-3">
-                    <div className="text-muted small mb-1">ID Paziente</div>
-                    <div className="fw-semibold">#{c.id}</div>
-                  </div>
+              <div className="cd-stats-grid">
+                <div className="cd-stat-box">
+                  <div className="cd-stat-box-label">ID Paziente</div>
+                  <div className="cd-stat-box-value">#{c.id}</div>
                 </div>
-                <div className="col-6">
-                  <div className="bg-light rounded-3 p-3">
-                    <div className="text-muted small mb-1">Età</div>
-                    <div className="fw-semibold">{age ? `${age} anni` : '-'}</div>
-                  </div>
+                <div className="cd-stat-box">
+                  <div className="cd-stat-box-label">Età</div>
+                  <div className="cd-stat-box-value">{age ? `${age} anni` : '-'}</div>
                 </div>
-                <div className="col-6">
-                  <div className="bg-light rounded-3 p-3">
-                    <div className="text-muted small mb-1">Giorni Rimanenti</div>
-                    <div className="fw-semibold">{c.giorniRimanenti || '-'}</div>
-                  </div>
+                <div className="cd-stat-box">
+                  <div className="cd-stat-box-label">Giorni Rimanenti</div>
+                  <div className="cd-stat-box-value">{c.giorniRimanenti || '-'}</div>
                 </div>
-                <div className="col-6">
-                  <div className="bg-light rounded-3 p-3">
-                    <div className="text-muted small mb-1">Rinnovo</div>
-                    <div className="fw-semibold">
-                      {c.dataRinnovo ? new Date(c.dataRinnovo).toLocaleDateString('it-IT') : '-'}
-                    </div>
+                <div className="cd-stat-box">
+                  <div className="cd-stat-box-label">Rinnovo</div>
+                  <div className="cd-stat-box-value">
+                    {c.dataRinnovo ? new Date(c.dataRinnovo).toLocaleDateString('it-IT') : '-'}
                   </div>
                 </div>
               </div>
 
               {/* Team Quick View */}
-              <h6 className="text-uppercase text-muted small fw-semibold mb-3">Team Assegnato</h6>
-              <div className="mb-4">
+              <div className="cd-team-section-title">Team Assegnato</div>
+              <div>
                 {/* Health Manager */}
                 {(() => {
                   const hmAssignment = getActiveProfessionals('health_manager')[0];
@@ -2674,26 +2663,24 @@ function ClientiDetail() {
                   if (!hmUser) return null;
 
                   return (
-                    <div className="mb-3">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <div className="rounded-circle d-flex align-items-center justify-content-center"
-                             style={{ width: '20px', height: '20px', background: '#9333ea' }}>
-                          <i className="ri-user-star-line text-white" style={{ fontSize: '0.65rem' }}></i>
+                    <div className="cd-team-group">
+                      <div className="cd-team-group-header">
+                        <div className="cd-team-icon health-manager">
+                          <i className="ri-user-star-line"></i>
                         </div>
-                        <small className="text-muted fw-semibold">Health Manager</small>
+                        <span className="cd-team-group-label">Health Manager</span>
                       </div>
-                      <div className="d-flex align-items-center gap-2 ms-4 mb-1">
+                      <div className="cd-team-member">
                         {hmUser.avatar_path ? (
                           <img
                             src={hmUser.avatar_path}
                             alt=""
-                            className="rounded-circle"
-                            style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                            className="cd-team-member-avatar"
                           />
                         ) : (
                           <div
-                            className="rounded-circle text-white d-flex align-items-center justify-content-center"
-                            style={{ width: '28px', height: '28px', fontSize: '0.7rem', background: '#9333ea' }}
+                            className="cd-team-member-initials"
+                            style={{ background: '#9333ea' }}
                           >
                             {(hmUser.full_name || hmUser.email || '??')
                               .split(' ')
@@ -2703,9 +2690,9 @@ function ClientiDetail() {
                               .toUpperCase()}
                           </div>
                         )}
-                        <small className="fw-medium">
+                        <span className="cd-team-member-name">
                           {hmUser.full_name || hmUser.email}
-                        </small>
+                        </span>
                       </div>
                     </div>
                   );
@@ -2713,32 +2700,30 @@ function ClientiDetail() {
 
                 {/* Nutrizionisti */}
                 {c.nutrizionistiMultipli?.length > 0 && (
-                  <div className="mb-3">
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <div className="bg-success rounded-circle d-flex align-items-center justify-content-center"
-                           style={{ width: '20px', height: '20px' }}>
-                        <i className="ri-heart-pulse-line text-white" style={{ fontSize: '0.65rem' }}></i>
+                  <div className="cd-team-group">
+                    <div className="cd-team-group-header">
+                      <div className="cd-team-icon nutrizione">
+                        <i className="ri-heart-pulse-line"></i>
                       </div>
-                      <small className="text-muted fw-semibold">Nutrizione</small>
+                      <span className="cd-team-group-label">Nutrizione</span>
                     </div>
                     {c.nutrizionistiMultipli.map((prof, idx) => (
-                      <div key={idx} className="d-flex align-items-center gap-2 ms-4 mb-1">
+                      <div key={idx} className="cd-team-member">
                         {prof.avatar_path ? (
                           <img
                             src={prof.avatar_path}
                             alt=""
-                            className="rounded-circle"
-                            style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                            className="cd-team-member-avatar"
                           />
                         ) : (
                           <div
-                            className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center"
-                            style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
+                            className="cd-team-member-initials"
+                            style={{ background: '#22c55e' }}
                           >
                             {(prof.full_name || prof.email || '??').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <small className="fw-medium">{prof.full_name || prof.email}</small>
+                        <span className="cd-team-member-name">{prof.full_name || prof.email}</span>
                       </div>
                     ))}
                   </div>
@@ -2746,32 +2731,30 @@ function ClientiDetail() {
 
                 {/* Coach */}
                 {c.coachesMultipli?.length > 0 && (
-                  <div className="mb-3">
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <div className="bg-warning rounded-circle d-flex align-items-center justify-content-center"
-                           style={{ width: '20px', height: '20px' }}>
-                        <i className="ri-run-line text-dark" style={{ fontSize: '0.65rem' }}></i>
+                  <div className="cd-team-group">
+                    <div className="cd-team-group-header">
+                      <div className="cd-team-icon coach">
+                        <i className="ri-run-line"></i>
                       </div>
-                      <small className="text-muted fw-semibold">Coach</small>
+                      <span className="cd-team-group-label">Coach</span>
                     </div>
                     {c.coachesMultipli.map((prof, idx) => (
-                      <div key={idx} className="d-flex align-items-center gap-2 ms-4 mb-1">
+                      <div key={idx} className="cd-team-member">
                         {prof.avatar_path ? (
                           <img
                             src={prof.avatar_path}
                             alt=""
-                            className="rounded-circle"
-                            style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                            className="cd-team-member-avatar"
                           />
                         ) : (
                           <div
-                            className="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center"
-                            style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
+                            className="cd-team-member-initials"
+                            style={{ background: '#f59e0b' }}
                           >
                             {(prof.full_name || prof.email || '??').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <small className="fw-medium">{prof.full_name || prof.email}</small>
+                        <span className="cd-team-member-name">{prof.full_name || prof.email}</span>
                       </div>
                     ))}
                   </div>
@@ -2779,32 +2762,30 @@ function ClientiDetail() {
 
                 {/* Psicologi */}
                 {c.psicologiMultipli?.length > 0 && (
-                  <div className="mb-3">
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <div className="bg-info rounded-circle d-flex align-items-center justify-content-center"
-                           style={{ width: '20px', height: '20px' }}>
-                        <i className="ri-mental-health-line text-white" style={{ fontSize: '0.65rem' }}></i>
+                  <div className="cd-team-group">
+                    <div className="cd-team-group-header">
+                      <div className="cd-team-icon psicologia">
+                        <i className="ri-mental-health-line"></i>
                       </div>
-                      <small className="text-muted fw-semibold">Psicologia</small>
+                      <span className="cd-team-group-label">Psicologia</span>
                     </div>
                     {c.psicologiMultipli.map((prof, idx) => (
-                      <div key={idx} className="d-flex align-items-center gap-2 ms-4 mb-1">
+                      <div key={idx} className="cd-team-member">
                         {prof.avatar_path ? (
                           <img
                             src={prof.avatar_path}
                             alt=""
-                            className="rounded-circle"
-                            style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                            className="cd-team-member-avatar"
                           />
                         ) : (
                           <div
-                            className="rounded-circle bg-info text-white d-flex align-items-center justify-content-center"
-                            style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
+                            className="cd-team-member-initials"
+                            style={{ background: '#06b6d4' }}
                           >
                             {(prof.full_name || prof.email || '??').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <small className="fw-medium">{prof.full_name || prof.email}</small>
+                        <span className="cd-team-member-name">{prof.full_name || prof.email}</span>
                       </div>
                     ))}
                   </div>
@@ -2812,81 +2793,73 @@ function ClientiDetail() {
 
                 {/* Nessun professionista */}
                 {!c.healthManagerUser && !c.nutrizionistiMultipli?.length && !c.coachesMultipli?.length && !c.psicologiMultipli?.length && (
-                  <div className="text-center py-2">
-                    <small className="text-muted">Nessun professionista assegnato</small>
-                  </div>
+                  <div className="cd-team-empty">Nessun professionista assegnato</div>
                 )}
               </div>
 
               {/* Action Buttons */}
               {canDeleteClientRecord && (
-                <div className="d-grid gap-2">
-                  <button
-                    className="btn btn-outline-danger"
-                    onClick={() => setShowDeleteModal(true)}
-                  >
-                    <i className="ri-delete-bin-line me-2"></i>
-                    Elimina Paziente
-                  </button>
-                </div>
+                <button
+                  className="cd-btn-delete"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  <i className="ri-delete-bin-line"></i>
+                  Elimina Paziente
+                </button>
               )}
             </div>
           </div>
         </div>
 
         {/* Details Section - Right Column */}
-        <div className="col-lg-8">
-          <div className="card shadow-sm border-0">
+        <div>
+          <div className="cd-content-card">
             {/* Tabs Navigation */}
-            <div className="card-header bg-transparent border-bottom p-0">
-              <ul className="nav nav-tabs border-0 flex-nowrap overflow-auto" data-tour="nav-tabs-dettaglio">
-                {mainTabs.map(tab => (
-                  <li key={tab.id} className="nav-item">
-                    <button
-                      className={`nav-link px-4 py-3 ${activeTab === tab.id ? 'active' : ''}`}
-                      onClick={() => setActiveTab(tab.id)}
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      <i className={`${tab.icon} me-2`}></i>
-                      {tab.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            <div className="cd-tabs" data-tour="nav-tabs-dettaglio">
+              {mainTabs.map(tab => (
+                <button
+                  key={tab.id}
+                  className={`cd-tab ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <i className={tab.icon}></i>
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             {/* Tab Content */}
-            <div className="card-body">
+            <div className="cd-tab-content">
               {/* ========== ANAGRAFICA TAB ========== */}
               {activeTab === 'anagrafica' && (
-                <div className="row g-4">
+                <div className="cd-form-grid cols-2">
                   {/* Dati Personali */}
-                  <div className="col-md-6" data-tour="anagrafica-dati">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div data-tour="anagrafica-dati">
+                    <div className="cd-section-title">
                       Dati Personali
-                    </h6>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Nome Completo</label>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Nome Completo</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.nome_cognome}
                         onChange={(e) => handleInputChange('nome_cognome', e.target.value)}
                       />
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Data di Nascita</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Data di Nascita</label>
                       <input
                         type="date"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.data_di_nascita}
                         onChange={(e) => handleInputChange('data_di_nascita', e.target.value)}
                       />
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Genere</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Genere</label>
                       <select
-                        className="form-select"
+                        className="cd-select"
                         value={formData.genere}
                         onChange={(e) => handleInputChange('genere', e.target.value)}
                       >
@@ -2896,10 +2869,10 @@ function ClientiDetail() {
                         ))}
                       </select>
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Professione</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Professione</label>
                       <select
-                        className="form-select"
+                        className="cd-select"
                         value={formData.professione}
                         onChange={(e) => handleInputChange('professione', e.target.value)}
                       >
@@ -2916,10 +2889,10 @@ function ClientiDetail() {
                       </select>
                     </div>
                     {showProfessioneAltro && (
-                      <div className="mb-3">
+                      <div className="cd-field">
                         <input
                           type="text"
-                          className="form-control"
+                          className="cd-input"
                           placeholder="Specifica professione..."
                           value={professioneAltro}
                           onChange={(e) => setProfessioneAltro(e.target.value)}
@@ -2929,42 +2902,42 @@ function ClientiDetail() {
                   </div>
 
                   {/* Contatti */}
-                  <div className="col-md-6" data-tour="anagrafica-contatti">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div data-tour="anagrafica-contatti">
+                    <div className="cd-section-title">
                       Contatti
-                    </h6>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Email</label>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Email</label>
                       <input
                         type="email"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.mail}
                         onChange={(e) => handleInputChange('mail', e.target.value)}
                       />
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Telefono</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Telefono</label>
                       <input
                         type="tel"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.numero_telefono}
                         onChange={(e) => handleInputChange('numero_telefono', e.target.value)}
                       />
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Indirizzo</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Indirizzo</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.indirizzo}
                         onChange={(e) => handleInputChange('indirizzo', e.target.value)}
                       />
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Paese</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Paese</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.paese}
                         onChange={(e) => handleInputChange('paese', e.target.value)}
                       />
@@ -2972,42 +2945,42 @@ function ClientiDetail() {
                   </div>
 
                   {/* Storia */}
-                  <div className="col-12" data-tour="anagrafica-storia">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div style={{ gridColumn: '1 / -1' }} data-tour="anagrafica-storia">
+                    <div className="cd-section-title">
                       Storia e Obiettivi
-                    </h6>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Storia del Cliente</label>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Storia del Cliente</label>
                       <textarea
-                        className="form-control"
+                        className="cd-textarea"
                         rows="3"
                         value={formData.storia_cliente}
                         onChange={(e) => handleInputChange('storia_cliente', e.target.value)}
                       ></textarea>
                     </div>
-                    <div className="row g-3">
-                      <div className="col-md-4">
-                        <label className="form-label small text-muted">Problema</label>
+                    <div className="cd-form-grid cols-3">
+                      <div>
+                        <label className="cd-field-label">Problema</label>
                         <textarea
-                          className="form-control"
+                          className="cd-textarea"
                           rows="2"
                           value={formData.problema}
                           onChange={(e) => handleInputChange('problema', e.target.value)}
                         ></textarea>
                       </div>
-                      <div className="col-md-4">
-                        <label className="form-label small text-muted">Paure</label>
+                      <div>
+                        <label className="cd-field-label">Paure</label>
                         <textarea
-                          className="form-control"
+                          className="cd-textarea"
                           rows="2"
                           value={formData.paure}
                           onChange={(e) => handleInputChange('paure', e.target.value)}
                         ></textarea>
                       </div>
-                      <div className="col-md-4">
-                        <label className="form-label small text-muted">Conseguenze</label>
+                      <div>
+                        <label className="cd-field-label">Conseguenze</label>
                         <textarea
-                          className="form-control"
+                          className="cd-textarea"
                           rows="2"
                           value={formData.conseguenze}
                           onChange={(e) => handleInputChange('conseguenze', e.target.value)}
@@ -3020,16 +2993,16 @@ function ClientiDetail() {
 
               {/* ========== PROGRAMMA TAB ========== */}
               {activeTab === 'programma' && (
-                <div className="row g-4">
+                <div className="cd-form-grid cols-2">
                   {/* Stato */}
-                  <div className="col-md-6" data-tour="programma-stato">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div data-tour="programma-stato">
+                    <div className="cd-section-title">
                       Stato Cliente
-                    </h6>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Stato</label>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Stato</label>
                       <select
-                        className="form-select"
+                        className="cd-select"
                         value={formData.stato_cliente}
                         onChange={(e) => handleInputChange('stato_cliente', e.target.value)}
                       >
@@ -3039,10 +3012,10 @@ function ClientiDetail() {
                         ))}
                       </select>
                     </div>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Tipologia</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Tipologia</label>
                       <select
-                        className="form-select"
+                        className="cd-select"
                         value={formData.tipologia_cliente}
                         onChange={(e) => handleInputChange('tipologia_cliente', e.target.value)}
                       >
@@ -3055,15 +3028,15 @@ function ClientiDetail() {
                   </div>
 
                   {/* Programma */}
-                  <div className="col-md-6">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div>
+                    <div className="cd-section-title">
                       Programma
-                    </h6>
-                    <div className="mb-3">
-                      <label className="form-label small text-muted">Programma Attuale</label>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Programma Attuale</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className="cd-input"
                         value={formData.programma_attuale}
                         onChange={(e) => handleInputChange('programma_attuale', e.target.value)}
                       />
@@ -3071,168 +3044,162 @@ function ClientiDetail() {
                   </div>
 
                   {/* Date abbonamento generali */}
-                  <div className="col-12" data-tour="programma-date">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div style={{ gridColumn: '1 / -1' }} data-tour="programma-date">
+                    <div className="cd-section-title">
                       Date Abbonamento (generale)
-                    </h6>
-                    <div className="row g-3">
-                      <div className="col-md-4">
-                        <label className="form-label small text-muted">Data Inizio</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={formData.data_inizio_abbonamento}
-                          onChange={(e) => handleInputChange('data_inizio_abbonamento', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-md-4">
-                        <label className="form-label small text-muted">Durata (giorni)</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          value={formData.durata_programma_giorni || ''}
-                          onChange={(e) => handleInputChange('durata_programma_giorni', e.target.value)}
-                          min="0"
-                        />
-                      </div>
-                      <div className="col-md-4">
-                        <label className="form-label small text-muted">Data Scadenza</label>
-                        <input
-                          type="date"
-                          className="form-control bg-light"
-                          value={formData.data_inizio_abbonamento && formData.durata_programma_giorni
-                            ? new Date(new Date(formData.data_inizio_abbonamento).getTime() + Number(formData.durata_programma_giorni) * 86400000).toISOString().split('T')[0]
-                            : formData.data_rinnovo || ''}
-                          disabled
-                        />
+                    </div>
+                    <div className="cd-date-plan-card">
+                      <div className="cd-date-plan-grid">
+                        <div>
+                          <label className="cd-field-label">Data Inizio</label>
+                          <input
+                            type="date"
+                            className="cd-input"
+                            value={formData.data_inizio_abbonamento}
+                            onChange={(e) => handleInputChange('data_inizio_abbonamento', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Durata (giorni)</label>
+                          <input
+                            type="number"
+                            className="cd-input"
+                            value={formData.durata_programma_giorni || ''}
+                            onChange={(e) => handleInputChange('durata_programma_giorni', e.target.value)}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Data Scadenza</label>
+                          <input
+                            type="date"
+                            className="cd-input disabled"
+                            value={formData.data_inizio_abbonamento && formData.durata_programma_giorni
+                              ? new Date(new Date(formData.data_inizio_abbonamento).getTime() + Number(formData.durata_programma_giorni) * 86400000).toISOString().split('T')[0]
+                              : formData.data_rinnovo || ''}
+                            disabled
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Date per piano (Nutrizione, Coach, Psicologia) */}
-                  <div className="col-12" data-tour="programma-date-per-piano">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                  <div style={{ gridColumn: '1 / -1' }} data-tour="programma-date-per-piano">
+                    <div className="cd-section-title">
                       Date per piano
-                    </h6>
-                    <div className="row g-3">
-                      {/* Nutrizione */}
-                      <div className="col-12">
-                        <div className="card border-0 bg-light rounded-3 p-3">
-                          <div className="small fw-semibold text-muted mb-2">
-                            <i className="ri-heart-pulse-line me-1"></i> Nutrizione
-                          </div>
-                          <div className="row g-2">
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Data Inizio</label>
-                              <input
-                                type="date"
-                                className="form-control form-control-sm"
-                                value={formData.data_inizio_nutrizione || ''}
-                                onChange={(e) => handleInputChange('data_inizio_nutrizione', e.target.value)}
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Durata (giorni)</label>
-                              <input
-                                type="number"
-                                className="form-control form-control-sm"
-                                value={formData.durata_nutrizione_giorni || ''}
-                                onChange={(e) => handleInputChange('durata_nutrizione_giorni', e.target.value)}
-                                min="0"
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
-                              <input
-                                type="date"
-                                className="form-control form-control-sm bg-light"
-                                value={formData.data_inizio_nutrizione && formData.durata_nutrizione_giorni
-                                  ? new Date(new Date(formData.data_inizio_nutrizione).getTime() + Number(formData.durata_nutrizione_giorni) * 86400000).toISOString().split('T')[0]
-                                  : formData.data_scadenza_nutrizione || ''}
-                                disabled
-                              />
-                            </div>
-                          </div>
+                    </div>
+                    {/* Nutrizione */}
+                    <div className="cd-date-plan-card">
+                      <div className="cd-date-plan-label">
+                        <i className="ri-heart-pulse-line"></i> Nutrizione
+                      </div>
+                      <div className="cd-date-plan-grid">
+                        <div>
+                          <label className="cd-field-label">Data Inizio</label>
+                          <input
+                            type="date"
+                            className="cd-input sm"
+                            value={formData.data_inizio_nutrizione || ''}
+                            onChange={(e) => handleInputChange('data_inizio_nutrizione', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Durata (giorni)</label>
+                          <input
+                            type="number"
+                            className="cd-input sm"
+                            value={formData.durata_nutrizione_giorni || ''}
+                            onChange={(e) => handleInputChange('durata_nutrizione_giorni', e.target.value)}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Data Scadenza</label>
+                          <input
+                            type="date"
+                            className="cd-input sm disabled"
+                            value={formData.data_inizio_nutrizione && formData.durata_nutrizione_giorni
+                              ? new Date(new Date(formData.data_inizio_nutrizione).getTime() + Number(formData.durata_nutrizione_giorni) * 86400000).toISOString().split('T')[0]
+                              : formData.data_scadenza_nutrizione || ''}
+                            disabled
+                          />
                         </div>
                       </div>
-                      {/* Coach */}
-                      <div className="col-12">
-                        <div className="card border-0 bg-light rounded-3 p-3">
-                          <div className="small fw-semibold text-muted mb-2">
-                            <i className="ri-run-line me-1"></i> Coach
-                          </div>
-                          <div className="row g-2">
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Data Inizio</label>
-                              <input
-                                type="date"
-                                className="form-control form-control-sm"
-                                value={formData.data_inizio_coach || ''}
-                                onChange={(e) => handleInputChange('data_inizio_coach', e.target.value)}
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Durata (giorni)</label>
-                              <input
-                                type="number"
-                                className="form-control form-control-sm"
-                                value={formData.durata_coach_giorni || ''}
-                                onChange={(e) => handleInputChange('durata_coach_giorni', e.target.value)}
-                                min="0"
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
-                              <input
-                                type="date"
-                                className="form-control form-control-sm bg-light"
-                                value={formData.data_inizio_coach && formData.durata_coach_giorni
-                                  ? new Date(new Date(formData.data_inizio_coach).getTime() + Number(formData.durata_coach_giorni) * 86400000).toISOString().split('T')[0]
-                                  : formData.data_scadenza_coach || ''}
-                                disabled
-                              />
-                            </div>
-                          </div>
+                    </div>
+                    {/* Coach */}
+                    <div className="cd-date-plan-card">
+                      <div className="cd-date-plan-label">
+                        <i className="ri-run-line"></i> Coach
+                      </div>
+                      <div className="cd-date-plan-grid">
+                        <div>
+                          <label className="cd-field-label">Data Inizio</label>
+                          <input
+                            type="date"
+                            className="cd-input sm"
+                            value={formData.data_inizio_coach || ''}
+                            onChange={(e) => handleInputChange('data_inizio_coach', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Durata (giorni)</label>
+                          <input
+                            type="number"
+                            className="cd-input sm"
+                            value={formData.durata_coach_giorni || ''}
+                            onChange={(e) => handleInputChange('durata_coach_giorni', e.target.value)}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Data Scadenza</label>
+                          <input
+                            type="date"
+                            className="cd-input sm disabled"
+                            value={formData.data_inizio_coach && formData.durata_coach_giorni
+                              ? new Date(new Date(formData.data_inizio_coach).getTime() + Number(formData.durata_coach_giorni) * 86400000).toISOString().split('T')[0]
+                              : formData.data_scadenza_coach || ''}
+                            disabled
+                          />
                         </div>
                       </div>
-                      {/* Psicologia */}
-                      <div className="col-12">
-                        <div className="card border-0 bg-light rounded-3 p-3">
-                          <div className="small fw-semibold text-muted mb-2">
-                            <i className="ri-mental-health-line me-1"></i> Psicologia
-                          </div>
-                          <div className="row g-2">
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Data Inizio</label>
-                              <input
-                                type="date"
-                                className="form-control form-control-sm"
-                                value={formData.data_inizio_psicologia || ''}
-                                onChange={(e) => handleInputChange('data_inizio_psicologia', e.target.value)}
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Durata (giorni)</label>
-                              <input
-                                type="number"
-                                className="form-control form-control-sm"
-                                value={formData.durata_psicologia_giorni || ''}
-                                onChange={(e) => handleInputChange('durata_psicologia_giorni', e.target.value)}
-                                min="0"
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <label className="form-label small text-muted mb-0">Data Scadenza</label>
-                              <input
-                                type="date"
-                                className="form-control form-control-sm bg-light"
-                                value={formData.data_inizio_psicologia && formData.durata_psicologia_giorni
-                                  ? new Date(new Date(formData.data_inizio_psicologia).getTime() + Number(formData.durata_psicologia_giorni) * 86400000).toISOString().split('T')[0]
-                                  : formData.data_scadenza_psicologia || ''}
-                                disabled
-                              />
-                            </div>
-                          </div>
+                    </div>
+                    {/* Psicologia */}
+                    <div className="cd-date-plan-card">
+                      <div className="cd-date-plan-label">
+                        <i className="ri-mental-health-line"></i> Psicologia
+                      </div>
+                      <div className="cd-date-plan-grid">
+                        <div>
+                          <label className="cd-field-label">Data Inizio</label>
+                          <input
+                            type="date"
+                            className="cd-input sm"
+                            value={formData.data_inizio_psicologia || ''}
+                            onChange={(e) => handleInputChange('data_inizio_psicologia', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Durata (giorni)</label>
+                          <input
+                            type="number"
+                            className="cd-input sm"
+                            value={formData.durata_psicologia_giorni || ''}
+                            onChange={(e) => handleInputChange('durata_psicologia_giorni', e.target.value)}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="cd-field-label">Data Scadenza</label>
+                          <input
+                            type="date"
+                            className="cd-input sm disabled"
+                            value={formData.data_inizio_psicologia && formData.durata_psicologia_giorni
+                              ? new Date(new Date(formData.data_inizio_psicologia).getTime() + Number(formData.durata_psicologia_giorni) * 86400000).toISOString().split('T')[0]
+                              : formData.data_scadenza_psicologia || ''}
+                            disabled
+                          />
                         </div>
                       </div>
                     </div>
@@ -3245,110 +3212,87 @@ function ClientiDetail() {
                 <div className="row g-4">
                   {/* Sub-tabs for Team Clinico / Team Esterno */}
                   <div className="col-12" data-tour="team-subtabs">
-                    <ul className="nav nav-pills mb-4" style={{ gap: '8px' }}>
-                      <li className="nav-item">
-                        <button
-                          className={`nav-link ${teamSubTab === 'clinico' ? 'active' : ''}`}
-                          onClick={() => setTeamSubTab('clinico')}
-                          style={{
-                            background: teamSubTab === 'clinico' ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : '#f1f5f9',
-                            color: teamSubTab === 'clinico' ? '#fff' : '#64748b',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '10px 20px',
-                            fontWeight: 600,
-                          }}
-                        >
-                          <i className="ri-heart-pulse-line me-2"></i>
-                          Team Clinico
-                        </button>
-                      </li>
+                    <div className="cd-subtabs" style={{ marginBottom: '20px' }}>
+                      <button
+                        className={`cd-subtab ${teamSubTab === 'clinico' ? 'active green' : ''}`}
+                        onClick={() => setTeamSubTab('clinico')}
+                      >
+                        <i className="ri-heart-pulse-line"></i>
+                        Team Clinico
+                      </button>
                       {canViewExternalTeamTab && (
-                        <li className="nav-item">
-                          <button
-                            className={`nav-link ${teamSubTab === 'esterno' ? 'active' : ''}`}
-                            onClick={() => setTeamSubTab('esterno')}
-                            style={{
-                              background: teamSubTab === 'esterno' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : '#f1f5f9',
-                              color: teamSubTab === 'esterno' ? '#fff' : '#64748b',
-                              border: 'none',
-                              borderRadius: '8px',
-                              padding: '10px 20px',
-                              fontWeight: 600,
-                            }}
-                          >
-                            <i className="ri-team-line me-2"></i>
-                            Team Esterno
-                          </button>
-                        </li>
+                        <button
+                          className={`cd-subtab ${teamSubTab === 'esterno' ? 'active blue' : ''}`}
+                          onClick={() => setTeamSubTab('esterno')}
+                        >
+                          <i className="ri-team-line"></i>
+                          Team Esterno
+                        </button>
                       )}
-                    </ul>
+                    </div>
                   </div>
 
                   {/* ===== TEAM CLINICO ===== */}
                   {teamSubTab === 'clinico' && (
-                    <div className="col-12" data-tour="team-clinico-wrapper">
-                      <div className="row g-4">
+                    <div data-tour="team-clinico-wrapper">
+                      <div>
                       {/* Professionisti Clinici */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Professionisti Assegnati
-                        </h6>
+                        </div>
                         {loadingHistory ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento...</small>
+                          <div className="cd-loading">
+                            <div className="cd-spinner"></div>
+                            <p className="cd-loading-text">Caricamento...</p>
                           </div>
                         ) : (
-                          <div className="row g-3 align-items-start">
+                          <div className="cd-assignment-grid">
                             {/* Nutrizionisti */}
-                            <div className="col-md-6 col-xl-3">
-                              <div className="card border">
-                                <div className="card-body p-3">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <div className="d-flex align-items-center">
-                                      <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                           style={{ width: '28px', height: '28px' }}>
-                                        <i className="ri-heart-pulse-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                            <div>
+                              <div className="cd-inner-card">
+                                <div className="cd-inner-card-body">
+                                  <div className="cd-inner-card-header-row">
+                                    <div className="cd-inner-card-header-left">
+                                      <div className="cd-icon-circle success">
+                                        <i className="ri-heart-pulse-line"></i>
                                       </div>
-                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Nutrizionista</span>
+                                      <span className="cd-inner-card-title">Nutrizionista</span>
                                     </div>
                                     {canManageAssignmentType('nutrizionista') && (
                                       <button
-                                        className="btn btn-success btn-sm d-flex align-items-center justify-content-center"
+                                        className="cd-btn-icon-sm"
                                         onClick={() => handleOpenAssignModal('nutrizionista')}
                                         title="Aggiungi Nutrizionista"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                        style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}
                                       >
-                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                        <i className="ri-add-line"></i>
                                       </button>
                                     )}
                                   </div>
                                   {getActiveProfessionals('nutrizionista').length > 0 ? (
                                     getActiveProfessionals('nutrizionista').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                        <div className="d-flex align-items-center">
+                                      <div key={idx} className="cd-assignment-row">
+                                        <div className="cd-assignment-info">
                                           {assignment.avatar_path ? (
                                             <img
                                               src={assignment.avatar_path}
                                               alt=""
-                                              className="rounded-circle me-2"
-                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                              className="cd-prof-avatar"
                                             />
                                           ) : (
-                                            <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2"
-                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                            <div className="cd-prof-initials" style={{ background: '#22c55e' }}>
                                               {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
                                           )}
                                           <div>
-                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                            <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                            <span className="cd-prof-date">dal {assignment.data_dal}</span>
                                           </div>
                                         </div>
                                         {canManageAssignmentType('nutrizionista') && (
                                           <button
-                                            className="btn btn-sm btn-link text-danger p-0"
+                                            className="cd-btn-remove"
                                             onClick={() => handleOpenInterruptModal(assignment)}
                                             title="Rimuovi"
                                           >
@@ -3358,60 +3302,57 @@ function ClientiDetail() {
                                       </div>
                                     ))
                                   ) : (
-                                    <small className="text-muted">Nessuno assegnato</small>
+                                    <span className="cd-empty-text">Nessuno assegnato</span>
                                   )}
                                 </div>
                               </div>
                             </div>
 
                             {/* Coach */}
-                            <div className="col-md-6 col-xl-3">
-                              <div className="card border">
-                                <div className="card-body p-3">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <div className="d-flex align-items-center">
-                                      <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                           style={{ width: '28px', height: '28px' }}>
-                                        <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                            <div>
+                              <div className="cd-inner-card">
+                                <div className="cd-inner-card-body">
+                                  <div className="cd-inner-card-header-row">
+                                    <div className="cd-inner-card-header-left">
+                                      <div className="cd-icon-circle warning">
+                                        <i className="ri-run-line"></i>
                                       </div>
-                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Coach</span>
+                                      <span className="cd-inner-card-title">Coach</span>
                                     </div>
                                     {canManageAssignmentType('coach') && (
                                       <button
-                                        className="btn btn-warning btn-sm d-flex align-items-center justify-content-center"
+                                        className="cd-btn-icon-sm"
                                         onClick={() => handleOpenAssignModal('coach')}
                                         title="Aggiungi Coach"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                        style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}
                                       >
-                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                        <i className="ri-add-line"></i>
                                       </button>
                                     )}
                                   </div>
                                   {getActiveProfessionals('coach').length > 0 ? (
                                     getActiveProfessionals('coach').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                        <div className="d-flex align-items-center">
+                                      <div key={idx} className="cd-assignment-row">
+                                        <div className="cd-assignment-info">
                                           {assignment.avatar_path ? (
                                             <img
                                               src={assignment.avatar_path}
                                               alt=""
-                                              className="rounded-circle me-2"
-                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                              className="cd-prof-avatar"
                                             />
                                           ) : (
-                                            <div className="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center me-2"
-                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                            <div className="cd-prof-initials" style={{ background: '#f59e0b' }}>
                                               {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
                                           )}
                                           <div>
-                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                            <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                            <span className="cd-prof-date">dal {assignment.data_dal}</span>
                                           </div>
                                         </div>
                                         {canManageAssignmentType('coach') && (
                                           <button
-                                            className="btn btn-sm btn-link text-danger p-0"
+                                            className="cd-btn-remove"
                                             onClick={() => handleOpenInterruptModal(assignment)}
                                             title="Rimuovi"
                                           >
@@ -3421,60 +3362,57 @@ function ClientiDetail() {
                                       </div>
                                     ))
                                   ) : (
-                                    <small className="text-muted">Nessuno assegnato</small>
+                                    <span className="cd-empty-text">Nessuno assegnato</span>
                                   )}
                                 </div>
                               </div>
                             </div>
 
                             {/* Psicologi */}
-                            <div className="col-md-6 col-xl-3">
-                              <div className="card border">
-                                <div className="card-body p-3">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <div className="d-flex align-items-center">
-                                      <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                           style={{ width: '28px', height: '28px' }}>
-                                        <i className="ri-mental-health-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                            <div>
+                              <div className="cd-inner-card">
+                                <div className="cd-inner-card-body">
+                                  <div className="cd-inner-card-header-row">
+                                    <div className="cd-inner-card-header-left">
+                                      <div className="cd-icon-circle info">
+                                        <i className="ri-mental-health-line"></i>
                                       </div>
-                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Psicologo</span>
+                                      <span className="cd-inner-card-title">Psicologo</span>
                                     </div>
                                     {canManageAssignmentType('psicologa') && (
                                       <button
-                                        className="btn btn-info btn-sm d-flex align-items-center justify-content-center"
+                                        className="cd-btn-icon-sm"
                                         onClick={() => handleOpenAssignModal('psicologa')}
                                         title="Aggiungi Psicologo"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                        style={{ background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4' }}
                                       >
-                                        <i className="ri-add-line text-white" style={{ fontSize: '0.9rem' }}></i>
+                                        <i className="ri-add-line"></i>
                                       </button>
                                     )}
                                   </div>
                                   {getActiveProfessionals('psicologa').length > 0 ? (
                                     getActiveProfessionals('psicologa').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                        <div className="d-flex align-items-center">
+                                      <div key={idx} className="cd-assignment-row">
+                                        <div className="cd-assignment-info">
                                           {assignment.avatar_path ? (
                                             <img
                                               src={assignment.avatar_path}
                                               alt=""
-                                              className="rounded-circle me-2"
-                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                              className="cd-prof-avatar"
                                             />
                                           ) : (
-                                            <div className="rounded-circle bg-info text-white d-flex align-items-center justify-content-center me-2"
-                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                            <div className="cd-prof-initials" style={{ background: '#06b6d4' }}>
                                               {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
                                           )}
                                           <div>
-                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                            <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                            <span className="cd-prof-date">dal {assignment.data_dal}</span>
                                           </div>
                                         </div>
                                         {canManageAssignmentType('psicologa') && (
                                           <button
-                                            className="btn btn-sm btn-link text-danger p-0"
+                                            className="cd-btn-remove"
                                             onClick={() => handleOpenInterruptModal(assignment)}
                                             title="Rimuovi"
                                           >
@@ -3484,60 +3422,57 @@ function ClientiDetail() {
                                       </div>
                                     ))
                                   ) : (
-                                    <small className="text-muted">Nessuno assegnato</small>
+                                    <span className="cd-empty-text">Nessuno assegnato</span>
                                   )}
                                 </div>
                               </div>
                             </div>
 
                             {/* Medici */}
-                            <div className="col-md-6 col-xl-3">
-                              <div className="card border">
-                                <div className="card-body p-3">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <div className="d-flex align-items-center">
-                                      <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                           style={{ width: '28px', height: '28px' }}>
-                                        <i className="ri-stethoscope-line text-danger" style={{ fontSize: '0.85rem' }}></i>
+                            <div>
+                              <div className="cd-inner-card">
+                                <div className="cd-inner-card-body">
+                                  <div className="cd-inner-card-header-row">
+                                    <div className="cd-inner-card-header-left">
+                                      <div className="cd-icon-circle danger">
+                                        <i className="ri-stethoscope-line"></i>
                                       </div>
-                                      <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Medico</span>
+                                      <span className="cd-inner-card-title">Medico</span>
                                     </div>
                                     {canManageAssignmentType('medico') && (
                                       <button
-                                        className="btn btn-danger btn-sm d-flex align-items-center justify-content-center"
+                                        className="cd-btn-icon-sm"
                                         onClick={() => handleOpenAssignModal('medico')}
                                         title="Aggiungi Medico"
-                                        style={{ width: '26px', height: '26px', padding: 0 }}
+                                        style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
                                       >
-                                        <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                        <i className="ri-add-line"></i>
                                       </button>
                                     )}
                                   </div>
                                   {getActiveProfessionals('medico').length > 0 ? (
                                     getActiveProfessionals('medico').map((assignment, idx) => (
-                                      <div key={idx} className="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
-                                        <div className="d-flex align-items-center">
+                                      <div key={idx} className="cd-assignment-row">
+                                        <div className="cd-assignment-info">
                                           {assignment.avatar_path ? (
                                             <img
                                               src={assignment.avatar_path}
                                               alt=""
-                                              className="rounded-circle me-2"
-                                              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                              className="cd-prof-avatar"
                                             />
                                           ) : (
-                                            <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2"
-                                                 style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                            <div className="cd-prof-initials" style={{ background: '#ef4444' }}>
                                               {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
                                           )}
                                           <div>
-                                            <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                            <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                            <span className="cd-prof-date">dal {assignment.data_dal}</span>
                                           </div>
                                         </div>
                                         {canManageAssignmentType('medico') && (
                                           <button
-                                            className="btn btn-sm btn-link text-danger p-0"
+                                            className="cd-btn-remove"
                                             onClick={() => handleOpenInterruptModal(assignment)}
                                             title="Rimuovi"
                                           >
@@ -3547,7 +3482,7 @@ function ClientiDetail() {
                                       </div>
                                     ))
                                   ) : (
-                                    <small className="text-muted">Nessuno assegnato</small>
+                                    <span className="cd-empty-text">Nessuno assegnato</span>
                                   )}
                                 </div>
                               </div>
@@ -3557,76 +3492,52 @@ function ClientiDetail() {
                       </div>
 
                       {/* Timeline Storico Assegnazioni - Orizzontale */}
-                      <div className="col-12 mt-4" data-tour="team-timeline">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          <i className="ri-history-line me-2"></i>
+                      <div data-tour="team-timeline" style={{ marginTop: '20px' }}>
+                        <div className="cd-section-title">
+                          <i className="ri-history-line"></i>
                           Storico Assegnazioni
-                        </h6>
+                        </div>
                         {loadingHistory ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                          <div className="cd-loading">
+                            <div className="cd-spinner"></div>
                           </div>
                         ) : getTimelineHistory().length > 0 ? (
-                          <div className="timeline-horizontal" style={{
-                            overflowX: 'auto',
-                            paddingBottom: '10px',
-                            position: 'relative',
-                          }}>
+                          <div className="cd-timeline">
                             {/* Horizontal line */}
-                            <div style={{
-                              position: 'absolute',
-                              left: '0',
-                              right: '0',
-                              top: '24px',
-                              height: '3px',
-                              background: 'linear-gradient(to right, #10b981, #3b82f6, #8b5cf6)',
-                              borderRadius: '2px',
-                              zIndex: 0,
-                            }}></div>
+                            <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #10b981, #3b82f6, #8b5cf6)' }}></div>
 
-                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                            <div className="cd-timeline-items">
                               {getTimelineHistory().map((item, idx) => {
                                 const colorConfig = TIPO_PROFESSIONISTA_COLORS[item.tipo_professionista] || { bg: 'secondary', icon: 'text-secondary' };
                                 const icon = TIPO_PROFESSIONISTA_ICONS[item.tipo_professionista] || 'ri-user-line';
 
                                 return (
-                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '160px', maxWidth: '180px' }}>
+                                  <div key={idx} className="cd-timeline-item">
                                     {/* Dot on line */}
-                                    <div className="d-flex justify-content-center mb-2">
+                                    <div className="cd-timeline-dot-wrap">
                                       <div
-                                        className={`rounded-circle d-flex align-items-center justify-content-center bg-${colorConfig.bg}`}
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          border: '3px solid #fff',
-                                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                        }}
+                                        className="cd-timeline-dot"
+                                        style={{ background: { success: '#22c55e', warning: '#f59e0b', info: '#06b6d4', danger: '#ef4444', primary: '#3b82f6' }[colorConfig.bg] || '#6b7280' }}
                                       >
-                                        <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                        <i className={icon} style={{ color: 'white' }}></i>
                                       </div>
                                     </div>
 
                                     {/* Date label */}
-                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                    <div className="cd-timeline-date">
                                       {item.data_dal || '—'}
-                                      {item.data_al && <span className="d-block">→ {item.data_al}</span>}
+                                      {item.data_al && <span style={{ display: 'block' }}>→ {item.data_al}</span>}
                                     </div>
 
                                     {/* Card */}
-                                    <div
-                                      className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
-                                      style={{
-                                        borderRadius: '12px',
-                                        background: item.is_active ? '#fff' : '#f8fafc',
-                                      }}
-                                    >
-                                      <div className="card-body p-2">
+                                    <div className={`cd-timeline-card ${!item.is_active ? 'inactive' : ''}`}>
+                                      <div>
                                         {/* Status badge */}
                                         <div className="mb-2">
                                           {item.is_active ? (
-                                            <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>Attivo</span>
                                           ) : (
-                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(107, 114, 128, 0.1)', color: '#6b7280' }}>Concluso</span>
                                           )}
                                         </div>
 
@@ -3636,13 +3547,12 @@ function ClientiDetail() {
                                             <img
                                               src={item.avatar_path}
                                               alt=""
-                                              className="rounded-circle"
-                                              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                              className="cd-timeline-card-avatar"
                                             />
                                           ) : (
                                             <div
-                                              className={`rounded-circle bg-${colorConfig.bg} text-white d-flex align-items-center justify-content-center`}
-                                              style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
+                                              className="cd-timeline-card-initials"
+                                              style={{ background: { success: '#22c55e', warning: '#f59e0b', info: '#06b6d4', danger: '#ef4444', primary: '#3b82f6' }[colorConfig.bg] || '#6b7280' }}
                                             >
                                               {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
@@ -3650,23 +3560,18 @@ function ClientiDetail() {
                                         </div>
 
                                         {/* Name */}
-                                        <div className="fw-semibold small mb-1" style={{
-                                          fontSize: '0.8rem',
-                                          whiteSpace: 'nowrap',
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
-                                        }}>
+                                        <div className="cd-timeline-card-name">
                                           {item.professionista_nome}
                                         </div>
 
                                         {/* Type badge */}
-                                        <span className={`badge bg-${colorConfig.bg}-subtle text-${colorConfig.bg}`} style={{ fontSize: '0.6rem' }}>
+                                        <span className="cd-badge xs" style={{ background: { success: 'rgba(34, 197, 94, 0.1)', warning: 'rgba(245, 158, 11, 0.1)', info: 'rgba(6, 182, 212, 0.1)', danger: 'rgba(239, 68, 68, 0.1)', primary: 'rgba(59, 130, 246, 0.1)' }[colorConfig.bg] || 'rgba(107, 114, 128, 0.1)', color: { success: '#22c55e', warning: '#f59e0b', info: '#06b6d4', danger: '#ef4444', primary: '#3b82f6' }[colorConfig.bg] || '#6b7280' }}>
                                           {TIPO_PROFESSIONISTA_LABELS[item.tipo_professionista] || item.tipo_professionista}
                                         </span>
 
                                         {/* Motivazione (tooltip style) */}
                                         {item.motivazione_aggiunta && (
-                                          <div className="mt-2 text-start" style={{ fontSize: '0.65rem' }}>
+                                          <div className="cd-timeline-motivation">
                                             <span className="text-success">
                                               <i className="ri-add-line me-1"></i>
                                               {item.motivazione_aggiunta.length > 30
@@ -3676,7 +3581,7 @@ function ClientiDetail() {
                                           </div>
                                         )}
                                         {item.motivazione_interruzione && (
-                                          <div className="mt-1 text-start" style={{ fontSize: '0.65rem' }}>
+                                          <div className="cd-timeline-motivation">
                                             <span className="text-danger">
                                               <i className="ri-close-line me-1"></i>
                                               {item.motivazione_interruzione.length > 30
@@ -3689,7 +3594,7 @@ function ClientiDetail() {
                                         {/* Legacy indicator */}
                                         {!item.has_history && (
                                           <div className="mt-1">
-                                            <span className="badge bg-warning-subtle text-warning" style={{ fontSize: '0.55rem' }}>
+                                            <span className="cd-badge xs" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
                                               Legacy
                                             </span>
                                           </div>
@@ -3702,9 +3607,9 @@ function ClientiDetail() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-4 bg-light rounded">
-                            <i className="ri-history-line text-muted fs-3 mb-2 d-block"></i>
-                            <small className="text-muted">Nessuna assegnazione registrata</small>
+                          <div className="cd-empty">
+                            <div className="cd-empty-icon"><i className="ri-history-line"></i></div>
+                            <p className="cd-empty-text">Nessuna assegnazione registrata</p>
                           </div>
                         )}
                       </div>
@@ -3714,25 +3619,24 @@ function ClientiDetail() {
 
                   {/* ===== TEAM ESTERNO ===== */}
                   {canViewExternalTeamTab && teamSubTab === 'esterno' && (
-                    <div className="col-12" data-tour="team-esterno">
-                      <div className="card border">
-                        <div className="card-body p-3">
-                          <div className="d-flex align-items-center justify-content-between mb-2">
-                            <div className="d-flex align-items-center">
-                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                   style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-user-star-line text-primary" style={{ fontSize: '0.85rem' }}></i>
+                    <div data-tour="team-esterno">
+                      <div className="cd-inner-card">
+                        <div className="cd-inner-card-body">
+                          <div className="cd-inner-card-header-row">
+                            <div className="cd-inner-card-header-left">
+                              <div className="cd-icon-circle primary">
+                                <i className="ri-user-star-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Health Manager</span>
+                              <span className="cd-inner-card-title">Health Manager</span>
                             </div>
                             {canManageAssignmentType('health_manager') && (
                               <button
-                                className="btn btn-primary btn-sm d-flex align-items-center justify-content-center"
+                                className="cd-btn-icon-sm"
                                 onClick={() => handleOpenAssignModal('health_manager')}
                                 title="Assegna Health Manager"
-                                style={{ width: '26px', height: '26px', padding: 0 }}
+                                style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}
                               >
-                                <i className="ri-add-line" style={{ fontSize: '0.9rem' }}></i>
+                                <i className="ri-add-line"></i>
                               </button>
                             )}
                           </div>
@@ -3746,18 +3650,16 @@ function ClientiDetail() {
                               });
                               if (!hmUser) return null;
                               return (
-                                <div className="d-flex align-items-center justify-content-between p-2 bg-light rounded">
-                                  <div className="d-flex align-items-center">
+                                <div className="cd-assignment-row">
+                                  <div className="cd-assignment-info">
                                     {hmUser.avatar_path ? (
                                       <img
                                         src={hmUser.avatar_path}
                                         alt=""
-                                        className="rounded-circle me-2"
-                                        style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                                        className="cd-prof-avatar"
                                       />
                                     ) : (
-                                      <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
-                                           style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}>
+                                      <div className="cd-prof-initials" style={{ background: '#3b82f6' }}>
                                         {(hmUser.full_name || '')
                                           .split(' ')
                                           .map((n) => n[0])
@@ -3767,15 +3669,15 @@ function ClientiDetail() {
                                       </div>
                                     )}
                                     <div>
-                                      <small className="d-block fw-medium">{hmUser.full_name || 'Health Manager'}</small>
+                                      <span className="cd-prof-name">{hmUser.full_name || 'Health Manager'}</span>
                                       {hmAssignment?.data_dal && (
-                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {hmAssignment.data_dal}</small>
+                                        <span className="cd-prof-date">dal {hmAssignment.data_dal}</span>
                                       )}
                                     </div>
                                   </div>
                                   {canManageAssignmentType('health_manager') && (
                                     <button
-                                      className="btn btn-sm btn-link text-danger p-0"
+                                      className="cd-btn-remove"
                                       onClick={() => handleOpenInterruptModal(hmAssignment || {
                                         tipo_professionista: 'health_manager',
                                         professionista_id: hmUser.id,
@@ -3795,7 +3697,7 @@ function ClientiDetail() {
                               );
                             })()
                           ) : (
-                            <small className="text-muted">Nessun Health Manager assegnato</small>
+                            <span className="cd-empty-text">Nessun Health Manager assegnato</span>
                           )}
                         </div>
                       </div>
@@ -3806,103 +3708,89 @@ function ClientiDetail() {
 
               {/* ========== NUTRIZIONE TAB ========== */}
               {activeTab === 'nutrizione' && (
-                <div className="row g-4">
+                <div>
                   {/* Alert Criticità - Sempre in evidenza se presente */}
                   {formData.alert_nutrizione && (
-                    <div className="col-12">
-                      <div className="alert alert-danger border-danger mb-0 d-flex align-items-start">
-                        <i className="ri-alarm-warning-line fs-4 me-2 text-danger"></i>
+                    <div>
+                      <div className="cd-alert cd-alert-danger">
+                        <i className="ri-alarm-warning-line"></i>
                         <div>
-                          <strong className="small">Alert Nutrizione</strong>
-                          <p className="mb-0 small">{formData.alert_nutrizione}</p>
+                          <strong>Alert Nutrizione</strong>
+                          <p>{formData.alert_nutrizione}</p>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {/* Sub-tab Navigation - Same style as Team tab */}
-                  <div className="col-12" data-tour="nutrizione-subtabs">
-                    <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                      <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
-                        {[
-                          { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: '#22c55e' },
-                          { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
-                          { key: 'patologie', label: 'Patologie e Anamnesi', icon: 'ri-stethoscope-line', color: '#f59e0b' },
-                          { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
-                          { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
-                        ].map(({ key, label, icon, color }) => (
-                          <li key={key} className="nav-item">
+                  <div data-tour="nutrizione-subtabs">
+                    <div className="cd-subtabs">
+                      {[
+                        { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'green' },
+                        { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
+                        { key: 'patologie', label: 'Patologie e Anamnesi', icon: 'ri-stethoscope-line', color: 'orange' },
+                        { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
+                        { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
+                      ].map(({ key, label, icon, color }) => (
                             <button
-                              className="nav-link"
+                              key={key}
+                              className={`cd-subtab ${nutrizioneSubTab === key ? `active ${color}` : ''}`}
                               onClick={() => setNutrizioneSubTab(key)}
-                              style={{
-                                background: nutrizioneSubTab === key ? `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)` : '#f1f5f9',
-                                color: nutrizioneSubTab === key ? '#fff' : '#64748b',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '8px 16px',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                whiteSpace: 'nowrap',
-                              }}
                             >
-                              <i className={`${icon} me-1`}></i>
+                              <i className={icon}></i>
                               {label}
                             </button>
-                          </li>
-                        ))}
-                      </ul>
+                      ))}
                     </div>
                   </div>
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {nutrizioneSubTab === 'panoramica' && (
-                    <div className="col-12" data-tour="nutrizione-panoramica">
-                      <div className="row g-4">
+                    <div data-tour="nutrizione-panoramica">
+                      <div>
                       {/* Nutrizionisti Assegnati - Same style as Team tab */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Nutrizionisti Assegnati
-                        </h6>
+                        </div>
                         {loadingHistory ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                          <div className="cd-loading">
+                            <div className="cd-spinner" role="status"></div>
                             <small className="ms-2 text-muted">Caricamento...</small>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                       style={{ width: '32px', height: '32px' }}>
-                                    <i className="ri-heart-pulse-line text-success"></i>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-row">
+                                <div className="cd-inner-card-header-left">
+                                  <div className="cd-icon-circle success lg">
+                                    <i className="ri-heart-pulse-line"></i>
                                   </div>
-                                  <span className="fw-semibold">Team Nutrizione</span>
+                                  <span className="cd-inner-card-title">Team Nutrizione</span>
                                 </div>
-                                <span className="badge bg-success">{getActiveProfessionals('nutrizionista').length} attivi</span>
+                                <span className="cd-badge" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>{getActiveProfessionals('nutrizionista').length} attivi</span>
                               </div>
 
                               {getActiveProfessionals('nutrizionista').length > 0 ? (
                                 <div className="d-flex flex-wrap gap-2">
                                   {getActiveProfessionals('nutrizionista').map((assignment, idx) => (
-                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                    <div key={idx} className="cd-assignment-row">
                                       {assignment.avatar_path ? (
-                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                        <img src={assignment.avatar_path} alt="" className="cd-prof-avatar" />
                                       ) : (
-                                        <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                        <div className="cd-prof-initials lg" style={{ background: '#22c55e' }}>
                                           {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                       <div>
-                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                        <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                        <span className="cd-prof-date">dal {assignment.data_dal}</span>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-muted small mb-0">Nessun nutrizionista assegnato. Vai alla tab "Team" per assegnare.</p>
+                                <p className="cd-empty-text">Nessun nutrizionista assegnato. Vai alla tab "Team" per assegnare.</p>
                               )}
                             </div>
                           </div>
@@ -3910,49 +3798,48 @@ function ClientiDetail() {
                       </div>
 
                       {/* Medico Assegnato - Controllo semestrale */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Medico Assegnato
-                        </h6>
+                        </div>
                         {loadingHistory ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
+                          <div className="cd-loading">
+                            <div className="cd-spinner" role="status"></div>
                             <small className="ms-2 text-muted">Caricamento...</small>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                       style={{ width: '32px', height: '32px' }}>
-                                    <i className="ri-stethoscope-line text-danger"></i>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-row">
+                                <div className="cd-inner-card-header-left">
+                                  <div className="cd-icon-circle danger lg">
+                                    <i className="ri-stethoscope-line"></i>
                                   </div>
-                                  <span className="fw-semibold">Medico (controllo semestrale)</span>
+                                  <span className="cd-inner-card-title">Medico (controllo semestrale)</span>
                                 </div>
-                                <span className="badge bg-danger">{getActiveProfessionals('medico').length} attivi</span>
+                                <span className="cd-badge" style={{ background: '#fef2f2', color: '#ef4444' }}>{getActiveProfessionals('medico').length} attivi</span>
                               </div>
 
                               {getActiveProfessionals('medico').length > 0 ? (
                                 <div className="d-flex flex-wrap gap-2">
                                   {getActiveProfessionals('medico').map((assignment, idx) => (
-                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                    <div key={idx} className="cd-assignment-row">
                                       {assignment.avatar_path ? (
-                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                        <img src={assignment.avatar_path} alt="" className="cd-prof-avatar" />
                                       ) : (
-                                        <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                        <div className="cd-prof-initials lg" style={{ background: '#ef4444' }}>
                                           {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                       <div>
-                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                        <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                        <span className="cd-prof-date">dal {assignment.data_dal}</span>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-muted small mb-0">Nessun medico assegnato. Vai alla tab &quot;Team&quot; per assegnare.</p>
+                                <p className="cd-empty-text">Nessun medico assegnato. Vai alla tab &quot;Team&quot; per assegnare.</p>
                               )}
                             </div>
                           </div>
@@ -3961,29 +3848,16 @@ function ClientiDetail() {
 
                       {/* Storico Assegnazioni Timeline - Orizzontale come Team tab */}
                       {professionistiHistory.filter(h => h.tipo_professionista === 'nutrizionista').length > 0 && (
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-history-line"></i>
                             Storico Assegnazioni
-                          </h6>
-                          <div className="timeline-horizontal" style={{
-                            overflowX: 'auto',
-                            paddingBottom: '10px',
-                            position: 'relative',
-                          }}>
+                          </div>
+                          <div className="cd-timeline">
                             {/* Horizontal line */}
-                            <div style={{
-                              position: 'absolute',
-                              left: '0',
-                              right: '0',
-                              top: '24px',
-                              height: '3px',
-                              background: 'linear-gradient(to right, #22c55e, #16a34a)',
-                              borderRadius: '2px',
-                              zIndex: 0,
-                            }}></div>
+                            <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #22c55e, #16a34a)' }}></div>
 
-                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                            <div className="cd-timeline-items">
                               {professionistiHistory
                                 .filter(h => h.tipo_professionista === 'nutrizionista')
                                 .sort((a, b) => {
@@ -3992,43 +3866,28 @@ function ClientiDetail() {
                                   return dateB - dateA;
                                 })
                                 .map((item, idx) => (
-                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                  <div key={idx} className="cd-timeline-item">
                                     {/* Dot on line */}
-                                    <div className="d-flex justify-content-center mb-2">
-                                      <div
-                                        className="rounded-circle d-flex align-items-center justify-content-center bg-success"
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          border: '3px solid #fff',
-                                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                        }}
-                                      >
-                                        <i className="ri-heart-pulse-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                    <div className="cd-timeline-dot-wrap">
+                                      <div className="cd-timeline-dot" style={{ background: '#22c55e' }}>
+                                        <i className="ri-heart-pulse-line"></i>
                                       </div>
                                     </div>
 
                                     {/* Date label */}
-                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                    <div className="cd-timeline-date">
                                       {item.data_dal || '—'}
                                       {item.data_al && <span className="d-block">→ {item.data_al}</span>}
                                     </div>
 
                                     {/* Card */}
-                                    <div
-                                      className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
-                                      style={{
-                                        borderRadius: '12px',
-                                        background: item.is_active ? '#fff' : '#f8fafc',
-                                      }}
-                                    >
-                                      <div className="card-body p-2">
+                                    <div className={`cd-timeline-card ${!item.is_active ? 'inactive' : ''}`}>
                                         {/* Status badge */}
                                         <div className="mb-2">
                                           {item.is_active ? (
-                                            <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>Attivo</span>
                                           ) : (
-                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>Concluso</span>
                                           )}
                                         </div>
 
@@ -4038,13 +3897,12 @@ function ClientiDetail() {
                                             <img
                                               src={item.avatar_path}
                                               alt=""
-                                              className="rounded-circle"
-                                              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                              className="cd-timeline-card-avatar"
                                             />
                                           ) : (
                                             <div
-                                              className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center"
-                                              style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
+                                              className="cd-timeline-card-initials"
+                                              style={{ background: '#22c55e' }}
                                             >
                                               {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
@@ -4052,15 +3910,9 @@ function ClientiDetail() {
                                         </div>
 
                                         {/* Name */}
-                                        <div className="fw-semibold small" style={{
-                                          fontSize: '0.8rem',
-                                          whiteSpace: 'nowrap',
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
-                                        }}>
+                                        <div className="cd-timeline-card-name">
                                           {item.professionista_nome}
                                         </div>
-                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -4070,20 +3922,20 @@ function ClientiDetail() {
                       )}
 
                       {/* Stati Servizio e Chat in row */}
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Stato Servizio
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-heart-pulse-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle success">
+                                <i className="ri-heart-pulse-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Nutrizione</span>
+                              <span className="cd-inner-card-title">Stato Nutrizione</span>
                             </div>
                             <select
-                              className="form-select form-select-sm mb-2"
+                              className="cd-select sm mb-2"
                               value={formData.stato_nutrizione || ''}
                               onChange={(e) => handleInputChange('stato_nutrizione', e.target.value)}
                             >
@@ -4094,29 +3946,29 @@ function ClientiDetail() {
                               <option value="stop">Ex-Cliente</option>
                             </select>
                             {c.stato_nutrizione_data && (
-                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                              <span className="cd-prof-date">
                                 <i className="ri-calendar-line me-1"></i>
                                 Ultimo cambio: {new Date(c.stato_nutrizione_data).toLocaleDateString('it-IT')}
-                              </small>
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Stato Chat
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-chat-3-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle warning">
+                                <i className="ri-chat-3-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Nutrizione</span>
+                              <span className="cd-inner-card-title">Stato Chat Nutrizione</span>
                             </div>
                             <select
-                              className="form-select form-select-sm mb-2"
+                              className="cd-select sm mb-2"
                               value={formData.stato_cliente_chat_nutrizione || ''}
                               onChange={(e) => handleInputChange('stato_cliente_chat_nutrizione', e.target.value)}
                             >
@@ -4130,35 +3982,22 @@ function ClientiDetail() {
                       </div>
 
                       {/* Timeline Storico Stati Unificata */}
-                      <div className="col-12" data-tour="nutrizione-storico">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          <i className="ri-history-line me-2"></i>
+                      <div data-tour="nutrizione-storico">
+                        <div className="cd-section-title">
+                          <i className="ri-history-line"></i>
                           Storico Stati (Servizio + Chat)
-                        </h6>
+                        </div>
                         {loadingStoricoNutrizione ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                          <div className="cd-loading">
+                            <div className="cd-spinner" role="status"></div>
                             <small className="ms-2 text-muted">Caricamento storico...</small>
                           </div>
                         ) : (storicoStatoNutrizione.length > 0 || storicoChatNutrizione.length > 0) ? (
-                            <div className="timeline-horizontal" style={{
-                              overflowX: 'auto',
-                              paddingBottom: '10px',
-                              position: 'relative',
-                            }}>
+                            <div className="cd-timeline">
                               {/* Horizontal line */}
-                              <div style={{
-                                position: 'absolute',
-                                left: '0',
-                                right: '0',
-                                top: '24px',
-                                height: '3px',
-                                background: 'linear-gradient(to right, #22c55e, #f59e0b)',
-                                borderRadius: '2px',
-                                zIndex: 0,
-                              }}></div>
+                              <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #22c55e, #f59e0b)' }}></div>
 
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              <div className="cd-timeline-items">
                                 {/* Combine and sort both histories */}
                                 {[
                                   ...storicoStatoNutrizione.map(item => ({ ...item, tipo: 'servizio' })),
@@ -4171,69 +4010,53 @@ function ClientiDetail() {
                                   })
                                   .map((item, idx) => {
                                     const isServizio = item.tipo === 'servizio';
-                                    const bgColor = isServizio ? 'success' : 'warning';
+                                    const dotColor = isServizio ? '#22c55e' : '#f59e0b';
                                     const icon = isServizio ? 'ri-heart-pulse-line' : 'ri-chat-3-line';
 
                                     return (
-                                      <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '130px', maxWidth: '150px' }}>
+                                      <div key={idx} className="cd-timeline-item">
                                         {/* Dot on line */}
-                                        <div className="d-flex justify-content-center mb-2">
-                                          <div
-                                            className={`rounded-circle d-flex align-items-center justify-content-center bg-${bgColor}`}
-                                            style={{
-                                              width: '28px',
-                                              height: '28px',
-                                              border: '3px solid #fff',
-                                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                            }}
-                                          >
-                                            <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                        <div className="cd-timeline-dot-wrap">
+                                          <div className="cd-timeline-dot" style={{ background: dotColor }}>
+                                            <i className={icon}></i>
                                           </div>
                                         </div>
 
                                         {/* Date label */}
-                                        <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                        <div className="cd-timeline-date">
                                           {item.data_inizio || '—'}
                                           {item.data_fine && <span className="d-block">→ {item.data_fine}</span>}
                                         </div>
 
                                         {/* Card */}
-                                        <div
-                                          className={`card border-0 shadow-sm ${!item.is_attivo ? 'opacity-75' : ''}`}
-                                          style={{
-                                            borderRadius: '12px',
-                                            background: item.is_attivo ? '#fff' : '#f8fafc',
-                                          }}
-                                        >
-                                          <div className="card-body p-2">
+                                        <div className={`cd-timeline-card ${!item.is_attivo ? 'inactive' : ''}`}>
                                             {/* Type badge */}
                                             <div className="mb-1">
-                                              <span className={`badge bg-${bgColor}-subtle text-${bgColor}`} style={{ fontSize: '0.6rem' }}>
+                                              <span className="cd-timeline-badge" style={{ background: isServizio ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)', color: isServizio ? '#22c55e' : '#f59e0b' }}>
                                                 {isServizio ? 'Servizio' : 'Chat'}
                                               </span>
                                             </div>
 
                                             {/* Status badge */}
                                             <div className="mb-1">
-                                              <span className={`badge bg-${STATUS_COLORS[item.stato] || 'secondary'}`} style={{ fontSize: '0.7rem' }}>
+                                              <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>
                                                 {STATO_LABELS[item.stato] || item.stato}
                                               </span>
                                             </div>
 
                                             {/* Active indicator */}
                                             {item.is_attivo && (
-                                              <div className="text-success" style={{ fontSize: '0.65rem' }}>
+                                              <div style={{ fontSize: '0.65rem', color: '#22c55e' }}>
                                                 <i className="ri-checkbox-circle-fill me-1"></i>In corso
                                               </div>
                                             )}
 
                                             {/* Duration */}
                                             {item.durata_giorni > 0 && !item.is_attivo && (
-                                              <div className="text-muted" style={{ fontSize: '0.6rem' }}>
+                                              <div className="cd-prof-date">
                                                 {item.durata_giorni} giorni
                                               </div>
                                             )}
-                                          </div>
                                         </div>
                                       </div>
                                     );
@@ -4241,10 +4064,10 @@ function ClientiDetail() {
                               </div>
                             </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3 text-center text-muted">
-                              <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                              <p className="mb-0 small">Nessuno storico stati disponibile</p>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body cd-empty">
+                              <i className="ri-history-line cd-empty-icon"></i>
+                              <p className="cd-empty-text">Nessuno storico stati disponibile</p>
                               <small>I cambi di stato verranno tracciati automaticamente</small>
                             </div>
                           </div>
@@ -4256,20 +4079,20 @@ function ClientiDetail() {
 
                   {/* ===== SETUP SUB-TAB ===== */}
                   {nutrizioneSubTab === 'setup' && (
-                    <div className="col-12" data-tour="nutrizione-setup">
-                      <div className="row g-4">
+                    <div data-tour="nutrizione-setup">
+                      <div>
                       {/* Call Iniziale */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Call Iniziale
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle primary">
+                                <i className="ri-phone-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Nutrizionista</span>
+                              <span className="cd-inner-card-title">Call Iniziale Nutrizionista</span>
                             </div>
                             <div className="form-check form-switch mb-2">
                               <input
@@ -4283,15 +4106,15 @@ function ClientiDetail() {
                                 {formData.call_iniziale_nutrizionista ? 'Effettuata' : 'Non effettuata'}
                               </label>
                               {formData.call_iniziale_nutrizionista && (
-                                <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
+                                <span className="cd-badge ms-2" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>Completata</span>
                               )}
                             </div>
                             {formData.call_iniziale_nutrizionista && (
                               <div className="mt-3">
-                                <label className="form-label small text-muted mb-1">Data Call</label>
+                                <label className="cd-field-label">Data Call</label>
                                 <input
                                   type="date"
-                                  className="form-control form-control-sm"
+                                  className="cd-input sm"
                                   value={formData.data_call_iniziale_nutrizionista || ''}
                                   onChange={(e) => handleInputChange('data_call_iniziale_nutrizionista', e.target.value)}
                                 />
@@ -4302,20 +4125,20 @@ function ClientiDetail() {
                       </div>
 
                       {/* Reach Out */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Reach Out Settimanale
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle info">
+                                <i className="ri-calendar-check-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                              <span className="cd-inner-card-title">Giorno Reach Out</span>
                             </div>
                             <select
-                              className="form-select form-select-sm"
+                              className="cd-select sm"
                               value={formData.reach_out_nutrizione || ''}
                               onChange={(e) => handleInputChange('reach_out_nutrizione', e.target.value)}
                             >
@@ -4329,29 +4152,29 @@ function ClientiDetail() {
                               <option value="domenica">Domenica</option>
                             </select>
                             {formData.reach_out_nutrizione && (
-                              <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
+                              <span className="cd-prof-date d-block mt-2">
                                 <i className="ri-calendar-event-line me-1"></i>
                                 Reach out ogni {
                                   { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_nutrizione]
                                 }
-                              </small>
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
 
                       {/* Date call di visita */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Date call di visita
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-calendar-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle success">
+                                <i className="ri-calendar-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Date in cui sono state fatte le call di visita</span>
+                              <span className="cd-inner-card-title">Date in cui sono state fatte le call di visita</span>
                             </div>
                             <ul className="list-unstyled mb-0 small">
                               {formData.call_iniziale_nutrizionista && formData.data_call_iniziale_nutrizionista ? (
@@ -4360,7 +4183,7 @@ function ClientiDetail() {
                                   Call iniziale nutrizionista: <strong className="ms-1">{formData.data_call_iniziale_nutrizionista}</strong>
                                 </li>
                               ) : (
-                                <li className="text-muted">Nessuna data call di visita registrata. Compila &quot;Call Iniziale Nutrizionista&quot; sopra per registrare la data.</li>
+                                <li className="cd-empty-text">Nessuna data call di visita registrata. Compila &quot;Call Iniziale Nutrizionista&quot; sopra per registrare la data.</li>
                               )}
                             </ul>
                           </div>
@@ -4372,24 +4195,24 @@ function ClientiDetail() {
 
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {nutrizioneSubTab === 'patologie' && (
-                    <div className="col-12" data-tour="nutrizione-patologie">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="nutrizione-patologie">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Patologie del Cliente
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-stethoscope-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle warning">
+                                <i className="ri-stethoscope-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie Nutrizionali</span>
+                              <span className="cd-inner-card-title">Patologie Nutrizionali</span>
                             </div>
 
                             {/* Nessuna Patologia - in evidenza */}
                             <div
-                              className={`p-2 rounded mb-3 border ${formData.nessuna_patologia ? 'bg-success-subtle border-success' : 'border-secondary'}`}
+                              className={`cd-no-pathology-banner ${formData.nessuna_patologia ? 'active' : ''}`}
                             >
                               <div className="form-check mb-0">
                                 <input
@@ -4406,7 +4229,7 @@ function ClientiDetail() {
                             </div>
 
                             {/* Lista patologie */}
-                            <div className="row g-1">
+                            <div className="cd-pathology-grid">
                               {[
                                 { key: 'patologia_ibs', label: 'IBS' },
                                 { key: 'patologia_reflusso', label: 'Reflusso' },
@@ -4426,7 +4249,7 @@ function ClientiDetail() {
                                 { key: 'patologia_stitichezza', label: 'Stitichezza' },
                                 { key: 'patologia_tiroidee', label: 'Tiroidee' },
                               ].map(({ key, label }) => (
-                                <div key={key} className="col-md-4 col-6">
+                                <div key={key}>
                                   <div className="form-check">
                                     <input
                                       className="form-check-input"
@@ -4442,7 +4265,7 @@ function ClientiDetail() {
                                 </div>
                               ))}
                               {/* Altro Checkbox */}
-                              <div className="col-md-4 col-6">
+                              <div>
                                 <div className="form-check">
                                   <input
                                     className="form-check-input"
@@ -4463,7 +4286,7 @@ function ClientiDetail() {
                               <div className="mt-2">
                                 <input
                                   type="text"
-                                  className="form-control form-control-sm"
+                                  className="cd-input sm"
                                   placeholder="Specifica altra patologia..."
                                   value={formData.patologia_altro || ''}
                                   onChange={(e) => handleInputChange('patologia_altro', e.target.value)}
@@ -4475,35 +4298,35 @@ function ClientiDetail() {
                       </div>
 
                       {/* ===== ANAMNESI (5 sezioni) ===== */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Anamnesi (sezioni)
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center justify-content-between mb-3">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle purple">
+                                  <i className="ri-file-list-3-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie e Anamnesi</span>
+                                <span className="cd-inner-card-title">Patologie e Anamnesi</span>
                               </div>
                               <button
-                                className="btn btn-sm btn-primary"
+                                className="cd-btn-save"
                                 onClick={handleSaveAnamnesi}
                                 disabled={savingAnamnesi || loadingAnamnesi}
                               >
                                 {savingAnamnesi ? (
-                                  <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
+                                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></span>Salvataggio...</>
                                 ) : (
-                                  <><i className="ri-save-line me-1"></i>Salva</>
+                                  <><i className="ri-save-line"></i>Salva</>
                                 )}
                               </button>
                             </div>
 
                             {loadingAnamnesi ? (
-                              <div className="text-center py-4">
-                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                              <div className="cd-loading">
+                                <div className="cd-spinner" role="status"></div>
                                 <small className="ms-2 text-muted">Caricamento anamnesi...</small>
                               </div>
                             ) : (
@@ -4515,10 +4338,10 @@ function ClientiDetail() {
                                   { key: 'stileVita', title: 'Stile di Vita e Abitudini', placeholder: 'Abitudine al fumo, consumo di alcol, attività fisica, dieta.' },
                                   { key: 'terapie', title: 'Terapie e Allergie', placeholder: 'Farmaci attualmente assunti, allergie a farmaci, alimenti o sostanze ambientali.' }
                                 ].map(({ key, title, placeholder }) => (
-                                  <div key={key} className="mb-4">
-                                    <label className="form-label small fw-semibold text-muted mb-1">{title}</label>
+                                  <div key={key} className="cd-field">
+                                    <label className="cd-field-label">{title}</label>
                                     <textarea
-                                      className="form-control form-control-sm"
+                                      className="cd-textarea"
                                       rows={3}
                                       placeholder={placeholder}
                                       value={anamnesiSections[key] || ''}
@@ -4527,7 +4350,7 @@ function ClientiDetail() {
                                   </div>
                                 ))}
                                 {anamnesiNutrizione && (
-                                  <div className="small text-muted border-top pt-2">
+                                  <div className="cd-prof-date border-top pt-2">
                                     <i className="ri-information-line me-1"></i>
                                     Creato: {anamnesiNutrizione.created_at} da {anamnesiNutrizione.created_by || 'N/D'}
                                     {anamnesiNutrizione.last_modified_by && (
@@ -4548,34 +4371,34 @@ function ClientiDetail() {
 
                   {/* ===== PIANO ALIMENTARE SUB-TAB ===== */}
                   {nutrizioneSubTab === 'piano' && (
-                    <div className="col-12" data-tour="nutrizione-piani-wrapper">
-                      <div className="row g-4">
+                    <div data-tour="nutrizione-piani-wrapper">
+                      <div>
                       {/* Piano Attivo */}
-                      <div className="col-12" data-tour="nutrizione-piani">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div data-tour="nutrizione-piani">
+                        <div className="cd-section-title">
                           Piano Alimentare Attivo
-                        </h6>
+                        </div>
                         {loadingMealPlans ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+                          <div className="cd-loading">
+                            <div className="cd-spinner" role="status"></div>
                             <small className="ms-2 text-muted">Caricamento piani...</small>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                    <i className="ri-restaurant-line text-success" style={{ fontSize: '0.85rem' }}></i>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-row">
+                                <div className="cd-inner-card-header-left">
+                                  <div className="cd-icon-circle success">
+                                    <i className="ri-restaurant-line"></i>
                                   </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
+                                  <span className="cd-inner-card-title">Piano Corrente</span>
                                 </div>
                                 {canManageNutritionSection && (
                                   <button
-                                    className="btn btn-sm btn-success"
+                                    className="cd-btn-save"
                                     onClick={() => setShowAddMealPlanModal(true)}
                                   >
-                                    <i className="ri-add-line me-1"></i>
+                                    <i className="ri-add-line"></i>
                                     Nuovo Piano
                                   </button>
                                 )}
@@ -4585,11 +4408,11 @@ function ClientiDetail() {
                                 const activePlan = mealPlans.find(p => p.is_active);
                                 if (activePlan) {
                                   return (
-                                    <div className="p-3 rounded-3 bg-success-subtle">
+                                    <div className="cd-date-plan-card" style={{ background: 'rgba(34,197,94,0.08)' }}>
                                       <div className="d-flex justify-content-between align-items-start mb-2">
                                         <div>
                                           <h6 className="mb-1 fw-semibold">{activePlan.name || 'Piano Alimentare'}</h6>
-                                          <small className="text-muted">
+                                          <span className="cd-prof-date">
                                             <i className="ri-calendar-line me-1"></i>
                                             {activePlan.start_date ? new Date(activePlan.start_date).toLocaleDateString('it-IT') : '-'}
                                             {' → '}
@@ -4597,13 +4420,13 @@ function ClientiDetail() {
                                             {activePlan.duration_days && (
                                               <span className="ms-2">({activePlan.duration_days} giorni)</span>
                                             )}
-                                          </small>
+                                          </span>
                                         </div>
-                                        <span className="badge bg-success">Attivo</span>
+                                        <span className="cd-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>Attivo</span>
                                       </div>
 
                                       {activePlan.notes && (
-                                        <p className="small text-muted mb-2 mt-2">
+                                        <p className="cd-prof-date mb-2 mt-2">
                                           <i className="ri-sticky-note-line me-1"></i>
                                           {activePlan.notes}
                                         </p>
@@ -4612,31 +4435,31 @@ function ClientiDetail() {
                                       <div className="d-flex gap-2 mt-3 flex-wrap">
                                         {activePlan.has_file && activePlan.piano_alimentare_file_path && (
                                           <button
-                                            className="btn btn-sm btn-success"
+                                            className="cd-btn-save"
                                             onClick={() => handlePreviewPlan(activePlan)}
                                           >
-                                            <i className="ri-eye-line me-1"></i>
+                                            <i className="ri-eye-line"></i>
                                             Visualizza
                                           </button>
                                         )}
                                         {canManageNutritionSection && (
                                           <button
-                                            className="btn btn-sm btn-outline-primary"
+                                            className="cd-btn-back"
                                             onClick={() => handleOpenEditPlan(activePlan)}
                                           >
-                                            <i className="ri-edit-line me-1"></i>
+                                            <i className="ri-edit-line"></i>
                                             Modifica
                                           </button>
                                         )}
                                         <button
-                                          className="btn btn-sm btn-outline-secondary"
+                                          className="cd-btn-back"
                                           onClick={() => handleViewVersions(activePlan)}
                                         >
-                                          <i className="ri-history-line me-1"></i>
+                                          <i className="ri-history-line"></i>
                                           Storico
                                         </button>
                                         {activePlan.extra_files && activePlan.extra_files.length > 0 && (
-                                          <span className="badge bg-secondary align-self-center">
+                                          <span className="cd-badge" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>
                                             +{activePlan.extra_files.length} file extra
                                           </span>
                                         )}
@@ -4645,7 +4468,7 @@ function ClientiDetail() {
                                   );
                                 } else {
                                   return (
-                                    <p className="text-muted small mb-0">
+                                    <p className="cd-empty-text">
                                       <i className="ri-information-line me-1"></i>
                                       Nessun piano alimentare attivo
                                     </p>
@@ -4659,29 +4482,29 @@ function ClientiDetail() {
 
                       {/* Storico Piani */}
                       {mealPlans.filter(p => !p.is_active).length > 0 && (
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-history-line"></i>
                             Storico Piani Alimentari
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-archive-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-archive-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piani Precedenti</span>
-                                <span className="badge bg-secondary ms-auto">{mealPlans.filter(p => !p.is_active).length}</span>
+                                <span className="cd-inner-card-title">Piani Precedenti</span>
+                                <span className="cd-badge ms-auto" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{mealPlans.filter(p => !p.is_active).length}</span>
                               </div>
 
-                              <div className="table-responsive">
-                                <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
+                              <div className="cd-table-wrap">
+                                <table className="cd-table">
                                   <thead>
-                                    <tr className="text-muted">
-                                      <th style={{ fontWeight: '500' }}>Nome</th>
-                                      <th style={{ fontWeight: '500' }}>Periodo</th>
-                                      <th style={{ fontWeight: '500' }}>Durata</th>
-                                      <th style={{ fontWeight: '500' }} className="text-end">Azioni</th>
+                                    <tr>
+                                      <th>Nome</th>
+                                      <th>Periodo</th>
+                                      <th>Durata</th>
+                                      <th className="text-end">Azioni</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -4693,15 +4516,15 @@ function ClientiDetail() {
                                           <td>
                                             <span className="fw-medium">{plan.name || 'Piano Alimentare'}</span>
                                             {plan.is_legacy && (
-                                              <span className="badge bg-warning-subtle text-warning ms-2" style={{ fontSize: '0.65rem' }}>Legacy</span>
+                                              <span className="cd-badge ms-2" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>Legacy</span>
                                             )}
                                           </td>
-                                          <td className="text-muted">
+                                          <td>
                                             {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
                                             {' → '}
                                             {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
                                           </td>
-                                          <td className="text-muted">
+                                          <td>
                                             {plan.duration_days ? `${plan.duration_days}gg` : '-'}
                                           </td>
                                           <td className="text-end">
@@ -4709,7 +4532,7 @@ function ClientiDetail() {
                                               {plan.has_file && plan.piano_alimentare_file_path && (
                                                 <>
                                                   <button
-                                                    className="btn btn-sm btn-outline-success py-0 px-2"
+                                                    className="cd-btn-action-sm"
                                                     onClick={() => handlePreviewPlan(plan)}
                                                     title="Visualizza"
                                                   >
@@ -4719,7 +4542,7 @@ function ClientiDetail() {
                                                     href={`/uploads/${plan.piano_alimentare_file_path}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="btn btn-sm btn-outline-success py-0 px-2"
+                                                    className="cd-btn-action-sm"
                                                     title="Scarica"
                                                   >
                                                     <i className="ri-download-line"></i>
@@ -4730,7 +4553,7 @@ function ClientiDetail() {
                                                 <>
                                                   {canManageNutritionSection && (
                                                     <button
-                                                      className="btn btn-sm btn-outline-primary py-0 px-2"
+                                                      className="cd-btn-action-sm"
                                                       onClick={() => handleOpenEditPlan(plan)}
                                                       title="Modifica"
                                                     >
@@ -4738,7 +4561,7 @@ function ClientiDetail() {
                                                     </button>
                                                   )}
                                                   <button
-                                                    className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                                    className="cd-btn-action-sm"
                                                     onClick={() => handleViewVersions(plan)}
                                                     title="Storico"
                                                   >
@@ -4760,33 +4583,33 @@ function ClientiDetail() {
 
                       {/* Date Dieta Legacy dal modello Cliente */}
                       {(c.dieta_dal || c.nuova_dieta_dal) && (
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                        <div>
+                          <div className="cd-section-title">
                             Date Riferimento
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center mb-3">
-                                <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                  <i className="ri-calendar-2-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle info">
+                                  <i className="ri-calendar-2-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Date Dieta Cliente</span>
+                                <span className="cd-inner-card-title">Date Dieta Cliente</span>
                               </div>
-                              <div className="row g-3">
-                                <div className="col-md-6">
-                                  <label className="form-label small text-muted mb-1">Dieta Dal</label>
+                              <div className="cd-form-grid cols-2">
+                                <div>
+                                  <label className="cd-field-label">Dieta Dal</label>
                                   <input
                                     type="date"
-                                    className="form-control form-control-sm"
+                                    className="cd-input sm"
                                     value={formData.dieta_dal || ''}
                                     onChange={(e) => handleInputChange('dieta_dal', e.target.value)}
                                   />
                                 </div>
-                                <div className="col-md-6">
-                                  <label className="form-label small text-muted mb-1">Nuova Dieta Dal</label>
+                                <div>
+                                  <label className="cd-field-label">Nuova Dieta Dal</label>
                                   <input
                                     type="date"
-                                    className="form-control form-control-sm"
+                                    className="cd-input sm"
                                     value={formData.nuova_dieta_dal || ''}
                                     onChange={(e) => handleInputChange('nuova_dieta_dal', e.target.value)}
                                   />
@@ -4801,67 +4624,69 @@ function ClientiDetail() {
                   )}
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {nutrizioneSubTab === 'diario' && (
-                    <div className="col-12" data-tour="nutrizione-diario">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="nutrizione-diario">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Diario Nutrizionale
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center justify-content-between mb-3">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fce7f3' }}>
-                                  <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#ec4899' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle pink">
+                                  <i className="ri-book-2-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
-                                <span className="badge bg-secondary ms-2">{diarioEntries.length}</span>
+                                <span className="cd-inner-card-title">Note del Percorso</span>
+                                <span className="cd-badge ms-2" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{diarioEntries.length}</span>
                               </div>
                               {canManageNutritionSection && (
                                 <button
-                                  className="btn btn-sm btn-primary"
+                                  className="cd-btn-save"
                                   onClick={() => handleOpenDiarioModal()}
                                 >
-                                  <i className="ri-add-line me-1"></i>
+                                  <i className="ri-add-line"></i>
                                   Nuova Nota
                                 </button>
                               )}
                             </div>
 
                             {loadingDiario ? (
-                              <div className="text-center py-4">
-                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                              <div className="cd-loading">
+                                <div className="cd-spinner" role="status"></div>
                                 <small className="ms-2 text-muted">Caricamento diario...</small>
                               </div>
                             ) : diarioEntries.length === 0 ? (
-                              <p className="text-muted small mb-0 text-center py-3">
-                                <i className="ri-information-line me-1"></i>
-                                Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
-                              </p>
+                              <div className="cd-empty">
+                                <p className="cd-empty-text">
+                                  <i className="ri-information-line me-1"></i>
+                                  Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
+                                </p>
+                              </div>
                             ) : (
                               <div className="d-flex flex-column gap-3">
                                 {diarioEntries.map((entry) => (
-                                  <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
-                                    <div className="d-flex justify-content-between align-items-start mb-2">
-                                      <div>
-                                        <span className="badge bg-primary-subtle text-primary me-2">
+                                  <div key={entry.id} className="cd-diary-entry">
+                                    <div className="cd-diary-header">
+                                      <div className="cd-diary-meta">
+                                        <span className="cd-badge" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
                                           <i className="ri-calendar-line me-1"></i>
                                           {entry.entry_date_display}
                                           {entry.created_at && (
-                                            <span className="ms-1 opacity-75 small">
+                                            <span className="ms-1 opacity-75">
                                               ({entry.created_at.split(' ')[1]})
                                             </span>
                                           )}
                                         </span>
-                                        <small className="text-muted">
+                                        <span className="cd-prof-date">
                                           <i className="ri-user-line me-1"></i>
                                           {entry.author}
-                                        </small>
+                                        </span>
                                       </div>
-                                      <div className="d-flex gap-1">
+                                      <div className="cd-diary-actions">
                                         {canManageNutritionSection && (
                                           <button
-                                            className="btn btn-sm btn-outline-primary py-0 px-2"
+                                            className="cd-btn-action-sm"
                                             onClick={() => handleOpenDiarioModal(entry)}
                                             title="Modifica"
                                           >
@@ -4870,7 +4695,7 @@ function ClientiDetail() {
                                         )}
                                         {(user?.is_admin || user?.role === 'admin') && (
                                           <button
-                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            className="cd-btn-action-sm danger"
                                             onClick={() => handleDeleteDiarioEntry(entry.id)}
                                             title="Elimina"
                                           >
@@ -4878,7 +4703,7 @@ function ClientiDetail() {
                                           </button>
                                         )}
                                         <button
-                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          className="cd-btn-action-sm"
                                           onClick={() => handleOpenHistoryModal(entry, 'nutrizione')}
                                           title="Storico Modifiche"
                                         >
@@ -4886,7 +4711,7 @@ function ClientiDetail() {
                                         </button>
                                       </div>
                                     </div>
-                                    <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                                    <p className="cd-diary-content">{entry.content}</p>
                                   </div>
                                 ))}
                               </div>
@@ -4900,26 +4725,27 @@ function ClientiDetail() {
 
                   {/* ===== ALERT SUB-TAB ===== */}
                   {nutrizioneSubTab === 'alert' && (
-                    <div className="col-12" data-tour="nutrizione-alert">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="nutrizione-alert">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Alert e Criticità
-                        </h6>
-                        <div className="card border border-danger">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card danger-border">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle danger">
+                                <i className="ri-alarm-warning-line"></i>
                               </div>
-                              <span className="fw-semibold text-danger" style={{ fontSize: '0.9rem' }}>Alert Nutrizione</span>
+                              <span className="cd-inner-card-title danger">Alert Nutrizione</span>
                             </div>
-                            <p className="text-muted small mb-2">
+                            <p className="cd-prof-date mb-2">
                               Informazioni critiche: allergie, intolleranze, controindicazioni alimentari.
                               Queste note saranno sempre visibili in evidenza.
                             </p>
                             <textarea
-                              className="form-control border-danger"
+                              className="cd-textarea"
+                              style={{ borderColor: '#fecaca' }}
                               rows="4"
                               placeholder="Es: Allergia alle arachidi, Intolleranza al lattosio, Celiachia..."
                               value={formData.alert_nutrizione || ''}
@@ -4936,86 +4762,74 @@ function ClientiDetail() {
 
               {/* ========== COACHING TAB ========== */}
               {activeTab === 'coaching' && (
-                <div className="row g-4">
+                <div>
                   {/* Sub-tab Navigation */}
                   <div className="col-12" data-tour="coaching-subtabs">
-                    <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                      <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
+                    <div className="cd-subtabs">
                         {[
-                          { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: '#f59e0b' },
-                          { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
-                          { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: '#f59e0b' },
-                          { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: '#10b981' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
-                          { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
-                          { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
+                          { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'orange' },
+                          { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
+                          { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: 'orange' },
+                          { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
+                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: 'orange' },
+                          { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
+                          { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                         ].map(({ key, label, icon, color }) => (
-                          <li key={key} className="nav-item">
                             <button
-                              className="nav-link"
+                              key={key}
+                              className={`cd-subtab ${coachingSubTab === key ? `active ${color}` : ''}`}
                               onClick={() => setCoachingSubTab(key)}
-                              style={{
-                                background: coachingSubTab === key ? `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)` : '#f1f5f9',
-                                color: coachingSubTab === key ? '#fff' : '#64748b',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '8px 16px',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                whiteSpace: 'nowrap',
-                              }}
                             >
-                              <i className={`${icon} me-1`}></i>
+                              <i className={icon}></i>
                               {label}
                             </button>
-                          </li>
                         ))}
-                      </ul>
                     </div>
                   </div>
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {coachingSubTab === 'panoramica' && (
-                    <div className="col-12" data-tour="coaching-panoramica">
-                      <div className="row g-4">
+                    <div data-tour="coaching-panoramica">
+                      <div>
                       {/* Coach Assegnati - Same style as Nutrizione */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Coach Assegnati
-                        </h6>
+                        </div>
                         {loadingHistory ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento...</small>
+                            <small className="ms-2 cd-loading-text">Caricamento...</small>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                       style={{ width: '32px', height: '32px' }}>
-                                    <i className="ri-run-line text-warning"></i>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-row">
+                                <div className="cd-inner-card-header-left">
+                                  <div className="cd-icon-circle warning lg">
+                                    <i className="ri-run-line"></i>
                                   </div>
-                                  <span className="fw-semibold">Team Coaching</span>
+                                  <span className="cd-inner-card-title">Team Coaching</span>
                                 </div>
-                                <span className="badge bg-warning">{getActiveProfessionals('coach').length} attivi</span>
+                                <span className="cd-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>{getActiveProfessionals('coach').length} attivi</span>
                               </div>
 
                               {getActiveProfessionals('coach').length > 0 ? (
                                 <div className="d-flex flex-wrap gap-2">
                                   {getActiveProfessionals('coach').map((assignment, idx) => (
-                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                    <div key={idx} className="cd-assignment-row">
+                                      <div className="cd-assignment-info">
                                       {assignment.avatar_path ? (
-                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                        <img src={assignment.avatar_path} alt="" className="cd-prof-avatar" />
                                       ) : (
-                                        <div className="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                                        <div className="cd-prof-initials lg" style={{ background: '#f59e0b' }}>
                                           {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                       <div>
-                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                        <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                        <span className="cd-prof-date">dal {assignment.data_dal}</span>
+                                      </div>
                                       </div>
                                     </div>
                                   ))}
@@ -5030,29 +4844,16 @@ function ClientiDetail() {
 
                       {/* Storico Assegnazioni Timeline - Orizzontale come Nutrizione */}
                       {professionistiHistory.filter(h => h.tipo_professionista === 'coach').length > 0 && (
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-history-line"></i>
                             Storico Assegnazioni
-                          </h6>
-                          <div className="timeline-horizontal" style={{
-                            overflowX: 'auto',
-                            paddingBottom: '10px',
-                            position: 'relative',
-                          }}>
+                          </div>
+                          <div className="cd-timeline">
                             {/* Horizontal line */}
-                            <div style={{
-                              position: 'absolute',
-                              left: '0',
-                              right: '0',
-                              top: '24px',
-                              height: '3px',
-                              background: 'linear-gradient(to right, #f59e0b, #d97706)',
-                              borderRadius: '2px',
-                              zIndex: 0,
-                            }}></div>
+                            <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #f59e0b, #d97706)' }}></div>
 
-                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                            <div className="cd-timeline-items">
                               {professionistiHistory
                                 .filter(h => h.tipo_professionista === 'coach')
                                 .sort((a, b) => {
@@ -5061,43 +4862,32 @@ function ClientiDetail() {
                                   return dateB - dateA;
                                 })
                                 .map((item, idx) => (
-                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                  <div key={idx} className="cd-timeline-item">
                                     {/* Dot on line */}
-                                    <div className="d-flex justify-content-center mb-2">
+                                    <div className="cd-timeline-dot-wrap">
                                       <div
-                                        className="rounded-circle d-flex align-items-center justify-content-center bg-warning"
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          border: '3px solid #fff',
-                                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                        }}
+                                        className="cd-timeline-dot"
+                                        style={{ background: '#f59e0b' }}
                                       >
-                                        <i className="ri-run-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                        <i className="ri-run-line"></i>
                                       </div>
                                     </div>
 
                                     {/* Date label */}
-                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                    <div className="cd-timeline-date">
                                       {item.data_dal || '—'}
                                       {item.data_al && <span className="d-block">→ {item.data_al}</span>}
                                     </div>
 
                                     {/* Card */}
-                                    <div
-                                      className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`}
-                                      style={{
-                                        borderRadius: '12px',
-                                        background: item.is_active ? '#fff' : '#f8fafc',
-                                      }}
-                                    >
-                                      <div className="card-body p-2">
+                                    <div className={`cd-timeline-card ${!item.is_active ? 'inactive' : ''}`}>
+                                      <div>
                                         {/* Status badge */}
                                         <div className="mb-2">
                                           {item.is_active ? (
-                                            <span className="badge bg-warning" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>Attivo</span>
                                           ) : (
-                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.15)', color: '#6b7280' }}>Concluso</span>
                                           )}
                                         </div>
 
@@ -5107,13 +4897,12 @@ function ClientiDetail() {
                                             <img
                                               src={item.avatar_path}
                                               alt=""
-                                              className="rounded-circle"
-                                              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                              className="cd-timeline-card-avatar"
                                             />
                                           ) : (
                                             <div
-                                              className="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center"
-                                              style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}
+                                              className="cd-timeline-card-initials"
+                                              style={{ background: '#f59e0b' }}
                                             >
                                               {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
@@ -5121,12 +4910,7 @@ function ClientiDetail() {
                                         </div>
 
                                         {/* Name */}
-                                        <div className="fw-semibold small" style={{
-                                          fontSize: '0.8rem',
-                                          whiteSpace: 'nowrap',
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
-                                        }}>
+                                        <div className="cd-timeline-card-name">
                                           {item.professionista_nome}
                                         </div>
                                       </div>
@@ -5139,20 +4923,21 @@ function ClientiDetail() {
                       )}
 
                       {/* Stati Servizio e Chat in row */}
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Stato Servizio
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle warning">
+                                <i className="ri-run-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Coaching</span>
+                              <span className="cd-inner-card-title">Stato Coaching</span>
                             </div>
+                            <div className="cd-field">
                             <select
-                              className="form-select form-select-sm mb-2"
+                              className="cd-select sm"
                               value={formData.stato_coach || ''}
                               onChange={(e) => handleInputChange('stato_coach', e.target.value)}
                             >
@@ -5162,30 +4947,32 @@ function ClientiDetail() {
                               <option value="ghost">Ghost</option>
                               <option value="stop">Ex-Cliente</option>
                             </select>
+                            </div>
                             {c.stato_coach_data && (
-                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                              <span className="cd-prof-date">
                                 <i className="ri-calendar-line me-1"></i>
                                 Ultimo cambio: {new Date(c.stato_coach_data).toLocaleDateString('it-IT')}
-                              </small>
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Stato Chat
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-chat-3-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle secondary">
+                                <i className="ri-chat-3-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Coaching</span>
+                              <span className="cd-inner-card-title">Stato Chat Coaching</span>
                             </div>
+                            <div className="cd-field">
                             <select
-                              className="form-select form-select-sm mb-2"
+                              className="cd-select sm"
                               value={formData.stato_cliente_chat_coaching || ''}
                               onChange={(e) => handleInputChange('stato_cliente_chat_coaching', e.target.value)}
                             >
@@ -5194,40 +4981,28 @@ function ClientiDetail() {
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
                             </select>
+                            </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Timeline Storico Stati Unificata */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          <i className="ri-history-line me-2"></i>
+                      <div>
+                        <div className="cd-section-title">
+                          <i className="ri-history-line"></i>
                           Storico Stati (Servizio + Chat)
-                        </h6>
+                        </div>
                         {loadingStoricoCoaching ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento storico...</small>
+                            <small className="ms-2 cd-loading-text">Caricamento storico...</small>
                           </div>
                         ) : (storicoStatoCoaching.length > 0 || storicoChatCoaching.length > 0) ? (
-                            <div className="timeline-horizontal" style={{
-                              overflowX: 'auto',
-                              paddingBottom: '10px',
-                              position: 'relative',
-                            }}>
+                            <div className="cd-timeline">
                               {/* Horizontal line */}
-                              <div style={{
-                                position: 'absolute',
-                                left: '0',
-                                right: '0',
-                                top: '24px',
-                                height: '3px',
-                                background: 'linear-gradient(to right, #f59e0b, #6b7280)',
-                                borderRadius: '2px',
-                                zIndex: 0,
-                              }}></div>
+                              <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #f59e0b, #6b7280)' }}></div>
 
-                              <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                              <div className="cd-timeline-items">
                                 {/* Combine and sort both histories */}
                                 {[
                                   ...storicoStatoCoaching.map(item => ({ ...item, tipo: 'servizio' })),
@@ -5242,42 +5017,32 @@ function ClientiDetail() {
                                     const isServizio = item.tipo === 'servizio';
                                     const bgColor = isServizio ? 'warning' : 'secondary';
                                     const icon = isServizio ? 'ri-run-line' : 'ri-chat-3-line';
+                                    const dotBg = isServizio ? '#f59e0b' : '#6b7280';
 
                                     return (
-                                      <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '130px', maxWidth: '150px' }}>
+                                      <div key={idx} className="cd-timeline-item">
                                         {/* Dot on line */}
-                                        <div className="d-flex justify-content-center mb-2">
+                                        <div className="cd-timeline-dot-wrap">
                                           <div
-                                            className={`rounded-circle d-flex align-items-center justify-content-center bg-${bgColor}`}
-                                            style={{
-                                              width: '28px',
-                                              height: '28px',
-                                              border: '3px solid #fff',
-                                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                            }}
+                                            className="cd-timeline-dot"
+                                            style={{ background: dotBg }}
                                           >
-                                            <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                            <i className={icon}></i>
                                           </div>
                                         </div>
 
                                         {/* Date label */}
-                                        <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                        <div className="cd-timeline-date">
                                           {item.data_inizio || '—'}
                                           {item.data_fine && <span className="d-block">→ {item.data_fine}</span>}
                                         </div>
 
                                         {/* Card */}
-                                        <div
-                                          className={`card border-0 shadow-sm ${!item.is_attivo ? 'opacity-75' : ''}`}
-                                          style={{
-                                            borderRadius: '12px',
-                                            background: item.is_attivo ? '#fff' : '#f8fafc',
-                                          }}
-                                        >
-                                          <div className="card-body p-2">
+                                        <div className={`cd-timeline-card ${!item.is_attivo ? 'inactive' : ''}`}>
+                                          <div>
                                             {/* Type badge */}
                                             <div className="mb-1">
-                                              <span className={`badge bg-${bgColor}-subtle text-${bgColor}`} style={{ fontSize: '0.6rem' }}>
+                                              <span className="cd-timeline-badge" style={{ background: isServizio ? 'rgba(245,158,11,0.15)' : 'rgba(107,114,128,0.15)', color: dotBg }}>
                                                 {isServizio ? 'Servizio' : 'Chat'}
                                               </span>
                                             </div>
@@ -5291,7 +5056,7 @@ function ClientiDetail() {
 
                                             {/* Active indicator */}
                                             {item.is_attivo && (
-                                              <div className="text-warning" style={{ fontSize: '0.65rem' }}>
+                                              <div style={{ fontSize: '0.65rem', color: '#f59e0b' }}>
                                                 <i className="ri-checkbox-circle-fill me-1"></i>In corso
                                               </div>
                                             )}
@@ -5310,11 +5075,11 @@ function ClientiDetail() {
                               </div>
                             </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3 text-center text-muted">
-                              <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                              <p className="mb-0 small">Nessuno storico stati disponibile</p>
-                              <small>I cambi di stato verranno tracciati automaticamente</small>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body cd-empty">
+                              <i className="ri-history-line cd-empty-icon"></i>
+                              <p className="mb-0 cd-empty-text">Nessuno storico stati disponibile</p>
+                              <small className="cd-empty-text">I cambi di stato verranno tracciati automaticamente</small>
                             </div>
                           </div>
                         )}
@@ -5326,20 +5091,20 @@ function ClientiDetail() {
 
                   {/* ===== SETUP SUB-TAB ===== */}
                   {coachingSubTab === 'setup' && (
-                    <div className="col-12" data-tour="coaching-setup">
-                      <div className="row g-4">
+                    <div data-tour="coaching-setup">
+                      <div>
                       {/* Call Iniziale */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Call Iniziale
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle primary">
+                                <i className="ri-phone-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Coach</span>
+                              <span className="cd-inner-card-title">Call Iniziale Coach</span>
                             </div>
                             <div className="form-check form-switch mb-2">
                               <input
@@ -5353,15 +5118,15 @@ function ClientiDetail() {
                                 {formData.call_iniziale_coach ? 'Effettuata' : 'Non effettuata'}
                               </label>
                               {formData.call_iniziale_coach && (
-                                <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
+                                <span className="cd-badge ms-2" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>Completata</span>
                               )}
                             </div>
                             {formData.call_iniziale_coach && (
-                              <div className="mt-3">
-                                <label className="form-label small text-muted mb-1">Data Call</label>
+                              <div className="cd-field mt-3">
+                                <label className="cd-field-label">Data Call</label>
                                 <input
                                   type="date"
-                                  className="form-control form-control-sm"
+                                  className="cd-input sm"
                                   value={formData.data_call_iniziale_coach || ''}
                                   onChange={(e) => handleInputChange('data_call_iniziale_coach', e.target.value)}
                                 />
@@ -5372,20 +5137,21 @@ function ClientiDetail() {
                       </div>
 
                       {/* Reach Out */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Reach Out Settimanale
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle info">
+                                <i className="ri-calendar-check-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                              <span className="cd-inner-card-title">Giorno Reach Out</span>
                             </div>
+                            <div className="cd-field">
                             <select
-                              className="form-select form-select-sm"
+                              className="cd-select sm"
                               value={formData.reach_out_coaching || ''}
                               onChange={(e) => handleInputChange('reach_out_coaching', e.target.value)}
                             >
@@ -5398,13 +5164,14 @@ function ClientiDetail() {
                               <option value="sabato">Sabato</option>
                               <option value="domenica">Domenica</option>
                             </select>
+                            </div>
                             {formData.reach_out_coaching && (
-                              <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
+                              <span className="cd-prof-date d-block mt-2">
                                 <i className="ri-calendar-event-line me-1"></i>
                                 Reach out ogni {
                                   { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_coaching]
                                 }
-                              </small>
+                              </span>
                             )}
                           </div>
                         </div>
@@ -5415,33 +5182,33 @@ function ClientiDetail() {
 
                   {/* ===== PIANO ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'piano' && (
-                    <div className="col-12" data-tour="coaching-piani-wrapper">
-                      <div className="row g-4">
-                      <div className="col-12" data-tour="coaching-schede">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="coaching-piani-wrapper">
+                      <div>
+                      <div data-tour="coaching-schede">
+                        <div className="cd-section-title">
                           Piano Allenamento Attivo
-                        </h6>
+                        </div>
                         {loadingTrainingPlans ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento piani...</small>
+                            <small className="ms-2 cd-loading-text">Caricamento piani...</small>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="bg-warning-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                    <i className="ri-run-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-row">
+                                <div className="cd-inner-card-header-left">
+                                  <div className="cd-icon-circle warning">
+                                    <i className="ri-run-line"></i>
                                   </div>
-                                  <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Piano Corrente</span>
+                                  <span className="cd-inner-card-title">Piano Corrente</span>
                                 </div>
                                 {canManageCoachingSection && (
                                   <button
-                                    className="btn btn-sm btn-warning"
+                                    className="cd-btn-save"
                                     onClick={() => setShowAddTrainingPlanModal(true)}
                                   >
-                                    <i className="ri-add-line me-1"></i>
+                                    <i className="ri-add-line"></i>
                                     Nuovo Piano
                                   </button>
                                 )}
@@ -5450,7 +5217,7 @@ function ClientiDetail() {
                                 const activePlan = trainingPlans.find(p => p.is_active);
                                 if (activePlan) {
                                   return (
-                                    <div className="p-3 rounded-3 bg-warning-subtle">
+                                    <div className="p-3 rounded-3" style={{ background: 'rgba(245,158,11,0.08)' }}>
                                       <div className="d-flex justify-content-between align-items-start mb-2">
                                         <div>
                                           <h6 className="mb-1 fw-semibold">{activePlan.name || 'Piano Allenamento'}</h6>
@@ -5461,7 +5228,7 @@ function ClientiDetail() {
                                             {activePlan.end_date ? new Date(activePlan.end_date).toLocaleDateString('it-IT') : '-'}
                                           </small>
                                         </div>
-                                        <span className="badge bg-warning">Attivo</span>
+                                        <span className="cd-badge" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>Attivo</span>
                                       </div>
                                       {activePlan.notes && (
                                         <p className="small text-muted mb-2 mt-2">
@@ -5472,27 +5239,27 @@ function ClientiDetail() {
                                       <div className="d-flex gap-2 mt-3 flex-wrap">
                                         {activePlan.has_file && activePlan.piano_allenamento_file_path && (
                                           <button
-                                            className="btn btn-sm btn-warning"
+                                            className="cd-btn-save"
                                             onClick={() => handlePreviewTrainingPlan(activePlan)}
                                           >
-                                            <i className="ri-eye-line me-1"></i>
+                                            <i className="ri-eye-line"></i>
                                             Visualizza
                                           </button>
                                         )}
                                         {canManageCoachingSection && (
                                           <button
-                                            className="btn btn-sm btn-outline-primary"
+                                            className="cd-btn-back"
                                             onClick={() => handleOpenEditTrainingPlan(activePlan)}
                                           >
-                                            <i className="ri-edit-line me-1"></i>
+                                            <i className="ri-edit-line"></i>
                                             Modifica
                                           </button>
                                         )}
                                         <button
-                                          className="btn btn-sm btn-outline-secondary"
+                                          className="cd-btn-back"
                                           onClick={() => handleViewTrainingVersions(activePlan)}
                                         >
-                                          <i className="ri-history-line me-1"></i>
+                                          <i className="ri-history-line"></i>
                                           Storico
                                         </button>
                                       </div>
@@ -5513,21 +5280,21 @@ function ClientiDetail() {
                       </div>
                       {/* Storico Piani */}
                       {trainingPlans.filter(p => !p.is_active).length > 0 && (
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-history-line"></i>
                             Storico Piani Allenamento
-                          </h6>
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="table-responsive">
-                                <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-table-wrap">
+                                <table className="cd-table">
                                   <thead>
-                                    <tr className="text-muted">
-                                      <th style={{ fontWeight: '500' }}>Nome</th>
-                                      <th style={{ fontWeight: '500' }}>Periodo</th>
-                                      <th style={{ fontWeight: '500' }}>Durata</th>
-                                      <th style={{ fontWeight: '500' }} className="text-end">Azioni</th>
+                                    <tr>
+                                      <th>Nome</th>
+                                      <th>Periodo</th>
+                                      <th>Durata</th>
+                                      <th className="text-end">Azioni</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -5537,17 +5304,17 @@ function ClientiDetail() {
                                       .map((plan) => (
                                         <tr key={plan.id}>
                                           <td><span className="fw-medium">{plan.name || 'Piano Allenamento'}</span></td>
-                                          <td className="text-muted">
+                                          <td>
                                             {plan.start_date ? new Date(plan.start_date).toLocaleDateString('it-IT') : '-'}
                                             {' → '}
                                             {plan.end_date ? new Date(plan.end_date).toLocaleDateString('it-IT') : '-'}
                                           </td>
-                                          <td className="text-muted">{plan.duration_days ? `${plan.duration_days}gg` : '-'}</td>
+                                          <td>{plan.duration_days ? `${plan.duration_days}gg` : '-'}</td>
                                           <td className="text-end">
                                             <div className="d-flex gap-1 justify-content-end">
                                               {plan.has_file && plan.piano_allenamento_file_path && (
                                                 <button
-                                                  className="btn btn-sm btn-outline-warning py-0 px-2"
+                                                  className="cd-btn-action-sm"
                                                   onClick={() => handlePreviewTrainingPlan(plan)}
                                                   title="Visualizza"
                                                 >
@@ -5556,7 +5323,7 @@ function ClientiDetail() {
                                               )}
                                               {canManageCoachingSection && (
                                                 <button
-                                                  className="btn btn-sm btn-outline-primary py-0 px-2"
+                                                  className="cd-btn-action-sm"
                                                   onClick={() => handleOpenEditTrainingPlan(plan)}
                                                   title="Modifica"
                                                 >
@@ -5564,7 +5331,7 @@ function ClientiDetail() {
                                                 </button>
                                               )}
                                               <button
-                                                className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                                className="cd-btn-action-sm"
                                                 onClick={() => handleViewTrainingVersions(plan)}
                                                 title="Storico"
                                               >
@@ -5587,21 +5354,21 @@ function ClientiDetail() {
 
                   {/* ===== LUOGHI ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'luoghi' && (
-                    <div className="col-12" data-tour="coaching-luoghi">
-                      <div className="row g-4">
+                    <div data-tour="coaching-luoghi">
+                      <div>
                       {/* Header con bottone Nuovo Luogo */}
-                      <div className="col-12">
-                        <div className="d-flex align-items-center justify-content-between mb-3">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-0">
-                            <i className="ri-map-pin-line me-2"></i>
+                      <div>
+                        <div className="cd-inner-card-header-row mb-3">
+                          <div className="cd-section-title mb-0">
+                            <i className="ri-map-pin-line"></i>
                             Storico Luoghi di Allenamento
-                          </h6>
+                          </div>
                           {canManageCoachingSection && (
                             <button
-                              className="btn btn-sm btn-success"
+                              className="cd-btn-save"
                               onClick={() => handleOpenLocationModal()}
                             >
-                              <i className="ri-add-line me-1"></i>
+                              <i className="ri-add-line"></i>
                               Nuovo Luogo
                             </button>
                           )}
@@ -5609,39 +5376,26 @@ function ClientiDetail() {
                       </div>
 
                       {/* Timeline Orizzontale Luoghi */}
-                      <div className="col-12">
+                      <div>
                         {loadingLocations ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm text-success" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento luoghi...</small>
+                            <small className="ms-2 cd-loading-text">Caricamento luoghi...</small>
                           </div>
                         ) : trainingLocations.length === 0 ? (
-                          <div className="card border">
-                            <div className="card-body p-3 text-center text-muted">
-                              <i className="ri-map-pin-line fs-3 d-block mb-2 opacity-50"></i>
-                              <p className="mb-0 small">Nessun luogo configurato</p>
-                              <small>Clicca "Nuovo Luogo" per aggiungerne uno</small>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body cd-empty">
+                              <i className="ri-map-pin-line cd-empty-icon"></i>
+                              <p className="mb-0 cd-empty-text">Nessun luogo configurato</p>
+                              <small className="cd-empty-text">Clicca "Nuovo Luogo" per aggiungerne uno</small>
                             </div>
                           </div>
                         ) : (
-                          <div className="timeline-horizontal" style={{
-                            overflowX: 'auto',
-                            paddingBottom: '10px',
-                            position: 'relative',
-                          }}>
+                          <div className="cd-timeline">
                             {/* Horizontal line */}
-                            <div style={{
-                              position: 'absolute',
-                              left: '0',
-                              right: '0',
-                              top: '24px',
-                              height: '3px',
-                              background: 'linear-gradient(to right, #10b981, #3b82f6, #f59e0b)',
-                              borderRadius: '2px',
-                              zIndex: 0,
-                            }}></div>
+                            <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #10b981, #3b82f6, #f59e0b)' }}></div>
 
-                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                            <div className="cd-timeline-items">
                               {trainingLocations
                                 .sort((a, b) => {
                                   const dateA = new Date(a.start_date || 0);
@@ -5655,25 +5409,19 @@ function ClientiDetail() {
                                   const bgColor = locationColors[loc.location] || '#6b7280';
 
                                   return (
-                                    <div key={loc.id || idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
+                                    <div key={loc.id || idx} className="cd-timeline-item">
                                       {/* Dot on line */}
-                                      <div className="d-flex justify-content-center mb-2">
+                                      <div className="cd-timeline-dot-wrap">
                                         <div
-                                          className="rounded-circle d-flex align-items-center justify-content-center"
-                                          style={{
-                                            width: '28px',
-                                            height: '28px',
-                                            background: bgColor,
-                                            border: '3px solid #fff',
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                          }}
+                                          className="cd-timeline-dot"
+                                          style={{ background: bgColor }}
                                         >
-                                          <i className={`${locationIcons[loc.location]} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                          <i className={locationIcons[loc.location]}></i>
                                         </div>
                                       </div>
 
                                       {/* Date label */}
-                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                      <div className="cd-timeline-date">
                                         {loc.start_date ? new Date(loc.start_date).toLocaleDateString('it-IT') : '—'}
                                         {loc.end_date ? (
                                           <span className="d-block">→ {new Date(loc.end_date).toLocaleDateString('it-IT')}</span>
@@ -5684,21 +5432,17 @@ function ClientiDetail() {
 
                                       {/* Card */}
                                       <div
-                                        className={`card border-0 shadow-sm ${!loc.is_active ? 'opacity-75' : ''}`}
-                                        style={{
-                                          borderRadius: '12px',
-                                          background: loc.is_active ? '#fff' : '#f8fafc',
-                                          cursor: canManageCoachingSection ? 'pointer' : 'default',
-                                        }}
+                                        className={`cd-timeline-card ${!loc.is_active ? 'inactive' : ''}`}
+                                        style={{ cursor: canManageCoachingSection ? 'pointer' : 'default' }}
                                         onClick={canManageCoachingSection ? () => handleOpenLocationModal(loc) : undefined}
                                       >
-                                        <div className="card-body p-2">
+                                        <div>
                                           {/* Status badge */}
                                           <div className="mb-1">
                                             {loc.is_active ? (
-                                              <span className="badge bg-success" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                              <span className="cd-timeline-badge" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>Attivo</span>
                                             ) : (
-                                              <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                              <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.15)', color: '#6b7280' }}>Concluso</span>
                                             )}
                                           </div>
 
@@ -5713,7 +5457,7 @@ function ClientiDetail() {
                                           </div>
 
                                           {/* Location name */}
-                                          <div className="fw-semibold small" style={{ fontSize: '0.8rem' }}>
+                                          <div className="cd-timeline-card-name">
                                             {locationLabels[loc.location] || loc.location}
                                           </div>
 
@@ -5743,47 +5487,49 @@ function ClientiDetail() {
 
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {coachingSubTab === 'patologie' && (
-                    <div className="col-12" data-tour="coaching-patologie">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="coaching-patologie">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Patologie e Anamnesi Coaching
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center justify-content-between mb-3">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                  <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#8b5cf6' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle purple">
+                                  <i className="ri-file-list-3-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Valutazione Iniziale</span>
+                                <span className="cd-inner-card-title">Valutazione Iniziale</span>
                               </div>
                               <button
-                                className="btn btn-sm btn-primary"
+                                className="cd-btn-save"
                                 onClick={handleSaveAnamnesiCoaching}
                                 disabled={savingAnamnesiCoaching || loadingAnamnesiCoaching}
                               >
                                 {savingAnamnesiCoaching ? (
                                   <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
                                 ) : (
-                                  <><i className="ri-save-line me-1"></i>Salva</>
+                                  <><i className="ri-save-line"></i>Salva</>
                                 )}
                               </button>
                             </div>
                             {loadingAnamnesiCoaching ? (
-                              <div className="text-center py-4">
+                              <div className="cd-loading">
                                 <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
+                                <small className="ms-2 cd-loading-text">Caricamento anamnesi...</small>
                               </div>
                             ) : (
                               <>
+                                <div className="cd-field">
                                 <textarea
-                                  className="form-control mb-3"
+                                  className="cd-textarea"
                                   rows="10"
                                   placeholder="Inserisci l'anamnesi coaching del cliente...&#10;&#10;• Esperienza sportiva&#10;• Obiettivi fitness&#10;• Infortuni pregressi&#10;• Limitazioni fisiche&#10;• Attrezzatura disponibile&#10;• Frequenza allenamenti"
                                   value={anamnesiCoachingContent}
                                   onChange={(e) => setAnamnesiCoachingContent(e.target.value)}
                                 ></textarea>
+                                </div>
                                 {anamnesiCoaching && (
                                   <div className="small text-muted border-top pt-2">
                                     <i className="ri-information-line me-1"></i>
@@ -5806,49 +5552,49 @@ function ClientiDetail() {
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {coachingSubTab === 'diario' && (
-                    <div className="col-12" data-tour="coaching-diario">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="coaching-diario">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Diario Coaching
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center justify-content-between mb-3">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fce7f3' }}>
-                                  <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#ec4899' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle pink">
+                                  <i className="ri-book-2-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
-                                <span className="badge bg-secondary ms-2">{diarioCoachingEntries.length}</span>
+                                <span className="cd-inner-card-title">Note del Percorso</span>
+                                <span className="cd-badge ms-2" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{diarioCoachingEntries.length}</span>
                               </div>
                               {canManageCoachingSection && (
                                 <button
-                                  className="btn btn-sm btn-primary"
+                                  className="cd-btn-save"
                                   onClick={() => handleOpenDiarioCoachingModal()}
                                 >
-                                  <i className="ri-add-line me-1"></i>
+                                  <i className="ri-add-line"></i>
                                   Nuova Nota
                                 </button>
                               )}
                             </div>
                             {loadingDiarioCoaching ? (
-                              <div className="text-center py-4">
+                              <div className="cd-loading">
                                 <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                <small className="ms-2 text-muted">Caricamento diario...</small>
+                                <small className="ms-2 cd-loading-text">Caricamento diario...</small>
                               </div>
                             ) : diarioCoachingEntries.length === 0 ? (
-                              <p className="text-muted small mb-0 text-center py-3">
+                              <p className="cd-empty-text mb-0 text-center py-3">
                                 <i className="ri-information-line me-1"></i>
                                 Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
                               </p>
                             ) : (
                               <div className="d-flex flex-column gap-3">
                                 {diarioCoachingEntries.map((entry) => (
-                                  <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
-                                    <div className="d-flex justify-content-between align-items-start mb-2">
-                                      <div>
-                                        <span className="badge bg-warning-subtle text-warning me-2">
+                                  <div key={entry.id} className="cd-diary-entry">
+                                    <div className="cd-diary-header">
+                                      <div className="cd-diary-meta">
+                                        <span className="cd-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>
                                           <i className="ri-calendar-line me-1"></i>
                                           {entry.entry_date_display}
                                           {entry.created_at && (
@@ -5862,10 +5608,10 @@ function ClientiDetail() {
                                           {entry.author}
                                         </small>
                                       </div>
-                                      <div className="d-flex gap-1">
+                                      <div className="cd-diary-actions">
                                         {canManageCoachingSection && (
                                           <button
-                                            className="btn btn-sm btn-outline-primary py-0 px-2"
+                                            className="cd-btn-action-sm"
                                             onClick={() => handleOpenDiarioCoachingModal(entry)}
                                             title="Modifica"
                                           >
@@ -5874,7 +5620,7 @@ function ClientiDetail() {
                                         )}
                                         {(user?.is_admin || user?.role === 'admin') && (
                                           <button
-                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            className="cd-btn-action-sm danger"
                                             onClick={() => handleDeleteDiarioCoaching(entry.id)}
                                             title="Elimina"
                                           >
@@ -5882,7 +5628,7 @@ function ClientiDetail() {
                                           </button>
                                         )}
                                         <button
-                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          className="cd-btn-action-sm"
                                           onClick={() => handleOpenHistoryModal(entry, 'coaching')}
                                           title="Storico Modifiche"
                                         >
@@ -5890,7 +5636,7 @@ function ClientiDetail() {
                                         </button>
                                       </div>
                                     </div>
-                                    <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                                    <p className="mb-0 cd-diary-content">{entry.content}</p>
                                   </div>
                                 ))}
                               </div>
@@ -5904,31 +5650,33 @@ function ClientiDetail() {
 
                   {/* ===== ALERT SUB-TAB ===== */}
                   {coachingSubTab === 'alert' && (
-                    <div className="col-12" data-tour="coaching-alert">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="coaching-alert">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Alert e Criticità
-                        </h6>
-                        <div className="card border border-danger">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
+                        </div>
+                        <div className="cd-inner-card danger-border">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle danger">
+                                <i className="ri-alarm-warning-line"></i>
                               </div>
-                              <span className="fw-semibold text-danger" style={{ fontSize: '0.9rem' }}>Alert Coaching</span>
+                              <span className="cd-inner-card-title danger">Alert Coaching</span>
                             </div>
                             <p className="text-muted small mb-2">
                               Informazioni critiche: infortuni, limitazioni fisiche, controindicazioni.
                               Queste note saranno sempre visibili in evidenza.
                             </p>
+                            <div className="cd-field">
                             <textarea
-                              className="form-control border-danger"
+                              className="cd-textarea"
                               rows="4"
                               placeholder="Es: Ernia lombare, Non può fare squat profondi, Problemi alle ginocchia..."
                               value={formData.alert_coaching || ''}
                               onChange={(e) => handleInputChange('alert_coaching', e.target.value)}
                             ></textarea>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -5940,12 +5688,12 @@ function ClientiDetail() {
 
               {/* ========== PSICOLOGIA TAB ========== */}
               {activeTab === 'psicologia' && (
-                <div className="row g-4">
+                <div>
                   {/* Alert Psicologia - show at top if present */}
                   {formData.alert_psicologia && (
-                    <div className="col-12">
-                      <div className="alert alert-danger border-danger mb-0 d-flex align-items-start">
-                        <i className="ri-alarm-warning-line fs-4 me-2 text-danger"></i>
+                    <div>
+                      <div className="cd-alert cd-alert-danger">
+                        <i className="ri-alarm-warning-line fs-4"></i>
                         <div>
                           <strong className="small">Alert Psicologia</strong>
                           <p className="mb-0 small">{formData.alert_psicologia}</p>
@@ -5956,81 +5704,69 @@ function ClientiDetail() {
 
                   {/* Sub-tab Navigation - Same style as Nutrizione/Coaching */}
                   <div className="col-12" data-tour="psicologia-subtabs">
-                    <div style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                      <ul className="nav nav-pills mb-0" style={{ gap: '8px', flexWrap: 'nowrap', minWidth: 'max-content' }}>
+                    <div className="cd-subtabs">
                         {[
-                          { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: '#a855f7' },
-                          { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: '#3b82f6' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: '#f59e0b' },
-                          { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: '#ec4899' },
-                          { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: '#ef4444' },
+                          { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'purple' },
+                          { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
+                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: 'orange' },
+                          { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
+                          { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                         ].map(({ key, label, icon, color }) => (
-                          <li key={key} className="nav-item">
                             <button
-                              className="nav-link"
+                              key={key}
+                              className={`cd-subtab ${psicologiaSubTab === key ? `active ${color}` : ''}`}
                               onClick={() => setPsicologiaSubTab(key)}
-                              style={{
-                                background: psicologiaSubTab === key ? `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)` : '#f1f5f9',
-                                color: psicologiaSubTab === key ? '#fff' : '#64748b',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '8px 16px',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                whiteSpace: 'nowrap',
-                              }}
                             >
-                              <i className={`${icon} me-1`}></i>
+                              <i className={icon}></i>
                               {label}
                             </button>
-                          </li>
                         ))}
-                      </ul>
                     </div>
                   </div>
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {psicologiaSubTab === 'panoramica' && (
-                    <div className="col-12" data-tour="psicologia-panoramica">
-                      <div className="row g-4">
+                    <div data-tour="psicologia-panoramica">
+                      <div>
                       {/* Psicologi Assegnati */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      <div>
+                        <div className="cd-section-title">
                           Psicologi Assegnati
-                        </h6>
+                        </div>
                         {loadingHistory ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border spinner-border-sm text-purple" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento...</small>
+                          <div className="cd-loading">
+                            <div className="spinner-border spinner-border-sm" role="status"></div>
+                            <small className="ms-2 cd-loading-text">Caricamento...</small>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between mb-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2"
-                                       style={{ width: '32px', height: '32px', background: '#f3e8ff' }}>
-                                    <i className="ri-mental-health-line" style={{ color: '#a855f7' }}></i>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-row">
+                                <div className="cd-inner-card-header-left">
+                                  <div className="cd-icon-circle purple lg">
+                                    <i className="ri-mental-health-line"></i>
                                   </div>
-                                  <span className="fw-semibold">Team Psicologia</span>
+                                  <span className="cd-inner-card-title">Team Psicologia</span>
                                 </div>
-                                <span className="badge" style={{ background: '#a855f7' }}>{getActiveProfessionals('psicologa').length} attivi</span>
+                                <span className="cd-badge" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{getActiveProfessionals('psicologa').length} attivi</span>
                               </div>
 
                               {getActiveProfessionals('psicologa').length > 0 ? (
                                 <div className="d-flex flex-wrap gap-2">
                                   {getActiveProfessionals('psicologa').map((assignment, idx) => (
-                                    <div key={idx} className="d-flex align-items-center p-2 bg-light rounded">
+                                    <div key={idx} className="cd-assignment-row">
+                                      <div className="cd-assignment-info">
                                       {assignment.avatar_path ? (
-                                        <img src={assignment.avatar_path} alt="" className="rounded-circle me-2" style={{ width: '32px', height: '32px', objectFit: 'cover' }} />
+                                        <img src={assignment.avatar_path} alt="" className="cd-prof-avatar" />
                                       ) : (
-                                        <div className="rounded-circle text-white d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', fontSize: '0.75rem', background: '#a855f7' }}>
+                                        <div className="cd-prof-initials lg" style={{ background: '#a855f7' }}>
                                           {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                       <div>
-                                        <small className="d-block fw-medium">{assignment.professionista_nome}</small>
-                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>dal {assignment.data_dal}</small>
+                                        <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                        <span className="cd-prof-date">dal {assignment.data_dal}</span>
+                                      </div>
                                       </div>
                                     </div>
                                   ))}
@@ -6045,14 +5781,14 @@ function ClientiDetail() {
 
                       {/* Storico Assegnazioni Timeline */}
                       {professionistiHistory.filter(h => h.tipo_professionista === 'psicologa').length > 0 && (
-                        <div className="col-12">
-                          <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                            <i className="ri-history-line me-2"></i>
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-history-line"></i>
                             Storico Assegnazioni
-                          </h6>
-                          <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #a855f7, #7c3aed)', borderRadius: '2px', zIndex: 0 }}></div>
-                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                          </div>
+                          <div className="cd-timeline">
+                            <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #a855f7, #7c3aed)' }}></div>
+                            <div className="cd-timeline-items">
                               {professionistiHistory
                                 .filter(h => h.tipo_professionista === 'psicologa')
                                 .sort((a, b) => {
@@ -6061,35 +5797,35 @@ function ClientiDetail() {
                                   return dateB - dateA;
                                 })
                                 .map((item, idx) => (
-                                  <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '140px', maxWidth: '160px' }}>
-                                    <div className="d-flex justify-content-center mb-2">
-                                      <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: '#a855f7', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                                        <i className="ri-mental-health-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                                  <div key={idx} className="cd-timeline-item">
+                                    <div className="cd-timeline-dot-wrap">
+                                      <div className="cd-timeline-dot" style={{ background: '#a855f7' }}>
+                                        <i className="ri-mental-health-line"></i>
                                       </div>
                                     </div>
-                                    <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                    <div className="cd-timeline-date">
                                       {item.data_dal || '—'}
                                       {item.data_al && <span className="d-block">→ {item.data_al}</span>}
                                     </div>
-                                    <div className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_active ? '#fff' : '#f8fafc' }}>
-                                      <div className="card-body p-2">
+                                    <div className={`cd-timeline-card ${!item.is_active ? 'inactive' : ''}`}>
+                                      <div>
                                         <div className="mb-2">
                                           {item.is_active ? (
-                                            <span className="badge" style={{ fontSize: '0.65rem', background: '#a855f7' }}>Attivo</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7' }}>Attivo</span>
                                           ) : (
-                                            <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                            <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.15)', color: '#6b7280' }}>Concluso</span>
                                           )}
                                         </div>
                                         <div className="d-flex justify-content-center mb-2">
                                           {item.avatar_path ? (
-                                            <img src={item.avatar_path} alt="" className="rounded-circle" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />
+                                            <img src={item.avatar_path} alt="" className="cd-timeline-card-avatar" />
                                           ) : (
-                                            <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', fontSize: '0.75rem', background: '#a855f7' }}>
+                                            <div className="cd-timeline-card-initials" style={{ background: '#a855f7' }}>
                                               {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                             </div>
                                           )}
                                         </div>
-                                        <div className="fw-semibold small" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <div className="cd-timeline-card-name">
                                           {item.professionista_nome}
                                         </div>
                                       </div>
@@ -6102,18 +5838,19 @@ function ClientiDetail() {
                       )}
 
                       {/* Stati Servizio e Chat */}
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Stato Servizio</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                <i className="ri-mental-health-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
+                      <div>
+                        <div className="cd-section-title">Stato Servizio</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle purple">
+                                <i className="ri-mental-health-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Psicologia</span>
+                              <span className="cd-inner-card-title">Stato Psicologia</span>
                             </div>
+                            <div className="cd-field">
                             <select
-                              className="form-select form-select-sm mb-2"
+                              className="cd-select sm"
                               value={formData.stato_psicologia || ''}
                               onChange={(e) => handleInputChange('stato_psicologia', e.target.value)}
                             >
@@ -6123,28 +5860,30 @@ function ClientiDetail() {
                               <option value="ghost">Ghost</option>
                               <option value="stop">Ex-Cliente</option>
                             </select>
+                            </div>
                             {c.stato_psicologia_data && (
-                              <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                              <span className="cd-prof-date">
                                 <i className="ri-calendar-line me-1"></i>
                                 Ultimo cambio: {new Date(c.stato_psicologia_data).toLocaleDateString('it-IT')}
-                              </small>
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Stato Chat</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-secondary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-chat-3-line text-secondary" style={{ fontSize: '0.85rem' }}></i>
+                      <div>
+                        <div className="cd-section-title">Stato Chat</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle secondary">
+                                <i className="ri-chat-3-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Stato Chat Psicologia</span>
+                              <span className="cd-inner-card-title">Stato Chat Psicologia</span>
                             </div>
+                            <div className="cd-field">
                             <select
-                              className="form-select form-select-sm mb-2"
+                              className="cd-select sm"
                               value={formData.stato_cliente_chat_psicologia || ''}
                               onChange={(e) => handleInputChange('stato_cliente_chat_psicologia', e.target.value)}
                             >
@@ -6153,25 +5892,26 @@ function ClientiDetail() {
                               <option value="pausa">Pausa</option>
                               <option value="ghost">Ghost</option>
                             </select>
+                            </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Timeline Storico Stati Unificata */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          <i className="ri-history-line me-2"></i>
+                      <div>
+                        <div className="cd-section-title">
+                          <i className="ri-history-line"></i>
                           Storico Stati (Servizio + Chat)
-                        </h6>
+                        </div>
                         {loadingStoricoPsicologia ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm" style={{ color: '#a855f7' }} role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento storico...</small>
+                            <small className="ms-2 cd-loading-text">Caricamento storico...</small>
                           </div>
                         ) : (storicoStatoPsicologia.length > 0 || storicoChatPsicologia.length > 0) ? (
-                          <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #a855f7, #6b7280)', borderRadius: '2px', zIndex: 0 }}></div>
-                            <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                          <div className="cd-timeline">
+                            <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #a855f7, #6b7280)' }}></div>
+                            <div className="cd-timeline-items">
                               {[
                                 ...storicoStatoPsicologia.map(item => ({ ...item, tipo: 'servizio' })),
                                 ...storicoChatPsicologia.map(item => ({ ...item, tipo: 'chat' }))
@@ -6186,20 +5926,20 @@ function ClientiDetail() {
                                   const bgColor = isServizio ? '#a855f7' : '#6b7280';
                                   const icon = isServizio ? 'ri-mental-health-line' : 'ri-chat-3-line';
                                   return (
-                                    <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '130px', maxWidth: '150px' }}>
-                                      <div className="d-flex justify-content-center mb-2">
-                                        <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: bgColor, border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                                          <i className={`${icon} text-white`} style={{ fontSize: '0.75rem' }}></i>
+                                    <div key={idx} className="cd-timeline-item">
+                                      <div className="cd-timeline-dot-wrap">
+                                        <div className="cd-timeline-dot" style={{ background: bgColor }}>
+                                          <i className={icon}></i>
                                         </div>
                                       </div>
-                                      <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                      <div className="cd-timeline-date">
                                         {item.data_inizio || '—'}
                                         {item.data_fine && <span className="d-block">→ {item.data_fine}</span>}
                                       </div>
-                                      <div className={`card border-0 shadow-sm ${!item.is_attivo ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_attivo ? '#fff' : '#f8fafc' }}>
-                                        <div className="card-body p-2">
+                                      <div className={`cd-timeline-card ${!item.is_attivo ? 'inactive' : ''}`}>
+                                        <div>
                                           <div className="mb-1">
-                                            <span className="badge" style={{ fontSize: '0.6rem', background: isServizio ? '#f3e8ff' : '#f3f4f6', color: bgColor }}>
+                                            <span className="cd-timeline-badge" style={{ background: isServizio ? 'rgba(168,85,247,0.15)' : 'rgba(107,114,128,0.15)', color: bgColor }}>
                                               {isServizio ? 'Servizio' : 'Chat'}
                                             </span>
                                           </div>
@@ -6224,11 +5964,11 @@ function ClientiDetail() {
                             </div>
                           </div>
                         ) : (
-                          <div className="card border">
-                            <div className="card-body p-3 text-center text-muted">
-                              <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                              <p className="mb-0 small">Nessuno storico stati disponibile</p>
-                              <small>I cambi di stato verranno tracciati automaticamente</small>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body cd-empty">
+                              <i className="ri-history-line cd-empty-icon"></i>
+                              <p className="mb-0 cd-empty-text">Nessuno storico stati disponibile</p>
+                              <small className="cd-empty-text">I cambi di stato verranno tracciati automaticamente</small>
                             </div>
                           </div>
                         )}
@@ -6239,18 +5979,18 @@ function ClientiDetail() {
 
                   {/* ===== SETUP SUB-TAB ===== */}
                   {psicologiaSubTab === 'setup' && (
-                    <div className="col-12" data-tour="psicologia-setup">
-                      <div className="row g-4">
+                    <div data-tour="psicologia-setup">
+                      <div>
                       {/* Call Iniziale */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Call Iniziale</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-primary-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-phone-line text-primary" style={{ fontSize: '0.85rem' }}></i>
+                      <div>
+                        <div className="cd-section-title">Call Iniziale</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle primary">
+                                <i className="ri-phone-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Call Iniziale Psicologa</span>
+                              <span className="cd-inner-card-title">Call Iniziale Psicologa</span>
                             </div>
                             <div className="form-check form-switch mb-2">
                               <input
@@ -6264,15 +6004,15 @@ function ClientiDetail() {
                                 {formData.call_iniziale_psicologa ? 'Effettuata' : 'Non effettuata'}
                               </label>
                               {formData.call_iniziale_psicologa && (
-                                <span className="badge bg-success ms-2" style={{ fontSize: '0.65rem' }}>Completata</span>
+                                <span className="cd-badge ms-2" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>Completata</span>
                               )}
                             </div>
                             {formData.call_iniziale_psicologa && (
-                              <div className="mt-3">
-                                <label className="form-label small text-muted mb-1">Data Call</label>
+                              <div className="cd-field mt-3">
+                                <label className="cd-field-label">Data Call</label>
                                 <input
                                   type="date"
-                                  className="form-control form-control-sm"
+                                  className="cd-input sm"
                                   value={formData.data_call_iniziale_psicologia || ''}
                                   onChange={(e) => handleInputChange('data_call_iniziale_psicologia', e.target.value)}
                                 />
@@ -6283,18 +6023,19 @@ function ClientiDetail() {
                       </div>
 
                       {/* Reach Out */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Reach Out Settimanale</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-calendar-check-line text-info" style={{ fontSize: '0.85rem' }}></i>
+                      <div>
+                        <div className="cd-section-title">Reach Out Settimanale</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle info">
+                                <i className="ri-calendar-check-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Giorno Reach Out</span>
+                              <span className="cd-inner-card-title">Giorno Reach Out</span>
                             </div>
+                            <div className="cd-field">
                             <select
-                              className="form-select form-select-sm"
+                              className="cd-select sm"
                               value={formData.reach_out_psicologia || ''}
                               onChange={(e) => handleInputChange('reach_out_psicologia', e.target.value)}
                             >
@@ -6307,32 +6048,32 @@ function ClientiDetail() {
                               <option value="sabato">Sabato</option>
                               <option value="domenica">Domenica</option>
                             </select>
+                            </div>
                             {formData.reach_out_psicologia && (
-                              <small className="text-muted d-block mt-2" style={{ fontSize: '0.7rem' }}>
+                              <span className="cd-prof-date d-block mt-2">
                                 <i className="ri-calendar-event-line me-1"></i>
                                 Reach out ogni {{ lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' }[formData.reach_out_psicologia]}
-                              </small>
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
 
                       {/* Sedute Counter */}
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Sedute Acquistate</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
+                      <div>
+                        <div className="cd-section-title">Sedute Acquistate</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
                             <div className="d-flex align-items-center justify-content-between">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '40px', height: '40px', background: '#dbeafe' }}>
-                                  <i className="ri-shopping-cart-line text-primary" style={{ fontSize: '1rem' }}></i>
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle cart xl">
+                                  <i className="ri-shopping-cart-line"></i>
                                 </div>
-                                <span className="fw-semibold">Sedute Comprate</span>
+                                <span className="cd-inner-card-title">Sedute Comprate</span>
                               </div>
                               <input
                                 type="number"
-                                className="form-control form-control-sm text-center"
-                                style={{ width: '80px' }}
+                                className="cd-input sm cd-number-input-sm"
                                 min="0"
                                 value={formData.sedute_psicologia_comprate || 0}
                                 onChange={(e) => handleInputChange('sedute_psicologia_comprate', parseInt(e.target.value) || 0)}
@@ -6342,21 +6083,20 @@ function ClientiDetail() {
                         </div>
                       </div>
 
-                      <div className="col-md-6">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Sedute Svolte</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
+                      <div>
+                        <div className="cd-section-title">Sedute Svolte</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
                             <div className="d-flex align-items-center justify-content-between">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '40px', height: '40px', background: '#d1fae5' }}>
-                                  <i className="ri-check-double-line text-success" style={{ fontSize: '1rem' }}></i>
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle check-done xl">
+                                  <i className="ri-check-double-line"></i>
                                 </div>
-                                <span className="fw-semibold">Sedute Svolte</span>
+                                <span className="cd-inner-card-title">Sedute Svolte</span>
                               </div>
                               <input
                                 type="number"
-                                className="form-control form-control-sm text-center"
-                                style={{ width: '80px' }}
+                                className="cd-input sm cd-number-input-sm"
                                 min="0"
                                 value={formData.sedute_psicologia_svolte || 0}
                                 onChange={(e) => handleInputChange('sedute_psicologia_svolte', parseInt(e.target.value) || 0)}
@@ -6371,21 +6111,21 @@ function ClientiDetail() {
 
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {psicologiaSubTab === 'patologie' && (
-                    <div className="col-12" data-tour="psicologia-patologie">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Patologie Psicologiche</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#fef3c7' }}>
-                                <i className="ri-stethoscope-line text-warning" style={{ fontSize: '0.85rem' }}></i>
+                    <div data-tour="psicologia-patologie">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">Patologie Psicologiche</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle warning">
+                                <i className="ri-stethoscope-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Patologie Psicologiche</span>
+                              <span className="cd-inner-card-title">Patologie Psicologiche</span>
                             </div>
 
                             {/* Nessuna Patologia */}
-                            <div className={`p-2 rounded mb-3 border ${formData.nessuna_patologia_psico ? 'bg-success-subtle border-success' : 'border-secondary'}`}>
+                            <div className={`cd-no-pathology-banner ${formData.nessuna_patologia_psico ? 'active' : ''} mb-3`}>
                               <div className="form-check mb-0">
                                 <input
                                   className="form-check-input"
@@ -6401,9 +6141,9 @@ function ClientiDetail() {
                             </div>
 
                             {/* Lista patologie */}
-                            <div className="row g-1">
+                            <div className="cd-pathology-grid">
                               {PATOLOGIE_PSICO.map(({ key, label }) => (
-                                <div key={key} className="col-md-6 col-12">
+                                <div key={key}>
                                   <div className="form-check">
                                     <input
                                       className="form-check-input"
@@ -6419,7 +6159,7 @@ function ClientiDetail() {
                                 </div>
                               ))}
                               {/* Altro Checkbox Psicologia */}
-                              <div className="col-md-6 col-12">
+                              <div>
                                 <div className="form-check">
                                   <input
                                     className="form-check-input"
@@ -6437,10 +6177,10 @@ function ClientiDetail() {
 
                             {/* Altro Input Psicologia */}
                             {formData.patologia_psico_altro_check && (
-                              <div className="mt-2">
+                              <div className="cd-field mt-2">
                                 <input
                                   type="text"
-                                  className="form-control form-control-sm"
+                                  className="cd-input sm"
                                   placeholder="Specifica altra patologia psicologica..."
                                   value={formData.patologia_psico_altro || ''}
                                   onChange={(e) => handleInputChange('patologia_psico_altro', e.target.value)}
@@ -6452,23 +6192,25 @@ function ClientiDetail() {
                       </div>
 
                       {/* ===== ANAMNESI MERGED ===== */}
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Storia Psicologica</h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                <i className="ri-file-list-3-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
+                      <div>
+                        <div className="cd-section-title">Storia Psicologica</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle purple">
+                                <i className="ri-file-list-3-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Anamnesi Psicologica</span>
+                              <span className="cd-inner-card-title">Anamnesi Psicologica</span>
                             </div>
+                            <div className="cd-field">
                             <textarea
-                              className="form-control mb-3"
+                              className="cd-textarea"
                               rows="8"
                               placeholder="Scrivi qui l'anamnesi psicologica del cliente...&#10;&#10;• Storia clinica&#10;• Motivazioni&#10;• Obiettivi terapeutici&#10;• Note iniziali"
                               value={formData.storia_psicologica || ''}
                               onChange={(e) => handleInputChange('storia_psicologica', e.target.value)}
                             ></textarea>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -6480,51 +6222,51 @@ function ClientiDetail() {
 
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {psicologiaSubTab === 'diario' && (
-                    <div className="col-12" data-tour="psicologia-diario">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                    <div data-tour="psicologia-diario">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">
                           Diario Psicologia
-                        </h6>
-                        <div className="card border">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center justify-content-between mb-3">
-                              <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px', background: '#f3e8ff' }}>
-                                  <i className="ri-book-2-line" style={{ fontSize: '0.85rem', color: '#a855f7' }}></i>
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle purple">
+                                  <i className="ri-book-2-line"></i>
                                 </div>
-                                <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note del Percorso</span>
-                                <span className="badge ms-2" style={{ background: '#a855f7' }}>{diarioPsicologiaEntries.length}</span>
+                                <span className="cd-inner-card-title">Note del Percorso</span>
+                                <span className="cd-badge ms-2" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{diarioPsicologiaEntries.length}</span>
                               </div>
                               {canManagePsychologySection && (
                                 <button
-                                  className="btn btn-sm"
-                                  style={{ background: '#a855f7', color: 'white' }}
+                                  className="cd-btn-save"
+                                  style={{ background: '#a855f7' }}
                                   onClick={() => handleOpenDiarioPsicologiaModal()}
                                 >
-                                  <i className="ri-add-line me-1"></i>
+                                  <i className="ri-add-line"></i>
                                   Nuova Nota
                                 </button>
                               )}
                             </div>
 
                             {loadingDiarioPsicologia ? (
-                              <div className="text-center py-4">
+                              <div className="cd-loading">
                                 <div className="spinner-border spinner-border-sm" style={{ color: '#a855f7' }} role="status"></div>
-                                <small className="ms-2 text-muted">Caricamento diario...</small>
+                                <small className="ms-2 cd-loading-text">Caricamento diario...</small>
                               </div>
                             ) : diarioPsicologiaEntries.length === 0 ? (
-                              <p className="text-muted small mb-0 text-center py-3">
+                              <p className="cd-empty-text mb-0 text-center py-3">
                                 <i className="ri-information-line me-1"></i>
                                 Nessuna nota nel diario. Clicca "Nuova Nota" per aggiungerne una.
                               </p>
                             ) : (
                               <div className="d-flex flex-column gap-3">
                                 {diarioPsicologiaEntries.map((entry) => (
-                                  <div key={entry.id} className="border rounded-3 p-3" style={{ background: '#fafafa' }}>
-                                    <div className="d-flex justify-content-between align-items-start mb-2">
-                                      <div>
-                                        <span className="badge me-2" style={{ background: '#f3e8ff', color: '#a855f7' }}>
+                                  <div key={entry.id} className="cd-diary-entry">
+                                    <div className="cd-diary-header">
+                                      <div className="cd-diary-meta">
+                                        <span className="cd-badge me-2" style={{ background: '#f3e8ff', color: '#a855f7' }}>
                                           <i className="ri-calendar-line me-1"></i>
                                           {entry.entry_date_display || entry.entry_date}
                                           {entry.created_at && (
@@ -6538,10 +6280,10 @@ function ClientiDetail() {
                                           {entry.author || 'Staff'}
                                         </small>
                                       </div>
-                                      <div className="d-flex gap-1">
+                                      <div className="cd-diary-actions">
                                         {canManagePsychologySection && (
                                           <button
-                                            className="btn btn-sm btn-outline-primary py-0 px-2"
+                                            className="cd-btn-action-sm"
                                             onClick={() => handleOpenDiarioPsicologiaModal(entry)}
                                             title="Modifica"
                                           >
@@ -6550,7 +6292,7 @@ function ClientiDetail() {
                                         )}
                                         {(user?.is_admin || user?.role === 'admin') && (
                                           <button
-                                            className="btn btn-sm btn-outline-danger py-0 px-2"
+                                            className="cd-btn-action-sm danger"
                                             onClick={() => handleDeleteDiarioPsicologia(entry.id)}
                                             title="Elimina"
                                           >
@@ -6558,7 +6300,7 @@ function ClientiDetail() {
                                           </button>
                                         )}
                                         <button
-                                          className="btn btn-sm btn-outline-secondary py-0 px-2"
+                                          className="cd-btn-action-sm"
                                           onClick={() => handleOpenHistoryModal(entry, 'psicologia')}
                                           title="Storico Modifiche"
                                         >
@@ -6566,7 +6308,7 @@ function ClientiDetail() {
                                         </button>
                                       </div>
                                     </div>
-                                    <p className="mb-0 small" style={{ whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                                    <p className="mb-0 cd-diary-content">{entry.content}</p>
                                   </div>
                                 ))}
                               </div>
@@ -6580,25 +6322,27 @@ function ClientiDetail() {
 
                   {/* ===== ALERT SUB-TAB ===== */}
                   {psicologiaSubTab === 'alert' && (
-                    <div className="col-12" data-tour="psicologia-alert">
-                      <div className="row g-4">
-                      <div className="col-12">
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">Alert / Criticità</h6>
-                        <div className="card border border-danger">
-                          <div className="card-body p-3">
-                            <div className="d-flex align-items-center mb-3">
-                              <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '28px', height: '28px' }}>
-                                <i className="ri-alarm-warning-line text-danger" style={{ fontSize: '0.85rem' }}></i>
+                    <div data-tour="psicologia-alert">
+                      <div>
+                      <div>
+                        <div className="cd-section-title">Alert / Criticità</div>
+                        <div className="cd-inner-card danger-border">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle danger">
+                                <i className="ri-alarm-warning-line"></i>
                               </div>
-                              <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>Note Critiche Psicologia</span>
+                              <span className="cd-inner-card-title danger">Note Critiche Psicologia</span>
                             </div>
+                            <div className="cd-field">
                             <textarea
-                              className="form-control"
+                              className="cd-textarea"
                               rows="6"
                               placeholder="Inserisci qui eventuali alert o criticità importanti per la gestione del cliente...&#10;&#10;⚠️ Queste note sono visibili a tutto il team"
                               value={formData.alert_psicologia || ''}
                               onChange={(e) => handleInputChange('alert_psicologia', e.target.value)}
                             ></textarea>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -6611,15 +6355,14 @@ function ClientiDetail() {
               {/* ========== CHECK TAB ========== */}
               {/* ========== MEDICO TAB ========== */}
               {activeTab === 'medico' && (
-                <div className="row g-4">
-                  <div className="col-12">
-                    <div className="card border">
-                      <div className="card-body p-3">
+                <div>
+                  <div>
+                    <div className="cd-inner-card">
+                      <div className="cd-inner-card-body">
                         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                          <div className="d-flex align-items-center">
-                            <div className="bg-danger-subtle rounded-circle d-flex align-items-center justify-content-center me-2"
-                                 style={{ width: '34px', height: '34px' }}>
-                              <i className="ri-stethoscope-line text-danger"></i>
+                          <div className="cd-inner-card-header-left">
+                            <div className="cd-icon-circle danger" style={{ width: '34px', height: '34px' }}>
+                              <i className="ri-stethoscope-line"></i>
                             </div>
                             <div>
                               <div className="fw-semibold">Medico</div>
@@ -6628,46 +6371,45 @@ function ClientiDetail() {
                           </div>
                           {canManageAssignmentType('medico') && (
                             <button
-                              className="btn btn-danger btn-sm"
+                              className="cd-btn-save"
+                              style={{ background: '#ef4444' }}
                               onClick={() => handleOpenAssignModal('medico')}
                             >
-                              <i className="ri-add-line me-1"></i>
+                              <i className="ri-add-line"></i>
                               Assegna Medico
                             </button>
                           )}
                         </div>
 
                         {loadingHistory ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento...</small>
+                            <small className="ms-2 cd-loading-text">Caricamento...</small>
                           </div>
                         ) : getActiveProfessionals('medico').length > 0 ? (
                           <div className="d-flex flex-column gap-2">
                             {getActiveProfessionals('medico').map((assignment, idx) => (
-                              <div key={idx} className="d-flex align-items-center justify-content-between p-2 bg-light rounded">
-                                <div className="d-flex align-items-center">
+                              <div key={idx} className="cd-assignment-row">
+                                <div className="cd-assignment-info">
                                   {assignment.avatar_path ? (
                                     <img
                                       src={assignment.avatar_path}
                                       alt=""
-                                      className="rounded-circle me-2"
-                                      style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                                      className="cd-prof-avatar"
                                     />
                                   ) : (
-                                    <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-2"
-                                         style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}>
+                                    <div className="cd-prof-initials lg" style={{ background: '#ef4444' }}>
                                       {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                     </div>
                                   )}
                                   <div>
-                                    <div className="fw-medium small">{assignment.professionista_nome}</div>
-                                    <small className="text-muted">Assegnato dal {assignment.data_dal || '—'}</small>
+                                    <span className="cd-prof-name">{assignment.professionista_nome}</span>
+                                    <span className="cd-prof-date">Assegnato dal {assignment.data_dal || '—'}</span>
                                   </div>
                                 </div>
                                 {canManageAssignmentType('medico') && (
                                   <button
-                                    className="btn btn-sm btn-link text-danger p-0"
+                                    className="cd-btn-remove"
                                     onClick={() => handleOpenInterruptModal(assignment)}
                                     title="Rimuovi assegnazione"
                                   >
@@ -6678,24 +6420,24 @@ function ClientiDetail() {
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center py-4 bg-light rounded">
-                            <i className="ri-stethoscope-line text-muted fs-3 d-block mb-2"></i>
-                            <small className="text-muted">Nessun medico assegnato</small>
+                          <div className="cd-empty">
+                            <i className="ri-stethoscope-line cd-empty-icon"></i>
+                            <small className="cd-empty-text">Nessun medico assegnato</small>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="col-12">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      <i className="ri-history-line me-2"></i>
+                  <div>
+                    <div className="cd-section-title">
+                      <i className="ri-history-line"></i>
                       Storico Assegnazioni Medico
-                    </h6>
+                    </div>
                     {professionistiHistory.filter(h => h.tipo_professionista === 'medico').length > 0 ? (
-                      <div className="timeline-horizontal" style={{ overflowX: 'auto', paddingBottom: '10px', position: 'relative' }}>
-                        <div style={{ position: 'absolute', left: '0', right: '0', top: '24px', height: '3px', background: 'linear-gradient(to right, #ef4444, #b91c1c)', borderRadius: '2px', zIndex: 0 }}></div>
-                        <div className="d-flex gap-3 align-items-start" style={{ minWidth: 'max-content', position: 'relative', zIndex: 1 }}>
+                      <div className="cd-timeline">
+                        <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #ef4444, #b91c1c)' }}></div>
+                        <div className="cd-timeline-items">
                           {professionistiHistory
                             .filter(h => h.tipo_professionista === 'medico')
                             .sort((a, b) => {
@@ -6704,35 +6446,35 @@ function ClientiDetail() {
                               return dateB - dateA;
                             })
                             .map((item, idx) => (
-                              <div key={idx} className="timeline-item-h text-center" style={{ minWidth: '150px', maxWidth: '170px' }}>
-                                <div className="d-flex justify-content-center mb-2">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center bg-danger" style={{ width: '28px', height: '28px', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                                    <i className="ri-stethoscope-line text-white" style={{ fontSize: '0.75rem' }}></i>
+                              <div key={idx} className="cd-timeline-item">
+                                <div className="cd-timeline-dot-wrap">
+                                  <div className="cd-timeline-dot" style={{ background: '#ef4444' }}>
+                                    <i className="ri-stethoscope-line"></i>
                                   </div>
                                 </div>
-                                <div className="small text-muted mb-2" style={{ fontSize: '0.7rem' }}>
+                                <div className="cd-timeline-date">
                                   {item.data_dal || '—'}
                                   {item.data_al && <span className="d-block">→ {item.data_al}</span>}
                                 </div>
-                                <div className={`card border-0 shadow-sm ${!item.is_active ? 'opacity-75' : ''}`} style={{ borderRadius: '12px', background: item.is_active ? '#fff' : '#f8fafc' }}>
-                                  <div className="card-body p-2">
+                                <div className={`cd-timeline-card ${!item.is_active ? 'inactive' : ''}`}>
+                                  <div>
                                     <div className="mb-2">
                                       {item.is_active ? (
-                                        <span className="badge bg-danger" style={{ fontSize: '0.65rem' }}>Attivo</span>
+                                        <span className="cd-timeline-badge" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>Attivo</span>
                                       ) : (
-                                        <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>Concluso</span>
+                                        <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.15)', color: '#6b7280' }}>Concluso</span>
                                       )}
                                     </div>
                                     <div className="d-flex justify-content-center mb-2">
                                       {item.avatar_path ? (
-                                        <img src={item.avatar_path} alt="" className="rounded-circle" style={{ width: '36px', height: '36px', objectFit: 'cover' }} />
+                                        <img src={item.avatar_path} alt="" className="cd-timeline-card-avatar" />
                                       ) : (
-                                        <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', fontSize: '0.75rem' }}>
+                                        <div className="cd-timeline-card-initials" style={{ background: '#ef4444' }}>
                                           {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                     </div>
-                                    <div className="fw-semibold small" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <div className="cd-timeline-card-name">
                                       {item.professionista_nome}
                                     </div>
                                   </div>
@@ -6742,10 +6484,10 @@ function ClientiDetail() {
                         </div>
                       </div>
                     ) : (
-                      <div className="card border">
-                        <div className="card-body p-3 text-center text-muted">
-                          <i className="ri-history-line fs-3 d-block mb-2 opacity-50"></i>
-                          <p className="mb-0 small">Nessuno storico medico disponibile</p>
+                      <div className="cd-inner-card">
+                        <div className="cd-inner-card-body cd-empty">
+                          <i className="ri-history-line cd-empty-icon"></i>
+                          <p className="mb-0 cd-empty-text">Nessuno storico medico disponibile</p>
                         </div>
                       </div>
                     )}
@@ -6755,88 +6497,80 @@ function ClientiDetail() {
 
               {/* ========== CHECK PERIODICI TAB ========== */}
               {activeTab === 'check_periodici' && (
-                <div className="row g-4">
+                <div>
                   {/* Pills Navigation */}
-                  <div className="col-12" data-tour="check-periodici-tabs">
-                    <ul className="nav nav-pills mb-3">
-                      <li className="nav-item">
-                        <button 
-                          className={`nav-link ${activePeriodiciTab === 'weekly' ? 'active' : ''}`} 
-                          onClick={() => setActivePeriodiciTab('weekly')}
-                        >
-                          Settimanale
-                        </button>
-                      </li>
-                      <li className="nav-item">
-                        <button 
-                          className={`nav-link ${activePeriodiciTab === 'dca' ? 'active' : ''}`} 
-                          onClick={() => setActivePeriodiciTab('dca')}
-                        >
-                          DCA
-                        </button>
-                      </li>
-                      <li className="nav-item">
-                        <button 
-                          className={`nav-link ${activePeriodiciTab === 'minor' ? 'active' : ''}`} 
-                          onClick={() => setActivePeriodiciTab('minor')}
-                        >
-                          Minori
-                        </button>
-                      </li>
-                    </ul>
+                  <div data-tour="check-periodici-tabs">
+                    <div className="cd-subtabs" style={{ marginBottom: '20px' }}>
+                      <button
+                        className={`cd-subtab${activePeriodiciTab === 'weekly' ? ' active green' : ''}`}
+                        onClick={() => setActivePeriodiciTab('weekly')}
+                      >
+                        Settimanale
+                      </button>
+                      <button
+                        className={`cd-subtab${activePeriodiciTab === 'dca' ? ' active purple' : ''}`}
+                        onClick={() => setActivePeriodiciTab('dca')}
+                      >
+                        DCA
+                      </button>
+                      <button
+                        className={`cd-subtab${activePeriodiciTab === 'minor' ? ' active orange' : ''}`}
+                        onClick={() => setActivePeriodiciTab('minor')}
+                      >
+                        Minori
+                      </button>
+                    </div>
                   </div>
 
                   {/* Link Generation Section (Filtered) */}
-                  <div className="col-12" data-tour="check-periodici-link">
+                  <div data-tour="check-periodici-link" style={{ marginBottom: '24px' }}>
                     {canGenerateCheckLinks ? (
                       <>
-                        <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                          <i className="ri-link me-2"></i>
+                        <div className="cd-section-title">
+                          <i className="ri-link"></i>
                           Genera Link Check
-                        </h6>
-                        <div className="row g-3">
+                        </div>
+                        <div className="cd-form-grid cols-3">
                       {Object.values(CHECK_TYPES)
                         .filter(t => t.key === activePeriodiciTab)
                         .map((checkType) => {
                         const existingCheck = checkData.checks[checkType.key];
                         return (
-                          <div key={checkType.key} className="col-md-6 col-lg-4">
-                            <div className="card border">
-                              <div className="card-body p-3">
-                                <div className="d-flex align-items-center">
-                                  <div className="rounded-circle d-flex align-items-center justify-content-center me-2"
-                                       style={{ width: '32px', height: '32px', background: checkType.bgColor }}>
+                          <div key={checkType.key}>
+                            <div className="cd-inner-card">
+                              <div className="cd-inner-card-body">
+                                <div className="cd-check-type-header">
+                                  <div className="cd-icon-circle lg" style={{ background: checkType.bgColor }}>
                                     <i className={checkType.icon} style={{ color: checkType.color, fontSize: '14px' }}></i>
                                   </div>
                                   <div>
-                                    <span className="fw-semibold d-block" style={{ fontSize: '0.85rem' }}>{checkType.label}</span>
+                                    <span className="cd-inner-card-title">{checkType.label}</span>
                                     {existingCheck && (
-                                      <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                      <span className="cd-empty-text" style={{ display: 'block', fontSize: '0.7rem' }}>
                                         {existingCheck.response_count} compilazioni
-                                      </small>
+                                      </span>
                                     )}
                                   </div>
                                 </div>
-                                <div className="d-flex gap-2 mt-4">
+                                <div className="cd-check-actions">
                                   <button
-                                    className="btn btn-sm flex-grow-1"
-                                    style={{ background: checkType.color, color: 'white', fontSize: '0.75rem' }}
+                                    className="cd-btn-save"
+                                    style={{ background: checkType.color, flex: 1, fontSize: '0.75rem' }}
                                     onClick={() => handleGenerateCheckLink(checkType.key)}
                                     disabled={generatingLink === checkType.key}
                                   >
                                     {generatingLink === checkType.key ? (
-                                      <span className="spinner-border spinner-border-sm me-1"></span>
+                                      <span className="spinner-border spinner-border-sm"></span>
                                     ) : (
-                                      <i className={existingCheck ? 'ri-file-copy-line me-1' : 'ri-add-line me-1'}></i>
+                                      <i className={existingCheck ? 'ri-file-copy-line' : 'ri-add-line'}></i>
                                     )}
                                     {existingCheck ? 'Copia Link' : 'Genera Link'}
                                   </button>
                                   {existingCheck && (
                                     <button
-                                      className="btn btn-sm btn-outline-secondary"
+                                      className="cd-btn-back"
                                       onClick={() => handleOpenCheckForm(existingCheck.url)}
                                       title="Apri form"
-                                      style={{ fontSize: '0.75rem' }}
                                     >
                                       <i className="ri-external-link-line"></i>
                                     </button>
@@ -6850,41 +6584,41 @@ function ClientiDetail() {
                         </div>
                       </>
                     ) : (
-                      <div className="alert alert-light border mb-0">
-                        <small className="text-muted">
+                      <div className="cd-alert cd-alert-info">
+                        <span className="cd-empty-text">
                           La generazione dei link check non è disponibile per questo utente.
-                        </small>
+                        </span>
                       </div>
                     )}
                   </div>
 
                   {/* Responses History Section (Filtered) */}
-                  <div className="col-12" data-tour="check-periodici-risposte">
-                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
-                      <i className="ri-history-line me-2"></i>
+                  <div data-tour="check-periodici-risposte">
+                    <div className="cd-section-title">
+                      <i className="ri-history-line"></i>
                       Storico Compilazioni
-                    </h6>
-                    <div className="card border">
-                      <div className="card-body p-3">
+                    </div>
+                    <div className="cd-inner-card">
+                      <div className="cd-inner-card-body">
                         {loadingChecks ? (
-                          <div className="text-center py-4">
+                          <div className="cd-loading">
                             <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento check...</small>
+                            <span className="cd-empty-text" style={{ marginLeft: '8px' }}>Caricamento check...</span>
                           </div>
                         ) : checkData.responses.filter(r => r.type === activePeriodiciTab).length === 0 ? (
-                          <div className="text-center py-4">
-                            <i className="ri-inbox-line fs-2 text-muted d-block mb-2"></i>
-                            <p className="text-muted small mb-0">Nessuna compilazione ricevuta</p>
+                          <div className="cd-empty">
+                            <i className="ri-inbox-line cd-empty-icon"></i>
+                            <p className="cd-empty-text">Nessuna compilazione ricevuta</p>
                           </div>
                         ) : (
-                          <div className="table-responsive">
-                            <table className="table table-hover mb-0">
+                          <div className="cd-table-wrap">
+                            <table className="cd-table">
                               <thead>
                                 <tr>
-                                  <th style={{ fontSize: '0.75rem' }}>Data</th>
-                                  <th style={{ fontSize: '0.75rem' }}>Tipo</th>
-                                  <th style={{ fontSize: '0.75rem' }} className="text-center">Valutazioni</th>
-                                  <th style={{ fontSize: '0.75rem' }} className="text-center">Azioni</th>
+                                  <th>Data</th>
+                                  <th>Tipo</th>
+                                  <th style={{ textAlign: 'center' }}>Valutazioni</th>
+                                  <th style={{ textAlign: 'center' }}>Azioni</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -6893,55 +6627,54 @@ function ClientiDetail() {
                                   .map((response) => (
                                   <tr key={`${response.type}-${response.id}`}>
                                     <td>
-                                      <small className="fw-medium">{response.submit_date}</small>
+                                      <span style={{ fontWeight: 500 }}>{response.submit_date}</span>
                                     </td>
                                     <td>
-                                      <span className="badge" style={{
+                                      <span className="cd-badge" style={{
                                         background: CHECK_TYPES[response.type]?.bgColor || '#f1f5f9',
                                         color: CHECK_TYPES[response.type]?.color || '#64748b',
-                                        fontSize: '0.7rem'
                                       }}>
-                                        <i className={`${CHECK_TYPES[response.type]?.icon} me-1`}></i>
+                                        <i className={CHECK_TYPES[response.type]?.icon}></i>
                                         {CHECK_TYPES[response.type]?.label || response.type}
                                       </span>
                                     </td>
-                                    <td className="text-center">
+                                    <td style={{ textAlign: 'center' }}>
                                       {response.type === 'weekly' && (
-                                        <div className="d-flex justify-content-center gap-2">
+                                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                           {response.nutritionist_rating && (
-                                            <span style={checkService.getRatingBadgeStyle(response.nutritionist_rating)} title="Nutrizionista">
+                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.nutritionist_rating)} title="Nutrizionista">
                                               🥗 {response.nutritionist_rating}
                                             </span>
                                           )}
                                           {response.psychologist_rating && (
-                                            <span style={checkService.getRatingBadgeStyle(response.psychologist_rating)} title="Psicologo">
+                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.psychologist_rating)} title="Psicologo">
                                               🧠 {response.psychologist_rating}
                                             </span>
                                           )}
                                           {response.coach_rating && (
-                                            <span style={checkService.getRatingBadgeStyle(response.coach_rating)} title="Coach">
+                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.coach_rating)} title="Coach">
                                               🏋️ {response.coach_rating}
                                             </span>
                                           )}
                                           {response.progress_rating && (
-                                            <span style={checkService.getRatingBadgeStyle(response.progress_rating)} title="Progresso">
+                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.progress_rating)} title="Progresso">
                                               📈 {response.progress_rating}
                                             </span>
                                           )}
                                         </div>
                                       )}
                                       {response.type === 'minor' && response.score_global && (
-                                        <span style={checkService.getRatingBadgeStyle(10 - response.score_global)}>
+                                        <span className="cd-badge" style={checkService.getRatingBadgeStyle(10 - response.score_global)}>
                                           EDE-Q6: {response.score_global.toFixed(1)}
                                         </span>
                                       )}
                                       {response.type === 'dca' && (
-                                        <small className="text-muted">-</small>
+                                        <span className="cd-empty-text">-</span>
                                       )}
                                     </td>
-                                    <td className="text-center">
+                                    <td style={{ textAlign: 'center' }}>
                                       <button
-                                        className="btn btn-sm btn-outline-primary py-0 px-2"
+                                        className="cd-btn-back"
                                         onClick={() => handleViewCheckResponse(response)}
                                         title="Visualizza dettagli"
                                       >
@@ -6962,130 +6695,138 @@ function ClientiDetail() {
 
               {/* ========== CHECK INIZIALI TAB ========== */}
               {activeTab === 'check_iniziali' && (
-                 <div className="row g-4">
-                    {/* Pills Navigation */}
-                    <div className="col-12" data-tour="check-iniziali-tabs">
-                       <ul className="nav nav-pills mb-3">
-                          <li className="nav-item">
-                             <button className={`nav-link ${activeInizialiTab === 'check_1' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_1')}>Check 1</button>
-                          </li>
-                          <li className="nav-item">
-                             <button className={`nav-link ${activeInizialiTab === 'check_2' ? 'active' : ''}`} onClick={() => setActiveInizialiTab('check_2')}>Check 2</button>
-                          </li>
-                       </ul>
+                <div>
+                  {/* Pills Navigation */}
+                  <div data-tour="check-iniziali-tabs">
+                    <div className="cd-subtabs" style={{ marginBottom: '20px' }}>
+                      <button
+                        className={`cd-subtab${activeInizialiTab === 'check_1' ? ' active green' : ''}`}
+                        onClick={() => setActiveInizialiTab('check_1')}
+                      >
+                        Check 1
+                      </button>
+                      <button
+                        className={`cd-subtab${activeInizialiTab === 'check_2' ? ' active green' : ''}`}
+                        onClick={() => setActiveInizialiTab('check_2')}
+                      >
+                        Check 2
+                      </button>
                     </div>
-                    
-                    {/* Content */}
-                     <div className="col-12" data-tour="check-iniziali-contenuto">
-                       <div className="card border">
-                          <div className="card-body p-4">
-                             {loadingInitialChecks ? (
-                                <div className="text-center py-5">
-                                   <div className="spinner-border text-primary" role="status"></div>
-                                   <p className="mt-2 text-muted">Caricamento risposte...</p>
-                                </div>
-                             ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
-                                <div className="text-center py-5">
-                                   <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
-                                   <h5>Nessun dato disponibile</h5>
-                                   <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
-                                </div>
-                             ) : (() => {
-                                const checkData = initialChecksData[activeInizialiTab];
-                                const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
-                                const hasUrl = checkData.url;
-                                if (!hasResponses && hasUrl) {
-                                  return (
-                                    <div>
-                                      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                                        <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
-                                      </div>
-                                      <div className="alert alert-info d-flex align-items-center">
-                                        <i className="ri-link fs-4 me-3"></i>
-                                        <div className="flex-grow-1">
-                                          <strong>Link da inviare al cliente</strong>
-                                          <p className="mb-2 mt-1 text-muted small">Il cliente non ha ancora compilato. Copia il link qui sotto e invialo al cliente per permettergli di compilare il questionario.</p>
-                                          <div className="input-group">
-                                            <input type="text" className="form-control" value={checkData.url} readOnly />
-                                            <button className="btn btn-primary" type="button" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato negli appunti'); }}>
-                                              <i className="ri-file-copy-line me-1"></i>Copia
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                if (!hasResponses && !hasUrl) {
-                                  return (
-                                    <div className="text-center py-5">
-                                      <i className="ri-file-search-line fs-1 text-muted mb-3"></i>
-                                      <h5>Nessun dato disponibile</h5>
-                                      <p className="text-muted">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
-                                    </div>
-                                  );
-                                }
-                                return (
-                                <div>
-                                   <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-                                      <h5 className="mb-0 text-capitalize">{activeInizialiTab.replace('_', ' ')}</h5>
-                                      {checkData.completed_at && (
-                                         <span className="badge bg-light text-dark border">
-                                            <i className="ri-calendar-event-line me-1"></i>
-                                            Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
-                                         </span>
-                                      )}
-                                      {hasUrl && (
-                                         <button className="btn btn-sm btn-outline-primary ms-2" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
-                                            <i className="ri-file-copy-line me-1"></i>Copia link
-                                         </button>
-                                      )}
-                                   </div>
-                                   
-                                   {/* Responses List */}
-                                   <div className="responses-list">
-                                      {Object.entries(checkData.responses).map(([question, answer], idx) => (
-                                         <div key={idx} className="mb-3 p-3 bg-light rounded-2">
-                                            <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{fontSize: '0.7rem'}}>Domanda {idx + 1}</small>
-                                            <div className="fw-semibold text-dark mb-1">{question}</div>
-                                            <div className="text-secondary" style={{whiteSpace: 'pre-wrap'}}>{Array.isArray(answer) ? answer.join(', ') : String(answer)}</div>
-                                         </div>
-                                      ))}
-                                   </div>
-                                </div>
-                                );
-                             })()}
+                  </div>
+
+                  {/* Content */}
+                  <div data-tour="check-iniziali-contenuto">
+                    <div className="cd-inner-card">
+                      <div className="cd-inner-card-body">
+                        {loadingInitialChecks ? (
+                          <div className="cd-loading">
+                            <div className="spinner-border text-primary" role="status"></div>
+                            <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento risposte...</p>
                           </div>
-                       </div>
+                        ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
+                          <div className="cd-empty">
+                            <i className="ri-file-search-line cd-empty-icon"></i>
+                            <h5>Nessun dato disponibile</h5>
+                            <p className="cd-empty-text">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
+                          </div>
+                        ) : (() => {
+                          const checkData = initialChecksData[activeInizialiTab];
+                          const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
+                          const hasUrl = checkData.url;
+                          if (!hasResponses && hasUrl) {
+                            return (
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                                  <h5 style={{ textTransform: 'capitalize', margin: 0 }}>{activeInizialiTab.replace('_', ' ')}</h5>
+                                </div>
+                                <div className="cd-alert cd-alert-info">
+                                  <i className="ri-link" style={{ fontSize: '1.25rem', flexShrink: 0 }}></i>
+                                  <div style={{ flex: 1 }}>
+                                    <strong>Link da inviare al cliente</strong>
+                                    <p className="cd-empty-text" style={{ marginBottom: '8px', marginTop: '4px' }}>Il cliente non ha ancora compilato. Copia il link qui sotto e invialo al cliente per permettergli di compilare il questionario.</p>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <input type="text" className="cd-input sm" value={checkData.url} readOnly style={{ flex: 1 }} />
+                                      <button className="cd-btn-save" type="button" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato negli appunti'); }}>
+                                        <i className="ri-file-copy-line"></i>Copia
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (!hasResponses && !hasUrl) {
+                            return (
+                              <div className="cd-empty">
+                                <i className="ri-file-search-line cd-empty-icon"></i>
+                                <h5>Nessun dato disponibile</h5>
+                                <p className="cd-empty-text">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                                <h5 style={{ textTransform: 'capitalize', margin: 0 }}>{activeInizialiTab.replace('_', ' ')}</h5>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  {checkData.completed_at && (
+                                    <span className="cd-badge" style={{ background: '#f1f5f9', color: '#475569' }}>
+                                      <i className="ri-calendar-event-line"></i>
+                                      Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
+                                    </span>
+                                  )}
+                                  {hasUrl && (
+                                    <button className="cd-btn-back" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
+                                      <i className="ri-file-copy-line"></i>Copia link
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Responses List */}
+                              <div>
+                                {Object.entries(checkData.responses).map(([question, answer], idx) => (
+                                  <div key={idx} className="cd-response-item">
+                                    <div className="cd-response-label">Domanda {idx + 1}</div>
+                                    <div className="cd-response-question">{question}</div>
+                                    <div className="cd-response-answer">{Array.isArray(answer) ? answer.join(', ') : String(answer)}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
-                 </div>
+                  </div>
+                </div>
               )}
 
               {/* ========== TICKETS TAB ========== */}
               {activeTab === 'tickets' && (
                 <div>
                   {loadingTickets ? (
-                    <div className="text-center py-5">
+                    <div className="cd-loading">
                       <div className="spinner-border text-primary" role="status"></div>
-                      <p className="mt-2 text-muted">Caricamento ticket...</p>
+                      <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento ticket...</p>
                     </div>
                   ) : patientTickets.length === 0 ? (
-                    <div className="text-center py-5">
-                      <i className="ri-ticket-2-line" style={{ fontSize: '3rem', color: '#d1d5db' }}></i>
-                      <p className="mt-3 text-muted">Nessun ticket associato a questo paziente</p>
+                    <div className="cd-empty">
+                      <i className="ri-ticket-2-line cd-empty-icon"></i>
+                      <p className="cd-empty-text">Nessun ticket associato a questo paziente</p>
                     </div>
                   ) : (
-                    <div className="table-responsive">
-                      <table className="table table-hover align-middle mb-0">
-                        <thead className="bg-light">
+                    <div className="cd-table-wrap">
+                      <table className="cd-table">
+                        <thead>
                           <tr>
-                            <th className="small text-uppercase text-muted fw-semibold">Numero</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Titolo</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Stato</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Priorita'</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Assegnatari</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Fonte</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Data</th>
+                            <th>Numero</th>
+                            <th>Titolo</th>
+                            <th>Stato</th>
+                            <th>Priorita'</th>
+                            <th>Assegnatari</th>
+                            <th>Fonte</th>
+                            <th>Data</th>
                             <th></th>
                           </tr>
                         </thead>
@@ -7103,31 +6844,31 @@ function ClientiDetail() {
                               bassa: { label: 'Bassa', bg: '#dcfce7', color: '#166534' },
                             }[t.priority] || { label: t.priority, bg: '#f3f4f6', color: '#374151' };
                             return (
-                              <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => openTicketDetail(t.id)}>
-                                <td><span className="fw-semibold text-primary">{t.ticket_number}</span></td>
-                                <td>{t.title || <span className="text-muted fst-italic">{(t.description || '').slice(0, 50)}</span>}</td>
+                              <tr key={t.id} className="cd-cursor-pointer" onClick={() => openTicketDetail(t.id)}>
+                                <td><span style={{ fontWeight: 600, color: '#3b82f6' }}>{t.ticket_number}</span></td>
+                                <td>{t.title || <span className="cd-empty-text" style={{ fontStyle: 'italic' }}>{(t.description || '').slice(0, 50)}</span>}</td>
                                 <td>
-                                  <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
+                                  <span className="cd-badge" style={{ background: statusCfg.bg, color: statusCfg.color }}>
                                     {statusCfg.label}
                                   </span>
                                 </td>
                                 <td>
-                                  <span className="badge rounded-pill px-2 py-1" style={{ background: prioCfg.bg, color: prioCfg.color, fontSize: '0.75rem' }}>
+                                  <span className="cd-badge" style={{ background: prioCfg.bg, color: prioCfg.color }}>
                                     {prioCfg.label}
                                   </span>
                                 </td>
                                 <td>
-                                  <span className="small text-muted">
+                                  <span className="cd-empty-text">
                                     {(t.assigned_users || []).map(u => u.name).join(', ') || '—'}
                                   </span>
                                 </td>
                                 <td>
                                   <i className={`ri-${t.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
                                 </td>
-                                <td><small className="text-muted">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td><span className="cd-empty-text">{t.created_at ? new Date(t.created_at).toLocaleDateString('it-IT') : '—'}</span></td>
                                 <td>
-                                  <span className="text-muted small">
-                                    {t.messages_count > 0 && <span className="me-2"><i className="ri-chat-3-line"></i> {t.messages_count}</span>}
+                                  <span className="cd-empty-text">
+                                    {t.messages_count > 0 && <span style={{ marginRight: '8px' }}><i className="ri-chat-3-line"></i> {t.messages_count}</span>}
                                     {t.attachments_count > 0 && <span><i className="ri-attachment-2"></i> {t.attachments_count}</span>}
                                   </span>
                                 </td>
@@ -7144,44 +6885,44 @@ function ClientiDetail() {
               {/* ==================== CALL BONUS TAB ==================== */}
               {activeTab === 'call_bonus' && (
                 <div>
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h5 className="mb-0">
-                      <i className="ri-phone-line me-2 text-primary"></i>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div className="cd-section-title" style={{ marginBottom: 0 }}>
+                      <i className="ri-phone-line"></i>
                       Storico Call Bonus
-                    </h5>
+                    </div>
                     {canCreateCallBonus && (user?.is_admin || user?.role === 'admin' ||
                       (c.nutrizionistiMultipli || []).some(n => n.id === user?.id) ||
                       (c.coachesMultipli || []).some(n => n.id === user?.id) ||
                       (c.psicologiMultipli || []).some(n => n.id === user?.id)
                     ) && (
-                      <button className="btn btn-primary" onClick={handleOpenCallBonusModal}>
-                        <i className="ri-add-line me-1"></i>Richiedi Call Bonus
+                      <button className="cd-btn-save" onClick={handleOpenCallBonusModal}>
+                        <i className="ri-add-line"></i>Richiedi Call Bonus
                       </button>
                     )}
                   </div>
 
                   {loadingCallBonus ? (
-                    <div className="text-center py-5">
+                    <div className="cd-loading">
                       <div className="spinner-border text-primary" role="status"></div>
-                      <p className="mt-2 text-muted">Caricamento storico...</p>
+                      <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento storico...</p>
                     </div>
                   ) : callBonusHistory.length === 0 ? (
-                    <div className="text-center py-5">
-                      <i className="ri-phone-line" style={{ fontSize: '3rem', color: '#d1d5db' }}></i>
-                      <p className="mt-3 text-muted">Nessuna call bonus registrata per questo paziente</p>
+                    <div className="cd-empty">
+                      <i className="ri-phone-line cd-empty-icon"></i>
+                      <p className="cd-empty-text">Nessuna call bonus registrata per questo paziente</p>
                     </div>
                   ) : (
-                    <div className="table-responsive">
-                      <table className="table table-hover align-middle mb-0">
-                        <thead className="bg-light">
+                    <div className="cd-table-wrap">
+                      <table className="cd-table">
+                        <thead>
                           <tr>
-                            <th className="small text-uppercase text-muted fw-semibold">Data</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Tipo</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Professionista</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Stato</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Richiesta da</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Note</th>
-                            <th className="small text-uppercase text-muted fw-semibold">Azioni</th>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Professionista</th>
+                            <th>Stato</th>
+                            <th>Richiesta da</th>
+                            <th>Note</th>
+                            <th>Azioni</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -7203,31 +6944,31 @@ function ClientiDetail() {
                             const showActions = cb.is_assigned_professional && cb.status === 'accettata' && cb.booking_confirmed;
                             return (
                               <tr key={cb.id}>
-                                <td><small className="text-muted">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</small></td>
+                                <td><span className="cd-empty-text">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</span></td>
                                 <td>
-                                  <span className="d-flex align-items-center gap-1">
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                     <i className={tipoCfg.icon} style={{ color: tipoCfg.color }}></i>
-                                    <span className="small">{tipoCfg.label}</span>
+                                    <span>{tipoCfg.label}</span>
                                   </span>
                                 </td>
-                                <td><span className="small">{cb.professionista_nome || '—'}</span></td>
+                                <td><span>{cb.professionista_nome || '—'}</span></td>
                                 <td>
-                                  <span className="badge rounded-pill px-2 py-1" style={{ background: statusCfg.bg, color: statusCfg.color, fontSize: '0.75rem' }}>
+                                  <span className="cd-badge" style={{ background: statusCfg.bg, color: statusCfg.color }}>
                                     {statusCfg.label}
                                   </span>
                                   {cb.booking_confirmed && (
-                                    <i className="ri-calendar-check-line text-success ms-1" title="Prenotazione confermata"></i>
+                                    <i className="ri-calendar-check-line text-success" style={{ marginLeft: '4px' }} title="Prenotazione confermata"></i>
                                   )}
                                 </td>
-                                <td><span className="small text-muted">{cb.created_by_nome || '—'}</span></td>
-                                <td><span className="small text-muted">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
+                                <td><span className="cd-empty-text">{cb.created_by_nome || '—'}</span></td>
+                                <td><span className="cd-empty-text">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
                                 <td>
                                   {showActions && (
                                     <button
-                                      className="btn btn-sm btn-primary"
+                                      className="cd-btn-save"
                                       onClick={() => setCallBonusResponseModal(cb)}
                                     >
-                                      <i className="ri-reply-line me-1"></i>Rispondi
+                                      <i className="ri-reply-line"></i>Rispondi
                                     </button>
                                   )}
                                 </td>
@@ -7247,166 +6988,159 @@ function ClientiDetail() {
 
       {/* ========== TICKET DETAIL MODAL ========== */}
       {(ticketDetailModal || loadingTicketDetail) && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content" style={{ maxHeight: '85vh', overflow: 'hidden' }}>
-              {loadingTicketDetail && !ticketDetailModal ? (
-                <div className="modal-body text-center py-5">
-                  <div className="spinner-border text-primary" role="status"></div>
-                  <p className="mt-2 text-muted">Caricamento...</p>
+        <div className="cd-modal-backdrop" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}>
+          <div className="cd-modal lg full-height" onClick={(e) => e.stopPropagation()}>
+            {loadingTicketDetail && !ticketDetailModal ? (
+              <div className="cd-modal-body">
+                <div className="cd-loading">
+                  <div className="cd-spinner"></div>
+                  <p className="cd-loading-text">Caricamento...</p>
                 </div>
-              ) : ticketDetailModal && (
-                <>
-                  <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)' }}>
+              </div>
+            ) : ticketDetailModal && (
+              <>
+                <div className="cd-modal-header purple-bg">
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <h5>
+                        <i className="ri-ticket-2-line text-primary"></i>
+                        {ticketDetailModal.ticket_number}
+                      </h5>
+                      <span className="cd-badge" style={{
+                        background: ({ aperto: '#fef3c7', in_lavorazione: '#dbeafe', risolto: '#d1fae5', chiuso: '#f3f4f6' })[ticketDetailModal.status] || '#f3f4f6',
+                        color: ({ aperto: '#92400e', in_lavorazione: '#1e40af', risolto: '#065f46', chiuso: '#374151' })[ticketDetailModal.status] || '#374151',
+                      }}>
+                        {({ aperto: 'Aperto', in_lavorazione: 'In Lavorazione', risolto: 'Risolto', chiuso: 'Chiuso' })[ticketDetailModal.status] || ticketDetailModal.status}
+                      </span>
+                      <span className="cd-badge" style={{
+                        background: ({ alta: '#fee2e2', media: '#fef9c3', bassa: '#dcfce7' })[ticketDetailModal.priority] || '#f3f4f6',
+                        color: ({ alta: '#991b1b', media: '#854d0e', bassa: '#166534' })[ticketDetailModal.priority] || '#374151',
+                      }}>
+                        {({ alta: 'Alta', media: 'Media', bassa: 'Bassa' })[ticketDetailModal.priority] || ticketDetailModal.priority}
+                      </span>
+                      <i className={`ri-${ticketDetailModal.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
+                    </div>
+                    <span className="text-muted small">{ticketDetailModal.title || '(Senza titolo)'}</span>
+                  </div>
+                  <button className="cd-modal-close" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}><i className="ri-close-line"></i></button>
+                </div>
+                <div className="cd-modal-body scrollable">
+                  {/* Info */}
+                  <div className="cd-form-grid cols-2" style={{ marginBottom: 24 }}>
                     <div>
-                      <div className="d-flex align-items-center gap-2 mb-1">
-                        <h5 className="modal-title mb-0">
-                          <i className="ri-ticket-2-line me-2 text-primary"></i>
-                          {ticketDetailModal.ticket_number}
-                        </h5>
-                        <span className="badge rounded-pill px-2 py-1" style={{
-                          background: ({ aperto: '#fef3c7', in_lavorazione: '#dbeafe', risolto: '#d1fae5', chiuso: '#f3f4f6' })[ticketDetailModal.status] || '#f3f4f6',
-                          color: ({ aperto: '#92400e', in_lavorazione: '#1e40af', risolto: '#065f46', chiuso: '#374151' })[ticketDetailModal.status] || '#374151',
-                          fontSize: '0.7rem',
-                        }}>
-                          {({ aperto: 'Aperto', in_lavorazione: 'In Lavorazione', risolto: 'Risolto', chiuso: 'Chiuso' })[ticketDetailModal.status] || ticketDetailModal.status}
-                        </span>
-                        <span className="badge rounded-pill px-2 py-1" style={{
-                          background: ({ alta: '#fee2e2', media: '#fef9c3', bassa: '#dcfce7' })[ticketDetailModal.priority] || '#f3f4f6',
-                          color: ({ alta: '#991b1b', media: '#854d0e', bassa: '#166534' })[ticketDetailModal.priority] || '#374151',
-                          fontSize: '0.7rem',
-                        }}>
-                          {({ alta: 'Alta', media: 'Media', bassa: 'Bassa' })[ticketDetailModal.priority] || ticketDetailModal.priority}
-                        </span>
-                        <i className={`ri-${ticketDetailModal.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-secondary'}`}></i>
-                      </div>
-                      <span className="text-muted small">{ticketDetailModal.title || '(Senza titolo)'}</span>
+                      <div className="cd-section-title">Assegnatari</div>
+                      <div>{(ticketDetailModal.assigned_users || []).map(u => u.name).join(', ') || 'Nessuno'}</div>
                     </div>
-                    <button className="btn-close" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}></button>
-                  </div>
-                  <div className="modal-body" style={{ overflowY: 'auto', maxHeight: 'calc(85vh - 140px)' }}>
-                    {/* Info */}
-                    <div className="row g-3 mb-4">
-                      <div className="col-sm-6">
-                        <div className="small text-muted text-uppercase fw-semibold mb-1">Assegnatari</div>
-                        <div>{(ticketDetailModal.assigned_users || []).map(u => u.name).join(', ') || 'Nessuno'}</div>
-                      </div>
-                      <div className="col-sm-6">
-                        <div className="small text-muted text-uppercase fw-semibold mb-1">Creato da</div>
-                        <div>{ticketDetailModal.created_by_name || 'Teams'} — {ticketDetailModal.created_at ? new Date(ticketDetailModal.created_at).toLocaleString('it-IT') : '—'}</div>
-                      </div>
-                      {ticketDetailModal.resolved_at && (
-                        <div className="col-sm-6">
-                          <div className="small text-muted text-uppercase fw-semibold mb-1">Risolto il</div>
-                          <div>{new Date(ticketDetailModal.resolved_at).toLocaleString('it-IT')}</div>
-                        </div>
-                      )}
-                      {ticketDetailModal.closed_at && (
-                        <div className="col-sm-6">
-                          <div className="small text-muted text-uppercase fw-semibold mb-1">Chiuso il</div>
-                          <div>{new Date(ticketDetailModal.closed_at).toLocaleString('it-IT')}</div>
-                        </div>
-                      )}
+                    <div>
+                      <div className="cd-section-title">Creato da</div>
+                      <div>{ticketDetailModal.created_by_name || 'Teams'} — {ticketDetailModal.created_at ? new Date(ticketDetailModal.created_at).toLocaleString('it-IT') : '—'}</div>
                     </div>
-
-                    {/* Descrizione */}
-                    {ticketDetailModal.description && (
-                      <div className="mb-4">
-                        <div className="small text-muted text-uppercase fw-semibold mb-2">Descrizione</div>
-                        <div className="p-3 bg-light rounded" style={{ whiteSpace: 'pre-wrap' }}>{ticketDetailModal.description}</div>
-                      </div>
-                    )}
-
-                    {/* Allegati */}
-                    {ticketDetailModal.attachments && ticketDetailModal.attachments.length > 0 && (
-                      <div className="mb-4">
-                        <div className="small text-muted text-uppercase fw-semibold mb-2">
-                          <i className="ri-attachment-2 me-1"></i>Allegati ({ticketDetailModal.attachments.length})
-                        </div>
-                        <div className="d-flex flex-wrap gap-2">
-                          {ticketDetailModal.attachments.map((att) => {
-                            const sizeKb = att.file_size ? (att.file_size / 1024).toFixed(0) : '?';
-                            return (
-                              <a
-                                key={att.id}
-                                href={teamTicketsService.getAttachmentUrl(att.id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-                              >
-                                <i className={att.is_image ? 'ri-image-line' : 'ri-file-line'}></i>
-                                {att.filename}
-                                <span className="text-muted">({sizeKb} KB)</span>
-                              </a>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Messaggi */}
-                    {ticketMessages.length > 0 && (
+                    {ticketDetailModal.resolved_at && (
                       <div>
-                        <div className="small text-muted text-uppercase fw-semibold mb-2">
-                          <i className="ri-chat-3-line me-1"></i>Messaggi ({ticketMessages.length})
-                        </div>
-                        <div className="d-flex flex-column gap-2">
-                          {ticketMessages.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className="p-2 rounded"
-                              style={{
-                                background: msg.source === 'teams' ? 'rgba(99, 102, 241, 0.06)' : 'rgba(16, 185, 129, 0.06)',
-                                borderLeft: `3px solid ${msg.source === 'teams' ? '#6366f1' : '#10b981'}`,
-                              }}
-                            >
-                              <div className="d-flex justify-content-between align-items-center mb-1">
-                                <span className="fw-semibold small">
-                                  <i className={`ri-${msg.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-success'} me-1`}></i>
-                                  {msg.sender_name || 'Anonimo'}
-                                </span>
-                                <small className="text-muted">{msg.created_at ? new Date(msg.created_at).toLocaleString('it-IT') : ''}</small>
-                              </div>
-                              <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
-                            </div>
-                          ))}
-                        </div>
+                        <div className="cd-section-title">Risolto il</div>
+                        <div>{new Date(ticketDetailModal.resolved_at).toLocaleString('it-IT')}</div>
+                      </div>
+                    )}
+                    {ticketDetailModal.closed_at && (
+                      <div>
+                        <div className="cd-section-title">Chiuso il</div>
+                        <div>{new Date(ticketDetailModal.closed_at).toLocaleString('it-IT')}</div>
                       </div>
                     )}
                   </div>
-                  <div className="modal-footer border-0">
-                    <button className="btn btn-secondary" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}>Chiudi</button>
-                  </div>
-                </>
-              )}
-            </div>
+
+                  {/* Descrizione */}
+                  {ticketDetailModal.description && (
+                    <div style={{ marginBottom: 24 }}>
+                      <div className="cd-section-title">Descrizione</div>
+                      <div className="cd-response-item cd-pre-wrap">{ticketDetailModal.description}</div>
+                    </div>
+                  )}
+
+                  {/* Allegati */}
+                  {ticketDetailModal.attachments && ticketDetailModal.attachments.length > 0 && (
+                    <div style={{ marginBottom: 24 }}>
+                      <div className="cd-section-title">
+                        <i className="ri-attachment-2"></i>Allegati ({ticketDetailModal.attachments.length})
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {ticketDetailModal.attachments.map((att) => {
+                          const sizeKb = att.file_size ? (att.file_size / 1024).toFixed(0) : '?';
+                          return (
+                            <a
+                              key={att.id}
+                              href={teamTicketsService.getAttachmentUrl(att.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="cd-btn-back"
+                            >
+                              <i className={att.is_image ? 'ri-image-line' : 'ri-file-line'}></i>
+                              {att.filename}
+                              <span className="text-muted">({sizeKb} KB)</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Messaggi */}
+                  {ticketMessages.length > 0 && (
+                    <div>
+                      <div className="cd-section-title">
+                        <i className="ri-chat-3-line"></i>Messaggi ({ticketMessages.length})
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {ticketMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`cd-ticket-msg ${msg.source === 'teams' ? 'teams' : 'internal'}`}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <span className="fw-semibold small">
+                                <i className={`ri-${msg.source === 'teams' ? 'microsoft-line text-primary' : 'computer-line text-success'}`}></i>
+                                {' '}{msg.sender_name || 'Anonimo'}
+                              </span>
+                              <small className="text-muted">{msg.created_at ? new Date(msg.created_at).toLocaleString('it-IT') : ''}</small>
+                            </div>
+                            <div className="small cd-pre-wrap">{msg.content}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="cd-modal-footer">
+                  <button className="cd-btn-back" onClick={() => { setTicketDetailModal(null); setTicketMessages([]); }}>Chiudi</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
       {/* ========== CALL BONUS MODAL (3 steps) ========== */}
       {showCallBonusModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-phone-line me-2 text-primary"></i>
-                  Richiedi Call Bonus
-                  <span className="badge bg-primary ms-2" style={{ fontSize: '0.65rem' }}>Step {callBonusStep}/3</span>
-                </h5>
-                <button className="btn-close" onClick={() => setShowCallBonusModal(false)}></button>
-              </div>
-              <div className="modal-body">
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal lg">
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-phone-line text-primary"></i>
+                Richiedi Call Bonus
+                <span className="cd-badge" style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6', marginLeft: 8 }}>Step {callBonusStep}/3</span>
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowCallBonusModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
 
                 {/* ── STEP 1: Tipo + Note ── */}
                 {callBonusStep === 1 && (
                   <div>
-                    <p className="text-muted small mb-3">Seleziona il tipo di professionista e descrivi l'obiettivo della call bonus.</p>
+                    <p className="text-muted small" style={{ marginBottom: 12 }}>Seleziona il tipo di professionista e descrivi l'obiettivo della call bonus.</p>
 
-                    <div className="mb-4">
-                      <label className="form-label small text-muted fw-semibold">Tipo Professionista *</label>
-                      <div className="d-flex gap-2">
+                    <div className="cd-field">
+                      <label className="cd-field-label">Tipo Professionista *</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
                         {[
                           { value: 'coach', label: 'Coaching', icon: 'ri-run-line', color: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
                           { value: 'nutrizionista', label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
@@ -7414,26 +7148,25 @@ function ClientiDetail() {
                         ].map((t) => (
                           <button
                             key={t.value}
-                            className={`btn flex-fill d-flex flex-column align-items-center gap-1 py-3 ${callBonusForm.tipo_professionista === t.value ? 'border-2' : ''}`}
+                            className={`cd-cb-type-btn${callBonusForm.tipo_professionista === t.value ? ' selected' : ''}`}
                             style={{
                               background: callBonusForm.tipo_professionista === t.value ? t.bg : '#f9fafb',
                               borderColor: callBonusForm.tipo_professionista === t.value ? t.color : '#e5e7eb',
                               color: t.color,
-                              borderRadius: '12px',
                             }}
                             onClick={() => setCallBonusForm({ ...callBonusForm, tipo_professionista: t.value })}
                           >
-                            <i className={t.icon} style={{ fontSize: '1.5rem' }}></i>
+                            <i className={t.icon}></i>
                             <span className="small fw-semibold">{t.label}</span>
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    <div className="mb-3">
-                      <label className="form-label small text-muted fw-semibold">Motivazione / Obiettivo</label>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Motivazione / Obiettivo</label>
                       <textarea
-                        className="form-control"
+                        className="cd-textarea"
                         rows="4"
                         placeholder="Descrivi il motivo della richiesta e gli obiettivi della call bonus..."
                         value={callBonusForm.note_richiesta}
@@ -7448,18 +7181,18 @@ function ClientiDetail() {
                   <div>
                     {/* AI Analysis summary */}
                     {callBonusAnalysis && (
-                      <div className="mb-4 p-3 rounded-3" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
-                        <div className="d-flex align-items-center gap-2 mb-2">
+                      <div className="cd-ai-card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                           <i className="ri-robot-2-line text-primary"></i>
                           <span className="fw-semibold small">Analisi SuiteMind AI</span>
                         </div>
                         {callBonusAnalysis.summary && (
-                          <p className="small text-muted mb-2">{callBonusAnalysis.summary}</p>
+                          <p className="small text-muted" style={{ marginBottom: 8 }}>{callBonusAnalysis.summary}</p>
                         )}
                         {callBonusAnalysis.suggested_focus && callBonusAnalysis.suggested_focus.length > 0 && (
-                          <div className="d-flex flex-wrap gap-1">
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {callBonusAnalysis.suggested_focus.map((f, i) => (
-                              <span key={i} className="badge rounded-pill" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1', fontSize: '0.7rem' }}>
+                              <span key={i} className="cd-badge xs" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
                                 {f}
                               </span>
                             ))}
@@ -7469,44 +7202,36 @@ function ClientiDetail() {
                     )}
 
                     {/* Professional matches */}
-                    <p className="text-muted small mb-3">Seleziona il professionista per la call bonus:</p>
+                    <p className="text-muted small" style={{ marginBottom: 12 }}>Seleziona il professionista per la call bonus:</p>
                     {callBonusMatches.length === 0 ? (
-                      <div className="text-center py-4">
-                        <i className="ri-user-search-line" style={{ fontSize: '2rem', color: '#d1d5db' }}></i>
-                        <p className="mt-2 text-muted small">Nessun professionista trovato per i criteri selezionati.</p>
+                      <div className="cd-empty">
+                        <div className="cd-empty-icon"><i className="ri-user-search-line"></i></div>
+                        <p className="cd-empty-text">Nessun professionista trovato per i criteri selezionati.</p>
                       </div>
                     ) : (
-                      <div className="d-flex flex-column gap-2">
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {callBonusMatches.map((prof) => (
                           <div
                             key={prof.id}
-                            className="p-3 rounded-3 d-flex align-items-center gap-3"
-                            style={{
-                              background: '#f9fafb',
-                              border: '1px solid #e5e7eb',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
-                            }}
+                            className="cd-cb-match-card"
                             onClick={() => handleSelectCallBonusProfessional(prof)}
-                            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.background = 'rgba(99,102,241,0.03)'; }}
-                            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#f9fafb'; }}
                           >
                             {/* Avatar */}
-                            <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 600, fontSize: '0.9rem', flexShrink: 0 }}>
+                            <div className="cd-cb-avatar">
                               {prof.name ? prof.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '??'}
                             </div>
                             {/* Info */}
-                            <div className="flex-grow-1">
+                            <div style={{ flex: 1 }}>
                               <div className="fw-semibold small">{prof.name}</div>
                               {prof.match_reasons && prof.match_reasons.length > 0 && (
-                                <div className="d-flex flex-wrap gap-1 mt-1">
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                                   {prof.match_reasons.slice(0, 4).map((r, i) => (
-                                    <span key={i} className="badge rounded-pill" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', fontSize: '0.65rem' }}>
+                                    <span key={i} className="cd-badge xs" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
                                       {r}
                                     </span>
                                   ))}
                                   {prof.match_reasons.length > 4 && (
-                                    <span className="badge rounded-pill" style={{ background: '#f3f4f6', color: '#6b7280', fontSize: '0.65rem' }}>
+                                    <span className="cd-badge xs" style={{ background: '#f3f4f6', color: '#6b7280' }}>
                                       +{prof.match_reasons.length - 4}
                                     </span>
                                   )}
@@ -7514,7 +7239,7 @@ function ClientiDetail() {
                               )}
                             </div>
                             {/* Score */}
-                            <div className="text-end" style={{ minWidth: 70 }}>
+                            <div style={{ textAlign: 'right', minWidth: 70 }}>
                               <div className="fw-bold" style={{ color: prof.score >= 70 ? '#10b981' : prof.score >= 40 ? '#f59e0b' : '#ef4444', fontSize: '1.1rem' }}>
                                 {prof.score}%
                               </div>
@@ -7532,86 +7257,87 @@ function ClientiDetail() {
 
                 {/* ── STEP 3: Calendar Link + Confirm ── */}
                 {callBonusStep === 3 && selectedCallBonusProfessional && (
-                  <div className="text-center">
-                    <div className="mb-4">
-                      <div className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 600, fontSize: '1.3rem' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ marginBottom: 24 }}>
+                      <div className="cd-cb-avatar lg" style={{ display: 'inline-flex', marginBottom: 12 }}>
                         {selectedCallBonusProfessional.name ? selectedCallBonusProfessional.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '??'}
                       </div>
-                      <h6 className="mb-1">{selectedCallBonusProfessional.name}</h6>
-                      <span className="badge rounded-pill" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                      <h6 style={{ marginBottom: 4 }}>{selectedCallBonusProfessional.name}</h6>
+                      <span className="cd-badge" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
                         Selezionato
                       </span>
                     </div>
 
-                    <div className="mb-4">
-                      <p className="small fw-semibold mb-2">
-                        <i className="ri-calendar-line me-1 text-primary"></i>
-                        LINK CALL BONUS PROFESSIONISTA
+                    <div style={{ marginBottom: 24 }}>
+                      <p className="small fw-semibold" style={{ marginBottom: 8 }}>
+                        <i className="ri-calendar-line text-primary"></i>
+                        {' '}LINK CALL BONUS PROFESSIONISTA
                       </p>
                       {callBonusCalendarLink ? (
                         <a
                           href={callBonusCalendarLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn btn-outline-primary btn-lg d-inline-flex align-items-center gap-2"
+                          className="cd-btn-back"
+                          style={{ padding: '12px 24px', fontSize: 14 }}
                         >
                           <i className="ri-calendar-line"></i>
                           Apri Calendario Call Bonus
                           <i className="ri-external-link-line"></i>
                         </a>
                       ) : (
-                        <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-0" role="alert">
+                        <div className="cd-alert cd-alert-warning" style={{ display: 'inline-flex' }} role="alert">
                           <i className="ri-error-warning-line"></i>
                           <span className="small">Il professionista non ha configurato un link calendario per le call bonus.</span>
                         </div>
                       )}
-                      <p className="text-muted small mt-2">Prenota la call bonus nel calendario del professionista selezionato, poi conferma.</p>
+                      <p className="text-muted small" style={{ marginTop: 8 }}>Prenota la call bonus nel calendario del professionista selezionato, poi conferma.</p>
                     </div>
                   </div>
                 )}
 
-              </div>
-              <div className="modal-footer border-0">
-                {callBonusStep === 1 && (
-                  <>
-                    <button className="btn btn-secondary" onClick={() => setShowCallBonusModal(false)}>Annulla</button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleCallBonusAnalyze}
-                      disabled={!callBonusForm.tipo_professionista || callBonusAiLoading}
-                    >
-                      {callBonusAiLoading ? (
-                        <><span className="spinner-border spinner-border-sm me-2"></span>Analisi in corso...</>
-                      ) : (
-                        <><i className="ri-robot-2-line me-1"></i>Analizza con SuiteMind AI</>
-                      )}
-                    </button>
-                  </>
-                )}
-                {callBonusStep === 2 && (
-                  <button className="btn btn-secondary" onClick={() => setCallBonusStep(1)}>
-                    <i className="ri-arrow-left-line me-1"></i>Indietro
+            </div>
+            <div className="cd-modal-footer">
+              {callBonusStep === 1 && (
+                <>
+                  <button className="cd-btn-back" onClick={() => setShowCallBonusModal(false)}>Annulla</button>
+                  <button
+                    className="cd-btn-save"
+                    onClick={handleCallBonusAnalyze}
+                    disabled={!callBonusForm.tipo_professionista || callBonusAiLoading}
+                  >
+                    {callBonusAiLoading ? (
+                      <><span className="spinner-border spinner-border-sm me-2"></span>Analisi in corso...</>
+                    ) : (
+                      <><i className="ri-robot-2-line"></i>Analizza con SuiteMind AI</>
+                    )}
                   </button>
-                )}
-                {callBonusStep === 3 && (
-                  <>
-                    <button className="btn btn-secondary" onClick={() => setCallBonusStep(2)}>
-                      <i className="ri-arrow-left-line me-1"></i>Indietro
-                    </button>
-                    <button
-                      className="btn btn-success"
-                      onClick={handleConfirmCallBonusBooking}
-                      disabled={confirmingBooking}
-                    >
-                      {confirmingBooking ? (
-                        <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
-                      ) : (
-                        <><i className="ri-check-line me-1"></i>Ho prenotato la call</>
-                      )}
-                    </button>
-                  </>
-                )}
-              </div>
+                </>
+              )}
+              {callBonusStep === 2 && (
+                <button className="cd-btn-back" onClick={() => setCallBonusStep(1)}>
+                  <i className="ri-arrow-left-line"></i>Indietro
+                </button>
+              )}
+              {callBonusStep === 3 && (
+                <>
+                  <button className="cd-btn-back" onClick={() => setCallBonusStep(2)}>
+                    <i className="ri-arrow-left-line"></i>Indietro
+                  </button>
+                  <button
+                    className="cd-btn-save"
+                    style={{ background: '#22c55e' }}
+                    onClick={handleConfirmCallBonusBooking}
+                    disabled={confirmingBooking}
+                  >
+                    {confirmingBooking ? (
+                      <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                    ) : (
+                      <><i className="ri-check-line"></i>Ho prenotato la call</>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -7619,100 +7345,101 @@ function ClientiDetail() {
 
       {/* Call Bonus Response Modal (professionista assegnato) */}
       {callBonusResponseModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => { setCallBonusResponseModal(null); setCallBonusInterestStep('ask'); }}>
-          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-phone-line me-2 text-primary"></i>
-                  Risposta Call Bonus
-                </h5>
-                <button className="btn-close" onClick={() => { setCallBonusResponseModal(null); setCallBonusInterestStep('ask'); }}></button>
-              </div>
-              <div className="modal-body text-center">
-                {/* Info richiesta */}
-                <div className="mb-4 p-3 rounded-3" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                  <p className="small text-muted mb-1">Richiesta da <strong>{callBonusResponseModal.created_by_nome}</strong></p>
-                  {callBonusResponseModal.note_richiesta && (
-                    <p className="small mb-0 fst-italic">"{callBonusResponseModal.note_richiesta}"</p>
-                  )}
-                </div>
-
-                {/* Step ASK: Il paziente è interessato? */}
-                {callBonusInterestStep === 'ask' && (
-                  <div>
-                    <p className="fw-semibold mb-3">Il paziente è interessato alla call bonus?</p>
-                    <div className="d-flex justify-content-center gap-3">
-                      <button
-                        className="btn btn-success btn-lg d-flex align-items-center gap-2"
-                        onClick={() => setCallBonusInterestStep('book_hm')}
-                      >
-                        <i className="ri-thumb-up-line"></i>Sì, interessato
-                      </button>
-                      <button
-                        className="btn btn-danger btn-lg d-flex align-items-center gap-2"
-                        onClick={handleDeclineCallBonus}
-                        disabled={decliningCallBonus}
-                      >
-                        {decliningCallBonus ? (
-                          <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</>
-                        ) : (
-                          <><i className="ri-thumb-down-line"></i>No, non interessato</>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+        <div className="cd-modal-backdrop" onClick={() => { setCallBonusResponseModal(null); setCallBonusInterestStep('ask'); }}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-phone-line text-primary"></i>
+                Risposta Call Bonus
+              </h5>
+              <button className="cd-modal-close" onClick={() => { setCallBonusResponseModal(null); setCallBonusInterestStep('ask'); }}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body" style={{ textAlign: 'center' }}>
+              {/* Info richiesta */}
+              <div className="cd-response-item" style={{ marginBottom: 24 }}>
+                <p className="small text-muted" style={{ marginBottom: 4 }}>Richiesta da <strong>{callBonusResponseModal.created_by_nome}</strong></p>
+                {callBonusResponseModal.note_richiesta && (
+                  <p className="small fst-italic" style={{ marginBottom: 0 }}>"{callBonusResponseModal.note_richiesta}"</p>
                 )}
+              </div>
 
-                {/* Step BOOK_HM: Link HM + conferma prenotazione */}
-                {callBonusInterestStep === 'book_hm' && (
-                  <div>
-                    <div className="mb-4">
-                      <p className="small fw-semibold mb-2">
-                        <i className="ri-calendar-line me-1 text-primary"></i>
-                        LINK HM ASSOCIATO{callBonusResponseModal.hm_name ? ` — ${callBonusResponseModal.hm_name}` : ''}
-                      </p>
-                      {callBonusResponseModal.hm_calendar_link ? (
-                        <a
-                          href={callBonusResponseModal.hm_calendar_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
-                        >
-                          <i className="ri-calendar-line"></i>
-                          Apri Calendario HM
-                          <i className="ri-external-link-line"></i>
-                        </a>
+              {/* Step ASK: Il paziente è interessato? */}
+              {callBonusInterestStep === 'ask' && (
+                <div>
+                  <p className="fw-semibold" style={{ marginBottom: 12 }}>Il paziente è interessato alla call bonus?</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                    <button
+                      className="cd-btn-save"
+                      style={{ background: '#22c55e', padding: '12px 20px' }}
+                      onClick={() => setCallBonusInterestStep('book_hm')}
+                    >
+                      <i className="ri-thumb-up-line"></i>Sì, interessato
+                    </button>
+                    <button
+                      className="cd-btn-save"
+                      style={{ background: '#ef4444', padding: '12px 20px' }}
+                      onClick={handleDeclineCallBonus}
+                      disabled={decliningCallBonus}
+                    >
+                      {decliningCallBonus ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</>
                       ) : (
-                        <div className="alert alert-warning d-inline-flex align-items-center gap-2 mb-0" role="alert">
-                          <i className="ri-error-warning-line"></i>
-                          <span className="small">Link calendario HM non disponibile.</span>
-                        </div>
+                        <><i className="ri-thumb-down-line"></i>No, non interessato</>
                       )}
-                      <p className="text-muted small mt-2">Prenota la call bonus nel calendario dell'Health Manager, poi conferma.</p>
-                    </div>
-                    <div className="d-flex justify-content-center gap-3">
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setCallBonusInterestStep('ask')}
-                      >
-                        <i className="ri-arrow-left-line me-1"></i>Indietro
-                      </button>
-                      <button
-                        className="btn btn-success"
-                        onClick={handleConfirmCallBonusInterest}
-                        disabled={confirmingBooking}
-                      >
-                        {confirmingBooking ? (
-                          <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
-                        ) : (
-                          <><i className="ri-check-line me-1"></i>Confermo prenotazione HM</>
-                        )}
-                      </button>
-                    </div>
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Step BOOK_HM: Link HM + conferma prenotazione */}
+              {callBonusInterestStep === 'book_hm' && (
+                <div>
+                  <div style={{ marginBottom: 24 }}>
+                    <p className="small fw-semibold" style={{ marginBottom: 8 }}>
+                      <i className="ri-calendar-line text-primary"></i>
+                      {' '}LINK HM ASSOCIATO{callBonusResponseModal.hm_name ? ` — ${callBonusResponseModal.hm_name}` : ''}
+                    </p>
+                    {callBonusResponseModal.hm_calendar_link ? (
+                      <a
+                        href={callBonusResponseModal.hm_calendar_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cd-btn-back"
+                      >
+                        <i className="ri-calendar-line"></i>
+                        Apri Calendario HM
+                        <i className="ri-external-link-line"></i>
+                      </a>
+                    ) : (
+                      <div className="cd-alert cd-alert-warning" style={{ display: 'inline-flex' }} role="alert">
+                        <i className="ri-error-warning-line"></i>
+                        <span className="small">Link calendario HM non disponibile.</span>
+                      </div>
+                    )}
+                    <p className="text-muted small" style={{ marginTop: 8 }}>Prenota la call bonus nel calendario dell'Health Manager, poi conferma.</p>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                    <button
+                      className="cd-btn-back"
+                      onClick={() => setCallBonusInterestStep('ask')}
+                    >
+                      <i className="ri-arrow-left-line"></i>Indietro
+                    </button>
+                    <button
+                      className="cd-btn-save"
+                      style={{ background: '#22c55e' }}
+                      onClick={handleConfirmCallBonusInterest}
+                      disabled={confirmingBooking}
+                    >
+                      {confirmingBooking ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                      ) : (
+                        <><i className="ri-check-line"></i>Confermo prenotazione HM</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -7720,23 +7447,21 @@ function ClientiDetail() {
 
       {/* Delete Modal */}
       {showDeleteModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0">
-                <h5 className="modal-title">Conferma Eliminazione</h5>
-                <button className="btn-close" onClick={() => setShowDeleteModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <p>Sei sicuro di voler eliminare <strong>{c.nome}</strong>?</p>
-                <p className="text-danger small">Questa azione non può essere annullata.</p>
-              </div>
-              <div className="modal-footer border-0">
-                <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>Annulla</button>
-                <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
-                  {deleting ? <><span className="spinner-border spinner-border-sm me-2"></span>Eliminazione...</> : <><i className="ri-delete-bin-line me-2"></i>Elimina</>}
-                </button>
-              </div>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal">
+            <div className="cd-modal-header">
+              <h5>Conferma Eliminazione</h5>
+              <button className="cd-modal-close" onClick={() => setShowDeleteModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <p>Sei sicuro di voler eliminare <strong>{c.nome}</strong>?</p>
+              <p className="text-danger small">Questa azione non può essere annullata.</p>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowDeleteModal(false)}>Annulla</button>
+              <button className="cd-btn-save" style={{ background: '#ef4444' }} onClick={handleDelete} disabled={deleting}>
+                {deleting ? <><span className="spinner-border spinner-border-sm me-2"></span>Eliminazione...</> : <><i className="ri-delete-bin-line"></i>Elimina</>}
+              </button>
             </div>
           </div>
         </div>
@@ -7744,64 +7469,62 @@ function ClientiDetail() {
 
       {/* Assign Professional Modal */}
       {showAssignModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0">
-                <h5 className="modal-title">
-                  <i className={`${TIPO_PROFESSIONISTA_ICONS[assigningType]} me-2`}></i>
-                  Assegna {TIPO_PROFESSIONISTA_LABELS[assigningType]}
-                </h5>
-                <button className="btn-close" onClick={() => setShowAssignModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal">
+            <div className="cd-modal-header">
+              <h5>
+                <i className={`${TIPO_PROFESSIONISTA_ICONS[assigningType]}`}></i>
+                Assegna {TIPO_PROFESSIONISTA_LABELS[assigningType]}
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowAssignModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Professionista *</label>
+                <select
+                  className="cd-select"
+                  value={assignForm.user_id}
+                  onChange={(e) => setAssignForm({ ...assignForm, user_id: e.target.value })}
+                >
+                  <option value="">Seleziona professionista...</option>
+                  {(availableProfessionals[assigningType] || []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name || p.email}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Professionista *</label>
-                  <select
-                    className="form-select"
-                    value={assignForm.user_id}
-                    onChange={(e) => setAssignForm({ ...assignForm, user_id: e.target.value })}
-                  >
-                    <option value="">Seleziona professionista...</option>
-                    {(availableProfessionals[assigningType] || []).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.full_name || p.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Data Inizio Assegnazione *</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={assignForm.data_dal}
-                    onChange={(e) => setAssignForm({ ...assignForm, data_dal: e.target.value })}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Motivazione Assegnazione *</label>
-                  <textarea
-                    className="form-control"
-                    rows="3"
-                    placeholder="Es: Inizio percorso, Cambio professionista per compatibilità, Nuova fase del programma..."
-                    value={assignForm.motivazione_aggiunta}
-                    onChange={(e) => setAssignForm({ ...assignForm, motivazione_aggiunta: e.target.value })}
-                  ></textarea>
-                </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Data Inizio Assegnazione *</label>
+                <input
+                  type="date"
+                  className="cd-input"
+                  value={assignForm.data_dal}
+                  onChange={(e) => setAssignForm({ ...assignForm, data_dal: e.target.value })}
+                />
               </div>
-              <div className="modal-footer border-0">
-                <button className="btn btn-secondary" onClick={() => setShowAssignModal(false)} disabled={assignLoading}>
-                  Annulla
-                </button>
-                <button className="btn btn-primary" onClick={handleAssignProfessional} disabled={assignLoading}>
-                  {assignLoading ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Assegnazione...</>
-                  ) : (
-                    <><i className="ri-check-line me-2"></i>Assegna</>
-                  )}
-                </button>
+              <div className="cd-field">
+                <label className="cd-field-label">Motivazione Assegnazione *</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Es: Inizio percorso, Cambio professionista per compatibilità, Nuova fase del programma..."
+                  value={assignForm.motivazione_aggiunta}
+                  onChange={(e) => setAssignForm({ ...assignForm, motivazione_aggiunta: e.target.value })}
+                ></textarea>
               </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowAssignModal(false)} disabled={assignLoading}>
+                Annulla
+              </button>
+              <button className="cd-btn-save" onClick={handleAssignProfessional} disabled={assignLoading}>
+                {assignLoading ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Assegnazione...</>
+                ) : (
+                  <><i className="ri-check-line"></i>Assegna</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -7809,51 +7532,47 @@ function ClientiDetail() {
 
       {/* Interrupt Assignment Modal */}
       {showInterruptModal && interruptingAssignment && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0">
-                <h5 className="modal-title">
-                  <i className="ri-user-unfollow-line me-2 text-danger"></i>
-                  Rimuovi Assegnazione
-                </h5>
-                <button className="btn-close" onClick={() => setShowInterruptModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="alert alert-warning mb-3">
-                  <div className="d-flex align-items-center">
-                    <i className={`${TIPO_PROFESSIONISTA_ICONS[interruptingAssignment.tipo_professionista]} me-2 fs-4`}></i>
-                    <div>
-                      <strong>{interruptingAssignment.professionista_nome}</strong>
-                      <div className="small text-muted">
-                        {TIPO_PROFESSIONISTA_LABELS[interruptingAssignment.tipo_professionista]} • dal {interruptingAssignment.data_dal}
-                      </div>
-                    </div>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal">
+            <div className="cd-modal-header">
+              <h5>
+                <i className="ri-user-unfollow-line text-danger"></i>
+                Rimuovi Assegnazione
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowInterruptModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-alert cd-alert-warning" style={{ marginBottom: 12 }}>
+                <i className={`${TIPO_PROFESSIONISTA_ICONS[interruptingAssignment.tipo_professionista]} fs-4`}></i>
+                <div>
+                  <strong>{interruptingAssignment.professionista_nome}</strong>
+                  <div className="small text-muted">
+                    {TIPO_PROFESSIONISTA_LABELS[interruptingAssignment.tipo_professionista]} • dal {interruptingAssignment.data_dal}
                   </div>
                 </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Motivazione Interruzione *</label>
-                  <textarea
-                    className="form-control"
-                    rows="3"
-                    placeholder="Es: Fine percorso, Cambio professionista, Incompatibilità, Richiesta cliente..."
-                    value={interruptForm.motivazione_interruzione}
-                    onChange={(e) => setInterruptForm({ ...interruptForm, motivazione_interruzione: e.target.value })}
-                  ></textarea>
-                </div>
               </div>
-              <div className="modal-footer border-0">
-                <button className="btn btn-secondary" onClick={() => setShowInterruptModal(false)} disabled={assignLoading}>
-                  Annulla
-                </button>
-                <button className="btn btn-danger" onClick={handleInterruptAssignment} disabled={assignLoading}>
-                  {assignLoading ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Rimozione...</>
-                  ) : (
-                    <><i className="ri-close-line me-2"></i>Rimuovi Assegnazione</>
-                  )}
-                </button>
+              <div className="cd-field">
+                <label className="cd-field-label">Motivazione Interruzione *</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Es: Fine percorso, Cambio professionista, Incompatibilità, Richiesta cliente..."
+                  value={interruptForm.motivazione_interruzione}
+                  onChange={(e) => setInterruptForm({ ...interruptForm, motivazione_interruzione: e.target.value })}
+                ></textarea>
               </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowInterruptModal(false)} disabled={assignLoading}>
+                Annulla
+              </button>
+              <button className="cd-btn-save" style={{ background: '#ef4444' }} onClick={handleInterruptAssignment} disabled={assignLoading}>
+                {assignLoading ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Rimozione...</>
+                ) : (
+                  <><i className="ri-close-line"></i>Rimuovi Assegnazione</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -7861,89 +7580,87 @@ function ClientiDetail() {
 
       {/* Add Meal Plan Modal */}
       {showAddMealPlanModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-restaurant-line me-2 text-success"></i>
-                  Nuovo Piano Alimentare
-                </h5>
-                <button className="btn-close" onClick={() => setShowAddMealPlanModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal">
+            <div className="cd-modal-header success-bg">
+              <h5>
+                <i className="ri-restaurant-line text-success"></i>
+                Nuovo Piano Alimentare
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowAddMealPlanModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Nome Piano (opzionale)</label>
+                <input
+                  type="text"
+                  className="cd-input"
+                  placeholder="Es: Piano Alimentare Gennaio 2026"
+                  value={mealPlanForm.name}
+                  onChange={(e) => setMealPlanForm({ ...mealPlanForm, name: e.target.value })}
+                />
+                <small className="text-muted">Se vuoto, verrà generato automaticamente</small>
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Nome Piano (opzionale)</label>
+              <div className="cd-form-grid cols-2">
+                <div>
+                  <label className="cd-field-label">Data Inizio *</label>
                   <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Es: Piano Alimentare Gennaio 2026"
-                    value={mealPlanForm.name}
-                    onChange={(e) => setMealPlanForm({ ...mealPlanForm, name: e.target.value })}
+                    type="date"
+                    className="cd-input"
+                    value={mealPlanForm.start_date}
+                    onChange={(e) => setMealPlanForm({ ...mealPlanForm, start_date: e.target.value })}
                   />
-                  <small className="text-muted">Se vuoto, verrà generato automaticamente</small>
                 </div>
-                <div className="row mb-3">
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Inizio *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={mealPlanForm.start_date}
-                      onChange={(e) => setMealPlanForm({ ...mealPlanForm, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Fine *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={mealPlanForm.end_date}
-                      onChange={(e) => setMealPlanForm({ ...mealPlanForm, end_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Piano Alimentare (PDF) *</label>
+                <div>
+                  <label className="cd-field-label">Data Fine *</label>
                   <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf"
-                    onChange={(e) => setMealPlanFile(e.target.files[0])}
+                    type="date"
+                    className="cd-input"
+                    value={mealPlanForm.end_date}
+                    onChange={(e) => setMealPlanForm({ ...mealPlanForm, end_date: e.target.value })}
                   />
-                  <small className="text-muted">Carica il piano alimentare in formato PDF (max 50MB)</small>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Note (opzionale)</label>
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Note aggiuntive..."
-                    value={mealPlanForm.notes}
-                    onChange={(e) => setMealPlanForm({ ...mealPlanForm, notes: e.target.value })}
-                  ></textarea>
                 </div>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowAddMealPlanModal(false);
-                    setMealPlanForm({ name: '', start_date: '', end_date: '', notes: '' });
-                    setMealPlanFile(null);
-                  }}
-                  disabled={savingMealPlan}
-                >
-                  Annulla
-                </button>
-                <button className="btn btn-success" onClick={handleAddMealPlan} disabled={savingMealPlan}>
-                  {savingMealPlan ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva Piano</>
-                  )}
-                </button>
+              <div className="cd-field">
+                <label className="cd-field-label">Piano Alimentare (PDF) *</label>
+                <input
+                  type="file"
+                  className="cd-input"
+                  accept=".pdf"
+                  onChange={(e) => setMealPlanFile(e.target.files[0])}
+                />
+                <small className="text-muted">Carica il piano alimentare in formato PDF (max 50MB)</small>
               </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Note (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="2"
+                  placeholder="Note aggiuntive..."
+                  value={mealPlanForm.notes}
+                  onChange={(e) => setMealPlanForm({ ...mealPlanForm, notes: e.target.value })}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowAddMealPlanModal(false);
+                  setMealPlanForm({ name: '', start_date: '', end_date: '', notes: '' });
+                  setMealPlanFile(null);
+                }}
+                disabled={savingMealPlan}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" style={{ background: '#22c55e' }} onClick={handleAddMealPlan} disabled={savingMealPlan}>
+                {savingMealPlan ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva Piano</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -7951,34 +7668,32 @@ function ClientiDetail() {
 
       {/* Preview Meal Plan PDF Modal */}
       {showPreviewPlanModal && selectedPlan && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowPreviewPlanModal(false)}>
-          <div className="modal-dialog modal-dialog-centered modal-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content" style={{ height: '90vh' }}>
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-file-pdf-line me-2 text-success"></i>
-                  {selectedPlan.name || 'Piano Alimentare'}
-                </h5>
-                <div className="d-flex gap-2 align-items-center">
-                  <a
-                    href={`/uploads/${selectedPlan.piano_alimentare_file_path}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-sm btn-outline-success"
-                  >
-                    <i className="ri-download-line me-1"></i>
-                    Scarica
-                  </a>
-                  <button className="btn-close" onClick={() => setShowPreviewPlanModal(false)}></button>
-                </div>
+        <div className="cd-modal-backdrop" onClick={() => setShowPreviewPlanModal(false)}>
+          <div className="cd-modal xl full-height" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header success-bg">
+              <h5>
+                <i className="ri-file-pdf-line text-success"></i>
+                {selectedPlan.name || 'Piano Alimentare'}
+              </h5>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <a
+                  href={`/uploads/${selectedPlan.piano_alimentare_file_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cd-btn-action-sm"
+                >
+                  <i className="ri-download-line"></i>
+                  Scarica
+                </a>
+                <button className="cd-modal-close" onClick={() => setShowPreviewPlanModal(false)}><i className="ri-close-line"></i></button>
               </div>
-              <div className="modal-body p-0" style={{ height: 'calc(100% - 60px)' }}>
-                <iframe
-                  src={`/uploads/${selectedPlan.piano_alimentare_file_path}`}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
-                  title="Piano Alimentare PDF"
-                />
-              </div>
+            </div>
+            <div className="cd-modal-body fill">
+              <iframe
+                src={`/uploads/${selectedPlan.piano_alimentare_file_path}`}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Piano Alimentare PDF"
+              />
             </div>
           </div>
         </div>
@@ -7986,94 +7701,92 @@ function ClientiDetail() {
 
       {/* Edit Meal Plan Modal */}
       {showEditPlanModal && selectedPlan && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-edit-line me-2 text-primary"></i>
-                  Modifica Piano Alimentare
-                </h5>
-                <button className="btn-close" onClick={() => setShowEditPlanModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal">
+            <div className="cd-modal-header blue-bg">
+              <h5>
+                <i className="ri-edit-line text-primary"></i>
+                Modifica Piano Alimentare
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowEditPlanModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-alert cd-alert-info" style={{ marginBottom: 12 }}>
+                <i className="ri-information-line"></i>
+                Stai modificando: <strong>{selectedPlan.name || 'Piano Alimentare'}</strong>
               </div>
-              <div className="modal-body">
-                <div className="alert alert-info small mb-3">
-                  <i className="ri-information-line me-1"></i>
-                  Stai modificando: <strong>{selectedPlan.name || 'Piano Alimentare'}</strong>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Inizio *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={editPlanForm.start_date}
-                      onChange={(e) => setEditPlanForm({ ...editPlanForm, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Fine *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={editPlanForm.end_date}
-                      onChange={(e) => setEditPlanForm({ ...editPlanForm, end_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Nuovo PDF (opzionale)</label>
+              <div className="cd-form-grid cols-2">
+                <div>
+                  <label className="cd-field-label">Data Inizio *</label>
                   <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf"
-                    onChange={(e) => setEditPlanFile(e.target.files[0])}
+                    type="date"
+                    className="cd-input"
+                    value={editPlanForm.start_date}
+                    onChange={(e) => setEditPlanForm({ ...editPlanForm, start_date: e.target.value })}
                   />
-                  <small className="text-muted">Lascia vuoto per mantenere il PDF esistente</small>
                 </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Note (opzionale)</label>
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Note aggiuntive..."
-                    value={editPlanForm.notes}
-                    onChange={(e) => setEditPlanForm({ ...editPlanForm, notes: e.target.value })}
-                  ></textarea>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Motivo della modifica</label>
+                <div>
+                  <label className="cd-field-label">Data Fine *</label>
                   <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Es: Aggiornamento calorie settimanali"
-                    value={editPlanForm.change_reason}
-                    onChange={(e) => setEditPlanForm({ ...editPlanForm, change_reason: e.target.value })}
+                    type="date"
+                    className="cd-input"
+                    value={editPlanForm.end_date}
+                    onChange={(e) => setEditPlanForm({ ...editPlanForm, end_date: e.target.value })}
                   />
-                  <small className="text-muted">Opzionale, verrà salvato nello storico delle modifiche</small>
                 </div>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowEditPlanModal(false);
-                    setSelectedPlan(null);
-                    setEditPlanForm({ start_date: '', end_date: '', notes: '', change_reason: '' });
-                    setEditPlanFile(null);
-                  }}
-                  disabled={savingMealPlan}
-                >
-                  Annulla
-                </button>
-                <button className="btn btn-primary" onClick={handleUpdateMealPlan} disabled={savingMealPlan}>
-                  {savingMealPlan ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva Modifiche</>
-                  )}
-                </button>
+              <div className="cd-field">
+                <label className="cd-field-label">Nuovo PDF (opzionale)</label>
+                <input
+                  type="file"
+                  className="cd-input"
+                  accept=".pdf"
+                  onChange={(e) => setEditPlanFile(e.target.files[0])}
+                />
+                <small className="text-muted">Lascia vuoto per mantenere il PDF esistente</small>
               </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Note (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="2"
+                  placeholder="Note aggiuntive..."
+                  value={editPlanForm.notes}
+                  onChange={(e) => setEditPlanForm({ ...editPlanForm, notes: e.target.value })}
+                ></textarea>
+              </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Motivo della modifica</label>
+                <input
+                  type="text"
+                  className="cd-input"
+                  placeholder="Es: Aggiornamento calorie settimanali"
+                  value={editPlanForm.change_reason}
+                  onChange={(e) => setEditPlanForm({ ...editPlanForm, change_reason: e.target.value })}
+                />
+                <small className="text-muted">Opzionale, verrà salvato nello storico delle modifiche</small>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowEditPlanModal(false);
+                  setSelectedPlan(null);
+                  setEditPlanForm({ start_date: '', end_date: '', notes: '', change_reason: '' });
+                  setEditPlanFile(null);
+                }}
+                disabled={savingMealPlan}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" onClick={handleUpdateMealPlan} disabled={savingMealPlan}>
+                {savingMealPlan ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva Modifiche</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8081,67 +7794,68 @@ function ClientiDetail() {
 
       {/* Version History Modal */}
       {showVersionsModal && selectedPlan && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(75, 85, 99, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-history-line me-2 text-secondary"></i>
-                  Storico Modifiche
-                </h5>
-                <button className="btn-close" onClick={() => { setShowVersionsModal(false); setPlanVersions([]); }}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal lg">
+            <div className="cd-modal-header gray-bg">
+              <h5>
+                <i className="ri-history-line text-secondary"></i>
+                Storico Modifiche
+              </h5>
+              <button className="cd-modal-close" onClick={() => { setShowVersionsModal(false); setPlanVersions([]); }}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-alert cd-alert-info" style={{ marginBottom: 12 }}>
+                <i className="ri-information-line"></i>
+                Piano: <strong>{selectedPlan.name || 'Piano Alimentare'}</strong>
               </div>
-              <div className="modal-body">
-                <div className="alert alert-secondary small mb-3">
-                  <i className="ri-information-line me-1"></i>
-                  Piano: <strong>{selectedPlan.name || 'Piano Alimentare'}</strong>
-                </div>
                 {loadingVersions ? (
-                  <div className="text-center py-4">
-                    <div className="spinner-border spinner-border-sm text-secondary" role="status"></div>
-                    <small className="ms-2 text-muted">Caricamento storico...</small>
+                  <div className="cd-loading">
+                    <div className="cd-spinner"></div>
+                    <p className="cd-loading-text">Caricamento storico...</p>
                   </div>
                 ) : planVersions.length === 0 ? (
-                  <p className="text-muted text-center py-3">
-                    <i className="ri-information-line me-1"></i>
-                    Nessuna modifica registrata per questo piano
-                  </p>
+                  <div className="cd-empty">
+                    <p className="cd-empty-text">
+                      <i className="ri-information-line"></i>
+                      {' '}Nessuna modifica registrata per questo piano
+                    </p>
+                  </div>
                 ) : (
-                  <div className="table-responsive">
-                    <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
+                  <div className="cd-table-wrap">
+                    <table className="cd-table">
                       <thead>
-                        <tr className="text-muted">
-                          <th style={{ fontWeight: '500' }}>Versione</th>
-                          <th style={{ fontWeight: '500' }}>Data Modifica</th>
-                          <th style={{ fontWeight: '500' }}>Modificato da</th>
-                          <th style={{ fontWeight: '500' }}>Periodo</th>
-                          <th style={{ fontWeight: '500' }}>Motivo</th>
-                          <th style={{ fontWeight: '500' }}>PDF</th>
+                        <tr>
+                          <th>Versione</th>
+                          <th>Data Modifica</th>
+                          <th>Modificato da</th>
+                          <th>Periodo</th>
+                          <th>Motivo</th>
+                          <th>PDF</th>
                         </tr>
                       </thead>
                       <tbody>
                         {planVersions.map((version, idx) => (
-                          <tr key={version.transaction_id || idx} className={version.is_current ? 'table-success' : ''}>
+                          <tr key={version.transaction_id || idx} className={version.is_current ? 'highlight-success' : ''}>
                             <td>
-                              <span className="badge bg-secondary">v{version.version_number}</span>
+                              <span className="cd-badge" style={{ background: '#f3f4f6', color: '#6b7280' }}>v{version.version_number}</span>
                               {version.is_current && (
-                                <span className="badge bg-success ms-1">Attuale</span>
+                                <span className="cd-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#16a34a', marginLeft: 4 }}>Attuale</span>
                               )}
                             </td>
-                            <td className="text-muted">
+                            <td>
                               {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
                                 day: '2-digit', month: '2-digit', year: 'numeric',
                                 hour: '2-digit', minute: '2-digit'
                               }) : '-'}
                             </td>
                             <td>{version.changed_by || '-'}</td>
-                            <td className="text-muted">
+                            <td>
                               {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
                               {' → '}
                               {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
                             </td>
-                            <td className="text-muted" style={{ maxWidth: '200px' }}>
-                              <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }} title={version.change_reason}>
+                            <td style={{ maxWidth: '200px' }}>
+                              <span className="cd-text-truncate" style={{ maxWidth: '200px', display: 'inline-block' }} title={version.change_reason}>
                                 {version.change_reason || '-'}
                               </span>
                             </td>
@@ -8151,7 +7865,7 @@ function ClientiDetail() {
                                   href={`/uploads/${version.piano_alimentare_file_path}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="btn btn-sm btn-outline-success py-0 px-2"
+                                  className="cd-btn-action-sm"
                                   title="Scarica PDF"
                                 >
                                   <i className="ri-download-line"></i>
@@ -8166,15 +7880,14 @@ function ClientiDetail() {
                     </table>
                   </div>
                 )}
-              </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => { setShowVersionsModal(false); setPlanVersions([]); }}
-                >
-                  Chiudi
-                </button>
-              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => { setShowVersionsModal(false); setPlanVersions([]); }}
+              >
+                Chiudi
+              </button>
             </div>
           </div>
         </div>
@@ -8182,56 +7895,54 @@ function ClientiDetail() {
 
       {/* Diario Entry Modal */}
       {showDiarioModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(219, 39, 119, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-book-2-line me-2" style={{ color: '#ec4899' }}></i>
-                  {diarioForm.id ? 'Modifica Nota' : 'Nuova Nota'}
-                </h5>
-                <button className="btn-close" onClick={() => setShowDiarioModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal">
+            <div className="cd-modal-header pink-bg">
+              <h5>
+                <i className="ri-book-2-line" style={{ color: '#ec4899' }}></i>
+                {diarioForm.id ? 'Modifica Nota' : 'Nuova Nota'}
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowDiarioModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Data *</label>
+                <input
+                  type="date"
+                  className="cd-input"
+                  value={diarioForm.entry_date}
+                  onChange={(e) => setDiarioForm({ ...diarioForm, entry_date: e.target.value })}
+                />
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Data *</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={diarioForm.entry_date}
-                    onChange={(e) => setDiarioForm({ ...diarioForm, entry_date: e.target.value })}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Contenuto *</label>
-                  <textarea
-                    className="form-control"
-                    rows="6"
-                    placeholder="Scrivi qui la nota del diario...&#10;&#10;• Progressi osservati&#10;• Difficoltà riscontrate&#10;• Aggiustamenti al piano&#10;• Feedback del cliente"
-                    value={diarioForm.content}
-                    onChange={(e) => setDiarioForm({ ...diarioForm, content: e.target.value })}
-                  ></textarea>
-                </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Contenuto *</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="6"
+                  placeholder="Scrivi qui la nota del diario...&#10;&#10;• Progressi osservati&#10;• Difficoltà riscontrate&#10;• Aggiustamenti al piano&#10;• Feedback del cliente"
+                  value={diarioForm.content}
+                  onChange={(e) => setDiarioForm({ ...diarioForm, content: e.target.value })}
+                ></textarea>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowDiarioModal(false);
-                    setDiarioForm({ id: null, entry_date: '', content: '' });
-                  }}
-                  disabled={savingDiario}
-                >
-                  Annulla
-                </button>
-                <button className="btn btn-primary" onClick={handleSaveDiarioEntry} disabled={savingDiario}>
-                  {savingDiario ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva</>
-                  )}
-                </button>
-              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowDiarioModal(false);
+                  setDiarioForm({ id: null, entry_date: '', content: '' });
+                }}
+                disabled={savingDiario}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" onClick={handleSaveDiarioEntry} disabled={savingDiario}>
+                {savingDiario ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8241,88 +7952,86 @@ function ClientiDetail() {
 
       {/* Add Training Plan Modal */}
       {showAddTrainingPlanModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-run-line me-2 text-warning"></i>
-                  Nuovo Piano Allenamento
-                </h5>
-                <button className="btn-close" onClick={() => setShowAddTrainingPlanModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header orange-bg">
+              <h5>
+                <i className="ri-run-line"></i>
+                Nuovo Piano Allenamento
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowAddTrainingPlanModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Nome Piano (opzionale)</label>
+                <input
+                  type="text"
+                  className="cd-input"
+                  placeholder="Es: Programma Forza Fase 1"
+                  value={trainingPlanForm.name}
+                  onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, name: e.target.value })}
+                />
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Nome Piano (opzionale)</label>
+              <div className="cd-form-grid cols-2">
+                <div className="cd-field">
+                  <label className="cd-field-label">Data Inizio *</label>
                   <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Es: Programma Forza Fase 1"
-                    value={trainingPlanForm.name}
-                    onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, name: e.target.value })}
+                    type="date"
+                    className="cd-input"
+                    value={trainingPlanForm.start_date}
+                    onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, start_date: e.target.value })}
                   />
                 </div>
-                <div className="row mb-3">
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Inizio *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={trainingPlanForm.start_date}
-                      onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Fine *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={trainingPlanForm.end_date}
-                      onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, end_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Piano Allenamento (PDF) *</label>
+                <div className="cd-field">
+                  <label className="cd-field-label">Data Fine *</label>
                   <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf"
-                    onChange={(e) => setTrainingPlanFile(e.target.files[0])}
+                    type="date"
+                    className="cd-input"
+                    value={trainingPlanForm.end_date}
+                    onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, end_date: e.target.value })}
                   />
-                  <small className="text-muted">Carica il piano di allenamento in formato PDF (max 50MB)</small>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Note (opzionale)</label>
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Note aggiuntive..."
-                    value={trainingPlanForm.notes}
-                    onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, notes: e.target.value })}
-                  ></textarea>
                 </div>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowAddTrainingPlanModal(false);
-                    setTrainingPlanForm({ name: '', start_date: '', end_date: '', notes: '' });
-                    setTrainingPlanFile(null);
-                  }}
-                  disabled={savingTrainingPlan}
-                >
-                  Annulla
-                </button>
-                <button className="btn btn-warning" onClick={handleAddTrainingPlan} disabled={savingTrainingPlan}>
-                  {savingTrainingPlan ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva Piano</>
-                  )}
-                </button>
+              <div className="cd-field">
+                <label className="cd-field-label">Piano Allenamento (PDF) *</label>
+                <input
+                  type="file"
+                  className="cd-input"
+                  accept=".pdf"
+                  onChange={(e) => setTrainingPlanFile(e.target.files[0])}
+                />
+                <small className="text-muted">Carica il piano di allenamento in formato PDF (max 50MB)</small>
               </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Note (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="2"
+                  placeholder="Note aggiuntive..."
+                  value={trainingPlanForm.notes}
+                  onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, notes: e.target.value })}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowAddTrainingPlanModal(false);
+                  setTrainingPlanForm({ name: '', start_date: '', end_date: '', notes: '' });
+                  setTrainingPlanFile(null);
+                }}
+                disabled={savingTrainingPlan}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" style={{ background: '#f59e0b' }} onClick={handleAddTrainingPlan} disabled={savingTrainingPlan}>
+                {savingTrainingPlan ? (
+                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px', margin: '0 6px 0 0' }}></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva Piano</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8330,34 +8039,32 @@ function ClientiDetail() {
 
       {/* Preview Training Plan PDF Modal */}
       {showPreviewTrainingModal && selectedTrainingPlan && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowPreviewTrainingModal(false)}>
-          <div className="modal-dialog modal-dialog-centered modal-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content" style={{ height: '90vh' }}>
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-file-pdf-line me-2 text-warning"></i>
-                  {selectedTrainingPlan.name || 'Piano Allenamento'}
-                </h5>
-                <div className="d-flex gap-2 align-items-center">
-                  <a
-                    href={`/uploads/${selectedTrainingPlan.piano_allenamento_file_path}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-sm btn-outline-warning"
-                  >
-                    <i className="ri-download-line me-1"></i>
-                    Scarica
-                  </a>
-                  <button className="btn-close" onClick={() => setShowPreviewTrainingModal(false)}></button>
-                </div>
+        <div className="cd-modal-backdrop" onClick={() => setShowPreviewTrainingModal(false)}>
+          <div className="cd-modal xl full-height" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header orange-bg">
+              <h5>
+                <i className="ri-file-pdf-line"></i>
+                {selectedTrainingPlan.name || 'Piano Allenamento'}
+              </h5>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <a
+                  href={`/uploads/${selectedTrainingPlan.piano_allenamento_file_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cd-btn-action-sm"
+                >
+                  <i className="ri-download-line"></i>
+                  Scarica
+                </a>
+                <button className="cd-modal-close" onClick={() => setShowPreviewTrainingModal(false)}><i className="ri-close-line"></i></button>
               </div>
-              <div className="modal-body p-0" style={{ height: 'calc(100% - 60px)' }}>
-                <iframe
-                  src={`/uploads/${selectedTrainingPlan.piano_allenamento_file_path}`}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
-                  title="Piano Allenamento PDF"
-                />
-              </div>
+            </div>
+            <div className="cd-modal-body fill">
+              <iframe
+                src={`/uploads/${selectedTrainingPlan.piano_allenamento_file_path}`}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Piano Allenamento PDF"
+              />
             </div>
           </div>
         </div>
@@ -8365,94 +8072,92 @@ function ClientiDetail() {
 
       {/* Edit Training Plan Modal */}
       {showEditTrainingModal && selectedTrainingPlan && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-edit-line me-2 text-primary"></i>
-                  Modifica Piano Allenamento
-                </h5>
-                <button className="btn-close" onClick={() => setShowEditTrainingModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header blue-bg">
+              <h5>
+                <i className="ri-edit-line"></i>
+                Modifica Piano Allenamento
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowEditTrainingModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-alert cd-alert-info">
+                <i className="ri-information-line"></i>
+                Stai modificando: <strong>{selectedTrainingPlan.name || 'Piano Allenamento'}</strong>
               </div>
-              <div className="modal-body">
-                <div className="alert alert-info small mb-3">
-                  <i className="ri-information-line me-1"></i>
-                  Stai modificando: <strong>{selectedTrainingPlan.name || 'Piano Allenamento'}</strong>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Inizio *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={editTrainingForm.start_date}
-                      onChange={(e) => setEditTrainingForm({ ...editTrainingForm, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Fine *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={editTrainingForm.end_date}
-                      onChange={(e) => setEditTrainingForm({ ...editTrainingForm, end_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Nuovo PDF (opzionale)</label>
+              <div className="cd-form-grid cols-2">
+                <div className="cd-field">
+                  <label className="cd-field-label">Data Inizio *</label>
                   <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf"
-                    onChange={(e) => setEditTrainingFile(e.target.files[0])}
+                    type="date"
+                    className="cd-input"
+                    value={editTrainingForm.start_date}
+                    onChange={(e) => setEditTrainingForm({ ...editTrainingForm, start_date: e.target.value })}
                   />
-                  <small className="text-muted">Lascia vuoto per mantenere il PDF esistente</small>
                 </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Note (opzionale)</label>
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Note aggiuntive..."
-                    value={editTrainingForm.notes}
-                    onChange={(e) => setEditTrainingForm({ ...editTrainingForm, notes: e.target.value })}
-                  ></textarea>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Motivo della modifica</label>
+                <div className="cd-field">
+                  <label className="cd-field-label">Data Fine *</label>
                   <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Es: Aggiornamento esercizi fase intermedia"
-                    value={editTrainingForm.change_reason}
-                    onChange={(e) => setEditTrainingForm({ ...editTrainingForm, change_reason: e.target.value })}
+                    type="date"
+                    className="cd-input"
+                    value={editTrainingForm.end_date}
+                    onChange={(e) => setEditTrainingForm({ ...editTrainingForm, end_date: e.target.value })}
                   />
-                  <small className="text-muted">Opzionale, verrà salvato nello storico delle modifiche</small>
                 </div>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowEditTrainingModal(false);
-                    setSelectedTrainingPlan(null);
-                    setEditTrainingForm({ start_date: '', end_date: '', notes: '', change_reason: '' });
-                    setEditTrainingFile(null);
-                  }}
-                  disabled={savingTrainingPlan}
-                >
-                  Annulla
-                </button>
-                <button className="btn btn-primary" onClick={handleUpdateTrainingPlan} disabled={savingTrainingPlan}>
-                  {savingTrainingPlan ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva Modifiche</>
-                  )}
-                </button>
+              <div className="cd-field">
+                <label className="cd-field-label">Nuovo PDF (opzionale)</label>
+                <input
+                  type="file"
+                  className="cd-input"
+                  accept=".pdf"
+                  onChange={(e) => setEditTrainingFile(e.target.files[0])}
+                />
+                <small className="text-muted">Lascia vuoto per mantenere il PDF esistente</small>
               </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Note (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="2"
+                  placeholder="Note aggiuntive..."
+                  value={editTrainingForm.notes}
+                  onChange={(e) => setEditTrainingForm({ ...editTrainingForm, notes: e.target.value })}
+                ></textarea>
+              </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Motivo della modifica</label>
+                <input
+                  type="text"
+                  className="cd-input"
+                  placeholder="Es: Aggiornamento esercizi fase intermedia"
+                  value={editTrainingForm.change_reason}
+                  onChange={(e) => setEditTrainingForm({ ...editTrainingForm, change_reason: e.target.value })}
+                />
+                <small className="text-muted">Opzionale, verrà salvato nello storico delle modifiche</small>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowEditTrainingModal(false);
+                  setSelectedTrainingPlan(null);
+                  setEditTrainingForm({ start_date: '', end_date: '', notes: '', change_reason: '' });
+                  setEditTrainingFile(null);
+                }}
+                disabled={savingTrainingPlan}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" onClick={handleUpdateTrainingPlan} disabled={savingTrainingPlan}>
+                {savingTrainingPlan ? (
+                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px', margin: '0 6px 0 0' }}></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva Modifiche</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8460,100 +8165,98 @@ function ClientiDetail() {
 
       {/* Training Plan Version History Modal */}
       {showTrainingVersionsModal && selectedTrainingPlan && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(75, 85, 99, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-history-line me-2 text-secondary"></i>
-                  Storico Modifiche
-                </h5>
-                <button className="btn-close" onClick={() => { setShowTrainingVersionsModal(false); setTrainingVersions([]); }}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal lg" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header gray-bg">
+              <h5>
+                <i className="ri-history-line"></i>
+                Storico Modifiche
+              </h5>
+              <button className="cd-modal-close" onClick={() => { setShowTrainingVersionsModal(false); setTrainingVersions([]); }}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-alert cd-alert-info">
+                <i className="ri-information-line"></i>
+                Piano: <strong>{selectedTrainingPlan.name || 'Piano Allenamento'}</strong>
               </div>
-              <div className="modal-body">
-                <div className="alert alert-secondary small mb-3">
-                  <i className="ri-information-line me-1"></i>
-                  Piano: <strong>{selectedTrainingPlan.name || 'Piano Allenamento'}</strong>
+              {loadingTrainingVersions ? (
+                <div className="cd-loading">
+                  <div className="cd-spinner"></div>
+                  <p className="cd-loading-text">Caricamento storico...</p>
                 </div>
-                {loadingTrainingVersions ? (
-                  <div className="text-center py-4">
-                    <div className="spinner-border spinner-border-sm text-secondary" role="status"></div>
-                    <small className="ms-2 text-muted">Caricamento storico...</small>
-                  </div>
-                ) : trainingVersions.length === 0 ? (
-                  <p className="text-muted text-center py-3">
-                    <i className="ri-information-line me-1"></i>
-                    Nessuna modifica registrata per questo piano
-                  </p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.85rem' }}>
-                      <thead>
-                        <tr className="text-muted">
-                          <th style={{ fontWeight: '500' }}>Versione</th>
-                          <th style={{ fontWeight: '500' }}>Data Modifica</th>
-                          <th style={{ fontWeight: '500' }}>Modificato da</th>
-                          <th style={{ fontWeight: '500' }}>Periodo</th>
-                          <th style={{ fontWeight: '500' }}>Motivo</th>
-                          <th style={{ fontWeight: '500' }}>PDF</th>
+              ) : trainingVersions.length === 0 ? (
+                <p className="cd-empty">
+                  <i className="ri-information-line"></i>
+                  Nessuna modifica registrata per questo piano
+                </p>
+              ) : (
+                <div className="cd-table-wrap">
+                  <table className="cd-table">
+                    <thead>
+                      <tr>
+                        <th>Versione</th>
+                        <th>Data Modifica</th>
+                        <th>Modificato da</th>
+                        <th>Periodo</th>
+                        <th>Motivo</th>
+                        <th>PDF</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trainingVersions.map((version, idx) => (
+                        <tr key={version.transaction_id || idx} className={version.is_current ? 'highlight-warning' : ''}>
+                          <td>
+                            <span className="cd-badge" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>v{version.version_number}</span>
+                            {version.is_current && (
+                              <span className="cd-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', marginLeft: '4px' }}>Attuale</span>
+                            )}
+                          </td>
+                          <td>
+                            {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit'
+                            }) : '-'}
+                          </td>
+                          <td>{version.changed_by || '-'}</td>
+                          <td>
+                            {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
+                            {' → '}
+                            {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
+                          </td>
+                          <td style={{ maxWidth: '200px' }}>
+                            <span className="cd-text-truncate" style={{ maxWidth: '200px', display: 'inline-block' }} title={version.change_reason}>
+                              {version.change_reason || '-'}
+                            </span>
+                          </td>
+                          <td>
+                            {version.has_file && version.piano_allenamento_file_path ? (
+                              <a
+                                href={`/uploads/${version.piano_allenamento_file_path}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="cd-btn-action-sm"
+                                title="Scarica PDF"
+                              >
+                                <i className="ri-download-line"></i>
+                              </a>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>-</span>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {trainingVersions.map((version, idx) => (
-                          <tr key={version.transaction_id || idx} className={version.is_current ? 'table-warning' : ''}>
-                            <td>
-                              <span className="badge bg-secondary">v{version.version_number}</span>
-                              {version.is_current && (
-                                <span className="badge bg-warning ms-1">Attuale</span>
-                              )}
-                            </td>
-                            <td className="text-muted">
-                              {version.changed_at ? new Date(version.changed_at).toLocaleString('it-IT', {
-                                day: '2-digit', month: '2-digit', year: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                              }) : '-'}
-                            </td>
-                            <td>{version.changed_by || '-'}</td>
-                            <td className="text-muted">
-                              {version.start_date ? new Date(version.start_date).toLocaleDateString('it-IT') : '-'}
-                              {' → '}
-                              {version.end_date ? new Date(version.end_date).toLocaleDateString('it-IT') : '-'}
-                            </td>
-                            <td className="text-muted" style={{ maxWidth: '200px' }}>
-                              <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }} title={version.change_reason}>
-                                {version.change_reason || '-'}
-                              </span>
-                            </td>
-                            <td>
-                              {version.has_file && version.piano_allenamento_file_path ? (
-                                <a
-                                  href={`/uploads/${version.piano_allenamento_file_path}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-sm btn-outline-warning py-0 px-2"
-                                  title="Scarica PDF"
-                                >
-                                  <i className="ri-download-line"></i>
-                                </a>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => { setShowTrainingVersionsModal(false); setTrainingVersions([]); }}
-                >
-                  Chiudi
-                </button>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => { setShowTrainingVersionsModal(false); setTrainingVersions([]); }}
+              >
+                Chiudi
+              </button>
             </div>
           </div>
         </div>
@@ -8561,93 +8264,91 @@ function ClientiDetail() {
 
       {/* Training Location Modal */}
       {showLocationModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-map-pin-line me-2 text-success"></i>
-                  {locationForm.id ? 'Modifica Luogo' : 'Nuovo Luogo di Allenamento'}
-                </h5>
-                <button className="btn-close" onClick={() => setShowLocationModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Luogo di Allenamento *</label>
-                  <select
-                    className="form-select"
-                    value={locationForm.location}
-                    onChange={(e) => setLocationForm({ ...locationForm, location: e.target.value })}
-                  >
-                    <option value="">Seleziona...</option>
-                    <option value="casa">Casa</option>
-                    <option value="palestra">Palestra</option>
-                    <option value="ibrido">Ibrido</option>
-                  </select>
-                </div>
-                <div className="row mb-3">
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Inizio *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={locationForm.start_date}
-                      onChange={(e) => setLocationForm({ ...locationForm, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label small text-muted">Data Fine (opzionale)</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={locationForm.end_date}
-                      onChange={(e) => setLocationForm({ ...locationForm, end_date: e.target.value })}
-                    />
-                    <small className="text-muted">Lascia vuoto se ancora in corso</small>
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Note (opzionale)</label>
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Note aggiuntive sul luogo..."
-                    value={locationForm.notes}
-                    onChange={(e) => setLocationForm({ ...locationForm, notes: e.target.value })}
-                  ></textarea>
-                </div>
-                {locationForm.id && (
-                  <div className="mb-3">
-                    <label className="form-label small text-muted">Motivo della modifica</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Es: Cambio palestra, Inizio fase home training..."
-                      value={locationForm.change_reason}
-                      onChange={(e) => setLocationForm({ ...locationForm, change_reason: e.target.value })}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowLocationModal(false);
-                    setLocationForm({ id: null, location: '', start_date: '', end_date: '', notes: '', change_reason: '' });
-                  }}
-                  disabled={savingLocation}
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header green-location-bg">
+              <h5>
+                <i className="ri-map-pin-line"></i>
+                {locationForm.id ? 'Modifica Luogo' : 'Nuovo Luogo di Allenamento'}
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowLocationModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Luogo di Allenamento *</label>
+                <select
+                  className="cd-select"
+                  value={locationForm.location}
+                  onChange={(e) => setLocationForm({ ...locationForm, location: e.target.value })}
                 >
-                  Annulla
-                </button>
-                <button className="btn btn-success" onClick={handleSaveLocation} disabled={savingLocation}>
-                  {savingLocation ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva</>
-                  )}
-                </button>
+                  <option value="">Seleziona...</option>
+                  <option value="casa">Casa</option>
+                  <option value="palestra">Palestra</option>
+                  <option value="ibrido">Ibrido</option>
+                </select>
               </div>
+              <div className="cd-form-grid cols-2">
+                <div className="cd-field">
+                  <label className="cd-field-label">Data Inizio *</label>
+                  <input
+                    type="date"
+                    className="cd-input"
+                    value={locationForm.start_date}
+                    onChange={(e) => setLocationForm({ ...locationForm, start_date: e.target.value })}
+                  />
+                </div>
+                <div className="cd-field">
+                  <label className="cd-field-label">Data Fine (opzionale)</label>
+                  <input
+                    type="date"
+                    className="cd-input"
+                    value={locationForm.end_date}
+                    onChange={(e) => setLocationForm({ ...locationForm, end_date: e.target.value })}
+                  />
+                  <small className="text-muted">Lascia vuoto se ancora in corso</small>
+                </div>
+              </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Note (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="2"
+                  placeholder="Note aggiuntive sul luogo..."
+                  value={locationForm.notes}
+                  onChange={(e) => setLocationForm({ ...locationForm, notes: e.target.value })}
+                ></textarea>
+              </div>
+              {locationForm.id && (
+                <div className="cd-field">
+                  <label className="cd-field-label">Motivo della modifica</label>
+                  <input
+                    type="text"
+                    className="cd-input"
+                    placeholder="Es: Cambio palestra, Inizio fase home training..."
+                    value={locationForm.change_reason}
+                    onChange={(e) => setLocationForm({ ...locationForm, change_reason: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowLocationModal(false);
+                  setLocationForm({ id: null, location: '', start_date: '', end_date: '', notes: '', change_reason: '' });
+                }}
+                disabled={savingLocation}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" style={{ background: '#22c55e' }} onClick={handleSaveLocation} disabled={savingLocation}>
+                {savingLocation ? (
+                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px', margin: '0 6px 0 0' }}></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8655,56 +8356,54 @@ function ClientiDetail() {
 
       {/* Coaching Diario Entry Modal */}
       {showDiarioCoachingModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-book-2-line me-2 text-warning"></i>
-                  {diarioCoachingForm.id ? 'Modifica Nota Coaching' : 'Nuova Nota Coaching'}
-                </h5>
-                <button className="btn-close" onClick={() => setShowDiarioCoachingModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header orange-bg">
+              <h5>
+                <i className="ri-book-2-line"></i>
+                {diarioCoachingForm.id ? 'Modifica Nota Coaching' : 'Nuova Nota Coaching'}
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowDiarioCoachingModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Data *</label>
+                <input
+                  type="date"
+                  className="cd-input"
+                  value={diarioCoachingForm.entry_date}
+                  onChange={(e) => setDiarioCoachingForm({ ...diarioCoachingForm, entry_date: e.target.value })}
+                />
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Data *</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={diarioCoachingForm.entry_date}
-                    onChange={(e) => setDiarioCoachingForm({ ...diarioCoachingForm, entry_date: e.target.value })}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Contenuto *</label>
-                  <textarea
-                    className="form-control"
-                    rows="6"
-                    placeholder="Scrivi qui la nota del diario coaching...&#10;&#10;• Progressi allenamento&#10;• Performance osservata&#10;• Aggiustamenti al piano&#10;• Feedback del cliente"
-                    value={diarioCoachingForm.content}
-                    onChange={(e) => setDiarioCoachingForm({ ...diarioCoachingForm, content: e.target.value })}
-                  ></textarea>
-                </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Contenuto *</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="6"
+                  placeholder="Scrivi qui la nota del diario coaching...&#10;&#10;• Progressi allenamento&#10;• Performance osservata&#10;• Aggiustamenti al piano&#10;• Feedback del cliente"
+                  value={diarioCoachingForm.content}
+                  onChange={(e) => setDiarioCoachingForm({ ...diarioCoachingForm, content: e.target.value })}
+                ></textarea>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowDiarioCoachingModal(false);
-                    setDiarioCoachingForm({ id: null, entry_date: '', content: '' });
-                  }}
-                  disabled={savingDiarioCoaching}
-                >
-                  Annulla
-                </button>
-                <button className="btn btn-warning" onClick={handleSaveDiarioCoaching} disabled={savingDiarioCoaching}>
-                  {savingDiarioCoaching ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva</>
-                  )}
-                </button>
-              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowDiarioCoachingModal(false);
+                  setDiarioCoachingForm({ id: null, entry_date: '', content: '' });
+                }}
+                disabled={savingDiarioCoaching}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" style={{ background: '#f59e0b' }} onClick={handleSaveDiarioCoaching} disabled={savingDiarioCoaching}>
+                {savingDiarioCoaching ? (
+                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px', margin: '0 6px 0 0' }}></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8712,56 +8411,54 @@ function ClientiDetail() {
 
       {/* Psicologia Diario Entry Modal */}
       {showDiarioPsicologiaModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header border-0" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%)' }}>
-                <h5 className="modal-title">
-                  <i className="ri-book-2-line me-2" style={{ color: '#a855f7' }}></i>
-                  {diarioPsicologiaForm.id ? 'Modifica Nota Psicologia' : 'Nuova Nota Psicologia'}
-                </h5>
-                <button className="btn-close" onClick={() => setShowDiarioPsicologiaModal(false)}></button>
+        <div className="cd-modal-backdrop">
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-book-2-line" style={{ color: '#a855f7' }}></i>
+                {diarioPsicologiaForm.id ? 'Modifica Nota Psicologia' : 'Nuova Nota Psicologia'}
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowDiarioPsicologiaModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Data *</label>
+                <input
+                  type="date"
+                  className="cd-input"
+                  value={diarioPsicologiaForm.entry_date}
+                  onChange={(e) => setDiarioPsicologiaForm({ ...diarioPsicologiaForm, entry_date: e.target.value })}
+                />
               </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Data *</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={diarioPsicologiaForm.entry_date}
-                    onChange={(e) => setDiarioPsicologiaForm({ ...diarioPsicologiaForm, entry_date: e.target.value })}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small text-muted">Contenuto *</label>
-                  <textarea
-                    className="form-control"
-                    rows="6"
-                    placeholder="Scrivi qui la nota del diario psicologia...&#10;&#10;• Progressi terapeutici&#10;• Osservazioni cliniche&#10;• Punti trattati nella seduta&#10;• Note per il prossimo incontro"
-                    value={diarioPsicologiaForm.content}
-                    onChange={(e) => setDiarioPsicologiaForm({ ...diarioPsicologiaForm, content: e.target.value })}
-                  ></textarea>
-                </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Contenuto *</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="6"
+                  placeholder="Scrivi qui la nota del diario psicologia...&#10;&#10;• Progressi terapeutici&#10;• Osservazioni cliniche&#10;• Punti trattati nella seduta&#10;• Note per il prossimo incontro"
+                  value={diarioPsicologiaForm.content}
+                  onChange={(e) => setDiarioPsicologiaForm({ ...diarioPsicologiaForm, content: e.target.value })}
+                ></textarea>
               </div>
-              <div className="modal-footer border-0">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowDiarioPsicologiaModal(false);
-                    setDiarioPsicologiaForm({ id: null, entry_date: '', content: '' });
-                  }}
-                  disabled={savingDiarioPsicologia}
-                >
-                  Annulla
-                </button>
-                <button className="btn" style={{ background: '#a855f7', color: 'white' }} onClick={handleSaveDiarioPsicologia} disabled={savingDiarioPsicologia}>
-                  {savingDiarioPsicologia ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
-                  ) : (
-                    <><i className="ri-save-line me-2"></i>Salva</>
-                  )}
-                </button>
-              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button
+                className="cd-btn-back"
+                onClick={() => {
+                  setShowDiarioPsicologiaModal(false);
+                  setDiarioPsicologiaForm({ id: null, entry_date: '', content: '' });
+                }}
+                disabled={savingDiarioPsicologia}
+              >
+                Annulla
+              </button>
+              <button className="cd-btn-save" style={{ background: '#a855f7', color: 'white' }} onClick={handleSaveDiarioPsicologia} disabled={savingDiarioPsicologia}>
+                {savingDiarioPsicologia ? (
+                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px', margin: '0 6px 0 0' }}></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-save-line"></i>Salva</>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8769,102 +8466,86 @@ function ClientiDetail() {
 
       {/* Check Response Detail Modal */}
       {showCheckResponseModal && selectedCheckResponse && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setShowCheckResponseModal(false)}>
-          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-              <div className="modal-header" style={{
-                background: selectedCheckResponse.type === 'weekly' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-                           selectedCheckResponse.type === 'dca' ? 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)' :
-                           'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                color: 'white',
-                border: 'none'
-              }}>
-                <h5 className="modal-title">
-                  <i className={`me-2 ${selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'}`}></i>
-                  {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : selectedCheckResponse.type === 'dca' ? 'Check Benessere' : 'Check Minori'}
-                </h5>
-                <button className="btn-close btn-close-white" onClick={() => setShowCheckResponseModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
+        <div className="cd-modal-backdrop" onClick={() => setShowCheckResponseModal(false)}>
+          <div className="cd-modal lg" onClick={(e) => e.stopPropagation()}>
+            <div className={`cd-modal-header ${selectedCheckResponse.type === 'weekly' ? 'check-weekly' : selectedCheckResponse.type === 'dca' ? 'check-dca' : 'check-minor'}`}>
+              <h5>
+                <i className={selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'}></i>
+                {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : selectedCheckResponse.type === 'dca' ? 'Check Benessere' : 'Check Minori'}
+              </h5>
+              <button className="cd-modal-close white" onClick={() => setShowCheckResponseModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body scrollable">
                 {loadingCheckDetail ? (
-                  <div className="text-center py-5">
-                    <div className="spinner-border text-primary" role="status"></div>
-                    <p className="text-muted mt-3">Caricamento dettagli...</p>
+                  <div className="cd-loading">
+                    <div className="cd-spinner"></div>
+                    <p className="cd-loading-text">Caricamento dettagli...</p>
                   </div>
                 ) : (
                   <div>
                     {/* Header Info */}
-                    <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #e2e8f0' }}>
                       <div>
-                        <small className="text-muted">Data compilazione</small>
-                        <p className="mb-0 fw-semibold">{selectedCheckResponse.submit_date}</p>
+                        <small style={{ color: '#64748b' }}>Data compilazione</small>
+                        <p style={{ margin: 0, fontWeight: 600 }}>{selectedCheckResponse.submit_date}</p>
                       </div>
                       {selectedCheckResponse.type === 'weekly' && (
-                        <div className="text-end">
-                          <small className="text-muted">Peso</small>
-                          <p className="mb-0 fw-semibold">{selectedCheckResponse.weight ? `${selectedCheckResponse.weight} kg` : <span className="text-muted">-</span>}</p>
+                        <div style={{ textAlign: 'right' }}>
+                          <small style={{ color: '#64748b' }}>Peso</small>
+                          <p style={{ margin: 0, fontWeight: 600 }}>{selectedCheckResponse.weight ? `${selectedCheckResponse.weight} kg` : <span style={{ color: '#94a3b8' }}>-</span>}</p>
                         </div>
                       )}
                     </div>
 
                     {/* Photos (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
-                        <h6 className="text-muted mb-3"><i className="ri-camera-line me-2"></i>Foto Progressi</h6>
-                        <div className="row g-3">
-                          <div className="col-4">
-                            <div className="text-center">
-                              <small className="text-muted d-block mb-2">Frontale</small>
-                              {selectedCheckResponse.photo_front ? (
-                                <img
-                                  src={selectedCheckResponse.photo_front}
-                                  alt="Foto frontale"
-                                  className="img-fluid rounded"
-                                  style={{ maxHeight: '150px', objectFit: 'cover', cursor: 'pointer' }}
-                                  onClick={() => window.open(selectedCheckResponse.photo_front, '_blank')}
-                                />
-                              ) : (
-                                <div className="p-4 rounded d-flex align-items-center justify-content-center" style={{ background: '#f8fafc', minHeight: '100px' }}>
-                                  <span className="text-muted small">Non caricata</span>
-                                </div>
-                              )}
-                            </div>
+                      <div style={{ marginBottom: '24px' }}>
+                        <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-camera-line" style={{ marginRight: '8px' }}></i>Foto Progressi</h6>
+                        <div className="cd-photo-grid">
+                          <div style={{ textAlign: 'center' }}>
+                            <small style={{ color: '#94a3b8', display: 'block', marginBottom: '8px' }}>Frontale</small>
+                            {selectedCheckResponse.photo_front ? (
+                              <img
+                                src={selectedCheckResponse.photo_front}
+                                alt="Foto frontale"
+                                className="cd-photo-img"
+                                onClick={() => window.open(selectedCheckResponse.photo_front, '_blank')}
+                              />
+                            ) : (
+                              <div className="cd-photo-placeholder">
+                                <span style={{ color: '#94a3b8', fontSize: '13px' }}>Non caricata</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="col-4">
-                            <div className="text-center">
-                              <small className="text-muted d-block mb-2">Laterale</small>
-                              {selectedCheckResponse.photo_side ? (
-                                <img
-                                  src={selectedCheckResponse.photo_side}
-                                  alt="Foto laterale"
-                                  className="img-fluid rounded"
-                                  style={{ maxHeight: '150px', objectFit: 'cover', cursor: 'pointer' }}
-                                  onClick={() => window.open(selectedCheckResponse.photo_side, '_blank')}
-                                />
-                              ) : (
-                                <div className="p-4 rounded d-flex align-items-center justify-content-center" style={{ background: '#f8fafc', minHeight: '100px' }}>
-                                  <span className="text-muted small">Non caricata</span>
-                                </div>
-                              )}
-                            </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <small style={{ color: '#94a3b8', display: 'block', marginBottom: '8px' }}>Laterale</small>
+                            {selectedCheckResponse.photo_side ? (
+                              <img
+                                src={selectedCheckResponse.photo_side}
+                                alt="Foto laterale"
+                                className="cd-photo-img"
+                                onClick={() => window.open(selectedCheckResponse.photo_side, '_blank')}
+                              />
+                            ) : (
+                              <div className="cd-photo-placeholder">
+                                <span style={{ color: '#94a3b8', fontSize: '13px' }}>Non caricata</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="col-4">
-                            <div className="text-center">
-                              <small className="text-muted d-block mb-2">Posteriore</small>
-                              {selectedCheckResponse.photo_back ? (
-                                <img
-                                  src={selectedCheckResponse.photo_back}
-                                  alt="Foto posteriore"
-                                  className="img-fluid rounded"
-                                  style={{ maxHeight: '150px', objectFit: 'cover', cursor: 'pointer' }}
-                                  onClick={() => window.open(selectedCheckResponse.photo_back, '_blank')}
-                                />
-                              ) : (
-                                <div className="p-4 rounded d-flex align-items-center justify-content-center" style={{ background: '#f8fafc', minHeight: '100px' }}>
-                                  <span className="text-muted small">Non caricata</span>
-                                </div>
-                              )}
-                            </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <small style={{ color: '#94a3b8', display: 'block', marginBottom: '8px' }}>Posteriore</small>
+                            {selectedCheckResponse.photo_back ? (
+                              <img
+                                src={selectedCheckResponse.photo_back}
+                                alt="Foto posteriore"
+                                className="cd-photo-img"
+                                onClick={() => window.open(selectedCheckResponse.photo_back, '_blank')}
+                              />
+                            ) : (
+                              <div className="cd-photo-placeholder">
+                                <span style={{ color: '#94a3b8', fontSize: '13px' }}>Non caricata</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -8873,28 +8554,28 @@ function ClientiDetail() {
                     {/* Ratings */}
                     {(selectedCheckResponse.nutritionist_rating || selectedCheckResponse.psychologist_rating ||
                       selectedCheckResponse.coach_rating || selectedCheckResponse.progress_rating) && (
-                      <div className="mb-4">
-                        <h6 className="text-muted mb-3"><i className="ri-star-line me-2"></i>Valutazioni Professionisti</h6>
-                        <div className="row g-3">
+                      <div style={{ marginBottom: '24px' }}>
+                        <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-star-line" style={{ marginRight: '8px' }}></i>Valutazioni Professionisti</h6>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
                           {selectedCheckResponse.nutritionist_rating && (() => {
                             const nutriInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'nutritionist');
                             const nutri = nutriInfo?.assignment;
                             return (
-                              <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#dcfce7' }}>
+                              <div key="nutri-rating">
+                                <div style={{ padding: '12px', borderRadius: '10px', background: '#dcfce7', textAlign: 'center' }}>
                                   {nutri && (
-                                    <div className="mb-2 d-flex justify-content-center">
+                                    <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
                                       {nutri.avatar_path ? (
-                                        <img src={nutri.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #22c55e' }} />
+                                        <img src={nutri.avatar_path} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #22c55e' }} />
                                       ) : (
-                                        <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#22c55e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>
                                           {nutri.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                     </div>
                                   )}
-                                  <div className="fw-bold fs-4 text-success">{selectedCheckResponse.nutritionist_rating}</div>
-                                  <small className="text-muted">{nutriInfo?.name || 'Nutrizionista'}</small>
+                                  <div style={{ fontWeight: 700, fontSize: '1.5rem', color: '#22c55e' }}>{selectedCheckResponse.nutritionist_rating}</div>
+                                  <small style={{ color: '#64748b' }}>{nutriInfo?.name || 'Nutrizionista'}</small>
                                 </div>
                               </div>
                             );
@@ -8903,21 +8584,21 @@ function ClientiDetail() {
                             const psicoInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'psychologist');
                             const psico = psicoInfo?.assignment;
                             return (
-                              <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#fef3c7' }}>
+                              <div key="psico-rating">
+                                <div style={{ padding: '12px', borderRadius: '10px', background: '#fef3c7', textAlign: 'center' }}>
                                   {psico && (
-                                    <div className="mb-2 d-flex justify-content-center">
+                                    <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
                                       {psico.avatar_path ? (
-                                        <img src={psico.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #d97706' }} />
+                                        <img src={psico.avatar_path} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #d97706' }} />
                                       ) : (
-                                        <div className="rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem', background: '#d97706' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#d97706', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>
                                           {psico.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                     </div>
                                   )}
-                                  <div className="fw-bold fs-4" style={{ color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
-                                  <small className="text-muted">{psicoInfo?.name || 'Psicologo/a'}</small>
+                                  <div style={{ fontWeight: 700, fontSize: '1.5rem', color: '#d97706' }}>{selectedCheckResponse.psychologist_rating}</div>
+                                  <small style={{ color: '#64748b' }}>{psicoInfo?.name || 'Psicologo/a'}</small>
                                 </div>
                               </div>
                             );
@@ -8926,38 +8607,37 @@ function ClientiDetail() {
                             const coachInfo = getWeeklySnapshotProfessional(selectedCheckResponse, 'coach');
                             const coach = coachInfo?.assignment;
                             return (
-                              <div className="col-6 col-md-3">
-                                <div className="p-3 rounded text-center" style={{ background: '#dbeafe' }}>
+                              <div key="coach-rating">
+                                <div style={{ padding: '12px', borderRadius: '10px', background: '#dbeafe', textAlign: 'center' }}>
                                   {coach && (
-                                    <div className="mb-2 d-flex justify-content-center">
+                                    <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
                                       {coach.avatar_path ? (
-                                        <img src={coach.avatar_path} alt="" className="rounded-circle" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #3b82f6' }} />
+                                        <img src={coach.avatar_path} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #3b82f6' }} />
                                       ) : (
-                                        <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', fontSize: '0.75rem' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>
                                           {coach.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                                         </div>
                                       )}
                                     </div>
                                   )}
-                                  <div className="fw-bold fs-4 text-primary">{selectedCheckResponse.coach_rating}</div>
-                                  <small className="text-muted">{coachInfo?.name || 'Coach'}</small>
+                                  <div style={{ fontWeight: 700, fontSize: '1.5rem', color: '#3b82f6' }}>{selectedCheckResponse.coach_rating}</div>
+                                  <small style={{ color: '#64748b' }}>{coachInfo?.name || 'Coach'}</small>
                                 </div>
                               </div>
                             );
                           })()}
                           {selectedCheckResponse.progress_rating && (
-                            <div className="col-6 col-md-3">
-                              <div className="p-3 rounded text-center" style={{ background: '#f3e8ff' }}>
-                                <div className="mb-2 d-flex justify-content-center">
+                            <div>
+                              <div style={{ padding: '12px', borderRadius: '10px', background: '#f3e8ff', textAlign: 'center' }}>
+                                <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
                                   <img
                                     src="/corposostenibile.jpg"
                                     alt="Corpo Sostenibile"
-                                    className="rounded-circle"
-                                    style={{ width: '40px', height: '40px', objectFit: 'cover', border: '2px solid #9333ea' }}
+                                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #9333ea' }}
                                   />
                                 </div>
-                                <div className="fw-bold fs-4" style={{ color: '#9333ea' }}>{selectedCheckResponse.progress_rating}</div>
-                                <small className="text-muted">Progresso</small>
+                                <div style={{ fontWeight: 700, fontSize: '1.5rem', color: '#9333ea' }}>{selectedCheckResponse.progress_rating}</div>
+                                <small style={{ color: '#64748b' }}>Progresso</small>
                               </div>
                             </div>
                           )}
@@ -8967,9 +8647,9 @@ function ClientiDetail() {
 
                     {/* Wellness Ratings (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
-                        <h6 className="text-muted mb-3"><i className="ri-heart-pulse-line me-2"></i>Benessere</h6>
-                        <div className="row g-2">
+                      <div style={{ marginBottom: '24px' }}>
+                        <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-heart-pulse-line" style={{ marginRight: '8px' }}></i>Benessere</h6>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
                           {[
                             { key: 'digestion_rating', label: 'Digestione', icon: '🍽️' },
                             { key: 'energy_rating', label: 'Energia', icon: '⚡' },
@@ -8979,14 +8659,12 @@ function ClientiDetail() {
                             { key: 'mood_rating', label: 'Umore', icon: '😊' },
                             { key: 'motivation_rating', label: 'Motivazione', icon: '🔥' },
                           ].map(item => (
-                            <div key={item.key} className="col-6 col-md-4">
-                              <div className="d-flex align-items-center p-2 rounded" style={{ background: '#f8fafc' }}>
-                                <span className="me-2">{item.icon}</span>
-                                <span className="small text-muted me-auto">{item.label}</span>
-                                <span className={`fw-semibold ${selectedCheckResponse[item.key] === null || selectedCheckResponse[item.key] === undefined ? 'text-muted' : ''}`}>
-                                  {selectedCheckResponse[item.key] !== null && selectedCheckResponse[item.key] !== undefined ? `${selectedCheckResponse[item.key]}/10` : '-'}
-                                </span>
-                              </div>
+                            <div key={item.key} style={{ display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '8px', background: '#f8fafc' }}>
+                              <span style={{ marginRight: '8px' }}>{item.icon}</span>
+                              <span style={{ fontSize: '13px', color: '#64748b', marginRight: 'auto' }}>{item.label}</span>
+                              <span style={{ fontWeight: 600, color: selectedCheckResponse[item.key] === null || selectedCheckResponse[item.key] === undefined ? '#94a3b8' : '#1e293b' }}>
+                                {selectedCheckResponse[item.key] !== null && selectedCheckResponse[item.key] !== undefined ? `${selectedCheckResponse[item.key]}/10` : '-'}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -8995,26 +8673,20 @@ function ClientiDetail() {
 
                     {/* Professional Feedback (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
-                        <h6 className="text-muted mb-3"><i className="ri-feedback-line me-2"></i>Feedback Professionisti</h6>
-                        <div className="row g-2">
-                          <div className="col-12">
-                            <div className="p-3 rounded" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                              <small className="text-muted d-block mb-1">Feedback Nutrizionista</small>
-                              <p className="mb-0 small">{selectedCheckResponse.nutritionist_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
-                            </div>
+                      <div style={{ marginBottom: '24px' }}>
+                        <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-feedback-line" style={{ marginRight: '8px' }}></i>Feedback Professionisti</h6>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ padding: '12px', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Feedback Nutrizionista</small>
+                            <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.nutritionist_feedback || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                           </div>
-                          <div className="col-12">
-                            <div className="p-3 rounded" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-                              <small className="text-muted d-block mb-1">Feedback Psicologo</small>
-                              <p className="mb-0 small">{selectedCheckResponse.psychologist_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
-                            </div>
+                          <div style={{ padding: '12px', borderRadius: '8px', background: '#fef3c7', border: '1px solid #fde68a' }}>
+                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Feedback Psicologo</small>
+                            <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.psychologist_feedback || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                           </div>
-                          <div className="col-12">
-                            <div className="p-3 rounded" style={{ background: '#dbeafe', border: '1px solid #bfdbfe' }}>
-                              <small className="text-muted d-block mb-1">Feedback Coach</small>
-                              <p className="mb-0 small">{selectedCheckResponse.coach_feedback || <span className="text-muted fst-italic">Non compilato</span>}</p>
-                            </div>
+                          <div style={{ padding: '12px', borderRadius: '8px', background: '#dbeafe', border: '1px solid #bfdbfe' }}>
+                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Feedback Coach</small>
+                            <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.coach_feedback || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                           </div>
                         </div>
                       </div>
@@ -9022,161 +8694,138 @@ function ClientiDetail() {
 
                     {/* Programs Section (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
-                        <h6 className="text-muted mb-3"><i className="ri-calendar-check-line me-2"></i>Programmi</h6>
-                        <div className="row g-2 align-items-start">
-                          <div className="col-md-6 d-flex">
-                            <div className="p-3 rounded flex-fill" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Aderenza programma alimentare</small>
-                              <p className="mb-0 small">{selectedCheckResponse.nutrition_program_adherence || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                      <div style={{ marginBottom: '24px' }}>
+                        <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-calendar-check-line" style={{ marginRight: '8px' }}></i>Programmi</h6>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc' }}>
+                              <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Aderenza programma alimentare</small>
+                              <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.nutrition_program_adherence || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
+                            </div>
+                            <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc' }}>
+                              <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Aderenza programma sportivo</small>
+                              <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.training_program_adherence || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                             </div>
                           </div>
-                          <div className="col-md-6 d-flex">
-                            <div className="p-3 rounded flex-fill" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Aderenza programma sportivo</small>
-                              <p className="mb-0 small">{selectedCheckResponse.training_program_adherence || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                          <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc' }}>
+                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Esercizi modificati/aggiunti</small>
+                            <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.exercise_modifications || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                            <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc', textAlign: 'center' }}>
+                              <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Passi giornalieri</small>
+                              <span style={{ fontWeight: 600 }}>{selectedCheckResponse.daily_steps || <span style={{ color: '#94a3b8' }}>-</span>}</span>
+                            </div>
+                            <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc', textAlign: 'center' }}>
+                              <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Settimane completate</small>
+                              <span style={{ fontWeight: 600 }}>{selectedCheckResponse.completed_training_weeks || <span style={{ color: '#94a3b8' }}>-</span>}</span>
+                            </div>
+                            <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc', textAlign: 'center' }}>
+                              <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Giorni allenamento</small>
+                              <span style={{ fontWeight: 600 }}>{selectedCheckResponse.planned_training_days || <span style={{ color: '#94a3b8' }}>-</span>}</span>
                             </div>
                           </div>
-                          <div className="col-12">
-                            <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Esercizi modificati/aggiunti</small>
-                              <p className="mb-0 small">{selectedCheckResponse.exercise_modifications || <span className="text-muted fst-italic">Non compilato</span>}</p>
-                            </div>
-                          </div>
-                          <div className="col-md-4">
-                            <div className="p-3 rounded text-center" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Passi giornalieri</small>
-                              <span className="fw-semibold">{selectedCheckResponse.daily_steps || <span className="text-muted">-</span>}</span>
-                            </div>
-                          </div>
-                          <div className="col-md-4">
-                            <div className="p-3 rounded text-center" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Settimane completate</small>
-                              <span className="fw-semibold">{selectedCheckResponse.completed_training_weeks || <span className="text-muted">-</span>}</span>
-                            </div>
-                          </div>
-                          <div className="col-md-4">
-                            <div className="p-3 rounded text-center" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Giorni allenamento</small>
-                              <span className="fw-semibold">{selectedCheckResponse.planned_training_days || <span className="text-muted">-</span>}</span>
-                            </div>
-                          </div>
-                          <div className="col-12">
-                            <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
-                              <small className="text-muted d-block mb-1">Tematiche live settimanali</small>
-                              <p className="mb-0 small">{selectedCheckResponse.live_session_topics || <span className="text-muted fst-italic">Non compilato</span>}</p>
-                            </div>
+                          <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc' }}>
+                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}>Tematiche live settimanali</small>
+                            <p style={{ margin: 0, fontSize: '13px' }}>{selectedCheckResponse.live_session_topics || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                           </div>
                         </div>
                       </div>
                     )}
 
                     {/* Text Fields - Reflections */}
-                    <div className="mb-4">
-                      <h6 className="text-muted mb-3"><i className="ri-lightbulb-line me-2"></i>Riflessioni</h6>
-                      <div className="mb-3">
-                        <div className="p-3 rounded" style={{ background: '#f0fdf4' }}>
-                          <small className="text-muted d-block mb-1"><i className="ri-check-line me-1 text-success"></i>Cosa ha funzionato</small>
-                          <p className="mb-0">{selectedCheckResponse.what_worked || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                    <div style={{ marginBottom: '24px' }}>
+                      <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-lightbulb-line" style={{ marginRight: '8px' }}></i>Riflessioni</h6>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ padding: '12px', borderRadius: '8px', background: '#f0fdf4' }}>
+                          <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}><i className="ri-check-line" style={{ marginRight: '4px', color: '#22c55e' }}></i>Cosa ha funzionato</small>
+                          <p style={{ margin: 0 }}>{selectedCheckResponse.what_worked || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                         </div>
-                      </div>
-                      <div className="mb-3">
-                        <div className="p-3 rounded" style={{ background: '#fef2f2' }}>
-                          <small className="text-muted d-block mb-1"><i className="ri-close-line me-1 text-danger"></i>Cosa non ha funzionato</small>
-                          <p className="mb-0">{selectedCheckResponse.what_didnt_work || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        <div style={{ padding: '12px', borderRadius: '8px', background: '#fef2f2' }}>
+                          <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}><i className="ri-close-line" style={{ marginRight: '4px', color: '#ef4444' }}></i>Cosa non ha funzionato</small>
+                          <p style={{ margin: 0 }}>{selectedCheckResponse.what_didnt_work || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                         </div>
-                      </div>
-                      <div className="mb-3">
-                        <div className="p-3 rounded" style={{ background: '#fffbeb' }}>
-                          <small className="text-muted d-block mb-1"><i className="ri-lightbulb-line me-1 text-warning"></i>Cosa ho imparato</small>
-                          <p className="mb-0">{selectedCheckResponse.what_learned || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        <div style={{ padding: '12px', borderRadius: '8px', background: '#fffbeb' }}>
+                          <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}><i className="ri-lightbulb-line" style={{ marginRight: '4px', color: '#f59e0b' }}></i>Cosa ho imparato</small>
+                          <p style={{ margin: 0 }}>{selectedCheckResponse.what_learned || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                         </div>
-                      </div>
-                      <div className="mb-3">
-                        <div className="p-3 rounded" style={{ background: '#eff6ff' }}>
-                          <small className="text-muted d-block mb-1"><i className="ri-focus-line me-1 text-primary"></i>Focus prossima settimana</small>
-                          <p className="mb-0">{selectedCheckResponse.what_focus_next || <span className="text-muted fst-italic">Non compilato</span>}</p>
+                        <div style={{ padding: '12px', borderRadius: '8px', background: '#eff6ff' }}>
+                          <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}><i className="ri-focus-line" style={{ marginRight: '4px', color: '#3b82f6' }}></i>Focus prossima settimana</small>
+                          <p style={{ margin: 0 }}>{selectedCheckResponse.what_focus_next || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Non compilato</span>}</p>
                         </div>
-                      </div>
-                      {selectedCheckResponse.type === 'weekly' && (
-                        <div className="mb-3">
-                          <div className="p-3 rounded" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
-                            <small className="text-muted d-block mb-1"><i className="ri-first-aid-kit-line me-1 text-danger"></i>Infortuni / Note importanti</small>
-                            <p className="mb-0">{selectedCheckResponse.injuries_notes || <span className="text-muted fst-italic">Nessun infortunio segnalato</span>}</p>
+                        {selectedCheckResponse.type === 'weekly' && (
+                          <div style={{ padding: '12px', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca' }}>
+                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px' }}><i className="ri-first-aid-kit-line" style={{ marginRight: '4px', color: '#ef4444' }}></i>Infortuni / Note importanti</small>
+                            <p style={{ margin: 0 }}>{selectedCheckResponse.injuries_notes || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Nessun infortunio segnalato</span>}</p>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     {/* Referral (for weekly check) */}
                     {selectedCheckResponse.type === 'weekly' && (
-                      <div className="mb-4">
-                        <h6 className="text-muted mb-3"><i className="ri-user-add-line me-2"></i>Referral</h6>
-                        <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
-                          <p className="mb-0">{selectedCheckResponse.referral || <span className="text-muted fst-italic">Nessun referral indicato</span>}</p>
+                      <div style={{ marginBottom: '24px' }}>
+                        <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}><i className="ri-user-add-line" style={{ marginRight: '8px' }}></i>Referral</h6>
+                        <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc' }}>
+                          <p style={{ margin: 0 }}>{selectedCheckResponse.referral || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Nessun referral indicato</span>}</p>
                         </div>
                       </div>
                     )}
 
                     {/* Extra Comments */}
-                    <div className="mb-3">
-                      <h6 className="text-muted mb-2"><i className="ri-chat-1-line me-2"></i>Commenti extra</h6>
-                      <div className="p-3 rounded" style={{ background: '#f8fafc' }}>
-                        <p className="mb-0">{selectedCheckResponse.extra_comments || <span className="text-muted fst-italic">Nessun commento aggiuntivo</span>}</p>
+                    <div style={{ marginBottom: '8px' }}>
+                      <h6 style={{ color: '#64748b', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}><i className="ri-chat-1-line" style={{ marginRight: '8px' }}></i>Commenti extra</h6>
+                      <div style={{ padding: '12px', borderRadius: '8px', background: '#f8fafc' }}>
+                        <p style={{ margin: 0 }}>{selectedCheckResponse.extra_comments || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Nessun commento aggiuntivo</span>}</p>
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
-              <div className="modal-footer border-0">
-                <button className="btn btn-secondary" onClick={() => setShowCheckResponseModal(false)}>
-                  Chiudi
-                </button>
-              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowCheckResponseModal(false)}>
+                Chiudi
+              </button>
             </div>
           </div>
         </div>
       )}
       {/* Modal Storico Diario */}
       {showDiaryHistoryModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Storico Modifiche</h5>
-                <button type="button" className="btn-close" onClick={() => setShowDiaryHistoryModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                {loadingDiaryHistory ? (
-                  <div className="text-center py-5">
-                    <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Caricamento...</span>
-                    </div>
-                  </div>
-                ) : diaryHistory.length === 0 ? (
-                  <p className="text-muted text-center py-3">Nessuna modifica precedente trovata.</p>
-                ) : (
-                  <div className="list-group">
-                    {diaryHistory.map((version, idx) => (
-                      <div key={idx} className="list-group-item">
-                        <div className="d-flex w-100 justify-content-between">
-                          <small className="text-muted">
-                            <i className="ri-time-line me-1"></i>
-                            {version.modified_at}
-                            <span className="mx-2">•</span>
-                            <i className="ri-user-line me-1"></i>
-                            {version.author}
-                          </small>
-                        </div>
-                        <p className="mb-1 mt-2 small" style={{ whiteSpace: 'pre-wrap' }}>{version.content}</p>
+        <div className="cd-modal-backdrop" tabIndex="-1">
+          <div className="cd-modal lg" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header">
+              <h5>Storico Modifiche</h5>
+              <button type="button" className="cd-modal-close" onClick={() => setShowDiaryHistoryModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              {loadingDiaryHistory ? (
+                <div className="cd-loading">
+                  <div className="cd-spinner"></div>
+                </div>
+              ) : diaryHistory.length === 0 ? (
+                <p className="cd-empty">Nessuna modifica precedente trovata.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {diaryHistory.map((version, idx) => (
+                    <div key={idx} className="cd-diary-entry">
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <small style={{ color: '#64748b' }}>
+                          <i className="ri-time-line" style={{ marginRight: '4px' }}></i>
+                          {version.modified_at}
+                          <span style={{ margin: '0 8px' }}>•</span>
+                          <i className="ri-user-line" style={{ marginRight: '4px' }}></i>
+                          {version.author}
+                        </small>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowDiaryHistoryModal(false)}>Chiudi</button>
-              </div>
+                      <p className="cd-diary-content" style={{ marginTop: '8px', marginBottom: '4px' }}>{version.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="cd-modal-footer">
+              <button type="button" className="cd-btn-back" onClick={() => setShowDiaryHistoryModal(false)}>Chiudi</button>
             </div>
           </div>
         </div>

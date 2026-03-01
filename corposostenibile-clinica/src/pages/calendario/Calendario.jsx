@@ -4,6 +4,7 @@ import calendarService, { EVENT_CATEGORIES, MEETING_STATUSES } from '../../servi
 import ghlService from '../../services/ghlService';
 import loomService from '../../services/loomService';
 import { useLoom } from '../../hooks/useLoom';
+import './Calendario.css';
 
 // Styles
 const styles = {
@@ -526,46 +527,23 @@ function Calendario() {
     // Not connected to any calendar
     if (!isConnected) {
         return (
-            <>
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-                    <div>
-                        <h4 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Il tuo Calendario</h4>
-                        <p className="text-muted mb-0" style={{ fontSize: '14px' }}>
-                            Configura il calendario per visualizzare i tuoi appuntamenti
-                        </p>
+            <div className="cal-not-connected">
+                <div className="cal-nc-hero">
+                    <div className="cal-nc-icon">
+                        <i className="ri-calendar-schedule-line"></i>
+                    </div>
+                    <h3 className="cal-nc-title">Calendario non configurato</h3>
+                    <p className="cal-nc-desc">
+                        Il tuo calendario non è ancora stato associato al tuo profilo.
+                        <br />
+                        <strong>Contatta Emanuele Mastronardi del Team IT</strong> per configurare l'associazione del tuo calendario.
+                    </p>
+                    <div className="cal-nc-badge">
+                        <i className="ri-settings-3-line"></i>
+                        Configurazione necessaria
                     </div>
                 </div>
-
-                <div className="card border-0" style={styles.card}>
-                    <div className="card-body text-center py-5">
-                        {/* Calendar Icon */}
-                        <div style={{
-                            width: '80px',
-                            height: '80px',
-                            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                            borderRadius: '20px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 20px',
-                            boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
-                        }}>
-                            <i className="ri-calendar-schedule-line text-white" style={{ fontSize: '40px' }}></i>
-                        </div>
-                        <h5 className="fw-bold mb-2">Calendario non configurato</h5>
-                        <p className="text-muted mb-0" style={{ maxWidth: '450px', margin: '0 auto' }}>
-                            Il tuo calendario non è ancora stato associato al tuo profilo.
-                        </p>
-                        <p className="mt-3 mb-0">
-                            <strong>Contatta il Team IT di CorpoSostenibile</strong>
-                            <br />
-                            <span className="text-muted" style={{ fontSize: '14px' }}>
-                                per configurare l'associazione del tuo calendario.
-                            </span>
-                        </p>
-                    </div>
-                </div>
-            </>
+            </div>
         );
     }
 

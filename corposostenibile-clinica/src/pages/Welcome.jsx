@@ -15,6 +15,7 @@ import {
   isTeamLeaderRestricted,
   normalizeSpecialtyGroup,
 } from '../utils/rbacScope';
+import './Welcome.css';
 
 // Tab configuration
 const TABS = [
@@ -120,37 +121,35 @@ function RoleScopedWelcome({ user, mode }) {
 
   return (
     <>
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="welcome-header">
         <div>
-          <h4 className="mb-1" style={{ fontWeight: 700, color: '#1e293b' }}>
+          <h4>
             Ciao, {user?.first_name || 'Utente'}!
           </h4>
-          <p className="text-muted mb-0">{scopeSubtitle}</p>
+          <p>{scopeSubtitle}</p>
         </div>
-        <button onClick={loadScopedData} className="btn btn-light d-flex align-items-center gap-2" style={{ borderRadius: '12px' }}>
+        <button onClick={loadScopedData} className="welcome-refresh-btn">
           <i className="ri-refresh-line"></i>
           Aggiorna
         </button>
       </div>
 
-      <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
-        <div className="card-body p-4">
-          <div className="d-flex align-items-start justify-content-between gap-3 flex-wrap">
-            <div>
-              <h5 className="mb-1" style={{ color: '#1e293b' }}>{scopeTitle}</h5>
-              <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
-                {isTeamLeaderMode
-                  ? 'Metriche e liste operative limitate ai membri del tuo team/specialità.'
-                  : 'Metriche e attività limitate al tuo perimetro personale.'}
-              </p>
-            </div>
-            <div className="d-flex gap-2 flex-wrap">
-              <Link to="/task" className="btn btn-outline-primary btn-sm"><i className="ri-task-line me-1"></i>Task</Link>
-              <Link to="/formazione" className="btn btn-outline-success btn-sm"><i className="ri-book-open-line me-1"></i>Formazione</Link>
-              <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm"><i className="ri-group-line me-1"></i>Pazienti</Link>
-              {isTeamLeaderMode && <Link to="/check-azienda" className="btn btn-outline-warning btn-sm"><i className="ri-checkbox-circle-line me-1"></i>Check</Link>}
-              {!isTeamLeaderMode && <Link to="/profilo?tab=check" className="btn btn-outline-warning btn-sm"><i className="ri-checkbox-circle-line me-1"></i>Miei Check</Link>}
-            </div>
+      <div className="welcome-scope-card mb-4">
+        <div className="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+          <div>
+            <h5>{scopeTitle}</h5>
+            <p>
+              {isTeamLeaderMode
+                ? 'Metriche e liste operative limitate ai membri del tuo team/specialità.'
+                : 'Metriche e attività limitate al tuo perimetro personale.'}
+            </p>
+          </div>
+          <div className="d-flex gap-2 flex-wrap">
+            <Link to="/task" className="btn btn-outline-primary btn-sm"><i className="ri-task-line me-1"></i>Task</Link>
+            <Link to="/formazione" className="btn btn-outline-success btn-sm"><i className="ri-book-open-line me-1"></i>Formazione</Link>
+            <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm"><i className="ri-group-line me-1"></i>Pazienti</Link>
+            {isTeamLeaderMode && <Link to="/check-azienda" className="btn btn-outline-warning btn-sm"><i className="ri-checkbox-circle-line me-1"></i>Check</Link>}
+            {!isTeamLeaderMode && <Link to="/profilo?tab=check" className="btn btn-outline-warning btn-sm"><i className="ri-checkbox-circle-line me-1"></i>Miei Check</Link>}
           </div>
         </div>
       </div>
@@ -162,18 +161,16 @@ function RoleScopedWelcome({ user, mode }) {
       <div className="row g-3 mb-4 align-items-start">
         {cards.map((card) => (
           <div key={card.label} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm" style={{ borderRadius: '14px', height: 'auto' }}>
-              <div className="card-body" style={{ padding: '14px 16px' }}>
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <div className="text-muted small">{card.label}</div>
-                    <div className="fw-bold" style={{ fontSize: '1.5rem', color: '#1e293b' }}>
-                      {loading ? '…' : card.value}
-                    </div>
+            <div className="welcome-kpi-card-sm">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <div className="kpi-label">{card.label}</div>
+                  <div className="kpi-value">
+                    {loading ? '…' : card.value}
                   </div>
-                  <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: 42, height: 42, background: `${card.color}18`, color: card.color }}>
-                    <i className={`${card.icon} fs-5`}></i>
-                  </div>
+                </div>
+                <div className="kpi-icon" style={{ background: `${card.color}15`, color: card.color }}>
+                  <i className={`${card.icon} fs-5`}></i>
                 </div>
               </div>
             </div>
@@ -183,14 +180,14 @@ function RoleScopedWelcome({ user, mode }) {
 
       <div className="row g-3 align-items-start">
         <div className="col-lg-7">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 pb-0">
-              <h6 className="mb-0" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-task-line me-2"></i>
                 Task aperti recenti
               </h6>
             </div>
-            <div className="card-body">
+            <div className="welcome-card-body">
               {loading ? (
                 <div className="text-muted">Caricamento...</div>
               ) : recentTasks.length === 0 ? (
@@ -198,12 +195,12 @@ function RoleScopedWelcome({ user, mode }) {
               ) : (
                 <div className="d-flex flex-column gap-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                   {recentTasks.map((task) => (
-                    <div key={task.id} className="d-flex align-items-center justify-content-between border rounded-3 p-2">
+                    <div key={task.id} className="welcome-task-item">
                       <div className="pe-3">
-                        <div className="fw-medium" style={{ color: '#1e293b' }}>{task.title || 'Task'}</div>
-                        <div className="text-muted small">{task.client_name || task.category || '—'}</div>
+                        <div className="task-title">{task.title || 'Task'}</div>
+                        <div className="task-meta">{task.client_name || task.category || '—'}</div>
                       </div>
-                      <span className="badge bg-light text-dark">{task.priority || '—'}</span>
+                      <span className="welcome-badge welcome-badge-neutral">{task.priority || '—'}</span>
                     </div>
                   ))}
                 </div>
@@ -215,14 +212,14 @@ function RoleScopedWelcome({ user, mode }) {
         <div className="col-lg-5">
           {isTeamLeaderMode ? (
             <>
-              <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 pb-0">
-                  <h6 className="mb-0" style={{ color: '#1e293b' }}>
+              <div className="welcome-card mb-3">
+                <div className="welcome-card-header">
+                  <h6>
                     <i className="ri-team-line me-2"></i>
                     Team gestiti
                   </h6>
                 </div>
-                <div className="card-body">
+                <div className="welcome-card-body">
                   {loading ? (
                     <div className="text-muted">Caricamento...</div>
                   ) : teamSummary.length === 0 ? (
@@ -230,10 +227,10 @@ function RoleScopedWelcome({ user, mode }) {
                   ) : (
                     <div className="d-flex flex-column gap-2">
                       {teamSummary.map((team) => (
-                        <div key={team.id} className="d-flex align-items-center justify-content-between border rounded-3 p-2">
+                        <div key={team.id} className="welcome-task-item">
                           <div>
-                            <div className="fw-medium" style={{ color: '#1e293b' }}>{team.name}</div>
-                            <div className="small text-muted">
+                            <div className="task-title">{team.name}</div>
+                            <div className="task-meta">
                               {team.team_type || 'team'} • {team.member_count || 0} membri
                             </div>
                           </div>
@@ -245,72 +242,72 @@ function RoleScopedWelcome({ user, mode }) {
                 </div>
               </div>
 
-              <div className="card border-0 shadow-sm mb-3" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 pb-0">
-                  <h6 className="mb-0" style={{ color: '#1e293b' }}>
+              <div className="welcome-card mb-3">
+                <div className="welcome-card-header">
+                  <h6>
                     <i className="ri-group-line me-2"></i>
                     Pazienti del tuo ambito ({tlSpecialtyLabel})
                   </h6>
                 </div>
-                <div className="card-body">
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted small">Pazienti attivi/in pausa</span>
-                    <span className="fw-semibold">{loading ? '…' : (tlSpecialtyLoad?.clients ?? 0)}</span>
+                <div className="welcome-card-body">
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Pazienti attivi/in pausa</span>
+                    <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : (tlSpecialtyLoad?.clients ?? 0)}</span>
                   </div>
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted small">Professionisti del team</span>
-                    <span className="fw-semibold">{loading ? '…' : (tlSpecialtyLoad?.professionals ?? 0)}</span>
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Professionisti del team</span>
+                    <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : (tlSpecialtyLoad?.professionals ?? 0)}</span>
                   </div>
-                  <div className="d-flex justify-content-between">
-                    <span className="text-muted small">Carico medio</span>
-                    <span className="fw-semibold">{loading ? '…' : `${tlSpecialtyLoad?.avgLoad ?? 0} clienti/prof.`}</span>
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Carico medio</span>
+                    <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : `${tlSpecialtyLoad?.avgLoad ?? 0} clienti/prof.`}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 pb-0">
-                  <h6 className="mb-0" style={{ color: '#1e293b' }}>
+              <div className="welcome-card">
+                <div className="welcome-card-header">
+                  <h6>
                     <i className="ri-book-open-line me-2"></i>
                     Formazione team
                   </h6>
                 </div>
-                <div className="card-body">
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted small">Richieste ricevute</span>
-                    <span className="fw-semibold">{loading ? '…' : trainingSummary.receivedRequests}</span>
+                <div className="welcome-card-body">
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Richieste ricevute</span>
+                    <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : trainingSummary.receivedRequests}</span>
                   </div>
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted small">Mie richieste</span>
-                    <span className="fw-semibold">{loading ? '…' : trainingSummary.myRequests}</span>
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Mie richieste</span>
+                    <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : trainingSummary.myRequests}</span>
                   </div>
-                  <div className="d-flex justify-content-between">
-                    <span className="text-muted small">Training da leggere (miei)</span>
-                    <span className="fw-semibold">{loading ? '…' : trainingSummary.pendingMyTrainings}</span>
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Training da leggere (miei)</span>
+                    <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : trainingSummary.pendingMyTrainings}</span>
                   </div>
                 </div>
               </div>
             </>
           ) : (
-            <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-              <div className="card-header bg-white border-0 pb-0">
-                <h6 className="mb-0" style={{ color: '#1e293b' }}>
+            <div className="welcome-card">
+              <div className="welcome-card-header">
+                <h6>
                   <i className="ri-book-open-line me-2"></i>
                   Formazione
                 </h6>
               </div>
-              <div className="card-body">
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="text-muted small">Training ricevuti</span>
-                  <span className="fw-semibold">{loading ? '…' : trainingSummary.myTrainings}</span>
+              <div className="welcome-card-body">
+                <div className="welcome-stat-row">
+                  <span className="stat-label">Training ricevuti</span>
+                  <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : trainingSummary.myTrainings}</span>
                 </div>
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="text-muted small">Da leggere</span>
-                  <span className="fw-semibold">{loading ? '…' : trainingSummary.pendingMyTrainings}</span>
+                <div className="welcome-stat-row">
+                  <span className="stat-label">Da leggere</span>
+                  <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : trainingSummary.pendingMyTrainings}</span>
                 </div>
-                <div className="d-flex justify-content-between">
-                  <span className="text-muted small">Mie richieste</span>
-                  <span className="fw-semibold">{loading ? '…' : trainingSummary.myRequests}</span>
+                <div className="welcome-stat-row">
+                  <span className="stat-label">Mie richieste</span>
+                  <span className="stat-value" style={{ color: '#1e293b' }}>{loading ? '…' : trainingSummary.myRequests}</span>
                 </div>
               </div>
             </div>
@@ -548,50 +545,32 @@ function LegacyWelcomeDashboard() {
   return (
     <>
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div className="welcome-header">
         <div>
-          <h4 className="mb-1" style={{ fontWeight: 700, color: '#1e293b' }}>
+          <h4>
             Ciao, {user?.first_name || 'Admin'}!
           </h4>
-          <p className="text-muted mb-0">Panoramica Piattaforma</p>
+          <p>Panoramica Piattaforma</p>
         </div>
-        <button
-          onClick={refreshAll}
-          className="btn btn-light d-flex align-items-center gap-2"
-          style={{ borderRadius: '12px' }}
-        >
+        <button onClick={refreshAll} className="welcome-refresh-btn">
           <i className="ri-refresh-line"></i>
           Aggiorna
         </button>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '12px' }}>
-        <div className="card-body p-2">
-          <div className="d-flex flex-wrap gap-2">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className="btn"
-                style={{
-                  borderRadius: '8px',
-                  padding: '10px 20px',
-                  background: activeTab === tab.key
-                    ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-                    : 'transparent',
-                  color: activeTab === tab.key ? 'white' : '#64748b',
-                  fontWeight: activeTab === tab.key ? 600 : 500,
-                  fontSize: '14px',
-                  border: 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <i className={`${tab.icon} me-2`}></i>
-                {tab.label}
-              </button>
-            ))}
-          </div>
+      <div className="welcome-tabs-container">
+        <div className="welcome-tabs">
+          {visibleTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`welcome-tab ${activeTab === tab.key ? 'active' : ''}`}
+            >
+              <i className={`${tab.icon} me-2`}></i>
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -601,31 +580,23 @@ function LegacyWelcomeDashboard() {
           {!isRestrictedTeamLeaderDashboard && (
             <div className="row g-3 mb-4">
               {[
-                { label: 'Pazienti Totali', value: customerStats?.total_clienti, icon: 'ri-group-line', bg: 'primary' },
-                { label: 'Nutrizione Attivi', value: customerStats?.nutrizione_attivo, icon: 'ri-restaurant-line', bg: 'success' },
-                { label: 'Coach Attivi', value: customerStats?.coach_attivo, icon: 'ri-run-line', bg: 'warning' },
-                { label: 'Psicologia Attivi', value: customerStats?.psicologia_attivo, icon: 'ri-mental-health-line', customBg: '#8b5cf6' },
-                { label: 'Nuovi questo Mese', value: customerStats?.kpi?.new_month, icon: 'ri-user-add-line', customBg: '#06b6d4' },
+                { label: 'Pazienti Totali', value: customerStats?.total_clienti, icon: 'ri-group-line', color: '#3b82f6' },
+                { label: 'Nutrizione Attivi', value: customerStats?.nutrizione_attivo, icon: 'ri-restaurant-line', color: '#22c55e' },
+                { label: 'Coach Attivi', value: customerStats?.coach_attivo, icon: 'ri-run-line', color: '#f59e0b' },
+                { label: 'Psicologia Attivi', value: customerStats?.psicologia_attivo, icon: 'ri-mental-health-line', color: '#8b5cf6' },
+                { label: 'Nuovi questo Mese', value: customerStats?.kpi?.new_month, icon: 'ri-user-add-line', color: '#06b6d4' },
               ].map((stat, idx) => (
                 <div key={idx} className="col-xl col-sm-6">
-                  <div
-                    className={`card border-0 shadow-sm ${stat.bg ? `bg-${stat.bg}` : ''}`}
-                    style={stat.customBg ? { backgroundColor: stat.customBg } : {}}
-                  >
-                    <div className="card-body py-3">
-                      <div className="d-flex align-items-center justify-content-between">
-                        <div>
-                          <h3 className="text-white mb-0 fw-bold">
-                            {customerLoading ? <SkeletonNumber /> : (stat.value ?? 0)}
-                          </h3>
-                          <span className="text-white opacity-75 small">{stat.label}</span>
+                  <div className="welcome-kpi-card">
+                    <div className="kpi-content">
+                      <div>
+                        <div className="kpi-value">
+                          {customerLoading ? <SkeletonNumber /> : (stat.value ?? 0)}
                         </div>
-                        <div
-                          className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
-                          style={{ width: '48px', height: '48px' }}
-                        >
-                          <i className={`${stat.icon} text-white fs-4`}></i>
-                        </div>
+                        <span className="kpi-label">{stat.label}</span>
+                      </div>
+                      <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                        <i className={`${stat.icon} fs-4`}></i>
                       </div>
                     </div>
                   </div>
@@ -638,34 +609,26 @@ function LegacyWelcomeDashboard() {
           <div className="row g-3 mb-4">
             {/* Quick Navigation */}
             <div className={isRestrictedTeamLeaderDashboard ? 'col-12' : 'col-lg-8'}>
-              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                  <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+              <div className="welcome-card">
+                <div className="welcome-card-header">
+                  <h6>
                     <i className="ri-apps-line me-2 text-primary"></i>
                     Accesso Rapido
                   </h6>
                 </div>
-                <div className="card-body pt-0 px-4 pb-4">
+                <div className="welcome-card-body">
                   <div className="row g-2">
                     {QUICK_LINKS.map((link, idx) => (
                       <div key={idx} className="col-6 col-md-4 col-xl-3">
                         <Link
                           to={link.to}
-                          className="d-flex align-items-center gap-2 p-3 text-decoration-none rounded-3"
-                          style={{
-                            background: link.bgColor,
-                            transition: 'transform 0.15s, box-shadow 0.15s',
-                          }}
-                          onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                          className="welcome-quick-link"
+                          style={{ background: link.bgColor }}
                         >
-                          <div
-                            className="d-flex align-items-center justify-content-center rounded-circle"
-                            style={{ width: '36px', height: '36px', background: link.iconBg, flexShrink: 0 }}
-                          >
-                            <i className={link.icon} style={{ color: link.color, fontSize: '16px' }}></i>
+                          <div className="link-icon" style={{ background: link.iconBg }}>
+                            <i className={link.icon} style={{ color: link.color }}></i>
                           </div>
-                          <span style={{ color: '#334155', fontWeight: 500, fontSize: '13px' }}>{link.label}</span>
+                          <span className="link-label">{link.label}</span>
                         </Link>
                       </div>
                     ))}
@@ -676,14 +639,14 @@ function LegacyWelcomeDashboard() {
 
             {!isRestrictedTeamLeaderDashboard && (
               <div className="col-lg-4">
-                <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                  <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                    <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+                <div className="welcome-card">
+                  <div className="welcome-card-header">
+                    <h6>
                       <i className="ri-team-line me-2 text-info"></i>
                       Team
                     </h6>
                   </div>
-                  <div className="card-body pt-0 px-4 pb-3">
+                  <div className="welcome-card-body">
                     {teamLoading ? (
                       <SkeletonList count={4} />
                     ) : (
@@ -701,22 +664,17 @@ function LegacyWelcomeDashboard() {
           </div>
 
           {isRestrictedTeamLeaderDashboard && (
-            <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
-              <div className="card-body py-4 px-4">
-                <div className="d-flex align-items-start gap-3">
-                  <div
-                    className="d-flex align-items-center justify-content-center rounded-circle"
-                    style={{ width: '42px', height: '42px', background: '#eff6ff', color: '#2563eb', flexShrink: 0 }}
-                  >
-                    <i className="ri-shield-user-line fs-5"></i>
-                  </div>
-                  <div>
-                    <h6 className="mb-1" style={{ color: '#1e293b' }}>Vista Team Leader limitata</h6>
-                    <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
-                      Le metriche globali di dashboard (KPI cross-dipartimento, medie altri team, totali globali) sono nascoste.
-                      Verranno mostrate solo sezioni coerenti con il tuo team/dipartimento nei prossimi step del refactor.
-                    </p>
-                  </div>
+            <div className="welcome-info-banner mb-4">
+              <div className="d-flex align-items-start gap-3">
+                <div className="welcome-icon-circle welcome-icon-circle-lg" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <i className="ri-shield-user-line fs-5"></i>
+                </div>
+                <div>
+                  <h6>Vista Team Leader limitata</h6>
+                  <p>
+                    Le metriche globali di dashboard (KPI cross-dipartimento, medie altri team, totali globali) sono nascoste.
+                    Verranno mostrate solo sezioni coerenti con il tuo team/dipartimento nei prossimi step del refactor.
+                  </p>
                 </div>
               </div>
             </div>
@@ -726,7 +684,7 @@ function LegacyWelcomeDashboard() {
             <>
               <div className="row g-3 mb-4">
                 <div className="col-12">
-                  <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                  <h5 className="welcome-section-heading">
                     <i className="ri-bar-chart-grouped-line me-2"></i>
                     Valutazioni Medie per Team (Ultimo Mese)
                   </h5>
@@ -749,7 +707,7 @@ function LegacyWelcomeDashboard() {
               {!checkLoading && teamRatings && (teamRatings.nutrizione.length > 0 || teamRatings.coach.length > 0 || teamRatings.psicologia.length > 0) && (
                 <div className="row g-3 mb-4">
                   <div className="col-12">
-                    <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                    <h5 className="welcome-section-heading">
                       <i className="ri-team-line me-2"></i>
                       Valutazioni per Singolo Team (Ultimo Mese)
                     </h5>
@@ -785,7 +743,7 @@ function LegacyWelcomeDashboard() {
                 <>
                   <div className="row g-3 mb-4">
                     <div className="col-12">
-                      <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                      <h5 className="welcome-section-heading">
                         <i className="ri-trophy-line me-2 text-warning"></i>
                         Top 5 Professionisti (Ultimo Mese)
                       </h5>
@@ -803,7 +761,7 @@ function LegacyWelcomeDashboard() {
 
                   <div className="row g-3 mb-4">
                     <div className="col-12">
-                      <h5 className="mb-3" style={{ fontWeight: 600, color: '#1e293b' }}>
+                      <h5 className="welcome-section-heading">
                         <i className="ri-arrow-down-circle-line me-2 text-danger"></i>
                         Professionisti da Migliorare (Ultimo Mese)
                       </h5>
@@ -854,8 +812,8 @@ function LegacyWelcomeDashboard() {
           onRetry={() => { setProfLoaded(false); loadProfData(); }}
         />
       ) : (
-        <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-          <div className="card-body text-center py-5">
+        <div className="welcome-card">
+          <div className="welcome-empty" style={{ padding: '40px 20px' }}>
             <h5 className="text-muted mb-3">In implementazione</h5>
           </div>
         </div>
@@ -870,35 +828,33 @@ function Welcome() {
   if (isHealthManagerScopeUser(user)) {
     return (
       <div className="container-fluid p-0">
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div className="welcome-header">
           <div>
-            <h4 className="mb-1" style={{ fontWeight: 700, color: '#1e293b' }}>
+            <h4>
               Ciao, {user?.first_name || 'Health Manager'}!
             </h4>
-            <p className="text-muted mb-0">Panoramica operativa Health Manager</p>
+            <p>Panoramica operativa Health Manager</p>
           </div>
         </div>
 
-        <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
-          <div className="card-body p-4">
-            <h5 className="mb-2" style={{ color: '#1e293b' }}>Area HM</h5>
-            <p className="text-muted mb-3" style={{ fontSize: '13px' }}>
-              Vista limitata a pazienti e assegnazioni.
-              {isHealthManagerTeamLeader(user) ? ' Come Team Leader HM puoi anche gestire la capienza del team HM.' : ''}
-            </p>
-            <div className="d-flex gap-2 flex-wrap">
-              <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm">
-                <i className="ri-group-line me-1"></i>Pazienti
+        <div className="welcome-scope-card mb-4">
+          <h5>Area HM</h5>
+          <p className="mb-3">
+            Vista limitata a pazienti e assegnazioni.
+            {isHealthManagerTeamLeader(user) ? ' Come Team Leader HM puoi anche gestire la capienza del team HM.' : ''}
+          </p>
+          <div className="d-flex gap-2 flex-wrap">
+            <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm">
+              <i className="ri-group-line me-1"></i>Pazienti
+            </Link>
+            <Link to="/assegnazioni-ai" className="btn btn-outline-primary btn-sm">
+              <i className="ri-cpu-line me-1"></i>Assegnazioni
+            </Link>
+            {isHealthManagerTeamLeader(user) && (
+              <Link to="/team-capienza" className="btn btn-outline-success btn-sm">
+                <i className="ri-bar-chart-2-line me-1"></i>Capienze HM
               </Link>
-              <Link to="/assegnazioni-ai" className="btn btn-outline-primary btn-sm">
-                <i className="ri-cpu-line me-1"></i>Assegnazioni
-              </Link>
-              {isHealthManagerTeamLeader(user) && (
-                <Link to="/team-capienza" className="btn btn-outline-success btn-sm">
-                  <i className="ri-bar-chart-2-line me-1"></i>Capienze HM
-                </Link>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -962,23 +918,21 @@ function FormazioneTab({ data, loading }) {
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Training Totali', value: kpi.totalTrainings, icon: 'ri-book-open-line', bg: '#3b82f6' },
-          { label: 'Confermati', value: kpi.totalAcknowledged, icon: 'ri-checkbox-circle-line', bg: '#22c55e', subtitle: `${kpi.ackRate}% tasso conferma` },
-          { label: 'In Attesa', value: kpi.totalPending, icon: 'ri-time-line', bg: '#f59e0b' },
-          { label: 'Questo Mese', value: kpi.thisMonth, icon: 'ri-calendar-line', bg: '#8b5cf6', subtitle: monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs mese scorso` : 'Uguale al mese scorso' },
+          { label: 'Training Totali', value: kpi.totalTrainings, icon: 'ri-book-open-line', color: '#3b82f6' },
+          { label: 'Confermati', value: kpi.totalAcknowledged, icon: 'ri-checkbox-circle-line', color: '#22c55e', subtitle: `${kpi.ackRate}% tasso conferma` },
+          { label: 'In Attesa', value: kpi.totalPending, icon: 'ri-time-line', color: '#f59e0b' },
+          { label: 'Questo Mese', value: kpi.thisMonth, icon: 'ri-calendar-line', color: '#8b5cf6', subtitle: monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs mese scorso` : 'Uguale al mese scorso' },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm" style={{ backgroundColor: stat.bg, borderRadius: '16px' }}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                    {stat.subtitle && <div className="text-white opacity-50" style={{ fontSize: '11px', marginTop: '2px' }}>{stat.subtitle}</div>}
-                  </div>
-                  <div className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <i className={`${stat.icon} text-white fs-4`}></i>
-                  </div>
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">{stat.value}</div>
+                  <span className="kpi-label">{stat.label}</span>
+                  {stat.subtitle && <div className="kpi-subtitle">{stat.subtitle}</div>}
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
                 </div>
               </div>
             </div>
@@ -990,14 +944,14 @@ function FormazioneTab({ data, loading }) {
       <div className="row g-3 mb-4">
         {/* Trend Mensile (Bar Chart) */}
         <div className="col-lg-8">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-bar-chart-line me-2 text-primary"></i>
                 Trend Mensile (ultimi 6 mesi)
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex align-items-end justify-content-between gap-2" style={{ height: '200px' }}>
                 {(monthlyTrend || []).map((m, idx) => (
                   <div key={idx} className="d-flex flex-column align-items-center flex-fill">
@@ -1052,14 +1006,14 @@ function FormazioneTab({ data, loading }) {
 
         {/* Breakdown per Tipo */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-pie-chart-line me-2 text-warning"></i>
                 Per Tipologia
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {(byType || []).length > 0 ? (
                 <div className="d-flex flex-column gap-3">
                   {byType.map((t, idx) => {
@@ -1069,7 +1023,7 @@ function FormazioneTab({ data, loading }) {
                       <div key={idx}>
                         <div className="d-flex align-items-center justify-content-between mb-1">
                           <div className="d-flex align-items-center gap-2">
-                            <div className="d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', borderRadius: '8px', background: config.bg }}>
+                            <div className="welcome-icon-circle welcome-icon-circle-sm" style={{ background: config.bg }}>
                               <i className={config.icon} style={{ fontSize: '14px', color: config.color }}></i>
                             </div>
                             <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{config.label}</span>
@@ -1079,8 +1033,8 @@ function FormazioneTab({ data, loading }) {
                             <span style={{ fontSize: '11px', color: '#94a3b8' }}>{pct}%</span>
                           </div>
                         </div>
-                        <div style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: config.color, borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
+                        <div className="welcome-progress">
+                          <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: config.color }}></div>
                         </div>
                       </div>
                     );
@@ -1131,14 +1085,14 @@ function FormazioneTab({ data, loading }) {
       </div>
 
       {/* Row 4: Ultimi Training */}
-      <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: '16px' }}>
-        <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
+      <div className="welcome-card mb-4">
+        <div className="welcome-card-header">
           <div className="d-flex align-items-center justify-content-between">
-            <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+            <h6>
               <i className="ri-file-list-3-line me-2 text-info"></i>
               Ultimi Training
             </h6>
-            <Link to="/formazione" className="btn btn-sm btn-outline-primary" style={{ borderRadius: '8px' }}>
+            <Link to="/formazione" className="btn btn-sm btn-outline-primary welcome-page-btn">
               Vai a Formazione <i className="ri-arrow-right-s-line"></i>
             </Link>
           </div>
@@ -1147,42 +1101,42 @@ function FormazioneTab({ data, loading }) {
           {paginatedRecent.length > 0 ? (
             <>
               <div className="table-responsive">
-                <table className="table mb-0">
+                <table className="welcome-table">
                   <thead>
-                    <tr style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
-                      <th style={tableHeaderStyle}>Titolo</th>
-                      <th style={tableHeaderStyle}>Tipo</th>
-                      <th style={tableHeaderStyle}>Formatore</th>
-                      <th style={tableHeaderStyle}>Destinatario</th>
-                      <th style={tableHeaderStyle}>Data</th>
-                      <th style={tableHeaderStyle}>Stato</th>
+                    <tr>
+                      <th>Titolo</th>
+                      <th>Tipo</th>
+                      <th>Formatore</th>
+                      <th>Destinatario</th>
+                      <th>Data</th>
+                      <th>Stato</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedRecent.map((t) => {
                       const typeConfig = REVIEW_TYPE_CONFIG[t.reviewType] || { label: t.reviewType || 'Altro', color: '#64748b', bg: '#f1f5f9' };
                       return (
-                        <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={tableCellStyle}>
+                        <tr key={t.id}>
+                          <td>
                             <span style={{ fontWeight: 600, color: '#334155' }}>{t.title || 'Senza titolo'}</span>
                           </td>
-                          <td style={tableCellStyle}>
-                            <span style={{ background: typeConfig.bg, color: typeConfig.color, padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
+                          <td>
+                            <span className="welcome-badge welcome-badge-pill" style={{ background: typeConfig.bg, color: typeConfig.color }}>
                               {typeConfig.label}
                             </span>
                           </td>
-                          <td style={tableCellStyle}><span className="text-muted">{t.reviewer}</span></td>
-                          <td style={tableCellStyle}><span style={{ fontWeight: 500 }}>{t.reviewee}</span></td>
-                          <td style={tableCellStyle}>
+                          <td><span className="text-muted">{t.reviewer}</span></td>
+                          <td><span style={{ fontWeight: 500 }}>{t.reviewee}</span></td>
+                          <td>
                             <span className="text-muted">{t.createdAt ? new Date(t.createdAt).toLocaleDateString('it-IT') : '-'}</span>
                           </td>
-                          <td style={tableCellStyle}>
+                          <td>
                             {t.isAcknowledged ? (
-                              <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
+                              <span className="welcome-badge welcome-badge-pill welcome-badge-success">
                                 <i className="ri-check-line me-1"></i>Confermato
                               </span>
                             ) : (
-                              <span style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }}>
+                              <span className="welcome-badge welcome-badge-pill welcome-badge-warning">
                                 <i className="ri-time-line me-1"></i>In attesa
                               </span>
                             )}
@@ -1199,10 +1153,10 @@ function FormazioneTab({ data, loading }) {
                     {recentStartIdx + 1}-{Math.min(recentStartIdx + RECENT_PER_PAGE, recentTrainings.length)} di {recentTrainings.length}
                   </span>
                   <div className="d-flex gap-2">
-                    <button className="btn btn-sm btn-light" style={{ borderRadius: '8px' }} onClick={() => setRecentPage(p => Math.max(1, p - 1))} disabled={recentPage === 1}>
+                    <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setRecentPage(p => Math.max(1, p - 1))} disabled={recentPage === 1}>
                       <i className="ri-arrow-left-s-line"></i> Prec
                     </button>
-                    <button className="btn btn-sm btn-light" style={{ borderRadius: '8px' }} onClick={() => setRecentPage(p => Math.min(totalRecentPages, p + 1))} disabled={recentPage === totalRecentPages}>
+                    <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setRecentPage(p => Math.min(totalRecentPages, p + 1))} disabled={recentPage === totalRecentPages}>
                       Succ <i className="ri-arrow-right-s-line"></i>
                     </button>
                   </div>
@@ -1246,12 +1200,12 @@ const TIPOLOGIA_CONFIG = {
 function PazientiTab({ data, loading, error, onRetry }) {
   if (error) {
     return (
-      <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-        <div className="card-body text-center py-5">
-          <i className="ri-error-warning-line text-danger" style={{ fontSize: '48px', opacity: 0.6 }}></i>
-          <h5 className="text-muted mt-3">{error}</h5>
-          <p className="text-muted small">Assicurati che il backend sia avviato e riprova.</p>
-          <button className="btn btn-primary btn-sm" style={{ borderRadius: '8px' }} onClick={onRetry}>
+      <div className="welcome-card">
+        <div className="welcome-error">
+          <i className="ri-error-warning-line text-danger"></i>
+          <h5>{error}</h5>
+          <p>Assicurati che il backend sia avviato e riprova.</p>
+          <button className="btn btn-primary btn-sm welcome-retry-btn" onClick={onRetry}>
             <i className="ri-refresh-line me-1"></i> Riprova
           </button>
         </div>
@@ -1294,23 +1248,21 @@ function PazientiTab({ data, loading, error, onRetry }) {
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Pazienti Totali', value: kpi.total, icon: 'ri-group-line', bg: '#3b82f6', subtitle: `${retentionRate}% retention` },
-          { label: 'Attivi', value: kpi.active, icon: 'ri-checkbox-circle-line', bg: '#22c55e', subtitle: `${kpi.inScadenza} in scadenza` },
-          { label: 'Ghost', value: kpi.ghost, icon: 'ri-ghost-line', bg: '#f59e0b', subtitle: `${kpi.pausa} in pausa` },
-          { label: 'Nuovi Mese', value: kpi.newMonth, icon: 'ri-user-add-line', bg: '#8b5cf6', subtitle: monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs mese scorso` : 'Uguale al mese scorso' },
+          { label: 'Pazienti Totali', value: kpi.total, icon: 'ri-group-line', color: '#3b82f6', subtitle: `${retentionRate}% retention` },
+          { label: 'Attivi', value: kpi.active, icon: 'ri-checkbox-circle-line', color: '#22c55e', subtitle: `${kpi.inScadenza} in scadenza` },
+          { label: 'Ghost', value: kpi.ghost, icon: 'ri-ghost-line', color: '#f59e0b', subtitle: `${kpi.pausa} in pausa` },
+          { label: 'Nuovi Mese', value: kpi.newMonth, icon: 'ri-user-add-line', color: '#8b5cf6', subtitle: monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs mese scorso` : 'Uguale al mese scorso' },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm" style={{ backgroundColor: stat.bg, borderRadius: '16px' }}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                    {stat.subtitle && <div className="text-white opacity-50" style={{ fontSize: '11px', marginTop: '2px' }}>{stat.subtitle}</div>}
-                  </div>
-                  <div className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <i className={`${stat.icon} text-white fs-4`}></i>
-                  </div>
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">{stat.value}</div>
+                  <span className="kpi-label">{stat.label}</span>
+                  {stat.subtitle && <div className="kpi-subtitle">{stat.subtitle}</div>}
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
                 </div>
               </div>
             </div>
@@ -1322,14 +1274,14 @@ function PazientiTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Monthly Trend (Bar Chart) */}
         <div className="col-lg-8">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-line-chart-line me-2 text-primary"></i>
                 Nuovi Pazienti (ultimi 12 mesi)
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex align-items-end justify-content-between gap-1" style={{ height: '200px' }}>
                 {(monthlyTrend || []).map((m, idx) => (
                   <div key={idx} className="d-flex flex-column align-items-center flex-fill">
@@ -1361,14 +1313,14 @@ function PazientiTab({ data, loading, error, onRetry }) {
 
         {/* Status Distribution */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-pie-chart-line me-2 text-success"></i>
                 Distribuzione Stato
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex flex-column gap-3">
                 {(statusDistribution || [])
                   .sort((a, b) => b.count - a.count)
@@ -1389,8 +1341,8 @@ function PazientiTab({ data, loading, error, onRetry }) {
                             <span style={{ fontSize: '11px', color: '#94a3b8' }}>{pct}%</span>
                           </div>
                         </div>
-                        <div style={{ height: '5px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: config.color, borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
+                        <div className="welcome-progress">
+                          <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: config.color }}></div>
                         </div>
                       </div>
                     );
@@ -1405,14 +1357,14 @@ function PazientiTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Servizi (Nutrizione, Coach, Psicologia) */}
         <div className="col-lg-7">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-stethoscope-line me-2 text-info"></i>
                 Servizi Specialistici
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="row g-3">
                 {[
                   { key: 'nutrizione', label: 'Nutrizione', icon: 'ri-restaurant-line', color: '#22c55e', bg: '#dcfce7' },
@@ -1429,7 +1381,7 @@ function PazientiTab({ data, loading, error, onRetry }) {
                     <div key={svc.key} className="col-md-4">
                       <div style={{ background: svc.bg, borderRadius: '12px', padding: '16px' }}>
                         <div className="d-flex align-items-center gap-2 mb-3">
-                          <div className="d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fff' }}>
+                          <div className="welcome-icon-circle welcome-icon-circle-md" style={{ background: '#fff' }}>
                             <i className={svc.icon} style={{ color: svc.color, fontSize: '16px' }}></i>
                           </div>
                           <div>
@@ -1466,14 +1418,14 @@ function PazientiTab({ data, loading, error, onRetry }) {
 
         {/* Tipologia Distribution */}
         <div className="col-lg-5">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-user-settings-line me-2 text-warning"></i>
                 Tipologia Cliente
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex flex-column gap-3">
                 {(tipologiaDistribution || [])
                   .sort((a, b) => b.count - a.count)
@@ -1489,8 +1441,8 @@ function PazientiTab({ data, loading, error, onRetry }) {
                             <span style={{ fontSize: '11px', color: '#94a3b8' }}>{pct}%</span>
                           </div>
                         </div>
-                        <div style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: config.color, borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
+                        <div className="welcome-progress">
+                          <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: config.color }}></div>
                         </div>
                       </div>
                     );
@@ -1505,14 +1457,14 @@ function PazientiTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Top Patologie */}
         <div className="col-lg-6">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-heart-pulse-line me-2 text-danger"></i>
                 Patologie Principali
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {(patologie || []).length > 0 ? (
                 <div className="d-flex flex-column gap-2">
                   {patologie.slice(0, 10).map((p, idx) => (
@@ -1525,13 +1477,10 @@ function PazientiTab({ data, loading, error, onRetry }) {
                           <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{p.name}</span>
                           <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>{p.count}</span>
                         </div>
-                        <div style={{ height: '4px', borderRadius: '2px', background: '#f1f5f9', overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%',
+                        <div className="welcome-progress welcome-progress-sm">
+                          <div className="welcome-progress-bar" style={{
                             width: `${Math.round((p.count / maxPatologia) * 100)}%`,
                             background: `hsl(${350 - idx * 15}, 70%, 55%)`,
-                            borderRadius: '2px',
-                            transition: 'width 0.3s ease',
                           }}></div>
                         </div>
                       </div>
@@ -1552,9 +1501,9 @@ function PazientiTab({ data, loading, error, onRetry }) {
         <div className="col-lg-6">
           <div className="d-flex flex-column gap-3">
             {/* Programmi */}
-            <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-              <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+            <div className="welcome-card">
+              <div className="welcome-card-header">
+                <h6>
                   <i className="ri-file-list-3-line me-2 text-primary"></i>
                   Programmi Attivi
                 </h6>
@@ -1583,7 +1532,7 @@ function PazientiTab({ data, loading, error, onRetry }) {
 
             {/* Gender + Payment in a row */}
             {/* Gender */}
-            <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
+            <div className="welcome-card">
               <div className="card-body p-3">
                 <div className="d-flex align-items-center gap-2 mb-3">
                   <i className="ri-user-heart-line text-info"></i>
@@ -1621,12 +1570,12 @@ function CheckTab({ data, loading, error, onRetry }) {
 
   if (error) {
     return (
-      <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-        <div className="card-body text-center py-5">
-          <i className="ri-error-warning-line text-danger" style={{ fontSize: '48px', opacity: 0.6 }}></i>
-          <h5 className="text-muted mt-3">{error}</h5>
-          <p className="text-muted small">Assicurati che il backend sia avviato e riprova.</p>
-          <button className="btn btn-primary btn-sm" style={{ borderRadius: '8px' }} onClick={onRetry}>
+      <div className="welcome-card">
+        <div className="welcome-error">
+          <i className="ri-error-warning-line text-danger"></i>
+          <h5>{error}</h5>
+          <p>Assicurati che il backend sia avviato e riprova.</p>
+          <button className="btn btn-primary btn-sm welcome-retry-btn" onClick={onRetry}>
             <i className="ri-refresh-line me-1"></i> Riprova
           </button>
         </div>
@@ -1678,23 +1627,21 @@ function CheckTab({ data, loading, error, onRetry }) {
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Check Totali', value: kpi.totalAll, icon: 'ri-checkbox-circle-line', bg: '#3b82f6', subtitle: `${kpi.totalMonth} questo mese` },
-          { label: 'Qualità Media', value: kpi.avgQuality ? `${kpi.avgQuality}/10` : 'N/D', icon: 'ri-star-line', bg: '#22c55e', subtitle: 'Ultimi 30 giorni' },
-          { label: 'Questo Mese', value: kpi.totalMonth, icon: 'ri-calendar-check-line', bg: '#8b5cf6', subtitle: monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs mese scorso` : 'Uguale al mese scorso' },
-          { label: 'Da Leggere', value: kpi.unreadCount, icon: 'ri-mail-unread-line', bg: '#f59e0b', subtitle: 'Check non letti' },
+          { label: 'Check Totali', value: kpi.totalAll, icon: 'ri-checkbox-circle-line', color: '#3b82f6', subtitle: `${kpi.totalMonth} questo mese` },
+          { label: 'Qualità Media', value: kpi.avgQuality ? `${kpi.avgQuality}/10` : 'N/D', icon: 'ri-star-line', color: '#22c55e', subtitle: 'Ultimi 30 giorni' },
+          { label: 'Questo Mese', value: kpi.totalMonth, icon: 'ri-calendar-check-line', color: '#8b5cf6', subtitle: monthChange !== 0 ? `${monthChange > 0 ? '+' : ''}${monthChange}% vs mese scorso` : 'Uguale al mese scorso' },
+          { label: 'Da Leggere', value: kpi.unreadCount, icon: 'ri-mail-unread-line', color: '#f59e0b', subtitle: 'Check non letti' },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm" style={{ backgroundColor: stat.bg, borderRadius: '16px' }}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                    {stat.subtitle && <div className="text-white opacity-50" style={{ fontSize: '11px', marginTop: '2px' }}>{stat.subtitle}</div>}
-                  </div>
-                  <div className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <i className={`${stat.icon} text-white fs-4`}></i>
-                  </div>
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">{stat.value}</div>
+                  <span className="kpi-label">{stat.label}</span>
+                  {stat.subtitle && <div className="kpi-subtitle">{stat.subtitle}</div>}
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
                 </div>
               </div>
             </div>
@@ -1706,14 +1653,14 @@ function CheckTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Monthly Trend */}
         <div className="col-lg-8">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-bar-chart-line me-2 text-primary"></i>
                 Trend Check Settimanali (ultimi 6 mesi)
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex align-items-end justify-content-between gap-2" style={{ height: '200px' }}>
                 {(monthlyTrend || []).map((m, idx) => (
                   <div key={idx} className="d-flex flex-column align-items-center flex-fill">
@@ -1759,15 +1706,15 @@ function CheckTab({ data, loading, error, onRetry }) {
 
         {/* Professional Ratings */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-star-line me-2 text-warning"></i>
                 Valutazioni Medie
               </h6>
               <span style={{ fontSize: '11px', color: '#94a3b8' }}>Ultimi 30 giorni</span>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex flex-column gap-3">
                 {[
                   { label: 'Nutrizionista', value: ratings?.nutrizionista, icon: 'ri-restaurant-line', color: '#22c55e' },
@@ -1777,7 +1724,7 @@ function CheckTab({ data, loading, error, onRetry }) {
                 ].map((r, idx) => (
                   <div key={idx} className="d-flex align-items-center justify-content-between">
                     <div className="d-flex align-items-center gap-2">
-                      <div className="d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${r.color}15` }}>
+                      <div className="welcome-icon-circle welcome-icon-circle-md" style={{ background: `${r.color}15` }}>
                         <i className={r.icon} style={{ fontSize: '14px', color: r.color }}></i>
                       </div>
                       <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{r.label}</span>
@@ -1800,14 +1747,14 @@ function CheckTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Type Breakdown */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-pie-chart-line me-2 text-info"></i>
                 Tipologia Check
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {[
                 { key: 'weekly', label: 'Settimanale', icon: 'ri-calendar-line', color: '#3b82f6', bg: '#dbeafe' },
                 { key: 'dca', label: 'DCA', icon: 'ri-heart-pulse-line', color: '#ef4444', bg: '#fee2e2' },
@@ -1819,7 +1766,7 @@ function CheckTab({ data, loading, error, onRetry }) {
                   <div key={t.key} className="mb-3">
                     <div className="d-flex align-items-center justify-content-between mb-1">
                       <div className="d-flex align-items-center gap-2">
-                        <div className="d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', borderRadius: '8px', background: t.bg }}>
+                        <div className="welcome-icon-circle welcome-icon-circle-sm" style={{ background: t.bg }}>
                           <i className={t.icon} style={{ fontSize: '14px', color: t.color }}></i>
                         </div>
                         <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{t.label}</span>
@@ -1829,8 +1776,8 @@ function CheckTab({ data, loading, error, onRetry }) {
                         <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>({info.month} mese)</span>
                       </div>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: t.color, borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
+                    <div className="welcome-progress">
+                      <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: t.color }}></div>
                     </div>
                   </div>
                 );
@@ -1841,15 +1788,15 @@ function CheckTab({ data, loading, error, onRetry }) {
 
         {/* Ratings Distribution */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-bar-chart-grouped-line me-2 text-success"></i>
                 Distribuzione Voti
               </h6>
               <span style={{ fontSize: '11px', color: '#94a3b8' }}>Ultimi 30 giorni</span>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {[
                 { label: 'Eccellente (9-10)', value: ratingsDistribution?.excellent || 0, color: '#22c55e', bg: '#dcfce7' },
                 { label: 'Buono (7-8)', value: ratingsDistribution?.good || 0, color: '#3b82f6', bg: '#dbeafe' },
@@ -1866,8 +1813,8 @@ function CheckTab({ data, loading, error, onRetry }) {
                         <span style={{ fontSize: '11px', color: '#94a3b8' }}>{pct}%</span>
                       </div>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: r.color, borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
+                    <div className="welcome-progress">
+                      <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: r.color }}></div>
                     </div>
                   </div>
                 );
@@ -1878,15 +1825,15 @@ function CheckTab({ data, loading, error, onRetry }) {
 
         {/* Physical Metrics */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-heart-2-line me-2 text-danger"></i>
                 Metriche Fisiche Medie
               </h6>
               <span style={{ fontSize: '11px', color: '#94a3b8' }}>Ultimi 30 giorni (scala 0-10)</span>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {physicalMetrics && Object.keys(physicalMetrics).length > 0 ? (
                 <div className="d-flex flex-column gap-2">
                   {[
@@ -1899,19 +1846,16 @@ function CheckTab({ data, loading, error, onRetry }) {
                   ].map((m) => {
                     const val = physicalMetrics[m.key];
                     return (
-                      <div key={m.key} className="d-flex align-items-center gap-2">
-                        <span style={{ fontSize: '14px', width: '24px' }}>{m.icon}</span>
-                        <span style={{ fontSize: '12px', color: '#64748b', width: '80px' }}>{m.label}</span>
-                        <div className="flex-fill" style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%',
+                      <div key={m.key} className="welcome-metric-row">
+                        <span className="metric-emoji">{m.icon}</span>
+                        <span className="metric-label">{m.label}</span>
+                        <div className="flex-fill welcome-progress">
+                          <div className="welcome-progress-bar" style={{
                             width: `${val ? (val / 10) * 100 : 0}%`,
                             background: getRatingColor(val),
-                            borderRadius: '3px',
-                            transition: 'width 0.3s ease',
                           }}></div>
                         </div>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: getRatingColor(val), width: '30px', textAlign: 'right' }}>
+                        <span className="metric-value" style={{ color: getRatingColor(val) }}>
                           {val || '—'}
                         </span>
                       </div>
@@ -1939,8 +1883,8 @@ function CheckTab({ data, loading, error, onRetry }) {
           const professionals = topProfessionals?.[section.key] || [];
           return (
             <div key={section.key} className="col-lg-4">
-              <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-                <div className="card-header border-0 py-3 px-4" style={{ background: section.bg, borderRadius: '16px 16px 0 0' }}>
+              <div className="welcome-card">
+                <div className="welcome-card-header-colored" style={{ background: section.bg }}>
                   <h6 className="mb-0" style={{ fontWeight: 600, color: section.color }}>
                     <i className={`${section.icon} me-2`}></i>{section.title}
                   </h6>
@@ -1980,9 +1924,9 @@ function CheckTab({ data, loading, error, onRetry }) {
       </div>
 
       {/* Row 5: Recent Responses Table */}
-      <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-        <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-          <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+      <div className="welcome-card">
+        <div className="welcome-card-header">
+          <h6>
             <i className="ri-file-list-3-line me-2 text-primary"></i>
             Check Recenti
           </h6>
@@ -1990,19 +1934,19 @@ function CheckTab({ data, loading, error, onRetry }) {
         {(recentResponses || []).length > 0 ? (
           <>
             <div className="table-responsive">
-              <table className="table table-hover mb-0" style={{ fontSize: '13px' }}>
+              <table className="welcome-table">
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                  <tr>
                     {['Paziente', 'Data', 'Nutriz.', 'Coach', 'Psico.', 'Progr.', 'Media'].map((h) => (
-                      <th key={h} style={{ padding: '12px 16px', fontWeight: 600, color: '#64748b', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+                      <th key={h}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedRecent.map((r) => (
-                    <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '12px 16px', fontWeight: 600, color: '#334155' }}>{r.cliente}</td>
-                      <td style={{ padding: '12px 16px', color: '#64748b' }}>{r.date || '—'}</td>
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 600, color: '#334155' }}>{r.cliente}</td>
+                      <td style={{ color: '#64748b' }}>{r.date || '—'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         <span style={{ fontWeight: 700, color: getRatingColor(r.nutrizionista) }}>{r.nutrizionista || '—'}</span>
                       </td>
@@ -2033,10 +1977,10 @@ function CheckTab({ data, loading, error, onRetry }) {
                   {recentStartIdx + 1}-{Math.min(recentStartIdx + RECENT_PER_PAGE, recentResponses.length)} di {recentResponses.length}
                 </span>
                 <div className="d-flex gap-2">
-                  <button className="btn btn-sm btn-light" style={{ borderRadius: '8px' }} onClick={() => setRecentPage(p => Math.max(1, p - 1))} disabled={recentPage === 1}>
+                  <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setRecentPage(p => Math.max(1, p - 1))} disabled={recentPage === 1}>
                     <i className="ri-arrow-left-s-line"></i> Prec
                   </button>
-                  <button className="btn btn-sm btn-light" style={{ borderRadius: '8px' }} onClick={() => setRecentPage(p => Math.min(totalRecentPages, p + 1))} disabled={recentPage === totalRecentPages}>
+                  <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setRecentPage(p => Math.min(totalRecentPages, p + 1))} disabled={recentPage === totalRecentPages}>
                     Succ <i className="ri-arrow-right-s-line"></i>
                   </button>
                 </div>
@@ -2076,12 +2020,12 @@ const ROLE_CONFIG_TAB = {
 function ProfessionistiTab({ data, loading, error, onRetry }) {
   if (error) {
     return (
-      <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-        <div className="card-body text-center py-5">
-          <i className="ri-error-warning-line text-danger" style={{ fontSize: '48px', opacity: 0.6 }}></i>
-          <h5 className="text-muted mt-3">{error}</h5>
-          <p className="text-muted small">Assicurati che il backend sia avviato e riprova.</p>
-          <button className="btn btn-primary btn-sm" style={{ borderRadius: '8px' }} onClick={onRetry}>
+      <div className="welcome-card">
+        <div className="welcome-error">
+          <i className="ri-error-warning-line text-danger"></i>
+          <h5>{error}</h5>
+          <p>Assicurati che il backend sia avviato e riprova.</p>
+          <button className="btn btn-primary btn-sm welcome-retry-btn" onClick={onRetry}>
             <i className="ri-refresh-line me-1"></i> Riprova
           </button>
         </div>
@@ -2131,23 +2075,21 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Totale Team', value: kpi.totalAll, icon: 'ri-team-line', bg: '#3b82f6', subtitle: `${kpi.totalActive} attivi` },
-          { label: 'Professionisti', value: kpi.totalProfessionisti, icon: 'ri-user-star-line', bg: '#22c55e', subtitle: `${kpi.totalTeamLeaders} team leaders` },
-          { label: 'In Prova', value: kpi.totalTrial, icon: 'ri-user-follow-line', bg: '#f59e0b', subtitle: 'Professionisti trial' },
-          { label: 'Quality Media', value: qualitySummary.avgQuality ? qualitySummary.avgQuality.toFixed(1) : 'N/D', icon: 'ri-bar-chart-grouped-line', bg: '#8b5cf6', subtitle: qualitySummary.avgMonth ? `Mese: ${qualitySummary.avgMonth.toFixed(1)}` : 'Nessun dato' },
+          { label: 'Totale Team', value: kpi.totalAll, icon: 'ri-team-line', color: '#3b82f6', subtitle: `${kpi.totalActive} attivi` },
+          { label: 'Professionisti', value: kpi.totalProfessionisti, icon: 'ri-user-star-line', color: '#22c55e', subtitle: `${kpi.totalTeamLeaders} team leaders` },
+          { label: 'In Prova', value: kpi.totalTrial, icon: 'ri-user-follow-line', color: '#f59e0b', subtitle: 'Professionisti trial' },
+          { label: 'Quality Media', value: qualitySummary.avgQuality ? qualitySummary.avgQuality.toFixed(1) : 'N/D', icon: 'ri-bar-chart-grouped-line', color: '#8b5cf6', subtitle: qualitySummary.avgMonth ? `Mese: ${qualitySummary.avgMonth.toFixed(1)}` : 'Nessun dato' },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm" style={{ backgroundColor: stat.bg, borderRadius: '16px' }}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                    {stat.subtitle && <div className="text-white opacity-50" style={{ fontSize: '11px', marginTop: '2px' }}>{stat.subtitle}</div>}
-                  </div>
-                  <div className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <i className={`${stat.icon} text-white fs-4`}></i>
-                  </div>
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">{stat.value}</div>
+                  <span className="kpi-label">{stat.label}</span>
+                  {stat.subtitle && <div className="kpi-subtitle">{stat.subtitle}</div>}
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
                 </div>
               </div>
             </div>
@@ -2159,14 +2101,14 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Quality Weekly Trend */}
         <div className="col-lg-8">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-line-chart-line me-2 text-primary"></i>
                 Quality Score Settimanale (ultime 8 settimane)
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {(qualityTrend || []).length > 0 ? (
                 <div className="d-flex align-items-end justify-content-between gap-2" style={{ height: '200px' }}>
                   {qualityTrend.map((w, idx) => (
@@ -2205,14 +2147,14 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
 
         {/* Specialty Distribution */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-pie-chart-line me-2 text-info"></i>
                 Per Specializzazione
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex flex-column gap-2">
                 {Object.entries(specialtyDistribution || {}).sort((a, b) => b[1].count - a[1].count).map(([key, val]) => {
                   const config = SPECIALTY_CONFIG[key] || { label: key, color: '#64748b', bg: '#f1f5f9' };
@@ -2223,8 +2165,8 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
                         <span style={{ fontSize: '12px', fontWeight: 500, color: '#334155' }}>{config.label}</span>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: config.color }}>{val.count}</span>
                       </div>
-                      <div style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, borderRadius: '3px', background: config.color, transition: 'width 0.3s ease' }}></div>
+                      <div className="welcome-progress">
+                        <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: config.color }}></div>
                       </div>
                     </div>
                   );
@@ -2239,15 +2181,15 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Client Load per Area */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-scales-line me-2 text-warning"></i>
                 Carico Clienti
               </h6>
               <span style={{ fontSize: '11px', color: '#94a3b8' }}>Media clienti per professionista</span>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {[
                 { key: 'nutrizione', label: 'Nutrizione', icon: 'ri-restaurant-line', color: '#06b6d4' },
                 { key: 'coach', label: 'Coach', icon: 'ri-run-line', color: '#22c55e' },
@@ -2257,7 +2199,7 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
                 return (
                   <div key={area.key} className="d-flex align-items-center justify-content-between py-2 border-bottom" style={{ borderColor: '#f1f5f9 !important' }}>
                     <div className="d-flex align-items-center gap-2">
-                      <div className="d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${area.color}15` }}>
+                      <div className="welcome-icon-circle welcome-icon-circle-md" style={{ background: `${area.color}15` }}>
                         <i className={area.icon} style={{ fontSize: '14px', color: area.color }}></i>
                       </div>
                       <div>
@@ -2278,15 +2220,15 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
 
         {/* Bonus Bands Distribution */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-award-line me-2 text-success"></i>
                 Bonus Bands
               </h6>
               <span style={{ fontSize: '11px', color: '#94a3b8' }}>Distribuzione ultima settimana</span>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {[
                 { band: '100%', label: 'Eccellente (100%)', color: '#22c55e', bg: '#dcfce7' },
                 { band: '60%', label: 'Buono (60%)', color: '#3b82f6', bg: '#dbeafe' },
@@ -2304,8 +2246,8 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
                       </div>
                       <span style={{ fontSize: '13px', fontWeight: 700, color: b.color }}>{count}</span>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', background: '#f1f5f9' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: '3px', background: b.color, transition: 'width 0.3s ease' }}></div>
+                    <div className="welcome-progress">
+                      <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: b.color }}></div>
                     </div>
                   </div>
                 );
@@ -2330,14 +2272,14 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
 
         {/* Role Distribution */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-user-settings-line me-2 text-danger"></i>
                 Per Ruolo
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               <div className="d-flex flex-column gap-3">
                 {Object.entries(roleDistribution || {}).sort((a, b) => b[1].count - a[1].count).map(([key, val]) => {
                   const config = ROLE_CONFIG_TAB[key] || { label: key, color: '#64748b', bg: '#f1f5f9' };
@@ -2367,9 +2309,9 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
       <div className="row g-3 mb-4">
         {/* Top Performers */}
         <div className="col-lg-7">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-trophy-line me-2 text-warning"></i>
                 Top Performers
               </h6>
@@ -2377,16 +2319,16 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
             </div>
             {(topPerformers || []).length > 0 ? (
               <div className="table-responsive">
-                <table className="table table-hover mb-0" style={{ fontSize: '13px' }}>
+                <table className="welcome-table">
                   <thead>
-                    <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                      <th className="border-0 py-2 px-4 text-muted" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>#</th>
-                      <th className="border-0 py-2 text-muted" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Professionista</th>
-                      <th className="border-0 py-2 text-muted" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Specializzazione</th>
-                      <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Score</th>
-                      <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Mese</th>
-                      <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Banda</th>
-                      <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Trend</th>
+                    <tr>
+                      <th className="border-0 py-2 px-4 text-muted">#</th>
+                      <th className="border-0 py-2 text-muted">Professionista</th>
+                      <th className="border-0 py-2 text-muted">Specializzazione</th>
+                      <th className="border-0 py-2 text-muted text-center">Score</th>
+                      <th className="border-0 py-2 text-muted text-center">Mese</th>
+                      <th className="border-0 py-2 text-muted text-center">Banda</th>
+                      <th className="border-0 py-2 text-muted text-center">Trend</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2439,9 +2381,9 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
 
         {/* Teams Summary */}
         <div className="col-lg-5">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-organization-chart me-2 text-info"></i>
                 Teams Attivi
               </h6>
@@ -2455,7 +2397,7 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
                     const color = typeColors[team.team_type] || '#64748b';
                     const icon = typeIcons[team.team_type] || 'ri-team-line';
                     return (
-                      <div key={team.id} className="list-group-item d-flex align-items-center justify-content-between py-3 px-4" style={{ border: 'none', borderBottom: '1px solid #f1f5f9' }}>
+                      <div key={team.id} className="welcome-list-item">
                         <div className="d-flex align-items-center gap-3">
                           <div className="d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${color}15` }}>
                             <i className={icon} style={{ fontSize: '16px', color }}></i>
@@ -2489,14 +2431,14 @@ function ProfessionistiTab({ data, loading, error, onRetry }) {
       {(trialUsers || []).length > 0 && (
         <div className="row g-3">
           <div className="col-12">
-            <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-              <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-                <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+            <div className="welcome-card">
+              <div className="welcome-card-header">
+                <h6>
                   <i className="ri-user-follow-line me-2 text-warning"></i>
                   Professionisti in Prova ({trialUsers.length})
                 </h6>
               </div>
-              <div className="card-body px-4 pb-4 pt-2">
+              <div className="welcome-card-body">
                 <div className="row g-2">
                   {trialUsers.map((u) => {
                     const specConfig = SPECIALTY_CONFIG[u.specialty] || { label: u.specialty || '-', color: '#64748b', bg: '#f1f5f9' };
@@ -2553,12 +2495,12 @@ function QualityTab({ data, loading, error, onRetry }) {
 
   if (error) {
     return (
-      <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-        <div className="card-body text-center py-5">
-          <i className="ri-error-warning-line text-danger" style={{ fontSize: '48px', opacity: 0.6 }}></i>
-          <h5 className="text-muted mt-3">{error}</h5>
-          <p className="text-muted small">Assicurati che il backend sia avviato e riprova.</p>
-          <button className="btn btn-primary btn-sm" style={{ borderRadius: '8px' }} onClick={onRetry}>
+      <div className="welcome-card">
+        <div className="welcome-error">
+          <i className="ri-error-warning-line text-danger"></i>
+          <h5>{error}</h5>
+          <p>Assicurati che il backend sia avviato e riprova.</p>
+          <button className="btn btn-primary btn-sm welcome-retry-btn" onClick={onRetry}>
             <i className="ri-refresh-line me-1"></i> Riprova
           </button>
         </div>
@@ -2590,29 +2532,27 @@ function QualityTab({ data, loading, error, onRetry }) {
       {/* KPI Quality */}
       <div className="row g-3 mb-4">
         {[
-          { label: 'Quality media', value: qs.avgQuality != null ? qs.avgQuality.toFixed(1) : 'N/D', icon: 'ri-star-line', bg: '#8b5cf6', subtitle: 'Settimana corrente' },
-          { label: 'Media mese', value: qs.avgMonth != null ? qs.avgMonth.toFixed(1) : 'N/D', icon: 'ri-calendar-line', bg: '#3b82f6' },
-          { label: 'Media trimestre', value: qs.avgTrim != null ? qs.avgTrim.toFixed(1) : 'N/D', icon: 'ri-bar-chart-grouped-line', bg: '#06b6d4' },
+          { label: 'Quality media', value: qs.avgQuality != null ? qs.avgQuality.toFixed(1) : 'N/D', icon: 'ri-star-line', color: '#8b5cf6', subtitle: 'Settimana corrente' },
+          { label: 'Media mese', value: qs.avgMonth != null ? qs.avgMonth.toFixed(1) : 'N/D', icon: 'ri-calendar-line', color: '#3b82f6' },
+          { label: 'Media trimestre', value: qs.avgTrim != null ? qs.avgTrim.toFixed(1) : 'N/D', icon: 'ri-bar-chart-grouped-line', color: '#06b6d4' },
           {
             label: 'Trend',
             value: `${qs.trendUp || 0} ↑ / ${qs.trendStable || 0} → / ${qs.trendDown || 0} ↓`,
             icon: 'ri-trending-up-line',
-            bg: '#22c55e',
+            color: '#22c55e',
             subtitle: 'In crescita / Stabili / In calo',
           },
         ].map((stat, idx) => (
           <div key={idx} className="col-xl-3 col-sm-6">
-            <div className="card border-0 shadow-sm" style={{ backgroundColor: stat.bg, borderRadius: '16px' }}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold" style={{ fontSize: stat.value && stat.value.length > 12 ? '1rem' : undefined }}>{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                    {stat.subtitle && <div className="text-white opacity-50" style={{ fontSize: '11px', marginTop: '2px' }}>{stat.subtitle}</div>}
-                  </div>
-                  <div className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <i className={`${stat.icon} text-white fs-4`}></i>
-                  </div>
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value" style={{ fontSize: stat.value && stat.value.length > 12 ? '1rem' : undefined }}>{stat.value}</div>
+                  <span className="kpi-label">{stat.label}</span>
+                  {stat.subtitle && <div className="kpi-subtitle">{stat.subtitle}</div>}
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
                 </div>
               </div>
             </div>
@@ -2623,14 +2563,14 @@ function QualityTab({ data, loading, error, onRetry }) {
       {/* Trend settimanale + Bonus bands */}
       <div className="row g-3 mb-4">
         <div className="col-lg-8">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-line-chart-line me-2 text-primary"></i>
                 Trend Quality (ultime 8 settimane)
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {(qualityTrend || []).length > 0 ? (
                 <div className="d-flex align-items-end justify-content-between gap-1" style={{ height: '180px' }}>
                   {(qualityTrend || []).map((w, idx) => (
@@ -2661,14 +2601,14 @@ function QualityTab({ data, loading, error, onRetry }) {
           </div>
         </div>
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-            <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
                 <i className="ri-award-line me-2 text-success"></i>
                 Bonus Bands
               </h6>
             </div>
-            <div className="card-body px-4 pb-4 pt-2">
+            <div className="welcome-card-body">
               {[
                 { band: '100%', color: '#22c55e', bg: '#dcfce7' },
                 { band: '60%', color: '#3b82f6', bg: '#dbeafe' },
@@ -2681,8 +2621,8 @@ function QualityTab({ data, loading, error, onRetry }) {
                   <div key={b.band} className="d-flex align-items-center justify-content-between mb-2">
                     <span className="badge" style={{ background: b.bg, color: b.color, fontSize: '11px' }}>{b.band}</span>
                     <span style={{ fontWeight: 700, color: b.color }}>{count}</span>
-                    <div style={{ width: '60%', height: '8px', borderRadius: '4px', background: '#f1f5f9' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: b.color, borderRadius: '4px' }}></div>
+                    <div className="welcome-progress" style={{ width: '60%' }}>
+                      <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: b.color }}></div>
                     </div>
                   </div>
                 );
@@ -2693,24 +2633,24 @@ function QualityTab({ data, loading, error, onRetry }) {
       </div>
 
       {/* Top Performers */}
-      <div className="card border-0 shadow-sm" style={{ borderRadius: '16px' }}>
-        <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
-          <h6 className="mb-0 fw-semibold" style={{ color: '#1e293b' }}>
+      <div className="welcome-card">
+        <div className="welcome-card-header">
+          <h6>
             <i className="ri-trophy-line me-2 text-warning"></i>
             Top 10 Quality
           </h6>
         </div>
         {(topPerformers || []).length > 0 ? (
           <div className="table-responsive">
-            <table className="table table-hover mb-0" style={{ fontSize: '13px' }}>
+            <table className="welcome-table">
               <thead>
-                <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                  <th className="border-0 py-2 px-4 text-muted" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>#</th>
-                  <th className="border-0 py-2 text-muted" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Professionista</th>
-                  <th className="border-0 py-2 text-muted" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Specializzazione</th>
-                  <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Score</th>
-                  <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Banda</th>
-                  <th className="border-0 py-2 text-muted text-center" style={{ fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>Trend</th>
+                <tr>
+                  <th className="border-0 py-2 px-4 text-muted">#</th>
+                  <th className="border-0 py-2 text-muted">Professionista</th>
+                  <th className="border-0 py-2 text-muted">Specializzazione</th>
+                  <th className="border-0 py-2 text-muted text-center">Score</th>
+                  <th className="border-0 py-2 text-muted text-center">Banda</th>
+                  <th className="border-0 py-2 text-muted text-center">Trend</th>
                 </tr>
               </thead>
               <tbody>
@@ -2750,8 +2690,8 @@ function QualityTab({ data, loading, error, onRetry }) {
 
 function TopPeopleCard({ title, subtitle, icon, color, bgColor, people }) {
   return (
-    <div className="card border-0 shadow-sm" style={{ borderRadius: '16px', overflow: 'hidden' }}>
-      <div className="card-header border-0 py-3 px-4" style={{ background: bgColor }}>
+    <div className="welcome-card">
+      <div className="welcome-card-header-colored" style={{ background: bgColor }}>
         <div className="d-flex align-items-center justify-content-between">
           <div>
             <h6 className="mb-0" style={{ fontWeight: 600, color }}>
@@ -2768,7 +2708,7 @@ function TopPeopleCard({ title, subtitle, icon, color, bgColor, people }) {
         {people.length > 0 ? (
           <div className="list-group list-group-flush">
             {people.slice(0, 5).map((person, idx) => (
-              <div key={person.id || idx} className="list-group-item d-flex align-items-center justify-content-between py-3 px-4" style={{ border: 'none', borderBottom: '1px solid #f1f5f9' }}>
+              <div key={person.id || idx} className="welcome-list-item">
                 <div className="d-flex align-items-center">
                   <span className="me-3 d-flex align-items-center justify-content-center" style={{
                     width: '28px', height: '28px', borderRadius: '50%',
@@ -2832,7 +2772,7 @@ function SkeletonList({ count = 3 }) {
 
 function SkeletonCard({ height = '100px' }) {
   return (
-    <div className="card border-0 shadow-sm" style={{ borderRadius: '16px', height, overflow: 'hidden' }}>
+    <div className="welcome-skeleton-card" style={{ height }}>
       <div className="card-body placeholder-glow d-flex align-items-center gap-3 p-4">
         <span className="placeholder rounded-circle" style={{ width: '56px', height: '56px', flexShrink: 0 }}></span>
         <div className="flex-grow-1">
@@ -2848,9 +2788,9 @@ function SkeletonCard({ height = '100px' }) {
 
 function StatRow({ label, value, color }) {
   return (
-    <div className="d-flex align-items-center justify-content-between py-1">
-      <span style={{ fontSize: '13px', color: '#64748b' }}>{label}</span>
-      <span style={{ fontSize: '15px', fontWeight: 700, color }}>{value}</span>
+    <div className="welcome-stat-row">
+      <span className="stat-label">{label}</span>
+      <span className="stat-value" style={{ color }}>{value}</span>
     </div>
   );
 }
@@ -2872,7 +2812,7 @@ function RatingCard({ label, value, icon, color, bgColor }) {
 
   return (
     <div className="col-lg-4 col-sm-6">
-      <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+      <div className="welcome-card">
         <div className="card-body p-4">
           <div className="d-flex align-items-center">
             <div
@@ -2911,8 +2851,8 @@ function TeamRatingsList({ title, teams, icon, color, bgColor }) {
   };
 
   return (
-    <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-      <div className="card-header border-0 py-3 px-4" style={{ background: bgColor }}>
+    <div className="welcome-card">
+      <div className="welcome-card-header-colored" style={{ background: bgColor }}>
         <div className="d-flex align-items-center">
           <i className={icon} style={{ color, fontSize: '20px', marginRight: '8px' }}></i>
           <h6 className="mb-0" style={{ fontWeight: 600, color }}>{title}</h6>
@@ -2924,7 +2864,7 @@ function TeamRatingsList({ title, teams, icon, color, bgColor }) {
             {teams.map((team, idx) => {
               const status = getRatingStatus(team.average);
               return (
-                <div key={team.id || idx} className="list-group-item d-flex align-items-center justify-content-between py-3 px-4" style={{ border: 'none', borderBottom: '1px solid #f1f5f9' }}>
+                <div key={team.id || idx} className="welcome-list-item">
                   <div className="d-flex align-items-center">
                     {team.head?.avatar_path ? (
                       <img src={team.head.avatar_path} alt="" className="rounded-circle me-3" style={{ width: '36px', height: '36px', objectFit: 'cover', border: `2px solid ${color}` }} />
@@ -2963,8 +2903,8 @@ function NegativeChecksTable({ negativeChecks, negativePage, setNegativePage, pe
   const paginatedChecks = negativeChecks.slice(startIdx, startIdx + perPage);
 
   return (
-    <div className="card border-0 mb-4" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-      <div className="card-header bg-white border-0 py-3 px-4" style={{ borderRadius: '16px 16px 0 0' }}>
+    <div className="welcome-card mb-4">
+      <div className="welcome-card-header">
         <h5 className="mb-0" style={{ fontWeight: 600, color: '#1e293b' }}>
           <i className="ri-alert-line me-2 text-danger"></i>
           Check Negativi Ultimo Mese
@@ -2975,27 +2915,27 @@ function NegativeChecksTable({ negativeChecks, negativePage, setNegativePage, pe
         {negativeChecks.length > 0 ? (
           <>
             <div className="table-responsive">
-              <table className="table mb-0">
+              <table className="welcome-table">
                 <thead>
-                  <tr style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
-                    <th style={tableHeaderStyle}>Paziente</th>
-                    <th style={tableHeaderStyle}>Data</th>
-                    <th style={tableHeaderStyle}>Rating Negativi</th>
+                  <tr>
+                    <th>Paziente</th>
+                    <th>Data</th>
+                    <th>Rating Negativi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedChecks.map((check, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={tableCellStyle}>
+                    <tr key={idx}>
+                      <td>
                         <span style={{ fontWeight: 600, color: '#334155' }}>{check.cliente_nome}</span>
                       </td>
-                      <td style={tableCellStyle}>
+                      <td>
                         <span className="text-muted">{check.submit_date}</span>
                       </td>
-                      <td style={tableCellStyle}>
+                      <td>
                         <div className="d-flex flex-wrap gap-2">
                           {check.negativeRatings?.map((r, i) => (
-                            <div key={i} className="d-flex align-items-center gap-2" style={{ background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', padding: '6px 12px', borderRadius: '8px' }}>
+                            <div key={i} className="welcome-negative-badge">
                               {r.isProgress ? (
                                 <img src={logoFoglia} alt="Percorso" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
                               ) : r.professionals && r.professionals.length > 0 ? (
@@ -3027,10 +2967,10 @@ function NegativeChecksTable({ negativeChecks, negativePage, setNegativePage, pe
                   {startIdx + 1}-{Math.min(startIdx + perPage, negativeChecks.length)} di {negativeChecks.length}
                 </span>
                 <div className="d-flex gap-2">
-                  <button className="btn btn-sm btn-light" style={{ borderRadius: '8px' }} onClick={() => setNegativePage(p => Math.max(1, p - 1))} disabled={negativePage === 1}>
+                  <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setNegativePage(p => Math.max(1, p - 1))} disabled={negativePage === 1}>
                     <i className="ri-arrow-left-s-line"></i> Prec
                   </button>
-                  <button className="btn btn-sm btn-light" style={{ borderRadius: '8px' }} onClick={() => setNegativePage(p => Math.min(totalPages, p + 1))} disabled={negativePage === totalPages}>
+                  <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setNegativePage(p => Math.min(totalPages, p + 1))} disabled={negativePage === totalPages}>
                     Succ <i className="ri-arrow-right-s-line"></i>
                   </button>
                 </div>
@@ -3058,8 +2998,8 @@ function RankingTable({ title, professionals, color, bgColor, icon, isTop }) {
   const paginatedProfs = professionals.slice(startIdx, startIdx + PER_PAGE);
 
   return (
-    <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-      <div className="card-header border-0 py-3 px-4" style={{ background: bgColor }}>
+    <div className="welcome-card">
+      <div className="welcome-card-header-colored" style={{ background: bgColor }}>
         <div className="d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center">
             <i className={icon} style={{ color, fontSize: '20px', marginRight: '8px' }}></i>
@@ -3077,7 +3017,7 @@ function RankingTable({ title, professionals, color, bgColor, icon, isTop }) {
               {paginatedProfs.map((prof, idx) => {
                 const globalIdx = startIdx + idx;
                 return (
-                  <div key={prof.id || idx} className="list-group-item d-flex align-items-center justify-content-between py-3 px-4" style={{ border: 'none', borderBottom: '1px solid #f1f5f9' }}>
+                  <div key={prof.id || idx} className="welcome-list-item">
                     <div className="d-flex align-items-center">
                       <span className="me-3 d-flex align-items-center justify-content-center" style={{
                         width: '28px', height: '28px', borderRadius: '50%',
@@ -3125,24 +3065,5 @@ function RankingTable({ title, professionals, color, bgColor, icon, isTop }) {
     </div>
   );
 }
-
-// ==================== STYLES ====================
-
-const tableHeaderStyle = {
-  padding: '16px 20px',
-  fontSize: '11px',
-  fontWeight: 700,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  color: '#64748b',
-  borderBottom: '2px solid #e2e8f0'
-};
-
-const tableCellStyle = {
-  padding: '16px 20px',
-  fontSize: '14px',
-  color: '#334155',
-  verticalAlign: 'middle'
-};
 
 export default Welcome;

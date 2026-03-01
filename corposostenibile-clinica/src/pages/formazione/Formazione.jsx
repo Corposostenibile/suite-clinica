@@ -10,13 +10,14 @@ import teamService, {
 } from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { 
-    FaGraduationCap, 
-    FaChartBar, 
-    FaFilter, 
-    FaList, 
-    FaPlusCircle 
+import {
+    FaGraduationCap,
+    FaChartBar,
+    FaFilter,
+    FaList,
+    FaPlusCircle
 } from 'react-icons/fa';
+import './Formazione.css';
 
 // Colori sfondo header card in base alla specializzazione (coerenti con TeamList)
 const SPECIALTY_GRADIENTS = {
@@ -365,7 +366,8 @@ function Formazione() {
         const matchesSpecialty = !adminFilters.specialty ||
             adminFilters.specialty.split(',').some(spec => p.specialty === spec.trim());
 
-        return matchesSearch && matchesSpecialty;
+        const isHM = p.specialty === 'health_manager' || p.role === 'health_manager';
+        return matchesSearch && matchesSpecialty && !isHM;
     });
 
     // Paginazione
@@ -768,44 +770,31 @@ function Formazione() {
                             <p className="text-muted mb-0">
                                 {stats.unacknowledged > 0
                                     ? `${stats.unacknowledged} training da confermare`
-                                    : 'Tutti i training confermati'}
+                                    : 'Gestione training e richieste di formazione'}
                             </p>
                         </div>
-                        <button
-                            className="btn btn-success"
-                            onClick={() => { console.log('Recipients:', recipients); setShowRequestModal(true); }}
-                            data-tour="request-btn"
-                        >
-                            <i className="ri-add-circle-line me-2"></i>
-                            Richiedi Training
-                        </button>
                     </div>
 
                     {/* Stats Row - KPI sui training */}
                     <div className="row g-3 mb-4" data-tour="stats-cards">
                         {[
-                            { label: 'Training Ricevuti', value: stats.totalTrainings, icon: 'ri-book-open-line', bg: 'primary', badge: stats.unacknowledged > 0 ? stats.unacknowledged : null },
-                            { label: 'Training Erogati', value: stats.totalGiven, icon: 'ri-presentation-line', bg: 'success', badge: stats.givenPending > 0 ? stats.givenPending : null },
-                            { label: 'Richieste Ricevute', value: stats.receivedTotal, icon: 'ri-mail-download-line', bg: 'info', badge: stats.receivedPending > 0 ? stats.receivedPending : null },
-                            { label: 'Richieste Inviate', value: requests.length, icon: 'ri-mail-send-line', bg: 'warning', badge: stats.pendingRequests > 0 ? stats.pendingRequests : null },
+                            { label: 'Training Ricevuti', value: stats.totalTrainings, icon: 'ri-book-open-line', color: '#3b82f6', badge: stats.unacknowledged > 0 ? stats.unacknowledged : null },
+                            { label: 'Training Erogati', value: stats.totalGiven, icon: 'ri-presentation-line', color: '#22c55e', badge: stats.givenPending > 0 ? stats.givenPending : null },
+                            { label: 'Richieste Ricevute', value: stats.receivedTotal, icon: 'ri-mail-download-line', color: '#0dcaf0', badge: stats.receivedPending > 0 ? stats.receivedPending : null },
+                            { label: 'Richieste Inviate', value: requests.length, icon: 'ri-mail-send-line', color: '#f97316', badge: stats.pendingRequests > 0 ? stats.pendingRequests : null },
                         ].map((stat, idx) => (
                             <div key={idx} className="col-xl-3 col-sm-6">
-                                <div className={`card bg-${stat.bg} border-0 shadow-sm`}>
-                                    <div className="card-body py-3">
-                                        <div className="d-flex align-items-center justify-content-between">
-                                            <div>
-                                                <div className="d-flex align-items-center gap-2">
-                                                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                                                    {stat.badge && <span className="badge bg-danger">{stat.badge}</span>}
-                                                </div>
-                                                <span className="text-white opacity-75 small">{stat.label}</span>
+                                <div className="welcome-kpi-card-sm">
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div className="kpi-label">{stat.label}</div>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <div className="kpi-value">{stat.value}</div>
+                                                {stat.badge && <span className="badge bg-danger">{stat.badge}</span>}
                                             </div>
-                                            <div
-                                                className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
-                                                style={{ width: '48px', height: '48px' }}
-                                            >
-                                                <i className={`${stat.icon} text-white fs-4`}></i>
-                                            </div>
+                                        </div>
+                                        <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                                            <i className={`${stat.icon} fs-5`}></i>
                                         </div>
                                     </div>
                                 </div>
@@ -816,28 +805,24 @@ function Formazione() {
                     {/* Main Tabs AND Sub Tabs Navigation Wrapper for Tour */}
                     <div data-tour="tabs-navigation">
                         {/* Main Tabs: I Miei Training | Gestione Team */}
-                        <ul className="nav nav-tabs mb-4">
-                            <li className="nav-item">
-                                <button
-                                    className={`nav-link ${adminTab === 'myTrainings' ? 'active' : ''}`}
-                                    onClick={() => setAdminTab('myTrainings')}
-                                >
-                                    <i className="ri-user-line me-2"></i>
-                                    I Miei Training
-                                    {stats.unacknowledged > 0 && <span className="badge bg-danger ms-2">{stats.unacknowledged}</span>}
-                                </button>
-                            </li>
-                            <li className="nav-item">
-                                <button
-                                    className={`nav-link ${adminTab === 'team' ? 'active' : ''}`}
-                                    onClick={() => setAdminTab('team')}
-                                >
-                                    <i className="ri-team-line me-2"></i>
-                                    Gestione Team
-                                    <span className="badge bg-secondary ms-2">{professionals.length}</span>
-                                </button>
-                            </li>
-                        </ul>
+                        <div className="formazione-tabs mb-4">
+                            <button
+                                className={`formazione-tab${adminTab === 'myTrainings' ? ' active' : ''}`}
+                                onClick={() => setAdminTab('myTrainings')}
+                            >
+                                <i className="ri-user-line"></i>
+                                I Miei Training
+                                {stats.unacknowledged > 0 && <span className="formazione-tab-badge danger">{stats.unacknowledged}</span>}
+                            </button>
+                            <button
+                                className={`formazione-tab${adminTab === 'team' ? ' active' : ''}`}
+                                onClick={() => setAdminTab('team')}
+                            >
+                                <i className="ri-team-line"></i>
+                                Gestione Team
+                                <span className="formazione-tab-count">{professionals.length}</span>
+                            </button>
+                        </div>
 
                         {/* Tab Content: I Miei Training - Included in Tour Highlight */}
                         {adminTab === 'myTrainings' && (
@@ -845,48 +830,23 @@ function Formazione() {
                                 {/* Sub-tabs for all training sections */}
                                 <div className="card mb-4">
                                     <div className="card-header bg-white border-bottom">
-                                        <ul className="nav nav-tabs card-header-tabs flex-nowrap" style={{ overflowX: 'auto' }}>
-                                            <li className="nav-item">
-                                                <button
-                                                    className={`nav-link ${activeTab === 'trainings' ? 'active' : ''}`}
-                                                    onClick={() => setActiveTab('trainings')}
-                                                >
-                                                    <i className="ri-book-open-line me-1"></i>
-                                                    <span className="d-none d-sm-inline">Training </span>Ricevuti
-                                                    {stats.unacknowledged > 0 && <span className="badge bg-danger ms-1">{stats.unacknowledged}</span>}
-                                                </button>
-                                            </li>
-                                            <li className="nav-item">
-                                                <button
-                                                    className={`nav-link ${activeTab === 'given' ? 'active' : ''}`}
-                                                    onClick={() => setActiveTab('given')}
-                                                >
-                                                    <i className="ri-presentation-line me-1"></i>
-                                                    <span className="d-none d-sm-inline">Training </span>Erogati
-                                                    {stats.givenPending > 0 && <span className="badge bg-warning text-dark ms-1">{stats.givenPending}</span>}
-                                                </button>
-                                            </li>
-                                            <li className="nav-item">
-                                                <button
-                                                    className={`nav-link ${activeTab === 'received' ? 'active' : ''}`}
-                                                    onClick={() => setActiveTab('received')}
-                                                >
-                                                    <i className="ri-mail-download-line me-1"></i>
-                                                    <span className="d-none d-sm-inline">Richieste </span>Ricevute
-                                                    {stats.receivedPending > 0 && <span className="badge bg-info ms-1">{stats.receivedPending}</span>}
-                                                </button>
-                                            </li>
-                                            <li className="nav-item">
-                                                <button
-                                                    className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
-                                                    onClick={() => setActiveTab('requests')}
-                                                >
-                                                    <i className="ri-mail-send-line me-1"></i>
-                                                    <span className="d-none d-sm-inline">Richieste </span>Inviate
-                                                    {stats.pendingRequests > 0 && <span className="badge bg-warning text-dark ms-1">{stats.pendingRequests}</span>}
-                                                </button>
-                                            </li>
-                                        </ul>
+                                        <div className="formazione-tabs formazione-subtabs">
+                                            <button className={`formazione-tab${activeTab === 'trainings' ? ' active' : ''}`} onClick={() => setActiveTab('trainings')}>
+                                                <i className="ri-book-open-line"></i>
+                                                <span className="d-none d-sm-inline">Training </span>Ricevuti
+                                                {stats.unacknowledged > 0 && <span className="formazione-tab-badge danger">{stats.unacknowledged}</span>}
+                                            </button>
+                                            <button className={`formazione-tab${activeTab === 'given' ? ' active' : ''}`} onClick={() => setActiveTab('given')}>
+                                                <i className="ri-presentation-line"></i>
+                                                <span className="d-none d-sm-inline">Training </span>Erogati
+                                                {stats.givenPending > 0 && <span className="formazione-tab-badge warning">{stats.givenPending}</span>}
+                                            </button>
+                                            <button className={`formazione-tab${activeTab === 'received' ? ' active' : ''}`} onClick={() => setActiveTab('received')}>
+                                                <i className="ri-mail-download-line"></i>
+                                                <span className="d-none d-sm-inline">Richieste </span>Ricevute
+                                                {stats.receivedPending > 0 && <span className="formazione-tab-badge info">{stats.receivedPending}</span>}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="px-3 py-2 border-bottom bg-white">
                                         <div className="position-relative">
@@ -1040,28 +1000,25 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Training Ricevuti */}
-                                            {filteredTrainings.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((trainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredTrainings.length)}-{Math.min(trainingsPage * ITEMS_PER_SECTION, filteredTrainings.length)} di {filteredTrainings.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${trainingsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${trainingsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setTrainingsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, trainingsPage - 3), trainingsPage + 2)}
-                                                            <li className={`page-item ${trainingsPage >= Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setTrainingsPage(p => Math.min(Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
+                                            {filteredTrainings.length > ITEMS_PER_SECTION && (() => {
+                                                const tp = Math.ceil(filteredTrainings.length / ITEMS_PER_SECTION);
+                                                return (
+                                                <div className="form-pagination">
+                                                    <span className="form-pagination-info">
+                                                        {Math.min((trainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredTrainings.length)}-{Math.min(trainingsPage * ITEMS_PER_SECTION, filteredTrainings.length)} di {filteredTrainings.length}
+                                                    </span>
+                                                    <div className="form-pagination-buttons">
+                                                        <button className="form-page-btn" disabled={trainingsPage === 1} onClick={() => setTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                        {Array.from({ length: tp }, (_, i) => i + 1)
+                                                            .filter(p => p >= Math.max(1, trainingsPage - 2) && p <= Math.min(tp, trainingsPage + 2))
+                                                            .map(p => (
+                                                                <button key={p} className={`form-page-btn${trainingsPage === p ? ' active' : ''}`} onClick={() => setTrainingsPage(p)}>{p}</button>
+                                                            ))}
+                                                        <button className="form-page-btn" disabled={trainingsPage >= tp} onClick={() => setTrainingsPage(p => Math.min(tp, p + 1))}>&raquo;</button>
+                                                    </div>
                                                 </div>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                     )}
 
@@ -1177,28 +1134,25 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Training Erogati */}
-                                            {filteredGivenTrainings.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((givenTrainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredGivenTrainings.length)}-{Math.min(givenTrainingsPage * ITEMS_PER_SECTION, filteredGivenTrainings.length)} di {filteredGivenTrainings.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${givenTrainingsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${givenTrainingsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setGivenTrainingsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, givenTrainingsPage - 3), givenTrainingsPage + 2)}
-                                                            <li className={`page-item ${givenTrainingsPage >= Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setGivenTrainingsPage(p => Math.min(Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
+                                            {filteredGivenTrainings.length > ITEMS_PER_SECTION && (() => {
+                                                const tp = Math.ceil(filteredGivenTrainings.length / ITEMS_PER_SECTION);
+                                                return (
+                                                <div className="form-pagination">
+                                                    <span className="form-pagination-info">
+                                                        {Math.min((givenTrainingsPage - 1) * ITEMS_PER_SECTION + 1, filteredGivenTrainings.length)}-{Math.min(givenTrainingsPage * ITEMS_PER_SECTION, filteredGivenTrainings.length)} di {filteredGivenTrainings.length}
+                                                    </span>
+                                                    <div className="form-pagination-buttons">
+                                                        <button className="form-page-btn" disabled={givenTrainingsPage === 1} onClick={() => setGivenTrainingsPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                        {Array.from({ length: tp }, (_, i) => i + 1)
+                                                            .filter(p => p >= Math.max(1, givenTrainingsPage - 2) && p <= Math.min(tp, givenTrainingsPage + 2))
+                                                            .map(p => (
+                                                                <button key={p} className={`form-page-btn${givenTrainingsPage === p ? ' active' : ''}`} onClick={() => setGivenTrainingsPage(p)}>{p}</button>
+                                                            ))}
+                                                        <button className="form-page-btn" disabled={givenTrainingsPage >= tp} onClick={() => setGivenTrainingsPage(p => Math.min(tp, p + 1))}>&raquo;</button>
+                                                    </div>
                                                 </div>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                     )}
 
@@ -1352,125 +1306,28 @@ function Formazione() {
                                                 ))
                                             )}
                                             {/* Paginazione Richieste Ricevute */}
-                                            {filteredReceivedRequests.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((receivedRequestsPage - 1) * ITEMS_PER_SECTION + 1, filteredReceivedRequests.length)}-{Math.min(receivedRequestsPage * ITEMS_PER_SECTION, filteredReceivedRequests.length)} di {filteredReceivedRequests.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${receivedRequestsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${receivedRequestsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setReceivedRequestsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, receivedRequestsPage - 3), receivedRequestsPage + 2)}
-                                                            <li className={`page-item ${receivedRequestsPage >= Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setReceivedRequestsPage(p => Math.min(Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Sent Requests List - Richieste Inviate */}
-                                    {activeTab === 'requests' && (
-                                        <div>
-                                            {filteredRequests.length === 0 ? (
-                                                <div className="text-center py-5">
-                                                    <i className="ri-file-list-3-line text-muted" style={{ fontSize: '64px' }}></i>
-                                                    <h5 className="mt-3 mb-1">Nessuna richiesta</h5>
-                                                    <p className="text-muted">Non hai ancora inviato richieste di training.</p>
-                                                </div>
-                                            ) : (
-                                                filteredRequests.slice((requestsPage - 1) * ITEMS_PER_SECTION, requestsPage * ITEMS_PER_SECTION).map(request => (
-                                                    <div key={request.id} className="border-bottom">
-                                                        <div
-                                                            className="p-3 d-flex justify-content-between align-items-start"
-                                                            style={{ cursor: 'pointer', background: expandedRequest === request.id ? '#f8f9fa' : 'white' }}
-                                                            onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}
-                                                        >
-                                                            <div className="flex-grow-1">
-                                                                <div className="d-flex align-items-center gap-2 mb-1">
-                                                                    <h6 className="mb-0">{request.subject}</h6>
-                                                                    <i className={`ri-arrow-${expandedRequest === request.id ? 'up' : 'down'}-s-line`}></i>
-                                                                </div>
-                                                                <div className="d-flex flex-wrap gap-2 align-items-center text-muted small">
-                                                                    <span><i className="ri-user-line me-1"></i>A: {request.requestedTo?.firstName} {request.requestedTo?.lastName}</span>
-                                                                    <span><i className="ri-calendar-line me-1"></i>{formatDate(request.createdAt)}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="d-flex gap-2 flex-wrap justify-content-end">
-                                                                <span className="badge" style={{ background: `${PRIORITIES[request.priority]?.color || '#6c757d'}20`, color: PRIORITIES[request.priority]?.color || '#6c757d' }}>
-                                                                    {PRIORITIES[request.priority]?.label || request.priority}
-                                                                </span>
-                                                                {request.status === 'pending' && <span className="badge bg-warning text-dark"><i className="ri-time-line me-1"></i>In Attesa</span>}
-                                                                {request.status === 'accepted' && <span className="badge bg-info"><i className="ri-check-line me-1"></i>In Preparazione</span>}
-                                                                {request.status === 'completed' && <span className="badge bg-success"><i className="ri-check-double-line me-1"></i>Completata</span>}
-                                                                {request.status === 'rejected' && <span className="badge bg-danger"><i className="ri-close-line me-1"></i>Rifiutata</span>}
-                                                            </div>
-                                                        </div>
-
-                                                        {expandedRequest === request.id && (
-                                                            <div className="p-4 bg-light border-top">
-                                                                {request.description && (
-                                                                    <div className="rounded p-3 mb-3" style={{ background: 'white', borderLeft: '4px solid #6f42c1' }}>
-                                                                        <h6 className="mb-2"><i className="ri-file-text-line me-2"></i>Descrizione</h6>
-                                                                        <p className="mb-0">{request.description}</p>
-                                                                    </div>
-                                                                )}
-                                                                {request.status === 'pending' && (
-                                                                    <>
-                                                                        <div className="alert alert-warning">
-                                                                            <i className="ri-time-line me-2"></i><strong>In attesa di risposta</strong>
-                                                                        </div>
-                                                                        <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); handleCancelRequest(request.id); }} disabled={actionLoading}>
-                                                                            <i className="ri-delete-bin-line me-1"></i>Cancella Richiesta
-                                                                        </button>
-                                                                    </>
-                                                                )}
-                                                                {request.status === 'completed' && request.reviewId && (
-                                                                    <div className="alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                                                        <div><i className="ri-check-double-line me-2"></i><strong>Training Completato!</strong></div>
-                                                                        <button className="btn btn-success btn-sm" onClick={(e) => { e.stopPropagation(); setExpandedTraining(request.reviewId); setActiveTab('trainings'); }}>
-                                                                            <i className="ri-eye-line me-1"></i>Visualizza Training
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                            {filteredReceivedRequests.length > ITEMS_PER_SECTION && (() => {
+                                                const tp = Math.ceil(filteredReceivedRequests.length / ITEMS_PER_SECTION);
+                                                return (
+                                                <div className="form-pagination">
+                                                    <span className="form-pagination-info">
+                                                        {Math.min((receivedRequestsPage - 1) * ITEMS_PER_SECTION + 1, filteredReceivedRequests.length)}-{Math.min(receivedRequestsPage * ITEMS_PER_SECTION, filteredReceivedRequests.length)} di {filteredReceivedRequests.length}
+                                                    </span>
+                                                    <div className="form-pagination-buttons">
+                                                        <button className="form-page-btn" disabled={receivedRequestsPage === 1} onClick={() => setReceivedRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                        {Array.from({ length: tp }, (_, i) => i + 1)
+                                                            .filter(p => p >= Math.max(1, receivedRequestsPage - 2) && p <= Math.min(tp, receivedRequestsPage + 2))
+                                                            .map(p => (
+                                                                <button key={p} className={`form-page-btn${receivedRequestsPage === p ? ' active' : ''}`} onClick={() => setReceivedRequestsPage(p)}>{p}</button>
+                                                            ))}
+                                                        <button className="form-page-btn" disabled={receivedRequestsPage >= tp} onClick={() => setReceivedRequestsPage(p => Math.min(tp, p + 1))}>&raquo;</button>
                                                     </div>
-                                                ))
-                                            )}
-                                            {/* Paginazione Richieste Inviate */}
-                                            {filteredRequests.length > ITEMS_PER_SECTION && (
-                                                <div className="d-flex justify-content-between align-items-center p-3 border-top">
-                                                    <small className="text-muted">
-                                                        Mostrando {Math.min((requestsPage - 1) * ITEMS_PER_SECTION + 1, filteredRequests.length)}-{Math.min(requestsPage * ITEMS_PER_SECTION, filteredRequests.length)} di {filteredRequests.length}
-                                                    </small>
-                                                    <nav>
-                                                        <ul className="pagination pagination-sm mb-0">
-                                                            <li className={`page-item ${requestsPage === 1 ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setRequestsPage(p => Math.max(1, p - 1))}>&laquo;</button>
-                                                            </li>
-                                                            {Array.from({ length: Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) }, (_, i) => (
-                                                                <li key={i} className={`page-item ${requestsPage === i + 1 ? 'active' : ''}`}>
-                                                                    <button className="page-link" onClick={() => setRequestsPage(i + 1)}>{i + 1}</button>
-                                                                </li>
-                                                            )).slice(Math.max(0, requestsPage - 3), requestsPage + 2)}
-                                                            <li className={`page-item ${requestsPage >= Math.ceil(filteredRequests.length / ITEMS_PER_SECTION) ? 'disabled' : ''}`}>
-                                                                <button className="page-link" onClick={() => setRequestsPage(p => Math.min(Math.ceil(filteredRequests.length / ITEMS_PER_SECTION), p + 1))}>&raquo;</button>
-                                                            </li>
-                                                        </ul>
-                                                    </nav>
                                                 </div>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                     )}
+
                                 </div>
                             </div>
                         </>
@@ -1545,7 +1402,15 @@ function Formazione() {
                                                         style={{ background: SPECIALTY_GRADIENTS[member.specialty] || DEFAULT_GRADIENT, height: '70px' }}
                                                     >
                                                         <div className="position-absolute top-0 start-0 m-2">
-                                                            <span className={`badge bg-${ROLE_COLORS[member.role] || 'secondary'} small`}>
+                                                            <span className="badge small" style={{
+                                                                background: '#fff',
+                                                                color: ({
+                                                                    nutrizione: '#16a34a', nutrizionista: '#16a34a',
+                                                                    coach: '#ea580c',
+                                                                    psicologia: '#db2777', psicologo: '#db2777',
+                                                                })[member.specialty] || '#64748b',
+                                                                fontWeight: 600,
+                                                            }}>
                                                                 {ROLE_LABELS[member.role] || 'N/D'}
                                                             </span>
                                                         </div>
@@ -1562,14 +1427,36 @@ function Formazione() {
                                                     <div className="card-body text-center pt-5 pb-3">
                                                         <h5 className="fw-semibold mb-1">{member.firstName} {member.lastName}</h5>
                                                         <p className="text-muted small mb-3" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.email}</p>
-                                                        {member.specialty && (
-                                                            <span className={`badge rounded-pill px-2 py-1 bg-${SPECIALTY_COLORS[member.specialty] || 'secondary'}-subtle text-${SPECIALTY_COLORS[member.specialty] || 'secondary'}`} style={{ fontSize: '11px' }}>
-                                                                {SPECIALTY_LABELS[member.specialty] || member.specialty}
-                                                            </span>
-                                                        )}
+                                                        {member.specialty && (() => {
+                                                            const specColor = ({
+                                                                nutrizione: '#16a34a', nutrizionista: '#16a34a',
+                                                                coach: '#ea580c',
+                                                                psicologia: '#db2777', psicologo: '#db2777',
+                                                                health_manager: '#ec4899',
+                                                            })[member.specialty] || '#64748b';
+                                                            return (
+                                                                <span className="badge rounded-pill px-2 py-1" style={{ fontSize: '11px', background: '#fff', color: specColor, border: `1px solid ${specColor}30` }}>
+                                                                    {SPECIALTY_LABELS[member.specialty] || member.specialty}
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </div>
-                                                    <div className="card-footer bg-light border-0 py-2">
-                                                        <button className="btn btn-sm btn-outline-primary w-100" onClick={() => handleSelectProfessional(member)}>
+                                                    <div className="card-footer border-0 py-2" style={{ background: 'transparent' }}>
+                                                        <button
+                                                            className="btn btn-sm w-100"
+                                                            style={{
+                                                                background: '#25B36A',
+                                                                color: '#fff',
+                                                                borderRadius: 20,
+                                                                fontWeight: 600,
+                                                                fontSize: 13,
+                                                                border: 'none',
+                                                                transition: 'all 0.2s ease',
+                                                            }}
+                                                            onMouseEnter={e => { e.currentTarget.style.background = '#1e9a5a'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(37,179,106,0.3)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.background = '#25B36A'; e.currentTarget.style.boxShadow = 'none'; }}
+                                                            onClick={() => handleSelectProfessional(member)}
+                                                        >
                                                             <i className="ri-book-open-line me-1"></i>Vedi Training
                                                         </button>
                                                     </div>
@@ -1580,72 +1467,24 @@ function Formazione() {
 
                                     {/* Paginazione */}
                                     {totalPages > 1 && (
-                                        <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                                            <div className="text-muted small">
-                                                Pagina {currentPage} di {totalPages} ({filteredProfessionals.length} professionisti)
+                                        <div className="form-pagination" style={{ marginTop: '20px' }}>
+                                            <span className="form-pagination-info">
+                                                Pagina {currentPage} di {totalPages} &middot; {filteredProfessionals.length} professionisti
+                                            </span>
+                                            <div className="form-pagination-buttons">
+                                                <button className="form-page-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>&laquo;</button>
+                                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                                    let pageNum;
+                                                    if (totalPages <= 5) pageNum = i + 1;
+                                                    else if (currentPage <= 3) pageNum = i + 1;
+                                                    else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                                                    else pageNum = currentPage - 2 + i;
+                                                    return (
+                                                        <button key={pageNum} className={`form-page-btn${currentPage === pageNum ? ' active' : ''}`} onClick={() => setCurrentPage(pageNum)}>{pageNum}</button>
+                                                    );
+                                                })}
+                                                <button className="form-page-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>&raquo;</button>
                                             </div>
-                                            <nav>
-                                                <ul className="pagination pagination-sm mb-0">
-                                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(1)}
-                                                            disabled={currentPage === 1}
-                                                        >
-                                                            <i className="ri-skip-back-mini-line"></i>
-                                                        </button>
-                                                    </li>
-                                                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                            disabled={currentPage === 1}
-                                                        >
-                                                            <i className="ri-arrow-left-s-line"></i>
-                                                        </button>
-                                                    </li>
-                                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                        let pageNum;
-                                                        if (totalPages <= 5) {
-                                                            pageNum = i + 1;
-                                                        } else if (currentPage <= 3) {
-                                                            pageNum = i + 1;
-                                                        } else if (currentPage >= totalPages - 2) {
-                                                            pageNum = totalPages - 4 + i;
-                                                        } else {
-                                                            pageNum = currentPage - 2 + i;
-                                                        }
-                                                        return (
-                                                            <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
-                                                                <button
-                                                                    className="page-link"
-                                                                    onClick={() => setCurrentPage(pageNum)}
-                                                                >
-                                                                    {pageNum}
-                                                                </button>
-                                                            </li>
-                                                        );
-                                                    })}
-                                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                            disabled={currentPage === totalPages}
-                                                        >
-                                                            <i className="ri-arrow-right-s-line"></i>
-                                                        </button>
-                                                    </li>
-                                                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                                                        <button
-                                                            className="page-link"
-                                                            onClick={() => setCurrentPage(totalPages)}
-                                                            disabled={currentPage === totalPages}
-                                                        >
-                                                            <i className="ri-skip-forward-mini-line"></i>
-                                                        </button>
-                                                    </li>
-                                                </ul>
-                                            </nav>
                                         </div>
                                     )}
                                 </>
@@ -1653,59 +1492,6 @@ function Formazione() {
                         </>
                     )}
 
-                    {/* Request Training Modal */}
-                    {showRequestModal && (
-                        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                            <div className="modal-dialog modal-dialog-centered">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h5 className="modal-title"><i className="ri-add-circle-line me-2"></i>Richiedi Training</h5>
-                                        <button type="button" className="btn-close" onClick={() => setShowRequestModal(false)} disabled={actionLoading}></button>
-                                    </div>
-                                    <div className="modal-body">
-                                        <div className="mb-3">
-                                            <label className="form-label">Destinatario *</label>
-                                            <select className="form-select" value={newRequest.recipient_id} onChange={(e) => setNewRequest(prev => ({ ...prev, recipient_id: e.target.value }))} disabled={actionLoading || recipientsLoading}>
-                                                <option value="">Seleziona un destinatario...</option>
-                                                {recipients.map(r => <option key={r.id} value={r.id}>{r.name} {r.role ? `- ${r.role}` : ''} {r.department ? `(${r.department})` : ''}</option>)}
-                                            </select>
-                                            {recipientsLoading && (
-                                                <small className="text-muted d-block mt-2">Caricamento destinatari...</small>
-                                            )}
-                                            {!recipientsLoading && recipientsLoaded && recipients.length === 0 && (
-                                                <small className="text-danger d-block mt-2">
-                                                    Nessun destinatario disponibile. Verificare assegnazione Team Leader / configurazione team.
-                                                </small>
-                                            )}
-                                        </div>
-                                        <div className="mb-3">
-                                            <label className="form-label">Argomento *</label>
-                                            <input type="text" className="form-control" placeholder="Es: Gestione pazienti diabetici" value={newRequest.subject} onChange={(e) => setNewRequest(prev => ({ ...prev, subject: e.target.value }))} disabled={actionLoading} />
-                                        </div>
-                                        <div className="mb-3">
-                                            <label className="form-label">Descrizione</label>
-                                            <textarea className="form-control" rows="4" placeholder="Descrivi cosa vorresti approfondire..." value={newRequest.description} onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))} disabled={actionLoading}></textarea>
-                                        </div>
-                                        <div className="mb-3">
-                                            <label className="form-label">Priorità</label>
-                                            <select className="form-select" value={newRequest.priority} onChange={(e) => setNewRequest(prev => ({ ...prev, priority: e.target.value }))} disabled={actionLoading}>
-                                                <option value="low">Bassa</option>
-                                                <option value="normal">Normale</option>
-                                                <option value="high">Alta</option>
-                                                <option value="urgent">Urgente</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button className="btn btn-light" onClick={() => setShowRequestModal(false)} disabled={actionLoading}>Annulla</button>
-                                        <button className="btn btn-success" onClick={handleCreateRequest} disabled={!newRequest.subject.trim() || !newRequest.recipient_id || actionLoading}>
-                                            {actionLoading ? <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</> : <><i className="ri-send-plane-line me-2"></i>Invia Richiesta</>}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                     </div>
 
                     {/* Acknowledge Modal */}
@@ -2261,131 +2047,44 @@ function Formazione() {
 
             {/* Stats Cards */}
             <div className="row g-3 mb-4 align-items-start">
-                <div className="col-xl-3 col-sm-6">
-                    <div
-                        className="card border-0 shadow-sm"
-                        style={{
-                            height: 'auto',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            borderLeft: activeTab === 'trainings' ? '4px solid #6f42c1' : 'none'
-                        }}
-                        onClick={() => setActiveTab('trainings')}
-                    >
-                        <div className="card-body">
-                            <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center"
-                                    style={{ width: '48px', height: '48px', background: 'rgba(111, 66, 193, 0.1)' }}>
-                                    <i className="ri-book-open-line text-purple fs-4" style={{ color: '#6f42c1' }}></i>
+                {[
+                    { label: 'Training Ricevuti', value: stats.totalTrainings, icon: 'ri-book-open-line', color: '#3b82f6', badge: stats.unacknowledged > 0 ? `${stats.unacknowledged} da confermare` : null },
+                    { label: 'Richieste Inviate', value: requests.length, icon: 'ri-file-list-3-line', color: '#0dcaf0', badge: stats.pendingRequests > 0 ? `${stats.pendingRequests} in attesa` : null },
+                    { label: 'Messaggi non letti', value: stats.unreadMessages, icon: 'ri-message-3-line', color: stats.unreadMessages > 0 ? '#f97316' : '#22c55e' },
+                    { label: 'Completati', value: stats.completedRequests, icon: 'ri-check-double-line', color: '#22c55e' },
+                ].map((stat, idx) => (
+                    <div key={idx} className="col-xl-3 col-sm-6">
+                        <div className="welcome-kpi-card-sm">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div className="kpi-label">{stat.label}</div>
+                                    <div className="kpi-value">{stat.value}</div>
+                                    {stat.badge && <div style={{ marginTop: 4 }}><span className="badge bg-warning text-dark" style={{ fontSize: 11 }}>{stat.badge}</span></div>}
                                 </div>
-                                <div className="ms-3">
-                                    <h3 className="mb-0 fw-bold">{stats.totalTrainings}</h3>
-                                    <span className="text-muted small">Training Ricevuti</span>
-                                </div>
-                            </div>
-                            {stats.unacknowledged > 0 && (
-                                <div className="mt-2">
-                                    <span className="badge bg-warning text-dark">{stats.unacknowledged} da confermare</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="col-xl-3 col-sm-6">
-                    <div
-                        className="card border-0 shadow-sm"
-                        style={{
-                            height: 'auto',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            borderLeft: activeTab === 'requests' ? '4px solid #0dcaf0' : 'none'
-                        }}
-                        onClick={() => setActiveTab('requests')}
-                    >
-                        <div className="card-body">
-                            <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center"
-                                    style={{ width: '48px', height: '48px', background: 'rgba(13, 202, 240, 0.1)' }}>
-                                    <i className="ri-file-list-3-line fs-4" style={{ color: '#0dcaf0' }}></i>
-                                </div>
-                                <div className="ms-3">
-                                    <h3 className="mb-0 fw-bold">{requests.length}</h3>
-                                    <span className="text-muted small">Richieste Inviate</span>
-                                </div>
-                            </div>
-                            {stats.pendingRequests > 0 && (
-                                <div className="mt-2">
-                                    <span className="badge bg-warning text-dark">{stats.pendingRequests} in attesa</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="col-xl-3 col-sm-6">
-                    <div className="card border-0 shadow-sm" style={{ height: 'auto' }}>
-                        <div className="card-body">
-                            <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center"
-                                    style={{
-                                        width: '48px', height: '48px',
-                                        background: stats.unreadMessages > 0 ? 'rgba(255, 193, 7, 0.2)' : 'rgba(25, 135, 84, 0.1)'
-                                    }}>
-                                    <i className="ri-message-3-line fs-4" style={{ color: stats.unreadMessages > 0 ? '#ffc107' : '#198754' }}></i>
-                                </div>
-                                <div className="ms-3">
-                                    <h3 className="mb-0 fw-bold">{stats.unreadMessages}</h3>
-                                    <span className="text-muted small">Messaggi non letti</span>
+                                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                                    <i className={`${stat.icon} fs-5`}></i>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div className="col-xl-3 col-sm-6">
-                    <div className="card border-0 shadow-sm" style={{ height: 'auto' }}>
-                        <div className="card-body">
-                            <div className="d-flex align-items-center">
-                                <div className="rounded-circle d-flex align-items-center justify-content-center"
-                                    style={{ width: '48px', height: '48px', background: 'rgba(25, 135, 84, 0.1)' }}>
-                                    <i className="ri-check-double-line fs-4 text-success"></i>
-                                </div>
-                                <div className="ms-3">
-                                    <h3 className="mb-0 fw-bold">{stats.completedRequests}</h3>
-                                    <span className="text-muted small">Completati</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
             {/* Tab Navigation */}
             <div className="card mb-4">
                 <div className="card-header bg-white border-bottom">
-                    <ul className="nav nav-tabs card-header-tabs">
-                        <li className="nav-item">
-                            <button
-                                className={`nav-link ${activeTab === 'trainings' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('trainings')}
-                            >
-                                <i className="ri-book-open-line me-2"></i>
-                                Training Ricevuti
-                                {stats.unacknowledged > 0 && <span className="badge bg-danger ms-2">{stats.unacknowledged}</span>}
-                            </button>
-                        </li>
-                        <li className="nav-item">
-                            <button
-                                className={`nav-link ${activeTab === 'requests' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('requests')}
-                            >
-                                <i className="ri-file-list-3-line me-2"></i>
-                                Le Mie Richieste
-                                {stats.pendingRequests > 0 && <span className="badge bg-warning text-dark ms-2">{stats.pendingRequests}</span>}
-                            </button>
-                        </li>
-                    </ul>
+                    <div className="formazione-tabs formazione-subtabs">
+                        <button className={`formazione-tab${activeTab === 'trainings' ? ' active' : ''}`} onClick={() => setActiveTab('trainings')}>
+                            <i className="ri-book-open-line"></i>
+                            Training Ricevuti
+                            {stats.unacknowledged > 0 && <span className="formazione-tab-badge danger">{stats.unacknowledged}</span>}
+                        </button>
+                        <button className={`formazione-tab${activeTab === 'requests' ? ' active' : ''}`} onClick={() => setActiveTab('requests')}>
+                            <i className="ri-file-list-3-line"></i>
+                            Le Mie Richieste
+                            {stats.pendingRequests > 0 && <span className="formazione-tab-badge warning">{stats.pendingRequests}</span>}
+                        </button>
+                    </div>
                 </div>
                 <div className="px-3 py-2 border-bottom bg-white">
                     <div className="position-relative">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
 import originsService from "../../services/originsService";
 import Swal from "sweetalert2";
+import './OriginSettings.css';
 
 const OriginSettings = () => {
   const [origins, setOrigins] = useState([]);
@@ -39,7 +39,7 @@ const OriginSettings = () => {
     setEditingOrigin(null);
   };
 
-  const handlSave = async () => {
+  const handleSave = async () => {
     if (!formData.name) {
       Swal.fire("Errore", "Il nome è obbligatorio", "error");
       return;
@@ -83,97 +83,139 @@ const OriginSettings = () => {
   };
 
   return (
-    <div className="card">
-        <div className="card-header d-flex justify-content-between align-items-center">
-            <h4 className="card-title">Gestione Origini</h4>
-            <Button variant="primary" onClick={() => handleShowModal(null)}>
-                <i className="fa fa-plus me-2"></i> Nuova Origine
-            </Button>
+    <div className="org-page">
+      {/* Header */}
+      <div className="org-header">
+        <div>
+          <h4>Gestione Origini</h4>
+          <p>Configura le origini di provenienza dei clienti</p>
         </div>
-        <div className="card-body">
-            {loading ? (
-                <div className="text-center">Caricamento...</div>
-            ) : (
-                <div className="table-responsive">
-                    <table className="table table-responsive-md">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nome</th>
-                                <th>Stato</th>
-                                <th>Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {origins.map((origin) => (
-                                <tr key={origin.id}>
-                                    <td>{origin.id}</td>
-                                    <td>{origin.name}</td>
-                                    <td>
-                                        <span className={`badge badge-${origin.active ? "success" : "danger"}`}>
-                                            {origin.active ? "Attivo" : "Inattivo"}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div className="d-flex action-button">
-                                            <Button variant="info" size="sm" className="me-2" onClick={() => handleShowModal(origin)}>
-                                                <i className="fa fa-pencil"></i>
-                                            </Button>
-                                            <Button variant="danger" size="sm" onClick={() => handleDelete(origin.id)}>
-                                                <i className="fa fa-trash"></i>
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {origins.length === 0 && (
-                                <tr>
-                                    <td colSpan="4" className="text-center">Nessuna origine trovata.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+        <div className="org-header-actions">
+          <button className="org-add-btn" onClick={() => handleShowModal(null)}>
+            <i className="ri-add-line"></i> Nuova Origine
+          </button>
         </div>
+      </div>
 
-        <Modal show={showModal} onHide={handleCloseModal}>
-            <Modal.Header closeButton>
-                <Modal.Title>{editingOrigin ? "Modifica Origine" : "Nuova Origine"}</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <Form>
-                    <Form.Group className="mb-3">
-                        <Form.Label>Nome Identificativo</Form.Label>
-                        <Form.Control 
-                            type="text" 
-                            placeholder="Es. influencer_chiara" 
-                            value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        />
-                         <Form.Text className="text-muted">
-                            Nome univoco usato per filtrare (es. nei link)
-                        </Form.Text>
-                    </Form.Group>
-                    <Form.Group className="mb-3">
-                        <Form.Check 
-                            type="checkbox" 
-                            label="Attivo" 
-                            checked={formData.active}
-                            onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                        />
-                    </Form.Group>
-                </Form>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={handleCloseModal}>
-                    Annulla
-                </Button>
-                <Button variant="primary" onClick={handlSave}>
-                    Salva
-                </Button>
-            </Modal.Footer>
-        </Modal>
+      {/* Table Card */}
+      <div className="org-card">
+        {loading ? (
+          <div className="org-loading">
+            <div className="org-spinner"></div>
+            <p>Caricamento origini...</p>
+          </div>
+        ) : origins.length === 0 ? (
+          <div className="org-empty">
+            <div className="org-empty-icon">
+              <i className="ri-compass-3-line"></i>
+            </div>
+            <h5>Nessuna origine trovata</h5>
+            <p>Crea la prima origine per iniziare a tracciare la provenienza dei clienti.</p>
+          </div>
+        ) : (
+          <div className="org-table-wrap">
+            <table className="org-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nome</th>
+                  <th>Stato</th>
+                  <th style={{ textAlign: 'right' }}>Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {origins.map((origin) => (
+                  <tr key={origin.id}>
+                    <td>
+                      <span className="org-id-badge">#{origin.id}</span>
+                    </td>
+                    <td>
+                      <div className="org-name-cell">
+                        <div className="org-name-icon">
+                          <i className="ri-compass-3-line"></i>
+                        </div>
+                        <span className="org-name-text">{origin.name}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`org-status-badge ${origin.active ? 'active' : 'inactive'}`}>
+                        <i className={origin.active ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill'}></i>
+                        {origin.active ? "Attivo" : "Inattivo"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="org-actions" style={{ justifyContent: 'flex-end' }}>
+                        <button
+                          className="org-action-btn edit"
+                          title="Modifica"
+                          onClick={() => handleShowModal(origin)}
+                        >
+                          <i className="ri-pencil-line"></i>
+                        </button>
+                        <button
+                          className="org-action-btn delete"
+                          title="Elimina"
+                          onClick={() => handleDelete(origin.id)}
+                        >
+                          <i className="ri-delete-bin-line"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="org-modal-overlay" onClick={handleCloseModal}>
+          <div className="org-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="org-modal-header">
+              <h5 className="org-modal-title">
+                {editingOrigin ? "Modifica Origine" : "Nuova Origine"}
+              </h5>
+              <button className="org-modal-close" onClick={handleCloseModal}>
+                <i className="ri-close-line"></i>
+              </button>
+            </div>
+            <div className="org-modal-body">
+              <div className="org-field">
+                <label className="org-label">Nome Identificativo</label>
+                <input
+                  type="text"
+                  className="org-input"
+                  placeholder="Es. influencer_chiara"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+                <div className="org-hint">Nome univoco usato per filtrare (es. nei link)</div>
+              </div>
+              <div className="org-toggle-wrap">
+                <label className="org-toggle">
+                  <input
+                    type="checkbox"
+                    checked={formData.active}
+                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                  />
+                  <span className="org-toggle-slider"></span>
+                </label>
+                <span className="org-toggle-label">Attivo</span>
+              </div>
+            </div>
+            <div className="org-modal-footer">
+              <button className="org-btn-cancel" onClick={handleCloseModal}>
+                Annulla
+              </button>
+              <button className="org-btn-save" onClick={handleSave}>
+                <i className="ri-save-line"></i> Salva
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -88,23 +88,38 @@ class RespondIOClient:
                     **kwargs
                 )
                 
-                # Log response body for debugging on errors
+                # Log completo per OGNI risposta (debug WAF/rate limit)
+                current_app.logger.info(
+                    f'[respond.io] {method} {url} → {response.status_code} '
+                    f'(Content-Type: {response.headers.get("Content-Type", "?")}, '
+                    f'Server: {response.headers.get("Server", "?")}, '
+                    f'X-Cache: {response.headers.get("X-Cache", "?")}, '
+                    f'X-Amz-Cf-Id: {response.headers.get("X-Amz-Cf-Id", "?")[:30] if response.headers.get("X-Amz-Cf-Id") else "?"})'
+                )
+
                 if response.status_code >= 400:
                     current_app.logger.error(f'API Error {response.status_code} for {url}')
-                    current_app.logger.error(f'Request headers: {self.headers}')
-                    current_app.logger.error(f'Response body: {response.text}')
-                    current_app.logger.error(f'Response headers: {dict(response.headers)}')
-                
-                # Check rate limit headers
+                    current_app.logger.error(f'Response body: {response.text[:500]}')
+
+                # 429: rate limit → aspetta e riprova
                 if response.status_code == 429:
                     retry_after = int(response.headers.get('Retry-After', retry_delay))
                     time.sleep(retry_after)
                     continue
-                
+
+                # 403: errore API o WAF block → NON ritentare
+                if response.status_code == 403:
+                    current_app.logger.error(f'403 for {url} - no retry')
+                    response.raise_for_status()
+
                 response.raise_for_status()
                 return response.json()
-                
+
+            except requests.exceptions.HTTPError:
+                # HTTPError (4xx/5xx): non ritentare, rilanciare subito
+                raise
             except requests.exceptions.RequestException as e:
+                # Errori di rete/timeout: ritenta
                 if attempt == max_retries - 1:
                     current_app.logger.error(f'API request failed: {str(e)}')
                     raise

@@ -16,8 +16,9 @@ from flask import current_app
 from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente, User, CheckForm, CheckFormTypeEnum,
-    ClientCheckAssignment, GHLOpportunityData, UserRoleEnum,
+    ClientCheckAssignment, GHLOpportunityData,
 )
+from corposostenibile.blueprints.client_checks.services import _public_checks_base_url
 
 
 # Check iniziali da assegnare
@@ -33,20 +34,6 @@ INITIAL_CHECKS = [
         "description": "Mockup temporaneo in attesa del secondo questionario definitivo.",
     },
 ]
-
-
-def _resolve_health_manager_id_by_email(health_manager_email: Optional[str]) -> Optional[int]:
-    normalized_email = (health_manager_email or "").strip().lower()
-    if not normalized_email:
-        return None
-
-    hm_user = User.query.filter(
-        db.func.lower(db.func.trim(User.email)) == normalized_email,
-        User.role == UserRoleEnum.health_manager,
-    ).first()
-    if hm_user:
-        return int(hm_user.id)
-    return None
 
 
 def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, Any]:
@@ -97,14 +84,6 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             ).strip()
 
     try:
-        hm_email = (opp_data.health_manager_email or "").strip().lower() or None
-        resolved_hm_id = _resolve_health_manager_id_by_email(hm_email)
-        if hm_email and not resolved_hm_id:
-            current_app.logger.warning(
-                "[opportunity_bridge] HM email %s non trovata tra gli utenti health_manager",
-                hm_email,
-            )
-
         # 1. Crea o recupera Cliente
         cliente = Cliente.query.filter_by(mail=email).first()
         if not cliente:
@@ -113,7 +92,6 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 mail=email,
                 service_status='pending_assignment',
                 show_in_clienti_lista=False,
-                health_manager_id=resolved_hm_id,
             )
             db.session.add(cliente)
             db.session.flush()
@@ -124,8 +102,6 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 cliente.nome_cognome = nome
             if lead_phone:
                 cliente.cellulare = lead_phone
-            if resolved_hm_id and cliente.health_manager_id != resolved_hm_id:
-                cliente.health_manager_id = resolved_hm_id
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
 
         if lead_phone and not getattr(cliente, "cellulare", None):
@@ -210,12 +186,12 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             send_initial_checks_single_email(cliente, assignments)
             result["email_sent"] = True
 
-            # 5. Sync verso Respond.io (assegna chat lead a HM + messaggio mock)
+            # 5. Sync verso Respond.io (assegna chat a HM + messaggio presentazione + messaggio link check)
             respond_sync = _sync_respond_io_on_initial_checks_sent(
                 cliente=cliente,
                 lead_phone=(opp_data.lead_phone or getattr(cliente, "cellulare", None) or "").strip(),
                 health_manager_email=(opp_data.health_manager_email or "").strip().lower() or None,
-                checks_count=len(assignments),
+                assignments=assignments,
             )
             result["respond_io"] = respond_sync
 
@@ -254,18 +230,20 @@ def _sync_respond_io_on_initial_checks_sent(
     cliente: Cliente,
     lead_phone: str,
     health_manager_email: Optional[str],
-    checks_count: int,
+    assignments: List[ClientCheckAssignment],
 ) -> Dict[str, Any]:
     """
     Chiamate Respond.io nel momento in cui inviamo la mail con i check iniziali:
-    1) assign/unassign conversazione al/alla HM
-    2) invio messaggio testo mock
+    1) Assign conversazione all'HM
+    2) Template 1: suite_benvenuto (presentazione HM)
+    3) Template 2: suite_check (link ai check iniziali)
     """
     sync_result: Dict[str, Any] = {
         "enabled": False,
         "identifier": None,
         "assigned": False,
-        "message_sent": False,
+        "presentation_sent": False,
+        "check_links_sent": False,
         "errors": [],
     }
 
@@ -302,22 +280,34 @@ def _sync_respond_io_on_initial_checks_sent(
         )
         return sync_result
 
-    # 1) Assign conversazione a HM (se disponibile)
+    import time
+    from datetime import datetime as _dt
+
+    channel_id = current_app.config.get("RESPOND_IO_DEFAULT_CHANNEL_ID")
+
+    def _ts():
+        return _dt.now().strftime("%H:%M:%S.%f")[:-3]
+
+    # ── 1) Assign conversazione a HM ──
     if health_manager_email:
+        current_app.logger.info(f"[opportunity_bridge] [{_ts()}] → Invio assign a {identifier}")
         try:
             respond_client.assign_conversation(
-                identifier=identifier,
+                contact_id=identifier,
                 assignee=health_manager_email,
             )
             sync_result["assigned"] = True
+            current_app.logger.info(f"[opportunity_bridge] [{_ts()}] ✓ assign OK")
         except Exception as assign_err:
-            sync_result["errors"].append(f"assign_error:{assign_err}")
-            current_app.logger.error(
-                "[opportunity_bridge] Respond.io assign error identifier=%s hm=%s err=%s",
-                identifier,
-                health_manager_email,
-                assign_err,
-            )
+            err_msg = str(assign_err).lower()
+            if "400" in str(assign_err) and "already assigned" in err_msg:
+                sync_result["assigned"] = True
+                current_app.logger.info(f"[opportunity_bridge] [{_ts()}] ✓ assign: già assegnato (ok)")
+            else:
+                sync_result["errors"].append(f"assign_error:{assign_err}")
+                current_app.logger.error(
+                    "[opportunity_bridge] [%s] ✗ assign error: %s", _ts(), assign_err,
+                )
     else:
         sync_result["errors"].append("missing_health_manager_email")
         current_app.logger.warning(
@@ -325,24 +315,53 @@ def _sync_respond_io_on_initial_checks_sent(
             cliente.cliente_id,
         )
 
-    # 2) Messaggio mock (senza channelId: usa ultimo canale interagito)
+    current_app.logger.info(f"[opportunity_bridge] [{_ts()}] Pausa 15s prima di suite_benvenuto...")
+    time.sleep(15)
+
+    # ── 2) Template 1: suite_benvenuto (nessuna variabile) ──
+    current_app.logger.info(f"[opportunity_bridge] [{_ts()}] → Invio suite_benvenuto a {identifier}")
     try:
-        mock_message = (
-            f"Ciao {cliente.nome_cognome or 'Cliente'}, abbiamo ricevuto la tua richiesta. "
-            f"Ti abbiamo inviato {checks_count} check iniziali via email."
-        )
-        respond_client.send_message(
+        respond_client.send_template_message(
             contact_id=identifier,
-            message=mock_message,
-            channel_id=current_app.config.get("RESPOND_IO_DEFAULT_CHANNEL_ID"),
+            template_name="suite_benvenuto",
+            channel_id=channel_id,
+            language="it",
         )
-        sync_result["message_sent"] = True
+        sync_result["presentation_sent"] = True
+        current_app.logger.info(f"[opportunity_bridge] [{_ts()}] ✓ suite_benvenuto OK")
     except Exception as msg_err:
-        sync_result["errors"].append(f"message_error:{msg_err}")
+        sync_result["errors"].append(f"presentation_error:{msg_err}")
         current_app.logger.error(
-            "[opportunity_bridge] Respond.io message error identifier=%s err=%s",
-            identifier,
-            msg_err,
+            "[opportunity_bridge] [%s] ✗ suite_benvenuto error: %s", _ts(), msg_err,
+        )
+
+    current_app.logger.info(f"[opportunity_bridge] [{_ts()}] Pausa 15s prima di suite_check...")
+    time.sleep(15)
+
+    # ── 3) Template 2: suite_check ({{1}} = URL check 1, {{2}} = URL check 2) ──
+    current_app.logger.info(f"[opportunity_bridge] [{_ts()}] → Invio suite_check a {identifier}")
+    try:
+        base_url = _public_checks_base_url()
+        check_urls = [a.get_public_url(base_url=base_url) for a in assignments]
+
+        parameters = [
+            {"type": "text", "text": check_urls[0] if len(check_urls) > 0 else "LINK CHECK 1"},
+            {"type": "text", "text": check_urls[1] if len(check_urls) > 1 else "LINK CHECK 2"},
+        ]
+
+        respond_client.send_template_message(
+            contact_id=identifier,
+            template_name="suite_check",
+            channel_id=channel_id,
+            language="it",
+            parameters=parameters,
+        )
+        sync_result["check_links_sent"] = True
+        current_app.logger.info(f"[opportunity_bridge] [{_ts()}] ✓ suite_check OK")
+    except Exception as msg_err:
+        sync_result["errors"].append(f"check_links_error:{msg_err}")
+        current_app.logger.error(
+            "[opportunity_bridge] [%s] ✗ suite_check error: %s", _ts(), msg_err,
         )
 
     return sync_result

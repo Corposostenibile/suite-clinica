@@ -19,6 +19,7 @@ from corposostenibile.models import (
     ServiceClienteAssignment,
     Cliente,
     Team,
+    User,
     UserRoleEnum,
     team_members,
 )
@@ -174,6 +175,16 @@ def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
         cliente = Cliente.query.filter(Cliente.mail.ilike(resolved_email)).first()
         if cliente:
             cliente_id = cliente.cliente_id
+    # Resolve health manager
+    hm = d.health_manager
+    health_manager = None
+    if hm:
+        health_manager = {
+            "id": hm.id,
+            "full_name": hm.full_name,
+            "avatar_url": hm.avatar_url,
+        }
+
     return {
         "id": d.id,
         "cliente_id": cliente_id,
@@ -181,6 +192,7 @@ def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
         "email": d.email or extracted["email"],
         "lead_phone": d.lead_phone or extracted["lead_phone"],
         "health_manager_email": d.health_manager_email or extracted["health_manager_email"],
+        "health_manager": health_manager,
         "storia": d.storia,
         "pacchetto": d.pacchetto,
         "durata": d.durata,
@@ -220,11 +232,31 @@ def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> G
         or "0"
     )
 
+    # Resolve health manager by email
+    hm_email = extracted["health_manager_email"]
+    hm_id = None
+    if hm_email:
+        hm_user = User.query.filter(
+            User.email.ilike(hm_email.strip()),
+            User.is_active == True,
+        ).first()
+        if hm_user:
+            hm_id = hm_user.id
+            current_app.logger.info(
+                "[GHL Webhook] Resolved HM email %s -> User #%s (%s)",
+                hm_email, hm_user.id, hm_user.full_name,
+            )
+        else:
+            current_app.logger.warning(
+                "[GHL Webhook] HM email %s not found in database", hm_email,
+            )
+
     opp_data = GHLOpportunityData(
         nome=nome,
         email=extracted["email"] or None,
         lead_phone=extracted["lead_phone"] or None,
-        health_manager_email=extracted["health_manager_email"] or None,
+        health_manager_email=hm_email or None,
+        health_manager_id=hm_id,
         storia=storia,
         pacchetto=pacchetto,
         durata=durata,
@@ -235,12 +267,12 @@ def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> G
     db.session.commit()
 
     current_app.logger.info(
-        "[GHL Webhook] Saved opportunity data: %s - %s (ID: %s, phone=%s, hm_email=%s)",
+        "[GHL Webhook] Saved opportunity data: %s - %s (ID: %s, phone=%s, hm_id=%s)",
         opp_data.nome,
         opp_data.pacchetto,
         opp_data.id,
         opp_data.lead_phone,
-        opp_data.health_manager_email,
+        opp_data.health_manager_id,
     )
 
     return opp_data
