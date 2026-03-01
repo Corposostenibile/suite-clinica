@@ -485,7 +485,7 @@
 .cl-team-avatars {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 2px;
 }
 
@@ -699,6 +699,23 @@
 .cl-reset-btn:hover {
   background: #1e9957;
   border-color: #1e9957;
+}
+
+/* ── Inline Filter Select (specialty pages) ── */
+.cl-filter-select {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  font-size: 14px;
+  color: #475569;
+  background: white;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.cl-filter-select:focus {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
 }
 
 /* ── Responsive ── */

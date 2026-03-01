@@ -228,6 +228,14 @@ const SideBar = () => {
                   <span className="nav-text">Gestione Origini</span>
                 </Link>
               </li>
+              {!user?.impersonating && (
+                <li className={path === 'admin/impersonate' ? 'mm-active' : ''}>
+                  <Link to="/admin/impersonate" className={path === 'admin/impersonate' ? 'mm-active' : ''}>
+                    <i className="ri-user-shared-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                    <span className="nav-text">Accedi come</span>
+                  </Link>
+                </li>
+              )}
             </>
           )}
         </ul>

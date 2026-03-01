@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   ROLE_LABELS,
@@ -101,6 +101,39 @@ function Profilo() {
   const [profileUser, setProfileUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
+
+  // Tab scroll arrows
+  const tabsRef = useRef(null);
+  const [tabScroll, setTabScroll] = useState({ canLeft: false, canRight: false });
+
+  const updateTabArrows = useCallback(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    setTabScroll({
+      canLeft: el.scrollLeft > 0,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    updateTabArrows();
+    el.addEventListener('scroll', updateTabArrows, { passive: true });
+    const ro = new ResizeObserver(updateTabArrows);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateTabArrows);
+      ro.disconnect();
+    };
+  }, [updateTabArrows, loading]);
+
+  const scrollTabs = useCallback((dir) => {
+    const el = tabsRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 200, behavior: 'smooth' });
+  }, []);
+
   const [capacityLoading, setCapacityLoading] = useState(false);
   const [capacityError, setCapacityError] = useState('');
   const [capacityRow, setCapacityRow] = useState(null);
@@ -489,39 +522,51 @@ function Profilo() {
         {/* Right: Tabs */}
         <div className="tl-profile-main">
           {/* Tab Nav */}
-          <div className="tl-tab-nav">
-            <button className={`tl-tab-btn${activeTab === 'info' ? ' active' : ''}`} onClick={() => setActiveTab('info')}>
-              <i className="ri-user-settings-line"></i>Info
-            </button>
-            {(!isCurrentUserProfessionista || isOwnProfile) && (
-              <button className={`tl-tab-btn${activeTab === 'teams' ? ' active' : ''}`} onClick={() => setActiveTab('teams')}>
-                <i className="ri-team-line"></i>
-                {isCurrentUserProfessionista ? 'Team' : 'Team'}
-                {(isCurrentUserProfessionista ? user.teams?.length : user.teams_led?.length) > 0 && (
-                  <span className="tl-tab-count">{isCurrentUserProfessionista ? user.teams.length : user.teams_led.length}</span>
-                )}
+          <div className="tl-tab-nav-wrapper">
+            {tabScroll.canLeft && (
+              <button className="tl-tab-arrow tl-tab-arrow-left" onClick={() => scrollTabs(-1)} aria-label="Scorri tab a sinistra">
+                <i className="ri-arrow-left-s-line"></i>
               </button>
             )}
-            <button className={`tl-tab-btn${activeTab === 'clienti' ? ' active' : ''}`} onClick={() => setActiveTab('clienti')}>
-              <i className="ri-user-heart-line"></i>Pazienti
-            </button>
-            <button className={`tl-tab-btn${activeTab === 'check' ? ' active' : ''}`} onClick={() => setActiveTab('check')}>
-              <i className="ri-checkbox-multiple-line"></i>Check
-            </button>
-            <button className={`tl-tab-btn${activeTab === 'formazione' ? ' active' : ''}`} onClick={() => setActiveTab('formazione')}>
-              <i className="ri-book-open-line"></i>Formazione
-            </button>
-            <button className={`tl-tab-btn${activeTab === 'task' ? ' active' : ''}`} onClick={() => setActiveTab('task')}>
-              <i className="ri-task-line"></i>Task
-            </button>
-            {canViewQualityTab && (
-              <button className={`tl-tab-btn${activeTab === 'quality' ? ' active' : ''}`} onClick={() => setActiveTab('quality')}>
-                <i className="ri-star-line"></i>Quality
+            <div className="tl-tab-nav" ref={tabsRef}>
+              <button className={`tl-tab-btn${activeTab === 'info' ? ' active' : ''}`} onClick={() => setActiveTab('info')}>
+                <i className="ri-user-settings-line"></i>Info
               </button>
-            )}
-            {canViewCapacityTab && (
-              <button className={`tl-tab-btn${activeTab === 'capienza' ? ' active' : ''}`} onClick={() => setActiveTab('capienza')}>
-                <i className="ri-bar-chart-box-line"></i>Capienza
+              {(!isCurrentUserProfessionista || isOwnProfile) && (
+                <button className={`tl-tab-btn${activeTab === 'teams' ? ' active' : ''}`} onClick={() => setActiveTab('teams')}>
+                  <i className="ri-team-line"></i>
+                  {isCurrentUserProfessionista ? 'Team' : 'Team'}
+                  {(isCurrentUserProfessionista ? user.teams?.length : user.teams_led?.length) > 0 && (
+                    <span className="tl-tab-count">{isCurrentUserProfessionista ? user.teams.length : user.teams_led.length}</span>
+                  )}
+                </button>
+              )}
+              <button className={`tl-tab-btn${activeTab === 'clienti' ? ' active' : ''}`} onClick={() => setActiveTab('clienti')}>
+                <i className="ri-user-heart-line"></i>Pazienti
+              </button>
+              <button className={`tl-tab-btn${activeTab === 'check' ? ' active' : ''}`} onClick={() => setActiveTab('check')}>
+                <i className="ri-checkbox-multiple-line"></i>Check
+              </button>
+              <button className={`tl-tab-btn${activeTab === 'formazione' ? ' active' : ''}`} onClick={() => setActiveTab('formazione')}>
+                <i className="ri-book-open-line"></i>Formazione
+              </button>
+              <button className={`tl-tab-btn${activeTab === 'task' ? ' active' : ''}`} onClick={() => setActiveTab('task')}>
+                <i className="ri-task-line"></i>Task
+              </button>
+              {canViewQualityTab && (
+                <button className={`tl-tab-btn${activeTab === 'quality' ? ' active' : ''}`} onClick={() => setActiveTab('quality')}>
+                  <i className="ri-star-line"></i>Quality
+                </button>
+              )}
+              {canViewCapacityTab && (
+                <button className={`tl-tab-btn${activeTab === 'capienza' ? ' active' : ''}`} onClick={() => setActiveTab('capienza')}>
+                  <i className="ri-bar-chart-box-line"></i>Capienza
+                </button>
+              )}
+            </div>
+            {tabScroll.canRight && (
+              <button className="tl-tab-arrow tl-tab-arrow-right" onClick={() => scrollTabs(1)} aria-label="Scorri tab a destra">
+                <i className="ri-arrow-right-s-line"></i>
               </button>
             )}
           </div>

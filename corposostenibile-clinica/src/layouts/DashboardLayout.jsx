@@ -7,6 +7,7 @@ import Header from '../jsx/layouts/nav/Header';
 import ChatBox from '../jsx/layouts/ChatBox';
 import { ThemeContext } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import authService from '../services/authService';
 
 /// Style
 import '../styles/template.css';
@@ -49,6 +50,58 @@ function DashboardContent() {
       {/* Content Body */}
       <div className="content-body">
         <div className="container-fluid">
+          {user?.impersonating && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#fff',
+              padding: '12px 20px',
+              borderRadius: '14px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+              boxShadow: '0 2px 12px rgba(245, 158, 11, 0.25)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: 600 }}>
+                <i className="ri-spy-line" style={{ fontSize: '20px' }}></i>
+                <span>
+                  Stai navigando come <strong>{user.full_name}</strong>
+                  {user.original_admin_name && (
+                    <span style={{ opacity: 0.85, fontWeight: 400, marginLeft: '6px' }}>
+                      (admin: {user.original_admin_name})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    await authService.stopImpersonation();
+                    window.location.href = '/welcome';
+                  } catch (err) {
+                    console.error('Error stopping impersonation:', err);
+                  }
+                }}
+                style={{
+                  padding: '6px 18px',
+                  border: '1.5px solid rgba(255,255,255,0.5)',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.15)'}
+              >
+                Torna al tuo account
+              </button>
+            </div>
+          )}
           <Outlet context={{ user }} />
         </div>
       </div>

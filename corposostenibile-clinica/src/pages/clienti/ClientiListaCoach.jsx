@@ -1,142 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import clientiService, {
   GIORNI_LABELS,
   STATI_PROFESSIONISTA_COLORS,
   LUOGO_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
-
-// Stili per la tabella professionale (stesso stile di ClientiList)
-const tableStyles = {
-  card: {
-    borderRadius: '16px',
-    border: 'none',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    borderBottom: '2px solid #e2e8f0',
-  },
-  th: {
-    padding: '16px 20px',
-    fontSize: '11px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    color: '#64748b',
-    whiteSpace: 'nowrap',
-    borderBottom: 'none',
-  },
-  td: {
-    padding: '16px 20px',
-    fontSize: '14px',
-    color: '#334155',
-    borderBottom: '1px solid #f1f5f9',
-    verticalAlign: 'middle',
-  },
-  row: {
-    transition: 'all 0.15s ease',
-  },
-  nameLink: {
-    color: '#3b82f6',
-    fontWeight: 600,
-    textDecoration: 'none',
-    transition: 'color 0.15s ease',
-  },
-  emptyCell: {
-    color: '#cbd5e1',
-    fontStyle: 'normal',
-    fontSize: '13px',
-  },
-  badge: {
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'capitalize',
-    letterSpacing: '0.3px',
-  },
-  actionBtn: {
-    width: '36px',
-    height: '36px',
-    padding: 0,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '8px',
-    border: '1px solid',
-    transition: 'all 0.15s ease',
-    marginLeft: '6px',
-  },
-  avatarTeam: {
-    position: 'relative',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    marginRight: '4px',
-  },
-  avatarInitials: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '10px',
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    border: '2px solid #fff',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: '-2px',
-    right: '-2px',
-    fontSize: '7px',
-    fontWeight: 700,
-    color: '#fff',
-    padding: '2px 4px',
-    borderRadius: '4px',
-    lineHeight: 1,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-  },
-  statoBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'capitalize',
-  },
-  btnEditInline: {
-    padding: '4px 8px',
-    fontSize: '12px',
-    borderRadius: '6px',
-    background: 'rgba(0,0,0,0.04)',
-    color: '#64748b',
-    border: 'none',
-    cursor: 'pointer',
-    marginLeft: '6px',
-    transition: 'all 0.15s ease',
-  },
-  btnSmall: {
-    padding: '6px 12px',
-    fontSize: '12px',
-    borderRadius: '8px',
-    color: 'white',
-    border: 'none',
-    transition: 'all 0.2s ease',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-};
+import './ClientiList.css';
 
 // Luogo colors
 const LUOGO_COLORS = {
@@ -154,12 +25,19 @@ const ROLE_COLORS = {
   ca: { bg: '#fef3c7', text: '#d97706', badge: '#f59e0b' },
 };
 
+// Stat card icon styles
+const STAT_ICON_STYLES = {
+  attivo:  { bg: 'rgba(34, 197, 94, 0.1)',  color: '#22c55e' },
+  ghost:   { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b' },
+  pausa:   { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
+  stop:    { bg: 'rgba(239, 68, 68, 0.1)',  color: '#ef4444' },
+};
+
 function ClientiListaCoach() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [clienti, setClienti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hoveredRow, setHoveredRow] = useState(null);
   const [kpi, setKpi] = useState({
     stato_attivo: 0,
     stato_ghost: 0,
@@ -372,27 +250,24 @@ function ClientiListaCoach() {
     return (
       <span
         key={`${roleKey}-${member.id}`}
-        style={tableStyles.avatarTeam}
+        className="cl-avatar-wrap"
         title={`${roleLabel}: ${member.full_name || `${member.first_name} ${member.last_name}`}`}
       >
         {member.avatar_url || member.avatar_path ? (
           <img
             src={member.avatar_url || member.avatar_path}
             alt={member.full_name}
-            style={{ ...tableStyles.avatarInitials, objectFit: 'cover' }}
+            className="cl-avatar-img"
           />
         ) : (
           <span
-            style={{
-              ...tableStyles.avatarInitials,
-              background: colors.bg,
-              color: colors.text,
-            }}
+            className="cl-avatar-initials"
+            style={{ background: colors.bg, color: colors.text }}
           >
             {initials}
           </span>
         )}
-        <span style={{ ...tableStyles.avatarBadge, background: colors.badge }}>
+        <span className="cl-avatar-role-badge" style={{ background: colors.badge }}>
           {roleKey.toUpperCase()}
         </span>
       </span>
@@ -401,11 +276,11 @@ function ClientiListaCoach() {
 
   // Render stato badge
   const renderStatoBadge = (stato, type = 'coach') => {
-    if (!stato) return <span style={tableStyles.emptyCell}>—</span>;
+    if (!stato) return <span className="cl-empty">&mdash;</span>;
     const colors = STATI_PROFESSIONISTA_COLORS[stato] || { bg: '#f1f5f9', color: '#64748b' };
     return (
-      <span style={{ ...tableStyles.statoBadge, background: colors.bg, color: colors.color }}>
-        <i className={type === 'chat' ? 'ri-chat-3-line' : 'ri-circle-fill'} style={{ fontSize: type === 'chat' ? '10px' : '6px' }}></i>
+      <span className="cl-badge" style={{ background: colors.bg, color: colors.color }}>
+        <i className={type === 'chat' ? 'ri-chat-3-line' : 'ri-circle-fill'} style={{ fontSize: type === 'chat' ? '10px' : '6px' }}></i>{' '}
         {stato}
       </span>
     );
@@ -413,200 +288,214 @@ function ClientiListaCoach() {
 
   // Render luogo badge
   const renderLuogoBadge = (luogo) => {
-    if (!luogo) return <span style={tableStyles.emptyCell}>—</span>;
+    if (!luogo) return <span className="cl-empty">&mdash;</span>;
     const colors = LUOGO_COLORS[luogo] || { bg: '#f1f5f9', color: '#64748b' };
     return (
-      <span style={{ ...tableStyles.statoBadge, background: colors.bg, color: colors.color }}>
-        <i className={luogo === 'casa' ? 'ri-home-line' : luogo === 'palestra' ? 'ri-building-line' : 'ri-exchange-line'}></i>
+      <span className="cl-badge" style={{ background: colors.bg, color: colors.color }}>
+        <i className={luogo === 'casa' ? 'ri-home-line' : luogo === 'palestra' ? 'ri-building-line' : 'ri-exchange-line'}></i>{' '}
         {LUOGO_LABELS[luogo] || luogo}
       </span>
+    );
+  };
+
+  // Pagination page numbers
+  const getPageNumbers = () => {
+    const pages = [];
+    const total = pagination.totalPages;
+    const current = pagination.page;
+    const maxVisible = 5;
+
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else if (current <= 3) {
+      for (let i = 1; i <= maxVisible; i++) pages.push(i);
+    } else if (current >= total - 2) {
+      for (let i = total - maxVisible + 1; i <= total; i++) pages.push(i);
+    } else {
+      for (let i = current - 2; i <= current + 2; i++) pages.push(i);
+    }
+    return pages;
+  };
+
+  // Stat cards config
+  const statCards = [
+    { key: 'attivo', label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-run-line' },
+    { key: 'ghost', label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line' },
+    { key: 'pausa', label: 'Stato Pausa', value: kpi.stato_pausa, icon: 'ri-pause-circle-line' },
+    { key: 'stop', label: 'Stato Stop', value: kpi.stato_stop, icon: 'ri-stop-circle-line' },
+  ];
+
+  // Render a portal-based modal
+  const renderModal = (show, onClose, title, icon, children, footer) => {
+    if (!show || !selectedCliente) return null;
+    return createPortal(
+      <div className="cl-modal-overlay" onClick={onClose}>
+        <div className="cl-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="cl-modal-header">
+            <h5 className="cl-modal-title">
+              <i className={icon}></i>
+              {title} - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
+            </h5>
+            <button className="cl-modal-close" onClick={onClose}>&times;</button>
+          </div>
+          <div className="cl-modal-body">
+            {children}
+          </div>
+          <div className="cl-modal-footer">
+            {footer}
+          </div>
+        </div>
+      </div>,
+      document.body
     );
   };
 
   return (
     <div className="container-fluid p-0">
       {/* Header */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-4">
+      <div className="cl-header">
         <div>
-          <h4 className="mb-1">Visuale Coach</h4>
-          <p className="text-muted mb-0">{pagination.total} pazienti totali</p>
+          <h4>Visuale Coach</h4>
+          <p className="cl-header-sub">{pagination.total} pazienti totali</p>
         </div>
-        <div className="d-flex gap-2">
-          <Link to="/clienti-lista" className="btn btn-outline-primary btn-sm">
-            <i className="ri-list-check me-1"></i> Lista Generale
+        <div className="cl-view-pills">
+          <Link to="/clienti-lista" className="cl-view-pill">
+            <i className="ri-list-check"></i> Lista Generale
           </Link>
-          <Link to="/clienti-nutrizione" className="btn btn-warning btn-sm text-white">
-            <i className="ri-restaurant-line me-1"></i> Visuale Nutrizione
+          <Link to="/clienti-nutrizione" className="cl-view-pill">
+            <i className="ri-restaurant-line"></i> Visuale Nutrizione
           </Link>
-          <Link to="/clienti-coach" className="btn btn-info btn-sm text-white">
-            <i className="ri-run-line me-1"></i> Visuale Coach
+          <Link to="/clienti-coach" className="cl-view-pill active">
+            <i className="ri-run-line"></i> Visuale Coach
           </Link>
-          <Link to="/clienti-psicologia" className="btn btn-danger btn-sm text-white">
-            <i className="ri-mental-health-line me-1"></i> Visuale Psicologia
-          </Link>
-          <Link to="/clienti-nuovo" className="btn btn-primary btn-sm ms-2">
-            <i className="ri-user-add-line me-1"></i> Aggiungi
+          <Link to="/clienti-psicologia" className="cl-view-pill">
+            <i className="ri-mental-health-line"></i> Visuale Psicologia
           </Link>
         </div>
       </div>
 
       {/* Stats Row */}
-      <div className="row g-3 mb-4">
-        {[
-          { label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-run-line', bg: 'success' },
-          { label: 'Stato Ghost', value: kpi.stato_ghost, icon: 'ri-ghost-line', bg: 'secondary' },
-          { label: 'Stato Pausa', value: kpi.stato_pausa, icon: 'ri-pause-circle-line', bg: 'warning' },
-          { label: 'Stato Stop', value: kpi.stato_stop, icon: 'ri-stop-circle-line', bg: 'danger' },
-        ].map((stat, idx) => (
-          <div key={idx} className="col-xl-3 col-sm-6">
-            <div className={`card bg-${stat.bg} border-0 shadow-sm`}>
-              <div className="card-body py-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h3 className="text-white mb-0 fw-bold">{stat.value}</h3>
-                    <span className="text-white opacity-75 small">{stat.label}</span>
-                  </div>
-                  <div
-                    className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center"
-                    style={{ width: '48px', height: '48px' }}
-                  >
-                    <i className={`${stat.icon} text-white fs-4`}></i>
-                  </div>
-                </div>
+      <div className="cl-stats-row">
+        {statCards.map((stat) => {
+          const iconStyle = STAT_ICON_STYLES[stat.key] || STAT_ICON_STYLES.attivo;
+          return (
+            <div key={stat.key} className="cl-stat-card">
+              <div>
+                <div className="cl-stat-value">{stat.value}</div>
+                <div className="cl-stat-label">{stat.label}</div>
+              </div>
+              <div
+                className="cl-stat-icon"
+                style={{ background: iconStyle.bg, color: iconStyle.color }}
+              >
+                <i className={stat.icon}></i>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <div className="card shadow-sm border-0 mb-4">
-        <div className="card-body py-3">
-          <div className="row g-2 align-items-center">
-            <div className="col-lg-3">
-              <div className="position-relative">
-                <i className="ri-search-line position-absolute text-muted" style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}></i>
-                <input
-                  type="text"
-                  className="form-control bg-light border-0"
-                  placeholder="Cerca paziente..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  style={{ paddingLeft: '36px' }}
-                />
-              </div>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.coach}
-                onChange={(e) => handleFilterChange('coach', e.target.value)}
-              >
-                <option value="">Coach</option>
-                {coaches.map(c => (
-                  <option key={c.id} value={c.id}>{c.full_name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.statoCoach}
-                onChange={(e) => handleFilterChange('statoCoach', e.target.value)}
-              >
-                <option value="">Stato Coach</option>
-                <option value="attivo">Attivo</option>
-                <option value="pausa">Pausa</option>
-                <option value="ghost">Ghost</option>
-                <option value="stop">Stop</option>
-              </select>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.checkDay}
-                onChange={(e) => handleFilterChange('checkDay', e.target.value)}
-              >
-                <option value="">Check Day</option>
-                {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-2">
-              <select
-                className="form-select bg-light border-0"
-                value={filters.reachOut}
-                onChange={(e) => handleFilterChange('reachOut', e.target.value)}
-              >
-                <option value="">Reach Out</option>
-                {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-lg-1">
-              <button
-                className="btn btn-outline-secondary w-100"
-                onClick={resetFilters}
-              >
-                <i className="ri-refresh-line me-1"></i>Reset
-              </button>
-            </div>
-          </div>
+      {/* Search Bar + Filters */}
+      <div className="cl-search-row">
+        <div className="cl-search-wrap">
+          <i className="ri-search-line cl-search-icon"></i>
+          <input
+            type="text"
+            className="cl-search-input"
+            placeholder="Cerca paziente per nome..."
+            value={filters.search}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+          />
         </div>
+        <select
+          className="cl-filter-select"
+          value={filters.coach}
+          onChange={(e) => handleFilterChange('coach', e.target.value)}
+        >
+          <option value="">Coach</option>
+          {coaches.map(c => (
+            <option key={c.id} value={c.id}>{c.full_name}</option>
+          ))}
+        </select>
+        <select
+          className="cl-filter-select"
+          value={filters.statoCoach}
+          onChange={(e) => handleFilterChange('statoCoach', e.target.value)}
+        >
+          <option value="">Stato Coach</option>
+          <option value="attivo">Attivo</option>
+          <option value="pausa">Pausa</option>
+          <option value="ghost">Ghost</option>
+          <option value="stop">Stop</option>
+        </select>
+        <select
+          className="cl-filter-select"
+          value={filters.checkDay}
+          onChange={(e) => handleFilterChange('checkDay', e.target.value)}
+        >
+          <option value="">Check Day</option>
+          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+        <select
+          className="cl-filter-select"
+          value={filters.reachOut}
+          onChange={(e) => handleFilterChange('reachOut', e.target.value)}
+        >
+          <option value="">Reach Out</option>
+          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+        <button className="cl-modal-btn-reset" onClick={resetFilters}>
+          <i className="ri-refresh-line"></i> Reset
+        </button>
       </div>
 
       {/* Content */}
       {loading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }}></div>
-          <p className="mt-3 text-muted">Caricamento pazienti...</p>
+        <div className="cl-loading">
+          <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+          <p className="cl-loading-text">Caricamento pazienti...</p>
         </div>
       ) : error ? (
-        <div className="alert alert-danger" style={{ borderRadius: '12px' }}>{error}</div>
+        <div className="cl-error">{error}</div>
       ) : clienti.length === 0 ? (
-        <div className="card border-0" style={{ borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-          <div className="card-body text-center py-5">
-            <div className="mb-4">
-              <i className="ri-run-line" style={{ fontSize: '5rem', color: '#cbd5e1' }}></i>
-            </div>
-            <h5 style={{ color: '#475569' }}>Nessun paziente trovato</h5>
-            <p className="text-muted mb-4">Prova a modificare i filtri di ricerca</p>
-            <button
-              className="btn btn-primary"
-              onClick={resetFilters}
-              style={{ borderRadius: '10px', padding: '10px 24px' }}
-            >
-              <i className="ri-refresh-line me-2"></i>Reset Filtri
-            </button>
+        <div className="cl-empty-state">
+          <div className="cl-empty-icon">
+            <i className="ri-run-line"></i>
           </div>
+          <h5 className="cl-empty-title">Nessun paziente trovato</h5>
+          <p className="cl-empty-desc">Prova a modificare i filtri di ricerca</p>
+          <button className="cl-reset-btn" onClick={resetFilters}>
+            <i className="ri-refresh-line"></i> Reset Filtri
+          </button>
         </div>
       ) : (
         <>
-          {/* Tabella Pazienti */}
-          <div className="card border-0" style={tableStyles.card}>
+          {/* Table */}
+          <div className="cl-table-card">
             <div className="table-responsive">
-              <table className="table mb-0">
-                <thead style={tableStyles.tableHeader}>
+              <table className="cl-table">
+                <thead>
                   <tr>
-                    <th style={{ ...tableStyles.th, minWidth: '180px' }}>Paziente</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px' }}>Team</th>
-                    <th style={{ ...tableStyles.th, minWidth: '130px' }}>Stato Coach</th>
-                    <th style={{ ...tableStyles.th, minWidth: '130px' }}>Stato Chat</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px' }}>Check Day</th>
-                    <th style={{ ...tableStyles.th, minWidth: '120px' }}>Reach Out</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px' }}>Luogo</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Piano</th>
-                    <th style={{ ...tableStyles.th, minWidth: '100px', textAlign: 'center' }}>Storia</th>
-                    <th style={{ ...tableStyles.th, textAlign: 'right', minWidth: '100px' }}>Azioni</th>
+                    <th style={{ minWidth: '180px' }}>Paziente</th>
+                    <th style={{ minWidth: '100px' }}>Team</th>
+                    <th style={{ minWidth: '130px' }}>Stato Coach</th>
+                    <th style={{ minWidth: '130px' }}>Stato Chat</th>
+                    <th style={{ minWidth: '120px' }}>Check Day</th>
+                    <th style={{ minWidth: '120px' }}>Reach Out</th>
+                    <th style={{ minWidth: '100px' }}>Luogo</th>
+                    <th style={{ minWidth: '100px', textAlign: 'center' }}>Piano</th>
+                    <th style={{ minWidth: '100px', textAlign: 'center' }}>Storia</th>
+                    <th style={{ textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {clienti.map((cliente, index) => {
+                  {clienti.map((cliente) => {
                     const clienteId = cliente.cliente_id || cliente.clienteId;
                     const nomeCognome = cliente.nome_cognome || cliente.nomeCognome || 'N/D';
-                    const isHovered = hoveredRow === index;
 
                     // Team members
                     const healthManager = cliente.health_manager_user || cliente.healthManagerUser;
@@ -617,188 +506,112 @@ function ClientiListaCoach() {
                     const hasTeam = healthManager || coachesList.length > 0 || nutrizionistiList.length > 0 || psicologiList.length > 0 || consulentiList.length > 0;
 
                     return (
-                      <tr
-                        key={clienteId}
-                        style={{
-                          ...tableStyles.row,
-                          background: isHovered ? '#f8fafc' : 'transparent',
-                        }}
-                        onMouseEnter={() => setHoveredRow(index)}
-                        onMouseLeave={() => setHoveredRow(null)}
-                      >
-                        {/* Nome */}
-                        <td style={tableStyles.td}>
-                          <Link
-                            to={`/clienti-dettaglio/${clienteId}`}
-                            style={tableStyles.nameLink}
-                            onMouseOver={(e) => e.currentTarget.style.color = '#2563eb'}
-                            onMouseOut={(e) => e.currentTarget.style.color = '#3b82f6'}
-                          >
+                      <tr key={clienteId}>
+                        <td>
+                          <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-name-link">
                             {nomeCognome}
                           </Link>
                         </td>
-
-                        {/* Team */}
-                        <td style={tableStyles.td}>
-                          <div style={{ display: 'flex', alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap' }}>
+                        <td>
+                          <div className="cl-team-avatars">
                             {healthManager && renderTeamAvatar(healthManager, 'hm', 'Health Manager')}
                             {coachesList.map(c => renderTeamAvatar(c, 'c', 'Coach'))}
                             {nutrizionistiList.map(n => renderTeamAvatar(n, 'n', 'Nutrizionista'))}
                             {psicologiList.map(p => renderTeamAvatar(p, 'p', 'Psicologo'))}
                             {consulentiList.map(ca => renderTeamAvatar(ca, 'ca', 'Consulente'))}
-                            {!hasTeam && <span style={tableStyles.emptyCell}>—</span>}
+                            {!hasTeam && <span className="cl-empty">&mdash;</span>}
                           </div>
                         </td>
-
-                        {/* Stato Coach */}
-                        <td style={tableStyles.td}>
+                        <td>
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_coach, 'coach')}
-                            <button
-                              style={tableStyles.btnEditInline}
-                              onClick={() => openStatoModal(cliente)}
-                              title="Modifica stato"
-                            >
+                            <button className="cl-action-btn" onClick={() => openStatoModal(cliente)} title="Modifica stato" style={{ width: '28px', height: '28px', fontSize: '12px', marginLeft: '4px' }}>
                               <i className="ri-pencil-line"></i>
                             </button>
                           </div>
                         </td>
-
-                        {/* Stato Chat */}
-                        <td style={tableStyles.td}>
+                        <td>
                           <div className="d-flex align-items-center">
                             {renderStatoBadge(cliente.stato_cliente_chat_coaching, 'chat')}
-                            <button
-                              style={tableStyles.btnEditInline}
-                              onClick={() => openChatModal(cliente)}
-                              title="Modifica stato chat"
-                            >
+                            <button className="cl-action-btn" onClick={() => openChatModal(cliente)} title="Modifica stato chat" style={{ width: '28px', height: '28px', fontSize: '12px', marginLeft: '4px' }}>
                               <i className="ri-pencil-line"></i>
                             </button>
                           </div>
                         </td>
-
-                        {/* Check Day */}
-                        <td style={tableStyles.td}>
+                        <td>
                           <div className="d-flex align-items-center">
                             {cliente.check_day ? (
-                              <span style={{
-                                ...tableStyles.badge,
-                                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-                                color: '#1e40af',
-                              }}>
-                                <i className="ri-calendar-check-line me-1"></i>
+                              <span className="cl-badge" style={{ background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)', color: '#1e40af' }}>
+                                <i className="ri-calendar-check-line"></i>{' '}
                                 {GIORNI_LABELS[cliente.check_day] || cliente.check_day}
                               </span>
                             ) : (
-                              <span style={tableStyles.emptyCell}>—</span>
+                              <span className="cl-empty">&mdash;</span>
                             )}
-                            <button
-                              style={tableStyles.btnEditInline}
-                              onClick={() => openCheckDayModal(cliente)}
-                              title="Modifica check day"
-                            >
+                            <button className="cl-action-btn" onClick={() => openCheckDayModal(cliente)} title="Modifica check day" style={{ width: '28px', height: '28px', fontSize: '12px', marginLeft: '4px' }}>
                               <i className="ri-pencil-line"></i>
                             </button>
                           </div>
                         </td>
-
-                        {/* Reach Out */}
-                        <td style={tableStyles.td}>
+                        <td>
                           <div className="d-flex align-items-center">
                             {cliente.reach_out_coaching ? (
-                              <span style={{
-                                ...tableStyles.badge,
-                                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                                color: '#92400e',
-                              }}>
-                                <i className="ri-calendar-event-line me-1"></i>
+                              <span className="cl-badge" style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', color: '#92400e' }}>
+                                <i className="ri-calendar-event-line"></i>{' '}
                                 {GIORNI_LABELS[cliente.reach_out_coaching] || cliente.reach_out_coaching}
                               </span>
                             ) : (
-                              <span style={tableStyles.emptyCell}>—</span>
+                              <span className="cl-empty">&mdash;</span>
                             )}
-                            <button
-                              style={tableStyles.btnEditInline}
-                              onClick={() => openReachOutModal(cliente)}
-                              title="Modifica reach out"
-                            >
+                            <button className="cl-action-btn" onClick={() => openReachOutModal(cliente)} title="Modifica reach out" style={{ width: '28px', height: '28px', fontSize: '12px', marginLeft: '4px' }}>
                               <i className="ri-pencil-line"></i>
                             </button>
                           </div>
                         </td>
-
-                        {/* Luogo */}
-                        <td style={tableStyles.td}>
+                        <td>
                           <div className="d-flex align-items-center">
                             {renderLuogoBadge(cliente.luogo_di_allenamento)}
-                            <button
-                              style={tableStyles.btnEditInline}
-                              onClick={() => openLuogoModal(cliente)}
-                              title="Modifica luogo"
-                            >
+                            <button className="cl-action-btn" onClick={() => openLuogoModal(cliente)} title="Modifica luogo" style={{ width: '28px', height: '28px', fontSize: '12px', marginLeft: '4px' }}>
                               <i className="ri-pencil-line"></i>
                             </button>
                           </div>
                         </td>
-
-                        {/* Piano Allenamento */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center' }}>
                           <button
+                            className="cl-action-btn"
                             style={{
-                              ...tableStyles.btnSmall,
                               background: cliente.piano_allenamento
                                 ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
                                 : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                             }}
                             onClick={() => openPianoAllenamentoModal(cliente)}
                           >
-                            <i className={`ri-file-list-line ${cliente.piano_allenamento ? '' : 'me-1'}`}></i>
+                            <i className={`ri-file-list-line${!cliente.piano_allenamento ? ' me-1' : ''}`}></i>
                             {!cliente.piano_allenamento && '+'}
                           </button>
                         </td>
-
-                        {/* Storia */}
-                        <td style={{ ...tableStyles.td, textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center' }}>
                           <button
+                            className="cl-action-btn"
                             style={{
-                              ...tableStyles.btnSmall,
                               background: cliente.storia_coaching
                                 ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
                                 : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                             }}
                             onClick={() => openStoriaModal(cliente)}
                           >
-                            <i className={`ri-file-text-line ${cliente.storia_coaching ? '' : 'me-1'}`}></i>
+                            <i className={`ri-file-text-line${!cliente.storia_coaching ? ' me-1' : ''}`}></i>
                             {!cliente.storia_coaching && '+'}
                           </button>
                         </td>
-
-                        {/* Azioni */}
-                        <td style={{ ...tableStyles.td, textAlign: 'right' }}>
-                          <Link
-                            to={`/clienti-dettaglio/${clienteId}`}
-                            style={{
-                              ...tableStyles.actionBtn,
-                              borderColor: '#22c55e',
-                              color: '#22c55e',
-                              background: isHovered ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
-                            }}
-                            title="Dettaglio"
-                          >
-                            <i className="ri-eye-line" style={{ fontSize: '16px' }}></i>
+                        <td style={{ textAlign: 'right' }}>
+                          <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-action-btn" title="Dettaglio">
+                            <i className="ri-eye-line"></i>
                           </Link>
-                          <Link
-                            to={`/clienti-dettaglio/${clienteId}#coaching`}
-                            style={{
-                              ...tableStyles.actionBtn,
-                              borderColor: '#f97316',
-                              color: '#f97316',
-                              background: isHovered ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
-                            }}
-                            title="Tab Coaching"
-                          >
-                            <i className="ri-run-line" style={{ fontSize: '16px' }}></i>
+                          <Link to={`/clienti-dettaglio/${clienteId}#coaching`} className="cl-action-btn" title="Tab Coaching">
+                            <i className="ri-run-line"></i>
                           </Link>
                         </td>
                       </tr>
@@ -811,472 +624,202 @@ function ClientiListaCoach() {
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div
-              className="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 gap-3"
-            >
-              <span style={{ color: '#64748b', fontSize: '14px' }}>
-                Pagina <strong style={{ color: '#334155' }}>{pagination.page}</strong> di{' '}
-                <strong style={{ color: '#334155' }}>{pagination.totalPages}</strong>
-                <span className="ms-2" style={{ color: '#94a3b8' }}>•</span>
-                <span className="ms-2">{pagination.total} risultati</span>
+            <div className="cl-pagination">
+              <span className="cl-pagination-info">
+                Pagina <strong>{pagination.page}</strong> di <strong>{pagination.totalPages}</strong>
+                {' '}&bull; {pagination.total} risultati
               </span>
-              <nav>
-                <ul className="pagination mb-0" style={{ gap: '4px' }}>
-                  {/* First */}
-                  <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(1)}
-                      disabled={pagination.page === 1}
-                      style={{
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        color: pagination.page === 1 ? '#cbd5e1' : '#64748b',
-                        padding: '8px 12px',
-                      }}
-                    >
-                      <i className="ri-arrow-left-double-line"></i>
-                    </button>
-                  </li>
-                  {/* Prev */}
-                  <li className={`page-item ${pagination.page === 1 ? 'disabled' : ''}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(pagination.page - 1)}
-                      disabled={pagination.page === 1}
-                      style={{
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        color: pagination.page === 1 ? '#cbd5e1' : '#64748b',
-                        padding: '8px 12px',
-                      }}
-                    >
-                      <i className="ri-arrow-left-s-line"></i>
-                    </button>
-                  </li>
-                  {/* Page numbers */}
-                  {[...Array(Math.min(pagination.totalPages, 5))].map((_, i) => {
-                    let pageNum;
-                    if (pagination.totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (pagination.page <= 3) {
-                      pageNum = i + 1;
-                    } else if (pagination.page >= pagination.totalPages - 2) {
-                      pageNum = pagination.totalPages - 4 + i;
-                    } else {
-                      pageNum = pagination.page - 2 + i;
-                    }
-                    const isActive = pagination.page === pageNum;
-                    return (
-                      <li key={pageNum} className="page-item">
-                        <button
-                          className="page-link"
-                          onClick={() => handlePageChange(pageNum)}
-                          style={{
-                            borderRadius: '8px',
-                            border: isActive ? 'none' : '1px solid #e2e8f0',
-                            background: isActive ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' : 'transparent',
-                            color: isActive ? '#fff' : '#64748b',
-                            padding: '8px 14px',
-                            fontWeight: isActive ? 600 : 400,
-                            minWidth: '40px',
-                          }}
-                        >
-                          {pageNum}
-                        </button>
-                      </li>
-                    );
-                  })}
-                  {/* Next */}
-                  <li className={`page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                      disabled={pagination.page === pagination.totalPages}
-                      style={{
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        color: pagination.page === pagination.totalPages ? '#cbd5e1' : '#64748b',
-                        padding: '8px 12px',
-                      }}
-                    >
-                      <i className="ri-arrow-right-s-line"></i>
-                    </button>
-                  </li>
-                  {/* Last */}
-                  <li className={`page-item ${pagination.page === pagination.totalPages ? 'disabled' : ''}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(pagination.totalPages)}
-                      disabled={pagination.page === pagination.totalPages}
-                      style={{
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        color: pagination.page === pagination.totalPages ? '#cbd5e1' : '#64748b',
-                        padding: '8px 12px',
-                      }}
-                    >
-                      <i className="ri-arrow-right-double-line"></i>
-                    </button>
-                  </li>
-                </ul>
-              </nav>
+              <div className="cl-pagination-buttons">
+                <button className="cl-page-btn" onClick={() => handlePageChange(1)} disabled={pagination.page === 1} title="Prima pagina">&laquo;</button>
+                <button className="cl-page-btn" onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1} title="Precedente">&lsaquo;</button>
+                {getPageNumbers().map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    className={`cl-page-btn${pagination.page === pageNum ? ' active' : ''}`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button className="cl-page-btn" onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages} title="Successiva">&rsaquo;</button>
+                <button className="cl-page-btn" onClick={() => handlePageChange(pagination.totalPages)} disabled={pagination.page === pagination.totalPages} title="Ultima pagina">&raquo;</button>
+              </div>
             </div>
           )}
         </>
       )}
 
       {/* Modal Storia Coaching */}
-      {showStoriaModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-file-text-line me-2"></i>
-                  Storia Coaching - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowStoriaModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <textarea
-                  className="form-control"
-                  rows="12"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  placeholder="Inserisci la storia coaching..."
-                  style={{ border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                ></textarea>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowStoriaModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'storia_coaching', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showStoriaModal, () => setShowStoriaModal(false), 'Storia Coaching', 'ri-file-text-line',
+        <textarea
+          className="form-control"
+          rows="12"
+          value={modalValue}
+          onChange={(e) => setModalValue(e.target.value)}
+          placeholder="Inserisci la storia coaching..."
+        />,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowStoriaModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'storia_coaching', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Note Extra */}
-      {showNoteModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-sticky-note-line me-2"></i>
-                  Note Extra - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowNoteModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <textarea
-                  className="form-control"
-                  rows="12"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  placeholder="Inserisci note extra..."
-                  style={{ border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                ></textarea>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowNoteModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_coach', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
+        <textarea
+          className="form-control"
+          rows="12"
+          value={modalValue}
+          onChange={(e) => setModalValue(e.target.value)}
+          placeholder="Inserisci note extra..."
+        />,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_coach', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Stato Coach */}
-      {showStatoModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-circle-fill me-2"></i>
-                  Stato Coach - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowStatoModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <select
-                  className="form-select"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                >
-                  <option value="">-- Nessuno --</option>
-                  <option value="attivo">Attivo</option>
-                  <option value="pausa">Pausa</option>
-                  <option value="ghost">Ghost</option>
-                  <option value="stop">Stop</option>
-                </select>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowStatoModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'stato_coach', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showStatoModal, () => setShowStatoModal(false), 'Stato Coach', 'ri-circle-fill',
+        <select className="form-select" value={modalValue} onChange={(e) => setModalValue(e.target.value)}>
+          <option value="">-- Nessuno --</option>
+          <option value="attivo">Attivo</option>
+          <option value="pausa">Pausa</option>
+          <option value="ghost">Ghost</option>
+          <option value="stop">Stop</option>
+        </select>,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowStatoModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'stato_coach', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Stato Chat */}
-      {showChatModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-chat-3-line me-2"></i>
-                  Stato Chat - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowChatModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <select
-                  className="form-select"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                >
-                  <option value="">-- Nessuno --</option>
-                  <option value="attivo">Attivo</option>
-                  <option value="pausa">Pausa</option>
-                  <option value="ghost">Ghost</option>
-                  <option value="stop">Stop</option>
-                </select>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowChatModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'stato_cliente_chat_coaching', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showChatModal, () => setShowChatModal(false), 'Stato Chat', 'ri-chat-3-line',
+        <select className="form-select" value={modalValue} onChange={(e) => setModalValue(e.target.value)}>
+          <option value="">-- Nessuno --</option>
+          <option value="attivo">Attivo</option>
+          <option value="pausa">Pausa</option>
+          <option value="ghost">Ghost</option>
+          <option value="stop">Stop</option>
+        </select>,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowChatModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'stato_cliente_chat_coaching', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Check Day */}
-      {showCheckDayModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-calendar-check-line me-2"></i>
-                  Check Day - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowCheckDayModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <select
-                  className="form-select"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                >
-                  <option value="">-- Nessun giorno --</option>
-                  <option value="lunedi">Lunedì</option>
-                  <option value="martedi">Martedì</option>
-                  <option value="mercoledi">Mercoledì</option>
-                  <option value="giovedi">Giovedì</option>
-                  <option value="venerdi">Venerdì</option>
-                  <option value="sabato">Sabato</option>
-                  <option value="domenica">Domenica</option>
-                </select>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowCheckDayModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'check_day', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showCheckDayModal, () => setShowCheckDayModal(false), 'Check Day', 'ri-calendar-check-line',
+        <select className="form-select" value={modalValue} onChange={(e) => setModalValue(e.target.value)}>
+          <option value="">-- Nessun giorno --</option>
+          <option value="lunedi">Luned&igrave;</option>
+          <option value="martedi">Marted&igrave;</option>
+          <option value="mercoledi">Mercoled&igrave;</option>
+          <option value="giovedi">Gioved&igrave;</option>
+          <option value="venerdi">Venerd&igrave;</option>
+          <option value="sabato">Sabato</option>
+          <option value="domenica">Domenica</option>
+        </select>,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowCheckDayModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'check_day', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Reach Out */}
-      {showReachOutModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-calendar-event-line me-2"></i>
-                  Reach Out - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowReachOutModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <select
-                  className="form-select"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                >
-                  <option value="">-- Nessun giorno --</option>
-                  <option value="lunedi">Lunedì</option>
-                  <option value="martedi">Martedì</option>
-                  <option value="mercoledi">Mercoledì</option>
-                  <option value="giovedi">Giovedì</option>
-                  <option value="venerdi">Venerdì</option>
-                  <option value="sabato">Sabato</option>
-                  <option value="domenica">Domenica</option>
-                </select>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowReachOutModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'reach_out_coaching', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showReachOutModal, () => setShowReachOutModal(false), 'Reach Out', 'ri-calendar-event-line',
+        <select className="form-select" value={modalValue} onChange={(e) => setModalValue(e.target.value)}>
+          <option value="">-- Nessun giorno --</option>
+          <option value="lunedi">Luned&igrave;</option>
+          <option value="martedi">Marted&igrave;</option>
+          <option value="mercoledi">Mercoled&igrave;</option>
+          <option value="giovedi">Gioved&igrave;</option>
+          <option value="venerdi">Venerd&igrave;</option>
+          <option value="sabato">Sabato</option>
+          <option value="domenica">Domenica</option>
+        </select>,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowReachOutModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'reach_out_coaching', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Piano Allenamento */}
-      {showPianoAllenamentoModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-file-list-line me-2"></i>
-                  Piano Allenamento - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowPianoAllenamentoModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <textarea
-                  className="form-control"
-                  rows="12"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  placeholder="Inserisci il piano di allenamento..."
-                  style={{ border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                ></textarea>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowPianoAllenamentoModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'piano_allenamento', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showPianoAllenamentoModal, () => setShowPianoAllenamentoModal(false), 'Piano Allenamento', 'ri-file-list-line',
+        <textarea
+          className="form-control"
+          rows="12"
+          value={modalValue}
+          onChange={(e) => setModalValue(e.target.value)}
+          placeholder="Inserisci il piano di allenamento..."
+        />,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowPianoAllenamentoModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'piano_allenamento', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
 
       {/* Modal Luogo Allenamento */}
-      {showLuogoModal && selectedCliente && (
-        <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content" style={{ borderRadius: '16px', border: 'none' }}>
-              <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', borderRadius: '16px 16px 0 0' }}>
-                <h5 className="modal-title text-white">
-                  <i className="ri-map-pin-line me-2"></i>
-                  Luogo Allenamento - {selectedCliente.nome_cognome || selectedCliente.nomeCognome}
-                </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowLuogoModal(false)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <select
-                  className="form-select"
-                  value={modalValue}
-                  onChange={(e) => setModalValue(e.target.value)}
-                  style={{ height: '46px', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '14px' }}
-                >
-                  <option value="">-- Seleziona --</option>
-                  <option value="casa">Casa</option>
-                  <option value="palestra">Palestra</option>
-                  <option value="ibrido">Ibrido</option>
-                </select>
-              </div>
-              <div className="modal-footer" style={{ borderTop: '1px solid #f1f5f9' }}>
-                <button type="button" className="btn btn-secondary" style={{ borderRadius: '10px' }} onClick={() => setShowLuogoModal(false)}>
-                  Chiudi
-                </button>
-                <button
-                  type="button"
-                  className="btn text-white"
-                  style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', borderRadius: '10px' }}
-                  onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'luogo_di_allenamento', modalValue)}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando...' : 'Salva'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {renderModal(showLuogoModal, () => setShowLuogoModal(false), 'Luogo Allenamento', 'ri-map-pin-line',
+        <select className="form-select" value={modalValue} onChange={(e) => setModalValue(e.target.value)}>
+          <option value="">-- Seleziona --</option>
+          <option value="casa">Casa</option>
+          <option value="palestra">Palestra</option>
+          <option value="ibrido">Ibrido</option>
+        </select>,
+        <>
+          <button className="cl-modal-btn-reset" onClick={() => setShowLuogoModal(false)}>Chiudi</button>
+          <button
+            className="cl-modal-btn-apply"
+            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'luogo_di_allenamento', modalValue)}
+            disabled={saving}
+          >
+            {saving ? 'Salvando...' : 'Salva'}
+          </button>
+        </>
       )}
     </div>
   );

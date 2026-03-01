@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import clientiService, {
   STATO_LABELS,
@@ -131,7 +131,37 @@ function ClientiDetail() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('anagrafica');
 
+  // Tab scroll arrows
+  const tabsRef = useRef(null);
+  const [tabScroll, setTabScroll] = useState({ canLeft: false, canRight: false });
 
+  const updateTabArrows = useCallback(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    setTabScroll({
+      canLeft: el.scrollLeft > 0,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    updateTabArrows();
+    el.addEventListener('scroll', updateTabArrows, { passive: true });
+    const ro = new ResizeObserver(updateTabArrows);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateTabArrows);
+      ro.disconnect();
+    };
+  }, [updateTabArrows, loading]);
+
+  const scrollTabs = useCallback((dir) => {
+    const el = tabsRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 200, behavior: 'smooth' });
+  }, []);
 
   // Tour Steps Definitions
   const commonSteps = [
@@ -2812,20 +2842,32 @@ function ClientiDetail() {
         </div>
 
         {/* Details Section - Right Column */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div className="cd-content-card">
             {/* Tabs Navigation */}
-            <div className="cd-tabs" data-tour="nav-tabs-dettaglio">
-              {mainTabs.map(tab => (
-                <button
-                  key={tab.id}
-                  className={`cd-tab ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  <i className={tab.icon}></i>
-                  {tab.label}
+            <div className="cd-tabs-wrapper">
+              {tabScroll.canLeft && (
+                <button className="cd-tabs-arrow cd-tabs-arrow-left" onClick={() => scrollTabs(-1)} aria-label="Scorri tab a sinistra">
+                  <i className="ri-arrow-left-s-line"></i>
                 </button>
-              ))}
+              )}
+              <div className="cd-tabs" data-tour="nav-tabs-dettaglio" ref={tabsRef}>
+                {mainTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    className={`cd-tab ${activeTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    <i className={tab.icon}></i>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {tabScroll.canRight && (
+                <button className="cd-tabs-arrow cd-tabs-arrow-right" onClick={() => scrollTabs(1)} aria-label="Scorri tab a destra">
+                  <i className="ri-arrow-right-s-line"></i>
+                </button>
+              )}
             </div>
 
             {/* Tab Content */}
