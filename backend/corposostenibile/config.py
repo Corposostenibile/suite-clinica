@@ -36,10 +36,16 @@ class BaseConfig:
     DEBUG: bool = False
     TESTING: bool = False
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-prod-pls")
-    
+
     # Server configuration per URL generation
     SERVER_NAME: str | None = os.getenv("SERVER_NAME", None)
     PREFERRED_URL_SCHEME: str = os.getenv("PREFERRED_URL_SCHEME", "https")
+
+    # ---------------------------------------------------------------- Session cookies
+    # Letti dalle env var impostate in k8s/deployment.yaml
+    SESSION_COOKIE_SECURE: bool = str(os.getenv("SESSION_COOKIE_SECURE", "0")).lower() in ("1", "true", "yes")
+    SESSION_COOKIE_HTTPONLY: bool = str(os.getenv("SESSION_COOKIE_HTTPONLY", "1")).lower() in ("1", "true", "yes")
+    SESSION_COOKIE_SAMESITE: str | None = os.getenv("SESSION_COOKIE_SAMESITE", "Lax") or None
 
     # ---------------------------------------------------------------- DB
     # IMPORTANTE: Ora leggerà correttamente dal .env file

@@ -1,8 +1,8 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
-  "version": "1.0.0",
-  "id": "af3b2b1c-c9ec-4179-8c07-05d636683858",
+  "version": "2.0.0",
+  "id": "9021235f-2311-40af-8513-fd41d42e69ec",
   "developer": {
     "name": "SuiteMind",
     "websiteUrl": "https://suitemind.it",
@@ -50,5 +50,9 @@
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
-  "validDomains": []
+  "validDomains": ["clinica.corposostenibile.com"],
+  "webApplicationInfo": {
+    "id": "af3b2b1c-c9ec-4179-8c07-05d636683858",
+    "resource": "api://botid-9021235f-2311-40af-8513-fd41d42e69ec"
+  }
 }
