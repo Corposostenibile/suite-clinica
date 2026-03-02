@@ -37,9 +37,10 @@ def init_app(app):
     app.register_blueprint(team_tickets_bp, url_prefix="/api/team-tickets")
     app.register_blueprint(teams_bot_bp, url_prefix="/api/teams-bot")
 
-    # CSRF exempt per il webhook Teams
+    # CSRF exempt per il webhook Teams e per le tab routes (JWT auth)
     from corposostenibile.extensions import csrf
     csrf.exempt(teams_bot_bp)
+    csrf.exempt(team_tickets_bp)
 
     app.logger.info("[team_tickets] Blueprint registered")
 
@@ -48,4 +49,4 @@ def init_app(app):
 # Import delle route (deve restare *in fondo*)
 # ────────────────────────────────────────────────────────────────────────────
 
-from .routes import api_routes, bot_routes, websocket_routes  # noqa: E402,F401
+from .routes import api_routes, bot_routes, websocket_routes, tab_routes  # noqa: E402,F401

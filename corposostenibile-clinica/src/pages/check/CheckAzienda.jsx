@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
@@ -113,6 +114,9 @@ function CheckAzienda() {
   const [professionals, setProfessionals] = useState([]);
   const [loadingProfs, setLoadingProfs] = useState(false);
 
+  // Check type filter
+  const [checkType, setCheckType] = useState('all');
+
   // Check Response Modal
   const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
@@ -175,18 +179,18 @@ function CheckAzienda() {
   }, [isRoleRestricted, restrictedProfType, profType]);
 
   useEffect(() => {
-    if (period !== 'custom') fetchData(period, null, null, profType, profId, currentPage);
-  }, [period, profType, profId, currentPage]);
+    if (period !== 'custom') fetchData(period, null, null, profType, profId, currentPage, checkType);
+  }, [period, profType, profId, currentPage, checkType]);
 
   useEffect(() => {
     if (profType) { fetchProfessionals(profType); } else { setProfessionals([]); setProfId(null); }
   }, [profType]);
 
-  const fetchData = async (periodParam, customStart = null, customEnd = null, profTypeParam = null, profIdParam = null, page = 1) => {
+  const fetchData = async (periodParam, customStart = null, customEnd = null, profTypeParam = null, profIdParam = null, page = 1, checkTypeParam = 'all') => {
     setLoading(true);
     setError(null);
     try {
-      const result = await checkService.getAziendaStats(periodParam, customStart, customEnd, profTypeParam, profIdParam, page, ITEMS_PER_PAGE);
+      const result = await checkService.getAziendaStats(periodParam, customStart, customEnd, profTypeParam, profIdParam, page, ITEMS_PER_PAGE, checkTypeParam);
       if (result.success) {
         setResponses(result.responses || []);
         setStats(result.stats || {});
@@ -216,7 +220,7 @@ function CheckAzienda() {
   };
 
   const handleApplyCustomDates = () => {
-    if (startDate && endDate) { setCurrentPage(1); fetchData('custom', startDate, endDate, profType, profId, 1); }
+    if (startDate && endDate) { setCurrentPage(1); fetchData('custom', startDate, endDate, profType, profId, 1, checkType); }
   };
 
   const handlePageChange = (newPage) => {
@@ -232,15 +236,22 @@ function CheckAzienda() {
 
   const handleProfIdChange = (id) => { setProfId(id || null); setCurrentPage(1); };
 
+  const handleCheckTypeChange = (type) => {
+    setCheckType(type);
+    setCurrentPage(1);
+  };
+
   const handleResetFilters = () => {
     setProfType(isRoleRestricted ? restrictedProfType : null);
     setProfId(null); setProfessionals([]); setRatingFilter(null); setShowUnreadOnly(false);
+    setCheckType('all');
   };
 
   const getFilteredResponses = () => {
     let filtered = [...responses];
     if (ratingFilter === 'da_migliorare') {
       filtered = filtered.filter(r => {
+        if (r.type !== 'weekly') return false; // DCA/Minor don't have ratings
         const ratings = [
           visibleRatingColumns.nutrizione ? r.nutritionist_rating : null,
           visibleRatingColumns.psicologia ? r.psychologist_rating : null,
@@ -251,6 +262,7 @@ function CheckAzienda() {
       });
     } else if (ratingFilter === 'negativo') {
       filtered = filtered.filter(r => {
+        if (r.type !== 'weekly') return false;
         const ratings = [
           visibleRatingColumns.nutrizione ? r.nutritionist_rating : null,
           visibleRatingColumns.psicologia ? r.psychologist_rating : null,
@@ -455,6 +467,33 @@ function CheckAzienda() {
           </div>
         )}
 
+        {/* Check Type Filter */}
+        <div className="chk-filter-row">
+          <span className="chk-filter-label">Tipo check:</span>
+          <div className="chk-filter-group">
+            {[
+              { key: 'all', label: 'Tutti', icon: 'ri-list-check-3' },
+              { key: 'weekly', label: 'Settimanale', icon: 'ri-calendar-check-line' },
+              { key: 'dca', label: 'DCA', icon: 'ri-heart-pulse-line' },
+              { key: 'minor', label: 'Minori', icon: 'ri-user-heart-line' },
+            ].map((ct) => (
+              <button
+                key={ct.key}
+                className={`chk-filter-btn ${checkType === ct.key ? 'active' : ''}`}
+                onClick={() => handleCheckTypeChange(ct.key)}
+                disabled={loading}
+              >
+                <i className={ct.icon}></i> {ct.label}
+                {ct.key !== 'all' && stats && (
+                  <span style={{ fontSize: '11px', opacity: 0.8, marginLeft: '2px' }}>
+                    ({ct.key === 'weekly' ? (stats.weekly_count ?? '') : ct.key === 'dca' ? (stats.dca_count ?? '') : (stats.minor_count ?? '')})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Status Filters */}
         <div className="chk-filter-row" data-tour="status-filters">
           <span className="chk-filter-label">Stato:</span>
@@ -469,7 +508,7 @@ function CheckAzienda() {
               <i className="ri-eye-off-line"></i> Non Letto
             </button>
           </div>
-          {(ratingFilter || showUnreadOnly || profType) && (
+          {(ratingFilter || showUnreadOnly || profType || checkType !== 'all') && (
             <button className="chk-reset-link" onClick={handleResetFilters} title="Reset tutti i filtri">
               <i className="ri-refresh-line"></i> Reset filtri
             </button>
@@ -544,25 +583,48 @@ function CheckAzienda() {
                       <td><span style={{ fontWeight: 500 }}>{formatDate(response.submit_date)}</span></td>
                       {visibleRatingColumns.nutrizione && (
                         <td className="text-center">
-                          <ProfessionalCell professionals={response.nutrizionisti} rating={response.nutritionist_rating} progressRating={response.progress_rating} />
+                          {response.type === 'weekly' ? (
+                            <ProfessionalCell professionals={response.nutrizionisti} rating={response.nutritionist_rating} progressRating={response.progress_rating} />
+                          ) : (
+                            <span className="chk-rating neutral">–</span>
+                          )}
                         </td>
                       )}
                       {visibleRatingColumns.psicologia && (
                         <td className="text-center">
-                          <ProfessionalCell professionals={response.psicologi} rating={response.psychologist_rating} progressRating={response.progress_rating} />
+                          {response.type === 'weekly' ? (
+                            <ProfessionalCell professionals={response.psicologi} rating={response.psychologist_rating} progressRating={response.progress_rating} />
+                          ) : (
+                            <span className="chk-rating neutral">–</span>
+                          )}
                         </td>
                       )}
                       {visibleRatingColumns.coach && (
                         <td className="text-center">
-                          <ProfessionalCell professionals={response.coaches} rating={response.coach_rating} progressRating={response.progress_rating} />
+                          {response.type === 'weekly' ? (
+                            <ProfessionalCell professionals={response.coaches} rating={response.coach_rating} progressRating={response.progress_rating} />
+                          ) : (
+                            <span className="chk-rating neutral">–</span>
+                          )}
                         </td>
                       )}
                       {visibleRatingColumns.progresso && (
                         <td className="text-center">
-                          <div className="chk-prof-cell">
-                            <span className={`chk-rating ${ratingClass(response.progress_rating)}`}>{response.progress_rating ?? '-'}</span>
-                            <img src="/static/assets/immagini/logo_user.png" alt="" className="chk-prof-avatar" />
-                          </div>
+                          {response.type === 'weekly' ? (
+                            <div className="chk-prof-cell">
+                              <span className={`chk-rating ${ratingClass(response.progress_rating)}`}>{response.progress_rating ?? '-'}</span>
+                              <img src="/static/assets/immagini/logo_user.png" alt="" className="chk-prof-avatar" />
+                            </div>
+                          ) : response.type === 'minor' && response.score_global != null ? (
+                            <div className="chk-prof-cell">
+                              <span className={`chk-rating ${response.score_global >= 4 ? 'danger' : response.score_global >= 2.5 ? 'warning' : 'good'}`} title="EDE-Q6 Global Score">
+                                {response.score_global.toFixed(1)}
+                              </span>
+                              <small style={{ color: '#94a3b8', fontSize: '10px' }}>EDE-Q6</small>
+                            </div>
+                          ) : (
+                            <span className="chk-rating neutral">–</span>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -608,21 +670,24 @@ function CheckAzienda() {
         </>
       )}
 
-      {/* ── Detail Modal ── */}
-      {showCheckResponseModal && selectedCheckResponse && (
+      {/* ── Detail Modal (portale → esce dallo stacking context di .content-body) ── */}
+      {showCheckResponseModal && selectedCheckResponse && createPortal(
         <div className="chk-modal-backdrop" onClick={() => setShowCheckResponseModal(false)}>
           <div className="chk-modal" onClick={(e) => e.stopPropagation()} data-tour="check-detail-modal">
-            <div className={`chk-modal-header ${selectedCheckResponse.type || 'weekly'}`}>
-              <h5>
-                <i className={selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'}></i>
-                {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : selectedCheckResponse.type === 'dca' ? 'Check Benessere' : 'Check Minori'}
-                {selectedCheckResponse.cliente_nome && <span style={{ opacity: 0.75, marginLeft: '8px' }}>- {selectedCheckResponse.cliente_nome}</span>}
-              </h5>
+            {/* HEADER — stile task: bordo sotto, no background colorato */}
+            <div className="chk-modal-header">
+              <div className="chk-modal-header-left">
+                <div className={`chk-modal-type-dot ${selectedCheckResponse.type || 'weekly'}`}></div>
+                <h5 className="chk-modal-title">
+                  {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : selectedCheckResponse.type === 'dca' ? 'Check DCA' : 'Check Minori'}
+                </h5>
+              </div>
               <button className="chk-modal-close" onClick={() => setShowCheckResponseModal(false)}>
                 <i className="ri-close-line"></i>
               </button>
             </div>
 
+            {/* BODY */}
             <div className="chk-modal-body">
               {loadingCheckDetail ? (
                 <div className="chk-loading">
@@ -631,24 +696,44 @@ function CheckAzienda() {
                 </div>
               ) : (
                 <>
-                  {/* Info bar */}
-                  <div className="chk-modal-info-bar">
-                    <div>
-                      <label>Data compilazione</label>
-                      <span>{selectedCheckResponse.submit_date}</span>
-                    </div>
-                    {selectedCheckResponse.type === 'weekly' && (
-                      <div style={{ textAlign: 'right' }}>
-                        <label>Peso</label>
-                        <span>{selectedCheckResponse.weight ? `${selectedCheckResponse.weight} kg` : '-'}</span>
+                  {/* Client + Info */}
+                  <div className="chk-modal-section">
+                    <div className="chk-modal-grid">
+                      {selectedCheckResponse.cliente_nome && (
+                        <div className="chk-modal-field">
+                          <span className="chk-modal-label">Cliente</span>
+                          <div className="chk-modal-client">
+                            <div className="chk-modal-client-avatar">
+                              {(selectedCheckResponse.cliente_nome || '').substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="chk-modal-client-name">{selectedCheckResponse.cliente_nome}</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="chk-modal-field">
+                        <span className="chk-modal-label">Data compilazione</span>
+                        <span className="chk-modal-value">{selectedCheckResponse.submit_date || '-'}</span>
                       </div>
-                    )}
+                      {selectedCheckResponse.type === 'weekly' && (
+                        <div className="chk-modal-field">
+                          <span className="chk-modal-label">Peso</span>
+                          <span className="chk-modal-value">{selectedCheckResponse.weight ? `${selectedCheckResponse.weight} kg` : '-'}</span>
+                        </div>
+                      )}
+                      <div className="chk-modal-field">
+                        <span className="chk-modal-label">Tipo</span>
+                        <span className={`chk-modal-type-badge ${selectedCheckResponse.type || 'weekly'}`}>
+                          <i className={selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'}></i>
+                          {selectedCheckResponse.type === 'weekly' ? 'Settimanale' : selectedCheckResponse.type === 'dca' ? 'DCA' : 'Minori'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Photos */}
                   {selectedCheckResponse.type === 'weekly' && (
                     <div className="chk-modal-section" data-tour="check-photos">
-                      <div className="chk-modal-section-title"><i className="ri-camera-line"></i> Foto Progressi</div>
+                      <span className="chk-modal-label">Foto Progressi</span>
                       <div className="chk-photo-grid">
                         {[
                           { key: 'photo_front', label: 'Frontale' },
@@ -660,7 +745,7 @@ function CheckAzienda() {
                             {selectedCheckResponse[photo.key] ? (
                               <img src={selectedCheckResponse[photo.key]} alt={photo.label} onClick={() => window.open(selectedCheckResponse[photo.key], '_blank')} />
                             ) : (
-                              <div className="chk-photo-empty">Non caricata</div>
+                              <div className="chk-photo-empty"><i className="ri-image-line"></i> Non caricata</div>
                             )}
                           </div>
                         ))}
@@ -674,71 +759,71 @@ function CheckAzienda() {
                     (visibleRatingColumns.coach && selectedCheckResponse.coach_rating) ||
                     (visibleRatingColumns.progresso && selectedCheckResponse.progress_rating)) && (
                     <div className="chk-modal-section" data-tour="check-ratings">
-                      <div className="chk-modal-section-title"><i className="ri-star-line"></i> Valutazioni Professionisti</div>
+                      <span className="chk-modal-label">Valutazioni Professionisti</span>
                       <div className="chk-modal-ratings">
                         {visibleRatingColumns.nutrizione && selectedCheckResponse.nutritionist_rating && (() => {
                           const nutri = selectedCheckResponse.nutrizionisti?.[0];
                           return (
-                            <div className="chk-modal-rating-card" style={{ background: 'rgba(34,197,94,0.08)' }}>
+                            <div className="chk-modal-rating-card green">
                               {nutri?.avatar_path
-                                ? <img src={nutri.avatar_path} alt="" className="avatar" style={{ border: '2px solid #22c55e' }} />
-                                : <div className="initials" style={{ background: '#22c55e' }}>{getInitials(nutri?.nome)}</div>}
-                              <div className="value" style={{ color: '#166534' }}>{selectedCheckResponse.nutritionist_rating}</div>
-                              <div className="label">{nutri?.nome || 'Nutrizionista'}</div>
+                                ? <img src={nutri.avatar_path} alt="" className="avatar" />
+                                : <div className="initials green">{getInitials(nutri?.nome)}</div>}
+                              <div className="value">{selectedCheckResponse.nutritionist_rating}</div>
+                              <div className="name">{nutri?.nome || 'Nutrizionista'}</div>
                             </div>
                           );
                         })()}
                         {visibleRatingColumns.psicologia && selectedCheckResponse.psychologist_rating && (() => {
                           const psico = selectedCheckResponse.psicologi?.[0];
                           return (
-                            <div className="chk-modal-rating-card" style={{ background: 'rgba(245,158,11,0.08)' }}>
+                            <div className="chk-modal-rating-card amber">
                               {psico?.avatar_path
-                                ? <img src={psico.avatar_path} alt="" className="avatar" style={{ border: '2px solid #d97706' }} />
-                                : <div className="initials" style={{ background: '#d97706' }}>{getInitials(psico?.nome)}</div>}
-                              <div className="value" style={{ color: '#92400e' }}>{selectedCheckResponse.psychologist_rating}</div>
-                              <div className="label">{psico?.nome || 'Psicologo'}</div>
+                                ? <img src={psico.avatar_path} alt="" className="avatar" />
+                                : <div className="initials amber">{getInitials(psico?.nome)}</div>}
+                              <div className="value">{selectedCheckResponse.psychologist_rating}</div>
+                              <div className="name">{psico?.nome || 'Psicologo'}</div>
                             </div>
                           );
                         })()}
                         {visibleRatingColumns.coach && selectedCheckResponse.coach_rating && (() => {
                           const coach = selectedCheckResponse.coaches?.[0];
                           return (
-                            <div className="chk-modal-rating-card" style={{ background: 'rgba(59,130,246,0.08)' }}>
+                            <div className="chk-modal-rating-card blue">
                               {coach?.avatar_path
-                                ? <img src={coach.avatar_path} alt="" className="avatar" style={{ border: '2px solid #3b82f6' }} />
-                                : <div className="initials" style={{ background: '#3b82f6' }}>{getInitials(coach?.nome)}</div>}
-                              <div className="value" style={{ color: '#1d4ed8' }}>{selectedCheckResponse.coach_rating}</div>
-                              <div className="label">{coach?.nome || 'Coach'}</div>
+                                ? <img src={coach.avatar_path} alt="" className="avatar" />
+                                : <div className="initials blue">{getInitials(coach?.nome)}</div>}
+                              <div className="value">{selectedCheckResponse.coach_rating}</div>
+                              <div className="name">{coach?.nome || 'Coach'}</div>
                             </div>
                           );
                         })()}
                         {visibleRatingColumns.progresso && selectedCheckResponse.progress_rating && (
-                          <div className="chk-modal-rating-card" style={{ background: 'rgba(139,92,246,0.08)' }}>
-                            <img src="/static/assets/immagini/logo_user.png" alt="" className="avatar" style={{ border: '2px solid #9333ea' }} />
-                            <div className="value" style={{ color: '#7c3aed' }}>{selectedCheckResponse.progress_rating}</div>
-                            <div className="label">Progresso</div>
+                          <div className="chk-modal-rating-card purple">
+                            <div className="initials purple"><i className="ri-line-chart-line"></i></div>
+                            <div className="value">{selectedCheckResponse.progress_rating}</div>
+                            <div className="name">Progresso</div>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* Wellness */}
+                  {/* Wellness — Weekly */}
                   {selectedCheckResponse.type === 'weekly' && (
                     <div className="chk-modal-section">
-                      <div className="chk-modal-section-title"><i className="ri-heart-pulse-line"></i> Benessere</div>
+                      <span className="chk-modal-label">Benessere</span>
                       <div className="chk-wellness-grid">
                         {[
-                          { key: 'digestion_rating', label: 'Digestione', icon: '🍽️' },
-                          { key: 'energy_rating', label: 'Energia', icon: '⚡' },
-                          { key: 'strength_rating', label: 'Forza', icon: '💪' },
-                          { key: 'hunger_rating', label: 'Fame', icon: '🍴' },
-                          { key: 'sleep_rating', label: 'Sonno', icon: '😴' },
-                          { key: 'mood_rating', label: 'Umore', icon: '😊' },
-                          { key: 'motivation_rating', label: 'Motivazione', icon: '🔥' },
+                          { key: 'digestion_rating', label: 'Digestione', icon: 'ri-restaurant-line' },
+                          { key: 'energy_rating', label: 'Energia', icon: 'ri-flashlight-line' },
+                          { key: 'strength_rating', label: 'Forza', icon: 'ri-boxing-line' },
+                          { key: 'hunger_rating', label: 'Fame', icon: 'ri-restaurant-2-line' },
+                          { key: 'sleep_rating', label: 'Sonno', icon: 'ri-moon-line' },
+                          { key: 'mood_rating', label: 'Umore', icon: 'ri-emotion-happy-line' },
+                          { key: 'motivation_rating', label: 'Motivazione', icon: 'ri-fire-line' },
                         ].map(item => (
                           <div key={item.key} className="chk-wellness-item">
-                            <span className="icon">{item.icon}</span>
+                            <i className={`${item.icon} chk-wellness-icon`}></i>
                             <span className="label">{item.label}</span>
                             <span className="value">
                               {selectedCheckResponse[item.key] !== null && selectedCheckResponse[item.key] !== undefined
@@ -750,37 +835,252 @@ function CheckAzienda() {
                     </div>
                   )}
 
+                  {/* ── DCA Detail Sections ── */}
+                  {selectedCheckResponse.type === 'dca' && (
+                    <>
+                      {/* DCA: Benessere Emotivo */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Benessere Emotivo</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'mood_balance_rating', label: 'Equilibrio umore', icon: 'ri-emotion-happy-line' },
+                            { key: 'food_plan_serenity', label: 'Serenità piano alimentare', icon: 'ri-leaf-line' },
+                            { key: 'food_weight_worry', label: 'Preoccupazione peso/cibo', icon: 'ri-scales-3-line' },
+                            { key: 'emotional_eating', label: 'Alimentazione emotiva', icon: 'ri-emotion-sad-line' },
+                            { key: 'body_comfort', label: 'Comfort corporeo', icon: 'ri-body-scan-line' },
+                            { key: 'body_respect', label: 'Rispetto del corpo', icon: 'ri-heart-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/5` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Allenamento */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Allenamento</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'exercise_wellness', label: 'Esercizio come benessere', icon: 'ri-run-line' },
+                            { key: 'exercise_guilt', label: 'Senso di colpa esercizio', icon: 'ri-error-warning-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/5` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Riposo e Relazioni */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Riposo e Relazioni</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'sleep_satisfaction', label: 'Soddisfazione sonno', icon: 'ri-moon-line' },
+                            { key: 'relationship_time', label: 'Tempo relazioni', icon: 'ri-group-line' },
+                            { key: 'personal_time', label: 'Tempo personale', icon: 'ri-user-smile-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/5` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Emozioni e Gestione */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Emozioni e Gestione</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'life_interference', label: 'Interferenza sulla vita', icon: 'ri-forbid-line' },
+                            { key: 'unexpected_management', label: 'Gestione imprevisti', icon: 'ri-shield-check-line' },
+                            { key: 'self_compassion', label: 'Auto-compassione', icon: 'ri-heart-pulse-line' },
+                            { key: 'inner_dialogue', label: 'Dialogo interiore', icon: 'ri-chat-heart-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/5` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Sostenibilità */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Sostenibilità e Motivazione</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'long_term_sustainability', label: 'Sostenibilità lungo termine', icon: 'ri-timer-line' },
+                            { key: 'values_alignment', label: 'Allineamento valori', icon: 'ri-compass-3-line' },
+                            { key: 'motivation_level', label: 'Livello motivazione', icon: 'ri-fire-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/5` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Organizzazione Pasti */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Organizzazione Pasti</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'meal_organization', label: 'Organizzazione pasti', icon: 'ri-restaurant-line' },
+                            { key: 'meal_stress', label: 'Stress pasti', icon: 'ri-alarm-warning-line' },
+                            { key: 'shopping_awareness', label: 'Consapevolezza spesa', icon: 'ri-shopping-cart-line' },
+                            { key: 'shopping_impact', label: 'Impatto spesa', icon: 'ri-shopping-bag-line' },
+                            { key: 'meal_clarity', label: 'Chiarezza pasti', icon: 'ri-lightbulb-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/5` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Parametri Fisici 1-10 */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Parametri Fisici</span>
+                        <div className="chk-wellness-grid">
+                          {[
+                            { key: 'digestion_rating', label: 'Digestione', icon: 'ri-restaurant-line' },
+                            { key: 'energy_rating', label: 'Energia', icon: 'ri-flashlight-line' },
+                            { key: 'strength_rating', label: 'Forza', icon: 'ri-boxing-line' },
+                            { key: 'hunger_rating', label: 'Fame', icon: 'ri-restaurant-2-line' },
+                            { key: 'sleep_rating', label: 'Sonno', icon: 'ri-moon-line' },
+                            { key: 'mood_rating', label: 'Umore', icon: 'ri-emotion-happy-line' },
+                            { key: 'motivation_rating', label: 'Motivazione', icon: 'ri-fire-line' },
+                          ].map(item => (
+                            <div key={item.key} className="chk-wellness-item">
+                              <i className={`${item.icon} chk-wellness-icon`}></i>
+                              <span className="label">{item.label}</span>
+                              <span className="value">
+                                {selectedCheckResponse[item.key] != null ? `${selectedCheckResponse[item.key]}/10` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* DCA: Referral & Comments */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Referral</span>
+                        <div className="chk-feedback-block neutral"><p>{selectedCheckResponse.referral || <span className="chk-empty-text">Nessun referral indicato</span>}</p></div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── Minor Detail Sections ── */}
+                  {selectedCheckResponse.type === 'minor' && (
+                    <>
+                      {/* Minor: Peso & Altezza */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">Dati Antropometrici</span>
+                        <div className="chk-stats-row">
+                          <div className="chk-stat-box"><label>Peso attuale</label><span>{selectedCheckResponse.peso_attuale ? `${selectedCheckResponse.peso_attuale} kg` : '-'}</span></div>
+                          <div className="chk-stat-box"><label>Altezza</label><span>{selectedCheckResponse.altezza ? `${selectedCheckResponse.altezza} cm` : '-'}</span></div>
+                        </div>
+                      </div>
+
+                      {/* Minor: EDE-Q6 Scores */}
+                      <div className="chk-modal-section">
+                        <span className="chk-modal-label">EDE-Q6 Scores</span>
+                        <div className="chk-modal-ratings">
+                          {[
+                            { key: 'score_global', label: 'Global Score', color: 'purple' },
+                            { key: 'score_restraint', label: 'Restrizione', color: 'green' },
+                            { key: 'score_eating_concern', label: 'Preoccup. Alimentare', color: 'amber' },
+                            { key: 'score_shape_concern', label: 'Preoccup. Forma', color: 'blue' },
+                            { key: 'score_weight_concern', label: 'Preoccup. Peso', color: 'green' },
+                          ].map(item => (
+                            <div key={item.key} className={`chk-modal-rating-card ${item.color}`}>
+                              <div className={`initials ${item.color}`}>
+                                <i className={item.key === 'score_global' ? 'ri-bar-chart-box-line' : 'ri-pie-chart-line'}></i>
+                              </div>
+                              <div className="value">
+                                {selectedCheckResponse[item.key] != null ? selectedCheckResponse[item.key].toFixed(2) : '-'}
+                              </div>
+                              <div className="name">{item.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Minor: Severity Indicator */}
+                      {selectedCheckResponse.score_global != null && (
+                        <div className="chk-modal-section">
+                          <span className="chk-modal-label">Indicazione Clinica</span>
+                          <div className={`chk-feedback-block ${selectedCheckResponse.score_global >= 4 ? 'red' : selectedCheckResponse.score_global >= 2.5 ? 'amber' : 'green'}`}>
+                            <label>
+                              {selectedCheckResponse.score_global >= 4
+                                ? 'Punteggio elevato — possibile significatività clinica'
+                                : selectedCheckResponse.score_global >= 2.5
+                                ? 'Punteggio moderato — monitorare'
+                                : 'Punteggio nella norma'}
+                            </label>
+                            <p>Global Score: {selectedCheckResponse.score_global.toFixed(2)} / 6.00</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {/* Professional Feedback */}
                   {selectedCheckResponse.type === 'weekly' && !isRoleRestricted && (
                     <div className="chk-modal-section">
-                      <div className="chk-modal-section-title"><i className="ri-feedback-line"></i> Feedback Professionisti</div>
+                      <span className="chk-modal-label">Feedback Professionisti</span>
                       <div className="chk-feedback-block green">
                         <label>Feedback Nutrizionista</label>
-                        <p>{selectedCheckResponse.nutritionist_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p>
+                        <p>{selectedCheckResponse.nutritionist_feedback || <span className="chk-empty-text">Non compilato</span>}</p>
                       </div>
                       <div className="chk-feedback-block amber">
                         <label>Feedback Psicologo</label>
-                        <p>{selectedCheckResponse.psychologist_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p>
+                        <p>{selectedCheckResponse.psychologist_feedback || <span className="chk-empty-text">Non compilato</span>}</p>
                       </div>
                       <div className="chk-feedback-block blue">
                         <label>Feedback Coach</label>
-                        <p>{selectedCheckResponse.coach_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p>
+                        <p>{selectedCheckResponse.coach_feedback || <span className="chk-empty-text">Non compilato</span>}</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Team Leader restricted feedback */}
+                  {/* Team Leader / Professionista restricted feedback */}
                   {selectedCheckResponse.type === 'weekly' && isRoleRestricted && (
                     <div className="chk-modal-section">
-                      <div className="chk-modal-section-title"><i className="ri-feedback-line"></i> Feedback Professionista</div>
+                      <span className="chk-modal-label">Feedback Professionista</span>
                       {restrictedProfType === 'nutrizione' && (
-                        <div className="chk-feedback-block green"><label>Feedback Nutrizionista</label><p>{selectedCheckResponse.nutritionist_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
+                        <div className="chk-feedback-block green"><label>Feedback Nutrizionista</label><p>{selectedCheckResponse.nutritionist_feedback || <span className="chk-empty-text">Non compilato</span>}</p></div>
                       )}
                       {restrictedProfType === 'psicologia' && (
-                        <div className="chk-feedback-block amber"><label>Feedback Psicologo</label><p>{selectedCheckResponse.psychologist_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
+                        <div className="chk-feedback-block amber"><label>Feedback Psicologo</label><p>{selectedCheckResponse.psychologist_feedback || <span className="chk-empty-text">Non compilato</span>}</p></div>
                       )}
                       {restrictedProfType === 'coach' && (
-                        <div className="chk-feedback-block blue"><label>Feedback Coach</label><p>{selectedCheckResponse.coach_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
+                        <div className="chk-feedback-block blue"><label>Feedback Coach</label><p>{selectedCheckResponse.coach_feedback || <span className="chk-empty-text">Non compilato</span>}</p></div>
                       )}
                     </div>
                   )}
@@ -788,60 +1088,64 @@ function CheckAzienda() {
                   {/* Programs */}
                   {selectedCheckResponse.type === 'weekly' && (
                     <div className="chk-modal-section">
-                      <div className="chk-modal-section-title"><i className="ri-calendar-check-line"></i> Programmi</div>
-                      <div className="chk-feedback-block neutral"><label>Aderenza programma alimentare</label><p>{selectedCheckResponse.nutrition_program_adherence || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                      <div className="chk-feedback-block neutral"><label>Aderenza programma sportivo</label><p>{selectedCheckResponse.training_program_adherence || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                      <div className="chk-feedback-block neutral"><label>Esercizi modificati/aggiunti</label><p>{selectedCheckResponse.exercise_modifications || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                      <div className="chk-stats-row" style={{ marginTop: '10px' }}>
+                      <span className="chk-modal-label">Programmi</span>
+                      <div className="chk-feedback-block neutral"><label>Aderenza programma alimentare</label><p>{selectedCheckResponse.nutrition_program_adherence || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-feedback-block neutral"><label>Aderenza programma sportivo</label><p>{selectedCheckResponse.training_program_adherence || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-feedback-block neutral"><label>Esercizi modificati/aggiunti</label><p>{selectedCheckResponse.exercise_modifications || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-stats-row">
                         <div className="chk-stat-box"><label>Passi giornalieri</label><span>{selectedCheckResponse.daily_steps || '-'}</span></div>
                         <div className="chk-stat-box"><label>Settimane completate</label><span>{selectedCheckResponse.completed_training_weeks || '-'}</span></div>
                         <div className="chk-stat-box"><label>Giorni allenamento</label><span>{selectedCheckResponse.planned_training_days || '-'}</span></div>
                       </div>
-                      <div className="chk-feedback-block neutral" style={{ marginTop: '10px' }}><label>Tematiche live settimanali</label><p>{selectedCheckResponse.live_session_topics || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
+                      <div className="chk-feedback-block neutral" style={{ marginTop: '8px' }}><label>Tematiche live settimanali</label><p>{selectedCheckResponse.live_session_topics || <span className="chk-empty-text">Non compilato</span>}</p></div>
                     </div>
                   )}
 
-                  {/* Reflections */}
-                  <div className="chk-modal-section" data-tour="check-reflections">
-                    <div className="chk-modal-section-title"><i className="ri-lightbulb-line"></i> Riflessioni</div>
-                    <div className="chk-reflection success"><label><i className="ri-check-line text-success"></i> Cosa ha funzionato</label><p>{selectedCheckResponse.what_worked || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                    <div className="chk-reflection danger"><label><i className="ri-close-line text-danger"></i> Cosa non ha funzionato</label><p>{selectedCheckResponse.what_didnt_work || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                    <div className="chk-reflection warning"><label><i className="ri-lightbulb-line text-warning"></i> Cosa ho imparato</label><p>{selectedCheckResponse.what_learned || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                    <div className="chk-reflection info"><label><i className="ri-focus-line text-primary"></i> Focus prossima settimana</label><p>{selectedCheckResponse.what_focus_next || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
-                    {selectedCheckResponse.type === 'weekly' && (
-                      <div className="chk-feedback-block red" style={{ marginTop: '10px' }}><label><i className="ri-first-aid-kit-line text-danger"></i> Infortuni / Note importanti</label><p>{selectedCheckResponse.injuries_notes || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Nessun infortunio segnalato</span>}</p></div>
-                    )}
-                  </div>
+                  {/* Reflections — Weekly only */}
+                  {selectedCheckResponse.type === 'weekly' && (
+                    <div className="chk-modal-section" data-tour="check-reflections">
+                      <span className="chk-modal-label">Riflessioni</span>
+                      <div className="chk-reflection success"><label><i className="ri-check-line"></i> Cosa ha funzionato</label><p>{selectedCheckResponse.what_worked || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-reflection danger"><label><i className="ri-close-line"></i> Cosa non ha funzionato</label><p>{selectedCheckResponse.what_didnt_work || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-reflection warning"><label><i className="ri-lightbulb-line"></i> Cosa ho imparato</label><p>{selectedCheckResponse.what_learned || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-reflection info"><label><i className="ri-focus-line"></i> Focus prossima settimana</label><p>{selectedCheckResponse.what_focus_next || <span className="chk-empty-text">Non compilato</span>}</p></div>
+                      <div className="chk-feedback-block red" style={{ marginTop: '8px' }}><label><i className="ri-first-aid-kit-line"></i> Infortuni / Note importanti</label><p>{selectedCheckResponse.injuries_notes || <span className="chk-empty-text">Nessun infortunio segnalato</span>}</p></div>
+                    </div>
+                  )}
 
-                  {/* Referral */}
+                  {/* Referral — Weekly only */}
                   {selectedCheckResponse.type === 'weekly' && (
                     <div className="chk-modal-section">
-                      <div className="chk-modal-section-title"><i className="ri-user-add-line"></i> Referral</div>
-                      <div className="chk-feedback-block neutral"><p>{selectedCheckResponse.referral || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Nessun referral indicato</span>}</p></div>
+                      <span className="chk-modal-label">Referral</span>
+                      <div className="chk-feedback-block neutral"><p>{selectedCheckResponse.referral || <span className="chk-empty-text">Nessun referral indicato</span>}</p></div>
                     </div>
                   )}
 
-                  {/* Extra Comments */}
-                  <div className="chk-modal-section">
-                    <div className="chk-modal-section-title"><i className="ri-chat-1-line"></i> Commenti extra</div>
-                    <div className="chk-feedback-block neutral"><p>{selectedCheckResponse.extra_comments || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Nessun commento aggiuntivo</span>}</p></div>
-                  </div>
+                  {/* Extra Comments — Weekly & DCA */}
+                  {(selectedCheckResponse.type === 'weekly' || selectedCheckResponse.type === 'dca') && (
+                    <div className="chk-modal-section">
+                      <span className="chk-modal-label">Commenti extra</span>
+                      <div className="chk-feedback-block neutral"><p>{selectedCheckResponse.extra_comments || <span className="chk-empty-text">Nessun commento aggiuntivo</span>}</p></div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
+            {/* FOOTER — stile task */}
             <div className="chk-modal-footer">
               <Link
                 to={`/clienti-dettaglio/${selectedCheckResponse.cliente_id}?tab=check`}
-                className="chk-btn-outline"
+                className="chk-modal-go-btn"
                 onClick={() => setShowCheckResponseModal(false)}
               >
-                <i className="ri-user-line"></i> Vai al Cliente
+                Vai al cliente <i className="ri-arrow-right-line"></i>
               </Link>
-              <button className="chk-btn-secondary" onClick={() => setShowCheckResponseModal(false)}>Chiudi</button>
+              <button className="chk-modal-close-btn" onClick={() => setShowCheckResponseModal(false)}>Chiudi</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <SupportWidget

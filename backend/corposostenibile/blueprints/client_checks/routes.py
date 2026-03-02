@@ -86,6 +86,42 @@ from .helpers import (
 )
 from .rbac import get_accessible_clients_query
 
+def _photo_path_to_url(path: str | None) -> str | None:
+    """Converte un path filesystem di foto check in URL web servibile.
+
+    Il campo DB potrebbe contenere:
+    - URL web già corretto: ``/static/uploads/checks/...`` → restituisce così com'è
+    - Path assoluto del filesystem: ``/var/.../uploads/weekly_checks/...``
+    - Path relativo: ``uploads/weekly_checks/...``
+    Tutti vengono normalizzati a ``/uploads/...`` servito dalla route ``uploaded_file``
+    definita in ``__init__.py``.
+    """
+    if not path:
+        return None
+    path = path.strip()
+    # Già un URL web valido
+    if path.startswith('/static/') or path.startswith('http'):
+        return path
+    # Già un URL relativo /uploads/...
+    if path.startswith('/uploads/'):
+        return path
+    # Path assoluto del filesystem → estrai la parte dopo "uploads/"
+    import os
+    idx = path.find('/uploads/')
+    if idx != -1:
+        return path[idx:]
+    # Parte dopo la cartella configurata UPLOAD_FOLDER
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', '')
+    if upload_folder and path.startswith(upload_folder):
+        rel = path[len(upload_folder):].lstrip(os.sep)
+        return f'/uploads/{rel}'
+    # Path relativo tipo "uploads/weekly_checks/..."
+    if path.startswith('uploads/'):
+        return f'/{path}'
+    # Fallback: wrappa in /uploads/
+    return f'/uploads/{path}'
+
+
 def _can_access_cliente_checks(cliente_id: int) -> bool:
     accessible_query = get_accessible_clients_query()
     if accessible_query is None:
@@ -1595,10 +1631,10 @@ def weekly_check_response_view(response_id: int):
                     "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M') if response.submit_date else None,
                     "completion_percentage": response.completion_percentage,
 
-                    # Foto
-                    "photo_front": response.photo_front,
-                    "photo_side": response.photo_side,
-                    "photo_back": response.photo_back,
+                    # Foto (convertiti da path filesystem a URL web)
+                    "photo_front": _photo_path_to_url(response.photo_front),
+                    "photo_side": _photo_path_to_url(response.photo_side),
+                    "photo_back": _photo_path_to_url(response.photo_back),
 
                     # Riflessioni
                     "what_worked": response.what_worked,
@@ -2137,10 +2173,10 @@ def weekly_check_view(check_id: int):
                     "submit_date": weekly_check.submit_date.strftime('%d/%m/%Y %H:%M') if weekly_check.submit_date else None,
                     "is_completed": weekly_check.is_completed,
                     "completion_percentage": weekly_check.completion_percentage,
-                    # Foto
-                    "photo_front": weekly_check.photo_front,
-                    "photo_side": weekly_check.photo_side,
-                    "photo_back": weekly_check.photo_back,
+                    # Foto (convertiti da path filesystem a URL web)
+                    "photo_front": _photo_path_to_url(weekly_check.photo_front),
+                    "photo_side": _photo_path_to_url(weekly_check.photo_side),
+                    "photo_back": _photo_path_to_url(weekly_check.photo_back),
                     # Riflessioni
                     "what_worked": weekly_check.what_worked,
                     "what_didnt_work": weekly_check.what_didnt_work,
@@ -3179,10 +3215,10 @@ def api_get_response_detail(response_type: str, response_id: int):
                 "live_session_topics": resp.live_session_topics,
                 "extra_comments": resp.extra_comments,
                 "referral": resp.referral,
-                # Photos
-                "photo_front": resp.photo_front,
-                "photo_side": resp.photo_side,
-                "photo_back": resp.photo_back,
+                # Photos (convertiti da path filesystem a URL web)
+                "photo_front": _photo_path_to_url(resp.photo_front),
+                "photo_side": _photo_path_to_url(resp.photo_side),
+                "photo_back": _photo_path_to_url(resp.photo_back),
             }
 
         elif response_type == 'dca':
@@ -3285,11 +3321,13 @@ def api_azienda_stats():
     API JSON: Statistiche aziendali sui check (per Check Azienda).
     OTTIMIZZATO: paginazione server-side, eager loading, batch queries.
     Dati filtrati per ruolo (admin=all, TL=team clients, professionista=own).
+    Supporta check_type: 'all', 'weekly', 'dca', 'minor' (default: 'all').
     """
     from corposostenibile.models import (
         ClientCheckReadConfirmation,
         WeeklyCheck, WeeklyCheckResponse,
         DCACheck, DCACheckResponse,
+        MinorCheck, MinorCheckResponse,
         Team
     )
 
@@ -3300,14 +3338,13 @@ def api_azienda_stats():
         custom_end = request.args.get('end_date')
         prof_type = request.args.get('prof_type')  # 'nutrizione', 'coach', 'psicologia'
         prof_id = request.args.get('prof_id', type=int)  # Specific professional ID
+        check_type = request.args.get('check_type', 'all')  # 'all', 'weekly', 'dca', 'minor'
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 50, type=int), 100)
 
         # Calculate date range
         now = datetime.utcnow()
         end_date = now
-
-
 
         if period == 'custom' and custom_start and custom_end:
             start_date = datetime.strptime(custom_start, '%Y-%m-%d')
@@ -3323,74 +3360,87 @@ def api_azienda_stats():
         else:
             start_date = now - timedelta(days=30)
 
-        # Build base query
-        base_query = (
-            WeeklyCheckResponse.query
-            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-            .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-            .filter(WeeklyCheckResponse.submit_date >= start_date)
-        )
-        if period == 'custom':
-            base_query = base_query.filter(WeeklyCheckResponse.submit_date <= end_date)
-
-        # --- RBAC Filtering ---
+        # --- RBAC ---
         accessible_query = get_accessible_clients_query()
-        if accessible_query is not None:
-            # Se non è admin, filtra per i clienti accessibili
-            base_query = base_query.filter(Cliente.cliente_id.in_(accessible_query))
-        # ----------------------
 
-        # Filter by professional (UI Filter)
-        if prof_type and prof_id:
-            if prof_type == 'nutrizione':
-                base_query = base_query.filter(
-                    db.or_(
-                        Cliente.nutrizionista_id == prof_id,
-                        Cliente.nutrizionisti_multipli.any(User.id == prof_id)
-                    )
-                )
-            elif prof_type == 'coach':
-                base_query = base_query.filter(
-                    db.or_(
-                        Cliente.coach_id == prof_id,
-                        Cliente.coaches_multipli.any(User.id == prof_id)
-                    )
-                )
-            elif prof_type == 'psicologia':
-                base_query = base_query.filter(
-                    db.or_(
-                        Cliente.psicologa_id == prof_id,
-                        Cliente.psicologi_multipli.any(User.id == prof_id)
-                    )
-                )
-        elif prof_type:
-            # Filter only clients that have at least one professional of this type
-            if prof_type == 'nutrizione':
-                base_query = base_query.filter(
-                    db.or_(
-                        Cliente.nutrizionista_id.isnot(None),
-                        Cliente.nutrizionisti_multipli.any()
-                    )
-                )
-            elif prof_type == 'coach':
-                base_query = base_query.filter(
-                    db.or_(
-                        Cliente.coach_id.isnot(None),
-                        Cliente.coaches_multipli.any()
-                    )
-                )
-            elif prof_type == 'psicologia':
-                base_query = base_query.filter(
-                    db.or_(
-                        Cliente.psicologa_id.isnot(None),
-                        Cliente.psicologi_multipli.any()
-                    )
-                )
+        # --- Helper: apply prof filters to a query that already has Cliente joined ---
+        def _apply_prof_filters(q):
+            if prof_type and prof_id:
+                if prof_type == 'nutrizione':
+                    q = q.filter(db.or_(Cliente.nutrizionista_id == prof_id, Cliente.nutrizionisti_multipli.any(User.id == prof_id)))
+                elif prof_type == 'coach':
+                    q = q.filter(db.or_(Cliente.coach_id == prof_id, Cliente.coaches_multipli.any(User.id == prof_id)))
+                elif prof_type == 'psicologia':
+                    q = q.filter(db.or_(Cliente.psicologa_id == prof_id, Cliente.psicologi_multipli.any(User.id == prof_id)))
+            elif prof_type:
+                if prof_type == 'nutrizione':
+                    q = q.filter(db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any()))
+                elif prof_type == 'coach':
+                    q = q.filter(db.or_(Cliente.coach_id.isnot(None), Cliente.coaches_multipli.any()))
+                elif prof_type == 'psicologia':
+                    q = q.filter(db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any()))
+            return q
 
-        # Get total count for pagination (before applying limit)
-        total_count = base_query.count()
+        include_weekly = check_type in ('all', 'weekly')
+        include_dca = check_type in ('all', 'dca')
+        include_minor = check_type in ('all', 'minor')
 
-        # Calculate stats from ALL matching responses (aggregation query)
+        # ============================================================
+        # 1) WEEKLY — count + paginated fetch
+        # ============================================================
+        weekly_count = 0
+        weekly_responses = []
+        if include_weekly:
+            weekly_base = (
+                WeeklyCheckResponse.query
+                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                .filter(WeeklyCheckResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                weekly_base = weekly_base.filter(WeeklyCheckResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                weekly_base = weekly_base.filter(Cliente.cliente_id.in_(accessible_query))
+            weekly_base = _apply_prof_filters(weekly_base)
+            weekly_count = weekly_base.count()
+
+        dca_count = 0
+        dca_responses_raw = []
+        if include_dca:
+            dca_base = (
+                DCACheckResponse.query
+                .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
+                .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
+                .filter(DCACheckResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                dca_base = dca_base.filter(DCACheckResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                dca_base = dca_base.filter(Cliente.cliente_id.in_(accessible_query))
+            dca_base = _apply_prof_filters(dca_base)
+            dca_count = dca_base.count()
+
+        minor_count = 0
+        minor_responses_raw = []
+        if include_minor:
+            minor_base = (
+                MinorCheckResponse.query
+                .join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id)
+                .join(Cliente, MinorCheck.cliente_id == Cliente.cliente_id)
+                .filter(MinorCheckResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                minor_base = minor_base.filter(MinorCheckResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                minor_base = minor_base.filter(Cliente.cliente_id.in_(accessible_query))
+            minor_base = _apply_prof_filters(minor_base)
+            minor_count = minor_base.count()
+
+        total_count = weekly_count + dca_count + minor_count
+
+        # ============================================================
+        # 2) STATS — always from weekly (only type with ratings)
+        # ============================================================
         stats_query = (
             db.session.query(
                 db.func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
@@ -3404,36 +3454,12 @@ def api_azienda_stats():
         )
         if period == 'custom':
             stats_query = stats_query.filter(WeeklyCheckResponse.submit_date <= end_date)
-
-        # Apply same professional filters to stats
-        if prof_type and prof_id:
-            if prof_type == 'nutrizione':
-                stats_query = stats_query.filter(
-                    db.or_(Cliente.nutrizionista_id == prof_id, Cliente.nutrizionisti_multipli.any(User.id == prof_id))
-                )
-            elif prof_type == 'coach':
-                stats_query = stats_query.filter(
-                    db.or_(Cliente.coach_id == prof_id, Cliente.coaches_multipli.any(User.id == prof_id))
-                )
-            elif prof_type == 'psicologia':
-                stats_query = stats_query.filter(
-                    db.or_(Cliente.psicologa_id == prof_id, Cliente.psicologi_multipli.any(User.id == prof_id))
-                )
-        elif prof_type:
-            if prof_type == 'nutrizione':
-                stats_query = stats_query.filter(db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any()))
-            elif prof_type == 'coach':
-                stats_query = stats_query.filter(db.or_(Cliente.coach_id.isnot(None), Cliente.coaches_multipli.any()))
-            elif prof_type == 'psicologia':
-                stats_query = stats_query.filter(db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any()))
-
-        # Applica stesso filtro RBAC usato per le responses, così le medie sono coerenti con la lista
+        stats_query = _apply_prof_filters(stats_query)
         if accessible_query is not None:
             stats_query = stats_query.filter(Cliente.cliente_id.in_(accessible_query))
 
         stats_result = stats_query.first()
 
-        # Compute averages
         avg_nutrizionista = round(float(stats_result.avg_nutrizionista), 1) if stats_result.avg_nutrizionista else None
         avg_psicologo = round(float(stats_result.avg_psicologo), 1) if stats_result.avg_psicologo else None
         avg_coach = round(float(stats_result.avg_coach), 1) if stats_result.avg_coach else None
@@ -3441,123 +3467,323 @@ def api_azienda_stats():
         all_avgs = [x for x in [avg_nutrizionista, avg_psicologo, avg_coach, avg_progresso] if x is not None]
         avg_quality = round(sum(all_avgs) / len(all_avgs), 1) if all_avgs else None
 
-        # Get paginated responses with eager loading
+        # ============================================================
+        # 3) UNIFIED PAGINATION — merge all types sorted by submit_date DESC
+        # ============================================================
+        # Strategy: use UNION-like approach via separate sorted queries, then
+        # manually merge-paginate. For simplicity with different ORM models,
+        # we fetch IDs+dates for all types and paginate in Python.
         offset = (page - 1) * per_page
-        weekly_responses = (
-            base_query
-            .options(
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .defer(Cliente.check_saltati),
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .selectinload(Cliente.nutrizionisti_multipli),
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .selectinload(Cliente.coaches_multipli),
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .selectinload(Cliente.psicologi_multipli),
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .joinedload(Cliente.nutrizionista_user),
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .joinedload(Cliente.coach_user),
-                joinedload(WeeklyCheckResponse.assignment)
-                .joinedload(WeeklyCheck.cliente)
-                .joinedload(Cliente.psicologa_user),
+
+        # Collect (submit_date, type, id) tuples for ordering
+        all_items = []
+
+        if include_weekly and weekly_count > 0:
+            weekly_dates = (
+                db.session.query(WeeklyCheckResponse.id, WeeklyCheckResponse.submit_date)
+                .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                .filter(WeeklyCheckResponse.submit_date >= start_date)
             )
-            .order_by(WeeklyCheckResponse.submit_date.desc())
-            .offset(offset)
-            .limit(per_page)
-            .all()
-        )
+            if period == 'custom':
+                weekly_dates = weekly_dates.filter(WeeklyCheckResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                weekly_dates = weekly_dates.filter(Cliente.cliente_id.in_(accessible_query))
+            weekly_dates = _apply_prof_filters(weekly_dates)
+            for row in weekly_dates.all():
+                all_items.append((row.submit_date, 'weekly', row.id))
 
-        # Batch load all read confirmations for these responses
-        response_ids = [r.id for r in weekly_responses]
-        all_confirmations = {}
-        if response_ids:
-            confirmations = ClientCheckReadConfirmation.query.filter(
+        if include_dca and dca_count > 0:
+            dca_dates = (
+                db.session.query(DCACheckResponse.id, DCACheckResponse.submit_date)
+                .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
+                .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
+                .filter(DCACheckResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                dca_dates = dca_dates.filter(DCACheckResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                dca_dates = dca_dates.filter(Cliente.cliente_id.in_(accessible_query))
+            dca_dates = _apply_prof_filters(dca_dates)
+            for row in dca_dates.all():
+                all_items.append((row.submit_date, 'dca', row.id))
+
+        if include_minor and minor_count > 0:
+            minor_dates = (
+                db.session.query(MinorCheckResponse.id, MinorCheckResponse.submit_date)
+                .join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id)
+                .join(Cliente, MinorCheck.cliente_id == Cliente.cliente_id)
+                .filter(MinorCheckResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                minor_dates = minor_dates.filter(MinorCheckResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                minor_dates = minor_dates.filter(Cliente.cliente_id.in_(accessible_query))
+            minor_dates = _apply_prof_filters(minor_dates)
+            for row in minor_dates.all():
+                all_items.append((row.submit_date, 'minor', row.id))
+
+        # Sort DESC by submit_date, paginate
+        all_items.sort(key=lambda x: x[0] or datetime.min, reverse=True)
+        page_items = all_items[offset:offset + per_page]
+
+        # Group IDs by type for batch loading
+        weekly_ids_page = [item[2] for item in page_items if item[1] == 'weekly']
+        dca_ids_page = [item[2] for item in page_items if item[1] == 'dca']
+        minor_ids_page = [item[2] for item in page_items if item[1] == 'minor']
+
+        # ── Batch load weekly ──
+        weekly_by_id = {}
+        if weekly_ids_page:
+            weekly_loaded = (
+                WeeklyCheckResponse.query
+                .filter(WeeklyCheckResponse.id.in_(weekly_ids_page))
+                .options(
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .defer(Cliente.check_saltati),
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .selectinload(Cliente.nutrizionisti_multipli),
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .selectinload(Cliente.coaches_multipli),
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .selectinload(Cliente.psicologi_multipli),
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .joinedload(Cliente.nutrizionista_user),
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .joinedload(Cliente.coach_user),
+                    joinedload(WeeklyCheckResponse.assignment)
+                    .joinedload(WeeklyCheck.cliente)
+                    .joinedload(Cliente.psicologa_user),
+                )
+                .all()
+            )
+            weekly_by_id = {r.id: r for r in weekly_loaded}
+
+        # ── Batch load DCA ──
+        dca_by_id = {}
+        if dca_ids_page:
+            dca_loaded = (
+                DCACheckResponse.query
+                .filter(DCACheckResponse.id.in_(dca_ids_page))
+                .options(
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .defer(Cliente.check_saltati),
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .selectinload(Cliente.nutrizionisti_multipli),
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .selectinload(Cliente.coaches_multipli),
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .selectinload(Cliente.psicologi_multipli),
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .joinedload(Cliente.nutrizionista_user),
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .joinedload(Cliente.coach_user),
+                    joinedload(DCACheckResponse.assignment)
+                    .joinedload(DCACheck.cliente)
+                    .joinedload(Cliente.psicologa_user),
+                )
+                .all()
+            )
+            dca_by_id = {r.id: r for r in dca_loaded}
+
+        # ── Batch load Minor ──
+        minor_by_id = {}
+        if minor_ids_page:
+            minor_loaded = (
+                MinorCheckResponse.query
+                .filter(MinorCheckResponse.id.in_(minor_ids_page))
+                .options(
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .defer(Cliente.check_saltati),
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .selectinload(Cliente.nutrizionisti_multipli),
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .selectinload(Cliente.coaches_multipli),
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .selectinload(Cliente.psicologi_multipli),
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .joinedload(Cliente.nutrizionista_user),
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .joinedload(Cliente.coach_user),
+                    joinedload(MinorCheckResponse.assignment)
+                    .joinedload(MinorCheck.cliente)
+                    .joinedload(Cliente.psicologa_user),
+                )
+                .all()
+            )
+            minor_by_id = {r.id: r for r in minor_loaded}
+
+        # ── Batch load read confirmations for all 3 types ──
+        all_confirmations = {}  # key: (type, response_id) → set of user_ids
+        conf_filters = []
+        if weekly_ids_page:
+            conf_filters.append(db.and_(
                 ClientCheckReadConfirmation.response_type == 'weekly_check',
-                ClientCheckReadConfirmation.response_id.in_(response_ids)
-            ).all()
+                ClientCheckReadConfirmation.response_id.in_(weekly_ids_page)
+            ))
+        if dca_ids_page:
+            conf_filters.append(db.and_(
+                ClientCheckReadConfirmation.response_type == 'dca_check',
+                ClientCheckReadConfirmation.response_id.in_(dca_ids_page)
+            ))
+        if minor_ids_page:
+            conf_filters.append(db.and_(
+                ClientCheckReadConfirmation.response_type == 'minor_check',
+                ClientCheckReadConfirmation.response_id.in_(minor_ids_page)
+            ))
+        if conf_filters:
+            confirmations = ClientCheckReadConfirmation.query.filter(db.or_(*conf_filters)).all()
             for conf in confirmations:
-                if conf.response_id not in all_confirmations:
-                    all_confirmations[conf.response_id] = set()
-                all_confirmations[conf.response_id].add(conf.user_id)
+                key = (conf.response_type, conf.response_id)
+                if key not in all_confirmations:
+                    all_confirmations[key] = set()
+                all_confirmations[key].add(conf.user_id)
 
-        responses_data = []
-        for resp in weekly_responses:
-            cliente = resp.assignment.cliente if resp.assignment else None
-            if not cliente:
-                continue
+        # ── Helper: format professional info ──
+        def _format_prof(user, confirmed_ids):
+            if not user:
+                return None
+            return {
+                "id": user.id,
+                "nome": user.full_name,
+                "avatar_path": user.avatar_path,
+                "has_read": user.id in confirmed_ids
+            }
 
-            confirmed_user_ids = all_confirmations.get(resp.id, set())
-
-            def format_prof(user, confirmed_ids):
-                if not user:
-                    return None
-                return {
-                    "id": user.id,
-                    "nome": user.full_name,
-                    "avatar_path": user.avatar_path,
-                    "has_read": user.id in confirmed_ids
-                }
-
-            # Nutrizionisti (max 2)
+        def _get_profs(cliente, confirmed_user_ids):
+            """Extract nutrizionisti, psicologi, coaches for a cliente."""
             nutrizionisti = []
             seen_ids = set()
             for n in (cliente.nutrizionisti_multipli or [])[:2]:
                 if n.id not in seen_ids:
-                    nutrizionisti.append(format_prof(n, confirmed_user_ids))
+                    nutrizionisti.append(_format_prof(n, confirmed_user_ids))
                     seen_ids.add(n.id)
             if cliente.nutrizionista_user and cliente.nutrizionista_user.id not in seen_ids and len(nutrizionisti) < 2:
-                nutrizionisti.append(format_prof(cliente.nutrizionista_user, confirmed_user_ids))
+                nutrizionisti.append(_format_prof(cliente.nutrizionista_user, confirmed_user_ids))
             nutrizionisti = [n for n in nutrizionisti if n]
 
-            # Psicologi (max 2)
             psicologi = []
             seen_ids = set()
             for p in (cliente.psicologi_multipli or [])[:2]:
                 if p.id not in seen_ids:
-                    psicologi.append(format_prof(p, confirmed_user_ids))
+                    psicologi.append(_format_prof(p, confirmed_user_ids))
                     seen_ids.add(p.id)
             if cliente.psicologa_user and cliente.psicologa_user.id not in seen_ids and len(psicologi) < 2:
-                psicologi.append(format_prof(cliente.psicologa_user, confirmed_user_ids))
+                psicologi.append(_format_prof(cliente.psicologa_user, confirmed_user_ids))
             psicologi = [p for p in psicologi if p]
 
-            # Coach (max 2)
             coaches = []
             seen_ids = set()
             for c in (cliente.coaches_multipli or [])[:2]:
                 if c.id not in seen_ids:
-                    coaches.append(format_prof(c, confirmed_user_ids))
+                    coaches.append(_format_prof(c, confirmed_user_ids))
                     seen_ids.add(c.id)
             if cliente.coach_user and cliente.coach_user.id not in seen_ids and len(coaches) < 2:
-                coaches.append(format_prof(cliente.coach_user, confirmed_user_ids))
+                coaches.append(_format_prof(cliente.coach_user, confirmed_user_ids))
             coaches = [c for c in coaches if c]
 
-            responses_data.append({
-                "id": resp.id,
-                "type": "weekly",
-                "cliente_id": cliente.cliente_id if cliente else None,
-                "cliente_nome": cliente.nome_cognome if cliente else "Sconosciuto",
-                "programma": cliente.tipologia_cliente.value if cliente and cliente.tipologia_cliente else None,
-                "submit_date": resp.submit_date.strftime('%d/%m/%Y') if resp.submit_date else None,
-                "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
-                "nutritionist_rating": resp.nutritionist_rating,
-                "psychologist_rating": resp.psychologist_rating,
-                "coach_rating": resp.coach_rating,
-                "progress_rating": resp.progress_rating,
-                "nutrizionisti": nutrizionisti,
-                "psicologi": psicologi,
-                "coaches": coaches,
-            })
+            return nutrizionisti, psicologi, coaches
+
+        # ============================================================
+        # 4) SERIALIZE — iterate page_items in order
+        # ============================================================
+        responses_data = []
+        for _, item_type, item_id in page_items:
+            if item_type == 'weekly':
+                resp = weekly_by_id.get(item_id)
+                if not resp:
+                    continue
+                cliente = resp.assignment.cliente if resp.assignment else None
+                if not cliente:
+                    continue
+                confirmed_user_ids = all_confirmations.get(('weekly_check', resp.id), set())
+                nutrizionisti, psicologi, coaches = _get_profs(cliente, confirmed_user_ids)
+                responses_data.append({
+                    "id": resp.id,
+                    "type": "weekly",
+                    "cliente_id": cliente.cliente_id,
+                    "cliente_nome": cliente.nome_cognome or "Sconosciuto",
+                    "programma": cliente.tipologia_cliente.value if cliente.tipologia_cliente else None,
+                    "submit_date": resp.submit_date.strftime('%d/%m/%Y') if resp.submit_date else None,
+                    "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
+                    "nutritionist_rating": resp.nutritionist_rating,
+                    "psychologist_rating": resp.psychologist_rating,
+                    "coach_rating": resp.coach_rating,
+                    "progress_rating": resp.progress_rating,
+                    "nutrizionisti": nutrizionisti,
+                    "psicologi": psicologi,
+                    "coaches": coaches,
+                })
+
+            elif item_type == 'dca':
+                resp = dca_by_id.get(item_id)
+                if not resp:
+                    continue
+                cliente = resp.assignment.cliente if resp.assignment else None
+                if not cliente:
+                    continue
+                confirmed_user_ids = all_confirmations.get(('dca_check', resp.id), set())
+                nutrizionisti, psicologi, coaches = _get_profs(cliente, confirmed_user_ids)
+                responses_data.append({
+                    "id": resp.id,
+                    "type": "dca",
+                    "cliente_id": cliente.cliente_id,
+                    "cliente_nome": cliente.nome_cognome or "Sconosciuto",
+                    "programma": cliente.tipologia_cliente.value if cliente.tipologia_cliente else None,
+                    "submit_date": resp.submit_date.strftime('%d/%m/%Y') if resp.submit_date else None,
+                    "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
+                    "completion_percentage": resp.completion_percentage,
+                    "nutrizionisti": nutrizionisti,
+                    "psicologi": psicologi,
+                    "coaches": coaches,
+                })
+
+            elif item_type == 'minor':
+                resp = minor_by_id.get(item_id)
+                if not resp:
+                    continue
+                cliente = resp.assignment.cliente if resp.assignment else None
+                if not cliente:
+                    continue
+                confirmed_user_ids = all_confirmations.get(('minor_check', resp.id), set())
+                nutrizionisti, psicologi, coaches = _get_profs(cliente, confirmed_user_ids)
+                responses_data.append({
+                    "id": resp.id,
+                    "type": "minor",
+                    "cliente_id": cliente.cliente_id,
+                    "cliente_nome": cliente.nome_cognome or "Sconosciuto",
+                    "programma": cliente.tipologia_cliente.value if cliente.tipologia_cliente else None,
+                    "submit_date": resp.submit_date.strftime('%d/%m/%Y') if resp.submit_date else None,
+                    "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
+                    "score_global": resp.score_global,
+                    "completion_percentage": resp.completion_percentage,
+                    "nutrizionisti": nutrizionisti,
+                    "psicologi": psicologi,
+                    "coaches": coaches,
+                })
 
         return jsonify({
             "success": True,
             "period": period,
+            "check_type": check_type,
             "pagination": {
                 "page": page,
                 "per_page": per_page,
@@ -3566,6 +3792,9 @@ def api_azienda_stats():
             },
             "stats": {
                 "total_responses": total_count,
+                "weekly_count": weekly_count,
+                "dca_count": dca_count,
+                "minor_count": minor_count,
                 "avg_nutrizionista": avg_nutrizionista,
                 "avg_psicologo": avg_psicologo,
                 "avg_coach": avg_coach,
@@ -4127,8 +4356,6 @@ def api_public_submit_dca(token: str):
             sleep_rating=safe_int(data.get('sleep_rating')),
             mood_rating=safe_int(data.get('mood_rating')),
             motivation_rating=safe_int(data.get('motivation_rating')),
-            # Note
-            notes=data.get('notes'),
         )
 
         db.session.add(response)

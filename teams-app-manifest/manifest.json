@@ -1,8 +1,8 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
-  "version": "2.0.0",
-  "id": "9021235f-2311-40af-8513-fd41d42e69ec",
+  "version": "1.0.0",
+  "id": "5538feac-ffb2-4899-bc09-e36c8ce657ab",
   "developer": {
     "name": "SuiteMind",
     "websiteUrl": "https://suitemind.it",
@@ -10,12 +10,12 @@
     "termsOfUseUrl": "https://suitemind.it/terms"
   },
   "name": {
-    "short": "SUMI",
-    "full": "SUMI - Sistema Ticket Interno"
+    "short": "SUMI Teams",
+    "full": "SUMI Teams - Gestione Ticket e Board"
   },
   "description": {
-    "short": "Gestione ticket interni del team",
-    "full": "Bot per la gestione dei ticket interni del team. Crea ticket, assegna colleghi, allega file e ricevi aggiornamenti direttamente su Teams."
+    "short": "Board ticket e gestione interna del team",
+    "full": "Gestione ticket interni con board Kanban, bot conversazionale e notifiche. Crea ticket, assegna colleghi, allega file e gestisci tutto da Teams."
   },
   "icons": {
     "color": "color.png",
@@ -49,10 +49,19 @@
       ]
     }
   ],
+  "staticTabs": [
+    {
+      "entityId": "ticketBoard",
+      "name": "Ticket Board",
+      "contentUrl": "https://clinica.corposostenibile.com/teams-kanban/",
+      "websiteUrl": "https://clinica.corposostenibile.com/teams-kanban/",
+      "scopes": ["personal"]
+    }
+  ],
   "permissions": ["identity", "messageTeamMembers"],
   "validDomains": ["clinica.corposostenibile.com"],
   "webApplicationInfo": {
     "id": "af3b2b1c-c9ec-4179-8c07-05d636683858",
-    "resource": "api://botid-9021235f-2311-40af-8513-fd41d42e69ec"
+    "resource": "api://clinica.corposostenibile.com/af3b2b1c-c9ec-4179-8c07-05d636683858"
   }
 }

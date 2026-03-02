@@ -248,14 +248,14 @@ function MinorCheckForm() {
     <div className="check-card check-theme-minor">
       {/* Header */}
       <div className="check-header">
-        <h4 className="check-header-title">Check Minori</h4>
-        {checkInfo?.cliente && (
-          <p className="check-header-subtitle">
-            Ciao {checkInfo.cliente.nome}!
-          </p>
-        )}
+        <h4 className="check-header-title">
+          Ciao {checkInfo?.cliente?.nome || ''}!
+        </h4>
+        <p className="check-header-subtitle">
+          È il momento del tuo check. Raccontaci come stai!
+        </p>
         <p className="check-header-hint">
-          Rispondi pensando agli ultimi 28 giorni
+          <i className="ri-time-line"></i> Compilazione: ~10 min · Rispondi pensando agli ultimi 28 giorni
         </p>
       </div>
 
