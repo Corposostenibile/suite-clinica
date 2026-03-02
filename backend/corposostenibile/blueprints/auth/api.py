@@ -13,7 +13,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from corposostenibile.extensions import db, csrf
-from corposostenibile.models import User, Team, TeamTypeEnum, ImpersonationLog
+from corposostenibile.models import User, Team, TeamTypeEnum, UserRoleEnum, ImpersonationLog
 from .routes import _generate_reset_token, _verify_reset_token, _send_reset_email, _send_password_changed_email
 
 # --------------------------------------------------------------------------- #
@@ -266,9 +266,12 @@ def api_impersonate_users():
 
     try:
         db.session.rollback()
+        # Solo utenti con un ruolo della suite clinica (esclude sales, marketing, ecc.)
+        clinical_roles = [r for r in UserRoleEnum]
         users = User.query.filter(
             User.is_active == True,
-            User.id != current_user.id
+            User.id != current_user.id,
+            User.role.in_(clinical_roles),
         ).order_by(User.first_name, User.last_name).all()
 
         result = []

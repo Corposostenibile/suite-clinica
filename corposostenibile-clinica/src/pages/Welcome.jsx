@@ -324,8 +324,6 @@ function LegacyWelcomeDashboard() {
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isTeamLeader = user?.role === 'team_leader';
   const isRestrictedTeamLeaderDashboard = Boolean(isTeamLeader && !isAdminOrCco);
-  const isProfessionistaDashboard = isProfessionistaStandard(user);
-
   // Independent loading states for progressive rendering
   const [customerStats, setCustomerStats] = useState(null);
   const [customerLoading, setCustomerLoading] = useState(true);
@@ -822,6 +820,473 @@ function LegacyWelcomeDashboard() {
   );
 }
 
+// ==================== PROFESSIONISTA DASHBOARD (single page) ====================
+
+const SPECIALTY_META = {
+  nutrizione: { label: 'Nutrizione', icon: 'ri-restaurant-line', color: '#22c55e', bg: '#dcfce7', checkField: 'avg_nutrizionista' },
+  coach: { label: 'Coach', icon: 'ri-run-line', color: '#f59e0b', bg: '#fef3c7', checkField: 'avg_coach' },
+  psicologia: { label: 'Psicologia', icon: 'ri-mental-health-line', color: '#8b5cf6', bg: '#ede9fe', checkField: 'avg_psicologo' },
+};
+
+function ProfessionistaDashboard({ user }) {
+  const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
+  const meta = SPECIALTY_META[specialtyGroup] || SPECIALTY_META.nutrizione;
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Data
+  const [taskStats, setTaskStats] = useState(null);
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [trainingSummary, setTrainingSummary] = useState({ total: 0, pending: 0, requests: 0 });
+  const [customerStats, setCustomerStats] = useState(null);
+  const [checkDashData, setCheckDashData] = useState(null);
+  const [pazientiData, setPazientiData] = useState(null);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [
+        taskStatsRes,
+        tasksRes,
+        myTrainingsRes,
+        myRequestsRes,
+        customerRes,
+        checkRes,
+        pazientiRes,
+      ] = await Promise.all([
+        taskService.getStats(),
+        taskService.getAll({ completed: 'false' }),
+        trainingService.getMyTrainings(),
+        trainingService.getMyRequests(),
+        dashboardService.getCustomerStats(),
+        checkService.getAdminDashboardStats(),
+        clientiService.getAdminDashboardStats(),
+      ]);
+
+      setTaskStats(taskStatsRes || null);
+      setRecentTasks(Array.isArray(tasksRes) ? tasksRes.slice(0, 8) : []);
+
+      const myTrainings = myTrainingsRes?.trainings || [];
+      const myRequests = myRequestsRes?.requests || [];
+      setTrainingSummary({
+        total: myTrainings.length,
+        pending: myTrainings.filter(t => !t.acknowledged_at && !t.is_acknowledged).length,
+        requests: myRequests.length,
+      });
+
+      setCustomerStats(customerRes);
+      setCheckDashData(checkRes);
+      setPazientiData(pazientiRes);
+    } catch (err) {
+      console.error('Error loading professionista dashboard:', err);
+      setError('Errore nel caricamento della dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Derived values
+  const totalClienti = customerStats?.total_clienti ?? 0;
+  const activeClienti = customerStats?.kpi?.active ?? customerStats?.[`${specialtyGroup === 'psicologia' ? 'psicologia' : specialtyGroup}_attivo`] ?? 0;
+  const newMonth = customerStats?.kpi?.new_month ?? 0;
+
+  const checkAvg = checkDashData?.ratings?.[meta.checkField.replace('avg_', '')] ?? null;
+
+  // Pazienti stats
+  const pzKpi = pazientiData?.kpi || {};
+  const statusDist = pazientiData?.statusDistribution || [];
+  const monthlyTrend = pazientiData?.monthlyTrend || [];
+  const maxMonthly = Math.max(...monthlyTrend.map(m => m.count), 1);
+
+  const getRatingColor = (val) => {
+    if (!val) return '#94a3b8';
+    if (val >= 9) return '#22c55e';
+    if (val >= 7) return '#3b82f6';
+    if (val >= 5) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  // KPI cards
+  const kpiCards = [
+    { label: 'I miei pazienti', value: totalClienti, icon: 'ri-group-line', color: '#3b82f6' },
+    { label: 'Pazienti attivi', value: pzKpi.active ?? activeClienti, icon: 'ri-checkbox-circle-line', color: '#22c55e' },
+    { label: 'Task aperti', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#f97316' },
+    { label: 'Training da leggere', value: trainingSummary.pending, icon: 'ri-notification-3-line', color: '#8b5cf6' },
+    { label: 'Valutazione media', value: checkAvg ? `${checkAvg}/10` : 'N/D', icon: meta.icon, color: meta.color },
+  ];
+
+  // Quick links for professionisti
+  const quickLinks = [
+    { label: 'I miei pazienti', to: '/clienti-lista', icon: 'ri-group-line', color: '#3b82f6', bgColor: '#eff6ff', iconBg: '#dbeafe' },
+    { label: 'Formazione', to: '/formazione', icon: 'ri-book-open-line', color: '#ec4899', bgColor: '#fdf2f8', iconBg: '#fce7f3' },
+    { label: 'Chat', to: '/chat', icon: 'ri-chat-3-line', color: '#14b8a6', bgColor: '#f0fdfa', iconBg: '#ccfbf1' },
+    { label: 'Calendario', to: '/calendario', icon: 'ri-calendar-line', color: '#ef4444', bgColor: '#fef2f2', iconBg: '#fee2e2' },
+    { label: 'Il mio profilo', to: `/team-dettaglio/${user?.id}`, icon: 'ri-user-line', color: '#8b5cf6', bgColor: '#f5f3ff', iconBg: '#ede9fe' },
+    { label: 'Check', to: '/check-azienda', icon: 'ri-checkbox-circle-line', color: '#22c55e', bgColor: '#f0fdf4', iconBg: '#dcfce7' },
+  ];
+
+  return (
+    <>
+      {/* Header */}
+      <div className="welcome-header">
+        <div>
+          <h4>Ciao, {user?.first_name || 'Professionista'}!</h4>
+          <p>La tua dashboard personale</p>
+        </div>
+        <button onClick={loadAll} className="welcome-refresh-btn">
+          <i className="ri-refresh-line"></i>
+          Aggiorna
+        </button>
+      </div>
+
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      {/* KPI Cards */}
+      <div className="row g-3 mb-4">
+        {kpiCards.map((stat, idx) => (
+          <div key={idx} className="col-xl col-sm-6">
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">
+                    {loading ? <SkeletonNumber /> : (stat.value ?? 0)}
+                  </div>
+                  <span className="kpi-label">{stat.label}</span>
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Links */}
+      <div className="welcome-card mb-4">
+        <div className="welcome-card-header">
+          <h6><i className="ri-apps-line me-2 text-primary"></i>Accesso Rapido</h6>
+        </div>
+        <div className="welcome-card-body">
+          <div className="row g-2">
+            {quickLinks.map((link, idx) => (
+              <div key={idx} className="col-6 col-md-4 col-xl-2">
+                <Link to={link.to} className="welcome-quick-link" style={{ background: link.bgColor }}>
+                  <div className="link-icon" style={{ background: link.iconBg }}>
+                    <i className={link.icon} style={{ color: link.color }}></i>
+                  </div>
+                  <span className="link-label">{link.label}</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Row: Tasks + Training */}
+      <div className="row g-3 mb-4">
+        {/* Task aperti recenti */}
+        <div className="col-lg-7">
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6><i className="ri-task-line me-2 text-primary"></i>Task aperti</h6>
+              <Link to="/task" className="btn btn-sm btn-outline-primary welcome-page-btn">
+                Tutti i task <i className="ri-arrow-right-s-line"></i>
+              </Link>
+            </div>
+            <div className="welcome-card-body">
+              {loading ? (
+                <SkeletonList count={4} />
+              ) : recentTasks.length === 0 ? (
+                <div className="text-center py-4">
+                  <i className="ri-checkbox-circle-line text-muted" style={{ fontSize: '32px', opacity: 0.3 }}></i>
+                  <p className="text-muted small mb-0 mt-2">Nessun task aperto</p>
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-2" style={{ maxHeight: '380px', overflowY: 'auto' }}>
+                  {recentTasks.map((task) => (
+                    <div key={task.id} className="welcome-task-item">
+                      <div className="pe-3">
+                        <div className="task-title">{task.title || 'Task'}</div>
+                        <div className="task-meta">{task.client_name || task.category || '—'}</div>
+                      </div>
+                      <span className={`welcome-badge welcome-badge-${task.priority === 'alta' ? 'danger' : task.priority === 'media' ? 'warning' : 'neutral'}`}>
+                        {task.priority || '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Formazione */}
+        <div className="col-lg-5">
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6><i className="ri-book-open-line me-2 text-success"></i>Formazione</h6>
+              <Link to="/formazione" className="btn btn-sm btn-outline-success welcome-page-btn">
+                Vai <i className="ri-arrow-right-s-line"></i>
+              </Link>
+            </div>
+            <div className="welcome-card-body">
+              {loading ? (
+                <SkeletonList count={3} />
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Training ricevuti</span>
+                    <span className="stat-value" style={{ color: '#22c55e', fontWeight: 700 }}>{trainingSummary.total}</span>
+                  </div>
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Da leggere</span>
+                    <span className="stat-value" style={{ color: trainingSummary.pending > 0 ? '#f97316' : '#22c55e', fontWeight: 700 }}>{trainingSummary.pending}</span>
+                  </div>
+                  <div className="welcome-stat-row">
+                    <span className="stat-label">Mie richieste</span>
+                    <span className="stat-value" style={{ color: '#3b82f6', fontWeight: 700 }}>{trainingSummary.requests}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Valutazione personale */}
+          <div className="welcome-card mt-3">
+            <div className="welcome-card-header">
+              <h6>
+                <i className={`${meta.icon} me-2`} style={{ color: meta.color }}></i>
+                La mia valutazione ({meta.label})
+              </h6>
+            </div>
+            <div className="welcome-card-body">
+              {loading ? (
+                <SkeletonList count={2} />
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  <div className="d-flex align-items-center justify-content-between">
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>Media dai check dei miei pazienti</span>
+                    <span style={{ fontSize: '22px', fontWeight: 700, color: getRatingColor(checkAvg) }}>
+                      {checkAvg || '—'}<span style={{ fontSize: '13px', color: '#94a3b8' }}>/10</span>
+                    </span>
+                  </div>
+                  {checkDashData?.kpi && (
+                    <>
+                      <div className="welcome-stat-row">
+                        <span className="stat-label">Check totali</span>
+                        <span className="stat-value" style={{ color: '#1e293b', fontWeight: 700 }}>{checkDashData.kpi.totalAll ?? 0}</span>
+                      </div>
+                      <div className="welcome-stat-row">
+                        <span className="stat-label">Check questo mese</span>
+                        <span className="stat-value" style={{ color: '#1e293b', fontWeight: 700 }}>{checkDashData.kpi.totalMonth ?? 0}</span>
+                      </div>
+                      <div className="welcome-stat-row">
+                        <span className="stat-label">Da leggere</span>
+                        <span className="stat-value" style={{ color: checkDashData.kpi.unreadCount > 0 ? '#f97316' : '#22c55e', fontWeight: 700 }}>{checkDashData.kpi.unreadCount ?? 0}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row: Pazienti overview */}
+      <div className="row g-3 mb-4">
+        {/* Status distribution */}
+        <div className="col-lg-4">
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6><i className="ri-pie-chart-line me-2 text-info"></i>Stato pazienti</h6>
+            </div>
+            <div className="welcome-card-body">
+              {loading ? (
+                <SkeletonList count={4} />
+              ) : statusDist.length === 0 ? (
+                <div className="text-center py-3 text-muted"><p className="small mb-0">Nessun dato</p></div>
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  {statusDist.sort((a, b) => b.count - a.count).map((s, idx) => {
+                    const config = STATUS_CONFIG[s.status] || STATUS_CONFIG.non_definito;
+                    const total = statusDist.reduce((sum, d) => sum + d.count, 0) || 1;
+                    const pct = Math.round((s.count / total) * 100);
+                    return (
+                      <div key={idx}>
+                        <div className="d-flex align-items-center justify-content-between mb-1">
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="d-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', borderRadius: '6px', background: config.bg }}>
+                              <i className={config.icon} style={{ fontSize: '12px', color: config.color }}></i>
+                            </div>
+                            <span style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>{config.label}</span>
+                          </div>
+                          <div className="d-flex align-items-center gap-2">
+                            <span style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{s.count}</span>
+                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>{pct}%</span>
+                          </div>
+                        </div>
+                        <div className="welcome-progress">
+                          <div className="welcome-progress-bar" style={{ width: `${pct}%`, background: config.color }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Trend nuovi pazienti */}
+        <div className="col-lg-8">
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <h6>
+                <i className="ri-line-chart-line me-2 text-primary"></i>
+                Nuovi pazienti (ultimi 12 mesi)
+              </h6>
+              <Link to="/clienti-lista" className="btn btn-sm btn-outline-primary welcome-page-btn">
+                Tutti <i className="ri-arrow-right-s-line"></i>
+              </Link>
+            </div>
+            <div className="welcome-card-body">
+              {loading ? (
+                <SkeletonCard height="200px" />
+              ) : monthlyTrend.length === 0 ? (
+                <div className="text-center py-4 text-muted"><p className="small mb-0">Nessun dato disponibile</p></div>
+              ) : (
+                <div className="d-flex align-items-end justify-content-between gap-1" style={{ height: '200px' }}>
+                  {monthlyTrend.map((m, idx) => (
+                    <div key={idx} className="d-flex flex-column align-items-center flex-fill">
+                      <div className="d-flex flex-column align-items-center justify-content-end" style={{ height: '160px', width: '100%' }}>
+                        <div
+                          style={{
+                            width: '65%',
+                            maxWidth: '40px',
+                            height: `${Math.max((m.count / maxMonthly) * 140, m.count > 0 ? 8 : 0)}px`,
+                            background: `linear-gradient(180deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
+                            borderRadius: '6px 6px 0 0',
+                            transition: 'height 0.3s ease',
+                          }}
+                          title={`${m.count} nuovi pazienti`}
+                        ></div>
+                      </div>
+                      <div className="text-center mt-2">
+                        <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
+                          {m.month ? m.month.split('-')[1] + '/' + m.month.split('-')[0].slice(2) : ''}
+                        </span>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>{m.count}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row: Check recenti */}
+      {!loading && checkDashData?.recentResponses && checkDashData.recentResponses.length > 0 && (
+        <ProfCheckRecent data={checkDashData} specialtyGroup={specialtyGroup} meta={meta} />
+      )}
+    </>
+  );
+}
+
+function ProfCheckRecent({ data, specialtyGroup, meta }) {
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 5;
+  const responses = data?.recentResponses || [];
+  const totalPages = Math.ceil(responses.length / PER_PAGE);
+  const startIdx = (page - 1) * PER_PAGE;
+  const paginated = responses.slice(startIdx, startIdx + PER_PAGE);
+
+  const getRatingColor = (val) => {
+    if (!val) return '#94a3b8';
+    if (val >= 9) return '#22c55e';
+    if (val >= 7) return '#3b82f6';
+    if (val >= 5) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  // Map specialtyGroup to the field name in check responses
+  const fieldMap = { nutrizione: 'nutrizionista', coach: 'coach', psicologia: 'psicologo' };
+  const myField = fieldMap[specialtyGroup] || 'nutrizionista';
+
+  return (
+    <div className="welcome-card mb-4">
+      <div className="welcome-card-header">
+        <h6>
+          <i className="ri-file-list-3-line me-2 text-primary"></i>
+          Check recenti dei miei pazienti
+        </h6>
+        <Link to="/check-azienda" className="btn btn-sm btn-outline-primary welcome-page-btn">
+          Tutti i check <i className="ri-arrow-right-s-line"></i>
+        </Link>
+      </div>
+      {paginated.length > 0 ? (
+        <>
+          <div className="table-responsive">
+            <table className="welcome-table">
+              <thead>
+                <tr>
+                  <th>Paziente</th>
+                  <th>Data</th>
+                  <th>La mia valutazione</th>
+                  <th>Progresso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600, color: '#334155' }}>{r.cliente}</td>
+                    <td style={{ color: '#64748b' }}>{r.date || '—'}</td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: getRatingColor(r[myField]) }}>{r[myField] || '—'}</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>/10</span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: getRatingColor(r.progresso) }}>{r.progresso || '—'}</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>/10</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="d-flex align-items-center justify-content-between px-4 py-3 border-top">
+              <span className="text-muted" style={{ fontSize: '13px' }}>
+                {startIdx + 1}-{Math.min(startIdx + PER_PAGE, responses.length)} di {responses.length}
+              </span>
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                  <i className="ri-arrow-left-s-line"></i> Prec
+                </button>
+                <button className="btn btn-sm btn-light welcome-page-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Succ <i className="ri-arrow-right-s-line"></i>
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="card-body text-center py-4">
+          <i className="ri-file-list-3-line text-muted" style={{ fontSize: '32px', opacity: 0.3 }}></i>
+          <p className="text-muted small mb-0 mt-2">Nessun check recente</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Welcome() {
   const { user } = useOutletContext();
 
@@ -866,7 +1331,7 @@ function Welcome() {
   }
 
   if (isProfessionistaStandard(user)) {
-    return <RoleScopedWelcome user={user} mode="professionista" />;
+    return <ProfessionistaDashboard user={user} />;
   }
 
   return <LegacyWelcomeDashboard />;
@@ -2750,6 +3215,7 @@ const QUICK_LINKS = [
   { label: 'Chat', to: '/chat', icon: 'ri-chat-3-line', color: '#14b8a6', bgColor: '#f0fdfa', iconBg: '#ccfbf1' },
   { label: 'Calendario', to: '/calendario', icon: 'ri-calendar-line', color: '#ef4444', bgColor: '#fef2f2', iconBg: '#fee2e2' },
 ];
+
 
 // ==================== SKELETON COMPONENTS ====================
 

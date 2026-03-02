@@ -101,6 +101,12 @@ spec:
           value: "mock"
         - name: GHL_GLOBAL_STATUS_WEBHOOK_URL
           value: ""
+        - name: TEAMS_BOT_APP_ID
+          value: "af3b2b1c-c9ec-4179-8c07-05d636683858"
+        - name: TEAMS_BOT_APP_PASSWORD
+          value: "sL_8Q~7dckRNw3r-I-yVqScpyJLuQZ80_zVjddlh"
+        - name: TEAMS_BOT_TENANT_ID
+          value: "432c478e-1c8a-4f55-88ab-db9b9d8f0118"
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
         volumeMounts:
