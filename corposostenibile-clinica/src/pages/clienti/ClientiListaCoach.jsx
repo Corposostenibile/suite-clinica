@@ -9,6 +9,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
+import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
 
 // Luogo colors
@@ -84,11 +85,22 @@ function ClientiListaCoach() {
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
+    stato: searchParams.get('stato_cliente') || '',
+    tipologia: searchParams.get('tipologia') || '',
     coach: searchParams.get('coach_id') || '',
     statoCoach: searchParams.get('stato_coach') || '',
+    statoChatCoaching: searchParams.get('stato_chat_coaching') || '',
     checkDay: searchParams.get('check_day') || '',
     reachOut: searchParams.get('reach_out_coaching') || '',
+    luogoDiAllenamento: searchParams.get('luogo_di_allenamento') || '',
+    callInizialeCoach: searchParams.get('call_iniziale_coach') || '',
+    allenamento_dal_from: searchParams.get('allenamento_dal_from') || '',
+    allenamento_dal_to: searchParams.get('allenamento_dal_to') || '',
+    nuovo_allenamento_il_from: searchParams.get('nuovo_allenamento_il_from') || '',
+    nuovo_allenamento_il_to: searchParams.get('nuovo_allenamento_il_to') || '',
+    missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '0',
   });
+  const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
@@ -127,10 +139,20 @@ function ClientiListaCoach() {
         page: pagination.page,
         per_page: pagination.perPage,
         q: filters.search || undefined,
+        stato_cliente: filters.stato || undefined,
+        tipologia: filters.tipologia || undefined,
         coach_id: filters.coach || undefined,
         stato_coach: filters.statoCoach || undefined,
+        stato_chat_coaching: filters.statoChatCoaching || undefined,
         check_day: filters.checkDay || undefined,
         reach_out_coaching: filters.reachOut || undefined,
+        luogo_di_allenamento: filters.luogoDiAllenamento || undefined,
+        call_iniziale_coach: filters.callInizialeCoach || undefined,
+        allenamento_dal_from: filters.allenamento_dal_from || undefined,
+        allenamento_dal_to: filters.allenamento_dal_to || undefined,
+        nuovo_allenamento_il_from: filters.nuovo_allenamento_il_from || undefined,
+        nuovo_allenamento_il_to: filters.nuovo_allenamento_il_to || undefined,
+        missing_piano_allenamento: filters.missing_piano_allenamento === '1' ? '1' : undefined,
       };
 
       const data = await clientiService.getClientiCoach(params);
@@ -169,16 +191,27 @@ function ClientiListaCoach() {
     fetchClienti();
   }, [fetchClienti]);
 
+  // Map filter state keys to URL/backend param names
+  const FILTER_KEY_MAP = {
+    search: 'q',
+    stato: 'stato_cliente',
+    tipologia: 'tipologia',
+    coach: 'coach_id',
+    statoCoach: 'stato_coach',
+    statoChatCoaching: 'stato_chat_coaching',
+    checkDay: 'check_day',
+    reachOut: 'reach_out_coaching',
+    luogoDiAllenamento: 'luogo_di_allenamento',
+    callInizialeCoach: 'call_iniziale_coach',
+    missing_piano_allenamento: 'missing_piano_allenamento',
+  };
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
-    const paramKey = key === 'search' ? 'q' :
-      key === 'coach' ? 'coach_id' :
-        key === 'statoCoach' ? 'stato_coach' :
-          key === 'checkDay' ? 'check_day' :
-            key === 'reachOut' ? 'reach_out_coaching' : key;
-    if (value) {
+    const paramKey = FILTER_KEY_MAP[key] || key;
+    if (value && value !== '0') {
       newParams.set(paramKey, value);
     } else {
       newParams.delete(paramKey);
@@ -187,7 +220,14 @@ function ClientiListaCoach() {
   };
 
   const resetFilters = () => {
-    setFilters({ search: '', coach: '', statoCoach: '', checkDay: '', reachOut: '' });
+    setFilters({
+      search: '', stato: '', tipologia: '', coach: '',
+      statoCoach: '', statoChatCoaching: '', checkDay: '', reachOut: '',
+      luogoDiAllenamento: '', callInizialeCoach: '',
+      allenamento_dal_from: '', allenamento_dal_to: '',
+      nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
+      missing_piano_allenamento: '0',
+    });
     setSearchParams(new URLSearchParams());
   };
 
@@ -335,6 +375,11 @@ function ClientiListaCoach() {
     return pages;
   };
 
+  // Count active filters (excluding search)
+  const activeFilterCount = Object.entries(filters)
+    .filter(([key, val]) => key !== 'search' && val && val !== '' && val !== '0')
+    .length;
+
   // Stat cards config
   const statCards = [
     { key: 'attivo', label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-run-line' },
@@ -410,7 +455,7 @@ function ClientiListaCoach() {
         })}
       </div>
 
-      {/* Search Bar + Filters */}
+      {/* Search Bar + Filter Button */}
       <div className="cl-search-row">
         <div className="cl-search-wrap">
           <i className="ri-search-line cl-search-icon"></i>
@@ -422,53 +467,25 @@ function ClientiListaCoach() {
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
-        {!isProfessionista && (
-        <select
-          className="cl-filter-select"
-          value={filters.coach}
-          onChange={(e) => handleFilterChange('coach', e.target.value)}
-        >
-          <option value="">Coach</option>
-          {coaches.map(c => (
-            <option key={c.id} value={c.id}>{c.full_name}</option>
-          ))}
-        </select>
-        )}
-        <select
-          className="cl-filter-select"
-          value={filters.statoCoach}
-          onChange={(e) => handleFilterChange('statoCoach', e.target.value)}
-        >
-          <option value="">Stato Coach</option>
-          <option value="attivo">Attivo</option>
-          <option value="pausa">Pausa</option>
-          <option value="ghost">Ghost</option>
-          <option value="stop">Stop</option>
-        </select>
-        <select
-          className="cl-filter-select"
-          value={filters.checkDay}
-          onChange={(e) => handleFilterChange('checkDay', e.target.value)}
-        >
-          <option value="">Check Day</option>
-          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <select
-          className="cl-filter-select"
-          value={filters.reachOut}
-          onChange={(e) => handleFilterChange('reachOut', e.target.value)}
-        >
-          <option value="">Reach Out</option>
-          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <button className="cl-modal-btn-reset" onClick={resetFilters}>
-          <i className="ri-refresh-line"></i> Reset
+        <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>
+          <i className="ri-filter-3-line"></i> Filtra
+          {activeFilterCount > 0 && (
+            <span className="cl-filter-badge">{activeFilterCount}</span>
+          )}
         </button>
       </div>
+
+      {/* Filters Modal */}
+      <ClientiFilters
+        mode="coach"
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onReset={resetFilters}
+        professionisti={coaches}
+        visibleProfessionalFilters={{ nutrizione: false, coach: !isProfessionista, psicologia: false }}
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+      />
 
       {/* Content */}
       {loading ? (

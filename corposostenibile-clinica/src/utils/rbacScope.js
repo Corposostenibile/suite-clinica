@@ -67,6 +67,11 @@ export function canAccessAiAssignments(user) {
   return !isProfessionistaStandard(user) && !isTeamLeaderRestricted(user);
 }
 
+export function canAccessSpecializzazione(user) {
+  // Admin, CCO, Health Manager (user e TL), e Team Leader clinici
+  return !isProfessionistaStandard(user) && !isHealthManagerUser(user);
+}
+
 export function canAccessCapacity(user) {
   return Boolean(isAdminOrCco(user) || isTeamLeaderRestricted(user) || isHealthManagerTeamLeader(user));
 }

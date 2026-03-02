@@ -9,6 +9,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
+import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
 
 // Role colors for avatars
@@ -75,12 +76,22 @@ function ClientiListaPsicologia() {
     totalPages: 0,
   });
 
-  const [filters, setFilters] = useState({
-    search: searchParams.get('q') || '',
-    psicologo: searchParams.get('psicologa_id') || '',
-    statoPsicologia: searchParams.get('stato_psicologia') || '',
-    reachOut: searchParams.get('reach_out_psicologia') || '',
+  const [filters, setFilters] = useState(() => {
+    const init = {
+      search: searchParams.get('q') || '',
+      stato: searchParams.get('stato_cliente') || '',
+      tipologia: searchParams.get('tipologia') || '',
+      psicologa: searchParams.get('psicologa_id') || '',
+      statoPsicologia: searchParams.get('stato_psicologia') || '',
+      statoChatPsicologia: searchParams.get('stato_chat_psicologia') || '',
+      reachOut: searchParams.get('reach_out_psicologia') || '',
+      callInizialePsicologa: searchParams.get('call_iniziale_psicologa') || '',
+    };
+    // Init patologie from URL params
+    PATOLOGIE_PSICO.forEach(p => { init[p.key] = searchParams.get(p.key) || '0'; });
+    return init;
   });
+  const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
@@ -102,7 +113,7 @@ function ClientiListaPsicologia() {
         const data = await teamService.getTeamMembers({
           per_page: 100,
           active: '1',
-          specialty: 'psicologia',
+          specialty: 'psicologia,psicologo',
         });
         setPsicologi(data.members || []);
       } catch (err) {
@@ -120,10 +131,18 @@ function ClientiListaPsicologia() {
         page: pagination.page,
         per_page: pagination.perPage,
         q: filters.search || undefined,
-        psicologa_id: filters.psicologo || undefined,
+        stato_cliente: filters.stato || undefined,
+        tipologia: filters.tipologia || undefined,
+        psicologa_id: filters.psicologa || undefined,
         stato_psicologia: filters.statoPsicologia || undefined,
+        stato_chat_psicologia: filters.statoChatPsicologia || undefined,
         reach_out_psicologia: filters.reachOut || undefined,
+        call_iniziale_psicologa: filters.callInizialePsicologa || undefined,
       };
+      // Add patologie filters
+      PATOLOGIE_PSICO.forEach(p => {
+        if (filters[p.key] === '1') params[p.key] = '1';
+      });
 
       const data = await clientiService.getClientiPsicologia(params);
       setClienti(data.data || []);
@@ -161,15 +180,24 @@ function ClientiListaPsicologia() {
     fetchClienti();
   }, [fetchClienti]);
 
+  // Map filter state keys to URL/backend param names
+  const FILTER_KEY_MAP = {
+    search: 'q',
+    stato: 'stato_cliente',
+    tipologia: 'tipologia',
+    psicologa: 'psicologa_id',
+    statoPsicologia: 'stato_psicologia',
+    statoChatPsicologia: 'stato_chat_psicologia',
+    reachOut: 'reach_out_psicologia',
+    callInizialePsicologa: 'call_iniziale_psicologa',
+  };
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
-    const paramKey = key === 'search' ? 'q' :
-      key === 'psicologo' ? 'psicologa_id' :
-        key === 'statoPsicologia' ? 'stato_psicologia' :
-          key === 'reachOut' ? 'reach_out_psicologia' : key;
-    if (value) {
+    const paramKey = FILTER_KEY_MAP[key] || key;
+    if (value && value !== '0') {
       newParams.set(paramKey, value);
     } else {
       newParams.delete(paramKey);
@@ -178,7 +206,13 @@ function ClientiListaPsicologia() {
   };
 
   const resetFilters = () => {
-    setFilters({ search: '', psicologo: '', statoPsicologia: '', reachOut: '' });
+    const clean = {
+      search: '', stato: '', tipologia: '', psicologa: '',
+      statoPsicologia: '', statoChatPsicologia: '', reachOut: '',
+      callInizialePsicologa: '',
+    };
+    PATOLOGIE_PSICO.forEach(p => { clean[p.key] = '0'; });
+    setFilters(clean);
     setSearchParams(new URLSearchParams());
   };
 
@@ -319,6 +353,11 @@ function ClientiListaPsicologia() {
     return pages;
   };
 
+  // Count active filters (excluding search)
+  const activeFilterCount = Object.entries(filters)
+    .filter(([key, val]) => key !== 'search' && val && val !== '' && val !== '0')
+    .length;
+
   // Stat cards config
   const statCards = [
     { key: 'attivo', label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-mental-health-line' },
@@ -394,7 +433,7 @@ function ClientiListaPsicologia() {
         })}
       </div>
 
-      {/* Search Bar + Filters */}
+      {/* Search Bar + Filter Button */}
       <div className="cl-search-row">
         <div className="cl-search-wrap">
           <i className="ri-search-line cl-search-icon"></i>
@@ -406,43 +445,25 @@ function ClientiListaPsicologia() {
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
-        {!isProfessionista && (
-        <select
-          className="cl-filter-select"
-          value={filters.psicologo}
-          onChange={(e) => handleFilterChange('psicologo', e.target.value)}
-        >
-          <option value="">Psicologo</option>
-          {psicologi.map(p => (
-            <option key={p.id} value={p.id}>{p.full_name}</option>
-          ))}
-        </select>
-        )}
-        <select
-          className="cl-filter-select"
-          value={filters.statoPsicologia}
-          onChange={(e) => handleFilterChange('statoPsicologia', e.target.value)}
-        >
-          <option value="">Stato Psicologia</option>
-          <option value="attivo">Attivo</option>
-          <option value="pausa">Pausa</option>
-          <option value="ghost">Ghost</option>
-          <option value="stop">Stop</option>
-        </select>
-        <select
-          className="cl-filter-select"
-          value={filters.reachOut}
-          onChange={(e) => handleFilterChange('reachOut', e.target.value)}
-        >
-          <option value="">Reach Out</option>
-          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <button className="cl-modal-btn-reset" onClick={resetFilters}>
-          <i className="ri-refresh-line"></i> Reset
+        <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>
+          <i className="ri-filter-3-line"></i> Filtra
+          {activeFilterCount > 0 && (
+            <span className="cl-filter-badge">{activeFilterCount}</span>
+          )}
         </button>
       </div>
+
+      {/* Filters Modal */}
+      <ClientiFilters
+        mode="psicologia"
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onReset={resetFilters}
+        professionisti={psicologi}
+        visibleProfessionalFilters={{ nutrizione: false, coach: false, psicologia: !isProfessionista }}
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+      />
 
       {/* Content */}
       {loading ? (

@@ -117,8 +117,8 @@ def _can_view_professional_capacity(user) -> bool:
 
 
 def _can_edit_professional_capacity(user) -> bool:
-    """ACL modifica capienza contrattuale: admin/CCO + Team Leader HM."""
-    return user.is_authenticated and (user.is_admin or _is_cco_user(user) or _is_health_manager_team_leader(user))
+    """ACL modifica capienza contrattuale: admin/CCO + qualsiasi Team Leader."""
+    return user.is_authenticated and (user.is_admin or _is_cco_user(user) or _get_user_role(user) == 'team_leader')
 
 
 def _can_view_all_team_module_data(user) -> bool:
@@ -1881,6 +1881,7 @@ def _serialize_team(team, include_members=False):
         'is_active': team.is_active,
         'head_id': team.head_id,
         'head': _serialize_user(team.head, include_teams_led=False) if team.head else None,
+        'member_count': len(team.members) if team.members else 0,
         'created_at': team.created_at.isoformat() if team.created_at else None,
         'updated_at': team.updated_at.isoformat() if team.updated_at else None,
     }
@@ -1888,7 +1889,6 @@ def _serialize_team(team, include_members=False):
     # Only load members when explicitly requested (expensive)
     if include_members:
         data['members'] = [_serialize_user(m, include_teams_led=False) for m in (team.members or [])]
-        data['member_count'] = len(team.members) if team.members else 0
 
     return data
 
@@ -2412,25 +2412,23 @@ def get_professionals_capacity():
                 User.role == UserRoleEnum.professionista,
                 User.specialty.in_(clinical_specialties),
             ),
+            and_(
+                User.role == UserRoleEnum.team_leader,
+                User.specialty.in_(clinical_specialties),
+            ),
             User.role == UserRoleEnum.health_manager,
         ),
     )
 
-    # Team Leader: visibilità limitata ai membri dei team guidati.
+    # Team Leader: visibilità limitata ai membri dei team guidati + sé stesso.
     if not (current_user.is_admin or _is_cco_user(current_user)):
         current_role = _get_user_role(current_user)
         if current_role == 'team_leader':
             visible_member_ids = _get_team_leader_member_ids(current_user.id)
-            if not visible_member_ids:
-                return jsonify({
-                    'success': True,
-                    'rows': [],
-                    'total': 0,
-                    'can_edit': False
-                })
+            visible_member_ids.add(current_user.id)  # TL vede anche sé stesso
             query = query.filter(User.id.in_(visible_member_ids))
             if not _is_health_manager_team_leader(current_user):
-                query = query.filter(User.role == UserRoleEnum.professionista)
+                query = query.filter(User.role.in_([UserRoleEnum.professionista, UserRoleEnum.team_leader]))
         elif current_role == 'health_manager':
             query = query.filter(User.id == current_user.id)
 
@@ -2528,16 +2526,26 @@ def get_professionals_capacity():
 @team_api_bp.route("/capacity/<int:user_id>", methods=["PUT"])
 @login_required
 def update_professional_capacity(user_id: int):
-    """Aggiorna capienza contrattuale (solo admin/CCO)."""
+    """Aggiorna capienza contrattuale (admin/CCO/Team Leader)."""
     if not _can_edit_professional_capacity(current_user):
         return jsonify({
             'success': False,
-            'message': 'Solo admin o CCO possono modificare la capienza contrattuale'
+            'message': 'Non autorizzato a modificare la capienza contrattuale'
         }), HTTPStatus.FORBIDDEN
+
+    # Team Leader: può modificare solo membri dei propri team o sé stesso
+    if not (current_user.is_admin or _is_cco_user(current_user)):
+        if _get_user_role(current_user) == 'team_leader':
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            if user_id not in allowed_ids:
+                return jsonify({
+                    'success': False,
+                    'message': 'Puoi modificare solo la capienza dei membri del tuo team'
+                }), HTTPStatus.FORBIDDEN
 
     user = User.query.get_or_404(user_id)
     role_type = _get_capacity_role_type(user)
-    if not role_type or _get_user_role(user) not in {'professionista', 'health_manager'}:
+    if not role_type or _get_user_role(user) not in {'professionista', 'health_manager', 'team_leader'}:
         return jsonify({
             'success': False,
             'message': 'Utente non gestibile nella tabella capienza professionisti'

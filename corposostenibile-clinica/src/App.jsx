@@ -71,6 +71,7 @@ import {
   canAccessGlobalCheckPage,
   canAccessQualityPage,
   canAccessSecondaryModules,
+  canAccessSpecializzazione,
   canAccessTaskPage,
   canAccessTeamLists,
   canAccessTrainingPage,
@@ -171,7 +172,7 @@ function App() {
               </RoleProtectedRoute>
             } />
             <Route path="/criteri-professionisti" element={
-              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
+              <RoleProtectedRoute allowIf={canAccessSpecializzazione}>
                 <CriteriProfessionisti />
               </RoleProtectedRoute>
             } />
