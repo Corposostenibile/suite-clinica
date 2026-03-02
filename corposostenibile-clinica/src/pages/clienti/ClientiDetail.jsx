@@ -3771,7 +3771,6 @@ function ClientiDetail() {
                       {[
                         { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'green' },
                         { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
-                        { key: 'patologie', label: 'Patologie e Anamnesi', icon: 'ri-stethoscope-line', color: 'orange' },
                         { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                         { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                       ].map(({ key, label, icon, color }) => (
@@ -4814,7 +4813,6 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
                           { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: 'orange' },
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: 'orange' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                         ].map(({ key, label, icon, color }) => (
@@ -5528,71 +5526,6 @@ function ClientiDetail() {
                     </div>
                   )}
 
-                  {/* ===== PATOLOGIE SUB-TAB ===== */}
-                  {coachingSubTab === 'patologie' && (
-                    <div data-tour="coaching-patologie">
-                      <div>
-                      <div>
-                        <div className="cd-section-title">
-                          Patologie e Anamnesi Coaching
-                        </div>
-                        <div className="cd-inner-card">
-                          <div className="cd-inner-card-body">
-                            <div className="cd-inner-card-header-row">
-                              <div className="cd-inner-card-header-left">
-                                <div className="cd-icon-circle purple">
-                                  <i className="ri-file-list-3-line"></i>
-                                </div>
-                                <span className="cd-inner-card-title">Valutazione Iniziale</span>
-                              </div>
-                              <button
-                                className="cd-btn-save"
-                                onClick={handleSaveAnamnesiCoaching}
-                                disabled={savingAnamnesiCoaching || loadingAnamnesiCoaching}
-                              >
-                                {savingAnamnesiCoaching ? (
-                                  <><span className="spinner-border spinner-border-sm me-1"></span>Salvataggio...</>
-                                ) : (
-                                  <><i className="ri-save-line"></i>Salva</>
-                                )}
-                              </button>
-                            </div>
-                            {loadingAnamnesiCoaching ? (
-                              <div className="cd-loading">
-                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                                <small className="ms-2 cd-loading-text">Caricamento anamnesi...</small>
-                              </div>
-                            ) : (
-                              <>
-                                <div className="cd-field">
-                                <textarea
-                                  className="cd-textarea"
-                                  rows="10"
-                                  placeholder="Inserisci l'anamnesi coaching del cliente...&#10;&#10;• Esperienza sportiva&#10;• Obiettivi fitness&#10;• Infortuni pregressi&#10;• Limitazioni fisiche&#10;• Attrezzatura disponibile&#10;• Frequenza allenamenti"
-                                  value={anamnesiCoachingContent}
-                                  onChange={(e) => setAnamnesiCoachingContent(e.target.value)}
-                                ></textarea>
-                                </div>
-                                {anamnesiCoaching && (
-                                  <div className="small text-muted border-top pt-2">
-                                    <i className="ri-information-line me-1"></i>
-                                    Creato: {anamnesiCoaching.created_at} da {anamnesiCoaching.created_by || 'N/D'}
-                                    {anamnesiCoaching.last_modified_by && (
-                                      <span className="ms-3">
-                                        | Ultima modifica: {anamnesiCoaching.updated_at} da {anamnesiCoaching.last_modified_by}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      </div>
-                    </div>
-                  )}
-
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {coachingSubTab === 'diario' && (
                     <div data-tour="coaching-diario">
@@ -5751,7 +5684,6 @@ function ClientiDetail() {
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'purple' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-stethoscope-line', color: 'orange' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                         ].map(({ key, label, icon, color }) => (

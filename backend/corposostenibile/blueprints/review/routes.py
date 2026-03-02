@@ -765,117 +765,22 @@ def request_training():
     """
     Permette agli utenti di richiedere un training al loro responsabile.
 
-    Logica speciale per dipartimenti 2 (Nutrizione), 3 (Coach), 4 (Psicologia), 13 (Customer Success):
-    - Membri: possono scegliere tra il proprio head/team leader e il head CCO (23)
-    - Head/Team Leader: richiedono al CCO
-
-    Per Nutrizione (dept 2) con team:
-    - Membri con team: scelgono tra Team Leader e Head CCO
-    - Membri senza team: scelgono tra Head Nutrizione e Head CCO
-    - Team Leader: richiedono a Head CCO
+    Regole:
+    - Professionista → SOLO il team leader del proprio team
+    - Team leader → SOLO CCO (head dept 23)
+    - Admin → tutti gli utenti attivi
     """
-    from corposostenibile.models import Team
+    # Usa helper centralizzato per i destinatari
+    api_recipients = _get_training_recipients(current_user)
 
-    # Trova i possibili destinatari della richiesta
+    # Converti formato API (id/name/role) → formato Jinja (user/label)
     possible_recipients = []
-
-    # Helper per aggiungere Head CCO come opzione
-    def add_cco_option():
-        dept_cco = Department.query.filter_by(id=23).first()
-        if dept_cco and dept_cco.head and dept_cco.head.id != current_user.id:
+    for r in api_recipients:
+        user_obj = User.query.get(r['id'])
+        if user_obj:
             possible_recipients.append({
-                'user': dept_cco.head,
-                'label': f"{dept_cco.head.first_name} {dept_cco.head.last_name} (Head CCO)"
-            })
-            return True
-        return False
-
-    # Verifica se l'utente è un team leader (nel dipartimento Nutrizione)
-    is_team_leader = Team.query.filter_by(head_id=current_user.id).first() is not None
-    user_team = None
-    if current_user.team_id:
-        user_team = Team.query.get(current_user.team_id)
-
-    # CASO 1: Membri del dipartimento Nutrizione (2) con struttura a team
-    if current_user.department_id == 2:
-        if is_team_leader:
-            # Team Leader Nutrizione → richiedono al CCO
-            add_cco_option()
-            current_app.logger.info(f'Nutrizione Team Leader {current_user.id} can request training from CCO head')
-        elif user_team and user_team.head and user_team.head.id != current_user.id:
-            # Membro con team → sceglie tra Team Leader e CCO
-            possible_recipients.append({
-                'user': user_team.head,
-                'label': f"{user_team.head.first_name} {user_team.head.last_name} (Team Leader {user_team.name})"
-            })
-            add_cco_option()
-            current_app.logger.info(f'Nutrizione member {current_user.id} (team {user_team.id}) can request training from team leader and CCO head')
-        else:
-            # Membro senza team → sceglie tra Head Nutrizione e CCO
-            if current_user.department and current_user.department.head:
-                if current_user.department.head.id != current_user.id:
-                    possible_recipients.append({
-                        'user': current_user.department.head,
-                        'label': f"{current_user.department.head.first_name} {current_user.department.head.last_name} (Head {current_user.department.name})"
-                    })
-            add_cco_option()
-            current_app.logger.info(f'Nutrizione member {current_user.id} (no team) can request training from dept head and CCO head')
-
-    # CASO 2: Membri dei dipartimenti 3, 4, 13 → scelgono tra proprio head e CCO
-    elif current_user.department_id in [3, 4, 13]:
-        # Aggiungi il proprio head di dipartimento
-        if current_user.department and current_user.department.head:
-            if current_user.department.head.id != current_user.id:  # Non se stesso
-                possible_recipients.append({
-                    'user': current_user.department.head,
-                    'label': f"{current_user.department.head.first_name} {current_user.department.head.last_name} (Head {current_user.department.name})"
-                })
-
-        # Aggiungi anche il head del dipartimento CCO (23)
-        add_cco_option()
-        current_app.logger.info(f'Dept {current_user.department_id} member {current_user.id} can request training from own head and CCO head')
-
-    # CASO 3: Head di dipartimento
-    elif is_department_head(current_user):
-        # Head dei dipartimenti 2, 3, 4, 13 richiedono al CCO
-        user_dept = Department.query.filter_by(head_id=current_user.id).first()
-        if user_dept and user_dept.id in [2, 3, 4, 13]:
-            dept_cco = Department.query.filter_by(id=23).first()
-            if dept_cco and dept_cco.head and dept_cco.head.id != current_user.id:
-                recipient = dept_cco.head
-            else:
-                recipient = None
-        else:
-            # Altri head richiedono al CEO
-            ceo_dept = Department.query.filter_by(name='CEO').first()
-            if ceo_dept and ceo_dept.head:
-                recipient = ceo_dept.head
-            else:
-                # Fallback: cerca utente con job_title CEO o admin con id più basso
-                ceo_user = User.query.filter_by(job_title='CEO').first()
-                if ceo_user:
-                    recipient = ceo_user
-                else:
-                    # Cerca prima un admin, poi fallback su HR
-                    recipient = User.query.filter_by(is_admin=True).order_by(User.id).first()
-                    if not recipient:
-                        # Se non c'è admin, prova con HR (department_id 17)
-                        recipient = User.query.filter_by(department_id=17).order_by(User.id).first()
-
-        # Evita che qualcuno richieda training a se stesso
-        if recipient and recipient.id != current_user.id:
-            possible_recipients.append({
-                'user': recipient,
-                'label': f"{recipient.first_name} {recipient.last_name} (Head CCO)" if user_dept and user_dept.id in [2, 3, 4, 13] else f"{recipient.first_name} {recipient.last_name}"
-            })
-
-    # CASO 4: Utente normale di altri dipartimenti
-    elif current_user.department and current_user.department.head:
-        # L'utente normale richiede al suo head di dipartimento
-        if current_user.department.head.id != current_user.id:
-            possible_recipients.append({
-                'user': current_user.department.head,
-                'label': f"{current_user.department.head.first_name} {current_user.department.head.last_name}"
+                'user': user_obj,
+                'label': f"{r['name']} ({r['role']})" if r.get('role') else r['name']
             })
 
     if not possible_recipients:
@@ -886,11 +791,9 @@ def request_training():
 
     # Se ci sono più destinatari possibili, aggiungiamo un campo di selezione
     if len(possible_recipients) > 1:
-        # Aggiungi le choices al form dinamicamente
         choices = [(str(r['user'].id), r['label']) for r in possible_recipients]
         form.recipient_id.choices = choices
     else:
-        # Un solo destinatario, lo impostiamo direttamente
         form.recipient_id.choices = [(str(possible_recipients[0]['user'].id), possible_recipients[0]['label'])]
         form.recipient_id.data = str(possible_recipients[0]['user'].id)
 
@@ -1540,83 +1443,97 @@ def api_given_trainings():
     })
 
 
+def _get_training_recipients(user):
+    """
+    Ritorna la lista di destinatari autorizzati per richieste di training.
+
+    Regole:
+    - Admin: tutti gli utenti attivi (escluso se stesso)
+    - Team leader (user.teams_led non vuoto): solo head CCO (dept 23)
+    - Professionista con team: solo i team.head dei propri team
+    - Professionista senza team: head del proprio dipartimento
+    """
+    from corposostenibile.models import Team
+    from sqlalchemy.orm import joinedload
+
+    recipients = []
+
+    if user.is_admin:
+        # Admin: tutti gli utenti attivi
+        all_users = User.query.options(
+            joinedload(User.teams_led),
+            joinedload(User.departments_led)
+        ).filter(
+            User.is_active == True,
+            User.id != user.id
+        ).order_by(User.last_name, User.first_name).all()
+
+        for u in all_users:
+            role_info = []
+            if u.is_admin:
+                role_info.append('Admin')
+            if u.teams_led:
+                role_info.append(f"Team Leader {', '.join([t.name for t in u.teams_led])}")
+            if u.departments_led:
+                role_info.append(f"Head {', '.join([d.name for d in u.departments_led])}")
+
+            specialty_name = u.specialty_display if hasattr(u, 'specialty_display') else str(u.specialty.value) if u.specialty else None
+            display_role = ' | '.join(role_info) if role_info else (u.role_display if hasattr(u, 'role_display') else 'Professionista')
+
+            recipients.append({
+                'id': u.id,
+                'name': f"{u.first_name} {u.last_name}",
+                'role': display_role,
+                'department': specialty_name
+            })
+
+    elif user.teams_led:
+        # Team leader → solo head CCO (dept 23)
+        dept_cco = Department.query.filter_by(id=23).first()
+        if dept_cco and dept_cco.head and dept_cco.head.id != user.id:
+            recipients.append({
+                'id': dept_cco.head.id,
+                'name': f"{dept_cco.head.first_name} {dept_cco.head.last_name}",
+                'role': f"Head {dept_cco.name}",
+                'department': dept_cco.head.specialty_display if hasattr(dept_cco.head, 'specialty_display') else None,
+            })
+
+    else:
+        # Professionista: team heads dei propri team
+        if user.teams:
+            for user_team in user.teams:
+                if user_team.head and user_team.head.id != user.id:
+                    if not any(r['id'] == user_team.head.id for r in recipients):
+                        recipients.append({
+                            'id': user_team.head.id,
+                            'name': f"{user_team.head.first_name} {user_team.head.last_name}",
+                            'role': f"Team Leader {user_team.name}",
+                            'department': user_team.head.specialty_display if hasattr(user_team.head, 'specialty_display') else None,
+                        })
+
+        # Fallback: se senza team, head del proprio dipartimento
+        if not recipients and user.department and user.department.head and user.department.head.id != user.id:
+            recipients.append({
+                'id': user.department.head.id,
+                'name': f"{user.department.head.first_name} {user.department.head.last_name}",
+                'role': f"Head {user.department.name}",
+                'department': user.department.head.specialty_display if hasattr(user.department.head, 'specialty_display') else None,
+            })
+
+    return recipients
+
+
 @bp.route('/api/request-recipients')
 @login_required
 def api_request_recipients():
     """
     API JSON: Ottiene i possibili destinatari per una richiesta di training.
-    OTTIMIZZATO: usa eager loading per evitare N+1 queries.
+    Usa _get_training_recipients per logica centralizzata per ruolo.
     """
-    from corposostenibile.models import Team
-    from sqlalchemy.orm import joinedload
     import traceback
 
     try:
-        possible_recipients = []
-
-        # Se è admin, può richiedere a tutti i professionisti attivi
-        if current_user.is_admin:
-            # Query ottimizzata con eager loading delle relazioni
-            all_users = User.query.options(
-                joinedload(User.teams_led),
-                joinedload(User.departments_led)
-            ).filter(
-                User.is_active == True,
-                User.id != current_user.id
-            ).order_by(User.last_name, User.first_name).all()
-
-            for user in all_users:
-                role_info = []
-                if user.is_admin:
-                    role_info.append('Admin')
-
-                # Check if team leader (già caricato con eager loading)
-                if user.teams_led:
-                    role_info.append(f"Team Leader {', '.join([t.name for t in user.teams_led])}")
-
-                # Check if department head (già caricato con eager loading)
-                if user.departments_led:
-                    role_info.append(f"Head {', '.join([d.name for d in user.departments_led])}")
-
-                # Get specialty display name
-                specialty_name = user.specialty_display if hasattr(user, 'specialty_display') else str(user.specialty.value) if user.specialty else None
-
-                # Costruisci ruolo
-                display_role = ' | '.join(role_info) if role_info else (user.role_display if hasattr(user, 'role_display') else 'Professionista')
-
-                possible_recipients.append({
-                    'id': user.id,
-                    'name': f"{user.first_name} {user.last_name}",
-                    'role': display_role,
-                    'department': specialty_name
-                })
-        else:
-            # Per utenti non-admin: mostra team leader dei propri team e head dipartimenti
-            # Usa relazione many-to-many 'teams' invece di team_id
-            if current_user.teams:
-                for user_team in current_user.teams:
-                    if user_team.head and user_team.head.id != current_user.id:
-                        # Evita duplicati
-                        if not any(r.get('id') == user_team.head.id for r in possible_recipients):
-                            possible_recipients.append({
-                                'id': user_team.head.id,
-                                'name': f"{user_team.head.first_name} {user_team.head.last_name}",
-                                'role': f"Team Leader {user_team.name}",
-                                'department': user_team.head.specialty_display if hasattr(user_team.head, 'specialty_display') else None,
-                            })
-
-            # Aggiungi gli head dei dipartimenti principali come opzione
-            for dept_id in [2, 3, 4, 23]:  # Nutrizione, Coach, Psicologia, CCO
-                dept = Department.query.filter_by(id=dept_id).first()
-                if dept and dept.head and dept.head.id != current_user.id:
-                    # Evita duplicati
-                    if not any(r.get('id') == dept.head.id for r in possible_recipients):
-                        possible_recipients.append({
-                            'id': dept.head.id,
-                            'name': f"{dept.head.first_name} {dept.head.last_name}",
-                            'role': f"Head {dept.name}",
-                            'department': dept.head.specialty_display if hasattr(dept.head, 'specialty_display') else None,
-                        })
+        possible_recipients = _get_training_recipients(current_user)
 
         return jsonify({
             'success': True,
@@ -1658,6 +1575,12 @@ def api_create_request():
     recipient = User.query.get(recipient_id)
     if not recipient:
         return jsonify({'success': False, 'message': 'Destinatario non trovato'}), 404
+
+    # Validazione server-side: il destinatario deve essere tra quelli autorizzati
+    if not current_user.is_admin:
+        allowed = _get_training_recipients(current_user)
+        if int(recipient_id) not in {r['id'] for r in allowed}:
+            return jsonify({'success': False, 'message': 'Destinatario non autorizzato'}), 403
 
     training_request = ReviewRequest(
         requester_id=current_user.id,

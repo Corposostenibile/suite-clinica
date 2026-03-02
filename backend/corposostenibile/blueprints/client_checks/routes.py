@@ -90,7 +90,8 @@ def _photo_path_to_url(path: str | None) -> str | None:
     """Converte un path filesystem di foto check in URL web servibile.
 
     Il campo DB potrebbe contenere:
-    - URL web già corretto: ``/static/uploads/checks/...`` → restituisce così com'è
+    - Path con prefisso ``/static/uploads/...`` (vecchio formato) → normalizzato a ``/uploads/...``
+    - URL http/https esterno → restituisce così com'è
     - Path assoluto del filesystem: ``/var/.../uploads/weekly_checks/...``
     - Path relativo: ``uploads/weekly_checks/...``
     Tutti vengono normalizzati a ``/uploads/...`` servito dalla route ``uploaded_file``
@@ -99,9 +100,13 @@ def _photo_path_to_url(path: str | None) -> str | None:
     if not path:
         return None
     path = path.strip()
-    # Già un URL web valido
-    if path.startswith('/static/') or path.startswith('http'):
+    # URL http/https esterno
+    if path.startswith('http'):
         return path
+    # Vecchio formato /static/uploads/... → normalizza a /uploads/...
+    # I file risiedono nel PVC servito dalla route /uploads/, non in Flask static
+    if path.startswith('/static/uploads/'):
+        return path.replace('/static/uploads/', '/uploads/', 1)
     # Già un URL relativo /uploads/...
     if path.startswith('/uploads/'):
         return path
@@ -4276,8 +4281,11 @@ def api_public_submit_weekly(token: str):
         if not request.is_json and request.files:
             import os
             from werkzeug.utils import secure_filename
-            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'checks')
-            os.makedirs(upload_folder, exist_ok=True)
+            photos_folder = os.path.join(
+                current_app.config.get('UPLOAD_FOLDER', 'uploads'),
+                'weekly_checks', str(check.cliente_id)
+            )
+            os.makedirs(photos_folder, exist_ok=True)
 
             photo_mapping = {'photo_front': 'front', 'photo_side': 'side', 'photo_back': 'back'}
             for field, suffix in photo_mapping.items():
@@ -4285,9 +4293,9 @@ def api_public_submit_weekly(token: str):
                     file = request.files[field]
                     if file and file.filename:
                         filename = secure_filename(f"{check.cliente_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}.jpg")
-                        filepath = os.path.join(upload_folder, filename)
+                        filepath = os.path.join(photos_folder, filename)
                         file.save(filepath)
-                        setattr(response, field, f"/static/uploads/checks/{filename}")
+                        setattr(response, field, filepath)
 
         db.session.add(response)
         db.session.commit()
