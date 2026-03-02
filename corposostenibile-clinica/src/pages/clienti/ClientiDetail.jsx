@@ -27,6 +27,7 @@ import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import ScrollableSubtabs from '../../components/ScrollableSubtabs';
 import DatePicker from '../../components/DatePicker';
+import api from '../../services/api';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import './ClientiDetail.css';
@@ -744,7 +745,8 @@ function ClientiDetail() {
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
 
   const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
-  
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+
   // Check Sub-tabs states
   const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly');
   const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
@@ -7004,6 +7006,47 @@ function ClientiDetail() {
                                   analisi_sangue: 'Analisi del Sangue',
                                   allegato_regime_alimentare: 'Regime Alimentare Pregresso',
                                 };
+                                // Component: loads image via authenticated axios fetch
+                                const CheckPhoto = ({ att, label }) => {
+                                  const [blobUrl, setBlobUrl] = useState(null);
+                                  const [imgLoading, setImgLoading] = useState(true);
+                                  const [imgError, setImgError] = useState(false);
+                                  useEffect(() => {
+                                    let revoked = false;
+                                    const load = async () => {
+                                      try {
+                                        const resp = await api.get(att.download_url, { responseType: 'blob' });
+                                        if (!revoked) setBlobUrl(URL.createObjectURL(resp.data));
+                                      } catch { if (!revoked) setImgError(true); }
+                                      finally { if (!revoked) setImgLoading(false); }
+                                    };
+                                    load();
+                                    return () => { revoked = true; };
+                                  }, [att.download_url]);
+                                  return (
+                                    <div style={{ textAlign: 'center' }}>
+                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                                      {imgLoading ? (
+                                        <div style={{ width: '100%', height: '200px', background: '#f1f5f9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                          <div className="spinner-border spinner-border-sm text-secondary"></div>
+                                        </div>
+                                      ) : imgError ? (
+                                        <div style={{ width: '100%', height: '120px', background: '#fef2f2', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.75rem' }}>
+                                          <i className="ri-image-line" style={{ fontSize: '1.5rem', marginBottom: 4 }}></i>
+                                          Non disponibile
+                                        </div>
+                                      ) : (
+                                        <img src={blobUrl} alt={label}
+                                          style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                          onClick={() => setLightboxUrl(blobUrl)}
+                                          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                                          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                };
+
                                 return (
                                   <div style={{ marginBottom: '20px' }}>
                                     {photos.length > 0 && (
@@ -7013,19 +7056,7 @@ function ClientiDetail() {
                                         </h6>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
                                           {photos.map((att, i) => (
-                                            <div key={i} style={{ textAlign: 'center' }}>
-                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
-                                                {PHOTO_LABELS[att.field_name] || formatLabel(att.field_name)}
-                                              </div>
-                                              <a href={att.download_url} target="_blank" rel="noopener noreferrer">
-                                                <img
-                                                  src={att.download_url}
-                                                  alt={PHOTO_LABELS[att.field_name] || att.field_name}
-                                                  style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer' }}
-                                                  loading="lazy"
-                                                />
-                                              </a>
-                                            </div>
+                                            <CheckPhoto key={i} att={att} label={PHOTO_LABELS[att.field_name] || formatLabel(att.field_name)} />
                                           ))}
                                         </div>
                                       </div>
@@ -7036,27 +7067,31 @@ function ClientiDetail() {
                                           <i className="ri-attachment-line"></i> Allegati
                                         </h6>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                          {files.map((att, i) => (
-                                            <a
-                                              key={i}
-                                              href={att.download_url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="cd-response-item"
-                                              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', padding: '10px 14px', cursor: 'pointer' }}
-                                            >
-                                              <i className="ri-file-download-line" style={{ fontSize: '1.2rem', color: '#25B36A' }}></i>
-                                              <div>
-                                                <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.85rem' }}>
-                                                  {FILE_LABELS[att.field_name] || formatLabel(att.field_name)}
-                                                </div>
-                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                                  {att.filename}
-                                                  {att.size && ` - ${(att.size / 1024 / 1024).toFixed(1)} MB`}
+                                          {files.map((att, i) => {
+                                            const handleDownload = async () => {
+                                              try {
+                                                const resp = await api.get(att.download_url, { responseType: 'blob' });
+                                                const url = URL.createObjectURL(resp.data);
+                                                const link = document.createElement('a');
+                                                link.href = url; link.download = att.filename || 'download'; link.click();
+                                                URL.revokeObjectURL(url);
+                                              } catch (e) { console.error('Download failed:', e); }
+                                            };
+                                            return (
+                                              <div key={i} className="cd-response-item" onClick={handleDownload}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', cursor: 'pointer' }}>
+                                                <i className="ri-file-download-line" style={{ fontSize: '1.2rem', color: '#25B36A' }}></i>
+                                                <div>
+                                                  <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.85rem' }}>
+                                                    {FILE_LABELS[att.field_name] || formatLabel(att.field_name)}
+                                                  </div>
+                                                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                    {att.filename}{att.size && ` - ${(att.size / 1024 / 1024).toFixed(1)} MB`}
+                                                  </div>
                                                 </div>
                                               </div>
-                                            </a>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     )}
@@ -8740,7 +8775,7 @@ function ClientiDetail() {
                                 src={selectedCheckResponse.photo_front}
                                 alt="Foto frontale"
                                 className="cd-photo-img"
-                                onClick={() => window.open(selectedCheckResponse.photo_front, '_blank')}
+                                onClick={() => setLightboxUrl(selectedCheckResponse.photo_front)}
                               />
                             ) : (
                               <div className="cd-photo-placeholder">
@@ -8755,7 +8790,7 @@ function ClientiDetail() {
                                 src={selectedCheckResponse.photo_side}
                                 alt="Foto laterale"
                                 className="cd-photo-img"
-                                onClick={() => window.open(selectedCheckResponse.photo_side, '_blank')}
+                                onClick={() => setLightboxUrl(selectedCheckResponse.photo_side)}
                               />
                             ) : (
                               <div className="cd-photo-placeholder">
@@ -8770,7 +8805,7 @@ function ClientiDetail() {
                                 src={selectedCheckResponse.photo_back}
                                 alt="Foto posteriore"
                                 className="cd-photo-img"
-                                onClick={() => window.open(selectedCheckResponse.photo_back, '_blank')}
+                                onClick={() => setLightboxUrl(selectedCheckResponse.photo_back)}
                               />
                             ) : (
                               <div className="cd-photo-placeholder">
@@ -9082,6 +9117,16 @@ function ClientiDetail() {
           }
         }}
       />
+
+      {/* Lightbox fullscreen photo */}
+      {lightboxUrl && (
+        <div className="cd-lightbox-backdrop" onClick={() => setLightboxUrl(null)}>
+          <button className="cd-lightbox-close" onClick={() => setLightboxUrl(null)}>
+            <i className="ri-close-line"></i>
+          </button>
+          <img src={lightboxUrl} alt="Foto" className="cd-lightbox-img" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
     </>
   );
 }

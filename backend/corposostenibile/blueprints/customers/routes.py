@@ -2110,7 +2110,7 @@ def api_initial_checks(cliente_id: int) -> Any:
                 checks_payload[key]["attachments"].append({
                     "field_name": att.get("field_name", ""),
                     "filename": att.get("filename", filename),
-                    "download_url": f"/api/v1/customers/{cliente_id}/initial-checks/attachment/{lead.id}/{filename}",
+                    "download_url": f"/v1/customers/{cliente_id}/initial-checks/attachment/{lead.id}/{filename}",
                     "size": att.get("size"),
                     "uploaded_at": att.get("uploaded_at"),
                 })
@@ -2143,18 +2143,29 @@ def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -
     if not cliente.original_lead or cliente.original_lead.id != lead_id:
         abort(403, description="Lead non associato a questo cliente")
 
-    # I file lead sono salvati in {app.root_path}/uploads/lead_files/{lead_id}/
-    # (stesso path usato da sales_form upload/download)
-    base_uploads = os.path.join(current_app.root_path, "uploads")
-    file_path = os.path.join(base_uploads, "lead_files", str(lead_id), filename)
+    # I file lead possono trovarsi in due posizioni:
+    # 1) {root_path}/uploads/  (dove sales_form li salva)
+    # 2) UPLOAD_FOLDER/        (PVC montato in produzione)
+    lead_subpath = os.path.join("lead_files", str(lead_id), filename)
+    candidates = [
+        os.path.join(current_app.root_path, "uploads", lead_subpath),
+        os.path.join(current_app.config.get("UPLOAD_FOLDER", "uploads"), lead_subpath),
+    ]
 
-    if not os.path.exists(file_path):
+    file_path = None
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            file_path = candidate
+            break
+
+    if not file_path:
+        logger.error(f"Lead attachment not found. Tried: {candidates}")
         abort(404, description="File non trovato")
 
     # Path traversal protection
     real_path = os.path.realpath(file_path)
-    expected_dir = os.path.realpath(os.path.join(base_uploads, "lead_files", str(lead_id)))
-    if not real_path.startswith(expected_dir):
+    base_dir = os.path.dirname(real_path)
+    if not base_dir.endswith(str(lead_id)):
         abort(403, description="Accesso negato")
 
     file_ext = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
