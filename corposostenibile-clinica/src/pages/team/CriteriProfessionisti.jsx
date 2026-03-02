@@ -75,6 +75,21 @@ function CriteriProfessionisti() {
     return () => clearTimeout(t);
   }, [toastState.show]);
 
+  const handleToggleAvailable = async (prof) => {
+    try {
+      const resp = await api.put(`/team/professionals/${prof.id}/toggle-available`);
+      if (resp.data.success) {
+        setProfessionals(prev => prev.map(p =>
+          p.id === prof.id ? { ...p, is_available: resp.data.disponibile } : p
+        ));
+        setToastState({ show: true, message: resp.data.message, variant: 'success' });
+      }
+    } catch (err) {
+      console.error('Errore toggle disponibilità:', err);
+      setToastState({ show: true, message: 'Errore nel cambio disponibilità', variant: 'danger' });
+    }
+  };
+
   const handleEditCriteria = (prof) => {
     setEditingProf(prof);
     setTempCriteria(prof.criteria || {});
@@ -204,11 +219,14 @@ function CriteriProfessionisti() {
               )}
             </td>
             <td>
-              {prof.is_available ? (
-                <span className="cp-status available"><i className="ri-check-line"></i> Disponibile</span>
-              ) : (
-                <span className="cp-status unavailable"><i className="ri-close-line"></i> Non disp.</span>
-              )}
+              <button
+                className={`cp-status-toggle ${prof.is_available ? 'available' : 'unavailable'}`}
+                onClick={() => handleToggleAvailable(prof)}
+                title={prof.is_available ? 'Clicca per rendere non disponibile' : 'Clicca per rendere disponibile'}
+              >
+                <i className={prof.is_available ? 'ri-check-line' : 'ri-close-line'}></i>
+                {prof.is_available ? ' Disponibile' : ' Non disp.'}
+              </button>
             </td>
             <td>
               <div className="cp-criteria-wrap">

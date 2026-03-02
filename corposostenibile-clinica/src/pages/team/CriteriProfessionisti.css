@@ -250,8 +250,8 @@
 .cp-team-badge.psicologia { background: #8b5cf6; }
 .cp-team-badge.default { background: #94a3b8; }
 
-/* Status badge */
-.cp-status {
+/* Status toggle button */
+.cp-status-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -259,16 +259,29 @@
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.cp-status.available {
+.cp-status-toggle.available {
   background: rgba(34, 197, 94, 0.1);
   color: #16a34a;
 }
 
-.cp-status.unavailable {
+.cp-status-toggle.available:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: #16a34a;
+}
+
+.cp-status-toggle.unavailable {
   background: #f1f5f9;
   color: #94a3b8;
+}
+
+.cp-status-toggle.unavailable:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
 }
 
 /* Criteria pills */
