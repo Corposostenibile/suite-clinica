@@ -422,6 +422,7 @@ function ClientiListaCoach() {
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
+        {!isProfessionista && (
         <select
           className="cl-filter-select"
           value={filters.coach}
@@ -432,6 +433,7 @@ function ClientiListaCoach() {
             <option key={c.id} value={c.id}>{c.full_name}</option>
           ))}
         </select>
+        )}
         <select
           className="cl-filter-select"
           value={filters.statoCoach}

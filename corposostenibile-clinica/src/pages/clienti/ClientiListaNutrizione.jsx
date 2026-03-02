@@ -404,6 +404,7 @@ function ClientiListaNutrizione() {
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
+        {!isProfessionista && (
         <select
           className="cl-filter-select"
           value={filters.nutrizionista}
@@ -414,6 +415,7 @@ function ClientiListaNutrizione() {
             <option key={n.id} value={n.id}>{n.full_name}</option>
           ))}
         </select>
+        )}
         <select
           className="cl-filter-select"
           value={filters.statoNutrizione}
