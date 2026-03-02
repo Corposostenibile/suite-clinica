@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
+import DatePicker from '../../components/DatePicker';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -402,11 +403,11 @@ function CheckAzienda() {
           <div className="chk-filter-row" style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--chk-border-light)' }}>
             <div>
               <div className="chk-date-label">Data Inizio</div>
-              <input type="date" className="chk-date-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DatePicker className="chk-date-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>
               <div className="chk-date-label">Data Fine</div>
-              <input type="date" className="chk-date-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <DatePicker className="chk-date-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
             <button className="chk-filter-btn active" onClick={handleApplyCustomDates} disabled={!startDate || !endDate || loading}>
               <i className="ri-search-line"></i> Applica

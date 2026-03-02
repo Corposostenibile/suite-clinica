@@ -23,7 +23,7 @@ spec:
       - name: backend
         image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
         imagePullPolicy: Always
-        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--threads", "2", "--timeout", "600", "wsgi:app"]
+        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "2", "--timeout", "600", "wsgi:app"]
         ports:
         - containerPort: 8080
         startupProbe:

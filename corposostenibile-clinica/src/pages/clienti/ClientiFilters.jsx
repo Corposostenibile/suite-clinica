@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import DatePicker from '../../components/DatePicker';
 import {
     RiFilter3Line,
     RiRefreshLine,
@@ -382,19 +383,19 @@ const ClientiFilters = ({
                             <div className="row g-3 mb-4">
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Allenamento Dal (Da)</label>
-                                    <input type="date" className="form-control" value={draft.allenamento_dal_from || ''} onChange={(e) => handleDraftChange('allenamento_dal_from', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.allenamento_dal_from || ''} onChange={(e) => handleDraftChange('allenamento_dal_from', e.target.value)} />
                                 </div>
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Allenamento Dal (A)</label>
-                                    <input type="date" className="form-control" value={draft.allenamento_dal_to || ''} onChange={(e) => handleDraftChange('allenamento_dal_to', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.allenamento_dal_to || ''} onChange={(e) => handleDraftChange('allenamento_dal_to', e.target.value)} />
                                 </div>
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Nuovo Allenamento (Da)</label>
-                                    <input type="date" className="form-control" value={draft.nuovo_allenamento_il_from || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_from', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.nuovo_allenamento_il_from || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_from', e.target.value)} />
                                 </div>
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Nuovo Allenamento (A)</label>
-                                    <input type="date" className="form-control" value={draft.nuovo_allenamento_il_to || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_to', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.nuovo_allenamento_il_to || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_to', e.target.value)} />
                                 </div>
                             </div>
 
@@ -549,19 +550,19 @@ const ClientiFilters = ({
                             <div className="row g-3 mb-4">
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Allenamento Dal (Da)</label>
-                                    <input type="date" className="form-control" value={draft.allenamento_dal_from || ''} onChange={(e) => handleDraftChange('allenamento_dal_from', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.allenamento_dal_from || ''} onChange={(e) => handleDraftChange('allenamento_dal_from', e.target.value)} />
                                 </div>
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Allenamento Dal (A)</label>
-                                    <input type="date" className="form-control" value={draft.allenamento_dal_to || ''} onChange={(e) => handleDraftChange('allenamento_dal_to', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.allenamento_dal_to || ''} onChange={(e) => handleDraftChange('allenamento_dal_to', e.target.value)} />
                                 </div>
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Nuovo Allenamento (Da)</label>
-                                    <input type="date" className="form-control" value={draft.nuovo_allenamento_il_from || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_from', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.nuovo_allenamento_il_from || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_from', e.target.value)} />
                                 </div>
                                 <div className="col-md-3">
                                     <label className="form-label mb-1">Nuovo Allenamento (A)</label>
-                                    <input type="date" className="form-control" value={draft.nuovo_allenamento_il_to || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_to', e.target.value)} />
+                                    <DatePicker className="form-control" value={draft.nuovo_allenamento_il_to || ''} onChange={(e) => handleDraftChange('nuovo_allenamento_il_to', e.target.value)} />
                                 </div>
                             </div>
 

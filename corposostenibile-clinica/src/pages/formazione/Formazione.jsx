@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
+import DatePicker from '../../components/DatePicker';
 import trainingService from '../../services/trainingService';
 import teamService, {
     ROLE_LABELS,
@@ -981,11 +982,11 @@ function Formazione() {
                                 </div>
                                 <div>
                                     <label>Periodo Inizio</label>
-                                    <input type="date" value={newTraining.period_start} onChange={(e) => setNewTraining(prev => ({ ...prev, period_start: e.target.value }))} disabled={actionLoading} />
+                                    <DatePicker value={newTraining.period_start} onChange={(e) => setNewTraining(prev => ({ ...prev, period_start: e.target.value }))} disabled={actionLoading} />
                                 </div>
                                 <div>
                                     <label>Periodo Fine</label>
-                                    <input type="date" value={newTraining.period_end} onChange={(e) => setNewTraining(prev => ({ ...prev, period_end: e.target.value }))} disabled={actionLoading} />
+                                    <DatePicker value={newTraining.period_end} onChange={(e) => setNewTraining(prev => ({ ...prev, period_end: e.target.value }))} disabled={actionLoading} />
                                 </div>
                             </div>
                         </div>
