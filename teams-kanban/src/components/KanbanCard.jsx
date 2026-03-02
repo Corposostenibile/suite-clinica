@@ -27,6 +27,17 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('it-IT')
 }
 
+function Avatar({ name, avatar, className = '' }) {
+  return (
+    <span className={`kb-card-avatar ${className}`} title={name}>
+      {avatar
+        ? <img src={avatar} alt="" />
+        : name?.charAt(0).toUpperCase()
+      }
+    </span>
+  )
+}
+
 export default function KanbanCard({ ticket, onClick, isDragging }) {
   const {
     attributes,
@@ -45,6 +56,8 @@ export default function KanbanCard({ ticket, onClick, isDragging }) {
 
   const rel = RELATIONSHIP_STYLES[ticket.relationship_to_user] || RELATIONSHIP_STYLES.participant
   const priorityColor = PRIORITY_COLORS[ticket.priority] || PRIORITY_COLORS.media
+
+  const assignees = ticket.assigned_users || []
 
   return (
     <div
@@ -77,19 +90,27 @@ export default function KanbanCard({ ticket, onClick, isDragging }) {
         )}
 
         <div className="kb-card-footer">
-          <div className="kb-card-avatars">
-            {(ticket.assigned_users || []).slice(0, 3).map((u, i) => (
-              <span key={u.id} className="kb-card-avatar" title={u.name}>
-                {u.avatar
-                  ? <img src={u.avatar} alt="" />
-                  : u.name?.charAt(0).toUpperCase()
-                }
-              </span>
-            ))}
-            {(ticket.assigned_users || []).length > 3 && (
-              <span className="kb-card-avatar kb-card-avatar--more">
-                +{ticket.assigned_users.length - 3}
-              </span>
+          {/* Creator → Assignees flow */}
+          <div className="kb-card-people">
+            <Avatar
+              name={ticket.created_by_name}
+              avatar={ticket.created_by_avatar}
+              className="kb-card-avatar--creator"
+            />
+            {assignees.length > 0 && (
+              <>
+                <i className="ri-arrow-right-s-line kb-card-arrow" />
+                <div className="kb-card-avatars">
+                  {assignees.slice(0, 3).map(u => (
+                    <Avatar key={u.id} name={u.name} avatar={u.avatar} />
+                  ))}
+                  {assignees.length > 3 && (
+                    <span className="kb-card-avatar kb-card-avatar--more">
+                      +{assignees.length - 3}
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
 

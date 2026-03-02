@@ -164,6 +164,22 @@ export default function TicketDetailPanel({ ticket, token, currentUserId, onClos
               <p className="kb-detail-desc">{detail.description}</p>
             </div>
 
+            {/* Creator */}
+            <div className="kb-detail-section">
+              <h3 className="kb-detail-label">Creato da</h3>
+              <div className="kb-detail-assignees">
+                <span className="kb-detail-assignee">
+                  <span className="kb-card-avatar">
+                    {detail.created_by_avatar
+                      ? <img src={detail.created_by_avatar} alt="" />
+                      : detail.created_by_name?.charAt(0).toUpperCase()
+                    }
+                  </span>
+                  {detail.created_by_name || 'Sconosciuto'}
+                </span>
+              </div>
+            </div>
+
             {/* Patient */}
             {detail.cliente_nome && (
               <div className="kb-detail-meta">

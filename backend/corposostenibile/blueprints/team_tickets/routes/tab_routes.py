@@ -279,7 +279,12 @@ def tab_update_status(ticket_id):
     )
 
     _emit_ticket_event("ticket_status_changed", ticket)
-    _notify_assignees_async(ticket)
+    _notify_assignees_async(
+        ticket,
+        event_type="status_changed",
+        status_change=new_status,
+        exclude_user_id=g.current_user.id,
+    )
 
     return jsonify({
         "ticket": _ticket_with_relationship(ticket, g.current_user.id),
@@ -310,7 +315,11 @@ def tab_create_ticket():
     )
 
     _emit_ticket_event("ticket_created", ticket)
-    _notify_assignees_async(ticket)
+    _notify_assignees_async(
+        ticket,
+        event_type="assigned",
+        exclude_user_id=g.current_user.id,
+    )
 
     return jsonify({
         "ticket": _ticket_with_relationship(ticket, g.current_user.id),
@@ -372,7 +381,15 @@ def tab_add_message(ticket_id):
         ticket.updated_at = datetime.utcnow()
         db.session.commit()
         _emit_ticket_event("ticket_updated", ticket)
-        _notify_assignees_async(ticket)
+        sender = g.current_user
+        sender_name = f"{sender.first_name} {sender.last_name}".strip()
+        _notify_assignees_async(
+            ticket,
+            event_type="message",
+            message=content,
+            sender_name=sender_name,
+            exclude_user_id=sender.id,
+        )
 
     return jsonify({"message": msg.to_dict()}), 201
 
@@ -415,9 +432,25 @@ def tab_upload_attachment(ticket_id):
 @team_tickets_bp.route("/tab/users", methods=["GET"])
 @tab_auth_required
 def tab_get_users():
-    """Assignable users (tab-authenticated wrapper)."""
-    users = ticket_service.get_assignable_users()
-    return jsonify({"users": users})
+    """Search assignable users by name/email. Only Teams users."""
+    q = request.args.get("q", "").strip()
+    query = User.query.filter(
+        User.is_active.is_(True),
+        User.teams_aad_object_id.isnot(None),
+    )
+    if q and len(q) >= 2:
+        pattern = f"%{q}%"
+        query = query.filter(
+            or_(
+                (User.first_name + " " + User.last_name).ilike(pattern),
+                User.email.ilike(pattern),
+            )
+        )
+    users = query.order_by(User.first_name).limit(20).all()
+    return jsonify({"users": [
+        {"id": u.id, "name": u.full_name, "email": u.email, "avatar": u.avatar_path}
+        for u in users
+    ]})
 
 
 @team_tickets_bp.route("/tab/patients/search", methods=["GET"])
@@ -452,44 +485,53 @@ def tab_download_attachment(att_id):
 
 # ─────────────────── NOTIFICATIONS (async helper) ────────────────────────── #
 
-def _notify_assignees_async(ticket: TeamTicket) -> None:
-    """Send bot notification to ticket assignees (fire-and-forget)."""
+def _notify_assignees_async(
+    ticket: TeamTicket,
+    event_type: str = "update",
+    message: str | None = None,
+    sender_name: str | None = None,
+    status_change: str | None = None,
+    exclude_user_id: int | None = None,
+) -> None:
+    """Send bot notification to ticket assignees + creator (fire-and-forget).
+
+    Notifies everyone involved except the user who triggered the action.
+    """
     try:
         import asyncio
         from corposostenibile.blueprints.team_tickets.services.notification_service import (
-            notify_ticket_assignees_teams,
+            notify_teams_user,
+        )
+        from corposostenibile.blueprints.team_tickets.adaptive_cards.templates import (
+            ticket_notification_card,
         )
 
-        # Build a simple notification card
-        card = {
-            "type": "AdaptiveCard",
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "version": "1.4",
-            "body": [
-                {
-                    "type": "TextBlock",
-                    "text": f"Ticket aggiornato: {ticket.ticket_number}",
-                    "weight": "Bolder",
-                    "size": "Medium",
-                },
-                {
-                    "type": "TextBlock",
-                    "text": ticket.title or ticket.description[:80],
-                    "wrap": True,
-                },
-            ],
-            "actions": [
-                {
-                    "type": "Action.OpenUrl",
-                    "title": "Vedi nella Board",
-                    "url": "https://teams.microsoft.com/l/entity/"
-                           "9021235f-2311-40af-8513-fd41d42e69ec/ticketBoard",
-                }
-            ],
-        }
+        ticket_data = ticket.to_dict()
+        card = ticket_notification_card(
+            ticket=ticket_data,
+            event_type=event_type,
+            message=message,
+            status_change=status_change,
+            sender_name=sender_name,
+        )
+
+        # Collect all users to notify (assignees + creator), excluding triggerer
+        users_to_notify: dict[int, User] = {}
+        for u in ticket.assigned_users:
+            if u.id != exclude_user_id:
+                users_to_notify[u.id] = u
+        if ticket.created_by and ticket.created_by_id != exclude_user_id:
+            users_to_notify.setdefault(ticket.created_by_id, ticket.created_by)
+
+        if not users_to_notify:
+            return
+
+        async def _send_all():
+            for user in users_to_notify.values():
+                await notify_teams_user(user, card)
 
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(notify_ticket_assignees_teams(ticket, card))
+        loop.run_until_complete(_send_all())
         loop.close()
     except Exception as e:
-        logger.warning("[notify] Failed to notify assignees: %s", e)
+        logger.warning("[notify] Failed to notify: %s", e)
