@@ -1,7 +1,7 @@
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
-  name: suite-clinica-managed-cert
+  name: clinica-corposostenibile-cert
 spec:
   domains:
-  - suite-clinica.duckdns.org
+  - clinica.corposostenibile.com
