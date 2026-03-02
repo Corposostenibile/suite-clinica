@@ -6658,15 +6658,20 @@ function ClientiDetail() {
                               </div>
                               <select
                                 className="cd-select"
-                                value={formData.check_day || ''}
+                                value={
+                                  // Normalizza formato lungo → corto per match
+                                  { lunedi: 'lun', martedi: 'mar', mercoledi: 'mer', giovedi: 'gio', venerdi: 'ven', sabato: 'sab', domenica: 'dom' }[formData.check_day] || formData.check_day || ''
+                                }
                                 onChange={(e) => handleInputChange('check_day', e.target.value)}
                               >
                                 <option value="">-- Seleziona giorno --</option>
-                                {Object.entries(GIORNI_LABELS).filter(([key]) =>
-                                  ['lunedi','martedi','mercoledi','giovedi','venerdi','sabato','domenica'].includes(key)
-                                ).map(([value, label]) => (
-                                  <option key={value} value={value}>{label}</option>
-                                ))}
+                                <option value="lun">Lunedì</option>
+                                <option value="mar">Martedì</option>
+                                <option value="mer">Mercoledì</option>
+                                <option value="gio">Giovedì</option>
+                                <option value="ven">Venerdì</option>
+                                <option value="sab">Sabato</option>
+                                <option value="dom">Domenica</option>
                               </select>
                             </div>
                           </div>
@@ -6856,18 +6861,19 @@ function ClientiDetail() {
                   {/* Pills Navigation */}
                   <div data-tour="check-iniziali-tabs">
                     <ScrollableSubtabs style={{ marginBottom: '20px' }}>
-                      <button
-                        className={`cd-subtab${activeInizialiTab === 'check_1' ? ' active green' : ''}`}
-                        onClick={() => setActiveInizialiTab('check_1')}
-                      >
-                        Check 1
-                      </button>
-                      <button
-                        className={`cd-subtab${activeInizialiTab === 'check_2' ? ' active green' : ''}`}
-                        onClick={() => setActiveInizialiTab('check_2')}
-                      >
-                        Check 2
-                      </button>
+                      {[
+                        { key: 'check_1', label: 'Nutrizione & Sport', icon: 'ri-heart-pulse-line' },
+                        { key: 'check_2', label: 'Stile di Vita', icon: 'ri-user-heart-line' },
+                        { key: 'check_3', label: 'Psicologico', icon: 'ri-mental-health-line' },
+                      ].map(tab => (
+                        <button
+                          key={tab.key}
+                          className={`cd-subtab${activeInizialiTab === tab.key ? ' active green' : ''}`}
+                          onClick={() => setActiveInizialiTab(tab.key)}
+                        >
+                          <i className={tab.icon} style={{ marginRight: 4 }}></i> {tab.label}
+                        </button>
+                      ))}
                     </ScrollableSubtabs>
                   </div>
 
@@ -6884,18 +6890,44 @@ function ClientiDetail() {
                           <div className="cd-empty">
                             <i className="ri-file-search-line cd-empty-icon"></i>
                             <h5>Nessun dato disponibile</h5>
-                            <p className="cd-empty-text">Il {activeInizialiTab.replace('_', ' ')} non è disponibile per questo cliente.</p>
+                            <p className="cd-empty-text">Questo check non e' disponibile per questo cliente.</p>
                           </div>
                         ) : (() => {
                           const checkData = initialChecksData[activeInizialiTab];
                           const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
                           const hasUrl = checkData.url;
+
+                          // Filter out redundant fields (email, phone, name) and empty values
+                          const SKIP_KEYS = new Set([
+                            'email', 'phone', 'last_name', 'first_name',
+                            'privacy_accepted[]', 'privacy_accepted',
+                          ]);
+                          const formatLabel = (key) => {
+                            return key
+                              .replace(/_/g, ' ')
+                              .replace(/\b\w/g, c => c.toUpperCase())
+                              .replace(/\[\]/g, '')
+                              .replace('[]', '');
+                          };
+                          const filteredResponses = hasResponses
+                            ? Object.entries(checkData.responses).filter(([k, v]) => {
+                                const keyLower = k.toLowerCase().replace(/\s+/g, '_');
+                                if (SKIP_KEYS.has(keyLower)) return false;
+                                if (v === null || v === undefined || v === '') return false;
+                                return true;
+                              })
+                            : [];
+
+                          // Check if this is a scale/frequency check (Check 3 style)
+                          const SCALE_VALUES = new Set(['mai', 'raramente', 'a volte', 'spesso', 'sempre', 'il più delle volte', 'vero', 'falso']);
+                          const isScaleCheck = activeInizialiTab === 'check_3' || (
+                            filteredResponses.length > 10 &&
+                            filteredResponses.filter(([, v]) => SCALE_VALUES.has(String(v).toLowerCase())).length > filteredResponses.length * 0.5
+                          );
+
                           if (!hasResponses && hasUrl) {
                             return (
                               <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                                  <h5 style={{ textTransform: 'capitalize', margin: 0 }}>{activeInizialiTab.replace('_', ' ')}</h5>
-                                </div>
                                 <div className="cd-alert cd-alert-info">
                                   <i className="ri-link" style={{ fontSize: '1.25rem', flexShrink: 0 }}></i>
                                   <div style={{ flex: 1 }}>
@@ -6917,39 +6949,95 @@ function ClientiDetail() {
                               <div className="cd-empty">
                                 <i className="ri-file-search-line cd-empty-icon"></i>
                                 <h5>Nessun dato disponibile</h5>
-                                <p className="cd-empty-text">Il {activeInizialiTab.replace('_', ' ')} non è stato ancora compilato o non è disponibile per questo cliente.</p>
+                                <p className="cd-empty-text">Questo check non e' stato ancora compilato.</p>
                               </div>
                             );
                           }
                           return (
                             <div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                                <h5 style={{ textTransform: 'capitalize', margin: 0 }}>{activeInizialiTab.replace('_', ' ')}</h5>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              {/* Header with metadata */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    {filteredResponses.length} risposte
+                                  </span>
                                   {checkData.completed_at && (
                                     <span className="cd-badge" style={{ background: '#f1f5f9', color: '#475569' }}>
                                       <i className="ri-calendar-event-line"></i>
                                       Compilato il: {new Date(checkData.completed_at).toLocaleDateString('it-IT')}
                                     </span>
                                   )}
-                                  {hasUrl && (
-                                    <button className="cd-btn-back" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
-                                      <i className="ri-file-copy-line"></i>Copia link
-                                    </button>
+                                  {checkData.score != null && (
+                                    <span className="cd-badge" style={{ background: '#fef3c7', color: '#92400e' }}>
+                                      <i className="ri-bar-chart-line"></i>
+                                      Punteggio: {checkData.score}
+                                    </span>
+                                  )}
+                                  {checkData.type != null && (
+                                    <span className="cd-badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>
+                                      Tipo: {checkData.type}
+                                    </span>
                                   )}
                                 </div>
+                                {hasUrl && (
+                                  <button className="cd-btn-back" onClick={() => { navigator.clipboard.writeText(checkData.url); alert('Link copiato'); }}>
+                                    <i className="ri-file-copy-line"></i>Copia link
+                                  </button>
+                                )}
                               </div>
 
-                              {/* Responses List */}
-                              <div>
-                                {Object.entries(checkData.responses).map(([question, answer], idx) => (
-                                  <div key={idx} className="cd-response-item">
-                                    <div className="cd-response-label">Domanda {idx + 1}</div>
-                                    <div className="cd-response-question">{question}</div>
-                                    <div className="cd-response-answer">{Array.isArray(answer) ? answer.join(', ') : String(answer)}</div>
-                                  </div>
-                                ))}
-                              </div>
+                              {/* Scale/frequency check → compact table layout */}
+                              {isScaleCheck ? (
+                                <div className="cd-table-wrap">
+                                  <table className="cd-table" style={{ fontSize: '0.85rem' }}>
+                                    <thead>
+                                      <tr>
+                                        <th style={{ width: '60%' }}>Domanda</th>
+                                        <th>Risposta</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {filteredResponses.map(([question, answer], idx) => {
+                                        const ansStr = Array.isArray(answer) ? answer.join(', ') : String(answer);
+                                        const isNegative = ['spesso', 'sempre', 'il più delle volte', 'vero'].includes(ansStr.toLowerCase());
+                                        const isPositive = ['mai', 'falso'].includes(ansStr.toLowerCase());
+                                        return (
+                                          <tr key={idx}>
+                                            <td style={{ fontWeight: 500, color: '#334155' }}>{formatLabel(question)}</td>
+                                            <td>
+                                              <span style={{
+                                                display: 'inline-block',
+                                                padding: '2px 10px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 600,
+                                                background: isNegative ? '#fef2f2' : isPositive ? '#f0fdf4' : '#f8fafc',
+                                                color: isNegative ? '#dc2626' : isPositive ? '#16a34a' : '#475569',
+                                              }}>
+                                                {ansStr}
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                /* Standard check → card grid layout */
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+                                  {filteredResponses.map(([question, answer], idx) => {
+                                    const ansStr = Array.isArray(answer) ? answer.join(', ') : String(answer);
+                                    const isLongAnswer = ansStr.length > 80;
+                                    return (
+                                      <div key={idx} className="cd-response-item" style={isLongAnswer ? { gridColumn: '1 / -1' } : {}}>
+                                        <div className="cd-response-question">{formatLabel(question)}</div>
+                                        <div className="cd-response-answer">{ansStr}</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
