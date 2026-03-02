@@ -4,6 +4,7 @@
  */
 
 import { Outlet } from 'react-router-dom';
+import logoFoglia from '../../images/logo_foglia.png';
 import './checks/PublicChecks.css';
 
 function PublicLayout() {
@@ -13,10 +14,9 @@ function PublicLayout() {
       <header className="public-header">
         <div className="public-header-inner">
           <img
-            src="/static/images/logo-foglia-green.png"
+            src={logoFoglia}
             alt="CorpoSostenibile"
             className="public-header-logo"
-            onError={(e) => { e.target.style.display = 'none'; }}
           />
           <span className="public-header-brand">CorpoSostenibile</span>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import teamTicketsService from '../../services/teamTicketsService';
 
@@ -52,19 +52,6 @@ export default function TeamTicketsDashboard() {
     status: '', priority: '', assignee_id: '', search: '', page: 1,
   });
 
-  // Create modal
-  const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    title: '', description: '', priority: 'media', assignee_ids: [], cliente_id: null,
-  });
-  const [createFiles, setCreateFiles] = useState([]);
-  const [creating, setCreating] = useState(false);
-  const [patientSearch, setPatientSearch] = useState('');
-  const [patientResults, setPatientResults] = useState([]);
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const fileInputRef = useRef(null);
-  const patientTimeoutRef = useRef(null);
-
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -95,73 +82,6 @@ export default function TeamTicketsDashboard() {
     teamTicketsService.getAssignableUsers().then((r) => setUsers(r.users || [])).catch(() => {});
   }, []);
 
-  // Patient typeahead
-  const handlePatientSearch = (val) => {
-    setPatientSearch(val);
-    setSelectedPatient(null);
-    setCreateForm((p) => ({ ...p, cliente_id: null }));
-
-    if (patientTimeoutRef.current) clearTimeout(patientTimeoutRef.current);
-    if (val.length < 2) { setPatientResults([]); return; }
-
-    patientTimeoutRef.current = setTimeout(async () => {
-      try {
-        const res = await teamTicketsService.searchPatients(val);
-        setPatientResults(res.patients || []);
-      } catch { setPatientResults([]); }
-    }, 300);
-  };
-
-  const selectPatient = (p) => {
-    setSelectedPatient(p);
-    setPatientSearch(p.nome);
-    setPatientResults([]);
-    setCreateForm((prev) => ({ ...prev, cliente_id: p.id }));
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!createForm.description.trim()) return;
-    setCreating(true);
-
-    try {
-      const fd = new FormData();
-      if (createForm.title.trim()) fd.append('title', createForm.title);
-      fd.append('description', createForm.description);
-      fd.append('priority', createForm.priority);
-      createForm.assignee_ids.forEach((id) => fd.append('assignee_ids', id));
-      if (createForm.cliente_id) fd.append('cliente_id', createForm.cliente_id);
-      createFiles.forEach((f) => fd.append('files', f));
-
-      await teamTicketsService.createTicket(fd);
-      setShowCreate(false);
-      setCreateForm({ title: '', description: '', priority: 'media', assignee_ids: [], cliente_id: null });
-      setCreateFiles([]);
-      setPatientSearch('');
-      setSelectedPatient(null);
-      loadData();
-    } catch {
-      // silent
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const toggleAssignee = (userId) => {
-    setCreateForm((prev) => {
-      const ids = prev.assignee_ids.includes(userId)
-        ? prev.assignee_ids.filter((id) => id !== userId)
-        : [...prev.assignee_ids, userId];
-      return { ...prev, assignee_ids: ids };
-    });
-  };
-
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer?.files || []);
-    setCreateFiles((prev) => [...prev, ...files]);
-  };
-
   const statCards = [
     { label: 'Aperti', key: 'aperti', icon: 'ri-error-warning-line', iconBg: '#fef3c7', iconColor: '#d97706' },
     { label: 'In Lavorazione', key: 'in_lavorazione', icon: 'ri-loader-4-line', iconBg: '#ede9fe', iconColor: '#6366f1' },
@@ -175,40 +95,22 @@ export default function TeamTicketsDashboard() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h4 className="mb-1 fw-bold" style={{ color: '#1e293b' }}>Team Tickets</h4>
-          <p className="mb-0 text-muted small">Gestisci e monitora i ticket del team</p>
+          <p className="mb-0 text-muted small">Visualizza e monitora i ticket del team (gestione via Teams/SUMI)</p>
         </div>
-        <div className="d-flex gap-2">
-          <button
-            className="btn d-flex align-items-center gap-2"
-            onClick={() => navigate('/team-tickets/analytics')}
-            style={{
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '10px 20px',
-              color: '#475569',
-              fontWeight: 500,
-            }}
-          >
-            <i className="ri-bar-chart-grouped-line" />
-            Analytics
-          </button>
-          <button
-            className="btn d-flex align-items-center gap-2"
-            onClick={() => setShowCreate(true)}
-            style={{
-              background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-              color: '#fff',
-              borderRadius: '12px',
-              padding: '10px 20px',
-              border: 'none',
-              fontWeight: 500,
-              boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
-            }}
-          >
-            <i className="fas fa-plus" />
-            Nuovo Ticket
-          </button>
-        </div>
+        <button
+          className="btn d-flex align-items-center gap-2"
+          onClick={() => navigate('/team-tickets/analytics')}
+          style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '10px 20px',
+            color: '#475569',
+            fontWeight: 500,
+          }}
+        >
+          <i className="ri-bar-chart-grouped-line" />
+          Analytics
+        </button>
       </div>
 
       {/* KPI Stat Cards */}
@@ -264,7 +166,7 @@ export default function TeamTicketsDashboard() {
               <select className="form-select form-select-sm" value={filters.priority}
                 onChange={(e) => setFilters((p) => ({ ...p, priority: e.target.value, page: 1 }))}
                 style={{ borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <option value="">Tutte le priorità</option>
+                <option value="">Tutte le priorita'</option>
                 {Object.entries(priorityConfig).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
@@ -305,14 +207,14 @@ export default function TeamTicketsDashboard() {
                 <i className="ri-inbox-line" style={{ fontSize: '32px', color: '#94a3b8' }} />
               </div>
               <h6 className="fw-semibold mb-1" style={{ color: '#64748b' }}>Nessun ticket trovato</h6>
-              <p className="text-muted small mb-0">Prova a modificare i filtri o crea un nuovo ticket</p>
+              <p className="text-muted small mb-0">Prova a modificare i filtri</p>
             </div>
           ) : (
             <div className="table-responsive">
               <table className="table table-hover mb-0">
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
-                    {['NUMERO', 'TITOLO', 'PRIORITÀ', 'STATO', 'ASSEGNATARI', 'PAZIENTE', 'FONTE', 'DATA'].map((h) => (
+                    {['NUMERO', 'TITOLO', 'PRIORITA\'', 'STATO', 'ASSEGNATARI', 'PAZIENTE', 'FONTE', 'DATA'].map((h) => (
                       <th key={h} style={{
                         fontSize: '11px',
                         fontWeight: 600,
@@ -466,200 +368,6 @@ export default function TeamTicketsDashboard() {
           </div>
         )}
       </div>
-
-      {/* Create Modal */}
-      {showCreate && (
-        <>
-          <div className="modal-backdrop fade show" style={{ zIndex: 1050 }} onClick={() => setShowCreate(false)} />
-          <div className="modal fade show d-block" style={{ zIndex: 1055 }} tabIndex="-1" onClick={() => setShowCreate(false)}>
-            <div className="modal-dialog modal-lg modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-content border-0" style={{ borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-                <div className="modal-header border-0 px-4 pt-4 pb-0">
-                  <div>
-                    <h5 className="modal-title fw-bold" style={{ color: '#1e293b' }}>Nuovo Ticket</h5>
-                    <p className="mb-0 text-muted small">Crea un nuovo ticket per il team</p>
-                  </div>
-                  <button className="btn-close" onClick={() => setShowCreate(false)} />
-                </div>
-                <form onSubmit={handleCreate}>
-                  <div className="modal-body px-4 py-3">
-                    {/* Title */}
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold small" style={{ color: '#374151' }}>Titolo</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={createForm.title}
-                        onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))}
-                        placeholder="Titolo breve del ticket..."
-                        style={{ borderRadius: '10px', border: '1px solid #e2e8f0' }}
-                      />
-                    </div>
-
-                    {/* Description */}
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold small" style={{ color: '#374151' }}>Descrizione *</label>
-                      <textarea
-                        className="form-control"
-                        rows={4}
-                        value={createForm.description}
-                        onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
-                        placeholder="Descrivi il problema o la richiesta..."
-                        required
-                        style={{ borderRadius: '10px', border: '1px solid #e2e8f0' }}
-                      />
-                    </div>
-
-                    <div className="row mb-3">
-                      {/* Priority */}
-                      <div className="col-md-6">
-                        <label className="form-label fw-semibold small" style={{ color: '#374151' }}>Priorità</label>
-                        <select className="form-select" value={createForm.priority}
-                          onChange={(e) => setCreateForm((p) => ({ ...p, priority: e.target.value }))}
-                          style={{ borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                          {Object.entries(priorityConfig).map(([k, v]) => (
-                            <option key={k} value={k}>{v.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Patient typeahead */}
-                      <div className="col-md-6">
-                        <label className="form-label fw-semibold small" style={{ color: '#374151' }}>Paziente</label>
-                        <div className="position-relative">
-                          <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Cerca paziente..."
-                            value={patientSearch}
-                            onChange={(e) => handlePatientSearch(e.target.value)}
-                            style={{ borderRadius: '10px', border: '1px solid #e2e8f0' }}
-                          />
-                          {selectedPatient && (
-                            <span className="position-absolute d-flex align-items-center gap-1"
-                              style={{
-                                right: 8, top: '50%', transform: 'translateY(-50%)',
-                                background: '#dcfce7', color: '#16a34a',
-                                padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 500,
-                              }}>
-                              <i className="fas fa-check" style={{ fontSize: '9px' }} />{selectedPatient.nome}
-                            </span>
-                          )}
-                          {patientResults.length > 0 && (
-                            <div className="dropdown-menu show w-100 border-0 shadow-sm"
-                              style={{ maxHeight: 200, overflow: 'auto', borderRadius: '10px', marginTop: '4px' }}>
-                              {patientResults.map((p) => (
-                                <button key={p.id} type="button" className="dropdown-item py-2"
-                                  onClick={() => selectPatient(p)}>
-                                  <strong>{p.nome}</strong>
-                                  {p.email && <small className="text-muted ms-2">{p.email}</small>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Assignees */}
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold small" style={{ color: '#374151' }}>Assegnatari</label>
-                      <div className="d-flex flex-wrap gap-2">
-                        {users.map((u) => {
-                          const selected = createForm.assignee_ids.includes(u.id);
-                          return (
-                            <button
-                              key={u.id}
-                              type="button"
-                              className="btn btn-sm d-flex align-items-center gap-1"
-                              onClick={() => toggleAssignee(u.id)}
-                              style={{
-                                borderRadius: '20px',
-                                padding: '5px 14px',
-                                border: selected ? 'none' : '1px solid #e2e8f0',
-                                background: selected ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#fff',
-                                color: selected ? '#fff' : '#475569',
-                                fontSize: '12px',
-                                fontWeight: 500,
-                              }}
-                            >
-                              {selected && <i className="fas fa-check" style={{ fontSize: '10px' }} />}
-                              {u.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* File upload */}
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold small" style={{ color: '#374151' }}>Allegati</label>
-                      <div
-                        className="d-flex flex-column align-items-center justify-content-center"
-                        style={{
-                          borderRadius: '12px',
-                          border: '2px dashed #cbd5e1',
-                          padding: '24px',
-                          cursor: 'pointer',
-                          background: '#fafbfc',
-                          transition: 'border-color 0.15s',
-                        }}
-                        onDrop={handleFileDrop}
-                        onDragOver={(e) => e.preventDefault()}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <div className="d-flex align-items-center justify-content-center rounded-circle mb-2"
-                          style={{ width: 48, height: 48, background: '#ede9fe' }}>
-                          <i className="fas fa-cloud-upload-alt" style={{ color: '#6366f1', fontSize: '20px' }} />
-                        </div>
-                        <span className="text-muted small">Trascina i file qui o clicca per selezionare</span>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          className="d-none"
-                          onChange={(e) => setCreateFiles((p) => [...p, ...Array.from(e.target.files)])}
-                        />
-                      </div>
-                      {createFiles.length > 0 && (
-                        <div className="d-flex flex-wrap gap-2 mt-2">
-                          {createFiles.map((f, i) => (
-                            <span key={i} className="d-flex align-items-center gap-1"
-                              style={{
-                                background: '#f1f5f9', borderRadius: '8px',
-                                padding: '4px 10px', fontSize: '12px', color: '#475569',
-                              }}>
-                              <i className="fas fa-file" style={{ fontSize: '10px', color: '#94a3b8' }} />
-                              {f.name}
-                              <button type="button" className="btn-close" style={{ fontSize: '8px', marginLeft: '4px' }}
-                                onClick={(e) => { e.stopPropagation(); setCreateFiles((p) => p.filter((_, idx) => idx !== i)); }} />
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="modal-footer border-0 px-4 pb-4 pt-0">
-                    <button type="button" className="btn"
-                      onClick={() => setShowCreate(false)}
-                      style={{ borderRadius: '10px', border: '1px solid #e2e8f0', color: '#475569', padding: '8px 20px' }}>
-                      Annulla
-                    </button>
-                    <button type="submit" className="btn" disabled={creating}
-                      style={{
-                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                        color: '#fff', borderRadius: '10px', border: 'none',
-                        padding: '8px 20px', fontWeight: 500,
-                      }}>
-                      {creating ? <><span className="spinner-border spinner-border-sm me-1" />Creazione...</> : 'Crea Ticket'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

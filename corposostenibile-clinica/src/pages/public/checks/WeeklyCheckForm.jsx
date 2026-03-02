@@ -340,12 +340,15 @@ function WeeklyCheckForm() {
     <div className="check-card check-theme-weekly">
       {/* Header */}
       <div className="check-header">
-        <h4 className="check-header-title">Check Settimanale</h4>
-        {checkInfo?.cliente && (
-          <p className="check-header-subtitle">
-            Ciao {checkInfo.cliente.nome}!
-          </p>
-        )}
+        <h4 className="check-header-title">
+          Ciao {checkInfo?.cliente?.nome || ''}!
+        </h4>
+        <p className="check-header-subtitle">
+          È il momento del tuo check settimanale. Raccontaci come è andata!
+        </p>
+        <p className="check-header-hint">
+          <i className="ri-time-line"></i> Compilazione: ~5 min
+        </p>
       </div>
 
       {/* Progress */}
@@ -439,7 +442,7 @@ function WeeklyCheckForm() {
                 { field: 'mood_rating', label: 'Umore', icon: 'ri-emotion-happy-line' },
                 { field: 'motivation_rating', label: 'Motivazione', icon: 'ri-fire-line' },
               ].map(item => (
-                <div key={item.field} className={`check-question${formData[item.field] !== null ? ' answered' : ''}`} style={{ marginBottom: 16 }}>
+                <div key={item.field} className={`check-question check-question-gap${formData[item.field] !== null ? ' answered' : ''}`}>
                   <div className="check-question-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <i className={item.icon} style={{ color: 'var(--check-primary)', fontSize: 18 }}></i>
                     {item.label}
@@ -646,25 +649,81 @@ function WeeklyCheckForm() {
           )}
 
           {/* Step 7: Confirmation */}
-          {currentStep === 7 && (
-            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <div className="check-confirm-icon" style={{ background: '#dcfce7', color: '#22c55e' }}>
-                <i className="ri-check-double-line"></i>
-              </div>
-              <h5 className="check-confirm-title">Tutto pronto!</h5>
-              <p className="check-confirm-desc">
-                Hai completato tutte le sezioni del check settimanale.
-                Clicca su "Invia Check" per confermare.
-              </p>
+          {currentStep === 7 && (() => {
+            const photoCount = [formData.photo_front, formData.photo_side, formData.photo_back].filter(Boolean).length;
+            const reflectionFields = ['what_worked', 'what_didnt_work', 'what_learned', 'what_focus_next', 'injuries_notes'];
+            const reflectionCount = reflectionFields.filter(f => formData[f]?.trim()).length;
+            const wellnessFields = ['digestion_rating', 'energy_rating', 'strength_rating', 'hunger_rating', 'sleep_rating', 'mood_rating', 'motivation_rating'];
+            const wellnessCount = wellnessFields.filter(f => formData[f] !== null).length;
+            const hasWeight = !!formData.weight;
+            const profRatingFields = ['nutritionist_rating', 'psychologist_rating', 'coach_rating'];
+            const profRatingCount = profRatingFields.filter(f => formData[f] !== null).length;
 
-              {error && (
-                <div className="check-alert-danger">
-                  <i className="ri-error-warning-line"></i>
-                  {error}
+            return (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div className="check-confirm-icon" style={{ background: '#dcfce7', color: '#22c55e' }}>
+                  <i className="ri-check-double-line"></i>
                 </div>
-              )}
-            </div>
-          )}
+                <h5 className="check-confirm-title">Tutto pronto!</h5>
+                <p className="check-confirm-desc">
+                  Controlla il riepilogo e clicca "Invia" per confermare.
+                </p>
+
+                <div className="check-summary">
+                  <div className="check-summary-title">Riepilogo</div>
+                  <div className="check-summary-row">
+                    <span className="check-summary-label">
+                      <i className="ri-camera-line"></i> Foto caricate
+                    </span>
+                    <span className={`check-summary-value${photoCount === 0 ? ' empty' : ''}`}>
+                      {photoCount}/3
+                    </span>
+                  </div>
+                  <div className="check-summary-row">
+                    <span className="check-summary-label">
+                      <i className="ri-lightbulb-line"></i> Riflessioni compilate
+                    </span>
+                    <span className={`check-summary-value${reflectionCount === 0 ? ' empty' : ''}`}>
+                      {reflectionCount}/5
+                    </span>
+                  </div>
+                  <div className="check-summary-row">
+                    <span className="check-summary-label">
+                      <i className="ri-heart-pulse-line"></i> Valutazioni benessere
+                    </span>
+                    <span className={`check-summary-value${wellnessCount === 0 ? ' empty' : ''}`}>
+                      {wellnessCount}/7
+                    </span>
+                  </div>
+                  <div className="check-summary-row">
+                    <span className="check-summary-label">
+                      <i className="ri-scales-line"></i> Peso inserito
+                    </span>
+                    <span className={`check-summary-value${!hasWeight ? ' empty' : ''}`}>
+                      {hasWeight ? `${formData.weight} kg` : 'No'}
+                    </span>
+                  </div>
+                  {assignedProfessionals.length > 0 && (
+                    <div className="check-summary-row">
+                      <span className="check-summary-label">
+                        <i className="ri-star-line"></i> Valutazioni professionisti
+                      </span>
+                      <span className={`check-summary-value${profRatingCount === 0 ? ' empty' : ''}`}>
+                        {profRatingCount}/{assignedProfessionals.length}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="check-alert-danger">
+                    <i className="ri-error-warning-line"></i>
+                    {error}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

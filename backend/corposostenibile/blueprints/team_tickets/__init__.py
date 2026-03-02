@@ -48,4 +48,4 @@ def init_app(app):
 # Import delle route (deve restare *in fondo*)
 # ────────────────────────────────────────────────────────────────────────────
 
-from .routes import api_routes, bot_routes  # noqa: E402,F401
+from .routes import api_routes, bot_routes, websocket_routes  # noqa: E402,F401

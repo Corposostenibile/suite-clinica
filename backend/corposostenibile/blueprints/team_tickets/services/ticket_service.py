@@ -146,6 +146,7 @@ def update_ticket(
     priority: str | None = None,
     assignee_ids: list[int] | None = None,
     description: str | None = None,
+    source: str = "admin",
 ) -> TeamTicket:
     """Aggiorna un team ticket."""
     ticket = TeamTicket.query.get_or_404(ticket_id)
@@ -166,13 +167,19 @@ def update_ticket(
                 ticket.resolved_at = datetime.utcnow()
             elif new_status == TeamTicketStatusEnum.chiuso:
                 ticket.closed_at = datetime.utcnow()
+            elif new_status in (TeamTicketStatusEnum.aperto, TeamTicketStatusEnum.in_lavorazione):
+                # Riapri: resetta le date di chiusura/risoluzione
+                if old_status == TeamTicketStatusEnum.chiuso:
+                    ticket.closed_at = None
+                if old_status == TeamTicketStatusEnum.risolto:
+                    ticket.resolved_at = None
 
             sc = TeamTicketStatusChange(
                 ticket_id=ticket.id,
                 from_status=old_status,
                 to_status=new_status,
                 changed_by_id=changed_by_id,
-                source=TeamTicketSourceEnum.admin,
+                source=TeamTicketSourceEnum(source),
             )
             db.session.add(sc)
 
