@@ -664,16 +664,9 @@ function ClientiDetail() {
   const [editPlanFile, setEditPlanFile] = useState(null);
   const [planVersions, setPlanVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
-  // Anamnesi state (5 sezioni: remota, prossima, familiare, stileVita, terapie)
+  // Anamnesi state (campo unico)
   const [anamnesiNutrizione, setAnamnesiNutrizione] = useState(null);
   const [anamnesiContent, setAnamnesiContent] = useState('');
-  const [anamnesiSections, setAnamnesiSections] = useState({
-    remota: '',
-    prossima: '',
-    familiare: '',
-    stileVita: '',
-    terapie: ''
-  });
   const [loadingAnamnesi, setLoadingAnamnesi] = useState(false);
   const [savingAnamnesi, setSavingAnamnesi] = useState(false);
   // Diario state (Nutrizione)
@@ -731,7 +724,11 @@ function ClientiDetail() {
   const [storicoStatoPsicologia, setStoricoStatoPsicologia] = useState([]);
   const [storicoChatPsicologia, setStoricoChatPsicologia] = useState([]);
   const [loadingStoricoPsicologia, setLoadingStoricoPsicologia] = useState(false);
-  // Psicologia Anamnesi (storia psicologica) - già in formData
+  // Psicologia Anamnesi (service_anamnesi)
+  const [anamnesiPsicologia, setAnamnesiPsicologia] = useState(null);
+  const [anamnesiPsicologiaContent, setAnamnesiPsicologiaContent] = useState('');
+  const [loadingAnamnesiPsicologia, setLoadingAnamnesiPsicologia] = useState(false);
+  const [savingAnamnesiPsicologia, setSavingAnamnesiPsicologia] = useState(false);
   // Psicologia Diario
   const [diarioPsicologiaEntries, setDiarioPsicologiaEntries] = useState([]);
   const [loadingDiarioPsicologia, setLoadingDiarioPsicologia] = useState(false);
@@ -991,6 +988,8 @@ function ClientiDetail() {
     if (activeTab === 'psicologia' && id) {
       if (psicologiaSubTab === 'panoramica') {
         fetchStoricoPsicologia();
+      } else if (psicologiaSubTab === 'patologie') {
+        fetchAnamnesiPsicologia();
       } else if (psicologiaSubTab === 'diario') {
         fetchDiarioPsicologia();
       }
@@ -1313,6 +1312,47 @@ function ClientiDetail() {
 
   // ==================== PSICOLOGIA FUNCTIONS ====================
 
+  const fetchAnamnesiPsicologia = async () => {
+    setLoadingAnamnesiPsicologia(true);
+    try {
+      const response = await clientiService.getAnamnesi(id, 'psicologia');
+      if (response.success && response.anamnesi) {
+        setAnamnesiPsicologia(response.anamnesi);
+        setAnamnesiPsicologiaContent(response.anamnesi.content || '');
+      } else {
+        setAnamnesiPsicologia(null);
+        setAnamnesiPsicologiaContent('');
+      }
+    } catch (err) {
+      console.error('Error fetching psicologia anamnesi:', err);
+      setAnamnesiPsicologia(null);
+      setAnamnesiPsicologiaContent('');
+    } finally {
+      setLoadingAnamnesiPsicologia(false);
+    }
+  };
+
+  const handleSaveAnamnesiPsicologia = async () => {
+    if (!canManagePsychologySection) {
+      setError('Salvataggio anamnesi psicologia non consentito per il ruolo corrente.');
+      return;
+    }
+    if (!anamnesiPsicologiaContent.trim()) {
+      alert('Inserisci il contenuto dell\'anamnesi');
+      return;
+    }
+    setSavingAnamnesiPsicologia(true);
+    try {
+      await clientiService.saveAnamnesi(id, 'psicologia', anamnesiPsicologiaContent);
+      fetchAnamnesiPsicologia();
+    } catch (err) {
+      console.error('Error saving psicologia anamnesi:', err);
+      alert('Errore durante il salvataggio dell\'anamnesi');
+    } finally {
+      setSavingAnamnesiPsicologia(false);
+    }
+  };
+
   const fetchDiarioPsicologia = async () => {
     setLoadingDiarioPsicologia(true);
     try {
@@ -1574,33 +1614,31 @@ function ClientiDetail() {
       if (response.success && response.anamnesi) {
         setAnamnesiNutrizione(response.anamnesi);
         const raw = response.anamnesi.content || '';
-        setAnamnesiContent(raw);
+        // If content was saved as JSON (old 5-section format), merge into single text
         try {
           const parsed = JSON.parse(raw);
           if (parsed && typeof parsed === 'object') {
-            setAnamnesiSections({
-              remota: parsed.remota || '',
-              prossima: parsed.prossima || '',
-              familiare: parsed.familiare || '',
-              stileVita: parsed.stileVita || '',
-              terapie: parsed.terapie || ''
-            });
+            const parts = [];
+            if (parsed.remota) parts.push(parsed.remota);
+            if (parsed.prossima) parts.push(parsed.prossima);
+            if (parsed.familiare) parts.push(parsed.familiare);
+            if (parsed.stileVita) parts.push(parsed.stileVita);
+            if (parsed.terapie) parts.push(parsed.terapie);
+            setAnamnesiContent(parts.join('\n\n'));
           } else {
-            setAnamnesiSections(prev => ({ ...prev, prossima: raw }));
+            setAnamnesiContent(raw);
           }
         } catch (_) {
-          setAnamnesiSections(prev => ({ ...prev, prossima: raw }));
+          setAnamnesiContent(raw);
         }
       } else {
         setAnamnesiNutrizione(null);
         setAnamnesiContent('');
-        setAnamnesiSections({ remota: '', prossima: '', familiare: '', stileVita: '', terapie: '' });
       }
     } catch (err) {
       console.error('Error fetching anamnesi:', err);
       setAnamnesiNutrizione(null);
       setAnamnesiContent('');
-      setAnamnesiSections({ remota: '', prossima: '', familiare: '', stileVita: '', terapie: '' });
     } finally {
       setLoadingAnamnesi(false);
     }
@@ -1611,15 +1649,13 @@ function ClientiDetail() {
       setError('Salvataggio anamnesi nutrizione non consentito per il ruolo corrente.');
       return;
     }
-    const contentToSave = JSON.stringify(anamnesiSections);
-    if (!contentToSave || contentToSave === '{}' || contentToSave === '{"remota":"","prossima":"","familiare":"","stileVita":"","terapie":""}') {
+    if (!anamnesiContent.trim()) {
       alert('Inserisci il contenuto dell\'anamnesi');
       return;
     }
     setSavingAnamnesi(true);
     try {
-      await clientiService.saveAnamnesi(id, 'nutrizione', contentToSave);
-      setAnamnesiContent(contentToSave);
+      await clientiService.saveAnamnesi(id, 'nutrizione', anamnesiContent);
       fetchAnamnesi();
     } catch (err) {
       console.error('Error saving anamnesi:', err);
@@ -4327,10 +4363,10 @@ function ClientiDetail() {
                         </div>
                       </div>
 
-                      {/* ===== ANAMNESI (5 sezioni) ===== */}
+                      {/* ===== ANAMNESI (campo unico) ===== */}
                       <div>
                         <div className="cd-section-title">
-                          Anamnesi (sezioni)
+                          Anamnesi Nutrizionale
                         </div>
                         <div className="cd-inner-card">
                           <div className="cd-inner-card-body">
@@ -4339,7 +4375,7 @@ function ClientiDetail() {
                                 <div className="cd-icon-circle purple">
                                   <i className="ri-file-list-3-line"></i>
                                 </div>
-                                <span className="cd-inner-card-title">Patologie e Anamnesi</span>
+                                <span className="cd-inner-card-title">Anamnesi Nutrizione</span>
                               </div>
                               <button
                                 className="cd-btn-save"
@@ -4361,24 +4397,15 @@ function ClientiDetail() {
                               </div>
                             ) : (
                               <>
-                                {[
-                                  { key: 'remota', title: 'Anamnesi Patologica Remota (Pregressa)', placeholder: 'Malattie infantili, malattie croniche, interventi chirurgici, ricoveri passati, infortuni o traumi.' },
-                                  { key: 'prossima', title: 'Anamnesi Patologica Prossima (Attuale)', placeholder: 'Sintomi attuali, disturbi recenti.' },
-                                  { key: 'familiare', title: 'Anamnesi Familiare', placeholder: 'Patologie ereditarie o congenite note nei parenti di primo grado.' },
-                                  { key: 'stileVita', title: 'Stile di Vita e Abitudini', placeholder: 'Abitudine al fumo, consumo di alcol, attività fisica, dieta.' },
-                                  { key: 'terapie', title: 'Terapie e Allergie', placeholder: 'Farmaci attualmente assunti, allergie a farmaci, alimenti o sostanze ambientali.' }
-                                ].map(({ key, title, placeholder }) => (
-                                  <div key={key} className="cd-field">
-                                    <label className="cd-field-label">{title}</label>
-                                    <textarea
-                                      className="cd-textarea"
-                                      rows={3}
-                                      placeholder={placeholder}
-                                      value={anamnesiSections[key] || ''}
-                                      onChange={(e) => setAnamnesiSections(prev => ({ ...prev, [key]: e.target.value }))}
-                                    />
-                                  </div>
-                                ))}
+                                <div className="cd-field">
+                                  <textarea
+                                    className="cd-textarea"
+                                    rows="8"
+                                    placeholder="Scrivi qui l'anamnesi nutrizionale del cliente...&#10;&#10;• Anamnesi patologica remota e prossima&#10;• Anamnesi familiare&#10;• Stile di vita e abitudini&#10;• Terapie e allergie"
+                                    value={anamnesiContent}
+                                    onChange={(e) => setAnamnesiContent(e.target.value)}
+                                  ></textarea>
+                                </div>
                                 {anamnesiNutrizione && (
                                   <div className="cd-prof-date border-top pt-2">
                                     <i className="ri-information-line me-1"></i>
@@ -4846,6 +4873,7 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
                           { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: 'orange' },
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
+                          { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: 'red' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                           { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
@@ -5559,6 +5587,72 @@ function ClientiDetail() {
                     </div>
                   )}
 
+                  {/* ===== ANAMNESI SUB-TAB (Coaching) ===== */}
+                  {coachingSubTab === 'anamnesi' && (
+                    <div>
+                      <div className="cd-sections">
+                      <div>
+                        <div className="cd-section-title">
+                          Anamnesi Coaching
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle orange">
+                                  <i className="ri-file-list-3-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Anamnesi Coach</span>
+                              </div>
+                              <button
+                                className="cd-btn-save"
+                                onClick={handleSaveAnamnesiCoaching}
+                                disabled={savingAnamnesiCoaching || loadingAnamnesiCoaching}
+                              >
+                                {savingAnamnesiCoaching ? (
+                                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></span>Salvataggio...</>
+                                ) : (
+                                  <><i className="ri-save-line"></i>Salva</>
+                                )}
+                              </button>
+                            </div>
+
+                            {loadingAnamnesiCoaching ? (
+                              <div className="cd-loading">
+                                <div className="cd-spinner" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="cd-field">
+                                  <textarea
+                                    className="cd-textarea"
+                                    rows="8"
+                                    placeholder="Scrivi qui l'anamnesi sportiva del cliente...&#10;&#10;• Storia sportiva&#10;• Infortuni pregressi&#10;• Obiettivi&#10;• Note iniziali"
+                                    value={anamnesiCoachingContent}
+                                    onChange={(e) => setAnamnesiCoachingContent(e.target.value)}
+                                  ></textarea>
+                                </div>
+                                {anamnesiCoaching && (
+                                  <div className="cd-prof-date border-top pt-2">
+                                    <i className="ri-information-line me-1"></i>
+                                    Creato: {anamnesiCoaching.created_at} da {anamnesiCoaching.created_by || 'N/D'}
+                                    {anamnesiCoaching.last_modified_by && (
+                                      <span className="ms-3">
+                                        | Ultima modifica: {anamnesiCoaching.updated_at} da {anamnesiCoaching.last_modified_by}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {coachingSubTab === 'diario' && (
                     <div data-tour="coaching-diario">
@@ -6247,26 +6341,60 @@ function ClientiDetail() {
                         </div>
                       </div>
 
-                      {/* ===== ANAMNESI MERGED ===== */}
+                      {/* ===== ANAMNESI PSICOLOGIA ===== */}
                       <div>
-                        <div className="cd-section-title">Storia Psicologica</div>
+                        <div className="cd-section-title">Anamnesi Psicologica</div>
                         <div className="cd-inner-card">
                           <div className="cd-inner-card-body">
-                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
-                              <div className="cd-icon-circle purple">
-                                <i className="ri-file-list-3-line"></i>
+                            <div className="cd-inner-card-header-row">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle purple">
+                                  <i className="ri-file-list-3-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Anamnesi Psicologia</span>
                               </div>
-                              <span className="cd-inner-card-title">Anamnesi Psicologica</span>
+                              <button
+                                className="cd-btn-save"
+                                onClick={handleSaveAnamnesiPsicologia}
+                                disabled={savingAnamnesiPsicologia || loadingAnamnesiPsicologia}
+                              >
+                                {savingAnamnesiPsicologia ? (
+                                  <><span className="cd-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></span>Salvataggio...</>
+                                ) : (
+                                  <><i className="ri-save-line"></i>Salva</>
+                                )}
+                              </button>
                             </div>
-                            <div className="cd-field">
-                            <textarea
-                              className="cd-textarea"
-                              rows="8"
-                              placeholder="Scrivi qui l'anamnesi psicologica del cliente...&#10;&#10;• Storia clinica&#10;• Motivazioni&#10;• Obiettivi terapeutici&#10;• Note iniziali"
-                              value={formData.storia_psicologica || ''}
-                              onChange={(e) => handleInputChange('storia_psicologica', e.target.value)}
-                            ></textarea>
-                            </div>
+
+                            {loadingAnamnesiPsicologia ? (
+                              <div className="cd-loading">
+                                <div className="cd-spinner" role="status"></div>
+                                <small className="ms-2 text-muted">Caricamento anamnesi...</small>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="cd-field">
+                                  <textarea
+                                    className="cd-textarea"
+                                    rows="8"
+                                    placeholder="Scrivi qui l'anamnesi psicologica del cliente...&#10;&#10;• Storia clinica&#10;• Motivazioni&#10;• Obiettivi terapeutici&#10;• Note iniziali"
+                                    value={anamnesiPsicologiaContent}
+                                    onChange={(e) => setAnamnesiPsicologiaContent(e.target.value)}
+                                  ></textarea>
+                                </div>
+                                {anamnesiPsicologia && (
+                                  <div className="cd-prof-date border-top pt-2">
+                                    <i className="ri-information-line me-1"></i>
+                                    Creato: {anamnesiPsicologia.created_at} da {anamnesiPsicologia.created_by || 'N/D'}
+                                    {anamnesiPsicologia.last_modified_by && (
+                                      <span className="ms-3">
+                                        | Ultima modifica: {anamnesiPsicologia.updated_at} da {anamnesiPsicologia.last_modified_by}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
