@@ -1149,6 +1149,49 @@ def api_update_professional_criteria(user_id: int):
     else:
         return jsonify({'success': False, 'message': 'Ruolo non supportato per assegnazione AI'}), 400
 
+@team_api_bp.route("/professionals/<int:user_id>/toggle-available", methods=["PUT"])
+@login_required
+def api_toggle_professional_available(user_id: int):
+    """Toggle disponibilità assegnazioni per un professionista."""
+    if not current_user.is_admin and not (current_user.role.value in ['team_leader']):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
+    user = User.query.get_or_404(user_id)
+
+    if not current_user.is_admin and _get_user_role(current_user) == 'team_leader':
+        allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+        if user.id not in allowed_ids:
+            return jsonify({'success': False, 'message': 'Puoi modificare solo membri dei tuoi team'}), 403
+
+    ai_notes = user.assignment_ai_notes or {}
+    if isinstance(ai_notes, str):
+        import json
+        try:
+            ai_notes = json.loads(ai_notes)
+        except (json.JSONDecodeError, TypeError):
+            ai_notes = {}
+
+    current_value = ai_notes.get('disponibile_assegnazioni', True)
+    ai_notes['disponibile_assegnazioni'] = not current_value
+    user.assignment_ai_notes = ai_notes
+
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(user, 'assignment_ai_notes')
+
+    try:
+        db.session.commit()
+        new_status = "disponibile" if ai_notes['disponibile_assegnazioni'] else "non disponibile"
+        return jsonify({
+            'success': True,
+            'disponibile': ai_notes['disponibile_assegnazioni'],
+            'message': f'{user.full_name} ora è {new_status} per nuove assegnazioni'
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Errore toggle disponibilità: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @team_api_bp.route("/criteria/schema", methods=["GET"])
 @login_required
 def api_get_criteria_schema():
