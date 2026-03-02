@@ -805,6 +805,69 @@
     margin-bottom: 0;
 }
 
+/* ===================================================================
+   HERO CARD — simple welcome for non-admin roles
+   =================================================================== */
+
+.welcome-hero-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 40%, #f8fafc 100%);
+    border: 1px solid var(--welcome-primary-border);
+    border-radius: 16px;
+    padding: 32px 28px;
+}
+
+.welcome-hero-inner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.welcome-hero-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.welcome-hero-greeting {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--welcome-text-main);
+    margin-bottom: 8px;
+}
+
+.welcome-hero-text {
+    font-size: 15px;
+    color: var(--welcome-text-muted);
+    margin-bottom: 0;
+    line-height: 1.6;
+}
+
+.welcome-hero-text strong {
+    color: var(--welcome-primary);
+}
+
+@media (max-width: 576px) {
+    .welcome-hero-card {
+        padding: 24px 20px;
+    }
+
+    .welcome-hero-inner {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+
+    .welcome-hero-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    .welcome-hero-greeting {
+        font-size: 1.25rem;
+    }
+}
+
 /* Small KPI for scoped dashboard */
 .welcome-kpi-card-sm {
     background: white;

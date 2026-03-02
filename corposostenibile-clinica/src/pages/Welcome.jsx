@@ -1287,54 +1287,95 @@ function ProfCheckRecent({ data, specialtyGroup, meta }) {
   );
 }
 
-function Welcome() {
-  const { user } = useOutletContext();
+/* ==================== SIMPLE WELCOME (non-admin roles) ==================== */
 
-  if (isHealthManagerScopeUser(user)) {
-    return (
-      <div className="container-fluid p-0">
-        <div className="welcome-header">
+function SimpleWelcome({ user }) {
+  const quickLinks = (() => {
+    if (isHealthManagerScopeUser(user)) {
+      const links = [
+        { label: 'Pazienti', to: '/clienti-lista', icon: 'ri-group-line', color: '#3b82f6', bgColor: '#eff6ff', iconBg: '#dbeafe' },
+        { label: 'Assegnazioni', to: '/assegnazioni-ai', icon: 'ri-cpu-line', color: '#8b5cf6', bgColor: '#f5f3ff', iconBg: '#ede9fe' },
+      ];
+      if (isHealthManagerTeamLeader(user)) {
+        links.push({ label: 'Capienze HM', to: '/team-capienza', icon: 'ri-bar-chart-2-line', color: '#22c55e', bgColor: '#f0fdf4', iconBg: '#dcfce7' });
+      }
+      return links;
+    }
+
+    const base = [
+      { label: 'I miei pazienti', to: '/clienti-lista', icon: 'ri-group-line', color: '#3b82f6', bgColor: '#eff6ff', iconBg: '#dbeafe' },
+      { label: 'Task', to: '/task', icon: 'ri-task-line', color: '#f97316', bgColor: '#fff7ed', iconBg: '#ffedd5' },
+      { label: 'Chat', to: '/chat', icon: 'ri-chat-3-line', color: '#14b8a6', bgColor: '#f0fdfa', iconBg: '#ccfbf1' },
+      { label: 'Formazione', to: '/formazione', icon: 'ri-book-open-line', color: '#ec4899', bgColor: '#fdf2f8', iconBg: '#fce7f3' },
+    ];
+
+    if (isTeamLeaderRestricted(user)) {
+      return [
+        ...base,
+        { label: 'Check', to: '/check-azienda', icon: 'ri-checkbox-circle-line', color: '#22c55e', bgColor: '#f0fdf4', iconBg: '#dcfce7' },
+        { label: 'Team', to: '/team-lista', icon: 'ri-team-line', color: '#8b5cf6', bgColor: '#f5f3ff', iconBg: '#ede9fe' },
+      ];
+    }
+
+    // Professionista
+    return [
+      ...base,
+      { label: 'Calendario', to: '/calendario', icon: 'ri-calendar-line', color: '#ef4444', bgColor: '#fef2f2', iconBg: '#fee2e2' },
+      { label: 'Check', to: '/check-azienda', icon: 'ri-checkbox-circle-line', color: '#22c55e', bgColor: '#f0fdf4', iconBg: '#dcfce7' },
+    ];
+  })();
+
+  return (
+    <>
+      <div className="welcome-hero-card">
+        <div className="welcome-hero-inner">
+          <img src={logoFoglia} alt="" className="welcome-hero-logo" />
           <div>
-            <h4>
-              Ciao, {user?.first_name || 'Health Manager'}!
+            <h4 className="welcome-hero-greeting">
+              Ciao, {user?.first_name || 'Utente'}!
             </h4>
-            <p>Panoramica operativa Health Manager</p>
-          </div>
-        </div>
-
-        <div className="welcome-scope-card mb-4">
-          <h5>Area HM</h5>
-          <p className="mb-3">
-            Vista limitata a pazienti e assegnazioni.
-            {isHealthManagerTeamLeader(user) ? ' Come Team Leader HM puoi anche gestire la capienza del team HM.' : ''}
-          </p>
-          <div className="d-flex gap-2 flex-wrap">
-            <Link to="/clienti-lista" className="btn btn-outline-secondary btn-sm">
-              <i className="ri-group-line me-1"></i>Pazienti
-            </Link>
-            <Link to="/assegnazioni-ai" className="btn btn-outline-primary btn-sm">
-              <i className="ri-cpu-line me-1"></i>Assegnazioni
-            </Link>
-            {isHealthManagerTeamLeader(user) && (
-              <Link to="/team-capienza" className="btn btn-outline-success btn-sm">
-                <i className="ri-bar-chart-2-line me-1"></i>Capienze HM
-              </Link>
-            )}
+            <p className="welcome-hero-text">
+              Benvenuto nella nuova <strong>Suite Clinica</strong>.
+              <br />
+              La piattaforma è in fase di aggiornamento continuo — usa i link qui sotto per navigare tra le sezioni.
+            </p>
           </div>
         </div>
       </div>
-    );
+
+      <div className="welcome-card mt-4">
+        <div className="welcome-card-header">
+          <h6><i className="ri-apps-line me-2 text-primary"></i>Accesso Rapido</h6>
+        </div>
+        <div className="welcome-card-body">
+          <div className="row g-2">
+            {quickLinks.map((link, idx) => (
+              <div key={idx} className="col-6 col-md-4 col-xl-2">
+                <Link to={link.to} className="welcome-quick-link" style={{ background: link.bgColor }}>
+                  <div className="link-icon" style={{ background: link.iconBg }}>
+                    <i className={link.icon} style={{ color: link.color }}></i>
+                  </div>
+                  <span className="link-label">{link.label}</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Welcome() {
+  const { user } = useOutletContext();
+
+  // Admin/CCO → full dashboard with data and graphs
+  if (!isHealthManagerScopeUser(user) && !isTeamLeaderRestricted(user) && !isProfessionistaStandard(user)) {
+    return <LegacyWelcomeDashboard />;
   }
 
-  if (isTeamLeaderRestricted(user)) {
-    return <RoleScopedWelcome user={user} mode="team_leader" />;
-  }
-
-  if (isProfessionistaStandard(user)) {
-    return <ProfessionistaDashboard user={user} />;
-  }
-
-  return <LegacyWelcomeDashboard />;
+  // Team leaders, professionisti, health managers → simple welcome
+  return <SimpleWelcome user={user} />;
 }
 
 // ==================== FORMAZIONE TAB ====================

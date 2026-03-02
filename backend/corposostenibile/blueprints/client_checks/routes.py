@@ -38,7 +38,7 @@ from flask import (
     abort,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import desc, and_, exists, select
+from sqlalchemy import desc, and_, exists, select, text
 from sqlalchemy.orm import joinedload, defer
 from werkzeug.exceptions import HTTPException
 
@@ -85,6 +85,19 @@ from .helpers import (
     get_user_agent,
 )
 from .rbac import get_accessible_clients_query
+
+
+def _fix_sequence(table_name: str) -> None:
+    """Reset a PostgreSQL sequence to MAX(id) after a UniqueViolation."""
+    seq_name = f"{table_name}_id_seq"
+    max_id = db.session.execute(text(f"SELECT MAX(id) FROM {table_name}")).scalar() or 0
+    db.session.execute(
+        text("SELECT setval(:seq, GREATEST(:max_id, 1), true)"),
+        {"seq": seq_name, "max_id": max_id},
+    )
+    db.session.commit()
+    current_app.logger.warning(f"[SEQ_FIX] Reset {seq_name} to {max(max_id, 1)}")
+
 
 def _photo_path_to_url(path: str | None) -> str | None:
     """Converte un path filesystem di foto check in URL web servibile.
@@ -1383,7 +1396,16 @@ def weekly_check_public(token: str):
                 response.extra_comments = form.extra_comments.data
 
                 db.session.add(response)
-                db.session.commit()
+                try:
+                    db.session.commit()
+                except Exception as commit_err:
+                    db.session.rollback()
+                    if "unique" in str(commit_err).lower():
+                        _fix_sequence("weekly_check_responses")
+                        db.session.add(response)
+                        db.session.commit()
+                    else:
+                        raise
 
                 current_app.logger.info(
                     f"[WEEKLY_CHECK] Response salvata con successo: "
@@ -1516,16 +1538,24 @@ def generate_weekly_check_link(cliente_id: int):
         # Nessun assignment attivo - crea nuovo assignment PERMANENTE
         token = secrets.token_urlsafe(32)
 
-        weekly_check = WeeklyCheck(
-            cliente_id=cliente_id,
-            token=token,
-            is_active=True,
-            assigned_by_id=current_user.id,
-            assigned_at=datetime.utcnow(),
-        )
-
-        db.session.add(weekly_check)
-        db.session.commit()
+        for attempt in range(2):
+            try:
+                weekly_check = WeeklyCheck(
+                    cliente_id=cliente_id,
+                    token=token,
+                    is_active=True,
+                    assigned_by_id=current_user.id,
+                    assigned_at=datetime.utcnow(),
+                )
+                db.session.add(weekly_check)
+                db.session.commit()
+                break
+            except Exception as seq_err:
+                db.session.rollback()
+                if attempt == 0 and "unique" in str(seq_err).lower():
+                    _fix_sequence("weekly_checks")
+                    continue
+                raise
 
         # URL React frontend
         # Use React frontend port in development
@@ -1757,16 +1787,24 @@ def generate_dca_check_link(cliente_id: int):
         # Nessun assignment attivo - crea nuovo assignment PERMANENTE
         token = secrets.token_urlsafe(32)
 
-        dca_check = DCACheck(
-            cliente_id=cliente_id,
-            token=token,
-            is_active=True,
-            assigned_by_id=current_user.id,
-            assigned_at=datetime.utcnow(),
-        )
-
-        db.session.add(dca_check)
-        db.session.commit()
+        for attempt in range(2):
+            try:
+                dca_check = DCACheck(
+                    cliente_id=cliente_id,
+                    token=token,
+                    is_active=True,
+                    assigned_by_id=current_user.id,
+                    assigned_at=datetime.utcnow(),
+                )
+                db.session.add(dca_check)
+                db.session.commit()
+                break
+            except Exception as seq_err:
+                db.session.rollback()
+                if attempt == 0 and "unique" in str(seq_err).lower():
+                    _fix_sequence("dca_checks")
+                    continue
+                raise
 
         # URL React frontend
         # Use React frontend port in development
@@ -2294,16 +2332,24 @@ def generate_minor_check_link(cliente_id: int):
         # Nessun assignment attivo - crea nuovo assignment PERMANENTE
         token = secrets.token_urlsafe(32)
 
-        minor_check = MinorCheck(
-            cliente_id=cliente_id,
-            token=token,
-            is_active=True,
-            assigned_by_id=current_user.id,
-            assigned_at=datetime.utcnow(),
-        )
-
-        db.session.add(minor_check)
-        db.session.commit()
+        for attempt in range(2):
+            try:
+                minor_check = MinorCheck(
+                    cliente_id=cliente_id,
+                    token=token,
+                    is_active=True,
+                    assigned_by_id=current_user.id,
+                    assigned_at=datetime.utcnow(),
+                )
+                db.session.add(minor_check)
+                db.session.commit()
+                break
+            except Exception as seq_err:
+                db.session.rollback()
+                if attempt == 0 and "unique" in str(seq_err).lower():
+                    _fix_sequence("minor_checks")
+                    continue
+                raise
 
         # URL React frontend
         # Use React frontend port in development
@@ -2901,17 +2947,26 @@ def api_generate_check_link(check_type: str, cliente_id: int):
                 "response_count": existing.response_count
             })
 
-        # Create new assignment
+        # Create new assignment (with sequence auto-fix on UniqueViolation)
         token = secrets.token_urlsafe(32)
-        new_check = Model(
-            cliente_id=cliente_id,
-            token=token,
-            is_active=True,
-            assigned_by_id=current_user.id,
-            assigned_at=datetime.utcnow()
-        )
-        db.session.add(new_check)
-        db.session.commit()
+        for attempt in range(2):
+            try:
+                new_check = Model(
+                    cliente_id=cliente_id,
+                    token=token,
+                    is_active=True,
+                    assigned_by_id=current_user.id,
+                    assigned_at=datetime.utcnow()
+                )
+                db.session.add(new_check)
+                db.session.commit()
+                break
+            except Exception as seq_err:
+                db.session.rollback()
+                if attempt == 0 and "UniqueViolation" in str(type(seq_err).__mro__) or "unique" in str(seq_err).lower():
+                    _fix_sequence(Model.__tablename__)
+                    continue
+                raise
 
         check_url = f"{base_url}/check/{check_type}/{token}"
 
@@ -4298,7 +4353,16 @@ def api_public_submit_weekly(token: str):
                         setattr(response, field, filepath)
 
         db.session.add(response)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as commit_err:
+            db.session.rollback()
+            if "unique" in str(commit_err).lower():
+                _fix_sequence("weekly_check_responses")
+                db.session.add(response)
+                db.session.commit()
+            else:
+                raise
 
         current_app.logger.info(f"[WEEKLY_CHECK] Risposta salvata per cliente {check.cliente_id}")
 
@@ -4367,7 +4431,16 @@ def api_public_submit_dca(token: str):
         )
 
         db.session.add(response)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as commit_err:
+            db.session.rollback()
+            if "unique" in str(commit_err).lower():
+                _fix_sequence("dca_check_responses")
+                db.session.add(response)
+                db.session.commit()
+            else:
+                raise
 
         current_app.logger.info(f"[DCA_CHECK] Risposta salvata per cliente {check.cliente_id}")
 
@@ -4422,7 +4495,16 @@ def api_public_submit_minor(token: str):
         response.calculate_scores()
 
         db.session.add(response)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as commit_err:
+            db.session.rollback()
+            if "unique" in str(commit_err).lower():
+                _fix_sequence("minor_check_responses")
+                db.session.add(response)
+                db.session.commit()
+            else:
+                raise
 
         current_app.logger.info(f"[MINOR_CHECK] Risposta salvata per cliente {check.cliente_id}")
 

@@ -62,7 +62,9 @@ export function canAccessTrialPages(user) {
 }
 
 export function canAccessAiAssignments(user) {
-  return !isProfessionistaStandard(user) || isHealthManagerScopeUser(user);
+  // Admin, CCO, Health Manager (user e TL) possono accedere
+  // Team leader nutrizione/coach/psicologia e professionisti standard NO
+  return !isProfessionistaStandard(user) && !isTeamLeaderRestricted(user);
 }
 
 export function canAccessCapacity(user) {

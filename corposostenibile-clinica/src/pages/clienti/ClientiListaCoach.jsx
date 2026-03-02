@@ -97,7 +97,6 @@ function ClientiListaCoach() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [showCheckDayModal, setShowCheckDayModal] = useState(false);
   const [showReachOutModal, setShowReachOutModal] = useState(false);
-  const [showPianoAllenamentoModal, setShowPianoAllenamentoModal] = useState(false);
   const [showLuogoModal, setShowLuogoModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [modalValue, setModalValue] = useState('');
@@ -208,7 +207,6 @@ function ClientiListaCoach() {
       setShowChatModal(false);
       setShowCheckDayModal(false);
       setShowReachOutModal(false);
-      setShowPianoAllenamentoModal(false);
       setShowLuogoModal(false);
     } catch (err) {
       console.error('Error updating field:', err);
@@ -253,12 +251,6 @@ function ClientiListaCoach() {
     setSelectedCliente(cliente);
     setModalValue(cliente.reach_out_coaching || '');
     setShowReachOutModal(true);
-  };
-
-  const openPianoAllenamentoModal = (cliente) => {
-    setSelectedCliente(cliente);
-    setModalValue(cliente.piano_allenamento || '');
-    setShowPianoAllenamentoModal(true);
   };
 
   const openLuogoModal = (cliente) => {
@@ -600,19 +592,33 @@ function ClientiListaCoach() {
                           </div>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button
-                            className="cl-action-btn"
-                            style={{
-                              background: cliente.piano_allenamento
-                                ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
-                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
-                            }}
-                            onClick={() => openPianoAllenamentoModal(cliente)}
-                          >
-                            <i className={`ri-file-list-line${!cliente.piano_allenamento ? ' me-1' : ''}`}></i>
-                            {!cliente.piano_allenamento && '+'}
-                          </button>
+                          {cliente.active_training_plan ? (
+                            <Link
+                              to={`/clienti-dettaglio/${clienteId}?tab=coaching&subtab=piano`}
+                              className="cl-action-btn"
+                              style={{
+                                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                                textDecoration: 'none', display: 'inline-flex', alignItems: 'center',
+                              }}
+                              title={cliente.active_training_plan.name || 'Piano Allenamento'}
+                            >
+                              <i className={`ri-${cliente.active_training_plan.has_file ? 'file-pdf-2-line' : 'file-list-line'}`} style={{ marginRight: '4px' }}></i>
+                              {cliente.active_training_plan.has_file ? 'PDF' : 'Attivo'}
+                            </Link>
+                          ) : (
+                            <Link
+                              to={`/clienti-dettaglio/${clienteId}?tab=coaching&subtab=piano`}
+                              className="cl-action-btn"
+                              style={{
+                                background: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                                color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                                textDecoration: 'none', display: 'inline-flex', alignItems: 'center',
+                              }}
+                            >
+                              <i className="ri-add-line" style={{ marginRight: '4px' }}></i>+
+                            </Link>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
@@ -797,27 +803,6 @@ function ClientiListaCoach() {
           <button
             className="cl-modal-btn-apply"
             onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'reach_out_coaching', modalValue)}
-            disabled={saving}
-          >
-            {saving ? 'Salvando...' : 'Salva'}
-          </button>
-        </>
-      )}
-
-      {/* Modal Piano Allenamento */}
-      {renderModal(showPianoAllenamentoModal, () => setShowPianoAllenamentoModal(false), 'Piano Allenamento', 'ri-file-list-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci il piano di allenamento..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowPianoAllenamentoModal(false)}>Chiudi</button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'piano_allenamento', modalValue)}
             disabled={saving}
           >
             {saving ? 'Salvando...' : 'Salva'}

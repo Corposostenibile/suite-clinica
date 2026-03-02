@@ -1504,11 +1504,13 @@ def api_list() -> Any:
 
             stato_rows = (
                 kpi_qry.with_entities(stato_col, func.count(Cliente.cliente_id))
+                .order_by(None)
                 .group_by(stato_col)
                 .all()
             )
             chat_rows = (
                 kpi_qry.with_entities(chat_col, func.count(Cliente.cliente_id))
+                .order_by(None)
                 .group_by(chat_col)
                 .all()
             )
