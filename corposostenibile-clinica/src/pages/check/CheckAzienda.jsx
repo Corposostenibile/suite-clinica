@@ -122,6 +122,7 @@ function CheckAzienda() {
   const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
   const [loadingCheckDetail, setLoadingCheckDetail] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   // Pagination (server-side)
   const [currentPage, setCurrentPage] = useState(1);
@@ -744,7 +745,7 @@ function CheckAzienda() {
                           <div key={photo.key} className="chk-photo-slot">
                             <label>{photo.label}</label>
                             {selectedCheckResponse[photo.key] ? (
-                              <img src={selectedCheckResponse[photo.key]} alt={photo.label} onClick={() => window.open(selectedCheckResponse[photo.key], '_blank')} />
+                              <img src={selectedCheckResponse[photo.key]} alt={photo.label} onClick={() => setLightboxUrl(selectedCheckResponse[photo.key])} />
                             ) : (
                               <div className="chk-photo-empty"><i className="ri-image-line"></i> Non caricata</div>
                             )}
@@ -1145,6 +1146,17 @@ function CheckAzienda() {
               <button className="chk-modal-close-btn" onClick={() => setShowCheckResponseModal(false)}>Chiudi</button>
             </div>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Lightbox fullscreen photo */}
+      {lightboxUrl && createPortal(
+        <div className="chk-lightbox-backdrop" onClick={() => setLightboxUrl(null)}>
+          <button className="chk-lightbox-close" onClick={() => setLightboxUrl(null)}>
+            <i className="ri-close-line"></i>
+          </button>
+          <img src={lightboxUrl} alt="Foto" className="chk-lightbox-img" onClick={(e) => e.stopPropagation()} />
         </div>,
         document.body
       )}

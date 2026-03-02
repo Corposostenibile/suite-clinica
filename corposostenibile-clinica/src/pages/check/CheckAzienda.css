@@ -1112,3 +1112,49 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Lightbox fullscreen photo ── */
+.chk-lightbox-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: chkFadeIn 0.2s ease-out;
+    cursor: zoom-out;
+}
+
+.chk-lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    z-index: 1;
+}
+
+.chk-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.chk-lightbox-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    cursor: default;
+    animation: chkModalIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
