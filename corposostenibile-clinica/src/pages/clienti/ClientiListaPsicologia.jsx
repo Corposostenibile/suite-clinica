@@ -406,6 +406,7 @@ function ClientiListaPsicologia() {
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
+        {!isProfessionista && (
         <select
           className="cl-filter-select"
           value={filters.psicologo}
@@ -416,6 +417,7 @@ function ClientiListaPsicologia() {
             <option key={p.id} value={p.id}>{p.full_name}</option>
           ))}
         </select>
+        )}
         <select
           className="cl-filter-select"
           value={filters.statoPsicologia}

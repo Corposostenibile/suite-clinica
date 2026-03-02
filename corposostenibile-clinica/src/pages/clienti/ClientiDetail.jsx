@@ -7782,7 +7782,7 @@ function ClientiDetail() {
                   type="date"
                   className="cd-input"
                   value={diarioForm.entry_date}
-                  onChange={(e) => setDiarioForm({ ...diarioForm, entry_date: e.target.value })}
+                  onChange={(e) => { setDiarioForm({ ...diarioForm, entry_date: e.target.value }); e.target.blur(); }}
                 />
               </div>
               <div className="cd-field">
@@ -8243,7 +8243,7 @@ function ClientiDetail() {
                   type="date"
                   className="cd-input"
                   value={diarioCoachingForm.entry_date}
-                  onChange={(e) => setDiarioCoachingForm({ ...diarioCoachingForm, entry_date: e.target.value })}
+                  onChange={(e) => { setDiarioCoachingForm({ ...diarioCoachingForm, entry_date: e.target.value }); e.target.blur(); }}
                 />
               </div>
               <div className="cd-field">
@@ -8298,7 +8298,7 @@ function ClientiDetail() {
                   type="date"
                   className="cd-input"
                   value={diarioPsicologiaForm.entry_date}
-                  onChange={(e) => setDiarioPsicologiaForm({ ...diarioPsicologiaForm, entry_date: e.target.value })}
+                  onChange={(e) => { setDiarioPsicologiaForm({ ...diarioPsicologiaForm, entry_date: e.target.value }); e.target.blur(); }}
                 />
               </div>
               <div className="cd-field">
