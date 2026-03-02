@@ -75,10 +75,10 @@ export const kanbanService = {
     return data.patients
   },
 
-  /** Get assignable users */
-  async getUsers(token) {
+  /** Search assignable users */
+  async searchUsers(token, query) {
     setAuthToken(token)
-    const { data } = await api.get('/tab/users')
+    const { data } = await api.get('/tab/users', { params: { q: query } })
     return data.users
   },
 }

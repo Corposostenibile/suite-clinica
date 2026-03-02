@@ -14358,6 +14358,7 @@ class TeamTicket(TimestampMixin, db.Model):
             "cliente_nome": self.cliente.nome_cognome if self.cliente else None,
             "created_by_id": self.created_by_id,
             "created_by_name": self.created_by.full_name if self.created_by else None,
+            "created_by_avatar": self.created_by.avatar_path if self.created_by else None,
             "assigned_users": [
                 {"id": u.id, "name": u.full_name, "avatar": u.avatar_path}
                 for u in self.assigned_users

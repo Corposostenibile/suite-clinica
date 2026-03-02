@@ -1,34 +1,64 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { kanbanService } from '../services/kanbanService'
 
 export default function CreateTicketModal({ token, onClose, onCreated }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('media')
+
+  // Assignee typeahead
   const [assigneeId, setAssigneeId] = useState('')
+  const [assigneeSearch, setAssigneeSearch] = useState('')
+  const [assigneeResults, setAssigneeResults] = useState([])
+
+  // Patient typeahead
   const [clienteId, setClienteId] = useState('')
   const [clienteSearch, setClienteSearch] = useState('')
   const [clienteResults, setClienteResults] = useState([])
 
-  const [users, setUsers] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const searchTimeout = useRef(null)
+  const assigneeTimeout = useRef(null)
+  const clienteTimeout = useRef(null)
 
-  // Load assignable users
-  useEffect(() => {
-    kanbanService.getUsers(token).then(setUsers).catch(() => {})
+  // Assignee typeahead search
+  const searchAssignees = useCallback((q) => {
+    if (assigneeTimeout.current) clearTimeout(assigneeTimeout.current)
+    if (q.length < 2) {
+      setAssigneeResults([])
+      return
+    }
+    assigneeTimeout.current = setTimeout(async () => {
+      try {
+        const results = await kanbanService.searchUsers(token, q)
+        setAssigneeResults(results)
+      } catch {
+        setAssigneeResults([])
+      }
+    }, 300)
   }, [token])
 
-  // Patient typeahead
+  const handleAssigneeSearch = (value) => {
+    setAssigneeSearch(value)
+    setAssigneeId('')
+    searchAssignees(value)
+  }
+
+  const selectAssignee = (user) => {
+    setAssigneeId(user.id)
+    setAssigneeSearch(user.name)
+    setAssigneeResults([])
+  }
+
+  // Patient typeahead search
   const searchPatients = useCallback((q) => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    if (clienteTimeout.current) clearTimeout(clienteTimeout.current)
     if (q.length < 2) {
       setClienteResults([])
       return
     }
-    searchTimeout.current = setTimeout(async () => {
+    clienteTimeout.current = setTimeout(async () => {
       try {
         const results = await kanbanService.searchPatients(token, q)
         setClienteResults(results)
@@ -142,19 +172,32 @@ export default function CreateTicketModal({ token, onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Assignee */}
+          {/* Assignee typeahead */}
           <div className="kb-form-group">
             <label className="kb-form-label">Assegnatario</label>
-            <select
-              className="kb-form-input"
-              value={assigneeId}
-              onChange={e => setAssigneeId(e.target.value)}
-            >
-              <option value="">Nessuno</option>
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
+            <div className="kb-typeahead">
+              <input
+                className="kb-form-input"
+                value={assigneeSearch}
+                onChange={e => handleAssigneeSearch(e.target.value)}
+                placeholder="Cerca per nome o email..."
+              />
+              {assigneeResults.length > 0 && (
+                <div className="kb-typeahead-results">
+                  {assigneeResults.map(u => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      className="kb-typeahead-item"
+                      onClick={() => selectAssignee(u)}
+                    >
+                      <strong>{u.name}</strong>
+                      <span>{u.email}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Patient typeahead */}
