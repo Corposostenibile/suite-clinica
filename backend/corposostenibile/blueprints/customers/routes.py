@@ -2143,13 +2143,16 @@ def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -
     if not cliente.original_lead or cliente.original_lead.id != lead_id:
         abort(403, description="Lead non associato a questo cliente")
 
-    # I file lead possono trovarsi in due posizioni:
+    # I file lead possono trovarsi in diverse posizioni:
     # 1) {root_path}/uploads/  (dove sales_form li salva)
     # 2) UPLOAD_FOLDER/        (PVC montato in produzione)
+    # 3) UPLOAD_FOLDER/corposostenibile/uploads/ (copia migrata del vecchio sistema)
+    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
     lead_subpath = os.path.join("lead_files", str(lead_id), filename)
     candidates = [
         os.path.join(current_app.root_path, "uploads", lead_subpath),
-        os.path.join(current_app.config.get("UPLOAD_FOLDER", "uploads"), lead_subpath),
+        os.path.join(upload_folder, lead_subpath),
+        os.path.join(upload_folder, "corposostenibile", "uploads", lead_subpath),
     ]
 
     file_path = None
