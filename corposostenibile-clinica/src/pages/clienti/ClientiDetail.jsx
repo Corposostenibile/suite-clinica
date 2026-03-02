@@ -26,6 +26,7 @@ import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import ScrollableSubtabs from '../../components/ScrollableSubtabs';
+import DatePicker from '../../components/DatePicker';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import './ClientiDetail.css';
@@ -2929,8 +2930,7 @@ function ClientiDetail() {
                     </div>
                     <div className="cd-field">
                       <label className="cd-field-label">Data di Nascita</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         className="cd-input"
                         value={formData.data_di_nascita}
                         onChange={(e) => handleInputChange('data_di_nascita', e.target.value)}
@@ -3141,8 +3141,7 @@ function ClientiDetail() {
                       <div className="cd-date-plan-grid">
                         <div>
                           <label className="cd-field-label">Data Inizio</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input"
                             value={formData.data_inizio_abbonamento}
                             onChange={(e) => handleInputChange('data_inizio_abbonamento', e.target.value)}
@@ -3160,8 +3159,7 @@ function ClientiDetail() {
                         </div>
                         <div>
                           <label className="cd-field-label">Data Scadenza</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input disabled"
                             value={formData.data_inizio_abbonamento && formData.durata_programma_giorni
                               ? new Date(new Date(formData.data_inizio_abbonamento).getTime() + Number(formData.durata_programma_giorni) * 86400000).toISOString().split('T')[0]
@@ -3186,8 +3184,7 @@ function ClientiDetail() {
                       <div className="cd-date-plan-grid">
                         <div>
                           <label className="cd-field-label">Data Inizio</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input sm"
                             value={formData.data_inizio_nutrizione || ''}
                             onChange={(e) => handleInputChange('data_inizio_nutrizione', e.target.value)}
@@ -3205,8 +3202,7 @@ function ClientiDetail() {
                         </div>
                         <div>
                           <label className="cd-field-label">Data Scadenza</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input sm disabled"
                             value={formData.data_inizio_nutrizione && formData.durata_nutrizione_giorni
                               ? new Date(new Date(formData.data_inizio_nutrizione).getTime() + Number(formData.durata_nutrizione_giorni) * 86400000).toISOString().split('T')[0]
@@ -3224,8 +3220,7 @@ function ClientiDetail() {
                       <div className="cd-date-plan-grid">
                         <div>
                           <label className="cd-field-label">Data Inizio</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input sm"
                             value={formData.data_inizio_coach || ''}
                             onChange={(e) => handleInputChange('data_inizio_coach', e.target.value)}
@@ -3243,8 +3238,7 @@ function ClientiDetail() {
                         </div>
                         <div>
                           <label className="cd-field-label">Data Scadenza</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input sm disabled"
                             value={formData.data_inizio_coach && formData.durata_coach_giorni
                               ? new Date(new Date(formData.data_inizio_coach).getTime() + Number(formData.durata_coach_giorni) * 86400000).toISOString().split('T')[0]
@@ -3262,8 +3256,7 @@ function ClientiDetail() {
                       <div className="cd-date-plan-grid">
                         <div>
                           <label className="cd-field-label">Data Inizio</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input sm"
                             value={formData.data_inizio_psicologia || ''}
                             onChange={(e) => handleInputChange('data_inizio_psicologia', e.target.value)}
@@ -3281,8 +3274,7 @@ function ClientiDetail() {
                         </div>
                         <div>
                           <label className="cd-field-label">Data Scadenza</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             className="cd-input sm disabled"
                             value={formData.data_inizio_psicologia && formData.durata_psicologia_giorni
                               ? new Date(new Date(formData.data_inizio_psicologia).getTime() + Number(formData.durata_psicologia_giorni) * 86400000).toISOString().split('T')[0]
@@ -3818,7 +3810,7 @@ function ClientiDetail() {
                         { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'green' },
                         { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
                         { key: 'piano', label: 'Piano Alimentare', icon: 'ri-restaurant-line', color: 'green' },
-                        { key: 'patologie', label: 'Patologie', icon: 'ri-heart-pulse-line', color: 'red' },
+                        { key: 'patologie', label: 'Anamnesi', icon: 'ri-heart-pulse-line', color: 'red' },
                         { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                         { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                         { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
@@ -4155,8 +4147,7 @@ function ClientiDetail() {
                             {formData.call_iniziale_nutrizionista && (
                               <div className="mt-3">
                                 <label className="cd-field-label">Data Call</label>
-                                <input
-                                  type="date"
+                                <DatePicker
                                   className="cd-input sm"
                                   value={formData.data_call_iniziale_nutrizionista || ''}
                                   onChange={(e) => handleInputChange('data_call_iniziale_nutrizionista', e.target.value)}
@@ -4641,8 +4632,7 @@ function ClientiDetail() {
                               <div className="cd-form-grid cols-2">
                                 <div>
                                   <label className="cd-field-label">Dieta Dal</label>
-                                  <input
-                                    type="date"
+                                  <DatePicker
                                     className="cd-input sm"
                                     value={formData.dieta_dal || ''}
                                     onChange={(e) => handleInputChange('dieta_dal', e.target.value)}
@@ -4650,8 +4640,7 @@ function ClientiDetail() {
                                 </div>
                                 <div>
                                   <label className="cd-field-label">Nuova Dieta Dal</label>
-                                  <input
-                                    type="date"
+                                  <DatePicker
                                     className="cd-input sm"
                                     value={formData.nuova_dieta_dal || ''}
                                     onChange={(e) => handleInputChange('nuova_dieta_dal', e.target.value)}
@@ -5197,8 +5186,7 @@ function ClientiDetail() {
                             {formData.call_iniziale_coach && (
                               <div className="cd-field mt-3">
                                 <label className="cd-field-label">Data Call</label>
-                                <input
-                                  type="date"
+                                <DatePicker
                                   className="cd-input sm"
                                   value={formData.data_call_iniziale_coach || ''}
                                   onChange={(e) => handleInputChange('data_call_iniziale_coach', e.target.value)}
@@ -5746,7 +5734,7 @@ function ClientiDetail() {
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'purple' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-mental-health-line', color: 'purple' },
+                          { key: 'patologie', label: 'Anamnesi', icon: 'ri-mental-health-line', color: 'red' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                           { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
@@ -6049,8 +6037,7 @@ function ClientiDetail() {
                             {formData.call_iniziale_psicologa && (
                               <div className="cd-field mt-3">
                                 <label className="cd-field-label">Data Call</label>
-                                <input
-                                  type="date"
+                                <DatePicker
                                   className="cd-input sm"
                                   value={formData.data_call_iniziale_psicologia || ''}
                                   onChange={(e) => handleInputChange('data_call_iniziale_psicologia', e.target.value)}
@@ -7367,8 +7354,7 @@ function ClientiDetail() {
               </div>
               <div className="cd-field">
                 <label className="cd-field-label">Data Inizio Assegnazione *</label>
-                <input
-                  type="date"
+                <DatePicker
                   className="cd-input"
                   value={assignForm.data_dal}
                   onChange={(e) => setAssignForm({ ...assignForm, data_dal: e.target.value })}
@@ -7475,8 +7461,7 @@ function ClientiDetail() {
               <div className="cd-form-grid cols-2">
                 <div>
                   <label className="cd-field-label">Data Inizio *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={mealPlanForm.start_date}
                     onChange={(e) => setMealPlanForm({ ...mealPlanForm, start_date: e.target.value })}
@@ -7484,8 +7469,7 @@ function ClientiDetail() {
                 </div>
                 <div>
                   <label className="cd-field-label">Data Fine *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={mealPlanForm.end_date}
                     onChange={(e) => setMealPlanForm({ ...mealPlanForm, end_date: e.target.value })}
@@ -7589,8 +7573,7 @@ function ClientiDetail() {
               <div className="cd-form-grid cols-2">
                 <div>
                   <label className="cd-field-label">Data Inizio *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={editPlanForm.start_date}
                     onChange={(e) => setEditPlanForm({ ...editPlanForm, start_date: e.target.value })}
@@ -7598,8 +7581,7 @@ function ClientiDetail() {
                 </div>
                 <div>
                   <label className="cd-field-label">Data Fine *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={editPlanForm.end_date}
                     onChange={(e) => setEditPlanForm({ ...editPlanForm, end_date: e.target.value })}
@@ -7778,11 +7760,10 @@ function ClientiDetail() {
             <div className="cd-modal-body">
               <div className="cd-field">
                 <label className="cd-field-label">Data *</label>
-                <input
-                  type="date"
+                <DatePicker
                   className="cd-input"
                   value={diarioForm.entry_date}
-                  onChange={(e) => { const el = e.target; setDiarioForm({ ...diarioForm, entry_date: el.value }); setTimeout(() => el.blur(), 300); }}
+                  onChange={(e) => setDiarioForm({ ...diarioForm, entry_date: e.target.value })}
                 />
               </div>
               <div className="cd-field">
@@ -7846,8 +7827,7 @@ function ClientiDetail() {
               <div className="cd-form-grid cols-2">
                 <div className="cd-field">
                   <label className="cd-field-label">Data Inizio *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={trainingPlanForm.start_date}
                     onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, start_date: e.target.value })}
@@ -7855,8 +7835,7 @@ function ClientiDetail() {
                 </div>
                 <div className="cd-field">
                   <label className="cd-field-label">Data Fine *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={trainingPlanForm.end_date}
                     onChange={(e) => setTrainingPlanForm({ ...trainingPlanForm, end_date: e.target.value })}
@@ -7960,8 +7939,7 @@ function ClientiDetail() {
               <div className="cd-form-grid cols-2">
                 <div className="cd-field">
                   <label className="cd-field-label">Data Inizio *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={editTrainingForm.start_date}
                     onChange={(e) => setEditTrainingForm({ ...editTrainingForm, start_date: e.target.value })}
@@ -7969,8 +7947,7 @@ function ClientiDetail() {
                 </div>
                 <div className="cd-field">
                   <label className="cd-field-label">Data Fine *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={editTrainingForm.end_date}
                     onChange={(e) => setEditTrainingForm({ ...editTrainingForm, end_date: e.target.value })}
@@ -8161,8 +8138,7 @@ function ClientiDetail() {
               <div className="cd-form-grid cols-2">
                 <div className="cd-field">
                   <label className="cd-field-label">Data Inizio *</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={locationForm.start_date}
                     onChange={(e) => setLocationForm({ ...locationForm, start_date: e.target.value })}
@@ -8170,8 +8146,7 @@ function ClientiDetail() {
                 </div>
                 <div className="cd-field">
                   <label className="cd-field-label">Data Fine (opzionale)</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="cd-input"
                     value={locationForm.end_date}
                     onChange={(e) => setLocationForm({ ...locationForm, end_date: e.target.value })}
@@ -8239,11 +8214,10 @@ function ClientiDetail() {
             <div className="cd-modal-body">
               <div className="cd-field">
                 <label className="cd-field-label">Data *</label>
-                <input
-                  type="date"
+                <DatePicker
                   className="cd-input"
                   value={diarioCoachingForm.entry_date}
-                  onChange={(e) => { const el = e.target; setDiarioCoachingForm({ ...diarioCoachingForm, entry_date: el.value }); setTimeout(() => el.blur(), 300); }}
+                  onChange={(e) => setDiarioCoachingForm({ ...diarioCoachingForm, entry_date: e.target.value })}
                 />
               </div>
               <div className="cd-field">
@@ -8294,11 +8268,10 @@ function ClientiDetail() {
             <div className="cd-modal-body">
               <div className="cd-field">
                 <label className="cd-field-label">Data *</label>
-                <input
-                  type="date"
+                <DatePicker
                   className="cd-input"
                   value={diarioPsicologiaForm.entry_date}
-                  onChange={(e) => { const el = e.target; setDiarioPsicologiaForm({ ...diarioPsicologiaForm, entry_date: el.value }); setTimeout(() => el.blur(), 300); }}
+                  onChange={(e) => setDiarioPsicologiaForm({ ...diarioPsicologiaForm, entry_date: e.target.value })}
                 />
               </div>
               <div className="cd-field">

@@ -1,0 +1,282 @@
+/* ============================================
+   DatePicker — Suite Clinica Design System
+   Drop-in replacement for native <input type="date">
+   ============================================ */
+
+.dp-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.dp-wrap.dp-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ── Input trigger ── */
+.dp-input-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  min-height: 38px;
+  gap: 6px;
+  user-select: none;
+}
+
+.dp-display {
+  flex: 1;
+  font-size: inherit;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dp-placeholder {
+  color: #94a3b8;
+}
+
+.dp-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.dp-cal-icon {
+  font-size: 16px;
+  color: #94a3b8;
+}
+
+.dp-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 14px;
+}
+
+.dp-clear:hover {
+  background: #f1f5f9;
+  color: #ef4444;
+}
+
+/* ── Calendar dropdown ── */
+.dp-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 99999999;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  padding: 12px;
+  width: 280px;
+  animation: dp-in 0.15s ease;
+}
+
+.dp-dropdown.dp-drop-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+@keyframes dp-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Navigation ── */
+.dp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dp-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: none;
+  color: #475569;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.15s ease;
+}
+
+.dp-nav-btn:hover {
+  background: #f1f5f9;
+  color: #25B36A;
+}
+
+.dp-nav-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* ── Day grid ── */
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dp-days-header {
+  margin-bottom: 4px;
+}
+
+.dp-day-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  padding: 4px 0;
+}
+
+.dp-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.dp-cell:hover:not(.dp-selected):not(.dp-empty):not(.dp-day-disabled) {
+  background: #f1f5f9;
+  color: #25B36A;
+}
+
+.dp-cell.dp-empty {
+  cursor: default;
+}
+
+.dp-cell.dp-today:not(.dp-selected) {
+  font-weight: 700;
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.08);
+}
+
+.dp-cell.dp-selected {
+  background: #25B36A;
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(37, 179, 106, 0.3);
+}
+
+.dp-cell.dp-day-disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* ── Footer ── */
+.dp-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.dp-today-btn {
+  padding: 4px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dp-today-btn:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+}
+
+/* ── Adapt to hosting class names ── */
+/* cd-input style */
+.dp-input-wrap.cd-input {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  background: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dp-input-wrap.cd-input:hover {
+  border-color: #cbd5e1;
+}
+
+.dp-input-wrap.cd-input:focus-within,
+.dp-wrap:focus-within .dp-input-wrap.cd-input {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
+}
+
+.dp-input-wrap.cd-input.sm {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+.dp-input-wrap.cd-input.disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: default;
+}
+
+/* form-control style (Bootstrap) */
+.dp-input-wrap.form-control {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  background: white;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.dp-input-wrap.form-control:hover {
+  border-color: #adb5bd;
+}
+
+.dp-input-wrap.form-control:focus-within {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 0.25rem rgba(37, 179, 106, 0.25);
+}
+
+/* chk-date-input style */
+.dp-input-wrap.chk-date-input {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  background: white;
+}
+
+.dp-input-wrap.chk-date-input:focus-within {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
+}
