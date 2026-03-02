@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams, useOutletContext } from 'react-rout
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { isProfessionistaStandard } from '../../utils/rbacScope';
+import { isProfessionistaStandard, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import './CheckAzienda.css';
 
 // Professional type config
@@ -80,16 +80,13 @@ function CheckAzienda() {
   const [mostraTour, setMostraTour] = useState(false);
   const [searchParams] = useSearchParams();
   const isProfessionista = isProfessionistaStandard(user);
+  const profSpecialtyGroup = useMemo(() => normalizeSpecialtyGroup(user?.specialty), [user?.specialty]);
 
   useEffect(() => {
-    if (isProfessionista) {
-      navigate('/profilo?tab=check', { replace: true });
-      return;
-    }
     if (searchParams.get('startTour') === 'true') {
       setMostraTour(true);
     }
-  }, [searchParams, isProfessionista, navigate]);
+  }, [searchParams]);
 
   const tourSteps = [
     { target: '[data-tour="header"]', title: 'Torre di Controllo', content: 'Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
@@ -139,17 +136,23 @@ function CheckAzienda() {
     if (specialty === 'psicologia' || specialty === 'psicologo') return 'psicologia';
     return null;
   }, [user?.specialty]);
-  const isOwnRoleFilterLocked = Boolean(isTeamLeaderRestricted && teamLeaderProfType);
+
+  // Professionisti e team leader vedono solo la propria specialty
+  const isRoleRestricted = Boolean(
+    (isTeamLeaderRestricted && teamLeaderProfType) ||
+    (isProfessionista && profSpecialtyGroup)
+  );
+  const restrictedProfType = isTeamLeaderRestricted ? teamLeaderProfType : profSpecialtyGroup;
 
   const visibleRatingColumns = useMemo(() => {
-    if (!isOwnRoleFilterLocked) return { nutrizione: true, psicologia: true, coach: true, progresso: true };
+    if (!isRoleRestricted) return { nutrizione: true, psicologia: true, coach: true, progresso: true };
     return {
-      nutrizione: teamLeaderProfType === 'nutrizione',
-      psicologia: teamLeaderProfType === 'psicologia',
-      coach: teamLeaderProfType === 'coach',
+      nutrizione: restrictedProfType === 'nutrizione',
+      psicologia: restrictedProfType === 'psicologia',
+      coach: restrictedProfType === 'coach',
       progresso: true,
     };
-  }, [isOwnRoleFilterLocked, teamLeaderProfType]);
+  }, [isRoleRestricted, restrictedProfType]);
 
   const visibleKpiConfigs = useMemo(() => {
     const all = [
@@ -157,19 +160,19 @@ function CheckAzienda() {
       { key: 'psicologia', icon: 'ri-mental-health-line text-info', label: 'Psicologo', value: stats?.avg_psicologo },
       { key: 'coach', icon: 'ri-run-line text-primary', label: 'Coach', value: stats?.avg_coach },
     ];
-    return all.filter((kpi) => !isOwnRoleFilterLocked || visibleRatingColumns[kpi.key]);
-  }, [stats, isOwnRoleFilterLocked, visibleRatingColumns]);
+    return all.filter((kpi) => !isRoleRestricted || visibleRatingColumns[kpi.key]);
+  }, [stats, isRoleRestricted, visibleRatingColumns]);
 
-  const showProgressKpi = !isOwnRoleFilterLocked;
-  const showQualityKpi = !isOwnRoleFilterLocked;
+  const showProgressKpi = !isRoleRestricted;
+  const showQualityKpi = !isRoleRestricted;
 
   useEffect(() => {
-    if (isOwnRoleFilterLocked && profType !== teamLeaderProfType) {
-      setProfType(teamLeaderProfType);
+    if (isRoleRestricted && profType !== restrictedProfType) {
+      setProfType(restrictedProfType);
       setProfId(null);
       setCurrentPage(1);
     }
-  }, [isOwnRoleFilterLocked, teamLeaderProfType, profType]);
+  }, [isRoleRestricted, restrictedProfType, profType]);
 
   useEffect(() => {
     if (period !== 'custom') fetchData(period, null, null, profType, profId, currentPage);
@@ -221,7 +224,7 @@ function CheckAzienda() {
   };
 
   const handleProfTypeChange = (type) => {
-    if (isOwnRoleFilterLocked) return;
+    if (isRoleRestricted) return;
     setProfType(profType === type ? null : type);
     setProfId(null);
     setCurrentPage(1);
@@ -230,7 +233,7 @@ function CheckAzienda() {
   const handleProfIdChange = (id) => { setProfId(id || null); setCurrentPage(1); };
 
   const handleResetFilters = () => {
-    setProfType(isOwnRoleFilterLocked ? teamLeaderProfType : null);
+    setProfType(isRoleRestricted ? restrictedProfType : null);
     setProfId(null); setProfessionals([]); setRatingFilter(null); setShowUnreadOnly(false);
   };
 
@@ -322,7 +325,7 @@ function CheckAzienda() {
       {/* Header */}
       <div className="chk-header" data-tour="header">
         <div>
-          <h4>{isTeamLeaderRestricted ? 'Check Team' : 'Check Azienda'}</h4>
+          <h4>{isProfessionista ? 'I miei Check' : isTeamLeaderRestricted ? 'Check Team' : 'Check Azienda'}</h4>
           <p>
             {(ratingFilter || showUnreadOnly) ? (
               <>{filteredResponses.length} risposte filtrate <span>({pagination.total || responses.length} totali nel periodo)</span></>
@@ -402,54 +405,55 @@ function CheckAzienda() {
 
       {/* ── Filter Card 2: Prof Type + Status ── */}
       <div className="chk-filter-card">
-        <div className="chk-filter-row" style={{ justifyContent: 'space-between' }}>
-          {/* Professional Type */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }} data-tour="prof-filters">
-            <span className="chk-filter-label">Filtra per:</span>
-            {isOwnRoleFilterLocked ? (
-              <span
-                className="chk-locked-badge"
-                style={{ background: `${PROF_TYPES[teamLeaderProfType]?.color || '#64748b'}15`, color: PROF_TYPES[teamLeaderProfType]?.color || '#64748b', border: `1px solid ${(PROF_TYPES[teamLeaderProfType]?.color || '#64748b')}33` }}
-              >
-                <i className={PROF_TYPES[teamLeaderProfType]?.icon || 'ri-filter-line'}></i>
-                Solo {PROF_TYPES[teamLeaderProfType]?.label || 'ruolo del team'}
-              </span>
-            ) : (
-              <div className="chk-filter-group">
-                {Object.entries(PROF_TYPES).map(([key, config]) => (
-                  <button
-                    key={key}
-                    className={`chk-filter-btn ${profType === key ? config.activeClass : ''}`}
-                    onClick={() => handleProfTypeChange(key)}
-                    disabled={loading}
-                  >
-                    <i className={config.icon}></i> {config.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Professional Type — solo per admin/TL, non per professionisti */}
+        {!isProfessionista && (
+          <div className="chk-filter-row" style={{ justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }} data-tour="prof-filters">
+              <span className="chk-filter-label">Filtra per:</span>
+              {isRoleRestricted ? (
+                <span
+                  className="chk-locked-badge"
+                  style={{ background: `${PROF_TYPES[restrictedProfType]?.color || '#64748b'}15`, color: PROF_TYPES[restrictedProfType]?.color || '#64748b', border: `1px solid ${(PROF_TYPES[restrictedProfType]?.color || '#64748b')}33` }}
+                >
+                  <i className={PROF_TYPES[restrictedProfType]?.icon || 'ri-filter-line'}></i>
+                  Solo {PROF_TYPES[restrictedProfType]?.label || 'la tua area'}
+                </span>
+              ) : (
+                <div className="chk-filter-group">
+                  {Object.entries(PROF_TYPES).map(([key, config]) => (
+                    <button
+                      key={key}
+                      className={`chk-filter-btn ${profType === key ? config.activeClass : ''}`}
+                      onClick={() => handleProfTypeChange(key)}
+                      disabled={loading}
+                    >
+                      <i className={config.icon}></i> {config.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* Specific Professional */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {profType && (
-              <>
-                <select className="chk-select" value={profId || ''} onChange={(e) => handleProfIdChange(e.target.value ? parseInt(e.target.value) : null)} disabled={loading || loadingProfs}>
-                  <option value="">Tutti i {PROF_TYPES[profType]?.label}</option>
-                  {professionals.map((prof) => <option key={prof.id} value={prof.id}>{prof.nome}</option>)}
-                </select>
-                <button className="chk-reset-link" onClick={handleResetFilters} title="Reset filtri">
-                  <i className="ri-close-circle-line" style={{ fontSize: '18px' }}></i>
-                </button>
-              </>
-            )}
-            {!profType && !isOwnRoleFilterLocked && (
-              <span style={{ fontSize: '13px', color: 'var(--chk-text-light)', fontStyle: 'italic' }}>
-                Seleziona un tipo di professionista per filtrare
-              </span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {profType && (
+                <>
+                  <select className="chk-select" value={profId || ''} onChange={(e) => handleProfIdChange(e.target.value ? parseInt(e.target.value) : null)} disabled={loading || loadingProfs}>
+                    <option value="">Tutti i {PROF_TYPES[profType]?.label}</option>
+                    {professionals.map((prof) => <option key={prof.id} value={prof.id}>{prof.nome}</option>)}
+                  </select>
+                  <button className="chk-reset-link" onClick={handleResetFilters} title="Reset filtri">
+                    <i className="ri-close-circle-line" style={{ fontSize: '18px' }}></i>
+                  </button>
+                </>
+              )}
+              {!profType && !isRoleRestricted && (
+                <span style={{ fontSize: '13px', color: 'var(--chk-text-light)', fontStyle: 'italic' }}>
+                  Seleziona un tipo di professionista per filtrare
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Status Filters */}
         <div className="chk-filter-row" data-tour="status-filters">
@@ -747,7 +751,7 @@ function CheckAzienda() {
                   )}
 
                   {/* Professional Feedback */}
-                  {selectedCheckResponse.type === 'weekly' && !isOwnRoleFilterLocked && (
+                  {selectedCheckResponse.type === 'weekly' && !isRoleRestricted && (
                     <div className="chk-modal-section">
                       <div className="chk-modal-section-title"><i className="ri-feedback-line"></i> Feedback Professionisti</div>
                       <div className="chk-feedback-block green">
@@ -766,16 +770,16 @@ function CheckAzienda() {
                   )}
 
                   {/* Team Leader restricted feedback */}
-                  {selectedCheckResponse.type === 'weekly' && isOwnRoleFilterLocked && (
+                  {selectedCheckResponse.type === 'weekly' && isRoleRestricted && (
                     <div className="chk-modal-section">
                       <div className="chk-modal-section-title"><i className="ri-feedback-line"></i> Feedback Professionista</div>
-                      {teamLeaderProfType === 'nutrizione' && (
+                      {restrictedProfType === 'nutrizione' && (
                         <div className="chk-feedback-block green"><label>Feedback Nutrizionista</label><p>{selectedCheckResponse.nutritionist_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
                       )}
-                      {teamLeaderProfType === 'psicologia' && (
+                      {restrictedProfType === 'psicologia' && (
                         <div className="chk-feedback-block amber"><label>Feedback Psicologo</label><p>{selectedCheckResponse.psychologist_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
                       )}
-                      {teamLeaderProfType === 'coach' && (
+                      {restrictedProfType === 'coach' && (
                         <div className="chk-feedback-block blue"><label>Feedback Coach</label><p>{selectedCheckResponse.coach_feedback || <span style={{ color: 'var(--chk-text-light)', fontStyle: 'italic' }}>Non compilato</span>}</p></div>
                       )}
                     </div>

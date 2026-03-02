@@ -25,6 +25,7 @@ import teamTicketsService from '../../services/teamTicketsService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
+import ScrollableSubtabs from '../../components/ScrollableSubtabs';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import './ClientiDetail.css';
@@ -3254,7 +3255,7 @@ function ClientiDetail() {
                 <div className="row g-4">
                   {/* Sub-tabs for Team Clinico / Team Esterno */}
                   <div className="col-12" data-tour="team-subtabs">
-                    <div className="cd-subtabs" style={{ marginBottom: '20px' }}>
+                    <ScrollableSubtabs style={{ marginBottom: '20px' }}>
                       <button
                         className={`cd-subtab ${teamSubTab === 'clinico' ? 'active green' : ''}`}
                         onClick={() => setTeamSubTab('clinico')}
@@ -3271,7 +3272,7 @@ function ClientiDetail() {
                           Team Esterno
                         </button>
                       )}
-                    </div>
+                    </ScrollableSubtabs>
                   </div>
 
                   {/* ===== TEAM CLINICO ===== */}
@@ -3766,7 +3767,7 @@ function ClientiDetail() {
 
                   {/* Sub-tab Navigation - Same style as Team tab */}
                   <div data-tour="nutrizione-subtabs">
-                    <div className="cd-subtabs">
+                    <ScrollableSubtabs>
                       {[
                         { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'green' },
                         { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
@@ -3783,7 +3784,7 @@ function ClientiDetail() {
                               {label}
                             </button>
                       ))}
-                    </div>
+                    </ScrollableSubtabs>
                   </div>
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
@@ -4807,7 +4808,7 @@ function ClientiDetail() {
                 <div>
                   {/* Sub-tab Navigation */}
                   <div className="col-12" data-tour="coaching-subtabs">
-                    <div className="cd-subtabs">
+                    <ScrollableSubtabs>
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'orange' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
@@ -4826,7 +4827,7 @@ function ClientiDetail() {
                               {label}
                             </button>
                         ))}
-                    </div>
+                    </ScrollableSubtabs>
                   </div>
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
@@ -5746,7 +5747,7 @@ function ClientiDetail() {
 
                   {/* Sub-tab Navigation - Same style as Nutrizione/Coaching */}
                   <div className="col-12" data-tour="psicologia-subtabs">
-                    <div className="cd-subtabs">
+                    <ScrollableSubtabs>
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'purple' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
@@ -5763,7 +5764,7 @@ function ClientiDetail() {
                               {label}
                             </button>
                         ))}
-                    </div>
+                    </ScrollableSubtabs>
                   </div>
 
                   {/* ===== PANORAMICA SUB-TAB ===== */}
@@ -6542,7 +6543,7 @@ function ClientiDetail() {
                 <div>
                   {/* Pills Navigation */}
                   <div data-tour="check-periodici-tabs">
-                    <div className="cd-subtabs" style={{ marginBottom: '20px' }}>
+                    <ScrollableSubtabs style={{ marginBottom: '20px' }}>
                       <button
                         className={`cd-subtab${activePeriodiciTab === 'weekly' ? ' active green' : ''}`}
                         onClick={() => setActivePeriodiciTab('weekly')}
@@ -6561,7 +6562,7 @@ function ClientiDetail() {
                       >
                         Minori
                       </button>
-                    </div>
+                    </ScrollableSubtabs>
                   </div>
 
                   {/* Link Generation Section (Filtered) */}
@@ -6740,7 +6741,7 @@ function ClientiDetail() {
                 <div>
                   {/* Pills Navigation */}
                   <div data-tour="check-iniziali-tabs">
-                    <div className="cd-subtabs" style={{ marginBottom: '20px' }}>
+                    <ScrollableSubtabs style={{ marginBottom: '20px' }}>
                       <button
                         className={`cd-subtab${activeInizialiTab === 'check_1' ? ' active green' : ''}`}
                         onClick={() => setActiveInizialiTab('check_1')}
@@ -6753,7 +6754,7 @@ function ClientiDetail() {
                       >
                         Check 2
                       </button>
-                    </div>
+                    </ScrollableSubtabs>
                   </div>
 
                   {/* Content */}

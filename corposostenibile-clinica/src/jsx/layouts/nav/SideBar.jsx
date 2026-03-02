@@ -202,7 +202,7 @@ const SideBar = () => {
                     >
                       {data.iconStyle}{" "}
                       <span className="nav-text">
-                        {data.isProfile && user ? user.full_name || user.first_name : data.title}
+                        {data.isProfile && user ? user.first_name || data.title : data.title}
                         <span className="badge badge-xs style-1 badge-danger ms-2">{data.update}</span>
                       </span>
                     </Link>

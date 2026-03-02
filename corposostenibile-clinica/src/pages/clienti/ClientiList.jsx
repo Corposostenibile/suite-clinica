@@ -282,7 +282,7 @@ function ClientiList() {
     { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line' },
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line' },
   ].filter((btn) => {
-    if (isProfessionista) return btn.key === 'generale';
+    if (isProfessionista) return btn.key === 'generale' || btn.key === teamLeaderSpecialtyGroup;
     if (!isTeamLeaderRestricted) return true;
     if (btn.key === 'generale') return true;
     return btn.key === teamLeaderSpecialtyGroup;

@@ -7,6 +7,8 @@ import clientiService, {
   PATOLOGIE_NUTRI,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
+import { useAuth } from '../../context/AuthContext';
+import { isProfessionistaStandard } from '../../utils/rbacScope';
 import './ClientiList.css';
 
 // Role colors for avatars
@@ -27,6 +29,30 @@ const STAT_ICON_STYLES = {
 };
 
 function ClientiListaNutrizione() {
+  const { user } = useAuth();
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const isProfessionista = isProfessionistaStandard(user);
+  const userSpecialtyGroup = (() => {
+    const s = String(user?.specialty || '').toLowerCase();
+    if (s === 'nutrizione' || s === 'nutrizionista') return 'nutrizione';
+    if (s === 'coach') return 'coach';
+    if (s === 'psicologia' || s === 'psicologo') return 'psicologia';
+    return null;
+  })();
+
+  const visualButtons = [
+    { key: 'generale', to: '/clienti-lista', label: 'Lista Generale', icon: 'ri-list-check' },
+    { key: 'nutrizione', to: '/clienti-nutrizione', label: 'Visuale Nutrizione', icon: 'ri-restaurant-line' },
+    { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line' },
+    { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line' },
+  ].filter((btn) => {
+    if (isProfessionista) return btn.key === 'generale' || btn.key === userSpecialtyGroup;
+    if (!isTeamLeaderRestricted) return true;
+    if (btn.key === 'generale') return true;
+    return btn.key === userSpecialtyGroup;
+  });
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [clienti, setClienti] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -341,18 +367,15 @@ function ClientiListaNutrizione() {
           <p className="cl-header-sub">{pagination.total} pazienti in visuale nutrizione</p>
         </div>
         <div className="cl-view-pills">
-          <Link to="/clienti-lista" className="cl-view-pill">
-            <i className="ri-list-check"></i> Lista Generale
-          </Link>
-          <Link to="/clienti-nutrizione" className="cl-view-pill active">
-            <i className="ri-restaurant-line"></i> Visuale Nutrizione
-          </Link>
-          <Link to="/clienti-coach" className="cl-view-pill">
-            <i className="ri-run-line"></i> Visuale Coach
-          </Link>
-          <Link to="/clienti-psicologia" className="cl-view-pill">
-            <i className="ri-mental-health-line"></i> Visuale Psicologia
-          </Link>
+          {visualButtons.map((btn) => (
+            <Link
+              key={btn.key}
+              to={btn.to}
+              className={`cl-view-pill${btn.key === 'nutrizione' ? ' active' : ''}`}
+            >
+              <i className={btn.icon}></i> {btn.label}
+            </Link>
+          ))}
         </div>
       </div>
 
