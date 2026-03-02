@@ -9,6 +9,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
+import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
 
 // Role colors for avatars
@@ -75,13 +76,31 @@ function ClientiListaNutrizione() {
     totalPages: 0,
   });
 
-  const [filters, setFilters] = useState({
-    search: searchParams.get('q') || '',
-    nutrizionista: searchParams.get('nutrizionista_id') || '',
-    statoNutrizione: searchParams.get('stato_nutrizione') || '',
-    checkDay: searchParams.get('check_day') || '',
-    reachOut: searchParams.get('reach_out_nutrizione') || '',
+  const [filters, setFilters] = useState(() => {
+    const init = {
+      search: searchParams.get('q') || '',
+      stato: searchParams.get('stato_cliente') || '',
+      tipologia: searchParams.get('tipologia') || '',
+      nutrizionista: searchParams.get('nutrizionista_id') || '',
+      statoNutrizione: searchParams.get('stato_nutrizione') || '',
+      statoChatNutrizione: searchParams.get('stato_chat_nutrizione') || '',
+      checkDay: searchParams.get('check_day') || '',
+      reachOut: searchParams.get('reach_out_nutrizione') || '',
+      callInizialeNutrizionista: searchParams.get('call_iniziale_nutrizionista') || '',
+      missing_piano_dieta: searchParams.get('missing_piano_dieta') || '0',
+    };
+    // Init patologie from URL params
+    const patKeys = [
+      'patologia_ibs','patologia_reflusso','patologia_gastrite','patologia_dca',
+      'patologia_insulino_resistenza','patologia_diabete','patologia_dislipidemie',
+      'patologia_steatosi_epatica','patologia_ipertensione','patologia_pcos',
+      'patologia_endometriosi','patologia_obesita_sindrome','patologia_osteoporosi',
+      'patologia_diverticolite','patologia_crohn','patologia_stitichezza','patologia_tiroidee',
+    ];
+    patKeys.forEach(k => { init[k] = searchParams.get(k) || '0'; });
+    return init;
   });
+  const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
@@ -102,7 +121,7 @@ function ClientiListaNutrizione() {
         const data = await teamService.getTeamMembers({
           per_page: 100,
           active: '1',
-          specialty: 'nutrizione',
+          specialty: 'nutrizione,nutrizionista',
         });
         setNutrizionisti(data.members || []);
       } catch (err) {
@@ -120,11 +139,20 @@ function ClientiListaNutrizione() {
         page: pagination.page,
         per_page: pagination.perPage,
         q: filters.search || undefined,
+        stato_cliente: filters.stato || undefined,
+        tipologia: filters.tipologia || undefined,
         nutrizionista_id: filters.nutrizionista || undefined,
         stato_nutrizione: filters.statoNutrizione || undefined,
+        stato_chat_nutrizione: filters.statoChatNutrizione || undefined,
         check_day: filters.checkDay || undefined,
         reach_out_nutrizione: filters.reachOut || undefined,
+        call_iniziale_nutrizionista: filters.callInizialeNutrizionista || undefined,
+        missing_piano_dieta: filters.missing_piano_dieta === '1' ? '1' : undefined,
       };
+      // Add patologie filters
+      PATOLOGIE_NUTRI.forEach(p => {
+        if (filters[p.key] === '1') params[p.key] = '1';
+      });
 
       const data = await clientiService.getClientiNutrizione(params);
       setClienti(data.data || []);
@@ -163,16 +191,26 @@ function ClientiListaNutrizione() {
     fetchClienti();
   }, [fetchClienti]);
 
+  // Map filter state keys to URL/backend param names
+  const FILTER_KEY_MAP = {
+    search: 'q',
+    stato: 'stato_cliente',
+    tipologia: 'tipologia',
+    nutrizionista: 'nutrizionista_id',
+    statoNutrizione: 'stato_nutrizione',
+    statoChatNutrizione: 'stato_chat_nutrizione',
+    checkDay: 'check_day',
+    reachOut: 'reach_out_nutrizione',
+    callInizialeNutrizionista: 'call_iniziale_nutrizionista',
+    missing_piano_dieta: 'missing_piano_dieta',
+  };
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
-    const paramKey = key === 'search' ? 'q' :
-      key === 'nutrizionista' ? 'nutrizionista_id' :
-        key === 'statoNutrizione' ? 'stato_nutrizione' :
-          key === 'checkDay' ? 'check_day' :
-            key === 'reachOut' ? 'reach_out_nutrizione' : key;
-    if (value) {
+    const paramKey = FILTER_KEY_MAP[key] || key;
+    if (value && value !== '0') {
       newParams.set(paramKey, value);
     } else {
       newParams.delete(paramKey);
@@ -181,7 +219,13 @@ function ClientiListaNutrizione() {
   };
 
   const resetFilters = () => {
-    setFilters({ search: '', nutrizionista: '', statoNutrizione: '', checkDay: '', reachOut: '' });
+    const clean = {
+      search: '', stato: '', tipologia: '', nutrizionista: '',
+      statoNutrizione: '', statoChatNutrizione: '', checkDay: '', reachOut: '',
+      callInizialeNutrizionista: '', missing_piano_dieta: '0',
+    };
+    PATOLOGIE_NUTRI.forEach(p => { clean[p.key] = '0'; });
+    setFilters(clean);
     setSearchParams(new URLSearchParams());
   };
 
@@ -317,6 +361,11 @@ function ClientiListaNutrizione() {
     return pages;
   };
 
+  // Count active filters (excluding search)
+  const activeFilterCount = Object.entries(filters)
+    .filter(([key, val]) => key !== 'search' && val && val !== '' && val !== '0')
+    .length;
+
   // Stat cards config
   const statCards = [
     { key: 'attivo', label: 'Stato Attivo', value: kpi.stato_attivo, icon: 'ri-check-line' },
@@ -392,7 +441,7 @@ function ClientiListaNutrizione() {
         })}
       </div>
 
-      {/* Search Bar + Filters */}
+      {/* Search Bar + Filter Button */}
       <div className="cl-search-row">
         <div className="cl-search-wrap">
           <i className="ri-search-line cl-search-icon"></i>
@@ -404,53 +453,25 @@ function ClientiListaNutrizione() {
             onChange={(e) => handleFilterChange('search', e.target.value)}
           />
         </div>
-        {!isProfessionista && (
-        <select
-          className="cl-filter-select"
-          value={filters.nutrizionista}
-          onChange={(e) => handleFilterChange('nutrizionista', e.target.value)}
-        >
-          <option value="">Nutrizionista</option>
-          {nutrizionisti.map(n => (
-            <option key={n.id} value={n.id}>{n.full_name}</option>
-          ))}
-        </select>
-        )}
-        <select
-          className="cl-filter-select"
-          value={filters.statoNutrizione}
-          onChange={(e) => handleFilterChange('statoNutrizione', e.target.value)}
-        >
-          <option value="">Stato Nutrizione</option>
-          <option value="attivo">Attivo</option>
-          <option value="pausa">Pausa</option>
-          <option value="ghost">Ghost</option>
-          <option value="stop">Stop</option>
-        </select>
-        <select
-          className="cl-filter-select"
-          value={filters.checkDay}
-          onChange={(e) => handleFilterChange('checkDay', e.target.value)}
-        >
-          <option value="">Check Day</option>
-          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <select
-          className="cl-filter-select"
-          value={filters.reachOut}
-          onChange={(e) => handleFilterChange('reachOut', e.target.value)}
-        >
-          <option value="">Reach Out</option>
-          {Object.entries(GIORNI_LABELS).filter(([k]) => !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <button className="cl-modal-btn-reset" onClick={resetFilters}>
-          <i className="ri-refresh-line"></i> Reset
+        <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>
+          <i className="ri-filter-3-line"></i> Filtra
+          {activeFilterCount > 0 && (
+            <span className="cl-filter-badge">{activeFilterCount}</span>
+          )}
         </button>
       </div>
+
+      {/* Filters Modal */}
+      <ClientiFilters
+        mode="nutrizione"
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onReset={resetFilters}
+        professionisti={nutrizionisti}
+        visibleProfessionalFilters={{ nutrizione: !isProfessionista, coach: false, psicologia: false }}
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+      />
 
       {/* Content */}
       {loading ? (
