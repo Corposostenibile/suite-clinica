@@ -84,7 +84,7 @@ function ClientiDetail() {
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
-  const canSaveGlobalClientCard = !isProfessionista;
+  const canSaveGlobalClientCard = true;
   const canManageTeamAssignments = !isProfessionista && !isHealthManager;
   // La generazione dei check periodici è consentita anche al professionista:
   // il backend applica il vero controllo RBAC sul paziente.
@@ -2418,10 +2418,6 @@ function ClientiDetail() {
 
   // Save form
   const handleSave = async () => {
-    if (isProfessionista) {
-      setError('Modifica globale paziente non consentita per il ruolo Professionista.');
-      return;
-    }
     setSaving(true);
     setSaveSuccess(false);
     try {
@@ -4796,9 +4792,26 @@ function ClientiDetail() {
                         <div>
                           <div className="cd-section-title">
                             <i className="ri-archive-line"></i>
-                            Note Extra Nutrizione (legacy)
+                            Vecchie Note Nutrizione (legacy)
                           </div>
                           <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-history-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Storia Nutrizione</span>
+                              </div>
+                              <textarea
+                                className="cd-textarea"
+                                rows="8"
+                                placeholder="Nessuna storia nutrizione..."
+                                value={formData.storia_nutrizione || ''}
+                                onChange={(e) => handleInputChange('storia_nutrizione', e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+                          <div className="cd-inner-card" style={{ marginTop: '16px' }}>
                             <div className="cd-inner-card-body">
                               <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
                                 <div className="cd-icon-circle secondary">
@@ -5686,9 +5699,26 @@ function ClientiDetail() {
                         <div>
                           <div className="cd-section-title">
                             <i className="ri-archive-line"></i>
-                            Note Extra Coach (legacy)
+                            Vecchie Note Coach (legacy)
                           </div>
                           <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-history-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Storia Coach</span>
+                              </div>
+                              <textarea
+                                className="cd-textarea"
+                                rows="8"
+                                placeholder="Nessuna storia coach..."
+                                value={formData.storia_coach || ''}
+                                onChange={(e) => handleInputChange('storia_coach', e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+                          <div className="cd-inner-card" style={{ marginTop: '16px' }}>
                             <div className="cd-inner-card-body">
                               <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
                                 <div className="cd-icon-circle secondary">
@@ -6382,9 +6412,26 @@ function ClientiDetail() {
                         <div>
                           <div className="cd-section-title">
                             <i className="ri-archive-line"></i>
-                            Note Extra Psicologa (legacy)
+                            Vecchie Note Psicologa (legacy)
                           </div>
                           <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-history-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Storia Psicologica</span>
+                              </div>
+                              <textarea
+                                className="cd-textarea"
+                                rows="8"
+                                placeholder="Nessuna storia psicologica..."
+                                value={formData.storia_psicologica || ''}
+                                onChange={(e) => handleInputChange('storia_psicologica', e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+                          <div className="cd-inner-card" style={{ marginTop: '16px' }}>
                             <div className="cd-inner-card-body">
                               <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
                                 <div className="cd-icon-circle secondary">
@@ -6438,6 +6485,12 @@ function ClientiDetail() {
                   <div data-tour="check-periodici-tabs">
                     <ScrollableSubtabs style={{ marginBottom: '20px' }}>
                       <button
+                        className={`cd-subtab${activePeriodiciTab === 'setup' ? ' active blue' : ''}`}
+                        onClick={() => setActivePeriodiciTab('setup')}
+                      >
+                        Setup
+                      </button>
+                      <button
                         className={`cd-subtab${activePeriodiciTab === 'weekly' ? ' active green' : ''}`}
                         onClick={() => setActivePeriodiciTab('weekly')}
                       >
@@ -6458,7 +6511,44 @@ function ClientiDetail() {
                     </ScrollableSubtabs>
                   </div>
 
+                  {/* Setup Sub-tab */}
+                  {activePeriodiciTab === 'setup' && (
+                    <div>
+                      <div className="cd-sections">
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-settings-3-line"></i>
+                            Configurazione Check
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle blue">
+                                  <i className="ri-calendar-check-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Giorno del Check</span>
+                              </div>
+                              <select
+                                className="cd-select"
+                                value={formData.check_day || ''}
+                                onChange={(e) => handleInputChange('check_day', e.target.value)}
+                              >
+                                <option value="">-- Seleziona giorno --</option>
+                                {Object.entries(GIORNI_LABELS).filter(([key]) =>
+                                  ['lunedi','martedi','mercoledi','giovedi','venerdi','sabato','domenica'].includes(key)
+                                ).map(([value, label]) => (
+                                  <option key={value} value={value}>{label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Link Generation Section (Filtered) */}
+                  {activePeriodiciTab !== 'setup' && (
                   <div data-tour="check-periodici-link" style={{ marginBottom: '24px' }}>
                     {canGenerateCheckLinks ? (
                       <>
@@ -6527,8 +6617,10 @@ function ClientiDetail() {
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Responses History Section (Filtered) */}
+                  {activePeriodiciTab !== 'setup' && (
                   <div data-tour="check-periodici-risposte">
                     <div className="cd-section-title">
                       <i className="ri-history-line"></i>
@@ -6626,6 +6718,7 @@ function ClientiDetail() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 
