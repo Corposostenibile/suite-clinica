@@ -1989,7 +1989,7 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
 @permission_required(CustomerPerm.VIEW)
 def api_initial_checks(cliente_id: int) -> Any:
     """
-    Restituisce i dati dei Check 1 e 2 (Iniziali).
+    Restituisce i dati dei Check 1, 2 e 3 (Iniziali).
     Priorità: dati compilati dal Lead originale (se presenti), altrimenti
     fallback su ClientCheckAssignment con link pubblico da inviare.
     """
@@ -1998,19 +1998,17 @@ def api_initial_checks(cliente_id: int) -> Any:
 
     cliente = customers_repo.get_one(cliente_id, eager=True)
     base_url = current_app.config.get("BASE_URL", request.url_root.rstrip("/"))
+
+    _empty_check = lambda: {
+        "completed_at": None,
+        "responses": {},
+        "url": None,
+        "response_count": 0,
+    }
     checks_payload = {
-        "check_1": {
-            "completed_at": None,
-            "responses": {},
-            "url": None,
-            "response_count": 0,
-        },
-        "check_2": {
-            "completed_at": None,
-            "responses": {},
-            "url": None,
-            "response_count": 0,
-        },
+        "check_1": _empty_check(),
+        "check_2": _empty_check(),
+        "check_3": _empty_check(),
     }
 
     has_any_data = False
@@ -2020,7 +2018,7 @@ def api_initial_checks(cliente_id: int) -> Any:
     if cliente.original_lead:
         lead = cliente.original_lead
         source = "lead"
-        for idx in (1, 2):
+        for idx in (1, 2, 3):
             key = f"check_{idx}"
             completed_at = getattr(lead, f"check{idx}_completed_at", None)
             responses = getattr(lead, f"check{idx}_responses", None) or {}
@@ -2029,6 +2027,14 @@ def api_initial_checks(cliente_id: int) -> Any:
                 checks_payload[key]["completed_at"] = completed_at.isoformat() if completed_at else None
                 checks_payload[key]["responses"] = responses
                 checks_payload[key]["response_count"] = 1
+                # Extra metadata per check 3
+                if idx == 3:
+                    score = getattr(lead, "check3_score", None)
+                    ctype = getattr(lead, "check3_type", None)
+                    if score is not None:
+                        checks_payload[key]["score"] = score
+                    if ctype is not None:
+                        checks_payload[key]["type"] = ctype
 
     # 2) Fallback/merge da ClientCheckAssignment (es. clienti creati da GHL)
     assignments = (
@@ -2047,7 +2053,6 @@ def api_initial_checks(cliente_id: int) -> Any:
         .all()
     )
 
-    # Mappa solo Check 1 e Check 2 per nome form
     def _check_key_from_form_name(name):
         if not name:
             return None
@@ -2056,11 +2061,13 @@ def api_initial_checks(cliente_id: int) -> Any:
             return "check_1"
         if "check 2" in n or "fisico" in n:
             return "check_2"
+        if "check 3" in n or "psicolog" in n:
+            return "check_3"
         return None
 
     for ass in assignments:
         key = _check_key_from_form_name(ass.form.name if ass.form else None)
-        if key not in ("check_1", "check_2"):
+        if key not in ("check_1", "check_2", "check_3"):
             continue
 
         latest_response = ass.responses[0] if ass.responses else None
