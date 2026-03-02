@@ -52,7 +52,7 @@ from corposostenibile.models import (
     CallBonusStatusEnum,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
-from .filters import parse_filter_args
+from .filters import apply_customer_filters, parse_filter_args
 from .permissions import CustomerPerm, permission_required
 from .repository import customers_repo
 from .schemas import ClienteSchema
@@ -1474,16 +1474,64 @@ def api_list() -> Any:
         pagination.items = filtered_items
         pagination.total = len(filtered_items)
     
-    return jsonify(
-        {
-            "data": clienti_schema.dump(pagination.items),
-            "pagination": {
-                "page": pagination.page,
-                "pages": pagination.pages,
-                "total": pagination.total,
-            },
-        }
-    )
+    result = {
+        "data": clienti_schema.dump(pagination.items),
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+    }
+
+    # Compute KPI aggregates for specialty views (coach, nutrizione, psicologia)
+    view = request.args.get("view", "").lower()
+    _VIEW_KPI_FIELDS = {
+        "coach": ("stato_coach", "stato_cliente_chat_coaching"),
+        "nutrizione": ("stato_nutrizione", "stato_cliente_chat_nutrizione"),
+        "psicologia": ("stato_psicologia", "stato_cliente_chat_psicologia"),
+    }
+    if view in _VIEW_KPI_FIELDS:
+        stato_field_name, chat_field_name = _VIEW_KPI_FIELDS[view]
+        stato_col = getattr(Cliente, stato_field_name, None)
+        chat_col = getattr(Cliente, chat_field_name, None)
+        if stato_col is not None and chat_col is not None:
+            # Build filtered (unpaginated) base query with same filters + RBAC
+            kpi_qry = db.session.query(Cliente).filter(
+                Cliente.show_in_clienti_lista.is_(True)
+            )
+            kpi_qry = apply_customer_filters(kpi_qry, params)
+            kpi_qry = apply_role_filtering(kpi_qry)
+
+            stato_rows = (
+                kpi_qry.with_entities(stato_col, func.count(Cliente.cliente_id))
+                .group_by(stato_col)
+                .all()
+            )
+            chat_rows = (
+                kpi_qry.with_entities(chat_col, func.count(Cliente.cliente_id))
+                .group_by(chat_col)
+                .all()
+            )
+            stato_counts = {
+                (s.value if hasattr(s, "value") else str(s) if s else "null"): c
+                for s, c in stato_rows
+            }
+            chat_counts = {
+                (s.value if hasattr(s, "value") else str(s) if s else "null"): c
+                for s, c in chat_rows
+            }
+            result["kpi"] = {
+                "stato_attivo": stato_counts.get("attivo", 0),
+                "stato_ghost": stato_counts.get("ghost", 0),
+                "stato_pausa": stato_counts.get("pausa", 0),
+                "stato_stop": stato_counts.get("stop", 0),
+                "chat_attivo": chat_counts.get("attivo", 0),
+                "chat_ghost": chat_counts.get("ghost", 0),
+                "chat_pausa": chat_counts.get("pausa", 0),
+                "chat_stop": chat_counts.get("stop", 0),
+            }
+
+    return jsonify(result)
 
 
 def _require_cliente_scope_or_403(cliente_id: int) -> None:

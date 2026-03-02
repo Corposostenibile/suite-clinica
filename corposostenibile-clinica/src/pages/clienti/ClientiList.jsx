@@ -27,6 +27,10 @@ const STAT_ICON_STYLES = {
   nutrizione: { bg: 'rgba(34, 197, 94, 0.1)',  color: '#22c55e' },
   coach:      { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' },
   psicologia: { bg: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' },
+  attivo:     { bg: 'rgba(34, 197, 94, 0.1)',  color: '#22c55e' },
+  ghost:      { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b' },
+  pausa:      { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
+  stop:       { bg: 'rgba(239, 68, 68, 0.1)',  color: '#ef4444' },
 };
 
 function ClientiList() {
@@ -42,11 +46,18 @@ function ClientiList() {
     return null;
   })();
 
+  // Determine specialty view for professionals and team leaders
+  const professionistaView = (() => {
+    if (!isProfessionista && !isTeamLeaderRestricted) return null;
+    return teamLeaderSpecialtyGroup; // 'nutrizione' | 'coach' | 'psicologia' | null
+  })();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [clienti, setClienti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
+  const [specialtyKpi, setSpecialtyKpi] = useState(null);
   const [professionisti, setProfessionisti] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -220,6 +231,11 @@ function ClientiList() {
         missing_piano_allenamento: filters.missing_piano_allenamento || undefined,
       };
 
+      // For professionals/TL with a specialty, pass view param so backend returns KPI aggregates
+      if (professionistaView) {
+        params.view = professionistaView;
+      }
+
       const data = await clientiService.getClienti(params);
       setClienti(data.data || []);
       setPagination(prev => ({
@@ -227,13 +243,18 @@ function ClientiList() {
         total: data.pagination?.total || 0,
         totalPages: data.pagination?.pages || 0,
       }));
+
+      // Use backend KPI aggregates for specialty views
+      if (data.kpi) {
+        setSpecialtyKpi(data.kpi);
+      }
     } catch (err) {
       console.error('Error fetching clienti:', err);
       setError('Errore nel caricamento dei clienti');
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.perPage, filters]);
+  }, [pagination.page, pagination.perPage, filters, professionistaView]);
 
   useEffect(() => {
     fetchClienti();
@@ -288,17 +309,28 @@ function ClientiList() {
     return btn.key === teamLeaderSpecialtyGroup;
   });
 
-  const statCards = [
-    { key: 'tot', label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line' },
-    { key: 'nutrizione', label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line' },
-    { key: 'coach', label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line' },
-    { key: 'psicologia', label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line' },
-  ].filter((stat) => {
-    if (isProfessionista) return stat.key === 'tot';
-    if (!isTeamLeaderRestricted) return true;
-    if (stat.key === 'tot') return true;
-    return stat.key === teamLeaderSpecialtyGroup;
-  });
+  // Build stat cards: professionals/TL with specialty see attivo/ghost/pausa/stop from backend KPI
+  const statCards = (() => {
+    if (professionistaView && specialtyKpi) {
+      return [
+        { key: 'tot', label: 'Pazienti Totali', value: pagination.total, icon: 'ri-group-line' },
+        { key: 'attivo', label: 'Stato Attivo', value: specialtyKpi.stato_attivo, icon: 'ri-run-line' },
+        { key: 'ghost', label: 'Stato Ghost', value: specialtyKpi.stato_ghost, icon: 'ri-ghost-line' },
+        { key: 'pausa', label: 'Stato Pausa', value: specialtyKpi.stato_pausa, icon: 'ri-pause-circle-line' },
+        { key: 'stop', label: 'Stato Stop', value: specialtyKpi.stato_stop, icon: 'ri-stop-circle-line' },
+      ];
+    }
+    return [
+      { key: 'tot', label: 'Pazienti Totali', value: stats?.total_clienti || pagination.total, icon: 'ri-group-line' },
+      { key: 'nutrizione', label: 'Nutrizionista Attivo', value: stats?.nutrizione_attivo || 0, icon: 'ri-restaurant-line' },
+      { key: 'coach', label: 'Coach Attivo', value: stats?.coach_attivo || 0, icon: 'ri-run-line' },
+      { key: 'psicologia', label: 'Psicologo Attivo', value: stats?.psicologia_attivo || 0, icon: 'ri-mental-health-line' },
+    ].filter((stat) => {
+      if (!isTeamLeaderRestricted) return true;
+      if (stat.key === 'tot') return true;
+      return stat.key === teamLeaderSpecialtyGroup;
+    });
+  })();
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
