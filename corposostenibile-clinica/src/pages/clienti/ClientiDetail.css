@@ -586,6 +586,7 @@
 .cd-subtab.active.pink { background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); }
 .cd-subtab.active.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
 .cd-subtab.active.purple { background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); }
+.cd-subtab.active.secondary { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); }
 
 /* ── Section Headers ── */
 .cd-section-title {
@@ -599,6 +600,14 @@
 
 .cd-section-title i {
   margin-right: 6px;
+}
+
+/* ── Section Stack (vertical spacing between sections inside sub-tabs) ── */
+.cd-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 20px;
 }
 
 /* ── Form Grid ── */

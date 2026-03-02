@@ -91,7 +91,6 @@ function ClientiListaNutrizione() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [showCheckDayModal, setShowCheckDayModal] = useState(false);
   const [showReachOutModal, setShowReachOutModal] = useState(false);
-  const [showPianoDietaModal, setShowPianoDietaModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [modalValue, setModalValue] = useState('');
   const [saving, setSaving] = useState(false);
@@ -209,7 +208,6 @@ function ClientiListaNutrizione() {
       setShowChatModal(false);
       setShowCheckDayModal(false);
       setShowReachOutModal(false);
-      setShowPianoDietaModal(false);
     } catch (err) {
       console.error('Error updating field:', err);
       alert('Errore nel salvataggio');
@@ -253,12 +251,6 @@ function ClientiListaNutrizione() {
     setSelectedCliente(cliente);
     setModalValue(cliente.reach_out_nutrizione || '');
     setShowReachOutModal(true);
-  };
-
-  const openPianoDietaModal = (cliente) => {
-    setSelectedCliente(cliente);
-    setModalValue(cliente.piano_dieta || '');
-    setShowPianoDietaModal(true);
   };
 
   // Render avatar team
@@ -606,19 +598,33 @@ function ClientiListaNutrizione() {
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button
-                            className="cl-action-btn"
-                            style={{
-                              background: cliente.piano_dieta
-                                ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
-                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
-                            }}
-                            onClick={() => openPianoDietaModal(cliente)}
-                          >
-                            <i className="ri-file-list-line" style={{ marginRight: '4px' }}></i>
-                            {cliente.piano_dieta ? 'Vedi' : '+'}
-                          </button>
+                          {cliente.active_meal_plan ? (
+                            <Link
+                              to={`/clienti-dettaglio/${clienteId}?tab=nutrizione&subtab=piano`}
+                              className="cl-action-btn"
+                              style={{
+                                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                                textDecoration: 'none', display: 'inline-flex', alignItems: 'center',
+                              }}
+                              title={cliente.active_meal_plan.name || 'Piano Alimentare'}
+                            >
+                              <i className={`ri-${cliente.active_meal_plan.has_file ? 'file-pdf-2-line' : 'file-list-line'}`} style={{ marginRight: '4px' }}></i>
+                              {cliente.active_meal_plan.has_file ? 'PDF' : 'Attivo'}
+                            </Link>
+                          ) : (
+                            <Link
+                              to={`/clienti-dettaglio/${clienteId}?tab=nutrizione&subtab=piano`}
+                              className="cl-action-btn"
+                              style={{
+                                background: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                                color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                                textDecoration: 'none', display: 'inline-flex', alignItems: 'center',
+                              }}
+                            >
+                              <i className="ri-add-line" style={{ marginRight: '4px' }}></i>+
+                            </Link>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
@@ -827,29 +833,6 @@ function ClientiListaNutrizione() {
           <button
             className="cl-modal-btn-apply"
             onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'reach_out_nutrizione', modalValue)}
-            disabled={saving}
-          >
-            {saving ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-save-line"></i> Salva</>}
-          </button>
-        </>
-      )}
-
-      {/* Modal Piano Dieta */}
-      {renderModal(showPianoDietaModal, () => setShowPianoDietaModal(false), 'Piano Dieta', 'ri-file-list-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci il piano dieta..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowPianoDietaModal(false)}>
-            <i className="ri-close-line"></i> Chiudi
-          </button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'piano_dieta', modalValue)}
             disabled={saving}
           >
             {saving ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-save-line"></i> Salva</>}

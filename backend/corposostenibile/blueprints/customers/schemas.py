@@ -380,11 +380,33 @@ class ClienteSchema(SQLAlchemyAutoSchema):
         if value and "@" not in value:
             raise ValidationError("Email non valida")
 
-    # ───────────────────── POST-DUMP: meta camelCase ───────────────────── #
+    # ───────────────────── POST-DUMP: meta camelCase + piani attivi ───── #
     @post_dump(pass_original=True)
     def _camelcase_meta(self, data: Dict[str, Any], original, **kwargs):  # noqa: ANN001
         data["createdAt"] = data.pop("created_at", None)
         data["updatedAt"] = data.pop("updated_at", None)
+
+        # Piano attivo nutrizione / allenamento (per le visuali lista)
+        if hasattr(original, "meal_plans"):
+            active_mp = next((p for p in original.meal_plans if p.is_active), None)
+            data["active_meal_plan"] = {
+                "id": active_mp.id,
+                "name": active_mp.name,
+                "has_file": bool(active_mp.piano_alimentare_file_path),
+                "start_date": active_mp.start_date.isoformat() if active_mp.start_date else None,
+                "end_date": active_mp.end_date.isoformat() if active_mp.end_date else None,
+            } if active_mp else None
+
+        if hasattr(original, "training_plans"):
+            active_tp = next((p for p in original.training_plans if p.is_active), None)
+            data["active_training_plan"] = {
+                "id": active_tp.id,
+                "name": active_tp.name,
+                "has_file": bool(active_tp.piano_allenamento_file_path),
+                "start_date": active_tp.start_date.isoformat() if active_tp.start_date else None,
+                "end_date": active_tp.end_date.isoformat() if active_tp.end_date else None,
+            } if active_tp else None
+
         return data
 
     # ───────────────────── PRE-LOAD: strip readonly ────────────────────── #

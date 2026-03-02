@@ -29,6 +29,7 @@ import ScrollableSubtabs from '../../components/ScrollableSubtabs';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import './ClientiDetail.css';
+import '../calendario/Calendario.css';
 
 // Status gradient colors (same pattern as TeamDetail)
 const STATUS_GRADIENTS = {
@@ -794,6 +795,7 @@ function ClientiDetail() {
     paese: '',
     professione: '',
     professione_note: '',
+    origine: '',
     mail: '',
     numero_telefono: '',
     storia_cliente: '',
@@ -2244,6 +2246,7 @@ function ClientiDetail() {
       paese: c.paese || '',
       professione: c.professione || '',
       professione_note: c.professione_note || c.professioneNote || '',
+      origine: c.origine || '',
       mail: c.mail || c.email || '',
       numero_telefono: c.numero_telefono || c.numeroTelefono || '',
       storia_cliente: c.storia_cliente || c.storiaCliente || '',
@@ -2326,11 +2329,13 @@ function ClientiDetail() {
       patologia_psico_altro: c.patologia_psico_altro || c.patologiaPsicoAltro || '',
     });
 
-    // Check custom professione
+    // Check custom professione — se il valore nel DB non corrisponde
+    // a nessuna opzione predefinita, seleziona "Altro" e mostra il campo testo
     const allProfessioni = PROFESSIONI_OPTIONS.flatMap(g => g.options);
     if (c.professione && !allProfessioni.includes(c.professione)) {
       setShowProfessioneAltro(true);
       setProfessioneAltro(c.professione);
+      setFormData(prev => ({ ...prev, professione: '__ALTRO__' }));
     }
   };
 
@@ -2942,6 +2947,15 @@ function ClientiDetail() {
                         />
                       </div>
                     )}
+                    <div className="cd-field">
+                      <label className="cd-field-label">Origine</label>
+                      <input
+                        type="text"
+                        className="cd-input"
+                        value={formData.origine}
+                        onChange={(e) => handleInputChange('origine', e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   {/* Contatti */}
@@ -3771,8 +3785,11 @@ function ClientiDetail() {
                       {[
                         { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'green' },
                         { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
+                        { key: 'piano', label: 'Piano Alimentare', icon: 'ri-restaurant-line', color: 'green' },
+                        { key: 'patologie', label: 'Patologie', icon: 'ri-heart-pulse-line', color: 'red' },
                         { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                         { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
+                        { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
                       ].map(({ key, label, icon, color }) => (
                             <button
                               key={key}
@@ -3789,7 +3806,7 @@ function ClientiDetail() {
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {nutrizioneSubTab === 'panoramica' && (
                     <div data-tour="nutrizione-panoramica">
-                      <div>
+                      <div className="cd-sections">
                       {/* Nutrizionisti Assegnati - Same style as Team tab */}
                       <div>
                         <div className="cd-section-title">
@@ -3839,54 +3856,6 @@ function ClientiDetail() {
                         )}
                       </div>
 
-                      {/* Medico Assegnato - Controllo semestrale */}
-                      <div>
-                        <div className="cd-section-title">
-                          Medico Assegnato
-                        </div>
-                        {loadingHistory ? (
-                          <div className="cd-loading">
-                            <div className="cd-spinner" role="status"></div>
-                            <small className="ms-2 text-muted">Caricamento...</small>
-                          </div>
-                        ) : (
-                          <div className="cd-inner-card">
-                            <div className="cd-inner-card-body">
-                              <div className="cd-inner-card-header-row">
-                                <div className="cd-inner-card-header-left">
-                                  <div className="cd-icon-circle danger lg">
-                                    <i className="ri-stethoscope-line"></i>
-                                  </div>
-                                  <span className="cd-inner-card-title">Medico (controllo semestrale)</span>
-                                </div>
-                                <span className="cd-badge" style={{ background: '#fef2f2', color: '#ef4444' }}>{getActiveProfessionals('medico').length} attivi</span>
-                              </div>
-
-                              {getActiveProfessionals('medico').length > 0 ? (
-                                <div className="d-flex flex-wrap gap-2">
-                                  {getActiveProfessionals('medico').map((assignment, idx) => (
-                                    <div key={idx} className="cd-assignment-row">
-                                      {assignment.avatar_path ? (
-                                        <img src={assignment.avatar_path} alt="" className="cd-prof-avatar" />
-                                      ) : (
-                                        <div className="cd-prof-initials lg" style={{ background: '#ef4444' }}>
-                                          {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
-                                        </div>
-                                      )}
-                                      <div>
-                                        <span className="cd-prof-name">{assignment.professionista_nome}</span>
-                                        <span className="cd-prof-date">dal {assignment.data_dal}</span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="cd-empty-text">Nessun medico assegnato. Vai alla tab &quot;Team&quot; per assegnare.</p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
 
                       {/* Storico Assegnazioni Timeline - Orizzontale come Team tab */}
                       {professionistiHistory.filter(h => h.tipo_professionista === 'nutrizionista').length > 0 && (
@@ -4122,7 +4091,7 @@ function ClientiDetail() {
                   {/* ===== SETUP SUB-TAB ===== */}
                   {nutrizioneSubTab === 'setup' && (
                     <div data-tour="nutrizione-setup">
-                      <div>
+                      <div className="cd-sections">
                       {/* Call Iniziale */}
                       <div>
                         <div className="cd-section-title">
@@ -4238,7 +4207,7 @@ function ClientiDetail() {
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {nutrizioneSubTab === 'patologie' && (
                     <div data-tour="nutrizione-patologie">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
                           Patologie del Cliente
@@ -4414,7 +4383,7 @@ function ClientiDetail() {
                   {/* ===== PIANO ALIMENTARE SUB-TAB ===== */}
                   {nutrizioneSubTab === 'piano' && (
                     <div data-tour="nutrizione-piani-wrapper">
-                      <div>
+                      <div className="cd-sections">
                       {/* Piano Attivo */}
                       <div data-tour="nutrizione-piani">
                         <div className="cd-section-title">
@@ -4667,7 +4636,7 @@ function ClientiDetail() {
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {nutrizioneSubTab === 'diario' && (
                     <div data-tour="nutrizione-diario">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
                           Diario Nutrizionale
@@ -4768,7 +4737,7 @@ function ClientiDetail() {
                   {/* ===== ALERT SUB-TAB ===== */}
                   {nutrizioneSubTab === 'alert' && (
                     <div data-tour="nutrizione-alert">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
                           Alert e Criticità
@@ -4799,6 +4768,36 @@ function ClientiDetail() {
                       </div>
                     </div>
                   )}
+
+                  {nutrizioneSubTab === 'vecchie_note' && (
+                    <div>
+                      <div className="cd-sections">
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-archive-line"></i>
+                            Note Extra Nutrizione (legacy)
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-file-text-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Note Extra Nutrizione</span>
+                              </div>
+                              <textarea
+                                className="cd-textarea"
+                                rows="8"
+                                placeholder="Nessuna nota extra..."
+                                value={formData.note_extra_nutrizione || ''}
+                                onChange={(e) => handleInputChange('note_extra_nutrizione', e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -4815,6 +4814,7 @@ function ClientiDetail() {
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
+                          { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
                         ].map(({ key, label, icon, color }) => (
                             <button
                               key={key}
@@ -4831,7 +4831,7 @@ function ClientiDetail() {
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {coachingSubTab === 'panoramica' && (
                     <div data-tour="coaching-panoramica">
-                      <div>
+                      <div className="cd-sections">
                       {/* Coach Assegnati - Same style as Nutrizione */}
                       <div>
                         <div className="cd-section-title">
@@ -5133,7 +5133,7 @@ function ClientiDetail() {
                   {/* ===== SETUP SUB-TAB ===== */}
                   {coachingSubTab === 'setup' && (
                     <div data-tour="coaching-setup">
-                      <div>
+                      <div className="cd-sections">
                       {/* Call Iniziale */}
                       <div>
                         <div className="cd-section-title">
@@ -5224,7 +5224,7 @@ function ClientiDetail() {
                   {/* ===== PIANO ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'piano' && (
                     <div data-tour="coaching-piani-wrapper">
-                      <div>
+                      <div className="cd-sections">
                       <div data-tour="coaching-schede">
                         <div className="cd-section-title">
                           Piano Allenamento Attivo
@@ -5396,7 +5396,7 @@ function ClientiDetail() {
                   {/* ===== LUOGHI ALLENAMENTO SUB-TAB ===== */}
                   {coachingSubTab === 'luoghi' && (
                     <div data-tour="coaching-luoghi">
-                      <div>
+                      <div className="cd-sections">
                       {/* Header con bottone Nuovo Luogo */}
                       <div>
                         <div className="cd-inner-card-header-row mb-3">
@@ -5529,7 +5529,7 @@ function ClientiDetail() {
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {coachingSubTab === 'diario' && (
                     <div data-tour="coaching-diario">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
                           Diario Coaching
@@ -5627,7 +5627,7 @@ function ClientiDetail() {
                   {/* ===== ALERT SUB-TAB ===== */}
                   {coachingSubTab === 'alert' && (
                     <div data-tour="coaching-alert">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
                           Alert e Criticità
@@ -5659,6 +5659,36 @@ function ClientiDetail() {
                       </div>
                     </div>
                   )}
+
+                  {coachingSubTab === 'vecchie_note' && (
+                    <div>
+                      <div className="cd-sections">
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-archive-line"></i>
+                            Note Extra Coach (legacy)
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-file-text-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Note Extra Coach</span>
+                              </div>
+                              <textarea
+                                className="cd-textarea"
+                                rows="8"
+                                placeholder="Nessuna nota extra..."
+                                value={formData.note_extra_coach || ''}
+                                onChange={(e) => handleInputChange('note_extra_coach', e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -5684,8 +5714,10 @@ function ClientiDetail() {
                         {[
                           { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line', color: 'purple' },
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
+                          { key: 'patologie', label: 'Patologie', icon: 'ri-mental-health-line', color: 'purple' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
+                          { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
                         ].map(({ key, label, icon, color }) => (
                             <button
                               key={key}
@@ -5702,7 +5734,7 @@ function ClientiDetail() {
                   {/* ===== PANORAMICA SUB-TAB ===== */}
                   {psicologiaSubTab === 'panoramica' && (
                     <div data-tour="psicologia-panoramica">
-                      <div>
+                      <div className="cd-sections">
                       {/* Psicologi Assegnati */}
                       <div>
                         <div className="cd-section-title">
@@ -5955,7 +5987,7 @@ function ClientiDetail() {
                   {/* ===== SETUP SUB-TAB ===== */}
                   {psicologiaSubTab === 'setup' && (
                     <div data-tour="psicologia-setup">
-                      <div>
+                      <div className="cd-sections">
                       {/* Call Iniziale */}
                       <div>
                         <div className="cd-section-title">Call Iniziale</div>
@@ -6087,7 +6119,7 @@ function ClientiDetail() {
                   {/* ===== PATOLOGIE SUB-TAB ===== */}
                   {psicologiaSubTab === 'patologie' && (
                     <div data-tour="psicologia-patologie">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">Patologie Psicologiche</div>
                         <div className="cd-inner-card">
@@ -6198,7 +6230,7 @@ function ClientiDetail() {
                   {/* ===== DIARIO SUB-TAB ===== */}
                   {psicologiaSubTab === 'diario' && (
                     <div data-tour="psicologia-diario">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
                           Diario Psicologia
@@ -6298,7 +6330,7 @@ function ClientiDetail() {
                   {/* ===== ALERT SUB-TAB ===== */}
                   {psicologiaSubTab === 'alert' && (
                     <div data-tour="psicologia-alert">
-                      <div>
+                      <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">Alert / Criticità</div>
                         <div className="cd-inner-card danger-border">
@@ -6324,148 +6356,58 @@ function ClientiDetail() {
                       </div>
                     </div>
                   )}
+
+                  {psicologiaSubTab === 'vecchie_note' && (
+                    <div>
+                      <div className="cd-sections">
+                        <div>
+                          <div className="cd-section-title">
+                            <i className="ri-archive-line"></i>
+                            Note Extra Psicologa (legacy)
+                          </div>
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                                <div className="cd-icon-circle secondary">
+                                  <i className="ri-file-text-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Note Extra Psicologa</span>
+                              </div>
+                              <textarea
+                                className="cd-textarea"
+                                rows="8"
+                                placeholder="Nessuna nota extra..."
+                                value={formData.note_extra_psicologa || ''}
+                                onChange={(e) => handleInputChange('note_extra_psicologa', e.target.value)}
+                              ></textarea>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* ========== CHECK TAB ========== */}
               {/* ========== MEDICO TAB ========== */}
               {activeTab === 'medico' && (
-                <div>
-                  <div>
-                    <div className="cd-inner-card">
-                      <div className="cd-inner-card-body">
-                        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                          <div className="cd-inner-card-header-left">
-                            <div className="cd-icon-circle danger" style={{ width: '34px', height: '34px' }}>
-                              <i className="ri-stethoscope-line"></i>
-                            </div>
-                            <div>
-                              <div className="fw-semibold">Medico</div>
-                              <small className="text-muted">Gestione assegnazioni mediche del paziente</small>
-                            </div>
-                          </div>
-                          {canManageAssignmentType('medico') && (
-                            <button
-                              className="cd-btn-save"
-                              style={{ background: '#ef4444' }}
-                              onClick={() => handleOpenAssignModal('medico')}
-                            >
-                              <i className="ri-add-line"></i>
-                              Assegna Medico
-                            </button>
-                          )}
-                        </div>
-
-                        {loadingHistory ? (
-                          <div className="cd-loading">
-                            <div className="spinner-border spinner-border-sm text-danger" role="status"></div>
-                            <small className="ms-2 cd-loading-text">Caricamento...</small>
-                          </div>
-                        ) : getActiveProfessionals('medico').length > 0 ? (
-                          <div className="d-flex flex-column gap-2">
-                            {getActiveProfessionals('medico').map((assignment, idx) => (
-                              <div key={idx} className="cd-assignment-row">
-                                <div className="cd-assignment-info">
-                                  {assignment.avatar_path ? (
-                                    <img
-                                      src={assignment.avatar_path}
-                                      alt=""
-                                      className="cd-prof-avatar"
-                                    />
-                                  ) : (
-                                    <div className="cd-prof-initials lg" style={{ background: '#ef4444' }}>
-                                      {assignment.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
-                                    </div>
-                                  )}
-                                  <div>
-                                    <span className="cd-prof-name">{assignment.professionista_nome}</span>
-                                    <span className="cd-prof-date">Assegnato dal {assignment.data_dal || '—'}</span>
-                                  </div>
-                                </div>
-                                {canManageAssignmentType('medico') && (
-                                  <button
-                                    className="cd-btn-remove"
-                                    onClick={() => handleOpenInterruptModal(assignment)}
-                                    title="Rimuovi assegnazione"
-                                  >
-                                    <i className="ri-close-line fs-5"></i>
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="cd-empty">
-                            <i className="ri-stethoscope-line cd-empty-icon"></i>
-                            <small className="cd-empty-text">Nessun medico assegnato</small>
-                          </div>
-                        )}
-                      </div>
+                <div className="cal-coming-soon">
+                  <div className="cal-hero">
+                    <div className="cal-hero-icon">
+                      <i className="ri-stethoscope-line"></i>
                     </div>
-                  </div>
-
-                  <div>
-                    <div className="cd-section-title">
-                      <i className="ri-history-line"></i>
-                      Storico Assegnazioni Medico
+                    <h3 className="cal-hero-title">Medico</h3>
+                    <p className="cal-hero-desc">
+                      Qui potrai gestire le assegnazioni mediche, i controlli semestrali
+                      e lo storico clinico del paziente.
+                      <br />
+                      <strong>Disponibile con la versione 1.1 della Suite Clinica.</strong>
+                    </p>
+                    <div className="cal-soon-badge">
+                      <i className="ri-rocket-2-line"></i>
+                      In arrivo — v1.1
                     </div>
-                    {professionistiHistory.filter(h => h.tipo_professionista === 'medico').length > 0 ? (
-                      <div className="cd-timeline">
-                        <div className="cd-timeline-line" style={{ background: 'linear-gradient(to right, #ef4444, #b91c1c)' }}></div>
-                        <div className="cd-timeline-items">
-                          {professionistiHistory
-                            .filter(h => h.tipo_professionista === 'medico')
-                            .sort((a, b) => {
-                              const dateA = new Date(a.data_dal?.split('/').reverse().join('-') || 0);
-                              const dateB = new Date(b.data_dal?.split('/').reverse().join('-') || 0);
-                              return dateB - dateA;
-                            })
-                            .map((item, idx) => (
-                              <div key={idx} className="cd-timeline-item">
-                                <div className="cd-timeline-dot-wrap">
-                                  <div className="cd-timeline-dot" style={{ background: '#ef4444' }}>
-                                    <i className="ri-stethoscope-line"></i>
-                                  </div>
-                                </div>
-                                <div className="cd-timeline-date">
-                                  {item.data_dal || '—'}
-                                  {item.data_al && <span className="d-block">→ {item.data_al}</span>}
-                                </div>
-                                <div className={`cd-timeline-card ${!item.is_active ? 'inactive' : ''}`}>
-                                  <div>
-                                    <div className="mb-2">
-                                      {item.is_active ? (
-                                        <span className="cd-timeline-badge" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>Attivo</span>
-                                      ) : (
-                                        <span className="cd-timeline-badge" style={{ background: 'rgba(107,114,128,0.15)', color: '#6b7280' }}>Concluso</span>
-                                      )}
-                                    </div>
-                                    <div className="d-flex justify-content-center mb-2">
-                                      {item.avatar_path ? (
-                                        <img src={item.avatar_path} alt="" className="cd-timeline-card-avatar" />
-                                      ) : (
-                                        <div className="cd-timeline-card-initials" style={{ background: '#ef4444' }}>
-                                          {item.professionista_nome?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="cd-timeline-card-name">
-                                      {item.professionista_nome}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="cd-inner-card">
-                        <div className="cd-inner-card-body cd-empty">
-                          <i className="ri-history-line cd-empty-icon"></i>
-                          <p className="mb-0 cd-empty-text">Nessuno storico medico disponibile</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -6859,101 +6801,23 @@ function ClientiDetail() {
 
               {/* ==================== CALL BONUS TAB ==================== */}
               {activeTab === 'call_bonus' && (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                    <div className="cd-section-title" style={{ marginBottom: 0 }}>
+                <div className="cal-coming-soon">
+                  <div className="cal-hero">
+                    <div className="cal-hero-icon">
                       <i className="ri-phone-line"></i>
-                      Storico Call Bonus
                     </div>
-                    {canCreateCallBonus && (user?.is_admin || user?.role === 'admin' ||
-                      (c.nutrizionistiMultipli || []).some(n => n.id === user?.id) ||
-                      (c.coachesMultipli || []).some(n => n.id === user?.id) ||
-                      (c.psicologiMultipli || []).some(n => n.id === user?.id)
-                    ) && (
-                      <button className="cd-btn-save" onClick={handleOpenCallBonusModal}>
-                        <i className="ri-add-line"></i>Richiedi Call Bonus
-                      </button>
-                    )}
+                    <h3 className="cal-hero-title">Call Bonus</h3>
+                    <p className="cal-hero-desc">
+                      Qui potrai richiedere call bonus per i tuoi pazienti,
+                      gestire le proposte AI e monitorare lo storico delle sessioni.
+                      <br />
+                      <strong>Disponibile con la versione 1.1 della Suite Clinica.</strong>
+                    </p>
+                    <div className="cal-soon-badge">
+                      <i className="ri-rocket-2-line"></i>
+                      In arrivo — v1.1
+                    </div>
                   </div>
-
-                  {loadingCallBonus ? (
-                    <div className="cd-loading">
-                      <div className="spinner-border text-primary" role="status"></div>
-                      <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento storico...</p>
-                    </div>
-                  ) : callBonusHistory.length === 0 ? (
-                    <div className="cd-empty">
-                      <i className="ri-phone-line cd-empty-icon"></i>
-                      <p className="cd-empty-text">Nessuna call bonus registrata per questo paziente</p>
-                    </div>
-                  ) : (
-                    <div className="cd-table-wrap">
-                      <table className="cd-table">
-                        <thead>
-                          <tr>
-                            <th>Data</th>
-                            <th>Tipo</th>
-                            <th>Professionista</th>
-                            <th>Stato</th>
-                            <th>Richiesta da</th>
-                            <th>Note</th>
-                            <th>Azioni</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {callBonusHistory.map((cb) => {
-                            const statusCfg = {
-                              proposta: { label: 'Proposta', bg: '#fef3c7', color: '#92400e' },
-                              accettata: { label: 'In attesa risposta', bg: '#dbeafe', color: '#1e40af' },
-                              rifiutata: { label: 'Rifiutata', bg: '#fee2e2', color: '#991b1b' },
-                              confermata: { label: 'Confermata', bg: '#d1fae5', color: '#065f46' },
-                              non_andata_buon_fine: { label: 'Non andata a buon fine', bg: '#f3f4f6', color: '#374151' },
-                              interessato: { label: 'Interessato', bg: '#d1fae5', color: '#065f46' },
-                              non_interessato: { label: 'Non interessato', bg: '#fee2e2', color: '#991b1b' },
-                            }[cb.status] || { label: cb.status, bg: '#f3f4f6', color: '#374151' };
-                            const tipoCfg = {
-                              nutrizionista: { label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
-                              coach: { label: 'Coaching', icon: 'ri-run-line', color: '#6366f1' },
-                              psicologa: { label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
-                            }[cb.tipo_professionista] || { label: cb.tipo_professionista, icon: 'ri-user-line', color: '#6b7280' };
-                            const showActions = cb.is_assigned_professional && cb.status === 'accettata' && cb.booking_confirmed;
-                            return (
-                              <tr key={cb.id}>
-                                <td><span className="cd-empty-text">{cb.data_richiesta ? new Date(cb.data_richiesta).toLocaleDateString('it-IT') : '—'}</span></td>
-                                <td>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                    <i className={tipoCfg.icon} style={{ color: tipoCfg.color }}></i>
-                                    <span>{tipoCfg.label}</span>
-                                  </span>
-                                </td>
-                                <td><span>{cb.professionista_nome || '—'}</span></td>
-                                <td>
-                                  <span className="cd-badge" style={{ background: statusCfg.bg, color: statusCfg.color }}>
-                                    {statusCfg.label}
-                                  </span>
-                                  {cb.booking_confirmed && (
-                                    <i className="ri-calendar-check-line text-success" style={{ marginLeft: '4px' }} title="Prenotazione confermata"></i>
-                                  )}
-                                </td>
-                                <td><span className="cd-empty-text">{cb.created_by_nome || '—'}</span></td>
-                                <td><span className="cd-empty-text">{cb.note_richiesta ? (cb.note_richiesta.length > 50 ? cb.note_richiesta.slice(0, 50) + '...' : cb.note_richiesta) : '—'}</span></td>
-                                <td>
-                                  {showActions && (
-                                    <button
-                                      className="cd-btn-save"
-                                      onClick={() => setCallBonusResponseModal(cb)}
-                                    >
-                                      <i className="ri-reply-line"></i>Rispondi
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
