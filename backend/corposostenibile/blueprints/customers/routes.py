@@ -2143,15 +2143,17 @@ def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -
     if not cliente.original_lead or cliente.original_lead.id != lead_id:
         abort(403, description="Lead non associato a questo cliente")
 
-    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
-    file_path = os.path.join(upload_folder, "lead_files", str(lead_id), filename)
+    # I file lead sono salvati in {app.root_path}/uploads/lead_files/{lead_id}/
+    # (stesso path usato da sales_form upload/download)
+    base_uploads = os.path.join(current_app.root_path, "uploads")
+    file_path = os.path.join(base_uploads, "lead_files", str(lead_id), filename)
 
     if not os.path.exists(file_path):
         abort(404, description="File non trovato")
 
     # Path traversal protection
     real_path = os.path.realpath(file_path)
-    expected_dir = os.path.realpath(os.path.join(upload_folder, "lead_files", str(lead_id)))
+    expected_dir = os.path.realpath(os.path.join(base_uploads, "lead_files", str(lead_id)))
     if not real_path.startswith(expected_dir):
         abort(403, description="Accesso negato")
 
