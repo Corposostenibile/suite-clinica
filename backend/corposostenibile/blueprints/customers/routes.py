@@ -2091,6 +2091,31 @@ def api_initial_checks(cliente_id: int) -> Any:
         if source == "none":
             source = "client_check"
 
+    # 3) Allegati dal Lead (foto, analisi, ecc.)
+    if cliente.original_lead:
+        lead = cliente.original_lead
+        if lead.form_attachments and isinstance(lead.form_attachments, list):
+            for att in lead.form_attachments:
+                check_num = att.get("check_number")
+                if check_num is None:
+                    continue
+                key = f"check_{check_num}"
+                if key not in checks_payload:
+                    continue
+                if "attachments" not in checks_payload[key]:
+                    checks_payload[key]["attachments"] = []
+                att_path = att.get("path", "")
+                # Estrai solo il filename (senza lead_files/{id}/ prefix)
+                filename = att_path.split("/")[-1] if att_path else ""
+                checks_payload[key]["attachments"].append({
+                    "field_name": att.get("field_name", ""),
+                    "filename": att.get("filename", filename),
+                    "download_url": f"/api/v1/customers/{cliente_id}/initial-checks/attachment/{lead.id}/{filename}",
+                    "size": att.get("size"),
+                    "uploaded_at": att.get("uploaded_at"),
+                })
+                has_any_data = True
+
     if not has_any_data and not assignments:
         return jsonify({
             "has_data": False,
@@ -2102,6 +2127,43 @@ def api_initial_checks(cliente_id: int) -> Any:
         "source": source,
         "checks": checks_payload
     })
+
+
+@api_bp.route("/<int:cliente_id>/initial-checks/attachment/<int:lead_id>/<path:filename>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -> Any:
+    """Scarica un allegato (foto/file) dai check iniziali di un cliente."""
+    from flask import send_file
+    import os
+
+    _require_cliente_scope_or_403(cliente_id)
+
+    # Verifica che il lead appartenga a questo cliente
+    cliente = customers_repo.get_one(cliente_id, eager=True)
+    if not cliente.original_lead or cliente.original_lead.id != lead_id:
+        abort(403, description="Lead non associato a questo cliente")
+
+    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    file_path = os.path.join(upload_folder, "lead_files", str(lead_id), filename)
+
+    if not os.path.exists(file_path):
+        abort(404, description="File non trovato")
+
+    # Path traversal protection
+    real_path = os.path.realpath(file_path)
+    expected_dir = os.path.realpath(os.path.join(upload_folder, "lead_files", str(lead_id)))
+    if not real_path.startswith(expected_dir):
+        abort(403, description="Accesso negato")
+
+    file_ext = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
+    is_image = file_ext in ("jpg", "jpeg", "png", "gif", "webp")
+
+    return send_file(
+        file_path,
+        as_attachment=not is_image,
+        download_name=filename,
+        mimetype=f"image/{file_ext}" if is_image else None,
+    )
 
 
 # --------------------------------------------------------------------------- #

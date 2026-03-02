@@ -6986,6 +6986,84 @@ function ClientiDetail() {
                                 )}
                               </div>
 
+                              {/* Attachments: photos and files */}
+                              {checkData.attachments && checkData.attachments.length > 0 && (() => {
+                                const photos = checkData.attachments.filter(a =>
+                                  ['foto_frontale', 'foto_laterale', 'foto_posteriore', 'foto_attrezzatura'].includes(a.field_name)
+                                );
+                                const files = checkData.attachments.filter(a =>
+                                  !['foto_frontale', 'foto_laterale', 'foto_posteriore', 'foto_attrezzatura'].includes(a.field_name)
+                                );
+                                const PHOTO_LABELS = {
+                                  foto_frontale: 'Frontale',
+                                  foto_laterale: 'Laterale',
+                                  foto_posteriore: 'Posteriore',
+                                  foto_attrezzatura: 'Attrezzatura',
+                                };
+                                const FILE_LABELS = {
+                                  analisi_sangue: 'Analisi del Sangue',
+                                  allegato_regime_alimentare: 'Regime Alimentare Pregresso',
+                                };
+                                return (
+                                  <div style={{ marginBottom: '20px' }}>
+                                    {photos.length > 0 && (
+                                      <div style={{ marginBottom: '16px' }}>
+                                        <h6 style={{ color: '#334155', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <i className="ri-camera-line"></i> Foto
+                                        </h6>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                                          {photos.map((att, i) => (
+                                            <div key={i} style={{ textAlign: 'center' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
+                                                {PHOTO_LABELS[att.field_name] || formatLabel(att.field_name)}
+                                              </div>
+                                              <a href={att.download_url} target="_blank" rel="noopener noreferrer">
+                                                <img
+                                                  src={att.download_url}
+                                                  alt={PHOTO_LABELS[att.field_name] || att.field_name}
+                                                  style={{ width: '100%', maxHeight: '280px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                                                  loading="lazy"
+                                                />
+                                              </a>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {files.length > 0 && (
+                                      <div>
+                                        <h6 style={{ color: '#334155', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <i className="ri-attachment-line"></i> Allegati
+                                        </h6>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                          {files.map((att, i) => (
+                                            <a
+                                              key={i}
+                                              href={att.download_url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="cd-response-item"
+                                              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', padding: '10px 14px', cursor: 'pointer' }}
+                                            >
+                                              <i className="ri-file-download-line" style={{ fontSize: '1.2rem', color: '#25B36A' }}></i>
+                                              <div>
+                                                <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.85rem' }}>
+                                                  {FILE_LABELS[att.field_name] || formatLabel(att.field_name)}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                  {att.filename}
+                                                  {att.size && ` - ${(att.size / 1024 / 1024).toFixed(1)} MB`}
+                                                </div>
+                                              </div>
+                                            </a>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
                               {/* Scale/frequency check → compact table layout */}
                               {isScaleCheck ? (
                                 <div className="cd-table-wrap">
