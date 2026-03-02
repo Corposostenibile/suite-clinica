@@ -4,7 +4,7 @@
  */
 
 import { Outlet } from 'react-router-dom';
-import logoFoglia from '../../images/logo_foglia.png';
+import logoFoglia from '../../images/logo-foglia-white.png';
 import './checks/PublicChecks.css';
 
 function PublicLayout() {
@@ -18,7 +18,6 @@ function PublicLayout() {
             alt="CorpoSostenibile"
             className="public-header-logo"
           />
-          <span className="public-header-brand">CorpoSostenibile</span>
         </div>
       </header>
 

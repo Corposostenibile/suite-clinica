@@ -113,9 +113,10 @@ const checkService = {
    * @param {number} profId - Specific professional ID
    * @param {number} page - Page number for pagination
    * @param {number} perPage - Items per page
+   * @param {string} checkType - Check type filter: 'all', 'weekly', 'dca', 'minor'
    * @returns {Promise} - { success, period, stats: {...}, responses: [], pagination: {...} }
    */
-  async getAziendaStats(period = 'month', startDate = null, endDate = null, profType = null, profId = null, page = 1, perPage = 25) {
+  async getAziendaStats(period = 'month', startDate = null, endDate = null, profType = null, profId = null, page = 1, perPage = 25, checkType = 'all') {
     let url = `${API_BASE}/azienda/stats?period=${period}&page=${page}&per_page=${perPage}`;
     if (period === 'custom' && startDate && endDate) {
       url += `&start_date=${startDate}&end_date=${endDate}`;
@@ -125,6 +126,9 @@ const checkService = {
     }
     if (profId) {
       url += `&prof_id=${profId}`;
+    }
+    if (checkType && checkType !== 'all') {
+      url += `&check_type=${checkType}`;
     }
     const response = await api.get(url);
     return response.data;

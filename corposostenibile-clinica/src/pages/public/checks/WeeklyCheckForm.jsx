@@ -8,6 +8,96 @@ import { useParams, useNavigate } from 'react-router-dom';
 import publicCheckService from '../../../services/publicCheckService';
 import './PublicChecks.css';
 
+// --- Subcomponents (outside to avoid re-creation on every render) ---
+
+const RatingGrid = ({ value, onChange, min = 0, max = 10, labels }) => {
+  const nums = Array.from({ length: max - min + 1 }, (_, i) => i + min);
+  const selectedLabel = value !== null && labels
+    ? (labels[value - min] || '')
+    : '';
+
+  return (
+    <div>
+      <div className="check-rating-grid">
+        {nums.map(num => (
+          <button
+            key={num}
+            type="button"
+            className={`check-rating-btn${value === num ? ' selected' : ''}`}
+            onClick={() => onChange(num)}
+          >
+            {num}
+          </button>
+        ))}
+      </div>
+      {labels && (
+        <div className="check-rating-selected-label">
+          {selectedLabel}
+        </div>
+      )}
+      {!labels && (
+        <div className="check-rating-labels">
+          <span>Min</span>
+          <span>Max</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PhotoUpload = ({ field, label, icon, preview, onPhotoChange, onPhotoRemove }) => (
+  <div>
+    <div
+      className={`check-photo-card${preview ? ' has-photo' : ''}`}
+      onClick={() => !preview && document.getElementById(field).click()}
+    >
+      {preview ? (
+        <>
+          <img src={preview} alt={label} className="check-photo-preview" />
+          <button
+            type="button"
+            className="check-photo-remove"
+            onClick={(e) => { e.stopPropagation(); onPhotoRemove(field); }}
+          >
+            <i className="ri-close-line"></i>
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="check-photo-icon">
+            <i className={icon || 'ri-camera-line'}></i>
+          </div>
+          <div className="check-photo-label">{label}</div>
+          <div className="check-photo-hint">Tocca per caricare</div>
+        </>
+      )}
+    </div>
+    <input
+      type="file"
+      id={field}
+      accept="image/*"
+      style={{ display: 'none' }}
+      onChange={(e) => onPhotoChange(field, e.target.files[0])}
+    />
+  </div>
+);
+
+const TextareaField = ({ label, field, placeholder, rows = 3, value, onChange }) => (
+  <div className="check-textarea-wrap">
+    <label className="check-textarea-label">{label}</label>
+    <textarea
+      className="check-textarea"
+      rows={rows}
+      value={value}
+      onChange={(e) => onChange(field, e.target.value)}
+      placeholder={placeholder}
+    />
+    {value?.length > 0 && (
+      <div className="check-textarea-counter">{value.length} caratteri</div>
+    )}
+  </div>
+);
+
 const STEPS = [
   { id: 1, title: 'Foto', icon: 'ri-camera-line' },
   { id: 2, title: 'Riflessioni', icon: 'ri-lightbulb-line' },
@@ -219,96 +309,6 @@ function WeeklyCheckForm() {
     })
     .filter(Boolean);
 
-  // --- Subcomponents ---
-
-  const RatingGrid = ({ value, onChange, min = 0, max = 10, labels }) => {
-    const nums = Array.from({ length: max - min + 1 }, (_, i) => i + min);
-    const selectedLabel = value !== null && labels
-      ? (labels[value - min] || '')
-      : '';
-
-    return (
-      <div>
-        <div className="check-rating-grid">
-          {nums.map(num => (
-            <button
-              key={num}
-              type="button"
-              className={`check-rating-btn${value === num ? ' selected' : ''}`}
-              onClick={() => onChange(num)}
-            >
-              {num}
-            </button>
-          ))}
-        </div>
-        {labels && (
-          <div className="check-rating-selected-label">
-            {selectedLabel}
-          </div>
-        )}
-        {!labels && (
-          <div className="check-rating-labels">
-            <span>Min</span>
-            <span>Max</span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const PhotoUpload = ({ field, label, icon }) => (
-    <div>
-      <div
-        className={`check-photo-card${photoPreviews[field] ? ' has-photo' : ''}`}
-        onClick={() => !photoPreviews[field] && document.getElementById(field).click()}
-      >
-        {photoPreviews[field] ? (
-          <>
-            <img src={photoPreviews[field]} alt={label} className="check-photo-preview" />
-            <button
-              type="button"
-              className="check-photo-remove"
-              onClick={(e) => { e.stopPropagation(); handlePhotoRemove(field); }}
-            >
-              <i className="ri-close-line"></i>
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="check-photo-icon">
-              <i className={icon || 'ri-camera-line'}></i>
-            </div>
-            <div className="check-photo-label">{label}</div>
-            <div className="check-photo-hint">Tocca per caricare</div>
-          </>
-        )}
-      </div>
-      <input
-        type="file"
-        id={field}
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={(e) => handlePhotoChange(field, e.target.files[0])}
-      />
-    </div>
-  );
-
-  const TextareaField = ({ label, field, placeholder, rows = 3 }) => (
-    <div className="check-textarea-wrap">
-      <label className="check-textarea-label">{label}</label>
-      <textarea
-        className="check-textarea"
-        rows={rows}
-        value={formData[field]}
-        onChange={(e) => handleInputChange(field, e.target.value)}
-        placeholder={placeholder}
-      />
-      {formData[field]?.length > 0 && (
-        <div className="check-textarea-counter">{formData[field].length} caratteri</div>
-      )}
-    </div>
-  );
-
   // --- Renders ---
 
   if (loading) {
@@ -386,9 +386,12 @@ function WeeklyCheckForm() {
                 Carica le foto per monitorare i tuoi progressi fisici
               </p>
               <div className="check-photo-grid">
-                <PhotoUpload field="photo_front" label="Frontale" icon="ri-body-scan-line" />
-                <PhotoUpload field="photo_side" label="Laterale" icon="ri-user-line" />
-                <PhotoUpload field="photo_back" label="Posteriore" icon="ri-arrow-go-back-line" />
+                <PhotoUpload field="photo_front" label="Frontale" icon="ri-body-scan-line" preview={photoPreviews.photo_front} onPhotoChange={handlePhotoChange} onPhotoRemove={handlePhotoRemove} />
+                <PhotoUpload field="photo_side" label="Laterale" icon="ri-user-line" preview={photoPreviews.photo_side} onPhotoChange={handlePhotoChange} onPhotoRemove={handlePhotoRemove} />
+                <PhotoUpload field="photo_back" label="Posteriore" icon="ri-arrow-go-back-line" preview={photoPreviews.photo_back} onPhotoChange={handlePhotoChange} onPhotoRemove={handlePhotoRemove} />
+              </div>
+              <div className="check-input-hint" style={{ textAlign: 'center', marginTop: 12 }}>
+                Max 20 MB in totale
               </div>
             </div>
           )}
@@ -402,26 +405,36 @@ function WeeklyCheckForm() {
               <TextareaField
                 label="Cosa ha funzionato bene per te la settimana scorsa?"
                 field="what_worked"
+                value={formData.what_worked}
+                onChange={handleInputChange}
                 placeholder="Racconta cosa è andato bene..."
               />
               <TextareaField
                 label="Cosa NON ha funzionato bene per te?"
                 field="what_didnt_work"
+                value={formData.what_didnt_work}
+                onChange={handleInputChange}
                 placeholder="Racconta le difficoltà incontrate..."
               />
               <TextareaField
                 label="Cosa hai imparato da ciò che ha funzionato e non?"
                 field="what_learned"
+                value={formData.what_learned}
+                onChange={handleInputChange}
                 placeholder="Quali lezioni porti con te..."
               />
               <TextareaField
                 label="Su cosa pensi sia necessario focalizzarci la prossima settimana?"
                 field="what_focus_next"
+                value={formData.what_focus_next}
+                onChange={handleInputChange}
                 placeholder="I tuoi obiettivi per la prossima settimana..."
               />
               <TextareaField
                 label="Infortuni o qualcosa di cui devo essere messo a conoscenza?"
                 field="injuries_notes"
+                value={formData.injuries_notes}
+                onChange={handleInputChange}
                 placeholder="Segnala eventuali problemi..."
               />
             </div>
@@ -482,16 +495,22 @@ function WeeklyCheckForm() {
               <TextareaField
                 label="Stai riuscendo a rispettare il PROGRAMMA ALIMENTARE?"
                 field="nutrition_program_adherence"
+                value={formData.nutrition_program_adherence}
+                onChange={handleInputChange}
                 placeholder="Descrivi come sta andando..."
               />
               <TextareaField
                 label="Stai riuscendo a rispettare il PROGRAMMA SPORTIVO?"
                 field="training_program_adherence"
+                value={formData.training_program_adherence}
+                onChange={handleInputChange}
                 placeholder="Descrivi come sta andando..."
               />
               <TextareaField
                 label="Quali esercizi non hai fatto o hai aggiunto?"
                 field="exercise_modifications"
+                value={formData.exercise_modifications}
+                onChange={handleInputChange}
                 placeholder="Variazioni al programma..."
               />
 
@@ -532,6 +551,8 @@ function WeeklyCheckForm() {
               <TextareaField
                 label="Tematiche per le LIVE Settimanali con gli Specialisti?"
                 field="live_session_topics"
+                value={formData.live_session_topics}
+                onChange={handleInputChange}
                 placeholder="Argomenti che vorresti trattassimo..."
               />
             </div>
@@ -631,6 +652,8 @@ function WeeklyCheckForm() {
                 <TextareaField
                   label="Chi è la persona a cui vuoi bene e che CorpoSostenibile può aiutare?"
                   field="referral"
+                  value={formData.referral}
+                  onChange={handleInputChange}
                   placeholder={'Nome: Mario Rossi\nTelefono: 333 1234567'}
                   rows={4}
                 />
@@ -642,6 +665,8 @@ function WeeklyCheckForm() {
               <TextareaField
                 label="Commenti extra"
                 field="extra_comments"
+                value={formData.extra_comments}
+                onChange={handleInputChange}
                 placeholder="Qualsiasi altra cosa vorresti comunicarci..."
                 rows={4}
               />

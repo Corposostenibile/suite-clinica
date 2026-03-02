@@ -236,14 +236,14 @@ function DCACheckForm() {
     <div className="check-card check-theme-dca">
       {/* Header */}
       <div className="check-header">
-        <h4 className="check-header-title">Check Benessere</h4>
-        {checkInfo?.cliente && (
-          <p className="check-header-subtitle">
-            Ciao {checkInfo.cliente.nome}!
-          </p>
-        )}
+        <h4 className="check-header-title">
+          Ciao {checkInfo?.cliente?.nome || ''}!
+        </h4>
+        <p className="check-header-subtitle">
+          È il momento del tuo check benessere. Raccontaci come stai!
+        </p>
         <p className="check-header-hint">
-          Prenditi qualche minuto per riflettere sul tuo benessere
+          <i className="ri-time-line"></i> Compilazione: ~5 min
         </p>
       </div>
 
